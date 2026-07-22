@@ -141,6 +141,24 @@ A cited primer lives in [`docs/reference/teresa-torres-ost.md`](docs/reference/t
 
 ---
 
+## Does it actually work? (efficacy)
+
+An open-ended ideation agent has no single "correct" output, so efficacy is tested as three
+layers whose composition is the whole check — and OST-Agent is bootstrapped by running it
+**on itself** (the `eval/corpus/` is real evidence about this repo):
+
+1. **Structural invariants** (deterministic) — one outcome, everything connected, nothing
+   agent-ideated marked validated. A hard gate.
+2. **Faithfulness** — an *independent* judge scores whether each created node is grounded
+   in the evidence it cites and classified into the right layer.
+3. **Usefulness** — a human-acceptance metric measured in use (which unvalidated ideas you keep).
+
+The self-reference is not circular because **the tool proposes, an independent judge grounds,
+and you + reality dispose** — the agent never validates its own ideas or declares its own
+outcome met. `npm run eval` (needs credentials) runs the real agent over the corpus, judges it,
+and prints a pass/fail scorecard — this is the system's definition of done. Full contract:
+[`docs/reference/evaluating-ost-agent.md`](docs/reference/evaluating-ost-agent.md).
+
 ## Development
 
 ```bash
