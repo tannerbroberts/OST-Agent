@@ -17,20 +17,33 @@ afterEach(() => {
 });
 
 describe("runTool — the agent-driving surface", () => {
-  test("an agent can create and link nodes through the tool surface", async () => {
+  test("creating a node attaches it under its parent in one step (no floaters)", async () => {
     await runTool(dir, "ost_create_node", {
       title: "I want a reason to come back every day",
       layer: "Opportunity",
+      parent: "Reach 10,000 daily active users",
       source: "INBOX:x",
       body: "Players want a daily reason to return.",
     });
-    await runTool(dir, "ost_link_nodes", {
-      parent: "Reach 10,000 daily active users",
-      child: "I want a reason to come back every day",
-    });
     const tree = buildPassContext(dir).vault.readTree();
     expect(tree.find((n) => n.layer === "Opportunity")?.title).toBe("I want a reason to come back every day");
+    // the outcome already links the new opportunity — attachment was atomic
     expect(tree.find((n) => n.layer === "Outcome")?.links).toContain("I want a reason to come back every day");
+  });
+
+  test("the hierarchy is enforced and the Outcome cannot be created", async () => {
+    // a Solution cannot attach directly under the Outcome
+    await expect(
+      runTool(dir, "ost_create_node", { title: "S", layer: "Solution", parent: "Reach 10,000 daily active users", body: "b" }),
+    ).rejects.toThrow(/must attach under Opportunity/);
+    // a missing parent is refused
+    await expect(
+      runTool(dir, "ost_create_node", { title: "O", layer: "Opportunity", parent: "nope", body: "b" }),
+    ).rejects.toThrow(/does not exist/);
+    // Outcome is not a creatable layer (schema enum excludes it; run also guards)
+    await expect(
+      runTool(dir, "ost_create_node", { title: "O2", layer: "Outcome", parent: "x", body: "b" }),
+    ).rejects.toThrow();
   });
 
   test("ost_read_tree returns the current tree as JSON", async () => {

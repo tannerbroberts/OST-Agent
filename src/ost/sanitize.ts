@@ -42,6 +42,8 @@ export function sanitizeTitle(title: string): string {
     .trim()
     // no leading dots (hidden files / current-dir tricks)
     .replace(/^\.+/, "")
+    // no trailing dots or spaces (illegal on Windows; avoids "title..md")
+    .replace(/[.\s]+$/, "")
     .trim();
 
   if (s.length > MAX_TITLE_LENGTH) {

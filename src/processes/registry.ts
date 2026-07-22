@@ -127,7 +127,7 @@ export const p2Map: ProcessDef = {
       "New evidence to distill into customer opportunities (needs/pains/desires — never solutions):",
       ...fresh.map((e) => `\n### ${e.source}\n${e.body}`),
       "",
-      `For each distinct customer need in the evidence, create an #Opportunity node (if not already present) with source set to the evidence id, then link it under the outcome "${ctx.config.outcome}". If an item reveals no genuine opportunity, skip it. Do not invent needs the evidence does not support.`,
+      `For each distinct customer need in the evidence, create an #Opportunity node (if not already present) with parent set to the outcome "${ctx.config.outcome}" and source set to the evidence id — creation attaches it to the tree automatically. If an item reveals no genuine opportunity, skip it. Do not invent needs the evidence does not support.`,
     ].join("\n");
 
     const out = await driver.run({
@@ -178,7 +178,7 @@ export const p3Ideate: ProcessDef = {
     const prompt = [
       OST_RULESET.solutionRules.length ? `Solution rules:\n- ${OST_RULESET.solutionRules.join("\n- ")}` : "",
       "",
-      `These opportunities have fewer than ${min} candidate solutions. For each, ideate NEW solutions (compare-and-contrast — generate genuinely distinct approaches) until it has at least ${min}. Create each as a #Solution node with status 'unvalidated', an 'unvalidated' tag, and link it under its opportunity. Never mark a solution validated and never describe implementation steps or code.`,
+      `These opportunities have fewer than ${min} candidate solutions. For each, ideate NEW solutions (compare-and-contrast — generate genuinely distinct approaches) until it has at least ${min}. Create each as a #Solution node with parent set to its opportunity, status 'unvalidated', and an 'unvalidated' tag — creation attaches it under the opportunity automatically. Never mark a solution validated and never describe implementation steps or code.`,
       "",
       ...underserved.map(
         (o) => `\n### Opportunity: ${o.title}\nExisting solutions: ${childrenOfLayer(o, index, "Solution").join(", ") || "(none)"}`,
@@ -229,7 +229,7 @@ export const p4Assumptions: ProcessDef = {
       `Assumption risk categories: ${cats}.`,
       OST_RULESET.assumptionRules.length ? `Assumption rules:\n- ${OST_RULESET.assumptionRules.join("\n- ")}` : "",
       "",
-      `For each solution below, surface the key assumptions that must hold for it to work (across the risk categories) and create #AssumptionTest nodes (status 'unvalidated', 'unvalidated' tag) that each PROPOSE a small test. Link each under its solution. You propose tests — you never run them.`,
+      `For each solution below, surface the key assumptions that must hold for it to work (across the risk categories) and create #AssumptionTest nodes with parent set to their solution (status 'unvalidated', 'unvalidated' tag) that each PROPOSE a small test — creation attaches each under its solution automatically. You propose tests — you never run them.`,
       "",
       ...bare.map((s) => `\n### Solution: ${s.title}`),
     ].join("\n");
@@ -260,9 +260,9 @@ interface Issue {
 function detectIssues(ctx: PassContext): Issue[] {
   const tree = ctx.vault.readTree();
   const index = byTitle(tree);
-  const outcome = ctx.config.outcome;
   const issues: Issue[] = [];
-  const outcomeLinks = new Set(index.get(outcome)?.links ?? []);
+  // locate the outcome by layer, not by config title, so punctuation can't misclassify orphans
+  const outcomeLinks = new Set(tree.find((n) => n.layer === "Outcome")?.links ?? []);
 
   for (const n of tree) {
     // dangling links

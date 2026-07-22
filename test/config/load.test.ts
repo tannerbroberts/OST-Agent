@@ -41,7 +41,7 @@ describe("loadConfig", () => {
   test("applies inbox defaults when adapters omitted", () => {
     write("outcome: X\n");
     const cfg = loadConfig(dir);
-    expect(cfg.adapters.inbox.path).toBe("inbox");
+    expect(cfg.adapters.inbox.path).toBe(".ost-agent/inbox");
     expect(cfg.adapters.atlassian.enabled).toBe(false);
   });
 });

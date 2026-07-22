@@ -6,6 +6,7 @@
  * This is the floor beneath the (non-deterministic) faithfulness judge.
  */
 import { byTitle } from "../processes/tree.js";
+import { sanitizeTitle } from "../ost/sanitize.js";
 import type { OstNode } from "../ost/node.js";
 
 export interface Violation {
@@ -22,7 +23,8 @@ export function checkInvariants(tree: OstNode[], outcomeTitle: string): Violatio
   // exactly one outcome, and it is the human-set one
   if (outcomes.length !== 1) {
     v.push({ rule: "single-outcome", detail: `expected exactly 1 Outcome, found ${outcomes.length}` });
-  } else if (outcomes[0].title !== outcomeTitle) {
+  } else if (sanitizeTitle(outcomes[0].title) !== sanitizeTitle(outcomeTitle)) {
+    // compare by identity-on-disk so trailing punctuation differences don't trip it
     v.push({ rule: "outcome-identity", node: outcomes[0].title, detail: `Outcome is "${outcomes[0].title}", expected the human-set "${outcomeTitle}"` });
   }
 
@@ -67,9 +69,10 @@ export function checkInvariants(tree: OstNode[], outcomeTitle: string): Violatio
   return v;
 }
 
-function reachableOpportunities(tree: OstNode[], index: Map<string, OstNode>, outcomeTitle: string): Set<string> {
+function reachableOpportunities(tree: OstNode[], index: Map<string, OstNode>, _outcomeTitle: string): Set<string> {
   const reachable = new Set<string>();
-  const start = index.get(outcomeTitle);
+  // locate the outcome by layer (there is exactly one) so title punctuation can't break traversal
+  const start = tree.find((n) => n.layer === "Outcome");
   if (!start) return reachable;
   const stack = [...start.links];
   while (stack.length) {

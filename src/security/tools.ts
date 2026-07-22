@@ -11,11 +11,18 @@
  */
 import { betaTool } from "@anthropic-ai/sdk/helpers/beta/json-schema";
 import { gitCommit, gitPush } from "../git/safe-git.js";
-import { LAYERS, type NodeStatus, type OstNode } from "../ost/node.js";
+import { type NodeStatus, type OstNode } from "../ost/node.js";
 import { Vault } from "../ost/vault.js";
 import { ALLOWED_TOOL_NAMES } from "./policy.js";
 
 const STATUS_VALUES = ["unvalidated", "validated", "in-discovery", "shipped", "deferred"];
+
+/** Which parent layers a given child layer may attach under (Outcome is not creatable). */
+const CHILD_HIERARCHY: Record<string, string[]> = {
+  Opportunity: ["Outcome", "Opportunity"],
+  Solution: ["Opportunity"],
+  AssumptionTest: ["Solution"],
+};
 
 export interface RemoteConfig {
   enabled: boolean;
@@ -58,45 +65,57 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
     betaTool({
       name: "ost_create_node",
       description:
-        "Create a NEW node file. Fails if a node with this title already exists (creation never overwrites). Use for a new Opportunity, Solution, or AssumptionTest. Do not create an Outcome — that is human-set at init.",
+        "Create a NEW node AND attach it under an existing parent in one atomic step — so a node can never be an orphan. You CANNOT create an Outcome (there is exactly one, human-set at init). Hierarchy is enforced: an Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an AssumptionTest under a Solution. The type tag (#Opportunity / #Solution / #AssumptionTest) is applied automatically.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
         properties: {
           title: { type: "string", description: "Node title; also the filename." },
-          layer: { type: "string", enum: [...LAYERS], description: "Outcome | Opportunity | Solution | AssumptionTest" },
+          layer: { type: "string", enum: ["Opportunity", "Solution", "AssumptionTest"], description: "Opportunity | Solution | AssumptionTest (Outcome cannot be created here)" },
+          parent: { type: "string", description: "Title of the existing parent node to attach under." },
           body: { type: "string", description: "Prose description of the node." },
           status: { type: "string", enum: STATUS_VALUES },
           source: { type: "string", description: "Provenance, e.g. JIRA:PROJ-1234 or INBOX:note.md" },
           confidence: { type: "string" },
           tags: { type: "array", items: { type: "string" }, description: "Extra tags, e.g. ['unvalidated']" },
-          links: { type: "array", items: { type: "string" }, description: "Titles of child nodes to link to." },
         },
-        required: ["title", "layer", "body"],
+        required: ["title", "layer", "parent", "body"],
       },
       run: async (input: {
         title: string;
         layer: string;
+        parent: string;
         body: string;
         status?: string;
         source?: string;
         confidence?: string;
         tags?: string[];
-        links?: string[];
       }) => {
+        const allowedParents = CHILD_HIERARCHY[input.layer];
+        if (!allowedParents) {
+          throw new Error(`cannot create layer "${input.layer}" (the Outcome is human-set at init and there is exactly one)`);
+        }
+        if (!vault.has(input.parent)) {
+          throw new Error(`parent "${input.parent}" does not exist — create it before attaching under it`);
+        }
+        const parentLayer = vault.read(input.parent).layer;
+        if (!allowedParents.includes(parentLayer)) {
+          throw new Error(`a ${input.layer} must attach under ${allowedParents.join(" or ")}, but "${input.parent}" is a ${parentLayer}`);
+        }
         const node: OstNode = {
           title: input.title,
           layer: input.layer as OstNode["layer"],
           body: input.body,
           tags: input.tags ?? [],
-          links: input.links ?? [],
+          links: [],
           status: input.status as NodeStatus | undefined,
           source: input.source,
           confidence: input.confidence,
           created: new Date().toISOString().slice(0, 10),
         };
-        vault.createNode(node);
-        return `created ${node.layer} "${node.title}"`;
+        vault.createNode(node); // gets its #<layer> tag from serialize
+        vault.linkNodes(input.parent, input.title); // attach to the tree atomically
+        return `created ${node.layer} "${node.title}" under "${input.parent}"`;
       },
     }),
 

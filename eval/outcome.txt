@@ -1,1 +1,1 @@
-Product teams treat an OST-Agent-maintained tree as their living source of truth for discovery — they return to it weekly and act on what it surfaces.
+Product teams treat an OST-Agent-maintained tree as their living source of truth for discovery — they return to it weekly and act on what it surfaces

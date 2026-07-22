@@ -30,8 +30,9 @@ export async function initVault(dir: string, outcome: string): Promise<InitResul
     fs.writeFileSync(cfg, defaultConfigYaml(outcome), "utf8");
   }
 
-  // scaffold sidecar dirs so the layout is obvious even before the first pass
-  fs.mkdirSync(path.join(abs, "inbox"), { recursive: true });
+  // scaffold sidecar dirs under the .ost-agent dot-folder (Obsidian ignores it),
+  // so the vault root only ever contains OST node files
+  fs.mkdirSync(path.join(abs, ".ost-agent", "inbox"), { recursive: true });
   fs.mkdirSync(path.join(abs, ".ost-agent", "state"), { recursive: true });
   fs.mkdirSync(path.join(abs, ".ost-agent", "evidence"), { recursive: true });
   fs.mkdirSync(path.join(abs, ".ost-agent", "runs"), { recursive: true });

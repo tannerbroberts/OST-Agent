@@ -13,12 +13,14 @@ const RemoteSchema = z
   })
   .default({ enabled: false });
 
+// Inbox lives under the .ost-agent dot-folder so Obsidian never graphs raw
+// evidence notes — the vault root contains only actual OST nodes.
 const InboxSchema = z
   .object({
     enabled: z.boolean().default(true),
-    path: z.string().default("inbox"),
+    path: z.string().default(".ost-agent/inbox"),
   })
-  .default({ enabled: true, path: "inbox" });
+  .default({ enabled: true, path: ".ost-agent/inbox" });
 
 const AtlassianSchema = z
   .object({
@@ -85,7 +87,7 @@ remote:
 adapters:
   inbox:
     enabled: true
-    path: inbox             # drop meeting notes / interview quotes / decisions here
+    path: .ost-agent/inbox  # drop notes here; kept out of the vault root so Obsidian's graph shows only OST nodes
   atlassian:
     enabled: false
     projects: []

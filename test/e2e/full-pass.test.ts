@@ -40,17 +40,15 @@ function countFiles(root: string): number {
 }
 
 const scripts: Record<string, ScriptedCall[]> = {
+  // create attaches to the parent atomically — no separate link step
   P2_map: [
-    { tool: "ost_create_node", input: { title: OPP, layer: "Opportunity", source: "INBOX:interview.md", body: "Players want a daily reason to return." } },
-    { tool: "ost_link_nodes", input: { parent: OUTCOME, child: OPP } },
+    { tool: "ost_create_node", input: { title: OPP, layer: "Opportunity", parent: OUTCOME, source: "INBOX:interview.md", body: "Players want a daily reason to return." } },
   ],
   P3_ideate: [
-    { tool: "ost_create_node", input: { title: SOL, layer: "Solution", status: "unvalidated", tags: ["unvalidated"], body: "A seeded daily puzzle shared by all players." } },
-    { tool: "ost_link_nodes", input: { parent: OPP, child: SOL } },
+    { tool: "ost_create_node", input: { title: SOL, layer: "Solution", parent: OPP, status: "unvalidated", tags: ["unvalidated"], body: "A seeded daily puzzle shared by all players." } },
   ],
   P4_assumptions: [
-    { tool: "ost_create_node", input: { title: ASM, layer: "AssumptionTest", status: "unvalidated", tags: ["unvalidated"], body: "Propose: compare D1 retention for cohorts with vs without a daily challenge." } },
-    { tool: "ost_link_nodes", input: { parent: SOL, child: ASM } },
+    { tool: "ost_create_node", input: { title: ASM, layer: "AssumptionTest", parent: SOL, status: "unvalidated", tags: ["unvalidated"], body: "Propose: compare D1 retention for cohorts with vs without a daily challenge." } },
   ],
 };
 
@@ -63,9 +61,11 @@ describe("end-to-end inbox → tree", () => {
     const startCommits = commitCount();
     expect(startCommits).toBeGreaterThanOrEqual(1); // init committed the outcome
 
-    // drop two inbox notes
-    fs.writeFileSync(path.join(dir, "inbox", "interview.md"), "User: I keep opening the app hoping for something new each day.");
-    fs.writeFileSync(path.join(dir, "inbox", "decision.md"), "We agreed retention is the priority outcome this quarter.");
+    // drop two inbox notes (into the configured inbox path — now under .ost-agent)
+    const inboxDir = path.join(dir, buildPassContext(dir).config.adapters.inbox.path);
+    fs.mkdirSync(inboxDir, { recursive: true });
+    fs.writeFileSync(path.join(inboxDir, "interview.md"), "User: I keep opening the app hoping for something new each day.");
+    fs.writeFileSync(path.join(inboxDir, "decision.md"), "We agreed retention is the priority outcome this quarter.");
 
     // P1 ingest (deterministic) — captures evidence, advances cursor
     const ingest = await run("P1_ingest");

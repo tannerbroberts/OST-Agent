@@ -51,7 +51,8 @@ program
     console.log(`Initialized vault at ${r.dir}`);
     console.log(`  git: ${r.gitInitialized ? "initialized" : "already present"}`);
     console.log(`  outcome node: ${r.outcomeCreated ? "created" : "already present"}`);
-    console.log(`\nDrop notes into ${path.join(dir, "inbox")}/ and run:  ost-agent run P1_ingest --vault ${dir}`);
+    const inboxPath = buildPassContext(r.dir).config.adapters.inbox.path;
+    console.log(`\nDrop notes into ${path.join(dir, inboxPath)}/ and run:  ost-agent run P1_ingest --vault ${dir}`);
   });
 
 program
