@@ -1,0 +1,40 @@
+{
+  "name": "ost-agent",
+  "version": "0.1.0",
+  "description": "Autonomous, append-only agent that maintains a Teresa Torres Opportunity Solution Tree as Obsidian-graph Markdown. Runs unmonitored; incapable of destructive action by construction.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Tanner Roberts",
+  "bin": {
+    "ost-agent": "dist/cli/index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.70.0",
+    "commander": "^12.1.0",
+    "croner": "^9.0.0",
+    "gray-matter": "^4.0.3",
+    "simple-git": "^3.27.0",
+    "yaml": "^2.6.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

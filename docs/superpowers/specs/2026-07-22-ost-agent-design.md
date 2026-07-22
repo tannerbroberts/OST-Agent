@@ -99,9 +99,16 @@ available tool** and simply fails.
 ## 4. Architecture
 
 ### 4.1 Runtime
-Claude Agent SDK (TypeScript). Single npm package with a CLI entry point. Chosen because
-it gives programmatic, **allowlist-based** control over exactly which tools exist — the
-strongest possible answer to "no destructive action is possible."
+**Anthropic API SDK (`@anthropic-ai/sdk`, TypeScript) with the beta Tool Runner**
+(`client.beta.messages.toolRunner` + `betaZodTool`). Single npm package with a CLI entry
+point. Chosen over the separate `@anthropic-ai/claude-agent-sdk` product deliberately: the
+Agent SDK ships built-in `Bash`/`Write`/`Edit`/`Read` tools, so restricting it would be a
+*blocklist*. The API Tool Runner registers **only the tools we define** — no
+general-purpose tool exists to disable — giving true **allowlist-based** control and the
+strongest possible answer to "no destructive action is possible." Model default:
+`claude-opus-4-8` (reasoning-heavy processes), `claude-sonnet-5` acceptable for ingest;
+adaptive thinking (`thinking: {type: "adaptive"}`) with `output_config.effort`. Each pass
+is bounded by the Tool Runner's `max_iterations` plus a token `task_budget`.
 
 ### 4.2 Orchestration — declarative process registry + built-in scheduler
 Per the requirement for *multiple independent processes, each with its own cron controls,
@@ -309,7 +316,9 @@ than a loose imitation of it.
 9. Docs: README quickstart, security model, config reference.
 
 ## 13. Decisions log
-- Runtime: **Claude Agent SDK (TypeScript)** — allowlist tools = strongest trust model.
+- Runtime: **Anthropic API SDK (`@anthropic-ai/sdk`) beta Tool Runner (TypeScript)** —
+  registers only our tools; no built-in Bash/Write exists to disable. Model
+  `claude-opus-4-8`. Allowlist = strongest trust model.
 - Input: **external integrations** (Atlassian + Slack) **+ local inbox** fallback; all
   read-only, least-privilege; content is untrusted data.
 - Run model: **multiple independent processes**, each with cron + trigger hooks + DoD;
