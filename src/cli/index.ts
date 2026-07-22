@@ -15,8 +15,11 @@ import { Cron } from "croner";
 import { buildPassContext } from "../runner/context.js";
 import { initVault } from "../runner/init.js";
 import { runPass } from "../runner/pass.js";
+import { runTool } from "../runner/tool.js";
 import { anthropicDriver } from "../runner/driver.js";
 import { getProcess, PROCESSES } from "../processes/registry.js";
+import { checkInvariants } from "../eval/invariants.js";
+import { ALLOWED_TOOL_NAMES } from "../security/policy.js";
 import { VERSION } from "../index.js";
 
 async function prompt(question: string, fallback?: string): Promise<string> {
@@ -63,6 +66,38 @@ program
     console.log(`${proc.id} ${proc.title}: created=${outcome.result.created} linked=${outcome.result.linked} annotated=${outcome.result.annotated} evidence=${outcome.result.evidence}`);
     if (outcome.error) console.log(`  error: ${outcome.error}`);
     console.log(`  ${outcome.committed ? `committed ${outcome.sha.slice(0, 8)}` : "nothing to commit"}; done=${outcome.done}`);
+  });
+
+program
+  .command("tool")
+  .description("invoke one allowlisted, append-only tool (for an agent driving the tree directly)")
+  .argument("<name>", `tool name (${ALLOWED_TOOL_NAMES.join(", ")})`)
+  .option("--vault <dir>", "vault directory", ".")
+  .option("--input <json>", "JSON input for the tool", "{}")
+  .action(async (name: string, opts: { vault: string; input: string }) => {
+    let input: unknown;
+    try {
+      input = JSON.parse(opts.input);
+    } catch {
+      throw new Error(`--input is not valid JSON: ${opts.input}`);
+    }
+    console.log(await runTool(opts.vault, name, input));
+  });
+
+program
+  .command("check")
+  .description("run the deterministic tree invariants (no model needed)")
+  .option("--vault <dir>", "vault directory", ".")
+  .action((opts: { vault: string }) => {
+    const ctx = buildPassContext(opts.vault);
+    const violations = checkInvariants(ctx.vault.readTree(), ctx.config.outcome);
+    if (violations.length === 0) {
+      console.log("invariants: PASS (0 violations)");
+    } else {
+      console.log(`invariants: FAIL (${violations.length} violation(s))`);
+      for (const v of violations) console.log(`  ✗ [${v.rule}] ${v.node ? `"${v.node}": ` : ""}${v.detail}`);
+      process.exitCode = 1;
+    }
   });
 
 program
