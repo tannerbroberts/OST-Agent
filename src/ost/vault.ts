@@ -12,7 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
 import { deserialize, serialize, type Layer, type NodeStatus, type OstNode } from "./node.js";
-import { fileNameForTitle } from "./sanitize.js";
+import { fileNameForTitle, sanitizeTitle } from "./sanitize.js";
 
 const VALID_LAYERS: readonly Layer[] = ["Outcome", "Opportunity", "Solution", "AssumptionTest"];
 
@@ -86,8 +86,12 @@ export class Vault {
   /** Add a parent→child wikilink edge. Idempotent; adds the link at most once. */
   linkNodes(parent: string, child: string): void {
     const node = this.read(parent);
-    if (node.links.includes(child)) return; // already linked — no-op
-    node.links.push(child);
+    // Store the child's canonical (sanitized) title — the name its file is keyed by —
+    // so the [[wikilink]] resolves. A raw title containing a stripped character (e.g.
+    // ":") would otherwise be written verbatim and dangle. (see test/ost/vault.test.ts)
+    const target = sanitizeTitle(child);
+    if (node.links.includes(target)) return; // already linked — no-op
+    node.links.push(target);
     fs.writeFileSync(this.nodePath(parent), serialize(node), "utf8");
   }
 

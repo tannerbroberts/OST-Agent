@@ -101,4 +101,20 @@ describe("Vault append-only operations", () => {
     const outside = path.resolve(dir, "..", "escape.md");
     expect(fs.existsSync(outside)).toBe(false);
   });
+
+  test("linkNodes stores the sanitized child title so the wikilink resolves (no dangling link)", () => {
+    vault.createNode({ title: "Opp", layer: "Opportunity", tags: [], links: [], body: "b" });
+    // a child whose title contains a character the filename sanitizer strips (colon)
+    vault.createNode({ title: "Reason: come back daily", layer: "Solution", tags: [], links: [], body: "b" });
+    vault.linkNodes("Opp", "Reason: come back daily");
+
+    // the child's canonical title is its sanitized filename (colon stripped)
+    expect(vault.has("Reason come back daily")).toBe(true);
+    const opp = vault.read("Opp");
+    // the stored link must be that resolvable title, not the raw colon form that dangles
+    expect(opp.links).toEqual(["Reason come back daily"]);
+    // idempotency holds even when the caller passes the raw (unsanitized) title again
+    vault.linkNodes("Opp", "Reason: come back daily");
+    expect(vault.read("Opp").links).toEqual(["Reason come back daily"]);
+  });
 });
