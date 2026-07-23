@@ -53,4 +53,18 @@ describe("enqueueCommit", () => {
     const r2 = await enqueueCommit(dir, "mcp: after clean");
     expect(r2.committed).toBe(true);
   });
+
+  test("a rejecting commit does not wedge the chain — a later commit still resolves", async () => {
+    const nonRepo = fs.mkdtempSync(path.join(os.tmpdir(), "ost-nonrepo-"));
+    try {
+      // committing against a non-git directory rejects...
+      await expect(enqueueCommit(nonRepo, "mcp: boom")).rejects.toThrow();
+      // ...but the chain recovers: the next real commit still resolves and commits
+      writeNode(dir, "after-reject.md");
+      const r = await enqueueCommit(dir, "mcp: after reject");
+      expect(r.committed).toBe(true);
+    } finally {
+      fs.rmSync(nonRepo, { recursive: true, force: true });
+    }
+  });
 });
