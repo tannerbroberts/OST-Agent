@@ -6,7 +6,6 @@
  * This is the floor beneath the (non-deterministic) faithfulness judge.
  */
 import { byTitle } from "../processes/tree.js";
-import { sanitizeTitle } from "../ost/sanitize.js";
 import type { OstNode } from "../ost/node.js";
 
 export interface Violation {
@@ -15,17 +14,14 @@ export interface Violation {
   detail: string;
 }
 
-export function checkInvariants(tree: OstNode[], outcomeTitle: string): Violation[] {
+export function checkInvariants(tree: OstNode[]): Violation[] {
   const v: Violation[] = [];
   const index = byTitle(tree);
   const outcomes = tree.filter((n) => n.layer === "Outcome");
 
-  // exactly one outcome, and it is the human-set one
+  // exactly one root outcome (its mandate lives in the body; identity is the node itself)
   if (outcomes.length !== 1) {
     v.push({ rule: "single-outcome", detail: `expected exactly 1 Outcome, found ${outcomes.length}` });
-  } else if (sanitizeTitle(outcomes[0].title) !== sanitizeTitle(outcomeTitle)) {
-    // compare by identity-on-disk so trailing punctuation differences don't trip it
-    v.push({ rule: "outcome-identity", node: outcomes[0].title, detail: `Outcome is "${outcomes[0].title}", expected the human-set "${outcomeTitle}"` });
   }
 
   // no dangling links
@@ -36,7 +32,7 @@ export function checkInvariants(tree: OstNode[], outcomeTitle: string): Violatio
   }
 
   // every Opportunity is reachable from the outcome through Outcome/Opportunity edges
-  const reachable = reachableOpportunities(tree, index, outcomeTitle);
+  const reachable = reachableOpportunities(tree, index);
   for (const n of tree) {
     if (n.layer === "Opportunity" && !reachable.has(n.title)) {
       v.push({ rule: "opportunity-connected", node: n.title, detail: "not connected to the outcome (directly or via a parent opportunity)" });
@@ -69,7 +65,7 @@ export function checkInvariants(tree: OstNode[], outcomeTitle: string): Violatio
   return v;
 }
 
-function reachableOpportunities(tree: OstNode[], index: Map<string, OstNode>, _outcomeTitle: string): Set<string> {
+function reachableOpportunities(tree: OstNode[], index: Map<string, OstNode>): Set<string> {
   const reachable = new Set<string>();
   // locate the outcome by layer (there is exactly one) so title punctuation can't break traversal
   const start = tree.find((n) => n.layer === "Outcome");

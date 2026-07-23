@@ -12,14 +12,15 @@ import { getProcess } from "../../src/processes/registry.js";
 import { byTitle } from "../../src/processes/tree.js";
 
 let dir: string;
-const OUTCOME = "Reach 10,000 daily active users";
+const OUTCOME_TITLE = "Retention outcome";
+const OUTCOME_TEXT = "Reach 10,000 daily active users";
 const OPP = "I want a reason to come back every day";
 const SOL = "Daily challenge mode";
 const ASM = "A daily ritual will lift retention";
 
 beforeEach(async () => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "ost-e2e-"));
-  await initVault(dir, OUTCOME);
+  await initVault(dir, OUTCOME_TEXT, OUTCOME_TITLE);
 });
 afterEach(() => {
   fs.rmSync(dir, { recursive: true, force: true });
@@ -42,7 +43,7 @@ function countFiles(root: string): number {
 const scripts: Record<string, ScriptedCall[]> = {
   // create attaches to the parent atomically — no separate link step
   P2_map: [
-    { tool: "ost_create_node", input: { title: OPP, layer: "Opportunity", parent: OUTCOME, source: "INBOX:interview.md", body: "Players want a daily reason to return." } },
+    { tool: "ost_create_node", input: { title: OPP, layer: "Opportunity", parent: OUTCOME_TITLE, source: "INBOX:interview.md", body: "Players want a daily reason to return." } },
   ],
   P3_ideate: [
     { tool: "ost_create_node", input: { title: SOL, layer: "Solution", parent: OPP, status: "unvalidated", tags: ["unvalidated"], body: "A seeded daily puzzle shared by all players." } },
@@ -95,7 +96,7 @@ describe("end-to-end inbox → tree", () => {
     expect(byLayer("AssumptionTest").length).toBeGreaterThanOrEqual(1);
 
     // outcome links the opportunity; opportunity links the solution; solution links the assumption
-    expect(index.get(OUTCOME)!.links).toContain(OPP);
+    expect(index.get(OUTCOME_TITLE)!.links).toContain(OPP);
     expect(index.get(OPP)!.links).toContain(SOL);
     expect(index.get(SOL)!.links).toContain(ASM);
 

@@ -104,6 +104,21 @@ export class Vault {
     fs.writeFileSync(this.nodePath(title), serialize(node), "utf8");
   }
 
+  /**
+   * Revise the root Outcome node's body in place (human-set mandate tuning).
+   * Refuses any non-Outcome node, so the append-only guarantee for regular nodes
+   * is untouched; prior mandate text is expected to be carried in `newBody`'s
+   * History section (and is always preserved in git).
+   */
+  setOutcomeBody(title: string, newBody: string): void {
+    const node = this.read(title);
+    if (node.layer !== "Outcome") {
+      throw new Error(`setOutcomeBody only applies to the Outcome node, not a ${node.layer}`);
+    }
+    node.body = newBody;
+    fs.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+  }
+
   /** Attach a hygiene/issue annotation under a `## Issues` section. Add-only. */
   annotate(title: string, issue: string): void {
     const node = this.read(title);

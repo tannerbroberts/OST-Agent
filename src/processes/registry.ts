@@ -7,6 +7,7 @@
  * process's allowlisted OST tools. Commit-on-exit is the runner's job, so no
  * process needs the git tools.
  */
+import path from "node:path";
 import { OST_RULESET } from "../knowledge/ruleset.js";
 import type { PassDriver, ToolSet } from "../runner/driver.js";
 import { loadCursor, saveCursor } from "../adapters/source.js";
@@ -47,29 +48,41 @@ function minSolutions(ctx: PassContext): number {
   return ctx.config.processes["P3_ideate"]?.minSolutionsPerOpportunity ?? 3;
 }
 
+/** The stable title of the root node (config, else the vault folder name). */
+function outcomeTitle(ctx: PassContext): string {
+  return ctx.config.outcomeTitle ?? path.basename(ctx.dir);
+}
+
+/** The mandate line injected into every ideation prompt so tuning it steers behavior. */
+function mandate(ctx: PassContext): string {
+  return `The system's steering mandate (the outcome it optimizes toward):\n"""\n${ctx.config.outcome}\n"""`;
+}
+
 // ─── P0: Bootstrap ────────────────────────────────────────────────────────────
 export const p0Bootstrap: ProcessDef = {
   id: "P0_bootstrap",
   title: "Bootstrap",
   allowedTools: [],
   async isDone(ctx) {
-    return ctx.vault.has(ctx.config.outcome);
+    return ctx.vault.has(outcomeTitle(ctx));
   },
   async run(ctx): Promise<ProcessResult> {
     const res = emptyResult();
-    if (!ctx.vault.has(ctx.config.outcome)) {
+    const title = outcomeTitle(ctx);
+    if (!ctx.vault.has(title)) {
       ctx.vault.createNode({
-        title: ctx.config.outcome,
+        title,
         layer: "Outcome",
         status: "validated",
         source: "config:outcome",
         created: new Date().toISOString().slice(0, 10),
         tags: [],
         links: [],
-        body: "The single desired product outcome that scopes this discovery effort. Human-set; the agent never changes it.",
+        // the mandate the system optimizes toward; human-set, tuned via set-outcome
+        body: ctx.config.outcome,
       });
       res.created++;
-      res.notes.push(`created Outcome "${ctx.config.outcome}"`);
+      res.notes.push(`created Outcome "${title}"`);
     }
     return res;
   },
@@ -117,9 +130,11 @@ export const p2Map: ProcessDef = {
     const fresh = readEvidence(ctx.dir).filter((e) => !mapped.has(e.id));
     if (fresh.length === 0) return res;
 
+    const root = outcomeTitle(ctx);
     const opps = ctx.vault.readTree().filter((n) => n.layer === "Opportunity").map((n) => n.title);
     const prompt = [
-      `Target outcome: "${ctx.config.outcome}".`,
+      mandate(ctx),
+      "",
       OST_RULESET.opportunityRules.length ? `Opportunity rules:\n- ${OST_RULESET.opportunityRules.join("\n- ")}` : "",
       "",
       `Existing opportunities (link to one of these instead of duplicating when a new item matches):\n${opps.length ? opps.map((t) => `- ${t}`).join("\n") : "(none yet)"}`,
@@ -127,7 +142,7 @@ export const p2Map: ProcessDef = {
       "New evidence to distill into customer opportunities (needs/pains/desires — never solutions):",
       ...fresh.map((e) => `\n### ${e.source}\n${e.body}`),
       "",
-      `For each distinct customer need in the evidence, create an #Opportunity node (if not already present) with parent set to the outcome "${ctx.config.outcome}" and source set to the evidence id — creation attaches it to the tree automatically. If an item reveals no genuine opportunity, skip it. Do not invent needs the evidence does not support.`,
+      `For each distinct customer need in the evidence, create an #Opportunity node (if not already present) with parent set to the root node titled "${root}" and source set to the evidence id — creation attaches it to the tree automatically. If an item reveals no genuine opportunity, skip it. Do not invent needs the evidence does not support.`,
     ].join("\n");
 
     const out = await driver.run({
@@ -176,6 +191,8 @@ export const p3Ideate: ProcessDef = {
     if (underserved.length === 0) return res;
 
     const prompt = [
+      mandate(ctx),
+      "",
       OST_RULESET.solutionRules.length ? `Solution rules:\n- ${OST_RULESET.solutionRules.join("\n- ")}` : "",
       "",
       `These opportunities have fewer than ${min} candidate solutions. For each, ideate NEW solutions (compare-and-contrast — generate genuinely distinct approaches) until it has at least ${min}. Create each as a #Solution node with parent set to its opportunity, status 'unvalidated', and an 'unvalidated' tag — creation attaches it under the opportunity automatically. Never mark a solution validated and never describe implementation steps or code.`,
@@ -226,6 +243,8 @@ export const p4Assumptions: ProcessDef = {
 
     const cats = OST_RULESET.assumptionCategories.join(", ");
     const prompt = [
+      mandate(ctx),
+      "",
       `Assumption risk categories: ${cats}.`,
       OST_RULESET.assumptionRules.length ? `Assumption rules:\n- ${OST_RULESET.assumptionRules.join("\n- ")}` : "",
       "",

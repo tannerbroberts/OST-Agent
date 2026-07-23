@@ -18,7 +18,7 @@ describe("score", () => {
         { title: "Sol", layer: "Solution", grounded: true, classifiedCorrectly: true, rationale: "ok" },
       ],
     };
-    const s = score(wellFormed, OUT, report);
+    const s = score(wellFormed, report);
     expect(s.pass).toBe(true);
     expect(s.grounding.rate).toBe(1);
     expect(s.methodology.rate).toBe(1);
@@ -30,7 +30,7 @@ describe("score", () => {
       { title: "Opp", layer: "Opportunity", tags: [], links: [], body: "b" }, // orphan
     ];
     const report: JudgeReport = { verdicts: [{ title: "Opp", layer: "Opportunity", grounded: true, classifiedCorrectly: true, rationale: "" }] };
-    const s = score(broken, OUT, report);
+    const s = score(broken, report);
     expect(s.invariants.pass).toBe(false);
     expect(s.pass).toBe(false);
   });
@@ -42,7 +42,7 @@ describe("score", () => {
         { title: "Sol", layer: "Solution", grounded: false, classifiedCorrectly: true, rationale: "invented — no evidence" },
       ],
     };
-    const s = score(wellFormed, OUT, report);
+    const s = score(wellFormed, report);
     expect(s.grounding.rate).toBe(0.5);
     expect(s.grounding.pass).toBe(false);
     expect(s.pass).toBe(false);
@@ -55,7 +55,7 @@ describe("score", () => {
         { title: "Sol", layer: "Solution", grounded: true, classifiedCorrectly: true, rationale: "" },
       ],
     };
-    const s = score(wellFormed, OUT, report);
+    const s = score(wellFormed, report);
     expect(s.methodology.pass).toBe(false);
     expect(s.pass).toBe(false);
   });

@@ -26,11 +26,10 @@ export interface Scorecard {
 
 export function score(
   tree: OstNode[],
-  outcomeTitle: string,
   judge: JudgeReport,
   thresholds: Thresholds = DEFAULT_THRESHOLDS,
 ): Scorecard {
-  const violations = checkInvariants(tree, outcomeTitle);
+  const violations = checkInvariants(tree);
   const invariantsPass = violations.length === 0;
 
   const total = judge.verdicts.length;

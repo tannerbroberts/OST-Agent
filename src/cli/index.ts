@@ -16,6 +16,7 @@ import { buildPassContext } from "../runner/context.js";
 import { initVault } from "../runner/init.js";
 import { runPass } from "../runner/pass.js";
 import { runTool } from "../runner/tool.js";
+import { setOutcome } from "../runner/set-outcome.js";
 import { anthropicDriver } from "../runner/driver.js";
 import { getProcess, PROCESSES } from "../processes/registry.js";
 import { checkInvariants } from "../eval/invariants.js";
@@ -41,13 +42,14 @@ program.name("ost-agent").description("Autonomous, append-only Opportunity Solut
 program
   .command("init")
   .argument("[folder]", "vault folder (created if absent; prompted if omitted)")
-  .option("-o, --outcome <text>", "the single business/product outcome (human-set)")
-  .action(async (folder: string | undefined, opts: { outcome?: string }) => {
+  .option("-o, --outcome <text>", "the steering mandate the system optimizes (human-set)")
+  .option("-t, --title <label>", "stable label for the root node (default: folder name)")
+  .action(async (folder: string | undefined, opts: { outcome?: string; title?: string }) => {
     const dir = folder ?? (await prompt("Vault folder name: "));
     if (!dir) throw new Error("a vault folder is required");
-    const outcome = opts.outcome ?? (await prompt("Desired product outcome (the tree's root): "));
-    if (!outcome) throw new Error("an outcome is required — it is the single #Outcome, human-set");
-    const r = await initVault(dir, outcome);
+    const outcome = opts.outcome ?? (await prompt("Steering mandate / outcome (the tree's root): "));
+    if (!outcome) throw new Error("an outcome is required — it is the human-set mandate the system optimizes");
+    const r = await initVault(dir, outcome, opts.title);
     console.log(`Initialized vault at ${r.dir}`);
     console.log(`  git: ${r.gitInitialized ? "initialized" : "already present"}`);
     console.log(`  outcome node: ${r.outcomeCreated ? "created" : "already present"}`);
@@ -67,6 +69,18 @@ program
     console.log(`${proc.id} ${proc.title}: created=${outcome.result.created} linked=${outcome.result.linked} annotated=${outcome.result.annotated} evidence=${outcome.result.evidence}`);
     if (outcome.error) console.log(`  error: ${outcome.error}`);
     console.log(`  ${outcome.committed ? `committed ${outcome.sha.slice(0, 8)}` : "nothing to commit"}; done=${outcome.done}`);
+  });
+
+program
+  .command("set-outcome")
+  .description("retune the steering mandate (human-only; prior mandate kept in the root node's history)")
+  .argument("[text]", "the new mandate (prompted if omitted)")
+  .option("--vault <dir>", "vault directory", ".")
+  .action(async (text: string | undefined, opts: { vault: string }) => {
+    const next = text ?? (await prompt("New steering mandate: "));
+    const r = await setOutcome(opts.vault, next);
+    console.log(`Retuned "${r.title}" — committed ${r.sha.slice(0, 8)}`);
+    console.log(`  prior mandate preserved in the root node's ## History`);
   });
 
 program
@@ -91,7 +105,7 @@ program
   .option("--vault <dir>", "vault directory", ".")
   .action((opts: { vault: string }) => {
     const ctx = buildPassContext(opts.vault);
-    const violations = checkInvariants(ctx.vault.readTree(), ctx.config.outcome);
+    const violations = checkInvariants(ctx.vault.readTree());
     if (violations.length === 0) {
       console.log("invariants: PASS (0 violations)");
     } else {

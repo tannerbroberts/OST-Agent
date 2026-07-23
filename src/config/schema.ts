@@ -59,7 +59,12 @@ const ProcessSchema = z
   }));
 
 export const ConfigSchema = z.object({
-  outcome: z.string().min(1, "outcome is required — the single #Outcome (human-set)"),
+  // The steering mandate the agentic system optimizes toward (tuned often via
+  // `ost-agent set-outcome`). Stored as the root node's body.
+  outcome: z.string().min(1, "outcome is required — the mandate the system optimizes (human-set)"),
+  // Stable, unique title/label for the root node (the graph's central hub).
+  // Defaults to the vault folder name at init. Rarely changed.
+  outcomeTitle: z.string().optional(),
   model: z.string().default("claude-opus-4-8"),
   remote: RemoteSchema,
   adapters: z
@@ -76,9 +81,10 @@ export type Config = z.infer<typeof ConfigSchema>;
 export type ProcessConfig = Config["processes"][string];
 
 /** The scaffolded default config written at `init`, given a human-set outcome. */
-export function defaultConfigYaml(outcome: string): string {
+export function defaultConfigYaml(outcome: string, outcomeTitle = "Outcome"): string {
   return `# OST-Agent configuration
-outcome: ${JSON.stringify(outcome)}   # the single #Outcome (human-set; the agent never changes this)
+outcome: ${JSON.stringify(outcome)}   # the steering mandate (human-set; tune with \`ost-agent set-outcome\`)
+outcomeTitle: ${JSON.stringify(outcomeTitle)}   # stable label for the root node (rarely changed)
 model: claude-opus-4-8
 
 remote:

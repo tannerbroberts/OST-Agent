@@ -19,15 +19,16 @@ export interface InitResult {
   outcomeCreated: boolean;
 }
 
-export async function initVault(dir: string, outcome: string): Promise<InitResult> {
+export async function initVault(dir: string, outcome: string, outcomeTitle?: string): Promise<InitResult> {
   const abs = path.resolve(dir);
   fs.mkdirSync(abs, { recursive: true });
+  const title = outcomeTitle ?? path.basename(abs);
 
   const gitInitialized = await gitInitIfAbsent(abs);
 
   const cfg = configPath(abs);
   if (!fs.existsSync(cfg)) {
-    fs.writeFileSync(cfg, defaultConfigYaml(outcome), "utf8");
+    fs.writeFileSync(cfg, defaultConfigYaml(outcome, title), "utf8");
   }
 
   // scaffold sidecar dirs under the .ost-agent dot-folder (Obsidian ignores it),

@@ -50,7 +50,7 @@ async function main() {
 
   console.log(`\nProduced ${tree.length} nodes. Judging faithfulness (independent pass)…\n`);
   const report = await anthropicJudge(ctx.config.model)({ outcome, evidence, tree });
-  const scorecard = score(tree, outcome, report);
+  const scorecard = score(tree, report);
 
   console.log(formatScorecard(scorecard));
   console.log(`\nInspect the tree:  ${workdir}`);

@@ -56,7 +56,7 @@ Read the full model in [`docs/superpowers/specs`](docs/superpowers/specs).
 By design, OST-Agent:
 
 - **Does not run experiments** and **does not write implementation code** for solutions — it maintains the *knowledge tree* only.
-- **Does not invent the business outcome.** The single root outcome is human-set (Torres puts outcome-setting with leadership); you provide it at `init`.
+- **Does not invent or change its own outcome.** The root mandate is human-set; you provide it at `init` and retune it with `ost-agent set-outcome "…"` (a human-only command — never an agent tool). Retuning edits the root node in place and preserves the prior mandate under a `## History` section, so the outcome is a tunable steering knob (like a prompt) whose evolution stays observable.
 - **Does not write back** to Jira / Confluence / Slack.
 - **Never deletes, never rewrites history, never force-pushes.** Corrections are new commits.
 - **Never marks its own ideas as validated.** Ideated solutions and assumptions are always appended `unvalidated` for a human to review.
@@ -116,7 +116,8 @@ export ATLASSIAN_API_TOKEN="…"   # read-only; never written into the vault
 ```
 
 ```yaml
-outcome: "Reach 10,000 daily active users"   # the single #Outcome (human-set)
+outcome: "…the steering mandate the system optimizes toward…"  # human-set; retune with `ost-agent set-outcome`
+outcomeTitle: "OST-Agent"                     # stable label for the root node (default: folder name)
 remote:
   enabled: false                              # default: local-only, no push
 adapters:

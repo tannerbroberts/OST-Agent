@@ -10,7 +10,7 @@ let dir: string;
 
 beforeEach(async () => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "ost-tool-"));
-  await initVault(dir, "Reach 10,000 daily active users");
+  await initVault(dir, "Reach 10,000 daily active users", "Retention");
 });
 afterEach(() => {
   fs.rmSync(dir, { recursive: true, force: true });
@@ -21,7 +21,7 @@ describe("runTool — the agent-driving surface", () => {
     await runTool(dir, "ost_create_node", {
       title: "I want a reason to come back every day",
       layer: "Opportunity",
-      parent: "Reach 10,000 daily active users",
+      parent: "Retention",
       source: "INBOX:x",
       body: "Players want a daily reason to return.",
     });
@@ -34,7 +34,7 @@ describe("runTool — the agent-driving surface", () => {
   test("the hierarchy is enforced and the Outcome cannot be created", async () => {
     // a Solution cannot attach directly under the Outcome
     await expect(
-      runTool(dir, "ost_create_node", { title: "S", layer: "Solution", parent: "Reach 10,000 daily active users", body: "b" }),
+      runTool(dir, "ost_create_node", { title: "S", layer: "Solution", parent: "Retention", body: "b" }),
     ).rejects.toThrow(/must attach under Opportunity/);
     // a missing parent is refused
     await expect(

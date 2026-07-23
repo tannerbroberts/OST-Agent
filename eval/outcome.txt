@@ -1,1 +1,1 @@
-Product teams treat an OST-Agent-maintained tree as their living source of truth for discovery — they return to it weekly and act on what it surfaces
+Agentic systems efficiently ideate on and write work tickets concerning how to move the core metric, including self-reflection and information gathering. They run consistently, maintaining the OST as a living artifact of work done, information gathered, assumptions, and prospects.
