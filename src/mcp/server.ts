@@ -25,13 +25,9 @@ export const MCP_TOOL_NAMES = [
   "ost_annotate",
 ] as const;
 
-const MUTATING = new Set<string>([
-  "ost_create_node",
-  "ost_append_to_node",
-  "ost_link_nodes",
-  "ost_set_status",
-  "ost_annotate",
-]);
+// Every exposed tool except the read-only one mutates → auto-commit. Derived from
+// MCP_TOOL_NAMES so a tool added to the surface can never silently skip its commit.
+const MUTATING = new Set<string>(MCP_TOOL_NAMES.filter((n) => n !== "ost_read_tree"));
 
 /** Throw unless the vault is initialized: a git repo with an Outcome node. */
 export function assertVaultReady(ctx: PassContext): void {
@@ -55,7 +51,10 @@ interface McpToolDef {
 
 export function createOstMcpServer(ctx: PassContext): Server {
   const built = buildOstTools({ vault: ctx.vault, dir: ctx.dir, remote: ctx.remote }, MCP_TOOL_NAMES);
-  assertNoDestructiveTool(built.map((t) => t.name)); // belt-and-suspenders, fail-closed
+  // fail-closed: reject any non-allowlisted or destructively-named tool. (git_commit/
+  // git_push are exempt from this scan; they're kept off the MCP surface by MCP_TOOL_NAMES,
+  // which the "exposes exactly the six" test locks down.)
+  assertNoDestructiveTool(built.map((t) => t.name));
 
   const defs: McpToolDef[] = built.map((t) => {
     const raw = t as unknown as {
@@ -85,7 +84,7 @@ export function createOstMcpServer(ctx: PassContext): Server {
       const out = await tool.run(args);
       let text = typeof out === "string" ? out : JSON.stringify(out);
       if (MUTATING.has(name)) {
-        const commit = await enqueueCommit(ctx.dir, `mcp: ${name}`);
+        const commit = await enqueueCommit(ctx.dir, `mcp: ${name} — ${text}`);
         text += commit.committed ? `\ncommitted ${commit.sha.slice(0, 8)}` : `\n(no changes to commit)`;
       }
       return { content: [{ type: "text", text }] };

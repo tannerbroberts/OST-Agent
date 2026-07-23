@@ -34,10 +34,11 @@ describe("ost-agent mcp (stdio, no API key)", () => {
         arguments: { title: "Daily streak", layer: "Opportunity", parent: "Retention", body: "b", source: "INBOX:y" },
       });
       expect(res.isError).toBeFalsy();
+      expect(JSON.stringify(res.content)).toMatch(/committed/);
     } finally {
       await client.close();
     }
-    // the write landed and was committed by the server process
+    // the write landed on disk in the server's vault
     expect(fs.existsSync(path.join(dir, "Daily streak.md"))).toBe(true);
   }, 30_000);
 });
