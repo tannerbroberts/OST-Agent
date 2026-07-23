@@ -6,6 +6,7 @@
  *   ost-agent run <process> [--vault DIR]     one bounded pass
  *   ost-agent schedule [--vault DIR]          supervisor: cron + triggers
  *   ost-agent status [--vault DIR]            read-only tree summary
+ *   ost-agent mcp [--vault DIR]               stdio MCP server (no API key needed)
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -21,6 +22,7 @@ import { anthropicDriver } from "../runner/driver.js";
 import { getProcess, PROCESSES } from "../processes/registry.js";
 import { checkInvariants } from "../eval/invariants.js";
 import { ALLOWED_TOOL_NAMES } from "../security/policy.js";
+import { createOstMcpServer, assertVaultReady, MCP_TOOL_NAMES } from "../mcp/server.js";
 import { VERSION } from "../index.js";
 
 async function prompt(question: string, fallback?: string): Promise<string> {
@@ -128,6 +130,20 @@ program
     console.log(`Nodes: ${tree.length}  (Outcome ${byLayer("Outcome")}, Opportunity ${byLayer("Opportunity")}, Solution ${byLayer("Solution")}, AssumptionTest ${byLayer("AssumptionTest")})`);
     console.log(`Unvalidated (agent-ideated, awaiting review): ${unvalidated}`);
     printLastRuns(ctx.dir);
+  });
+
+program
+  .command("mcp")
+  .description("run a stdio MCP server exposing the append-only OST tools (no API key needed)")
+  .option("--vault <dir>", "vault directory", process.env.OST_VAULT ?? ".")
+  .action(async (opts: { vault: string }) => {
+    const ctx = buildPassContext(opts.vault);
+    assertVaultReady(ctx);
+    const { StdioServerTransport } = await import("@modelcontextprotocol/sdk/server/stdio.js");
+    const server = createOstMcpServer(ctx);
+    await server.connect(new StdioServerTransport());
+    // stdout is the JSON-RPC channel — log only to stderr.
+    console.error(`ost-agent mcp serving ${ctx.dir} over stdio. Tools: ${MCP_TOOL_NAMES.join(", ")}`);
   });
 
 program
