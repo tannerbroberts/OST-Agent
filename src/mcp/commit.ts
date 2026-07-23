@@ -1,9 +1,11 @@
 /**
  * Serialized commit queue. Auto-commit-per-write means multiple CallTool
  * handlers may fire near-simultaneously; chaining every commit on one promise
- * guarantees `git add -A` + `commit` never interleave (which could otherwise
- * sweep one write's files into another write's commit). A rejected commit is
- * swallowed on the chain so a single failure cannot wedge all later commits.
+ * guarantees `git` commits never run concurrently — which would otherwise race
+ * on `.git/index.lock` and throw. Under a burst, writes already on disk when a
+ * commit fires are folded into that commit: still committed, still revertible,
+ * nothing lost. A rejected commit is swallowed on the chain so one failure
+ * cannot wedge later commits.
  */
 import { gitCommit, type CommitResult } from "../git/safe-git.js";
 
