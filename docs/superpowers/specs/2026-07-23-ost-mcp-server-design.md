@@ -139,8 +139,10 @@ the tree, it does not bootstrap one.
 
 - **Per-call errors** never crash the server — they become MCP `isError` results.
 - **Commit serialization**: `enqueueCommit` chains commits on a single promise so
-  two concurrent handlers can't interleave `git add -A` + `commit` (which could
-  otherwise sweep one write's files into another's commit).
+  `git` commits never run concurrently (which would race on `.git/index.lock` and
+  throw). Sequential tool calls each get their own commit; under a concurrent burst,
+  writes already on disk when a commit fires are folded into it — still committed,
+  still revertible, nothing lost.
 - **Vault binding**: the server binds to one vault at launch (`--vault`, env
   fallback `OST_VAULT`); there is no per-call vault path, so a prompt-injected call
   cannot retarget an arbitrary directory. Confinement is preserved.
