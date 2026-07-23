@@ -521,23 +521,23 @@ git commit -m "feat(mcp): ost-agent mcp stdio command + no-API-key e2e test"
 - Consumes: the built `dist/cli/index.js` from Task 3 (`npm run build`).
 - Produces: a registered `ost-agent` MCP server in the operator's Claude Code config (against a throwaway vault) and README docs. No new source.
 
-- [ ] **Step 1: Build and prepare a throwaway vault**
+- [ ] **Step 1: Build and prepare a persistent demo vault**
 
 ```bash
 npm run build
-node dist/cli/index.js init /private/tmp/claude-502/-Users-tannerbrobers-Documents-Obsidian-Vault-Discovery-OST-Agent/166bae97-8a6e-4357-b03c-acc79bd54052/scratchpad/ost-mcp-demo \
+node dist/cli/index.js init /Users/tannerbrobers/dev/ost-mcp-demo \
   --outcome "Demo: prove the MCP path works with no API key" --title "MCPDemo"
 ```
-Expected: `Initialized vault at …/ost-mcp-demo` with git + an Outcome node.
+Expected: `Initialized vault at /Users/tannerbrobers/dev/ost-mcp-demo` with git + an Outcome node. (Persistent, disposable — NOT the real Obsidian vault. Remove later with `rm -rf ~/dev/ost-mcp-demo` + `claude mcp remove ost-agent`.)
 
-- [ ] **Step 2: Register the server in Claude Code**
+- [ ] **Step 2: Register the server in Claude Code (user scope)**
 
 ```bash
-claude mcp add ost-agent -- node "$(pwd)/dist/cli/index.js" mcp --vault \
-  /private/tmp/claude-502/-Users-tannerbrobers-Documents-Obsidian-Vault-Discovery-OST-Agent/166bae97-8a6e-4357-b03c-acc79bd54052/scratchpad/ost-mcp-demo
+claude mcp add ost-agent --scope user -- \
+  node /Users/tannerbrobers/dev/OST-Agent/dist/cli/index.js mcp --vault /Users/tannerbrobers/dev/ost-mcp-demo
 claude mcp list
 ```
-Expected: `ost-agent` appears in `claude mcp list`. (This edits the operator's `~/.claude` config — expected and approved.)
+Expected: `ost-agent` appears in `claude mcp list` (user scope → available in every session). Uses absolute paths so the stored config entry stays valid regardless of cwd. (This edits the operator's `~/.claude` config — approved; target is the demo vault, never the real Obsidian vault.)
 
 - [ ] **Step 3: Confirm the no-key path once more via stdio**
 
