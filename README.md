@@ -103,6 +103,25 @@ ost-agent run P3_ideate
 
 Then open `./discovery-vault` as an Obsidian vault and watch the tree grow in graph view.
 
+### Drive it from a Claude Code session (no API key)
+
+Besides the standalone `run`/`schedule` path (which calls Claude directly and needs
+`ANTHROPIC_API_KEY`), OST-Agent can run as an **MCP server** whose *reasoning* is
+supplied by your existing Claude Code session — so no separate API key is needed,
+just like running a skill.
+
+```bash
+ost-agent init ./discovery-vault --outcome "…"   # one-time; sets the human Outcome
+claude mcp add ost-agent -- ost-agent mcp --vault ./discovery-vault
+```
+
+The six append-only tools then appear in any session as
+`mcp__ost-agent__ost_create_node`, `…_ost_append_to_node`, `…_ost_read_tree`, etc.
+Every write is auto-committed; no `git`, delete, or shell tool is ever exposed, so a
+prompt-injected instruction still maps to no dangerous tool. The server refuses to
+start on a vault that has no human-set Outcome — it maintains a tree, it never
+bootstraps one. A newly added MCP server is picked up on the next session start.
+
 ### Configuration
 
 A `ost.config.yaml` in the vault declares the outcome, which read-only sources are enabled, the per-process schedule/triggers/limits, and whether to push to a remote (off by default). See [`docs/superpowers/specs`](docs/superpowers/specs) for the full reference.
