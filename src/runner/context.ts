@@ -6,6 +6,7 @@ import path from "node:path";
 import { loadConfig } from "../config/load.js";
 import { InboxSource } from "../adapters/inbox.js";
 import { AtlassianSource, HttpAtlassianClient } from "../adapters/atlassian.js";
+import { SlackSource, HttpSlackClient } from "../adapters/slack.js";
 import type { Source } from "../adapters/source.js";
 import { Vault } from "../ost/vault.js";
 import { OST_RULESET } from "../knowledge/ruleset.js";
@@ -37,7 +38,16 @@ export function buildPassContext(vaultDir: string): PassContext {
       }),
     );
   }
-  // Slack adapter is added here once built.
+  if (config.adapters.slack.enabled) {
+    const token = process.env.SLACK_BOT_TOKEN;
+    if (!token) {
+      throw new Error(
+        "adapters.slack is enabled but SLACK_BOT_TOKEN is not set. " +
+          "Use a least-privilege bot token (scopes: channels:history, channels:read); it is never written into the vault.",
+      );
+    }
+    sources.push(new SlackSource(new HttpSlackClient({ token }), { channels: config.adapters.slack.channels }));
+  }
 
   return {
     vault: new Vault(dir),
