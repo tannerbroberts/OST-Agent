@@ -43,13 +43,13 @@ function countFiles(root: string): number {
 const scripts: Record<string, ScriptedCall[]> = {
   // create attaches to the parent atomically — no separate link step
   P2_map: [
-    { tool: "ost_create_node", input: { title: OPP, layer: "Opportunity", parent: OUTCOME_TITLE, source: "INBOX:interview.md", body: "Players want a daily reason to return." } },
+    { tool: "ost_create_node", input: { title: OPP, layer: "Opportunity", parent: OUTCOME_TITLE, source: "INBOX:interview.md", body: "Players want a daily reason to return.", evidence: "stated" } },
   ],
   P3_ideate: [
-    { tool: "ost_create_node", input: { title: SOL, layer: "Solution", parent: OPP, status: "unvalidated", tags: ["unvalidated"], body: "A seeded daily puzzle shared by all players." } },
+    { tool: "ost_create_node", input: { title: SOL, layer: "Solution", parent: OPP, status: "unvalidated", tags: ["unvalidated"], body: "A seeded daily puzzle shared by all players.", evidence: "assertion" } },
   ],
   P4_assumptions: [
-    { tool: "ost_create_node", input: { title: ASM, layer: "AssumptionTest", parent: SOL, status: "unvalidated", tags: ["unvalidated"], body: "Propose: compare D1 retention for cohorts with vs without a daily challenge." } },
+    { tool: "ost_create_node", input: { title: ASM, layer: "AssumptionTest", parent: SOL, status: "unvalidated", tags: ["unvalidated"], body: "Propose: compare D1 retention for cohorts with vs without a daily challenge.", evidence: "assertion" } },
   ],
 };
 

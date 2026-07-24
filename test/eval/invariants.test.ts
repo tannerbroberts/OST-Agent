@@ -15,12 +15,29 @@ const node = (title: string, layer: OstNode["layer"], links: string[] = [], extr
 describe("checkInvariants", () => {
   test("a well-formed tree has no violations", () => {
     const tree = [
-      node(OUT, "Outcome", ["Opp"]),
-      node("Opp", "Opportunity", ["Sol"]),
-      node("Sol", "Solution", ["Asm"], { tags: ["unvalidated"], status: "unvalidated" }),
-      node("Asm", "AssumptionTest", [], { tags: ["unvalidated"], status: "unvalidated" }),
+      node(OUT, "Outcome", ["Opp"], { evidence: "assertion" }),
+      node("Opp", "Opportunity", ["Sol"], { evidence: "stated" }),
+      node("Sol", "Solution", ["Asm"], { tags: ["unvalidated"], status: "unvalidated", evidence: "assertion" }),
+      node("Asm", "AssumptionTest", [], { tags: ["unvalidated"], status: "unvalidated", evidence: "assertion" }),
     ];
     expect(checkInvariants(tree)).toEqual([]);
+  });
+
+  test("flags a node that declares no evidence class", () => {
+    const tree = [
+      node(OUT, "Outcome", ["Opp"], { evidence: "assertion" }),
+      node("Opp", "Opportunity", [], {}), // no rung: the reader cannot tell what it rests on
+    ];
+    const violations = checkInvariants(tree);
+    expect(violations.some((v) => v.rule === "evidence-class" && v.node === "Opp")).toBe(true);
+  });
+
+  test("accepts a node once it declares where it sits on the ladder", () => {
+    const tree = [
+      node(OUT, "Outcome", ["Opp"], { evidence: "assertion" }),
+      node("Opp", "Opportunity", [], { evidence: "observed" }),
+    ];
+    expect(checkInvariants(tree).filter((v) => v.rule === "evidence-class")).toEqual([]);
   });
 
   test("flags more than one outcome", () => {

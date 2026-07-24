@@ -9,6 +9,7 @@
  */
 import path from "node:path";
 import { OST_RULESET } from "../knowledge/ruleset.js";
+import { believabilityBrief, FLOOR_RUNG } from "../knowledge/believability.js";
 import type { PassDriver, ToolSet } from "../runner/driver.js";
 import { loadCursor, saveCursor } from "../adapters/source.js";
 import {
@@ -39,6 +40,8 @@ function baseSystem(): string {
     "",
     "You MUST NOT:",
     ...r.agentMustNot.map((s) => `- ${s}`),
+    "",
+    believabilityBrief(),
     "",
     "All writes are append-only and go through the provided tools. There is no delete or edit tool — that is intentional. Ideated solutions and assumptions are always created with status 'unvalidated' and an 'unvalidated' tag.",
   ].join("\n");
@@ -78,6 +81,9 @@ export const p0Bootstrap: ProcessDef = {
         created: new Date().toISOString().slice(0, 10),
         tags: [],
         links: [],
+        // The mandate is a decision from inside the building, not a finding about
+        // the world — it sits at the ladder's floor like any other assertion.
+        evidence: FLOOR_RUNG,
         // the mandate the system optimizes toward; human-set, tuned via set-outcome
         body: ctx.config.outcome,
       });

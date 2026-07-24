@@ -15,6 +15,7 @@ export const ALLOWED_TOOL_NAMES = [
   "ost_append_to_node",
   "ost_link_nodes",
   "ost_set_status",
+  "ost_set_evidence",
   "ost_annotate",
   "git_commit",
   "git_push",

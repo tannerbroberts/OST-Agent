@@ -22,6 +22,7 @@ import { setOutcome } from "../runner/set-outcome.js";
 import { anthropicDriver } from "../runner/driver.js";
 import { getProcess, PROCESSES } from "../processes/registry.js";
 import { checkInvariants } from "../eval/invariants.js";
+import { BELIEVABILITY_LADDER, believabilityRollup } from "../knowledge/believability.js";
 import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapters/friction.js";
 import { ALLOWED_TOOL_NAMES } from "../security/policy.js";
 import { createOstMcpServer, assertVaultReady, MCP_TOOL_NAMES } from "../mcp/server.js";
@@ -149,6 +150,10 @@ program
     console.log(`Outcome: ${ctx.config.outcome}`);
     console.log(`Nodes: ${tree.length}  (Outcome ${byLayer("Outcome")}, Opportunity ${byLayer("Opportunity")}, Solution ${byLayer("Solution")}, AssumptionTest ${byLayer("AssumptionTest")})`);
     console.log(`Unvalidated (agent-ideated, awaiting review): ${unvalidated}`);
+    const rollup = believabilityRollup(tree);
+    const perRung = BELIEVABILITY_LADDER.map((r) => `${r.id} ${rollup.counts[r.id]}`).join(", ");
+    console.log(`Believability: ${perRung}${rollup.unlabelled ? `, unlabelled ${rollup.unlabelled}` : ""}`);
+    console.log(`  the tree as a whole rests on its weakest rung: ${rollup.weakest}`);
     printLastRuns(ctx.dir);
   });
 

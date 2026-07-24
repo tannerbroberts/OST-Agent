@@ -24,6 +24,10 @@
  * remainder is the prose body (which may contain its own sections/links).
  */
 import matter from "gray-matter";
+import { isRung, type RungId } from "../knowledge/believability.js";
+
+/** Tag form of the evidence class: `#evidence/observed`. */
+const EVIDENCE_TAG = /^evidence\/(.+)$/;
 
 export type Layer = "Outcome" | "Opportunity" | "Solution" | "AssumptionTest";
 
@@ -53,6 +57,12 @@ export interface OstNode {
   created?: string;
   /** Agent-set qualitative confidence for ideated nodes. */
   confidence?: string;
+  /**
+   * Which rung of the believability ladder this node rests on. Rendered both in
+   * frontmatter and as an `#evidence/<rung>` tag, so the weight of a claim is
+   * visible everywhere the node appears — including Obsidian's graph.
+   */
+  evidence?: RungId;
   /** Extra tags beyond the layer tag (e.g. ["unvalidated"]). */
   tags: string[];
   /** Titles of child nodes, rendered as `[[wikilinks]]`. */
@@ -75,8 +85,16 @@ export function serialize(node: OstNode): string {
   if (node.source) data.source = node.source;
   if (node.created) data.created = node.created;
   if (node.confidence) data.confidence = node.confidence;
+  if (node.evidence) data.evidence = node.evidence;
 
-  const tagLine = ["#" + node.layer, ...node.tags.map((t) => "#" + t)].join(" ");
+  // The evidence tag is derived from `evidence`, never carried in `tags`, so a
+  // round-trip cannot render it twice.
+  const extraTags = node.tags.filter((t) => !EVIDENCE_TAG.test(t));
+  const tagLine = [
+    "#" + node.layer,
+    ...extraTags.map((t) => "#" + t),
+    ...(node.evidence ? [`#evidence/${node.evidence}`] : []),
+  ].join(" ");
   const linkLines = node.links.map((l) => `[[${l}]]`);
 
   const bodyText = node.body.trim();
@@ -111,7 +129,9 @@ export function deserialize(title: string, markdown: string): OstNode {
 
   const allTags = [...tagLine.matchAll(/#(\S+)/g)].map((m) => m[1]);
   // Everything except the layer tag becomes an extra tag (dedupe, drop the layer).
-  const tags = allTags.filter((t) => t !== layer);
+  // The evidence tag is lifted back onto `evidence` rather than left in `tags`.
+  const tags = allTags.filter((t) => t !== layer && !EVIDENCE_TAG.test(t));
+  const taggedRung = allTags.map((t) => EVIDENCE_TAG.exec(t)?.[1]).find((r): r is string => !!r);
 
   // Contiguous wikilink-only lines immediately after the tag line are child edges.
   const links: string[] = [];
@@ -131,5 +151,7 @@ export function deserialize(title: string, markdown: string): OstNode {
   if (data.created instanceof Date) node.created = isoDate(data.created);
   else if (typeof data.created === "string") node.created = data.created;
   if (typeof data.confidence === "string") node.confidence = data.confidence;
+  const rung = typeof data.evidence === "string" ? data.evidence : taggedRung;
+  if (rung && isRung(rung)) node.evidence = rung;
   return node;
 }

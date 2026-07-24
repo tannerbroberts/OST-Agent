@@ -5,9 +5,9 @@ import type { OstNode } from "../../src/ost/node.js";
 
 const OUT = "Reach 10,000 daily active users";
 const wellFormed: OstNode[] = [
-  { title: OUT, layer: "Outcome", tags: [], links: ["Opp"], body: "b" },
-  { title: "Opp", layer: "Opportunity", tags: [], links: ["Sol"], body: "b" },
-  { title: "Sol", layer: "Solution", tags: ["unvalidated"], status: "unvalidated", links: [], body: "b" },
+  { title: OUT, layer: "Outcome", tags: [], links: ["Opp"], body: "b", evidence: "assertion" },
+  { title: "Opp", layer: "Opportunity", tags: [], links: ["Sol"], body: "b", evidence: "stated" },
+  { title: "Sol", layer: "Solution", tags: ["unvalidated"], status: "unvalidated", links: [], body: "b", evidence: "assertion" },
 ];
 
 describe("score", () => {

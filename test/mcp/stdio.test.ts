@@ -31,7 +31,7 @@ describe("ost-agent mcp (stdio, no API key)", () => {
       expect(tools.map((t) => t.name)).toContain("ost_create_node");
       const res = await client.callTool({
         name: "ost_create_node",
-        arguments: { title: "Daily streak", layer: "Opportunity", parent: "Retention", body: "b", source: "INBOX:y" },
+        arguments: { title: "Daily streak", layer: "Opportunity", parent: "Retention", body: "b", source: "INBOX:y", evidence: "stated" },
       });
       expect(res.isError).toBeFalsy();
       expect(JSON.stringify(res.content)).toMatch(/committed/);

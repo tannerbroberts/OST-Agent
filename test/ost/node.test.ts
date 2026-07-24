@@ -30,6 +30,25 @@ describe("serialize / deserialize round-trip", () => {
     expect(back).toEqual(node);
   });
 
+  test("shows the evidence class as a tag, so it is visible everywhere the node appears", () => {
+    const md = serialize({ ...node, evidence: "observed" });
+    const afterFm = md.split("---\n").slice(2).join("---\n");
+    expect(afterFm.trimStart().startsWith("#Solution #unvalidated #evidence/observed")).toBe(true);
+    expect(md).toContain("evidence: observed");
+  });
+
+  test("round-trips the evidence class without duplicating its tag", () => {
+    const labelled: OstNode = { ...node, evidence: "observed" };
+    const back = deserialize(labelled.title, serialize(labelled));
+    expect(back).toEqual(labelled);
+    expect(serialize(back)).toBe(serialize(labelled));
+  });
+
+  test("reads the evidence class from the tag when frontmatter omits it", () => {
+    const md = ["---", "type: Solution", "---", "#Solution #evidence/stated", "", "body"].join("\n");
+    expect(deserialize("A node", md).evidence).toBe("stated");
+  });
+
   test("created round-trips through YAML date parsing", () => {
     const back = deserialize(node.title, serialize(node));
     expect(back.created).toBe("2026-07-22");

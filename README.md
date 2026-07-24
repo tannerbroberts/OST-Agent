@@ -154,6 +154,10 @@ export ATLASSIAN_EMAIL="you@example.com"
 export ATLASSIAN_API_TOKEN="…"   # read-only; never written into the vault
 ```
 
+### The believability ladder
+
+A note written at midnight and a customer renewing look identical once they are both files in a vault. Every node therefore declares which rung it rests on — `money` › `observed` › `stated` › `expert` › `assertion` — carried in frontmatter *and* as an `#evidence/<rung>` tag, so the weight of a claim is visible everywhere the node appears, including Obsidian's graph. `ost_create_node` refuses a node without one; `ost_set_evidence` labels nodes that predate the ladder, recording the change in their History; `ost-agent check` reports every unlabelled node; `ost-agent status` shows the per-rung breakdown and the weakest rung the tree as a whole rests on. The rule the agent is given is the one that keeps it honest: *pick the weakest rung that honestly covers the node's sources — a conclusion is only as believable as its weakest input.*
+
 The complement to that channel is filing friction *as it happens* — the confusion that never produces an error and so never appears in a transcript scan. Any agent (or human) with a shell can file one line into the vault inbox, where it is ingested like any other evidence:
 
 ```bash

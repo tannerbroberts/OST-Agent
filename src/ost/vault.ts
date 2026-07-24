@@ -13,6 +13,7 @@ import path from "node:path";
 import matter from "gray-matter";
 import { deserialize, serialize, type Layer, type NodeStatus, type OstNode } from "./node.js";
 import { fileNameForTitle, sanitizeTitle } from "./sanitize.js";
+import type { RungId } from "../knowledge/believability.js";
 
 const VALID_LAYERS: readonly Layer[] = ["Outcome", "Opportunity", "Solution", "AssumptionTest"];
 
@@ -104,6 +105,20 @@ export class Vault {
     const prev = node.status ?? "(none)";
     node.status = status;
     const line = `- ${isoToday()} status: ${prev} → ${status}${note ? ` — ${note}` : ""}`;
+    node.body = appendUnderHeading(node.body, "## History", line);
+    fs.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+  }
+
+  /**
+   * Declare which rung of the believability ladder a node rests on, recording the
+   * change in History. Existing nodes predate the ladder, so this is how a tree
+   * becomes labelled without rewriting or losing anything.
+   */
+  setEvidence(title: string, evidence: RungId, note?: string): void {
+    const node = this.read(title);
+    const prev = node.evidence ?? "(none)";
+    node.evidence = evidence;
+    const line = `- ${isoToday()} evidence: ${prev} \u2192 ${evidence}${note ? ` \u2014 ${note}` : ""}`;
     node.body = appendUnderHeading(node.body, "## History", line);
     fs.writeFileSync(this.nodePath(title), serialize(node), "utf8");
   }

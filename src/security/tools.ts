@@ -12,6 +12,7 @@
 import { betaTool } from "@anthropic-ai/sdk/helpers/beta/json-schema";
 import { gitCommit, gitPush } from "../git/safe-git.js";
 import { type NodeStatus, type OstNode } from "../ost/node.js";
+import { BELIEVABILITY_LADDER, isRung, type RungId } from "../knowledge/believability.js";
 import { Vault } from "../ost/vault.js";
 import { computeNextWork } from "../mcp/next-work.js";
 import { ALLOWED_TOOL_NAMES } from "./policy.js";
@@ -89,9 +90,14 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
           status: { type: "string", enum: STATUS_VALUES },
           source: { type: "string", description: "Provenance, e.g. JIRA:PROJ-1234 or INBOX:note.md" },
           confidence: { type: "string" },
+          evidence: {
+            type: "string",
+            enum: BELIEVABILITY_LADDER.map((r) => r.id),
+            description: `Which rung of the believability ladder this node rests on — ${BELIEVABILITY_LADDER.map((r) => `${r.id}: ${r.definition}`).join(" ")} Use the WEAKEST rung that honestly covers the node's sources; 'assertion' is the floor and is always available.`,
+          },
           tags: { type: "array", items: { type: "string" }, description: "Extra tags, e.g. ['unvalidated']" },
         },
-        required: ["title", "layer", "parent", "body"],
+        required: ["title", "layer", "parent", "body", "evidence"],
       },
       run: async (input: {
         title: string;
@@ -101,8 +107,17 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         status?: string;
         source?: string;
         confidence?: string;
+        evidence?: string;
         tags?: string[];
       }) => {
+        // A node with no declared rung is worse than an obviously weak one: the
+        // reader cannot tell founder theory from evidence. Refuse, don't guess.
+        if (!input.evidence || !isRung(input.evidence)) {
+          throw new Error(
+            `"${input.title}" needs an evidence class — one of: ${BELIEVABILITY_LADDER.map((r) => r.id).join(", ")}. ` +
+              `Use the weakest rung that honestly covers its sources ('assertion' when it rests on founder theory or your own inference).`,
+          );
+        }
         const allowedParents = CHILD_HIERARCHY[input.layer];
         if (!allowedParents) {
           throw new Error(`cannot create layer "${input.layer}" (the Outcome is human-set at init and there is exactly one)`);
@@ -123,6 +138,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
           status: input.status as NodeStatus | undefined,
           source: input.source,
           confidence: input.confidence,
+          evidence: input.evidence as RungId,
           created: new Date().toISOString().slice(0, 10),
         };
         vault.createNode(node); // gets its #<layer> tag from serialize
@@ -186,6 +202,31 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
       run: async (input: { title: string; status: string; note?: string }) => {
         vault.setStatus(input.title, input.status as NodeStatus, input.note);
         return `status of "${input.title}" set to ${input.status}`;
+      },
+    }),
+
+    betaTool({
+      name: "ost_set_evidence",
+      description:
+        "Declare which rung of the believability ladder a node rests on, recording the change in its History. Use the WEAKEST rung that honestly covers the node's sources; 'assertion' is the floor. Use this to label nodes created before the ladder existed.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          title: { type: "string" },
+          evidence: { type: "string", enum: BELIEVABILITY_LADDER.map((r) => r.id) },
+          note: { type: "string", description: "Which sources put it on that rung." },
+        },
+        required: ["title", "evidence"],
+      },
+      run: async (input: { title: string; evidence: string; note?: string }) => {
+        if (!isRung(input.evidence)) {
+          throw new Error(
+            `"${input.evidence}" is not on the believability ladder — use one of: ${BELIEVABILITY_LADDER.map((r) => r.id).join(", ")}`,
+          );
+        }
+        vault.setEvidence(input.title, input.evidence, input.note);
+        return `evidence class of "${input.title}" set to ${input.evidence}`;
       },
     }),
 

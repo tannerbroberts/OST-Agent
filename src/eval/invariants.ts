@@ -5,6 +5,7 @@
  * Solution Tree must satisfy all of them, always. Violations are hard failures.
  * This is the floor beneath the (non-deterministic) faithfulness judge.
  */
+import { BELIEVABILITY_LADDER } from "../knowledge/believability.js";
 import { byTitle } from "../processes/tree.js";
 import type { OstNode } from "../ost/node.js";
 
@@ -52,6 +53,18 @@ export function checkInvariants(tree: OstNode[]): Violation[] {
     if (n.layer === "AssumptionTest") {
       const parents = tree.filter((p) => p.layer === "Solution" && p.links.includes(n.title));
       if (parents.length === 0) v.push({ rule: "assumption-mapped", node: n.title, detail: "not linked under any Solution" });
+    }
+  }
+
+  // every node declares what it rests on — an unlabelled node lets a reader
+  // over-trust founder theory by mistaking it for evidence
+  for (const n of tree) {
+    if (!n.evidence) {
+      v.push({
+        rule: "evidence-class",
+        node: n.title,
+        detail: `declares no evidence class — add one of: ${BELIEVABILITY_LADDER.map((r) => r.id).join(", ")}`,
+      });
     }
   }
 

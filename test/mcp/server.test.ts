@@ -52,7 +52,7 @@ describe("createOstMcpServer", () => {
     // add an opportunity → it now has 0 of the required solutions → surfaced as under-served
     await client.callTool({
       name: "ost_create_node",
-      arguments: { title: "I want a reason to come back", layer: "Opportunity", parent: "Retention", body: "b", source: "INBOX:x" },
+      arguments: { title: "I want a reason to come back", layer: "Opportunity", parent: "Retention", body: "b", source: "INBOX:x", evidence: "stated" },
     });
     const work = JSON.parse(textOf((await client.callTool({ name: "ost_next_work", arguments: {} })) as never));
     expect(work.done).toBe(false);
@@ -70,6 +70,7 @@ describe("createOstMcpServer", () => {
         layer: "Opportunity",
         parent: "Retention",
         body: "Players want a daily reason to return.",
+        evidence: "stated",
         source: "INBOX:x",
       },
     });
@@ -92,7 +93,7 @@ describe("createOstMcpServer", () => {
     const before = buildPassContext(dir).vault.readTree().length;
     const res = await client.callTool({
       name: "ost_create_node",
-      arguments: { title: "S", layer: "Solution", parent: "Retention", body: "b" },
+      arguments: { title: "S", layer: "Solution", parent: "Retention", body: "b", evidence: "assertion" },
     });
     expect(res.isError).toBe(true);
     expect(textOf(res as never)).toMatch(/must attach under Opportunity/);
