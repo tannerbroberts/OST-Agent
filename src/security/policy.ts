@@ -10,6 +10,7 @@
 
 export const ALLOWED_TOOL_NAMES = [
   "ost_read_tree",
+  "ost_next_work",
   "ost_create_node",
   "ost_append_to_node",
   "ost_link_nodes",

@@ -18,6 +18,7 @@ import { VERSION } from "../index.js";
 
 export const MCP_TOOL_NAMES = [
   "ost_read_tree",
+  "ost_next_work",
   "ost_create_node",
   "ost_append_to_node",
   "ost_link_nodes",
@@ -25,9 +26,11 @@ export const MCP_TOOL_NAMES = [
   "ost_annotate",
 ] as const;
 
-// Every exposed tool except the read-only one mutates → auto-commit. Derived from
-// MCP_TOOL_NAMES so a tool added to the surface can never silently skip its commit.
-const MUTATING = new Set<string>(MCP_TOOL_NAMES.filter((n) => n !== "ost_read_tree"));
+// The read-only tools carry no commit; every other exposed tool mutates and is
+// auto-committed. Deriving MUTATING as the complement means a tool added to the
+// surface can never silently skip its commit.
+const READ_ONLY = new Set<string>(["ost_read_tree", "ost_next_work"]);
+const MUTATING = new Set<string>(MCP_TOOL_NAMES.filter((n) => !READ_ONLY.has(n)));
 
 /** Throw unless the vault is initialized: a git repo with an Outcome node. */
 export function assertVaultReady(ctx: PassContext): void {
@@ -50,7 +53,15 @@ interface McpToolDef {
 }
 
 export function createOstMcpServer(ctx: PassContext): Server {
-  const built = buildOstTools({ vault: ctx.vault, dir: ctx.dir, remote: ctx.remote }, MCP_TOOL_NAMES);
+  const built = buildOstTools(
+    {
+      vault: ctx.vault,
+      dir: ctx.dir,
+      remote: ctx.remote,
+      minSolutionsPerOpportunity: ctx.config.processes["P3_ideate"]?.minSolutionsPerOpportunity,
+    },
+    MCP_TOOL_NAMES,
+  );
   // fail-closed: reject any non-allowlisted or destructively-named tool. (git_commit/
   // git_push are exempt from this scan; they're kept off the MCP surface by MCP_TOOL_NAMES,
   // which the "exposes exactly the six" test locks down.)

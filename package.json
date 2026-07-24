@@ -19,6 +19,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/cli/index.ts",
+    "gen:skill": "tsx scripts/gen-skill.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "eval": "tsx src/eval/run.ts"

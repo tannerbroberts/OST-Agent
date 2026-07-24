@@ -1,0 +1,62 @@
+# Scheduled, unattended OST maintenance pass — Claude Code as the brain.
+#
+# Copy this into YOUR VAULT repository as `.github/workflows/ost-discovery.yml`.
+# It runs a full /ost-pass on a schedule and commits + pushes any new nodes.
+#
+# One-time setup in the vault repo:
+#   1. Generate a Claude Code token locally:  claude setup-token
+#   2. Save it as the repo secret CLAUDE_CODE_OAUTH_TOKEN
+#      (Settings → Secrets and variables → Actions → New repository secret).
+#
+# Auth note: Claude Code headless uses your Claude subscription via the OAuth token
+# above — no ANTHROPIC_API_KEY required. (If you'd rather bill the Anthropic API,
+# set ANTHROPIC_API_KEY instead and drop the OAuth token.)
+name: OST discovery pass
+
+on:
+  schedule:
+    - cron: "0 */6 * * *" # every 6 hours; tune to your discovery cadence
+  workflow_dispatch: {} # allow manual runs
+
+permissions:
+  contents: write # commit + push new/updated OST nodes
+
+concurrency:
+  group: ost-discovery
+  cancel-in-progress: false
+
+jobs:
+  ost-pass:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the vault
+        uses: actions/checkout@v4
+
+      - name: Check out OST-Agent (skill + commands + MCP server)
+        uses: actions/checkout@v4
+        with:
+          repository: tannerbroberts/OST-Agent
+          path: .ost-agent-src # ephemeral on the runner; never committed to the vault
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run a maintenance pass
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          claude -p "/ost-pass" \
+            --plugin-dir "$GITHUB_WORKSPACE/.ost-agent-src" \
+            --permission-mode acceptEdits \
+            --allowedTools "mcp__ost-agent__ost_next_work,mcp__ost-agent__ost_read_tree,mcp__ost-agent__ost_create_node,mcp__ost-agent__ost_link_nodes,mcp__ost-agent__ost_append_to_node,mcp__ost-agent__ost_set_status,mcp__ost-agent__ost_annotate" \
+            --output-format text
+
+      - name: Push new nodes
+        run: |
+          git config user.name  "ost-agent[bot]"
+          git config user.email "ost-agent@users.noreply.github.com"
+          git push

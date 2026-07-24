@@ -31,13 +31,32 @@ function textOf(res: { content: Array<{ type: string; text?: string }> }): strin
 }
 
 describe("createOstMcpServer", () => {
-  test("exposes exactly the six OST tools and no git tools", async () => {
+  test("exposes exactly the append-only OST surface and no git tools", async () => {
     const client = await connect(dir);
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual([...MCP_TOOL_NAMES].sort());
     expect(names).not.toContain("git_commit");
     expect(names).not.toContain("git_push");
+  });
+
+  test("ost_next_work reports outstanding work read-only (no commit) and reflects the tree", async () => {
+    const client = await connect(dir);
+    const before = (await simpleGit(dir).log()).total;
+
+    // fresh vault: one Outcome, no opportunities/solutions → tree is trivially maintained
+    const empty = JSON.parse(textOf((await client.callTool({ name: "ost_next_work", arguments: {} })) as never));
+    expect(empty.done).toBe(true);
+    expect((await simpleGit(dir).log()).total).toBe(before); // read-only, no commit
+
+    // add an opportunity → it now has 0 of the required solutions → surfaced as under-served
+    await client.callTool({
+      name: "ost_create_node",
+      arguments: { title: "I want a reason to come back", layer: "Opportunity", parent: "Retention", body: "b", source: "INBOX:x" },
+    });
+    const work = JSON.parse(textOf((await client.callTool({ name: "ost_next_work", arguments: {} })) as never));
+    expect(work.done).toBe(false);
+    expect(work.underservedOpportunities.map((o: { title: string }) => o.title)).toContain("I want a reason to come back");
   });
 
   test("creating a node writes the file AND makes exactly one commit (no API key)", async () => {

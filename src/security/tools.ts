@@ -13,6 +13,7 @@ import { betaTool } from "@anthropic-ai/sdk/helpers/beta/json-schema";
 import { gitCommit, gitPush } from "../git/safe-git.js";
 import { type NodeStatus, type OstNode } from "../ost/node.js";
 import { Vault } from "../ost/vault.js";
+import { computeNextWork } from "../mcp/next-work.js";
 import { ALLOWED_TOOL_NAMES } from "./policy.js";
 
 const STATUS_VALUES = ["unvalidated", "validated", "in-discovery", "shipped", "deferred"];
@@ -34,6 +35,8 @@ export interface ToolContext {
   /** Vault directory (git working tree). */
   dir: string;
   remote: RemoteConfig;
+  /** minSolutionsPerOpportunity — how ost_next_work decides an opportunity is under-served (default 3). */
+  minSolutionsPerOpportunity?: number;
 }
 
 /**
@@ -43,6 +46,7 @@ export interface ToolContext {
  */
 export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]) {
   const { vault, dir, remote } = ctx;
+  const minSolutions = ctx.minSolutionsPerOpportunity ?? 3;
 
   const all = [
     betaTool({
@@ -60,6 +64,14 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         }));
         return JSON.stringify({ count: nodes.length, nodes }, null, 2);
       },
+    }),
+
+    betaTool({
+      name: "ost_next_work",
+      description:
+        "Read-only orchestration: report exactly what maintenance the tree still needs, so you know what to do next without re-deriving it. Returns unmapped evidence (→ create #Opportunity nodes), under-served opportunities with < the configured minimum solutions (→ ideate #Solution nodes, status 'unvalidated'), solutions with no assumption test (→ surface #AssumptionTest nodes), and structural hygiene issues (→ annotate, never delete). `done: true` means nothing is outstanding. Call this at the start of a pass.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      run: async () => JSON.stringify(computeNextWork(vault, dir, minSolutions), null, 2),
     }),
 
     betaTool({

@@ -1,0 +1,14 @@
+{
+  "name": "ost-agent",
+  "owner": { "name": "Tanner Roberts" },
+  "description": "OST-Agent — autonomous, append-only Opportunity Solution Tree maintainer for Claude Code.",
+  "plugins": [
+    {
+      "name": "ost-agent",
+      "source": ".",
+      "description": "OST skill + /ost-* commands + the append-only ost-agent MCP server. Drive product discovery, or run an unattended maintenance pass, from any Claude Code session.",
+      "category": "product",
+      "keywords": ["opportunity-solution-tree", "product-discovery", "obsidian"]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "name": "ost-agent",
+  "displayName": "OST-Agent — Opportunity Solution Tree",
+  "version": "0.1.0",
+  "description": "Run and maintain a Teresa Torres Opportunity Solution Tree from Claude Code. Bundles the OST skill, the /ost-* slash commands, and the append-only ost-agent MCP server (create/link/annotate nodes, auto-committed; no delete, edit, or shell tool exists).",
+  "author": { "name": "Tanner Roberts" },
+  "homepage": "https://github.com/tannerbroberts/OST-Agent",
+  "repository": "https://github.com/tannerbroberts/OST-Agent",
+  "license": "MIT",
+  "keywords": [
+    "opportunity-solution-tree",
+    "product-discovery",
+    "teresa-torres",
+    "obsidian",
+    "continuous-discovery",
+    "append-only"
+  ],
+  "skills": "./.claude/skills",
+  "commands": ["./.claude/commands"],
+  "mcpServers": {
+    "ost-agent": {
+      "command": "npx",
+      "args": ["-y", "ost-agent@latest", "mcp"],
+      "env": {
+        "OST_VAULT": "${CLAUDE_PROJECT_DIR}"
+      }
+    }
+  }
+}

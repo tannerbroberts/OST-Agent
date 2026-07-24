@@ -115,12 +115,32 @@ ost-agent init ./discovery-vault --outcome "…"   # one-time; sets the human Ou
 claude mcp add ost-agent -- ost-agent mcp --vault ./discovery-vault
 ```
 
-The six append-only tools then appear in any session as
-`mcp__ost-agent__ost_create_node`, `…_ost_append_to_node`, `…_ost_read_tree`, etc.
-Every write is auto-committed; no `git`, delete, or shell tool is ever exposed, so a
-prompt-injected instruction still maps to no dangerous tool. The server refuses to
+The append-only tools then appear in any session as
+`mcp__ost-agent__ost_next_work`, `…_ost_create_node`, `…_ost_read_tree`, etc.
+`ost_next_work` is a read-only orchestration tool that reports exactly what the tree
+still needs (unmapped evidence, under-served opportunities, solutions missing an
+assumption test, hygiene issues), so the session knows what to do without re-deriving
+it. Every write is auto-committed; no `git`, delete, or shell tool is ever exposed, so
+a prompt-injected instruction still maps to no dangerous tool. The server refuses to
 start on a vault that has no human-set Outcome — it maintains a tree, it never
 bootstraps one. A newly added MCP server is picked up on the next session start.
+
+**Skill + slash commands + one-command install.** This repo also ships a Claude Code
+**skill** (`opportunity-solution-tree`, generated from the same ruleset the standalone
+agent uses, so the two brains never drift) and `/ost-*` **slash commands**
+(`/ost-status`, `/ost-map`, `/ost-ideate`, `/ost-assumptions`, `/ost-hygiene`,
+`/ost-add-opportunity`, and the unattended `/ost-pass`). It is packaged as a **plugin
+with its own marketplace**, so a consumer wires up skill + commands + MCP server in one
+step:
+
+```text
+/plugin marketplace add tannerbroberts/OST-Agent
+/plugin install ost-agent@ost-agent
+```
+
+Full setup for both **participant** (human-in-the-loop) and **autonomous** (scheduled,
+unattended) use — plus the raw-repo / npm / plugin packaging tradeoffs — is in
+[`docs/consuming-from-claude-code.md`](docs/consuming-from-claude-code.md).
 
 ### Configuration
 
