@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- **Slack adapter (read-only):** channel history → evidence, via a least-privilege
+  bot token (`channels:history`, `channels:read`); GET-only Web API. The last
+  pending source is now built.
+- **`/ost-review` command:** human triage of the `unvalidated` nodes the autonomous
+  pass produces (promote with evidence, defer, mark in-discovery, or annotate).
+- **Richer hygiene:** `ost_next_work` and `P5_hygiene` now flag same-layer
+  near-duplicate titles (`findNearDuplicateIssues`, reusing the token-Jaccard
+  `similarity`) — annotated for a human, never merged automatically.
+
 ## 0.1.1
 
 - **Fix:** `ost_next_work` now treats evidence as mapped when any node cites it as

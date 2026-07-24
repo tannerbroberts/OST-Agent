@@ -38,6 +38,42 @@ export interface Match {
 }
 
 /**
+ * Flag near-duplicate titles that already coexist in the tree (same layer only).
+ * Returns append-only hygiene issues — P5 annotates them and `ost_next_work`
+ * reports them; nothing is ever merged automatically (that is a human decision).
+ *
+ * The direction is stable: within a layer, titles are sorted and the later one is
+ * flagged as "possible duplicate of" the earlier, so re-runs annotate the same
+ * node with the same string (idempotent). The threshold is higher than mapping's
+ * link threshold to keep false positives low.
+ */
+export function findNearDuplicateIssues(
+  nodes: readonly { title: string; layer: string }[],
+  threshold = 0.7,
+): { title: string; issue: string }[] {
+  const byLayer = new Map<string, string[]>();
+  for (const n of nodes) {
+    if (n.layer === "Outcome") continue; // exactly one Outcome — nothing to dedupe
+    const list = byLayer.get(n.layer) ?? [];
+    list.push(n.title);
+    byLayer.set(n.layer, list);
+  }
+  const issues: { title: string; issue: string }[] = [];
+  for (const titles of byLayer.values()) {
+    const sorted = [...titles].sort();
+    for (let i = 0; i < sorted.length; i++) {
+      for (let j = i + 1; j < sorted.length; j++) {
+        const score = similarity(sorted[i], sorted[j]);
+        if (score >= threshold) {
+          issues.push({ title: sorted[j], issue: `possible duplicate of [[${sorted[i]}]] (similarity ${score.toFixed(2)})` });
+        }
+      }
+    }
+  }
+  return issues;
+}
+
+/**
  * Best match for `candidate` among `existing` above `threshold`, or null.
  * Default threshold is conservative to avoid merging distinct opportunities.
  */

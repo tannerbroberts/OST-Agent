@@ -11,6 +11,7 @@
  * It never mutates, so it carries no commit.
  */
 import { byTitle, childrenOfLayer, getMapped, readEvidence } from "../processes/tree.js";
+import { findNearDuplicateIssues } from "../ost/dedupe.js";
 import type { OstNode } from "../ost/node.js";
 import type { Vault } from "../ost/vault.js";
 
@@ -67,6 +68,8 @@ function detectHygiene(tree: OstNode[]): HygieneIssue[] {
       if (parents.length === 0) issues.push({ title: n.title, issue: "orphan solution: not linked under any opportunity" });
     }
   }
+  // likely duplicates (same-layer near-identical titles) — flagged for a human, never merged
+  issues.push(...findNearDuplicateIssues(tree));
   // suppress ones already annotated into the node body (idempotent, matches P5)
   return issues.filter(({ title, issue }) => {
     const node = index.get(title);

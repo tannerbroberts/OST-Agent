@@ -9,6 +9,7 @@
  */
 import path from "node:path";
 import { OST_RULESET } from "../knowledge/ruleset.js";
+import { findNearDuplicateIssues } from "../ost/dedupe.js";
 import type { PassDriver, ToolSet } from "../runner/driver.js";
 import { loadCursor, saveCursor } from "../adapters/source.js";
 import {
@@ -296,6 +297,8 @@ function detectIssues(ctx: PassContext): Issue[] {
       if (parents.length === 0) issues.push({ title: n.title, issue: "orphan solution: not linked under any opportunity" });
     }
   }
+  // likely duplicates (same-layer near-identical titles) — flagged for a human, never merged
+  issues.push(...findNearDuplicateIssues(tree));
   return issues;
 }
 
