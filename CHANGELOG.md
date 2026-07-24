@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.2
 
 - **Slack adapter (read-only):** channel history → evidence, via a least-privilege
   bot token (`channels:history`, `channels:read`); GET-only Web API. The last
