@@ -1,0 +1,38 @@
+# Publish ost-agent to npm when a GitHub Release is published.
+#
+# One-time setup:
+#   1. Create an npm automation token (npmjs.com → Access Tokens → Automation).
+#   2. Add it as the repo secret NPM_TOKEN (Settings → Secrets → Actions).
+#
+# Release flow: bump the version (see RELEASING.md), push a tag, publish a GitHub
+# Release for that tag — this workflow builds, tests, and publishes with npm
+# provenance (a signed link from the published package back to this workflow run).
+name: Publish to npm
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch: {} # manual re-run if a release publish failed
+
+permissions:
+  contents: read
+  id-token: write # required for npm provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - run: npm ci
+
+      # prepublishOnly (npm run build && npm run test) gates the publish, and
+      # publishConfig.provenance + id-token:write produce a provenance attestation.
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
