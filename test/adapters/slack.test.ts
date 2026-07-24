@@ -100,16 +100,50 @@ describe("HttpSlackClient request shape (injected fetch)", () => {
     };
     const client = new HttpSlackClient({ token: "xoxb-test", fetchFn });
 
-    const out = await client.fetchMessages({ channels: ["C1"], since: "1626170000.000000" });
+    const out = await client.fetchMessages({ channels: ["C0123ABCD"], since: "1626170000.000000" });
 
-    expect(calls).toHaveLength(1);
+    expect(calls).toHaveLength(1); // an id passes straight through — no conversations.list lookup
     expect(calls[0].method).toBe("GET"); // read-only
     expect(calls[0].url).toContain("/api/conversations.history");
-    expect(calls[0].url).toContain("channel=C1");
+    expect(calls[0].url).toContain("channel=C0123ABCD");
     expect(calls[0].url).toContain("oldest=1626170000.000000");
     expect(calls[0].headers.Authorization).toBe("Bearer xoxb-test");
     // system-event subtype dropped; only the human message remains
     expect(out.map((m) => m.ts)).toEqual(["1626170400.000100"]);
+  });
+
+  test("resolves a #channel-name to an id via conversations.list, then reads that id's history", async () => {
+    const calls: string[] = [];
+    const fetchFn = async (url: string) => {
+      calls.push(url);
+      const body = url.includes("conversations.list")
+        ? { ok: true, channels: [{ id: "C0999XYZ", name: "discovery" }, { id: "C0111AAA", name: "random" }] }
+        : { ok: true, messages: [{ ts: "1626170400.000100", text: "an insight" }] };
+      return { ok: true, status: 200, async json() { return body; }, async text() { return ""; } };
+    };
+    const client = new HttpSlackClient({ token: "xoxb-test", fetchFn });
+
+    const out = await client.fetchMessages({ channels: ["#discovery"], since: null });
+
+    expect(calls.some((u) => u.includes("conversations.list"))).toBe(true);
+    const history = calls.find((u) => u.includes("conversations.history"))!;
+    expect(history).toContain("channel=C0999XYZ"); // resolved name → id
+    expect(out[0].channel).toBe("C0999XYZ"); // evidence keys on the stable id, not the name
+  });
+
+  test("throws a clear error when a channel name cannot be resolved", async () => {
+    const fetchFn = async (url: string) => ({
+      ok: true,
+      status: 200,
+      async json() {
+        return url.includes("conversations.list") ? { ok: true, channels: [{ id: "C1", name: "general" }] } : { ok: true, messages: [] };
+      },
+      async text() {
+        return "";
+      },
+    });
+    const client = new HttpSlackClient({ token: "xoxb-test", fetchFn });
+    await expect(client.fetchMessages({ channels: ["#nonexistent"], since: null })).rejects.toThrow(/nonexistent.*not found/);
   });
 
   test("throws on a Slack API-level error (ok:false)", async () => {

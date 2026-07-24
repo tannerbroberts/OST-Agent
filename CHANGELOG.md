@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- **Slack config accepts `#channel-name`s, not just IDs.** `HttpSlackClient` resolves
+  names to ids via `conversations.list` (cached, GET-only) before reading history, and
+  evidence keys on the stable channel id. Ids still pass straight through.
+
 ## 0.1.3
 
 - **Fix:** a newly-created vault gets a repo-local git identity when none is

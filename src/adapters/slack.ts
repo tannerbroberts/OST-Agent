@@ -130,15 +130,24 @@ export interface HttpSlackConfig {
 }
 
 interface SlackHistoryResponse {
-  ok: boolean;
-  error?: string;
   messages?: { ts: string; user?: string; text?: string; subtype?: string }[];
+}
+interface SlackListResponse {
+  channels?: { id: string; name: string }[];
+  response_metadata?: { next_cursor?: string };
+}
+
+/** A resolved Slack channel id looks like C…/G…/D… (uppercase, several chars). */
+function looksLikeChannelId(s: string): boolean {
+  return /^[CGD][A-Z0-9]{6,}$/.test(s);
 }
 
 export class HttpSlackClient implements SlackClient {
   private readonly token: string;
   private readonly max: number;
   private readonly fetchFn: FetchFn;
+  /** channel name → id, lazily populated from conversations.list on first name lookup. */
+  private nameToId: Map<string, string> | null = null;
 
   constructor(cfg: HttpSlackConfig) {
     this.token = cfg.token;
@@ -146,19 +155,44 @@ export class HttpSlackClient implements SlackClient {
     this.fetchFn = cfg.fetchFn ?? ((globalThis as unknown as { fetch: FetchFn }).fetch);
   }
 
+  private async get<T>(url: string): Promise<T> {
+    const res = await this.fetchFn(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${this.token}`, Accept: "application/json" },
+    });
+    if (!res.ok) throw new Error(`Slack GET ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    const data = (await res.json()) as T & { ok?: unknown; error?: unknown };
+    if (data.ok !== true) throw new Error(`Slack API error: ${String(data.error ?? "unknown")}`);
+    return data;
+  }
+
+  /** Resolve a channel id or #name to a channel id (names via conversations.list, cached). */
+  private async resolveChannelId(nameOrId: string): Promise<string> {
+    if (looksLikeChannelId(nameOrId)) return nameOrId;
+    const name = nameOrId.replace(/^#/, "");
+    if (!this.nameToId) {
+      this.nameToId = new Map();
+      let cursor: string | undefined;
+      do {
+        const params = new URLSearchParams({ types: "public_channel,private_channel", limit: "1000", exclude_archived: "true" });
+        if (cursor) params.set("cursor", cursor);
+        const data = await this.get<SlackListResponse>(`https://slack.com/api/conversations.list?${params}`);
+        for (const c of data.channels ?? []) this.nameToId.set(c.name, c.id);
+        cursor = data.response_metadata?.next_cursor || undefined;
+      } while (cursor);
+    }
+    const id = this.nameToId.get(name);
+    if (!id) throw new Error(`Slack channel "${nameOrId}" not found — is the bot a member, and does the token have channels:read?`);
+    return id;
+  }
+
   async fetchMessages(opts: { channels: string[]; since: string | null }): Promise<SlackMessage[]> {
     const out: SlackMessage[] = [];
-    for (const channel of opts.channels) {
+    for (const configured of opts.channels) {
+      const channel = await this.resolveChannelId(configured);
       const params = new URLSearchParams({ channel, limit: String(this.max) });
       if (opts.since) params.set("oldest", opts.since); // inclusive; boundary dupes handled by the cursor's `seen`
-      const url = `https://slack.com/api/conversations.history?${params}`;
-      const res = await this.fetchFn(url, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${this.token}`, Accept: "application/json" },
-      });
-      if (!res.ok) throw new Error(`Slack GET ${res.status}: ${(await res.text()).slice(0, 200)}`);
-      const data = (await res.json()) as SlackHistoryResponse;
-      if (!data.ok) throw new Error(`Slack API error: ${data.error ?? "unknown"}`);
+      const data = await this.get<SlackHistoryResponse>(`https://slack.com/api/conversations.history?${params}`);
       for (const m of data.messages ?? []) {
         // skip system events (joins, topic changes, bot adds); keep human messages
         if (m.subtype) continue;

@@ -168,7 +168,7 @@ remote:
 adapters:
   inbox:     { enabled: true, path: "inbox" }
   atlassian: { enabled: false, projects: ["PROJ"], spaces: ["DISCO"] }
-  slack:     { enabled: false, channels: ["C0123ABCD"] }   # channel IDs (read-only history)
+  slack:     { enabled: false, channels: ["#discovery"] }   # #names or channel IDs (read-only history)
 processes:
   P1_ingest:      { cron: "*/15 * * * *", triggers: ["inbox:new"] }
   P2_map:         { cron: "",             triggers: ["after:P1_ingest"] }
