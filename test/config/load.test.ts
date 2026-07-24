@@ -27,6 +27,7 @@ describe("loadConfig", () => {
     expect(cfg.adapters.inbox.enabled).toBe(true);
     expect(cfg.model).toBe("claude-opus-4-8");
     expect(cfg.processes["P3_ideate"].minSolutionsPerOpportunity).toBe(3);
+    expect(cfg.adapters.transcript.enabled).toBe(false); // opt-in: reads session transcripts
   });
 
   test("rejects config without an outcome", () => {

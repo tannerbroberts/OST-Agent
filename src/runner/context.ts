@@ -6,6 +6,7 @@ import path from "node:path";
 import { loadConfig } from "../config/load.js";
 import { InboxSource } from "../adapters/inbox.js";
 import { AtlassianSource, HttpAtlassianClient } from "../adapters/atlassian.js";
+import { TranscriptSource, defaultTranscriptDir } from "../adapters/transcript.js";
 import type { Source } from "../adapters/source.js";
 import { Vault } from "../ost/vault.js";
 import { OST_RULESET } from "../knowledge/ruleset.js";
@@ -18,6 +19,22 @@ export function buildPassContext(vaultDir: string): PassContext {
   const sources: Source[] = [];
   if (config.adapters.inbox.enabled) {
     sources.push(new InboxSource(path.join(dir, config.adapters.inbox.path)));
+  }
+  if (config.adapters.transcript.enabled) {
+    const t = config.adapters.transcript;
+    if (!t.path && !t.projectDir) {
+      throw new Error(
+        "adapters.transcript is enabled but neither `path` nor `projectDir` is set — " +
+          "set projectDir to the repo whose sessions to harvest, or path to a directory of *.jsonl transcripts.",
+      );
+    }
+    sources.push(
+      new TranscriptSource({
+        dir: t.path ? path.resolve(dir, t.path) : defaultTranscriptDir(t.projectDir),
+        quietMinutes: t.quietMinutes,
+        maxEventsPerSession: t.maxEventsPerSession,
+      }),
+    );
   }
   if (config.adapters.atlassian.enabled) {
     const baseUrl = process.env.ATLASSIAN_BASE_URL;

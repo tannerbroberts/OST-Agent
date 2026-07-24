@@ -43,6 +43,25 @@ describe("buildPassContext adapter wiring", () => {
     expect(() => buildPassContext(dir)).toThrow(/ATLASSIAN_BASE_URL|API token/);
   });
 
+  test("enabling the transcript adapter with an explicit path adds the source", () => {
+    fs.writeFileSync(
+      configPath(dir),
+      `outcome: "Reach 10,000 daily active users"\nadapters:\n  transcript:\n    enabled: true\n    path: ${JSON.stringify(dir)}\n`,
+      "utf8",
+    );
+    const ctx = buildPassContext(dir);
+    expect(ctx.sources.map((s) => s.name).sort()).toEqual(["inbox", "transcript"]);
+  });
+
+  test("enabling the transcript adapter with neither path nor projectDir fails clearly", () => {
+    fs.writeFileSync(
+      configPath(dir),
+      `outcome: "Reach 10,000 daily active users"\nadapters:\n  transcript:\n    enabled: true\n`,
+      "utf8",
+    );
+    expect(() => buildPassContext(dir)).toThrow(/transcript.*(path|projectDir)/i);
+  });
+
   test("enabling Atlassian with credentials adds the source", () => {
     enableAtlassian();
     process.env.ATLASSIAN_BASE_URL = "https://x.atlassian.net";

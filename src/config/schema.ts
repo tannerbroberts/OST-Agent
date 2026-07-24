@@ -30,6 +30,21 @@ const AtlassianSchema = z
   })
   .default({ enabled: false, projects: [], spaces: [] });
 
+// Harvests the agent's own finished sessions as usage evidence. Opt-in: it reads
+// session transcripts, so the operator turns it on deliberately.
+const TranscriptSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+    /** Directory of `*.jsonl` transcripts. Empty ⇒ derive it from `projectDir`. */
+    path: z.string().default(""),
+    /** Repo whose sessions to harvest; used to derive the default transcript dir. */
+    projectDir: z.string().default(""),
+    /** A session counts as finished once untouched this long. */
+    quietMinutes: z.number().int().positive().default(30),
+    maxEventsPerSession: z.number().int().positive().default(25),
+  })
+  .default({ enabled: false, path: "", projectDir: "", quietMinutes: 30, maxEventsPerSession: 25 });
+
 const SlackSchema = z
   .object({
     enabled: z.boolean().default(false),
@@ -70,6 +85,7 @@ export const ConfigSchema = z.object({
   adapters: z
     .object({
       inbox: InboxSchema,
+      transcript: TranscriptSchema,
       atlassian: AtlassianSchema,
       slack: SlackSchema,
     })
@@ -94,6 +110,11 @@ adapters:
   inbox:
     enabled: true
     path: .ost-agent/inbox  # drop notes here; kept out of the vault root so Obsidian's graph shows only OST nodes
+  transcript:
+    enabled: false          # harvest the agent's own finished sessions as usage evidence (observed behavior, not demand)
+    projectDir: ""          # repo whose sessions to read; transcripts are found under ~/.claude/projects/<slug>
+    path: ""                # or point straight at a directory of *.jsonl transcripts
+    quietMinutes: 30        # a session is "finished" once its file has been untouched this long
   atlassian:
     enabled: false
     projects: []

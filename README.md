@@ -154,15 +154,18 @@ export ATLASSIAN_EMAIL="you@example.com"
 export ATLASSIAN_API_TOKEN="…"   # read-only; never written into the vault
 ```
 
+To harvest the agent's own finished sessions as usage evidence, enable the **transcript** source and point it at the repo whose Claude Code sessions you want read (transcripts live under `~/.claude/projects/<slug>/*.jsonl`; set `path` instead to read a directory directly). It extracts friction signals mechanically — failed tool calls, retries, interruptions, denied permissions, forced clarifying questions — and emits one bounded, secret-redacted evidence item per session. Sessions are only read once they have been untouched for `quietMinutes`, so a live session is never half-harvested, and transcripts are never modified. The evidence it produces is **observed behavior about your own usage** — it grounds usability, not demand, and should never be counted as outside-user evidence of want.
+
 ```yaml
 outcome: "…the steering mandate the system optimizes toward…"  # human-set; retune with `ost-agent set-outcome`
 outcomeTitle: "OST-Agent"                     # stable label for the root node (default: folder name)
 remote:
   enabled: false                              # default: local-only, no push
 adapters:
-  inbox:     { enabled: true, path: "inbox" }
-  atlassian: { enabled: false, projects: ["PROJ"], spaces: ["DISCO"] }
-  slack:     { enabled: false, channels: [] }
+  inbox:      { enabled: true, path: "inbox" }
+  transcript: { enabled: false, projectDir: "/path/to/repo", quietMinutes: 30 }
+  atlassian:  { enabled: false, projects: ["PROJ"], spaces: ["DISCO"] }
+  slack:      { enabled: false, channels: [] }
 processes:
   P1_ingest:      { cron: "*/15 * * * *", triggers: ["inbox:new"] }
   P2_map:         { cron: "",             triggers: ["after:P1_ingest"] }
