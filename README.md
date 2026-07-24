@@ -154,6 +154,14 @@ export ATLASSIAN_EMAIL="you@example.com"
 export ATLASSIAN_API_TOKEN="…"   # read-only; never written into the vault
 ```
 
+The complement to that channel is filing friction *as it happens* — the confusion that never produces an error and so never appears in a transcript scan. Any agent (or human) with a shell can file one line into the vault inbox, where it is ingested like any other evidence:
+
+```bash
+ost-agent friction "had to guess which vault to read" --kind guessed \
+  --context "four candidate vault directories exist" --vault ~/my-vault
+# kinds: blocked, guessed, unclear-rule, missing-affordance, slow
+```
+
 To harvest the agent's own finished sessions as usage evidence, enable the **transcript** source and point it at the repo whose Claude Code sessions you want read (transcripts live under `~/.claude/projects/<slug>/*.jsonl`; set `path` instead to read a directory directly). It extracts friction signals mechanically — failed tool calls, retries, interruptions, denied permissions, forced clarifying questions — and emits one bounded, secret-redacted evidence item per session. Sessions are only read once they have been untouched for `quietMinutes`, so a live session is never half-harvested, and transcripts are never modified. The evidence it produces is **observed behavior about your own usage** — it grounds usability, not demand, and should never be counted as outside-user evidence of want.
 
 ```yaml

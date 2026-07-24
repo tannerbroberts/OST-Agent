@@ -6,6 +6,7 @@
  *   ost-agent run <process> [--vault DIR]     one bounded pass
  *   ost-agent schedule [--vault DIR]          supervisor: cron + triggers
  *   ost-agent status [--vault DIR]            read-only tree summary
+ *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
  *   ost-agent mcp [--vault DIR]               stdio MCP server (no API key needed)
  */
 import fs from "node:fs";
@@ -21,6 +22,7 @@ import { setOutcome } from "../runner/set-outcome.js";
 import { anthropicDriver } from "../runner/driver.js";
 import { getProcess, PROCESSES } from "../processes/registry.js";
 import { checkInvariants } from "../eval/invariants.js";
+import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapters/friction.js";
 import { ALLOWED_TOOL_NAMES } from "../security/policy.js";
 import { createOstMcpServer, assertVaultReady, MCP_TOOL_NAMES } from "../mcp/server.js";
 import { VERSION } from "../index.js";
@@ -99,6 +101,24 @@ program
       throw new Error(`--input is not valid JSON: ${opts.input}`);
     }
     console.log(await runTool(opts.vault, name, input));
+  });
+
+program
+  .command("friction")
+  .description("file one line of friction at the point of pain (lands in the vault inbox as evidence)")
+  .argument("<note>", "what went wrong, in one line")
+  .option("-k, --kind <kind>", `one of: ${FRICTION_KINDS.join(", ")}`, "blocked")
+  .option("-c, --context <text>", "what you were doing, or what you wish existed")
+  .option("-s, --source <text>", "who is filing (loop, process, session)")
+  .option("--vault <dir>", "vault directory", process.env.OST_VAULT ?? ".")
+  .action((note: string, opts: { kind: string; context?: string; source?: string; vault: string }) => {
+    const written = fileFriction(opts.vault, {
+      kind: opts.kind as FrictionFilingKind,
+      note,
+      context: opts.context,
+      source: opts.source,
+    });
+    console.log(`filed ${path.basename(written)}`);
   });
 
 program
