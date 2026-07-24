@@ -6,6 +6,8 @@
  *   ost-agent run <process> [--vault DIR]     one bounded pass
  *   ost-agent schedule [--vault DIR]          supervisor: cron + triggers
  *   ost-agent status [--vault DIR]            read-only tree summary
+ *   ost-agent debt [--vault DIR]              evidence each solution still owes
+ *   ost-agent gate "<solution>" [--vault DIR] block building against untested assumptions
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
  *   ost-agent mcp [--vault DIR]               stdio MCP server (no API key needed)
  */
@@ -22,6 +24,7 @@ import { setOutcome } from "../runner/set-outcome.js";
 import { anthropicDriver } from "../runner/driver.js";
 import { getProcess, PROCESSES } from "../processes/registry.js";
 import { checkInvariants } from "../eval/invariants.js";
+import { computeEvidenceDebt, gateSolution } from "../eval/evidence-debt.js";
 import { BELIEVABILITY_LADDER, believabilityRollup } from "../knowledge/believability.js";
 import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapters/friction.js";
 import { ALLOWED_TOOL_NAMES } from "../security/policy.js";
@@ -136,6 +139,46 @@ program
       for (const v of violations) console.log(`  ✗ [${v.rule}] ${v.node ? `"${v.node}": ` : ""}${v.detail}`);
       process.exitCode = 1;
     }
+  });
+
+program
+  .command("debt")
+  .description("what each solution owes in evidence before anyone builds it (no model needed)")
+  .option("--vault <dir>", "vault directory", ".")
+  .action((opts: { vault: string }) => {
+    const ctx = buildPassContext(opts.vault);
+    const debt = computeEvidenceDebt(ctx.vault.readTree());
+    const t = debt.totals;
+    console.log(`Solutions: ${t.solutions}  (untested ${t.untested}, proposed-only ${t.proposed}, tested ${t.tested})`);
+    for (const s of debt.solutions) {
+      const detail =
+        s.state === "tested"
+          ? `${s.testsRun}/${s.testsProposed} test(s) with results`
+          : s.state === "proposed"
+            ? `${s.testsProposed} proposed, none run`
+            : "no assumption test";
+      console.log(`  [${s.state}] ${s.title} — ${detail}`);
+    }
+    console.log(
+      "\nMechanical only: this counts whether ANY assumption beneath a solution recorded a result.\n" +
+        "Whether the RIGHT (riskiest) assumption was tested is a human judgement.",
+    );
+  });
+
+program
+  .command("gate")
+  .description("refuse to build against untested assumptions: exits non-zero unless a solution has a tested assumption")
+  .argument("<solution>", "title of the Solution node about to be built")
+  .option("--vault <dir>", "vault directory", ".")
+  .action((solution: string, opts: { vault: string }) => {
+    const ctx = buildPassContext(opts.vault);
+    const verdict = gateSolution(ctx.vault.readTree(), solution);
+    if (verdict.cleared) {
+      console.log(`gate: CLEARED — ${verdict.reason}`);
+      return;
+    }
+    console.error(`gate: BLOCKED — ${verdict.reason}`);
+    process.exitCode = 1;
   });
 
 program
