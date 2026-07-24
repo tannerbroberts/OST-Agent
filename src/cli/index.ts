@@ -6,6 +6,7 @@
  *   ost-agent run <process> [--vault DIR]     one bounded pass
  *   ost-agent schedule [--vault DIR]          supervisor: cron + triggers
  *   ost-agent status [--vault DIR]            read-only tree summary
+ *   ost-agent result "<test>" ...             record a human-run test's outcome
  *   ost-agent debt [--vault DIR]              evidence each solution still owes
  *   ost-agent gate "<solution>" [--vault DIR] block building against untested assumptions
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
@@ -25,7 +26,8 @@ import { anthropicDriver } from "../runner/driver.js";
 import { getProcess, PROCESSES } from "../processes/registry.js";
 import { checkInvariants } from "../eval/invariants.js";
 import { computeEvidenceDebt, gateSolution } from "../eval/evidence-debt.js";
-import { BELIEVABILITY_LADDER, believabilityRollup } from "../knowledge/believability.js";
+import { BELIEVABILITY_LADDER, believabilityRollup, type RungId } from "../knowledge/believability.js";
+import { recordResult, VERDICTS, type Verdict } from "../ost/results.js";
 import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapters/friction.js";
 import { ALLOWED_TOOL_NAMES } from "../security/policy.js";
 import { createOstMcpServer, assertVaultReady, MCP_TOOL_NAMES } from "../mcp/server.js";
@@ -139,6 +141,26 @@ program
       for (const v of violations) console.log(`  ✗ [${v.rule}] ${v.node ? `"${v.node}": ` : ""}${v.detail}`);
       process.exitCode = 1;
     }
+  });
+
+program
+  .command("result")
+  .description("record what happened when a human ran an assumption test (humans only — never the agent)")
+  .argument("<test>", "title of the AssumptionTest node that was run")
+  .requiredOption("-v, --verdict <verdict>", `one of: ${VERDICTS.join(", ")}`)
+  .requiredOption("-n, --note <text>", "what happened, in the runner's words")
+  .requiredOption("-b, --by <who>", "who ran it — a result with no name on it cannot be trusted")
+  .option("-e, --evidence <rung>", `raise the test's rung to what the run produced (${BELIEVABILITY_LADDER.map((r) => r.id).join(", ")})`)
+  .option("--vault <dir>", "vault directory", ".")
+  .action((test: string, opts: { verdict: string; note: string; by: string; evidence?: string; vault: string }) => {
+    const line = recordResult(opts.vault, {
+      test,
+      verdict: opts.verdict as Verdict,
+      note: opts.note,
+      by: opts.by,
+      evidence: opts.evidence as RungId | undefined,
+    });
+    console.log(`recorded on "${test}": ${line}`);
   });
 
 program

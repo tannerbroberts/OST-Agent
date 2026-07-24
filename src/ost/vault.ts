@@ -84,6 +84,17 @@ export class Vault {
     fs.writeFileSync(p, prev + sep + section.trim() + "\n", "utf8");
   }
 
+  /**
+   * Append one line under a `## Heading` in a node's body, creating the heading
+   * only if it is absent. Grows the file like every other write here — nothing
+   * already recorded under that heading is touched.
+   */
+  appendUnderSection(title: string, heading: string, line: string): void {
+    const node = this.read(title);
+    node.body = appendUnderHeading(node.body, heading, line);
+    fs.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+  }
+
   /** Add a parent→child wikilink edge. Idempotent; adds the link at most once. */
   linkNodes(parent: string, child: string): void {
     const node = this.read(parent);

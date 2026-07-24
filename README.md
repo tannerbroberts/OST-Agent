@@ -158,6 +158,16 @@ export ATLASSIAN_API_TOKEN="…"   # read-only; never written into the vault
 
 Delivery beats discovery by default: whenever there is code to write, the asking stops. `ost-agent debt` prints what each solution still owes — `untested` (no assumption test at all), `proposed-only` (tests written, none run), or `tested` — and `ost-agent gate "<solution>"` exits non-zero unless some assumption beneath that solution has recorded a result, so a build step can refuse to start. A test counts as run when it has a `## Results` section or a human moved it to `validated`. The judgement is deliberately mechanical: it tells you whether *any* assumption was tested, never whether the *riskiest* one was — that stays a human call.
 
+A gate is only passable if results can be recorded, so `ost-agent result` is the human's half:
+
+```bash
+ost-agent result "Hand-distil three past sessions" \
+  --verdict supported --note "4 of 5 items were accepted as real evidence" \
+  --by "Tanner" --evidence observed --vault ~/my-vault
+```
+
+Attribution is required — a result with no name on it cannot be told apart from a fabricated one — and the command is **CLI-only by design**: it is on neither the agent's tool allowlist nor the MCP surface, so the agent cannot record a result even by accident. A test regression-guards that boundary.
+
 ### The believability ladder
 
 A note written at midnight and a customer renewing look identical once they are both files in a vault. Every node therefore declares which rung it rests on — `money` › `observed` › `stated` › `expert` › `assertion` — carried in frontmatter *and* as an `#evidence/<rung>` tag, so the weight of a claim is visible everywhere the node appears, including Obsidian's graph. `ost_create_node` refuses a node without one; `ost_set_evidence` labels nodes that predate the ladder, recording the change in their History; `ost-agent check` reports every unlabelled node; `ost-agent status` shows the per-rung breakdown and the weakest rung the tree as a whole rests on. The rule the agent is given is the one that keeps it honest: *pick the weakest rung that honestly covers the node's sources — a conclusion is only as believable as its weakest input.*
