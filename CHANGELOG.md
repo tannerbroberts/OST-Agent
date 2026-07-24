@@ -1,7 +1,12 @@
 # Changelog
 
-## 0.1.2
+## 0.1.3
 
+- **Fix:** a newly-created vault gets a repo-local git identity when none is
+  configured globally, so `ost-agent init` (and every commit) works on a bare
+  machine or a fresh CI runner instead of failing with "Please tell me who you are."
+  Never overrides an existing identity. Regression test in `test/git/safe-git.test.ts`.
+  (This was caught when the 0.1.2 publish workflow failed its own test gate in CI.)
 - **Slack adapter (read-only):** channel history → evidence, via a least-privilege
   bot token (`channels:history`, `channels:read`); GET-only Web API. The last
   pending source is now built.
