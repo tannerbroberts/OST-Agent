@@ -106,6 +106,59 @@ export function suggestCaution(test: OstNode): LaneSuggestion | undefined {
   return undefined;
 }
 
+/**
+ * The tests a pass would flag, listed before it flags anything: unlabelled
+ * assumption tests whose own text names a person outside the building.
+ *
+ * Deliberately skips anything already carrying a lane, permissive ones
+ * included. A human's `compute-only` call is a judgement this must never
+ * quietly reverse, and re-flagging an already-cautious test only adds noise to
+ * its History.
+ */
+export function cautionBacklog(tree: readonly OstNode[]): CautionEntry[] {
+  const out: CautionEntry[] = [];
+  for (const t of assumptionTests(tree)) {
+    if (t.lane) continue;
+    const hint = suggestCaution(t);
+    if (hint) out.push({ test: t.title, why: hint.why });
+  }
+  return out;
+}
+
+/** One entry of {@link cautionBacklog}: which test, and the phrase that flagged it. */
+export interface CautionEntry {
+  test: string;
+  why: string;
+}
+
+export interface FlagFiling {
+  /** Title of the AssumptionTest to put out of compute's reach. */
+  test: string;
+  /** Who made the call — an unattributed label cannot be audited. */
+  by: string;
+  /** Why, ideally quoting the phrase that prompted it. */
+  why: string;
+}
+
+/**
+ * Put one assumption test beyond an unattended pass's reach — the restrictive
+ * half of lane classification, and the only half an agent is given.
+ *
+ * There is no lane parameter, and that absence is the entire safety argument.
+ * Labelling a test `compute-only` is what decides that a pass may go run it on
+ * its own authority; an agent able to make that call can authorize itself, and
+ * every mechanism in the lane design becomes decoration. So the permissive call
+ * stays a human's, on the CLI (`ost-agent lane … --set`), while the call that
+ * only ever *removes* work from compute's reach is free — it is
+ * {@link suggestCaution}'s advice, promoted to a capability.
+ *
+ * Erring this way costs an operator some time. Erring the other way costs the
+ * tree its credibility, which is the one failure this product cannot survive.
+ */
+export function flagHumansRequired(vaultDir: string, filing: FlagFiling): string {
+  return setLane(vaultDir, { ...filing, lane: CAUTIOUS_LANE });
+}
+
 export interface LaneFiling {
   /** Title of the AssumptionTest being classified. */
   test: string;

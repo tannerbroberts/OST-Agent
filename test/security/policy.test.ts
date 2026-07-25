@@ -22,7 +22,7 @@ afterEach(() => {
 });
 
 describe("policy", () => {
-  test("the allowlist is exactly the 10 expected tools", () => {
+  test("the allowlist is exactly the 11 expected tools", () => {
     expect([...ALLOWED_TOOL_NAMES].sort()).toEqual(
       [
         "git_commit",
@@ -35,6 +35,7 @@ describe("policy", () => {
         "ost_read_tree",
         "ost_set_status",
         "ost_set_evidence",
+        "ost_flag_humans_required",
       ].sort(),
     );
   });
@@ -57,7 +58,7 @@ describe("policy", () => {
 });
 
 describe("buildOstTools", () => {
-  test("registers EXACTLY the 8 allowlisted tools and nothing else", () => {
+  test("registers EXACTLY the allowlisted tools and nothing else", () => {
     const tools = buildOstTools(ctx);
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual([...ALLOWED_TOOL_NAMES].sort());

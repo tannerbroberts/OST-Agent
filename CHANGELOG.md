@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+## 0.7.0
+
+- **The agent can now put a test out of its own reach — and that is the only lane call it
+  can make.** v0.6.0 shipped lanes with no agent tool at all, because the permissive call
+  (`compute-only`) is what decides that an unattended pass may go run something on its own
+  authority. The consequence was a backlog that stayed entirely unclassified, which by the
+  fail-closed rule means *nothing* is runnable: correct, and useless. `ost_flag_humans_required`
+  resolves it in the safe direction only. It takes `test` and `why` and **no lane argument**,
+  so "which lane" is not a decision the tool is able to express — `suggestCaution`'s advice,
+  promoted to a capability. The permissive call stays on the human's CLI.
+- **The absence of the argument is the safety argument.** Not a rule the agent is trusted to
+  follow, but a capability that can only point one way — the same move as the tool allowlist
+  itself. A test asserts the schema has exactly two properties and `additionalProperties: false`,
+  another that a `why` demanding `compute-only` still writes `humans-required`, and another that
+  flagging can only ever *shrink* what an unattended pass may run.
+- **`ost-agent lanes --flag-cautious <who>` does the backlog in bulk**, in the one direction
+  where bulk is safe. It applies `humans-required` to every *unclassified* test whose own text
+  names an outside person, quoting the phrase for each, and skips anything already carrying a
+  lane — a human's `compute-only` call is never quietly reversed. It then reports how many
+  remain unclassified, so a bulk pass can't be misread as "triage done".
+- **Attribution comes from the surface, not the model.** The tool does not ask the agent to
+  name itself; the filing is recorded as `agent:<surface>`. A self-reported `by` is worth
+  little in exactly the audit this field exists for.
+- 265 tests across 44 files (up from 243 / 42).
+
 ## 0.6.0
 
 - **Assumption tests now declare what they cost a person — and a pass can run the lane

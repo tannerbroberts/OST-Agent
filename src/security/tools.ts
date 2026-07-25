@@ -15,6 +15,7 @@ import { type NodeStatus, type OstNode } from "../ost/node.js";
 import { BELIEVABILITY_LADDER, isRung, type RungId } from "../knowledge/believability.js";
 import { Vault } from "../ost/vault.js";
 import { computeNextWork } from "../mcp/next-work.js";
+import { flagHumansRequired } from "../ost/lanes.js";
 import { ALLOWED_TOOL_NAMES } from "./policy.js";
 import { withUsageTracing } from "../telemetry/usage.js";
 
@@ -205,6 +206,35 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
       run: async (input: { title: string; status: string; note?: string }) => {
         vault.setStatus(input.title, input.status as NodeStatus, input.note);
         return `status of "${input.title}" set to ${input.status}`;
+      },
+    }),
+
+    betaTool({
+      name: "ost_flag_humans_required",
+      description:
+        "Mark an assumption test as needing real people outside the building, which puts it beyond what an unattended pass may run. This is the ONLY lane you can set: there is no way to mark a test cheap, and there never will be — deciding that compute may run a test on its own authority is a human's call, made with `ost-agent lane --set` on the CLI. Use this when a test's own text shows a person's reaction is the measurement (an interview, a recruit, an offer, a survey, consent). Quote the phrase that convinced you in `why`. When in doubt, say nothing: flagging costs an operator time, and silence here means only 'no marker found', never 'safe to automate'.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          test: { type: "string", description: "Title of the AssumptionTest." },
+          why: {
+            type: "string",
+            description: 'Why a person is irreducibly in the loop — quote the phrase, e.g. names an outside person: "interview".',
+          },
+        },
+        required: ["test", "why"],
+      },
+      run: async (input: { test: string; why: string }) => {
+        // Attribution comes from the surface, not from the model: a self-reported
+        // "by" is worth little in an audit, and this is the one field a reader
+        // uses to decide how much the classification is worth.
+        const line = flagHumansRequired(dir, {
+          test: input.test,
+          by: `agent${ctx.surface ? `:${ctx.surface}` : ""}`,
+          why: input.why,
+        });
+        return `"${input.test}" is now humans-required — an unattended pass will not run it. ${line}`;
       },
     }),
 

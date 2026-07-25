@@ -16,6 +16,10 @@ export const ALLOWED_TOOL_NAMES = [
   "ost_link_nodes",
   "ost_set_status",
   "ost_set_evidence",
+  // Restrictive-only by construction: it can put a test out of compute's reach
+  // and nothing else. There is deliberately no general lane setter here — see
+  // ost/lanes.ts `flagHumansRequired`.
+  "ost_flag_humans_required",
   "ost_annotate",
   "git_commit",
   "git_push",

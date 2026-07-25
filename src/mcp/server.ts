@@ -24,6 +24,7 @@ export const MCP_TOOL_NAMES = [
   "ost_link_nodes",
   "ost_set_status",
   "ost_set_evidence",
+  "ost_flag_humans_required",
   "ost_annotate",
 ] as const;
 

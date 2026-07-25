@@ -9,6 +9,7 @@
  *   ost-agent result "<test>" ...             record a human-run test's outcome
  *   ost-agent debt [--vault DIR]              evidence each solution still owes
  *   ost-agent lanes [--vault DIR]             assumption tests by the human minutes they cost
+ *   ost-agent lanes --flag-cautious <who>     bulk: humans-required for every test naming an outside person
  *   ost-agent lane "<test>" --set <lane> ...  classify one test into a lane
  *   ost-agent gate "<solution>" [--vault DIR] block building against untested assumptions
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
@@ -31,7 +32,7 @@ import { checkInvariants } from "../eval/invariants.js";
 import { computeEvidenceDebt, gateSolution } from "../eval/evidence-debt.js";
 import { BELIEVABILITY_LADDER, believabilityRollup, type RungId } from "../knowledge/believability.js";
 import { recordResult, VERDICTS, type Verdict } from "../ost/results.js";
-import { setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
+import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
 import { laneDef, LANES, type LaneId } from "../knowledge/lanes.js";
 import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapters/friction.js";
 import { ALLOWED_TOOL_NAMES } from "../security/policy.js";
@@ -203,13 +204,40 @@ program
   .description("assumption tests grouped by the human minutes they actually cost")
   .option("--vault <dir>", "vault directory", ".")
   .option("--runnable", "print only the compute-only backlog, one title per line (for scripting)")
-  .action((opts: { vault: string; runnable?: boolean }) => {
+  .option(
+    "--flag-cautious <who>",
+    "apply humans-required, in bulk, to every unclassified test whose text names an outside person",
+  )
+  .action((opts: { vault: string; runnable?: boolean; flagCautious?: string }) => {
     const ctx = buildPassContext(opts.vault);
     const tree = ctx.vault.readTree();
     const t = triageLanes(tree);
 
     if (opts.runnable) {
       for (const title of t.runnable) console.log(title);
+      return;
+    }
+
+    // The bulk half of triage, in the only direction that is safe to do in
+    // bulk. Every entry here is a test the tree's own text says needs a person,
+    // so applying it wholesale can only shrink what an unattended pass may run;
+    // the permissive calls stay one-at-a-time and human, on `ost-agent lane`.
+    if (opts.flagCautious) {
+      const backlog = cautionBacklog(tree);
+      if (backlog.length === 0) {
+        console.log("Nothing to flag — no unclassified test names an outside person.");
+        console.log("That is not a verdict on the rest: silence means no marker found, never 'safe to automate'.");
+        return;
+      }
+      for (const entry of backlog) {
+        flagHumansRequired(opts.vault, { test: entry.test, by: opts.flagCautious, why: entry.why });
+        console.log(`  flagged "${entry.test}" — ${entry.why}`);
+      }
+      console.log(
+        `\n${backlog.length} test(s) are now humans-required, attributed to ${opts.flagCautious}.\n` +
+          `${t.unlabelled.length - backlog.length} remain unclassified and are still NOT runnable by compute —\n` +
+          "classifying those permissively is a judgement, and it stays yours.",
+      );
       return;
     }
 

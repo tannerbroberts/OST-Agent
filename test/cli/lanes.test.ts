@@ -84,6 +84,56 @@ describe("ost-agent lanes", () => {
   }, 60_000);
 });
 
+describe("ost-agent lanes --flag-cautious", () => {
+  test("flags only the test that names outside people, and leaves the other unclassified", async () => {
+    const { stdout } = await cli(["lanes", "--vault", dir, "--flag-cautious", "tanner"]);
+
+    expect(stdout).toMatch(/flagged "Interview five real players"/);
+    expect(stdout).not.toContain("Replay the fourteen existing run journals");
+
+    const vault = new Vault(dir);
+    expect(vault.read("Interview five real players").lane).toBe("humans-required");
+    // Unclassified is the correct resting state for everything else: the
+    // permissive call is a judgement and bulk is the wrong shape for it.
+    expect(vault.read("Replay the fourteen existing run journals").lane).toBeUndefined();
+  }, 60_000);
+
+  test("says how many are still unclassified, so a bulk pass cannot read as 'triage done'", async () => {
+    const { stdout } = await cli(["lanes", "--vault", dir, "--flag-cautious", "tanner"]);
+
+    expect(stdout).toContain("1 remain unclassified");
+    expect(stdout).toContain("still NOT runnable by compute");
+  }, 60_000);
+
+  test("never reverses a human's permissive call", async () => {
+    // The one bulk failure that would be a safety regression rather than noise.
+    await cli([
+      "lane",
+      "Interview five real players",
+      "--set",
+      "compute-only",
+      "--by",
+      "tanner",
+      "--why",
+      "deliberate, and the point of this test",
+      "--vault",
+      dir,
+    ]);
+
+    await cli(["lanes", "--vault", dir, "--flag-cautious", "loop"]);
+
+    expect(new Vault(dir).read("Interview five real players").lane).toBe("compute-only");
+  }, 90_000);
+
+  test("is honest when there is nothing to flag", async () => {
+    await cli(["lanes", "--vault", dir, "--flag-cautious", "tanner"]);
+    const { stdout } = await cli(["lanes", "--vault", dir, "--flag-cautious", "tanner"]);
+
+    expect(stdout).toContain("Nothing to flag");
+    expect(stdout).toContain("never 'safe to automate'");
+  }, 90_000);
+});
+
 describe("ost-agent lane", () => {
   test("classifies a test and says plainly whether compute may now run it", async () => {
     const { stdout } = await cli([

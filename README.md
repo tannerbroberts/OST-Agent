@@ -191,12 +191,15 @@ Every `AssumptionTest` can therefore carry a **lane**, in frontmatter alongside 
 ```bash
 ost-agent lanes --vault ~/my-vault              # every test grouped by what it costs
 ost-agent lanes --vault ~/my-vault --runnable   # bare list: the compute-only backlog
+ost-agent lanes --vault ~/my-vault --flag-cautious "Tanner"   # bulk: humans-required for every test naming an outside person
 ost-agent lane "Replay the fourteen run journals" \
   --set compute-only --by "Tanner" \
   --why "every journal is already in the repo" --vault ~/my-vault
 ```
 
-The safety rule is the whole design, and it fails **closed**: exactly one lane is runnable by compute, and *anything else — including an unclassified test, or a lane string a future version invents — is not it*. Unclassified never means "safe to automate". A test mislabelled `compute-only` and then run by an agent would put fabricated evidence into the tree, which is the one failure this product cannot survive, so `ost-agent lanes` ships a mechanical triage aid that **can only ever point at `humans-required`** — it quotes the phrase that flagged it (`names an outside person: "interview"`) and stays silent otherwise. The permissive call is a human's by construction. Classification is attributed and recorded in the node's History, so any lane can be audited back to who set it and why.
+The safety rule is the whole design, and it fails **closed**: exactly one lane is runnable by compute, and *anything else — including an unclassified test, or a lane string a future version invents — is not it*. Unclassified never means "safe to automate". A test mislabelled `compute-only` and then run by an agent would put fabricated evidence into the tree, which is the one failure this product cannot survive, so `ost-agent lanes` ships a mechanical triage aid that **can only ever point at `humans-required`** — it quotes the phrase that flagged it (`names an outside person: "interview"`) and stays silent otherwise. Classification is attributed and recorded in the node's History, so any lane can be audited back to who set it and why.
+
+**The agent gets the restrictive half of that, and only the restrictive half.** `ost_flag_humans_required` puts a test *beyond* an unattended pass's reach; it takes no lane argument, so "which lane" is not a decision it is able to make, and the permissive call stays on the human's CLI (`ost-agent lane --set`). This is the trust model applied to the feature itself: an agent that could label a test `compute-only` could authorize itself to run it, and every mechanism above would become decoration. Erring this way costs an operator some time; erring the other way costs the tree its credibility.
 
 ### The believability ladder
 
