@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+## 0.6.0
+
+- **Assumption tests now declare what they cost a person — and a pass can run the lane
+  that costs nobody anything.** A backlog of tests is not one queue: replays and audits
+  over artifacts already on disk sit in the same list as interviews, so everything waits
+  on the operator and the free tests never get run. Every `AssumptionTest` may now carry
+  a `lane` in frontmatter — `compute-only`, `one-command`, `pending-permission`, or
+  `humans-required` — with `ost-agent lanes` to see the tree grouped by cost and
+  `ost-agent lane "<test>" --set <lane> --by <who> --why <text>` to classify one.
+  Classification is attributed and recorded in the node's History, so any lane can be
+  traced back to who made the call.
+- **The lane vocabulary fails closed, and that is the whole safety argument.** Exactly
+  one lane (`compute-only`) is runnable by an unattended pass; an unclassified test, or a
+  lane string a future version invents, is *not* runnable — the same floor rule the
+  believability ladder uses. Unclassified never means "safe to automate". A test
+  mislabelled `compute-only` and then run by an agent would write fabricated evidence
+  into the tree, which is the one failure this product cannot survive.
+- **The triage aid can only ever raise a hand.** `suggestCaution` scans a test for
+  phrases naming people outside the building and quotes the one that matched
+  (`names an outside person: "interview"`); it never returns a lane compute is allowed to
+  run, and its silence means "no marker found", never "safe". The permissive call stays a
+  human's by construction, enforced by test.
+- **`pending-permission` is deliberately distinct from `one-command`.** Folded in from an
+  observed stall in the unattended loop: `npm publish` is not a yes/no with evidence
+  behind it, so filing it as a decision makes a decision docket feel like chores. What
+  blocks it is a credential, not a judgement, and the two want different treatment.
+
 ## 0.5.0
 
 - **A failed pass is now visible to a machine.** `ost-agent run` exits **1** and prints

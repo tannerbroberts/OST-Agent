@@ -8,6 +8,8 @@
  *   ost-agent status [--vault DIR]            read-only tree summary
  *   ost-agent result "<test>" ...             record a human-run test's outcome
  *   ost-agent debt [--vault DIR]              evidence each solution still owes
+ *   ost-agent lanes [--vault DIR]             assumption tests by the human minutes they cost
+ *   ost-agent lane "<test>" --set <lane> ...  classify one test into a lane
  *   ost-agent gate "<solution>" [--vault DIR] block building against untested assumptions
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
  *   ost-agent mcp [--vault DIR]               stdio MCP server (no API key needed)
@@ -29,6 +31,8 @@ import { checkInvariants } from "../eval/invariants.js";
 import { computeEvidenceDebt, gateSolution } from "../eval/evidence-debt.js";
 import { BELIEVABILITY_LADDER, believabilityRollup, type RungId } from "../knowledge/believability.js";
 import { recordResult, VERDICTS, type Verdict } from "../ost/results.js";
+import { setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
+import { laneDef, LANES, type LaneId } from "../knowledge/lanes.js";
 import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapters/friction.js";
 import { ALLOWED_TOOL_NAMES } from "../security/policy.js";
 import { createOstMcpServer, assertVaultReady, MCP_TOOL_NAMES } from "../mcp/server.js";
@@ -192,6 +196,61 @@ program
       "\nMechanical only: this counts whether ANY assumption beneath a solution recorded a result.\n" +
         "Whether the RIGHT (riskiest) assumption was tested is a human judgement.",
     );
+  });
+
+program
+  .command("lanes")
+  .description("assumption tests grouped by the human minutes they actually cost")
+  .option("--vault <dir>", "vault directory", ".")
+  .option("--runnable", "print only the compute-only backlog, one title per line (for scripting)")
+  .action((opts: { vault: string; runnable?: boolean }) => {
+    const ctx = buildPassContext(opts.vault);
+    const tree = ctx.vault.readTree();
+    const t = triageLanes(tree);
+
+    if (opts.runnable) {
+      for (const title of t.runnable) console.log(title);
+      return;
+    }
+
+    console.log(`Assumption tests: ${t.totals.tests}  (classified ${t.totals.labelled}, unclassified ${t.totals.unlabelled})`);
+    for (const lane of LANES) {
+      const titles = t.byLane[lane.id];
+      const marker = lane.computeMayRun ? "compute may run" : "needs a person";
+      console.log(`\n[${lane.id}] ${titles.length} — ${marker}`);
+      for (const title of titles) console.log(`  - ${title}`);
+    }
+
+    if (t.unlabelled.length > 0) {
+      console.log(`\n[unclassified] ${t.unlabelled.length} — treated as NOT runnable by compute`);
+      for (const title of t.unlabelled) {
+        const node = tree.find((n) => n.title === title);
+        const hint = node ? suggestCaution(node) : undefined;
+        console.log(`  - ${title}${hint ? `  ⚠ likely ${hint.lane}: ${hint.why}` : ""}`);
+      }
+    }
+
+    console.log(`\nRunnable right now (compute-only, no result yet): ${t.runnable.length}`);
+    for (const title of t.runnable) console.log(`  - ${title}`);
+    console.log(
+      "\nA lane is a judgement, not a measurement. Unclassified never means safe to automate,\n" +
+        "and the ⚠ hints only ever point AT a person — the permissive call is always a human's.",
+    );
+  });
+
+program
+  .command("lane")
+  .description("classify one assumption test into a lane (attributed, recorded in History)")
+  .argument("<test>", "title of the AssumptionTest node")
+  .requiredOption("-s, --set <lane>", `one of: ${LANES.map((l) => l.id).join(", ")}`)
+  .requiredOption("-b, --by <who>", "who made the call — an unauditable label is worse than none")
+  .requiredOption("-w, --why <text>", "why this lane, in the classifier's words")
+  .option("--vault <dir>", "vault directory", ".")
+  .action((test: string, opts: { set: string; by: string; why: string; vault: string }) => {
+    const line = setLane(opts.vault, { test, lane: opts.set as LaneId, by: opts.by, why: opts.why });
+    console.log(`classified "${test}": ${line}`);
+    const def = laneDef(opts.set as LaneId);
+    console.log(def.computeMayRun ? "  an unattended pass MAY now run this test." : "  a person is still required.");
   });
 
 program

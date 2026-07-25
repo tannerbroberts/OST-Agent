@@ -25,6 +25,7 @@
  */
 import matter from "gray-matter";
 import { isRung, type RungId } from "../knowledge/believability.js";
+import { isLane, type LaneId } from "../knowledge/lanes.js";
 
 /** Tag form of the evidence class: `#evidence/observed`. */
 const EVIDENCE_TAG = /^evidence\/(.+)$/;
@@ -63,6 +64,12 @@ export interface OstNode {
    * visible everywhere the node appears — including Obsidian's graph.
    */
   evidence?: RungId;
+  /**
+   * For an AssumptionTest: which lane it costs — and therefore whether an
+   * unattended pass may run it at all. Absent means unclassified, which the lane
+   * rules treat as "not runnable by compute" rather than as a default.
+   */
+  lane?: LaneId;
   /** Extra tags beyond the layer tag (e.g. ["unvalidated"]). */
   tags: string[];
   /** Titles of child nodes, rendered as `[[wikilinks]]`. */
@@ -86,6 +93,7 @@ export function serialize(node: OstNode): string {
   if (node.created) data.created = node.created;
   if (node.confidence) data.confidence = node.confidence;
   if (node.evidence) data.evidence = node.evidence;
+  if (node.lane) data.lane = node.lane;
 
   // The evidence tag is derived from `evidence`, never carried in `tags`, so a
   // round-trip cannot render it twice.
@@ -153,5 +161,8 @@ export function deserialize(title: string, markdown: string): OstNode {
   if (typeof data.confidence === "string") node.confidence = data.confidence;
   const rung = typeof data.evidence === "string" ? data.evidence : taggedRung;
   if (rung && isRung(rung)) node.evidence = rung;
+  // An unrecognised lane is dropped, not carried: a label nobody defined must
+  // never be the reason an unattended pass decides it may run a test.
+  if (typeof data.lane === "string" && isLane(data.lane)) node.lane = data.lane;
   return node;
 }

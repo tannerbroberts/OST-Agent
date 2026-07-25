@@ -14,6 +14,7 @@ import matter from "gray-matter";
 import { deserialize, serialize, type Layer, type NodeStatus, type OstNode } from "./node.js";
 import { fileNameForTitle, sanitizeTitle } from "./sanitize.js";
 import type { RungId } from "../knowledge/believability.js";
+import type { LaneId } from "../knowledge/lanes.js";
 
 const VALID_LAYERS: readonly Layer[] = ["Outcome", "Opportunity", "Solution", "AssumptionTest"];
 
@@ -132,6 +133,21 @@ export class Vault {
     const line = `- ${isoToday()} evidence: ${prev} \u2192 ${evidence}${note ? ` \u2014 ${note}` : ""}`;
     node.body = appendUnderHeading(node.body, "## History", line);
     fs.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+  }
+
+  /**
+   * Classify an assumption test into a lane, recording the call in History.
+   * Returns the history line that was written. Validation of the lane itself,
+   * and of who/why, lives in `ost/lanes.ts` — this is the write.
+   */
+  setLane(title: string, lane: LaneId, note?: string): string {
+    const node = this.read(title);
+    const prev = node.lane ?? "(none)";
+    node.lane = lane;
+    const line = `- ${isoToday()} lane: ${prev} → ${lane}${note ? ` — ${note}` : ""}`;
+    node.body = appendUnderHeading(node.body, "## History", line);
+    fs.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+    return line;
   }
 
   /**

@@ -175,6 +175,29 @@ ost-agent result "Hand-distil three past sessions" \
 
 Attribution is required — a result with no name on it cannot be told apart from a fabricated one — and the command is **CLI-only by design**: it is on neither the agent's tool allowlist nor the MCP surface, so the agent cannot record a result even by accident. A test regression-guards that boundary.
 
+### Lanes — what each assumption test actually costs a person
+
+A backlog of assumption tests is not one queue. Some are replays and audits over artifacts already sitting on disk; some need a person for one keystroke; some are blocked on a credential nobody delegated; and some need real outside people and can never be anything else. Treated as one queue they all wait on the scarcest resource in the list — the operator — and the free ones never get run.
+
+Every `AssumptionTest` can therefore carry a **lane**, in frontmatter alongside its rung:
+
+| Lane | What it means | Compute may run it |
+|------|---------------|--------------------|
+| `compute-only` | Runs entirely over artifacts that already exist — replays, audits, paper-classifications | **yes** |
+| `one-command` | Compute prepares the whole verdict; the human reads a paragraph and runs one pre-filled `ost-agent result` line | no |
+| `pending-permission` | The work is done; what is missing is a credential or a consent — publishing, granting access, speaking in someone's name | no |
+| `humans-required` | Real people outside the building are irreducibly in the loop | no |
+
+```bash
+ost-agent lanes --vault ~/my-vault              # every test grouped by what it costs
+ost-agent lanes --vault ~/my-vault --runnable   # bare list: the compute-only backlog
+ost-agent lane "Replay the fourteen run journals" \
+  --set compute-only --by "Tanner" \
+  --why "every journal is already in the repo" --vault ~/my-vault
+```
+
+The safety rule is the whole design, and it fails **closed**: exactly one lane is runnable by compute, and *anything else — including an unclassified test, or a lane string a future version invents — is not it*. Unclassified never means "safe to automate". A test mislabelled `compute-only` and then run by an agent would put fabricated evidence into the tree, which is the one failure this product cannot survive, so `ost-agent lanes` ships a mechanical triage aid that **can only ever point at `humans-required`** — it quotes the phrase that flagged it (`names an outside person: "interview"`) and stays silent otherwise. The permissive call is a human's by construction. Classification is attributed and recorded in the node's History, so any lane can be audited back to who set it and why.
+
 ### The believability ladder
 
 A note written at midnight and a customer renewing look identical once they are both files in a vault. Every node therefore declares which rung it rests on — `money` › `observed` › `stated` › `expert` › `assertion` — carried in frontmatter *and* as an `#evidence/<rung>` tag, so the weight of a claim is visible everywhere the node appears, including Obsidian's graph. `ost_create_node` refuses a node without one; `ost_set_evidence` labels nodes that predate the ladder, recording the change in their History; `ost-agent check` reports every unlabelled node; `ost-agent status` shows the per-rung breakdown and the weakest rung the tree as a whole rests on. The rule the agent is given is the one that keeps it honest: *pick the weakest rung that honestly covers the node's sources — a conclusion is only as believable as its weakest input.*
