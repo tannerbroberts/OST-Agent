@@ -30,7 +30,16 @@ export async function gitInitIfAbsent(dir: string): Promise<boolean> {
   const abs = path.resolve(dir);
   fs.mkdirSync(abs, { recursive: true });
   if (fs.existsSync(path.join(abs, ".git"))) return false;
-  await git(abs).init();
+  const g = git(abs);
+  await g.init();
+  // Ensure commits succeed even where no global git identity is configured — a fresh
+  // CI runner, a container, or a bare workstation. Only set a repo-local identity when
+  // none is already resolvable, so we never override the user's real name/email.
+  const hasIdentity = (await g.raw(["config", "user.email"]).catch(() => "")).trim().length > 0;
+  if (!hasIdentity) {
+    await g.addConfig("user.email", "ost-agent@localhost");
+    await g.addConfig("user.name", "OST-Agent");
+  }
   return true;
 }
 

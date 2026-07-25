@@ -1,0 +1,10 @@
+{
+  "extraKnownMarketplaces": {
+    "ost-agent": {
+      "source": { "source": "github", "repo": "tannerbroberts/OST-Agent" }
+    }
+  },
+  "enabledPlugins": {
+    "ost-agent@ost-agent": true
+  }
+}

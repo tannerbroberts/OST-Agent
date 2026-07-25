@@ -52,6 +52,32 @@ describe("gitInitIfAbsent + gitCommit", () => {
     expect(isAncestor).toBe(true);
   });
 
+  test("commits succeed with no ambient git identity (fresh CI runner / bare machine)", async () => {
+    // Simulate a machine with no usable global/system identity: a global config that
+    // sets user.useConfigOnly (so git refuses to guess an identity) and no name/email.
+    // Without gitInitIfAbsent seeding a repo-local identity, the commit would fail here.
+    const cfgDir = fs.mkdtempSync(path.join(os.tmpdir(), "ost-gitcfg-"));
+    const globalCfg = path.join(cfgDir, "config");
+    fs.writeFileSync(globalCfg, "[user]\n\tuseConfigOnly = true\n");
+    const prev = { g: process.env.GIT_CONFIG_GLOBAL, s: process.env.GIT_CONFIG_SYSTEM };
+    process.env.GIT_CONFIG_GLOBAL = globalCfg;
+    process.env.GIT_CONFIG_SYSTEM = os.platform() === "win32" ? "NUL" : "/dev/null";
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), "ost-noident-"));
+    try {
+      await safeGit.gitInitIfAbsent(d);
+      fs.writeFileSync(path.join(d, "a.md"), "one");
+      const c = await safeGit.gitCommit(d, "first");
+      expect(c.committed).toBe(true);
+    } finally {
+      if (prev.g === undefined) delete process.env.GIT_CONFIG_GLOBAL;
+      else process.env.GIT_CONFIG_GLOBAL = prev.g;
+      if (prev.s === undefined) delete process.env.GIT_CONFIG_SYSTEM;
+      else process.env.GIT_CONFIG_SYSTEM = prev.s;
+      fs.rmSync(d, { recursive: true, force: true });
+      fs.rmSync(cfgDir, { recursive: true, force: true });
+    }
+  });
+
   test("commit is a no-op when the tree is clean", async () => {
     await safeGit.gitInitIfAbsent(dir);
     fs.writeFileSync(path.join(dir, "a.md"), "one");

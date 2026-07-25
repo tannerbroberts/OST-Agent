@@ -1,6 +1,6 @@
 {
   "name": "ost-agent",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "description": "Autonomous, append-only agent that maintains a Teresa Torres Opportunity Solution Tree as Obsidian-graph Markdown. Runs unmonitored; incapable of destructive action by construction.",
   "type": "module",
   "license": "MIT",

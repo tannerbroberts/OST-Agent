@@ -11,6 +11,7 @@
  * It never mutates, so it carries no commit.
  */
 import { byTitle, childrenOfLayer, getMapped, readEvidence } from "../processes/tree.js";
+import { findNearDuplicateIssues } from "../ost/dedupe.js";
 import type { OstNode } from "../ost/node.js";
 import type { Vault } from "../ost/vault.js";
 
@@ -67,6 +68,8 @@ function detectHygiene(tree: OstNode[]): HygieneIssue[] {
       if (parents.length === 0) issues.push({ title: n.title, issue: "orphan solution: not linked under any opportunity" });
     }
   }
+  // likely duplicates (same-layer near-identical titles) — flagged for a human, never merged
+  issues.push(...findNearDuplicateIssues(tree));
   // suppress ones already annotated into the node body (idempotent, matches P5)
   return issues.filter(({ title, issue }) => {
     const node = index.get(title);
@@ -82,9 +85,15 @@ export function computeNextWork(vault: Vault, dir: string, min: number): NextWor
   const tree = vault.readTree();
   const index = byTitle(tree);
 
+  // Evidence counts as mapped if the batch P2_map runner recorded it in mapped.json,
+  // OR any node in the tree cites it as its `source`. The MCP-driven path attaches the
+  // evidence id via ost_create_node's `source` but never writes mapped.json, so deriving
+  // "mapped" from the tree too keeps this read-only report self-consistent no matter which
+  // driver did the mapping — otherwise a session-driven /ost-pass can never reach done.
   const mapped = getMapped(dir);
+  const citedSources = new Set(tree.map((n) => n.source).filter((s): s is string => !!s));
   const unmappedEvidence: UnmappedEvidence[] = readEvidence(dir)
-    .filter((e) => !mapped.has(e.id))
+    .filter((e) => !mapped.has(e.id) && !citedSources.has(e.id))
     .map((e) => ({ id: e.id, source: e.source, title: e.title, excerpt: e.body.slice(0, 280) }));
 
   const underservedOpportunities: UnderservedOpportunity[] = tree
