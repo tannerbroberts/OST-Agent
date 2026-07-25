@@ -20,6 +20,7 @@ import { Cron } from "croner";
 import { buildPassContext } from "../runner/context.js";
 import { initVault } from "../runner/init.js";
 import { runPass } from "../runner/pass.js";
+import { failed, lastFailedRun, lastRunPerProcess, readRunJournals, type RunJournalEntry } from "../runner/journal.js";
 import { runTool } from "../runner/tool.js";
 import { setOutcome } from "../runner/set-outcome.js";
 import { anthropicDriver } from "../runner/driver.js";
@@ -77,8 +78,14 @@ program
     const ctx = buildPassContext(opts.vault);
     const outcome = await runPass(proc, ctx, anthropicDriver());
     console.log(`${proc.id} ${proc.title}: created=${outcome.result.created} linked=${outcome.result.linked} annotated=${outcome.result.annotated} evidence=${outcome.result.evidence}`);
-    if (outcome.error) console.log(`  error: ${outcome.error}`);
     console.log(`  ${outcome.committed ? `committed ${outcome.sha.slice(0, 8)}` : "nothing to commit"}; done=${outcome.done}`);
+    if (outcome.error) {
+      // A partial pass (work committed, then an error) still fails: one exit code
+      // that means "do not trust this run" is the contract cron and CI already speak.
+      // Whatever landed before the error is in the commit above and in the journal.
+      console.error(`${proc.id} FAILED: ${outcome.error}`);
+      process.exitCode = 1;
+    }
   });
 
 program
@@ -208,6 +215,8 @@ program
   .option("--vault <dir>", "vault directory", ".")
   .action((opts: { vault: string }) => {
     const ctx = buildPassContext(opts.vault);
+    const journals = readRunJournals(ctx.dir);
+    printLastFailure(journals);
     const tree = ctx.vault.readTree();
     const byLayer = (l: string) => tree.filter((n) => n.layer === l).length;
     const unvalidated = tree.filter((n) => n.status === "unvalidated").length;
@@ -219,7 +228,7 @@ program
     const perRung = BELIEVABILITY_LADDER.map((r) => `${r.id} ${rollup.counts[r.id]}`).join(", ");
     console.log(`Believability: ${perRung}${rollup.unlabelled ? `, unlabelled ${rollup.unlabelled}` : ""}`);
     console.log(`  the tree as a whole rests on its weakest rung: ${rollup.weakest}`);
-    printLastRuns(ctx.dir);
+    printLastRuns(journals);
   });
 
 program
@@ -255,6 +264,11 @@ program
       });
       if (!outcome) return;
       console.log(`[${new Date().toISOString()}] ${id}: created=${outcome.result.created} committed=${outcome.committed}`);
+      if (outcome.error) {
+        // The supervisor stays up (that is its job), but the failure goes to stderr
+        // where a wrapper, launchd, or a log scraper can see it.
+        console.error(`[${new Date().toISOString()}] ${id} FAILED: ${outcome.error}`);
+      }
       // fire downstream `after:<id>` triggers
       for (const [depId, cfg] of Object.entries(ctx.config.processes)) {
         if ((cfg.triggers ?? []).includes(`after:${id}`)) await fire(depId);
@@ -280,24 +294,23 @@ program
     }
   });
 
-function printLastRuns(dir: string): void {
-  const runsDir = path.join(dir, ".ost-agent", "runs");
-  if (!fs.existsSync(runsDir)) return;
-  const latest = new Map<string, { at: string }>();
-  for (const f of fs.readdirSync(runsDir)) {
-    if (!f.endsWith(".json")) continue;
-    try {
-      const e = JSON.parse(fs.readFileSync(path.join(runsDir, f), "utf8")) as { processId: string; at: string };
-      const prev = latest.get(e.processId);
-      if (!prev || e.at > prev.at) latest.set(e.processId, { at: e.at });
-    } catch {
-      /* skip unreadable run log */
-    }
-  }
-  if (latest.size) {
-    console.log("Last runs:");
-    for (const [id, { at }] of [...latest].sort()) console.log(`  ${id}: ${at}`);
-  }
+/**
+ * Failure leads. An operator glancing at `status` after a silent overnight no-op
+ * should learn in five seconds that something died — before any node counts.
+ */
+function printLastFailure(journals: RunJournalEntry[]): void {
+  const failure = lastFailedRun(journals);
+  if (!failure) return;
+  console.log(`⚠ Last run FAILED — ${failure.processId} at ${failure.at}`);
+  console.log(`  ${failure.error}`);
+  console.log(`  journal: .ost-agent/runs/${failure.file}\n`);
+}
+
+function printLastRuns(journals: RunJournalEntry[]): void {
+  const latest = lastRunPerProcess(journals);
+  if (!latest.length) return;
+  console.log("Last runs:");
+  for (const e of latest) console.log(`  ${e.processId}: ${e.at} ${failed(e) ? "FAILED" : "ok"}`);
 }
 
 program.parseAsync().catch((e) => {

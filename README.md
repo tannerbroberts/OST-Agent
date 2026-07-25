@@ -46,6 +46,7 @@ The safety of OST-Agent does not depend on the agent behaving well. It depends o
 - **Untrusted input.** Content pulled from integrations is treated as *data, never instructions*. Integrations are **read-only**, with least-privilege tokens; the agent reads the business, it never writes back to it.
 - **Confined & bounded.** All writes stay inside the vault folder; filenames are sanitized. Every pass has hard limits (max tool calls, wall-clock, token budget) and then exits — nothing long-lived can run away.
 - **Secrets stay out of the vault.** Tokens live in environment variables, never in commits.
+- **Failure is legible to machines.** A pass that errors exits **1** and prints `<process> FAILED: <error>` on stderr, so cron, launchd, or CI can tell a dead schedule from a quiet one; `ost-agent status` leads with the last failed run — process, time, error, journal path — before any node counts. Unattended operation is only trustworthy if silence really means healthy.
 
 Read the full model in [`docs/superpowers/specs`](docs/superpowers/specs).
 
