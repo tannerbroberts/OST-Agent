@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+## 0.9.0
+
+- **The uncovered statement now has somewhere to be *checked*, not just written.** v0.8.0
+  made every result carry a statement of what it left untested, and then never read it —
+  `debt` counted the pair and stopped. A count proves a sentence exists; it cannot show the
+  sentence bounds anything. `ost-agent debt` now prints every **bounded** test side by side:
+  the threshold the node pre-committed to before the run, above the limit the run stated
+  afterwards. Two pieces of text the tool already held, printed together.
+- **It never compares them.** No parsing of the result, no scoring, no model. Whether the run
+  answered the threshold printed next to it is the human call the whole coverage feature was
+  built around, and the output says so in place of the old caveat.
+- **A bounded test with no written threshold is called out, not skipped.** A limit stated
+  against no stated question has nothing to be read against — and that is exactly the case
+  the pair count reports as healthy. `debt` names those tests and totals them.
+- **The pre-commitment marker is matched on the phrase, not one spelling.** Between them the
+  two live vaults write "Pre-committed threshold", "Pre-committed success threshold",
+  "Pre-commit before looking", "Pre-commit the threshold before starting" and more; neither
+  was written against this feature. Insisting on one spelling would have reported a tree full
+  of thresholds as having none.
+- New: `askedOf`, `uncoveredStatementsOf`, `computeCoveragePairs` in `src/eval/coverage.ts`.
+- 299 tests across 46 files (up from 285 / 45).
+
 ## 0.8.0
 
 - **A result must now say what it does *not* cover.** `ost-agent result` gains a required

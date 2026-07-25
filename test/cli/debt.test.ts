@@ -37,6 +37,66 @@ describe("ost-agent debt", () => {
     expect(stdout).toContain("Untested idea");
     expect(stdout).toContain("untested");
   }, 30_000);
+
+  test("prints a bounded test's threshold next to what its run did not cover", async () => {
+    // The whole point of the pairing: the two sentences have to be readable
+    // together, or the uncovered field is a box that got ticked.
+    const vault = new Vault(dir);
+    vault.createNode({
+      title: "Cold offer",
+      layer: "AssumptionTest",
+      tags: [],
+      links: [],
+      body: [
+        "**Pre-committed threshold:** at least 5 of 20 book a kickoff.",
+        "",
+        "## Results",
+        "- 2026-07-25 **supported** (ran by Tanner) — 6 booked",
+        "",
+        "## Uncovered",
+        "- 2026-07-25 (supported) — says nothing about whether any of them sent an artefact",
+      ].join("\n"),
+      evidence: "observed",
+    });
+    vault.linkNodes("Untested idea", "Cold offer");
+
+    const { stdout } = await cli(["debt", "--vault", dir]);
+
+    expect(stdout).toContain("at least 5 of 20 book a kickoff.");
+    expect(stdout).toContain("says nothing about whether any of them sent an artefact");
+    // Side by side means side by side: the threshold must be readable above the
+    // limit, under the one title, not in two separate lists.
+    const asked = stdout.indexOf("at least 5 of 20");
+    const limit = stdout.indexOf("says nothing about whether");
+    const title = stdout.lastIndexOf("Cold offer", asked);
+    expect(title).toBeGreaterThan(-1);
+    expect(asked).toBeLessThan(limit);
+  }, 30_000);
+
+  test("says so when a bounded test never wrote a threshold down", async () => {
+    const vault = new Vault(dir);
+    vault.createNode({
+      title: "Unasked",
+      layer: "AssumptionTest",
+      tags: [],
+      links: [],
+      body: [
+        "just a plan, with no threshold",
+        "",
+        "## Results",
+        "- 2026-07-25 **supported** (ran by Tanner) — went well",
+        "",
+        "## Uncovered",
+        "- 2026-07-25 (supported) — only covers desktop",
+      ].join("\n"),
+      evidence: "observed",
+    });
+    vault.linkNodes("Untested idea", "Unasked");
+
+    const { stdout } = await cli(["debt", "--vault", dir]);
+
+    expect(stdout).toMatch(/no pre-committed threshold/i);
+  }, 30_000);
 });
 
 describe("ost-agent gate", () => {

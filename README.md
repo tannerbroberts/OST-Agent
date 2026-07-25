@@ -192,7 +192,19 @@ A result says what happened. It almost never says what *didn't*, so the artefact
 
 `ost-agent debt` and `ost-agent status` then count the pair. A test whose results outrun its uncovered statements is listed as **unbounded** — a claim nobody wrote a limit for. Results recorded before this field existed read as unbounded rather than as an error, so older vaults keep working and their debt is visible instead of silent.
 
-The check is shallow on purpose: it never reads the statement or tests whether it is true, only that a person was made to write one. Whether the limit is honest stays a human judgement, and nothing here pretends otherwise.
+A count proves a sentence exists; it cannot show the sentence bounds anything. So `ost-agent debt` also prints every **bounded** test side by side — the threshold the node pre-committed to before the run, above the limit the run stated afterwards:
+
+```text
+Bounded — what each test asked for, and what its runs left out:
+  Audit both vault histories for rename-shaped link breaks
+      asked:     >= 2 incidents beyond the known one, else defer.
+      uncovered: 2026-07-25 (refuted) — only covers rename-shaped breaks in git
+                 history; says nothing about links broken by a hand edit in Obsidian
+```
+
+Two pieces of text the tool already held, printed together — that is the whole feature. It never compares them. A bounded test that never wrote a threshold down is called out rather than skipped: a limit stated against no stated question has nothing to be read against, and a count reports that case as healthy.
+
+The check is shallow on purpose: it never reads the statement or tests whether it is true, only that a person was made to write one. Whether the limit is honest — and whether the run answered the threshold printed next to it — stays a human judgement, and nothing here pretends otherwise.
 
 ### Lanes — what each assumption test actually costs a person
 

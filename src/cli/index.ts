@@ -30,7 +30,7 @@ import { anthropicDriver } from "../runner/driver.js";
 import { getProcess, PROCESSES } from "../processes/registry.js";
 import { checkInvariants } from "../eval/invariants.js";
 import { computeEvidenceDebt, gateSolution } from "../eval/evidence-debt.js";
-import { computeCoverageDebt } from "../eval/coverage.js";
+import { computeCoverageDebt, computeCoveragePairs } from "../eval/coverage.js";
 import { BELIEVABILITY_LADDER, believabilityRollup, type RungId } from "../knowledge/believability.js";
 import { recordResult, VERDICTS, type Verdict } from "../ost/results.js";
 import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
@@ -220,11 +220,34 @@ program
     if (coverage.gaps.length > 0) {
       console.log("  a result with no stated limit gets read as answering the whole question.");
     }
+
+    // The bounded tests, read side by side. Counting the pair proves a sentence
+    // exists; only reading it against the threshold the node wrote down before
+    // the run can show whether the run answered the question that was asked.
+    // Printed, never compared — the comparison is the human's.
+    const pairs = computeCoveragePairs(ctx.vault.readTree());
+    if (pairs.length > 0) {
+      console.log(`\nBounded — what each test asked for, and what its runs left out:`);
+      for (const p of pairs) {
+        console.log(`  ${p.title}`);
+        console.log(`      asked:     ${p.asked ?? "(no pre-committed threshold written in this node)"}`);
+        const [first, ...rest] = p.uncovered;
+        console.log(`      uncovered: ${first ?? "(nothing stated)"}`);
+        for (const more of rest) console.log(`                 ${more}`);
+      }
+      const unasked = pairs.filter((p) => p.asked === null).length;
+      if (unasked > 0) {
+        console.log(
+          `  ${unasked} of these stated a limit against no written threshold — there is nothing to read it against.`,
+        );
+      }
+    }
+
     console.log(
       "\nMechanical only: this counts whether ANY assumption beneath a solution recorded a result,\n" +
         "and whether each result was paired with a written statement of what it left untested.\n" +
-        "Whether the RIGHT (riskiest) assumption was tested — and whether that statement is honest —\n" +
-        "is a human judgement.",
+        "The side-by-side above is printed, not judged: whether the RIGHT (riskiest) assumption was\n" +
+        "tested, and whether the run actually answered the threshold next to it, is a human call.",
     );
   });
 
