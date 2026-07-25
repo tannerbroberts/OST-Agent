@@ -34,6 +34,35 @@ describe("Vault append-only operations", () => {
     expect(tree[0].layer).toBe("Solution");
   });
 
+  test("appendUnderSection lands in the named section, not merely at the end of the file", () => {
+    // With one growing section, appending to the end was indistinguishable from
+    // appending to the section. With two, it silently files under the wrong one:
+    // a second result would land beneath ## Uncovered, and a status change after
+    // a result would land beneath ## Results.
+    vault.createNode(solution());
+    vault.appendUnderSection("Daily challenge mode", "## Results", "- first result");
+    vault.appendUnderSection("Daily challenge mode", "## Uncovered", "- first limit");
+    vault.appendUnderSection("Daily challenge mode", "## Results", "- second result");
+
+    const body = vault.read("Daily challenge mode").body;
+    const results = body.slice(body.indexOf("## Results"), body.indexOf("## Uncovered"));
+    expect(results).toContain("- first result");
+    expect(results).toContain("- second result");
+    expect(body.slice(body.indexOf("## Uncovered"))).not.toContain("- second result");
+  });
+
+  test("appendUnderSection keeps every earlier line — sections only grow", () => {
+    vault.createNode(solution());
+    const p = path.join(dir, "Daily challenge mode.md");
+    vault.appendUnderSection("Daily challenge mode", "## Results", "- first result");
+    const before = fs.readFileSync(p, "utf8");
+    vault.appendUnderSection("Daily challenge mode", "## History", "- a later note");
+
+    const after = fs.readFileSync(p, "utf8");
+    expect(after).toContain("- first result");
+    expect(after.length).toBeGreaterThan(before.length);
+  });
+
   test("createNode refuses to overwrite an existing node", () => {
     vault.createNode(solution());
     expect(() => vault.createNode(solution())).toThrow(/already exists/);

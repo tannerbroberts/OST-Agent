@@ -173,11 +173,30 @@ export class Vault {
   }
 }
 
-/** Append `line` under `heading`, creating the heading section if absent. */
+/**
+ * Append `line` at the end of `heading`'s section, creating the section if absent.
+ *
+ * "At the end of the section", not "at the end of the body": a node now carries
+ * several growing sections (History, Issues, Results, Uncovered), and appending
+ * to the body files each line under whichever section happens to be last. Still
+ * strictly additive — no existing line is moved or rewritten.
+ */
 function appendUnderHeading(body: string, heading: string, line: string): string {
   const trimmed = body.trimEnd();
-  if (!trimmed.includes(`\n${heading}`) && !trimmed.startsWith(heading)) {
+  const lines = trimmed.split("\n");
+  const start = lines.findIndex((l) => l.trim() === heading);
+  if (start === -1) {
     return `${trimmed}\n\n${heading}\n${line}`;
   }
-  return `${trimmed}\n${line}`;
+  // The section runs until the next heading of any level, or to the end.
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i++) {
+    if (/^#{1,6}\s/.test(lines[i].trim())) {
+      end = i;
+      break;
+    }
+  }
+  // Sit tight against the last content line so a blank separator stays a separator.
+  while (end > start + 1 && lines[end - 1].trim() === "") end--;
+  return [...lines.slice(0, end), line, ...lines.slice(end)].join("\n");
 }

@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+## 0.8.0
+
+- **A result must now say what it does *not* cover.** `ost-agent result` gains a required
+  `--uncovered`, alongside `--by`. The reasoning is the same in both cases: a result with no
+  name on it cannot be told apart from a fabricated one, and a result with no stated limit
+  gets read as answering the whole threshold the test was written against. Two runs in a row
+  on a sibling product ended with a node being split, because the artefact covered less than
+  the question asked — and both times that depended on somebody happening to notice. This is
+  the mechanical half of noticing.
+- **One statement per result, not one per test.** Each recording appends a line to `## Results`
+  and a line to `## Uncovered`, in the same order, so a second run cannot ride on the first
+  run's limits. `ost-agent debt` and `ost-agent status` count the pair and name any test whose
+  results outrun its statements as **unbounded**.
+- **Older vaults stay readable.** A result recorded before the field existed — or a node a
+  human hand-flipped to `validated` with nothing written down — reads as one unbounded claim
+  rather than as an error. The debt is surfaced, not enforced retroactively.
+- **The check is deliberately shallow, and says so.** It never reads the uncovered statement
+  or asks whether it is true; it only checks that a person was made to write one. Whether the
+  limit is honest is a human judgement, and `debt` prints that caveat next to the number.
+- **Fixed: `appendUnderSection` filed under the wrong heading.** It appended to the end of the
+  *body* rather than the end of the named *section*, which was invisible while nodes had one
+  growing section and wrong as soon as they had two — a second result would land under
+  `## Uncovered`, and a status change after a result would land under `## Results`. It now
+  inserts at the end of the section it names, still strictly additive: no existing line is
+  moved or rewritten.
+- 285 tests across 45 files (up from 265 / 44).
+
 ## 0.7.0
 
 - **The agent can now put a test out of its own reach — and that is the only lane call it

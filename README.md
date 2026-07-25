@@ -163,17 +163,36 @@ export SLACK_BOT_TOKEN="xoxb-…"   # read-only history scopes; never written in
 
 ### Evidence debt
 
-Delivery beats discovery by default: whenever there is code to write, the asking stops. `ost-agent debt` prints what each solution still owes — `untested` (no assumption test at all), `proposed-only` (tests written, none run), or `tested` — and `ost-agent gate "<solution>"` exits non-zero unless some assumption beneath that solution has recorded a result, so a build step can refuse to start. A test counts as run when it has a `## Results` section or a human moved it to `validated`. The judgement is deliberately mechanical: it tells you whether *any* assumption was tested, never whether the *riskiest* one was — that stays a human call.
+Delivery beats discovery by default: whenever there is code to write, the asking stops. `ost-agent debt` prints what each solution still owes — `untested` (no assumption test at all), `proposed-only` (tests written, none run), or `tested` — plus any result that never said what it left uncovered (see below) — and `ost-agent gate "<solution>"` exits non-zero unless some assumption beneath that solution has recorded a result, so a build step can refuse to start. A test counts as run when it has a `## Results` section or a human moved it to `validated`. The judgement is deliberately mechanical: it tells you whether *any* assumption was tested, never whether the *riskiest* one was — that stays a human call.
 
 A gate is only passable if results can be recorded, so `ost-agent result` is the human's half:
 
 ```bash
 ost-agent result "Hand-distil three past sessions" \
   --verdict supported --note "4 of 5 items were accepted as real evidence" \
-  --by "Tanner" --evidence observed --vault ~/my-vault
+  --by "Tanner" --uncovered "says nothing about sessions older than a month" \
+  --evidence observed --vault ~/my-vault
 ```
 
 Attribution is required — a result with no name on it cannot be told apart from a fabricated one — and the command is **CLI-only by design**: it is on neither the agent's tool allowlist nor the MCP surface, so the agent cannot record a result even by accident. A test regression-guards that boundary.
+
+### Coverage — what the run did *not* cover
+
+A result says what happened. It almost never says what *didn't*, so the artefact it leaves behind gets read as answering the whole threshold the test was written against — when in practice it answered part of it, and the rest went untested and unnoticed until somebody happened to look.
+
+`--uncovered` is therefore **required**, alongside `--by`. Each result appends one line to the test's `## Results` and one to its `## Uncovered`, in the same order, so a second run cannot ride on the first run's stated limits:
+
+```text
+## Results
+- 2026-07-25 **supported** (ran by Tanner) — 4 of 5 items were accepted
+
+## Uncovered
+- 2026-07-25 (supported) — says nothing about sessions older than a month
+```
+
+`ost-agent debt` and `ost-agent status` then count the pair. A test whose results outrun its uncovered statements is listed as **unbounded** — a claim nobody wrote a limit for. Results recorded before this field existed read as unbounded rather than as an error, so older vaults keep working and their debt is visible instead of silent.
+
+The check is shallow on purpose: it never reads the statement or tests whether it is true, only that a person was made to write one. Whether the limit is honest stays a human judgement, and nothing here pretends otherwise.
 
 ### Lanes — what each assumption test actually costs a person
 

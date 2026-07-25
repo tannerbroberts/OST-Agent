@@ -14,6 +14,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { Vault } from "./vault.js";
+import { UNCOVERED_HEADING } from "../eval/coverage.js";
 import { isRung, type RungId } from "../knowledge/believability.js";
 
 export const VERDICTS = ["supported", "refuted", "inconclusive"] as const;
@@ -28,6 +29,12 @@ export interface ResultFiling {
   note: string;
   /** Who ran it — a person, a team, never the agent. */
   by: string;
+  /**
+   * What this run does NOT cover — the part of the threshold it left untested.
+   * Required, because a result with no stated limit gets read as answering the
+   * whole question, and the gap only ever surfaces if somebody happens to notice.
+   */
+  uncovered: string;
   /** Optionally raise the test's rung to what the run actually produced. */
   evidence?: RungId;
   /** ISO date; defaults to today. */
@@ -47,6 +54,13 @@ export function recordResult(vaultDir: string, filing: ResultFiling): string {
   }
   const note = (filing.note ?? "").trim();
   if (!note) throw new Error("a result needs a note — what happened when the test was run");
+  const uncovered = (filing.uncovered ?? "").trim();
+  if (!uncovered) {
+    throw new Error(
+      "a result needs a statement of what it does NOT cover — the part of the threshold this run left untested. " +
+        "A result with no stated limit gets read as answering the whole question.",
+    );
+  }
 
   const dir = path.resolve(vaultDir);
   const vault = new Vault(dir);
@@ -59,6 +73,9 @@ export function recordResult(vaultDir: string, filing: ResultFiling): string {
   const line = `- ${on} **${filing.verdict}** (ran by ${by}) — ${note}`;
   // grows the file under a single Results section, so earlier runs survive verbatim
   vault.appendUnderSection(filing.test, "## Results", line);
+  // One statement per result, in the same order, so a second run cannot ride on
+  // the first run's limits — see computeCoverageDebt, which counts the pair.
+  vault.appendUnderSection(filing.test, UNCOVERED_HEADING, `- ${on} (${filing.verdict}) — ${uncovered}`);
 
   if (filing.evidence) {
     if (!isRung(filing.evidence)) throw new Error(`"${filing.evidence}" is not on the believability ladder`);

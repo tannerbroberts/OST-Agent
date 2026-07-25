@@ -7,7 +7,7 @@
  *   ost-agent schedule [--vault DIR]          supervisor: cron + triggers
  *   ost-agent status [--vault DIR]            read-only tree summary
  *   ost-agent result "<test>" ...             record a human-run test's outcome
- *   ost-agent debt [--vault DIR]              evidence each solution still owes
+ *   ost-agent debt [--vault DIR]              evidence each solution still owes + unbounded results
  *   ost-agent lanes [--vault DIR]             assumption tests by the human minutes they cost
  *   ost-agent lanes --flag-cautious <who>     bulk: humans-required for every test naming an outside person
  *   ost-agent lane "<test>" --set <lane> ...  classify one test into a lane
@@ -30,6 +30,7 @@ import { anthropicDriver } from "../runner/driver.js";
 import { getProcess, PROCESSES } from "../processes/registry.js";
 import { checkInvariants } from "../eval/invariants.js";
 import { computeEvidenceDebt, gateSolution } from "../eval/evidence-debt.js";
+import { computeCoverageDebt } from "../eval/coverage.js";
 import { BELIEVABILITY_LADDER, believabilityRollup, type RungId } from "../knowledge/believability.js";
 import { recordResult, VERDICTS, type Verdict } from "../ost/results.js";
 import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
@@ -162,18 +163,29 @@ program
   .requiredOption("-v, --verdict <verdict>", `one of: ${VERDICTS.join(", ")}`)
   .requiredOption("-n, --note <text>", "what happened, in the runner's words")
   .requiredOption("-b, --by <who>", "who ran it — a result with no name on it cannot be trusted")
+  .requiredOption(
+    "-u, --uncovered <text>",
+    "what this run does NOT cover — the part of the threshold it left untested",
+  )
   .option("-e, --evidence <rung>", `raise the test's rung to what the run produced (${BELIEVABILITY_LADDER.map((r) => r.id).join(", ")})`)
   .option("--vault <dir>", "vault directory", ".")
-  .action((test: string, opts: { verdict: string; note: string; by: string; evidence?: string; vault: string }) => {
-    const line = recordResult(opts.vault, {
-      test,
-      verdict: opts.verdict as Verdict,
-      note: opts.note,
-      by: opts.by,
-      evidence: opts.evidence as RungId | undefined,
-    });
-    console.log(`recorded on "${test}": ${line}`);
-  });
+  .action(
+    (
+      test: string,
+      opts: { verdict: string; note: string; by: string; uncovered: string; evidence?: string; vault: string },
+    ) => {
+      const line = recordResult(opts.vault, {
+        test,
+        verdict: opts.verdict as Verdict,
+        note: opts.note,
+        by: opts.by,
+        uncovered: opts.uncovered,
+        evidence: opts.evidence as RungId | undefined,
+      });
+      console.log(`recorded on "${test}": ${line}`);
+      console.log(`  does not cover: ${opts.uncovered.trim()}`);
+    },
+  );
 
 program
   .command("debt")
@@ -193,9 +205,26 @@ program
             : "no assumption test";
       console.log(`  [${s.state}] ${s.title} — ${detail}`);
     }
+    const coverage = computeCoverageDebt(ctx.vault.readTree());
+    const c = coverage.totals;
     console.log(
-      "\nMechanical only: this counts whether ANY assumption beneath a solution recorded a result.\n" +
-        "Whether the RIGHT (riskiest) assumption was tested is a human judgement.",
+      `\nCoverage: ${c.withResults} test(s) with results  (bounded ${c.bounded}, unbounded ${c.unbounded})`,
+    );
+    for (const g of coverage.gaps) {
+      const detail =
+        g.stated === 0
+          ? `${g.claimed} result(s), none saying what they fail to cover`
+          : `${g.claimed} result(s) against ${g.stated} uncovered statement(s)`;
+      console.log(`  [unbounded] ${g.title} — ${detail}`);
+    }
+    if (coverage.gaps.length > 0) {
+      console.log("  a result with no stated limit gets read as answering the whole question.");
+    }
+    console.log(
+      "\nMechanical only: this counts whether ANY assumption beneath a solution recorded a result,\n" +
+        "and whether each result was paired with a written statement of what it left untested.\n" +
+        "Whether the RIGHT (riskiest) assumption was tested — and whether that statement is honest —\n" +
+        "is a human judgement.",
     );
   });
 
@@ -315,6 +344,15 @@ program
     const perRung = BELIEVABILITY_LADDER.map((r) => `${r.id} ${rollup.counts[r.id]}`).join(", ");
     console.log(`Believability: ${perRung}${rollup.unlabelled ? `, unlabelled ${rollup.unlabelled}` : ""}`);
     console.log(`  the tree as a whole rests on its weakest rung: ${rollup.weakest}`);
+    const coverage = computeCoverageDebt(tree);
+    if (coverage.totals.withResults > 0) {
+      console.log(
+        `Coverage: ${coverage.totals.bounded}/${coverage.totals.withResults} recorded result(s) say what they do not cover`,
+      );
+      for (const g of coverage.gaps) {
+        console.log(`  unbounded: ${g.title} (${g.claimed} result(s), ${g.stated} stated limit(s)) — see \`debt\``);
+      }
+    }
     printLastRuns(journals);
   });
 

@@ -36,7 +36,7 @@ describe("ost-agent result", () => {
   test("recording a result clears that solution's gate", async () => {
     await expect(cli(["gate", "Sol", "--vault", dir])).rejects.toThrow(/BLOCKED|none run/i);
 
-    await cli(["result", "Asm", "--verdict", "supported", "--note", "4 of 5 finished", "--by", "Tanner", "--vault", dir]);
+    await cli(["result", "Asm", "--verdict", "supported", "--note", "4 of 5 finished", "--by", "Tanner", "--uncovered", "nothing about first-time users", "--vault", dir]);
 
     const { stdout } = await cli(["gate", "Sol", "--vault", dir]);
     expect(stdout).toMatch(/cleared/i);
@@ -44,7 +44,46 @@ describe("ost-agent result", () => {
 
   test("refuses to record a result with no one's name on it", async () => {
     await expect(
-      cli(["result", "Asm", "--verdict", "supported", "--note", "it worked", "--vault", dir]),
+      cli(["result", "Asm", "--verdict", "supported", "--note", "it worked", "--uncovered", "u", "--vault", dir]),
     ).rejects.toThrow(/who ran it|attribut|required/i);
   }, 30_000);
+
+  test("refuses to record a result that does not say what it leaves untested", async () => {
+    await expect(
+      cli(["result", "Asm", "--verdict", "supported", "--note", "it worked", "--by", "Tanner", "--vault", dir]),
+    ).rejects.toThrow(/uncovered|required/i);
+
+    // and the gate stays shut, so a refused result cannot half-clear a solution
+    await expect(cli(["gate", "Sol", "--vault", dir])).rejects.toThrow(/BLOCKED|none run/i);
+  }, 60_000);
+});
+
+describe("ost-agent debt surfaces unbounded results", () => {
+  test("a result paired with its limits reads as bounded", async () => {
+    await cli([
+      "result", "Asm",
+      "--verdict", "supported",
+      "--note", "4 of 5 finished",
+      "--by", "Tanner",
+      "--uncovered", "says nothing about anyone on a phone",
+      "--vault", dir,
+    ]);
+
+    const { stdout } = await cli(["debt", "--vault", dir]);
+    expect(stdout).toMatch(/bounded 1/);
+    expect(stdout).not.toMatch(/\[unbounded\] Asm/);
+  }, 60_000);
+
+  test("names a test whose results outrun its stated limits", async () => {
+    // written the way an older vault holds it: a bare result, no statement
+    const vault = new Vault(dir);
+    vault.appendUnderSection("Asm", "## Results", "- 2026-07-01 **supported** (ran by Tanner) — from an older vault");
+
+    const { stdout } = await cli(["debt", "--vault", dir]);
+    expect(stdout).toMatch(/\[unbounded\] Asm/);
+    expect(stdout).toMatch(/none saying what they fail to cover/);
+
+    const status = await cli(["status", "--vault", dir]);
+    expect(status.stdout).toMatch(/unbounded: Asm/);
+  }, 60_000);
 });
