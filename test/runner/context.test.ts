@@ -33,9 +33,9 @@ function enableAtlassian() {
 }
 
 describe("buildPassContext adapter wiring", () => {
-  test("inbox-only by default", () => {
+  test("inbox and the mechanical usage trace by default", () => {
     const ctx = buildPassContext(dir);
-    expect(ctx.sources.map((s) => s.name)).toEqual(["inbox"]);
+    expect(ctx.sources.map((s) => s.name).sort()).toEqual(["inbox", "usage"]);
   });
 
   test("enabling Atlassian without credentials fails with a clear message", () => {
@@ -50,7 +50,7 @@ describe("buildPassContext adapter wiring", () => {
       "utf8",
     );
     const ctx = buildPassContext(dir);
-    expect(ctx.sources.map((s) => s.name).sort()).toEqual(["inbox", "transcript"]);
+    expect(ctx.sources.map((s) => s.name).sort()).toEqual(["inbox", "transcript", "usage"]);
   });
 
   test("enabling the transcript adapter with neither path nor projectDir fails clearly", () => {
@@ -68,6 +68,6 @@ describe("buildPassContext adapter wiring", () => {
     process.env.ATLASSIAN_EMAIL = "me@x.com";
     process.env.ATLASSIAN_API_TOKEN = "tok";
     const ctx = buildPassContext(dir);
-    expect(ctx.sources.map((s) => s.name).sort()).toEqual(["atlassian", "inbox"]);
+    expect(ctx.sources.map((s) => s.name).sort()).toEqual(["atlassian", "inbox", "usage"]);
   });
 });

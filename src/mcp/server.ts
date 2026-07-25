@@ -60,6 +60,7 @@ export function createOstMcpServer(ctx: PassContext): Server {
       dir: ctx.dir,
       remote: ctx.remote,
       minSolutionsPerOpportunity: ctx.config.processes["P3_ideate"]?.minSolutionsPerOpportunity,
+      surface: "mcp",
     },
     MCP_TOOL_NAMES,
   );

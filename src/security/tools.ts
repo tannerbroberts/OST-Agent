@@ -16,6 +16,7 @@ import { BELIEVABILITY_LADDER, isRung, type RungId } from "../knowledge/believab
 import { Vault } from "../ost/vault.js";
 import { computeNextWork } from "../mcp/next-work.js";
 import { ALLOWED_TOOL_NAMES } from "./policy.js";
+import { withUsageTracing } from "../telemetry/usage.js";
 
 const STATUS_VALUES = ["unvalidated", "validated", "in-discovery", "shipped", "deferred"];
 
@@ -38,6 +39,8 @@ export interface ToolContext {
   remote: RemoteConfig;
   /** minSolutionsPerOpportunity — how ost_next_work decides an opportunity is under-served (default 3). */
   minSolutionsPerOpportunity?: number;
+  /** Which surface is dispatching ("mcp", "cli-tool", "pass:P2_map"); lands in the usage trace. */
+  surface?: string;
 }
 
 /**
@@ -281,7 +284,10 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
   ];
 
   const names = allowedNames ? new Set(allowedNames) : null;
-  return names ? all.filter((t) => names.has(t.name)) : all;
+  const selected = names ? all.filter((t) => names.has(t.name)) : all;
+  // Every invocation lands in the vault's mechanical usage trace — the record
+  // with no narrator. Fail-open: tracing can lose an event, never a mutation.
+  return withUsageTracing(selected, dir, ctx.surface ?? "unknown");
 }
 
 /** The names of the tools {@link buildOstTools} would produce (for vetting). */

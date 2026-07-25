@@ -45,6 +45,19 @@ const TranscriptSchema = z
   })
   .default({ enabled: false, path: "", projectDir: "", quietMinutes: 30, maxEventsPerSession: 25 });
 
+// Rolls the mechanical tool-invocation trace (.ost-agent/usage/events.jsonl,
+// written by the telemetry layer on every surface) into one evidence item per
+// finished day. The trace itself is always recorded — it is the vault's own
+// operational log and never leaves the vault; this switch only controls
+// whether the rollup enters discovery as evidence.
+const UsageSchema = z
+  .object({
+    enabled: z.boolean().default(true),
+    /** A day needs at least this many tool calls to become an evidence item. */
+    minEvents: z.number().int().positive().default(5),
+  })
+  .default({ enabled: true, minEvents: 5 });
+
 const SlackSchema = z
   .object({
     enabled: z.boolean().default(false),
@@ -86,6 +99,7 @@ export const ConfigSchema = z.object({
     .object({
       inbox: InboxSchema,
       transcript: TranscriptSchema,
+      usage: UsageSchema,
       atlassian: AtlassianSchema,
       slack: SlackSchema,
     })
@@ -115,6 +129,9 @@ adapters:
     projectDir: ""          # repo whose sessions to read; transcripts are found under ~/.claude/projects/<slug>
     path: ""                # or point straight at a directory of *.jsonl transcripts
     quietMinutes: 30        # a session is "finished" once its file has been untouched this long
+  usage:
+    enabled: true           # roll the mechanical tool-invocation trace into daily evidence (observed behavior, no narrator)
+    minEvents: 5            # a day needs at least this many tool calls to become an evidence item
   atlassian:
     enabled: false
     projects: []

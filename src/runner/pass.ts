@@ -49,7 +49,10 @@ export async function runPass(process: ProcessDef, ctx: PassContext, driver: Pas
   // the allowlist is refused (not silently filtered), and the built set is
   // re-checked as belt-and-suspenders.
   assertNoDestructiveTool(process.allowedTools);
-  const tools = buildOstTools({ vault: ctx.vault, dir: ctx.dir, remote: ctx.remote }, process.allowedTools);
+  const tools = buildOstTools(
+    { vault: ctx.vault, dir: ctx.dir, remote: ctx.remote, surface: `pass:${process.id}` },
+    process.allowedTools,
+  );
   assertNoDestructiveTool(tools.map((t) => t.name));
 
   let result: ProcessResult = emptyResult();

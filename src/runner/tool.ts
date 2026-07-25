@@ -14,7 +14,7 @@ import { buildOstTools } from "../security/tools.js";
 
 export async function runTool(vaultDir: string, name: string, input: unknown): Promise<string> {
   const ctx = buildPassContext(vaultDir);
-  const tools = buildOstTools({ vault: ctx.vault, dir: ctx.dir, remote: ctx.remote });
+  const tools = buildOstTools({ vault: ctx.vault, dir: ctx.dir, remote: ctx.remote, surface: "cli-tool" });
   // fail closed — the tool surface is exactly the allowlist, nothing else
   assertNoDestructiveTool(tools.map((t) => t.name));
   const tool = tools.find((t) => t.name === name);

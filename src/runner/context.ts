@@ -7,6 +7,8 @@ import { loadConfig } from "../config/load.js";
 import { InboxSource } from "../adapters/inbox.js";
 import { AtlassianSource, HttpAtlassianClient } from "../adapters/atlassian.js";
 import { TranscriptSource, defaultTranscriptDir } from "../adapters/transcript.js";
+import { UsageSource } from "../adapters/usage.js";
+import { usageLogPath } from "../telemetry/usage.js";
 import type { Source } from "../adapters/source.js";
 import { Vault } from "../ost/vault.js";
 import { OST_RULESET } from "../knowledge/ruleset.js";
@@ -35,6 +37,9 @@ export function buildPassContext(vaultDir: string): PassContext {
         maxEventsPerSession: t.maxEventsPerSession,
       }),
     );
+  }
+  if (config.adapters.usage.enabled) {
+    sources.push(new UsageSource({ file: usageLogPath(dir), minEvents: config.adapters.usage.minEvents }));
   }
   if (config.adapters.atlassian.enabled) {
     const baseUrl = process.env.ATLASSIAN_BASE_URL;
