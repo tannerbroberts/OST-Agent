@@ -12,6 +12,7 @@ import { usageLogPath } from "../telemetry/usage.js";
 import { SlackSource, HttpSlackClient } from "../adapters/slack.js";
 import type { Source } from "../adapters/source.js";
 import { Vault } from "../ost/vault.js";
+import { createLookupBudget } from "../web/budget.js";
 import { OST_RULESET } from "../knowledge/ruleset.js";
 import type { PassContext } from "../processes/types.js";
 
@@ -88,5 +89,12 @@ export function buildPassContext(vaultDir: string, opts: BuildPassContextOptions
     ruleset: OST_RULESET,
     sources,
     remote: { enabled: config.remote.enabled, url: config.remote.url },
+    // The key is optional: ost_read_web works without it, and ost_search_web
+    // answers with the setup hint at call time rather than failing the build.
+    web: {
+      searchApiKey: process.env.BRAVE_SEARCH_API_KEY,
+      budget: createLookupBudget(config.web.lookupBudget),
+    },
+    productRepos: config.product.repos,
   };
 }

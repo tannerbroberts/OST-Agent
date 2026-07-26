@@ -25,12 +25,17 @@ export const MCP_TOOL_NAMES = [
   "ost_set_evidence",
   "ost_flag_humans_required",
   "ost_annotate",
+  "ost_search_web",
+  "ost_read_web",
+  "ost_read_repo",
+  "ost_rank_source",
 ] as const;
 
 // The read-only tools carry no commit; every other exposed tool mutates and is
 // auto-committed. Deriving MUTATING as the complement means a tool added to the
-// surface can never silently skip its commit.
-const READ_ONLY = new Set<string>(["ost_read_tree", "ost_next_work"]);
+// surface can never silently skip its commit. (`ost_rank_source` is deliberately
+// NOT here: it appends a trust record, and that record must be committed.)
+const READ_ONLY = new Set<string>(["ost_read_tree", "ost_next_work", "ost_search_web", "ost_read_web", "ost_read_repo"]);
 const MUTATING = new Set<string>(MCP_TOOL_NAMES.filter((n) => !READ_ONLY.has(n)));
 
 /**
@@ -60,6 +65,8 @@ export function createOstMcpServer(ctx: PassContext): Server {
       remote: ctx.remote,
       minSolutionsPerOpportunity: ctx.config.processes["P3_ideate"]?.minSolutionsPerOpportunity,
       surface: "mcp",
+      web: ctx.web,
+      productRepos: ctx.productRepos,
     },
     MCP_TOOL_NAMES,
   );

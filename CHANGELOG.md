@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- **Outward sensing: the agent can now look — under a budget it can see.** Four new
+  allowlisted tools (spec: `docs/superpowers/specs/2026-07-26-web-lookup-and-trust-design.md`):
+  - **`ost_search_web`** (Brave Search, `BRAVE_SEARCH_API_KEY`) and **`ost_read_web`**
+    (one guarded GET, HTML reduced to text, private/internal hosts refused even across
+    redirects). Both spend from one shared per-session lookup budget (`web.lookupBudget`,
+    default 10); exhaustion answers with an instruction — cite what you read, record open
+    questions on the tree — not an error.
+  - **`ost_read_repo`** — read-only, path-confined sight of the product's own codebase(s)
+    (`product.repos`), secrets redacted, symlink escapes refused. Ideation stops being a
+    black box.
+  - **`ost_rank_source`** — append-only per-host trust (`.ost-agent/trust/hosts.jsonl`).
+    Web claims enter the believability ladder at the `assertion` floor via `WEB:<host>`
+    provenance; a publisher can be promoted to `expert` — the ceiling for a byline — only
+    with a reason naming the first-party result that corroborated its claim. `observed`/
+    `money` stay earnable exclusively by measurement, so the trust loop closes through
+    the product's own metrics, exactly where it should.
+  - Autonomous passes (P1–P5) stay hermetic: the new tools live on the MCP surface only.
+
 ## 0.14.0
 
 - **`ost-agent loop start | step | decide | seal` — deterministic health records for one

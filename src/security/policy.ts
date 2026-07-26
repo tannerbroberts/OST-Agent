@@ -21,6 +21,13 @@ export const ALLOWED_TOOL_NAMES = [
   // ost/lanes.ts `flagHumansRequired`.
   "ost_flag_humans_required",
   "ost_annotate",
+  // Outward sensing (see docs/superpowers/specs/2026-07-26-web-lookup-and-trust-design.md):
+  // read-only web lookups under a per-session budget, read-only product-repo
+  // sight, and append-only publisher trust ranking capped at 'expert'.
+  "ost_search_web",
+  "ost_read_web",
+  "ost_read_repo",
+  "ost_rank_source",
   "git_commit",
   "git_push",
 ] as const;
