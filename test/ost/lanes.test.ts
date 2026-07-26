@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { runnableByCompute, setLane, suggestCaution, triageLanes } from "../../src/ost/lanes.js";
+import { proseDeclaredLane, runnableByCompute, setLane, suggestCaution, triageLanes } from "../../src/ost/lanes.js";
 import { serialize, type OstNode } from "../../src/ost/node.js";
 import { Vault } from "../../src/ost/vault.js";
 
@@ -208,5 +208,97 @@ describe("the lane survives a round-trip through the file format", () => {
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("proseDeclaredLane — the label the tool cannot read", () => {
+  test("finds a lane a node declares in its prose but not in its frontmatter", () => {
+    const t = node("A", "AssumptionTest", [], {
+      body: "**Lane: compute-only.** A regex replayed over two local git histories.",
+    });
+
+    expect(proseDeclaredLane(t)).toEqual({
+      lane: "compute-only",
+      quote: "Lane: compute-only",
+    });
+  });
+
+  test("reads the declaration without the bold markers, and case-insensitively", () => {
+    const plain = node("A", "AssumptionTest", [], { body: "lane: humans-required — needs five players." });
+
+    expect(proseDeclaredLane(plain)?.lane).toBe("humans-required");
+  });
+
+  test("stays silent when the frontmatter already carries a lane — there is nothing to reconcile", () => {
+    const t = node("A", "AssumptionTest", [], {
+      lane: "compute-only",
+      body: "**Lane: compute-only.**",
+    });
+
+    expect(proseDeclaredLane(t)).toBeUndefined();
+  });
+
+  test("reports the mismatch when prose and frontmatter disagree, quoting both", () => {
+    const t = node("A", "AssumptionTest", [], {
+      lane: "humans-required",
+      body: "**Lane: compute-only.** ...",
+    });
+
+    // A human moved it to humans-required and left stale prose behind, or the
+    // prose is right and the label is wrong. Either way a person decides.
+    expect(proseDeclaredLane(t, { includeConflicts: true })).toEqual({
+      lane: "compute-only",
+      quote: "Lane: compute-only",
+      conflictsWith: "humans-required",
+    });
+  });
+
+  test("ignores a lane word that is not a declaration", () => {
+    const t = node("A", "AssumptionTest", [], {
+      body: "The compute-only lane is the one an agent may run. This test is not in it.",
+    });
+
+    expect(proseDeclaredLane(t)).toBeUndefined();
+  });
+
+  test("ignores an unrecognised lane name — a label nobody defined is not a label", () => {
+    const t = node("A", "AssumptionTest", [], { body: "**Lane: free-for-all.**" });
+
+    expect(proseDeclaredLane(t)).toBeUndefined();
+  });
+
+  test("only reads assumption tests", () => {
+    const sol = node("S", "Solution", [], { body: "**Lane: compute-only.**" });
+
+    expect(proseDeclaredLane(sol)).toBeUndefined();
+  });
+});
+
+describe("proseDeclaredLane does NOT make a test runnable — the invariant that matters", () => {
+  test("a prose declaration of compute-only leaves the test unrunnable and unclassified", () => {
+    const tree = [
+      node("Sol", "Solution", ["A"]),
+      node("A", "AssumptionTest", [], { body: "**Lane: compute-only.** replays a git history" }),
+    ];
+
+    // This is the whole point of reporting rather than applying: the tool
+    // surfaces that a human already wrote the answer down, and still refuses
+    // to act on prose. Only `ost-agent lane --set` moves the boundary.
+    expect(runnableByCompute(tree)).toEqual([]);
+    expect(triageLanes(tree).unlabelled).toEqual(["A"]);
+    expect(triageLanes(tree).totals.labelled).toBe(0);
+  });
+
+  test("triage lists the prose-declared tests separately, with what each one claims", () => {
+    const tree = [
+      node("Sol", "Solution", ["A", "B", "C"]),
+      node("A", "AssumptionTest", [], { body: "**Lane: compute-only.**" }),
+      node("B", "AssumptionTest", [], { body: "no declaration here" }),
+      node("C", "AssumptionTest", [], { lane: "compute-only", body: "**Lane: compute-only.**" }),
+    ];
+
+    const t = triageLanes(tree);
+
+    expect(t.proseDeclared).toEqual([{ test: "A", lane: "compute-only", quote: "Lane: compute-only" }]);
   });
 });

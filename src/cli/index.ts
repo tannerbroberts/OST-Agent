@@ -340,10 +340,30 @@ program
 
     if (t.unlabelled.length > 0) {
       console.log(`\n[unclassified] ${t.unlabelled.length} — treated as NOT runnable by compute`);
+      const declaredBy = new Map(t.proseDeclared.map((d) => [d.test, d]));
       for (const title of t.unlabelled) {
         const node = tree.find((n) => n.title === title);
         const hint = node ? suggestCaution(node) : undefined;
-        console.log(`  - ${title}${hint ? `  ⚠ likely ${hint.lane}: ${hint.why}` : ""}`);
+        const said = declaredBy.get(title);
+        const notes = [
+          said ? `says "${said.quote}" in its own text` : "",
+          hint ? `⚠ likely ${hint.lane}: ${hint.why}` : "",
+        ].filter(Boolean);
+        console.log(`  - ${title}${notes.length ? `  ${notes.join("  ")}` : ""}`);
+      }
+    }
+
+    // The cheapest end of the backlog, called out separately because it is the
+    // one part a person can clear without deciding anything new: the test
+    // already says what it is, in prose the tool cannot read.
+    if (t.proseDeclared.length > 0) {
+      console.log(
+        `\n${t.proseDeclared.length} unclassified test(s) declare a lane in their prose but carry no lane: field.`,
+      );
+      console.log("Reported, deliberately not applied — a node must not label itself into compute's reach.");
+      console.log("If you agree with what each one says about itself:");
+      for (const d of t.proseDeclared) {
+        console.log(`  ost-agent lane "${d.test}" --set ${d.lane} --by "<you>" --why "declared in the test's own text"`);
       }
     }
 

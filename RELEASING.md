@@ -25,15 +25,39 @@ paths work: `npx ost-agent mcp`, and the plugin's `npx -y ost-agent@latest mcp` 
    git tag v0.1.1
    git push && git push --tags
    ```
-4. **Publish a GitHub Release** for the tag. That fires the workflow, which runs
-   `npm ci` → build → test → `npm publish` with **provenance**.
+   **The pushed tag is the trigger** — the workflow runs `npm ci` → build → test →
+   `npm publish` with **provenance**, and there is nothing else to do.
+4. Optionally publish a GitHub Release for the tag, for humans reading the
+   changelog. It fires the same workflow, which detects the version is already on
+   the registry and skips rather than failing on a duplicate.
 
-### Manual publish (alternative)
+### When you cannot push a tag
+
+Some environments — the autonomous loop's container among them — get **HTTP 403**
+from their git proxy on `git push --tags`. That takes out step 3's trigger *and*
+step 4's, since a Release needs a tag to point at. The version on `main` is then
+publishable and unpublished, with no way to say so from inside that environment.
+
+Run the workflow directly against `main` instead:
+
+```bash
+gh workflow run npm-publish.yml --ref main
+```
+
+It publishes whatever version `package.json` carries on that ref, through the same
+gated path. This is how 0.14.0 shipped after 0.10.0–0.13.0 were cut, tagged locally
+and never published — four releases that existed only in a container that gets
+reclaimed. If you take this path, land the tag from a machine that can push one, so
+the released commit stays identifiable.
+
+### Manual publish (last resort)
 
 ```bash
 npm login
 npm publish            # prepack builds, prepublishOnly runs build + test first
 ```
+
+Prefer either workflow path: a local publish produces no provenance attestation.
 
 ## Safety rails already wired
 

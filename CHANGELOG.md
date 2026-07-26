@@ -1,6 +1,32 @@
 # Changelog
 
-## Unreleased
+## 0.15.0
+
+- **`ost-agent lanes` now reports a lane a test states in its own prose.** A test could
+  declare `**Lane: compute-only.**` in the sentence a human reads and carry nothing in the
+  `lane:` field the tool reads — so every tool correctly treated it as unclassified, and the
+  operator was told to go classify a test that already said what it was. On the meta vault
+  that was **4 of 82** unclassified tests, two of them `compute-only`, including the one a
+  previous pass could only run by reading its prose by hand.
+  - **Reported, never applied.** A prose declaration is unverified text; promoting it to a
+    label would let a node authorize its own execution by asserting a lane in a sentence.
+    `runnableByCompute` does not consult it, and a test pins that invariant. The output is a
+    paste-ready `ost-agent lane … --set` line per finding; the permissive call stays a
+    human's.
+  - Flags a prose/frontmatter *conflict* separately (`includeConflicts`), since a stale
+    declaration and a wrong label look identical from the outside and only a person can tell.
+
+- **The release path no longer depends on a step an unattended pass cannot take.** `0.10.0`
+  through `0.13.0` were cut, tagged locally and never published: the workflow's only trigger
+  was a published GitHub Release, which is manual, and this loop's container gets **HTTP 403**
+  from its git proxy on `git push --tags` — which removes the tag *and* any Release pointing
+  at it.
+  - The workflow now also triggers on `push: tags: ["v*"]`, and `RELEASING.md` documents
+    `gh workflow run npm-publish.yml --ref main` as the path that still works when tags cannot
+    be pushed at all.
+  - Because three triggers can now describe one release, the job checks the registry first and
+    **skips** an already-published version instead of failing on npm's duplicate error, which
+    reads like a broken release when it means the opposite.
 
 - **Outward sensing: the agent can now look — under a budget it can see.** Four new
   allowlisted tools (spec: `docs/superpowers/specs/2026-07-26-web-lookup-and-trust-design.md`):
@@ -19,6 +45,11 @@
     `money` stay earnable exclusively by measurement, so the trust loop closes through
     the product's own metrics, exactly where it should.
   - Autonomous passes (P1–P5) stay hermetic: the new tools live on the MCP surface only.
+
+  _Recorded for accuracy: this work merged to `main` before `0.14.0` was published, and that
+  publish ran against `main` — so the `0.14.0` tarball already contains it, even though it is
+  listed here. The version it was released **as** is 0.14.0; the version it is documented
+  under is 0.15.0._
 
 ## 0.14.0
 

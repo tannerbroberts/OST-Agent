@@ -12,7 +12,15 @@ name: Publish to npm
 on:
   release:
     types: [published]
-  workflow_dispatch: {} # manual re-run if a release publish failed
+  # A pushed tag publishes on its own. Added after four releases (0.10–0.13)
+  # were cut, tagged and never published: the only trigger was a GitHub Release,
+  # which is a manual step an unattended pass cannot take.
+  push:
+    tags: ["v*"]
+  # The path that actually worked when both of the above were unavailable —
+  # some environments refuse a tag push outright (HTTP 403 at the git proxy),
+  # which takes the tag trigger and the Release-for-a-tag trigger with it.
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -31,8 +39,23 @@ jobs:
 
       - run: npm ci
 
+      # Three triggers can describe the same release — tagging v1.2.3 and then
+      # publishing a Release for that tag fires twice. The second run would fail
+      # on npm's duplicate-version error, which reads like a broken release when
+      # it means the opposite. Skip instead, and say so.
+      - id: check
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "ost-agent@$VERSION" version >/dev/null 2>&1; then
+            echo "ost-agent@$VERSION is already on the registry — nothing to publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
       # prepublishOnly (npm run build && npm run test) gates the publish, and
       # publishConfig.provenance + id-token:write produce a provenance attestation.
-      - run: npm publish
+      - if: steps.check.outputs.publish == 'true'
+        run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

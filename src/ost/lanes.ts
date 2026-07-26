@@ -21,6 +21,19 @@ export interface LaneTriage {
   totals: { tests: number; labelled: number; unlabelled: number };
   /** compute-only tests with no result yet: what a pass may go run right now. */
   runnable: string[];
+  /**
+   * Unclassified tests that state a lane in their own prose. Still unlabelled,
+   * still not runnable — but a human already did the thinking, so this is the
+   * cheapest end of the triage backlog to work.
+   */
+  proseDeclared: ProseLaneEntry[];
+}
+
+/** One entry of {@link LaneTriage.proseDeclared}. */
+export interface ProseLaneEntry {
+  test: string;
+  lane: LaneId;
+  quote: string;
 }
 
 function assumptionTests(tree: readonly OstNode[]): OstNode[] {
@@ -47,12 +60,81 @@ export function triageLanes(tree: readonly OstNode[]): LaneTriage {
     else unlabelled.push(t.title);
   }
 
+  const proseDeclared: ProseLaneEntry[] = [];
+  for (const t of tests) {
+    const declared = proseDeclaredLane(t);
+    if (declared) proseDeclared.push({ test: t.title, lane: declared.lane, quote: declared.quote });
+  }
+
   return {
     byLane,
     unlabelled,
     totals: { tests: tests.length, labelled: tests.length - unlabelled.length, unlabelled: unlabelled.length },
     runnable: runnableByCompute(tree).map((t) => t.title),
+    proseDeclared,
   };
+}
+
+/**
+ * A lane a test states in its own prose — `**Lane: compute-only.**` — where the
+ * tool reads only frontmatter.
+ *
+ * This exists because the gap is real and silent. A test can declare its lane in
+ * the sentence a human reads and carry nothing in the field the tool reads, and
+ * every tool in this codebase then correctly treats it as unclassified: it is
+ * excluded from `runnable`, `lanes` counts it in the backlog, and an unattended
+ * pass refuses to run it. Nothing is broken — but the operator is told to go
+ * classify a test that already says what it is, and a capability that shipped
+ * to make cheap tests runnable sits unused.
+ *
+ * **Reporting this is not applying it, and the distinction is the safety
+ * argument.** A prose declaration is unverified text; promoting it to a label
+ * would let a node authorize its own execution by asserting a lane in a
+ * sentence, which is exactly the self-authorization {@link flagHumansRequired}
+ * is built to prevent. So this only ever points, and `runnableByCompute` never
+ * consults it — see the test that pins that invariant. Making the label real
+ * stays a human's `ost-agent lane … --set`.
+ *
+ * Silence means "no declaration found", never "no lane applies".
+ */
+export function proseDeclaredLane(
+  test: OstNode,
+  opts: { includeConflicts?: boolean } = {},
+): ProseLaneDeclaration | undefined {
+  if (test.layer !== "AssumptionTest") return undefined;
+
+  const hit = PROSE_LANE_DECLARATION.exec(test.body ?? "");
+  if (!hit) return undefined;
+
+  const declared = hit[1].toLowerCase();
+  // An unrecognised lane name is dropped rather than reported, on the same rule
+  // the frontmatter parser uses: a label nobody defined is not a label.
+  if (!isLane(declared)) return undefined;
+
+  if (test.lane) {
+    // Already classified and the prose agrees: nothing to reconcile, and
+    // repeating it would only add noise to a triage list.
+    if (!opts.includeConflicts || test.lane === declared) return undefined;
+    return { lane: declared, quote: hit[0], conflictsWith: test.lane };
+  }
+
+  return { lane: declared, quote: hit[0] };
+}
+
+/**
+ * Deliberately narrow: the word `lane`, a colon, then the lane id. It matches a
+ * *declaration* and not a mention, so prose that merely discusses the
+ * compute-only lane does not read as a claim to be in it.
+ */
+const PROSE_LANE_DECLARATION = /\blane\s*:\s*([a-z][a-z-]*)/i;
+
+/** What {@link proseDeclaredLane} found, quoted so the call can be checked. */
+export interface ProseLaneDeclaration {
+  lane: LaneId;
+  /** The declaration as written, minus surrounding emphasis. */
+  quote: string;
+  /** Set only when the frontmatter carries a *different* lane — a human call. */
+  conflictsWith?: LaneId;
 }
 
 /**
