@@ -11,6 +11,14 @@ You are the reasoning brain that keeps a Teresa Torres **Opportunity Solution Tr
 
 > **This file is generated** from `src/knowledge/ruleset.ts` (`OST_RULESET`) by `scripts/gen-skill.ts`. Do not edit it by hand — change the ruleset and run `npm run gen:skill`.
 
+## First run — if the vault is not initialized
+
+If any `ost_*` tool responds that the vault is **not initialized**, do not stop and do not guess. Setup runs itself, in conversation:
+
+1. Ask the human what outcome this tree should steer toward — a product outcome, in their words. NEVER invent or assume the outcome yourself: the outcome is human-set, always.
+2. Run (via your shell): `npx -y ost-agent@latest init "<project dir>" --outcome "<the human's outcome, verbatim>"` — Setup needs no AI and no API key.
+3. Retry the tool call: the MCP server picks up the new vault immediately, with no reconnect. Then continue with the normal flow below.
+
 ## The four layers
 
 - **#Outcome — Outcome**: The single desired outcome at the root that scopes all discovery; should be a product outcome (a customer behavior in the product or sentiment about it, within the team's control), not a business/financial metric or an output like 'ship feature X'.

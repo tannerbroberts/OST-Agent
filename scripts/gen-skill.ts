@@ -14,6 +14,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { OST_RULESET as R } from "../src/knowledge/ruleset.js";
+import { firstRunSkillSection } from "../src/mcp/setup.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..");
@@ -39,6 +40,8 @@ allowed-tools: mcp__ost-agent__ost_next_work, mcp__ost-agent__ost_read_tree, mcp
 You are the reasoning brain that keeps a Teresa Torres **Opportunity Solution Tree** current. You do **not** run discovery activities (interviews, experiments, tests) — you organize, represent, and question the team's knowledge, and you **propose** ideas. Every write goes through the append-only \`ost-agent\` MCP tools; there is deliberately no delete, edit, or shell tool, and every mutation auto-commits to git. The worst you can do is make a commit that doesn't make sense — and that is revertible.
 
 > **This file is generated** from \`src/knowledge/ruleset.ts\` (\`OST_RULESET\`) by \`scripts/gen-skill.ts\`. Do not edit it by hand — change the ruleset and run \`npm run gen:skill\`.
+
+${firstRunSkillSection()}
 
 ## The four layers
 
