@@ -12,7 +12,7 @@
  */
 import { byTitle, childrenOfLayer, getMapped, readEvidence } from "../processes/tree.js";
 import { findNearDuplicateIssues } from "../ost/dedupe.js";
-import type { OstNode } from "../ost/node.js";
+import { wrappedLinkTargets, type OstNode } from "../ost/node.js";
 import type { Vault } from "../ost/vault.js";
 
 export interface UnmappedEvidence {
@@ -57,6 +57,9 @@ function detectHygiene(tree: OstNode[]): HygieneIssue[] {
   for (const n of tree) {
     for (const link of n.links) {
       if (!index.has(link)) issues.push({ title: n.title, issue: `dangling link: [[${link}]] has no node` });
+    }
+    for (const target of wrappedLinkTargets(n.body)) {
+      issues.push({ title: n.title, issue: `wrapped wikilink: [[${target}]] is split across a line break — it renders as text, not an edge` });
     }
     if (n.layer === "Opportunity" && !outcomeLinks.has(n.title)) {
       // only flag as an orphan if no opportunity parents it either (nested opportunities are valid)

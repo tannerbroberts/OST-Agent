@@ -7,7 +7,7 @@
  */
 import { BELIEVABILITY_LADDER } from "../knowledge/believability.js";
 import { byTitle } from "../processes/tree.js";
-import type { OstNode } from "../ost/node.js";
+import { wrappedLinkTargets, type OstNode } from "../ost/node.js";
 
 export interface Violation {
   rule: string;
@@ -29,6 +29,18 @@ export function checkInvariants(tree: OstNode[]): Violation[] {
   for (const n of tree) {
     for (const link of n.links) {
       if (!index.has(link)) v.push({ rule: "dangling-link", node: n.title, detail: `[[${link}]] has no node` });
+    }
+  }
+
+  // no wikilink split across a line break — an edge the author wrote that the
+  // graph does not have, and that the dangling-link rule above cannot see
+  for (const n of tree) {
+    for (const target of wrappedLinkTargets(n.body)) {
+      v.push({
+        rule: "wrapped-wikilink",
+        node: n.title,
+        detail: `[[${target}]] is split across a line break — it renders as text, not an edge; put it on one line`,
+      });
     }
   }
 

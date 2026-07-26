@@ -80,6 +80,27 @@ export interface OstNode {
 
 const WIKILINK_LINE = /^\[\[(.+?)\]\]$/;
 
+/**
+ * Targets of `[[…]]` occurrences in prose whose contents contain a newline,
+ * whitespace-flattened — i.e. the titles the author meant to link.
+ *
+ * Only a whole line of the form `[[Title]]` becomes an edge (see
+ * {@link deserialize}), so a link that a hard-wrapped paragraph broke in two is
+ * not a link at all: Obsidian renders it as bracketed text and the graph simply
+ * lacks the line. It is neither an edge nor a *dangling* one, which is why
+ * every other structural check is blind to it.
+ *
+ * `[^[\]]` inside the brackets stops an unclosed `[[` from swallowing the rest
+ * of the body and reporting one enormous phantom title.
+ */
+export function wrappedLinkTargets(text: string): string[] {
+  const targets: string[] = [];
+  for (const m of text.matchAll(/\[\[([^[\]]*)\]\]/g)) {
+    if (m[1].includes("\n")) targets.push(m[1].replace(/\s*\n\s*/g, " ").trim());
+  }
+  return targets;
+}
+
 /** UTC calendar date (YYYY-MM-DD) for a Date. */
 function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);

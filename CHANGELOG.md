@@ -2,6 +2,45 @@
 
 ## Unreleased
 
+## 0.13.0
+
+- **`check` now fails on a wikilink split across a line break** (rule `wrapped-wikilink`),
+  and the hygiene detectors — `ost_next_work` and the `P5_hygiene` pass — report it
+  alongside dangling links and orphans. The message carries the *flattened* title, because
+  that is what the author meant and what a reader has to go and repair.
+- **Why this defect was invisible.** Only a whole line of the form `[[Title]]` becomes an
+  edge. A link that a hard-wrapped paragraph broke in two is therefore not a link at all —
+  not an edge, and not a *dangling* one either — so the dangling-link rule, the only thing
+  that looks at wikilinks, cannot see it. Obsidian renders it as bracketed text, and the
+  graph the whole product exists to produce silently lacks the line.
+- **The assumption test was run before the rule was written, against its pre-committed
+  threshold, and it passed on all three numbers.** The candidate regex was replayed over
+  every commit of both live vaults (100 commits, ~275 node files):
+  - *Soundness — 0 hits on a link that resolves.* **0.** No false positive, and none inside
+    a fenced code block, which was the named hazard given that these vaults contain prose
+    about wikilinks.
+  - *Utility — at least 3 of the known occurrences caught.* **3** distinct wrapped links
+    reached a commit and all 3 were caught. (The remaining occurrences on file never landed:
+    they were repaired by hand before committing, so history cannot show them. Read 3 as the
+    number that got past the humans and the tools alike, not as the total.)
+  - *Utility — at least 1 not already reported by the dangling-link check at that commit.*
+    **3 of 3.** Nothing in the product reported any of them. Two of the three had a target
+    that resolves once flattened — real edges the author wrote and the graph never got.
+- **`wrappedLinkTargets` lives in `src/ost/node.ts`**, next to the grammar it is the inverse
+  of, and the three detectors share it rather than growing a fourth copy of the link scan.
+  An unclosed `[[` cannot swallow the rest of a body: the character class excludes brackets,
+  so a stray open bracket reports nothing instead of one enormous phantom title.
+- **A ruleset rule states the writing habit** — keep every wikilink on one line, let the line
+  run long rather than wrap inside the brackets — so the agent that causes this defect is
+  told not to, and not only caught afterwards. It renders into `SKILL.md`.
+- 360 tests across 53 files (up from 351 / 53).
+
+**Not yet on npm.** 0.10.0 through this release are cut but unpublished — the environment
+the release commits were made in holds no npm credential (`npm whoami` → `ENEEDAUTH`).
+Until `npm publish` runs, the plugin's `npx -y ost-agent@latest mcp` still resolves to
+0.9.0, which refuses to start outside a vault — so the front door added in 0.12.0 is still
+not reachable by the person it was built for.
+
 ## 0.12.0
 
 - **`/ost-setup` — the first run becomes findable, not just reportable.** v0.11.0 made an

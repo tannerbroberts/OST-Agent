@@ -11,6 +11,7 @@ import path from "node:path";
 import { OST_RULESET } from "../knowledge/ruleset.js";
 import { believabilityBrief, FLOOR_RUNG } from "../knowledge/believability.js";
 import { findNearDuplicateIssues } from "../ost/dedupe.js";
+import { wrappedLinkTargets } from "../ost/node.js";
 import type { PassDriver, ToolSet } from "../runner/driver.js";
 import { loadCursor, saveCursor } from "../adapters/source.js";
 import {
@@ -294,6 +295,10 @@ function detectIssues(ctx: PassContext): Issue[] {
     // dangling links
     for (const link of n.links) {
       if (!index.has(link)) issues.push({ title: n.title, issue: `dangling link: [[${link}]] has no node` });
+    }
+    // links a hard-wrapped paragraph split in two — an edge the graph never got
+    for (const target of wrappedLinkTargets(n.body)) {
+      issues.push({ title: n.title, issue: `wrapped wikilink: [[${target}]] is split across a line break — it renders as text, not an edge` });
     }
     if (n.layer === "Opportunity" && !outcomeLinks.has(n.title)) {
       issues.push({ title: n.title, issue: "orphan opportunity: not linked under the outcome" });
