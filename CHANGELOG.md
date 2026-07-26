@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.17.0
+
+- **A tool call that does not match the tool's own schema is now refused instead of
+  written.** Found by using the product on itself, and it is the sharpest evidence this
+  project has produced about its own central claim.
+
+  A pass called `ost_annotate` with `note` instead of the declared `issue`. The tool's schema
+  says `required: ["title","issue"]` and `additionalProperties: false`, so the call was
+  invalid on its face. `runTool` handed the object straight to `run`, which read
+  `input.issue` as `undefined`, appended the literal string **"undefined"** to the node's
+  Issues section, and **reported success**. The note itself was never written anywhere.
+  Because the vault is append-only, the line can be annotated but never removed: the content
+  is unrecoverable.
+
+  **Fourteen such lines exist across the two live vaults** — 8 in `ost-agent-meta`, 6 in
+  `tetrix-ost`, written by several different passes over three days. Each is an annotation
+  somebody wrote and nobody can read. They are flagged in place, not repaired; rewriting them
+  would be the exact action this product refuses, including when this product caused it.
+
+  **What this says about "incapable of destructive action by construction."** That claim was
+  true of the tool *surface* — no delete tool exists, and none was involved here. The
+  destruction came through a *constructive* tool holding an argument nobody checked. The
+  allowlist answered *which tool may run*; nothing answered *with what*. A guarantee about
+  which verbs exist is not a guarantee about what they are handed, and the codebase had been
+  treating the first as if it covered the second — the comment at the call site said so
+  explicitly ("safety is already enforced by the allowlist above").
+
+  - `validateToolInput` checks input against the schema each tool already publishes:
+    required properties present (`undefined` counts as missing, which is the whole defect),
+    no unexpected properties, declared types. Errors name the offending property, so the
+    original bad call now answers *missing required property `issue`* and *unexpected
+    property `note` — allowed: title, issue*, and writes nothing.
+  - A deliberately small hand-written subset of JSON Schema rather than a validator
+    dependency — it covers every construct the tool schemas use, and an unrecognised keyword
+    is not silently treated as checked, since a validator that quietly skips what it cannot
+    read is the same class of bug it is here to prevent.
+  - A companion test asserts **every** allowlisted tool declares a readable schema. Without
+    it the guard degrades invisibly: a tool with no schema yields "0 problems", which is the
+    same answer as a tool that passed.
+
+- 461 tests across 63 files (up from 453), `tsc` clean.
+
 ## 0.16.0
 
 - **`check` now fails when a test answers "may an unattended pass run this?" twice,
