@@ -4,12 +4,16 @@
 #   1. Create an npm automation token (npmjs.com → Access Tokens → Automation).
 #   2. Add it as the repo secret NPM_TOKEN (Settings → Secrets → Actions).
 #
-# Release flow: bump the version (see RELEASING.md), push a tag, publish a GitHub
-# Release for that tag — this workflow builds, tests, and publishes with npm
-# provenance (a signed link from the published package back to this workflow run).
+# Release flow: bump the version (see RELEASING.md), push a tag — the tag push
+# alone publishes. Publishing a GitHub Release for the tag also triggers it; a
+# version-already-published guard makes the double-trigger harmless. Either way
+# this workflow builds, tests, and publishes with npm provenance (a signed link
+# from the published package back to this workflow run).
 name: Publish to npm
 
 on:
+  push:
+    tags: ["v*"] # the autonomous loop publishes by pushing a version tag
   release:
     types: [published]
   workflow_dispatch: {} # manual re-run if a release publish failed
@@ -31,8 +35,20 @@ jobs:
 
       - run: npm ci
 
+      # Tag push and release publish can both fire for the same version; only
+      # the first one may publish.
+      - name: Skip if this version is already on npm
+        id: guard
+        run: |
+          V=$(node -p "require('./package.json').version")
+          if [ "$(npm view "ost-agent@$V" version 2>/dev/null)" = "$V" ]; then
+            echo "ost-agent@$V is already published — skipping"
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          fi
+
       # prepublishOnly (npm run build && npm run test) gates the publish, and
       # publishConfig.provenance + id-token:write produce a provenance attestation.
       - run: npm publish
+        if: steps.guard.outputs.published != 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
