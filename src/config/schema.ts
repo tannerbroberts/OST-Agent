@@ -65,6 +65,22 @@ const SlackSchema = z
   })
   .default({ enabled: false, channels: [] });
 
+// Outward web sensing. The budget bounds how much a single session can look
+// (search + page reads share it); looking stays easy to start, hard to binge.
+const WebSchema = z
+  .object({
+    lookupBudget: z.number().int().positive().default(10),
+  })
+  .default({ lookupBudget: 10 });
+
+// The product the tree is FOR: local repo roots the agent may read (read-only,
+// path-confined) so ideation is grounded in what the product actually is.
+const ProductSchema = z
+  .object({
+    repos: z.array(z.string()).default([]),
+  })
+  .default({ repos: [] });
+
 const ProcessSchema = z
   .object({
     cron: z.string().default(""),
@@ -105,6 +121,8 @@ export const ConfigSchema = z.object({
     })
     .default({}),
   processes: z.record(z.string(), ProcessSchema).default({}),
+  web: WebSchema,
+  product: ProductSchema,
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -139,6 +157,12 @@ adapters:
   slack:
     enabled: false
     channels: []
+
+web:
+  lookupBudget: 10          # web lookups (search + page reads) one session may spend; set BRAVE_SEARCH_API_KEY to enable search
+
+product:
+  repos: []                 # local repo paths the agent may READ (read-only) to ground ideas in what the product is
 
 processes:
   P1_ingest:      { cron: "*/15 * * * *", triggers: ["inbox:new"] }

@@ -120,9 +120,10 @@ up. That keeps "look it up" cheap to start and expensive to binge.
 
 ### Trust plumbed into the ladder
 
-`classifyProvenance(source, opts?)` gains a `WEB:<host>` branch: with a host
-trust map it returns that host's rung clamped to `expert`; otherwise the
-floor. Existing call sites are untouched (the second argument is optional and
+`classifyProvenance(source, opts?)` gains a `WEB:<host>` branch: it returns
+`expert` only when the trust map holds exactly that earned rung for the host;
+any other value — including a malformed record claiming `money` — falls to
+the floor. Existing call sites are untouched (the second argument is optional and
 the default stays fail-closed).
 
 This closes the loop the product needs: a claim read on the web lands at

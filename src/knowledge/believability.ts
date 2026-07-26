@@ -117,12 +117,21 @@ export function believabilityRollup(nodes: readonly { evidence?: string }[]): Be
  * A harvested session is observed behavior — it is a recording of what happened.
  * A friction note the agent filed about itself is a first-person report, so it
  * sits at 'stated' alongside tickets and interview notes, not at 'observed'.
+ *
+ * `WEB:<host>` provenance lands on whatever rung the host has EARNED in the
+ * per-host trust map (knowledge/web-trust.ts), clamped to 'expert' — a
+ * publisher's identity can never make a claim observed or money; only
+ * first-party measurement can. Without a trust map, the floor.
  */
-export function classifyProvenance(source: string): RungId {
+export function classifyProvenance(source: string, opts?: { hostTrust?: ReadonlyMap<string, string> }): RungId {
   const s = source.trim();
   if (!s) return FLOOR_RUNG;
   if (/^TRANSCRIPT:/i.test(s)) return "observed";
   if (/^INBOX:.*friction/i.test(s)) return "stated";
   if (/^(JIRA|CONFLUENCE|SLACK|INTERVIEW):/i.test(s)) return "stated";
+  const web = /^WEB:([^\s/]+)/i.exec(s);
+  if (web) {
+    return opts?.hostTrust?.get(web[1].toLowerCase().replace(/^www\./, "")) === "expert" ? "expert" : FLOOR_RUNG;
+  }
   return FLOOR_RUNG;
 }
