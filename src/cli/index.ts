@@ -14,6 +14,7 @@
  *   ost-agent gate "<solution>" [--vault DIR] block building against untested assumptions
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
  *   ost-agent mcp [--vault DIR]               stdio MCP server (no API key needed)
+ *   ost-agent loop start|step|decide|seal     health bookends for one unattended firing
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -41,6 +42,7 @@ import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapte
 import { ALLOWED_TOOL_NAMES } from "../security/policy.js";
 import { createOstMcpServer, MCP_TOOL_NAMES } from "../mcp/server.js";
 import { vaultReadiness } from "../mcp/bootstrap.js";
+import { registerLoopCommands } from "./loop.js";
 import { VERSION } from "../index.js";
 
 async function prompt(question: string, fallback?: string): Promise<string> {
@@ -510,6 +512,8 @@ function printLastRuns(journals: RunJournalEntry[]): void {
   console.log("Last runs:");
   for (const e of latest) console.log(`  ${e.processId}: ${e.at} ${failed(e) ? "FAILED" : "ok"}`);
 }
+
+registerLoopCommands(program);
 
 program.parseAsync().catch((e) => {
   console.error(e instanceof Error ? e.message : e);
