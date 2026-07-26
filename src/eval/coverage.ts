@@ -127,6 +127,108 @@ export function askedOf(test: OstNode): string | null {
   return asked || null;
 }
 
+/**
+ * What a pre-commitment paragraph turned out to be.
+ *
+ * - `bound` — a bar somebody fixed: a number, or a comparison in words.
+ * - `instruction` — opens on *Fix…* / *Decide…* / *Choose…* with no bar in it.
+ *   An instruction to pre-commit, standing where the pre-commitment should be.
+ * - `prose` — neither. Often a perfectly good falsifiable bar written in words
+ *   ("the piece survives a page reload"), which is why it is not flagged.
+ * - `absent` — no pre-commitment paragraph at all.
+ */
+export type ThresholdKind = "bound" | "instruction" | "prose" | "absent";
+
+export interface ThresholdReading {
+  title: string;
+  kind: ThresholdKind;
+  /** The paragraph that was read, or null when there was none. */
+  asked: string | null;
+}
+
+export interface UnfixedThresholds {
+  /** The tests whose threshold is an instruction, or missing entirely. */
+  unfixed: ThresholdReading[];
+  totals: { tests: number; bound: number; instruction: number; prose: number; absent: number };
+}
+
+/**
+ * A bar somebody actually fixed. A digit is the obvious case; the phrases are
+ * there because "no more than a third" is a commitment and reporting it as
+ * unfixed is how a reader learns to ignore the report.
+ */
+const A_BOUND =
+  /\d|[≥≤]|>=|<=|\b(at least|at most|no more than|no fewer than|fewer than|more than|majority|unanimous|exactly|zero|none|half)\b/i;
+
+/**
+ * Verbs that turn a pre-commitment into a request for one. A closed list on
+ * purpose: an open-ended "is the first word an imperative" test would catch
+ * "Ship it to a fraction and compare", which describes a run rather than
+ * deferring a decision.
+ */
+const DEFERRING_VERBS = new Set([
+  "fix",
+  "decide",
+  "choose",
+  "set",
+  "pick",
+  "agree",
+  "determine",
+  "establish",
+  "define",
+  "settle",
+  "select",
+  "nominate",
+  "specify",
+]);
+
+/**
+ * Read a node's pre-commitment and say what kind of thing it is.
+ *
+ * Shallow by construction, and in a stated order: a bar anywhere in the
+ * paragraph wins over how the paragraph opens, because something was fixed
+ * even if the sentence is phrased as an ask. The false positive that would
+ * cost most is nagging about a well-written threshold — that is how the report
+ * gets turned off, and the genuinely empty ones come back with it.
+ *
+ * It cannot see everything. "Two numbers, both fixed in advance: the lift that
+ * would justify building it, and the sentiment floor" names two numbers and
+ * states neither, and reads here as `bound`. Only a human catches that one.
+ */
+export function thresholdKindOf(test: OstNode): ThresholdKind {
+  const asked = askedOf(test);
+  if (asked === null) return "absent";
+  if (A_BOUND.test(asked)) return "bound";
+  const opener = asked.replace(/^[^\p{L}]+/u, "").split(/[^\p{L}']+/u)[0]?.toLowerCase() ?? "";
+  return DEFERRING_VERBS.has(opener) ? "instruction" : "prose";
+}
+
+/**
+ * Every assumption test's threshold, classified, with the unfixed ones named.
+ *
+ * Report only. Nothing here blocks a recording, refuses a result, or edits a
+ * node — the parent opportunity's own caveat is that a mechanical rule about
+ * this will be wrong at the edges, so the first thing built against it may only
+ * look. The four counts sum to the test count so a reader can see what the
+ * classifier did with everything, not just what it complained about.
+ */
+export function computeUnfixedThresholds(tree: readonly OstNode[]): UnfixedThresholds {
+  const readings: ThresholdReading[] = tree
+    .filter((n) => n.layer === "AssumptionTest")
+    .map((t) => ({ title: t.title, kind: thresholdKindOf(t), asked: askedOf(t) }));
+  const count = (k: ThresholdKind): number => readings.filter((r) => r.kind === k).length;
+  return {
+    unfixed: readings.filter((r) => r.kind === "instruction" || r.kind === "absent"),
+    totals: {
+      tests: readings.length,
+      bound: count("bound"),
+      instruction: count("instruction"),
+      prose: count("prose"),
+      absent: count("absent"),
+    },
+  };
+}
+
 /** The statements written under `## Uncovered`, without their list markers. */
 export function uncoveredStatementsOf(test: OstNode): string[] {
   const lines = test.body.split("\n");

@@ -7,7 +7,7 @@
  *   ost-agent schedule [--vault DIR]          supervisor: cron + triggers
  *   ost-agent status [--vault DIR]            read-only tree summary
  *   ost-agent result "<test>" ...             record a human-run test's outcome
- *   ost-agent debt [--vault DIR]              evidence each solution still owes + unbounded results
+ *   ost-agent debt [--vault DIR]              evidence each solution still owes + unbounded results + unfixed thresholds
  *   ost-agent lanes [--vault DIR]             assumption tests by the human minutes they cost
  *   ost-agent lanes --flag-cautious <who>     bulk: humans-required for every test naming an outside person
  *   ost-agent lane "<test>" --set <lane> ...  classify one test into a lane
@@ -30,7 +30,7 @@ import { anthropicDriver } from "../runner/driver.js";
 import { getProcess, PROCESSES } from "../processes/registry.js";
 import { checkInvariants } from "../eval/invariants.js";
 import { computeEvidenceDebt, gateSolution } from "../eval/evidence-debt.js";
-import { computeCoverageDebt, computeCoveragePairs } from "../eval/coverage.js";
+import { computeCoverageDebt, computeCoveragePairs, computeUnfixedThresholds } from "../eval/coverage.js";
 import { BELIEVABILITY_LADDER, believabilityRollup, type RungId } from "../knowledge/believability.js";
 import { recordResult, VERDICTS, type Verdict } from "../ost/results.js";
 import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
@@ -243,11 +243,32 @@ program
       }
     }
 
+    // Every test's threshold, whether or not it has ever been run. The
+    // side-by-side above only reaches tests with results; this reaches the
+    // backlog, where a threshold that was never fixed is still cheap to fix.
+    const census = computeUnfixedThresholds(ctx.vault.readTree());
+    const u = census.totals;
+    if (u.tests > 0) {
+      console.log(
+        `\nThresholds: ${u.tests} assumption test(s)  (fixed ${u.bound}, ` +
+          `stated in words ${u.prose}, still an instruction ${u.instruction}, none written ${u.absent})`,
+      );
+      for (const r of census.unfixed) {
+        console.log(`  [${r.kind === "absent" ? "no threshold" : "not fixed"}] ${r.title}`);
+        if (r.asked !== null) console.log(`      reads: ${r.asked}`);
+      }
+      if (census.unfixed.length > 0) {
+        console.log("  a test whose threshold was never fixed cannot come out a failure.");
+      }
+    }
+
     console.log(
       "\nMechanical only: this counts whether ANY assumption beneath a solution recorded a result,\n" +
         "and whether each result was paired with a written statement of what it left untested.\n" +
         "The side-by-side above is printed, not judged: whether the RIGHT (riskiest) assumption was\n" +
-        "tested, and whether the run actually answered the threshold next to it, is a human call.",
+        "tested, and whether the run actually answered the threshold next to it, is a human call.\n" +
+        "The threshold reading is shallower still — it asks whether a bar was written, never whether\n" +
+        "the bar is the right one, and it will be wrong at the edges. It flags; it never refuses.",
     );
   });
 
@@ -375,6 +396,17 @@ program
       for (const g of coverage.gaps) {
         console.log(`  unbounded: ${g.title} (${g.claimed} result(s), ${g.stated} stated limit(s)) — see \`debt\``);
       }
+    }
+    // One line, and only when there is something to say. A test whose threshold
+    // is still an instruction to pick one cannot come out a failure, and that is
+    // worth seeing next to the tree's shape rather than only on demand.
+    const thresholds = computeUnfixedThresholds(tree);
+    if (thresholds.unfixed.length > 0) {
+      const { instruction, absent, tests } = thresholds.totals;
+      console.log(
+        `Thresholds: ${instruction + absent}/${tests} assumption test(s) have no fixed bar ` +
+          `(${instruction} still an instruction, ${absent} unwritten) — see \`debt\``,
+      );
     }
     printLastRuns(journals);
   });

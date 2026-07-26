@@ -2,6 +2,43 @@
 
 ## Unreleased
 
+## 0.10.0
+
+- **A threshold that is still an instruction to choose one is now named.** v0.9.0's
+  side-by-side was run over both live vaults before it shipped and found that in one of
+  them the pre-commitment mostly is not a commitment: paragraph after paragraph opening
+  *Fix the minimum before starting*, *Decide the acceptable rate*, *Choose a bar*. An
+  instruction to pre-commit, standing exactly where the pre-commitment should be. **A test
+  whose threshold was never fixed cannot come out a failure** — whatever the run produces
+  reads as clearing a bar nobody set, and the reader will clear it, because by then they
+  want to build the thing. `ost-agent debt` now classifies every assumption test's
+  pre-commitment and names the ones with no bar in them; `ost-agent status` says how many
+  in one line.
+- **It reaches the backlog, which the side-by-side cannot.** v0.9.0 only reads tests that
+  have already recorded a result. This reads every assumption test in the tree — which is
+  where a threshold is still cheap to fix, because nobody has run anything against it yet.
+- **Four kinds, and they sum.** `bound` (a number, or a comparison in words), `instruction`
+  (opens on a deferring verb with no bar in it), `prose` (neither — often a perfectly good
+  falsifiable bar written in words, and deliberately not flagged), `absent` (no
+  pre-commitment paragraph at all). The counts add up to the number of tests, so a reader
+  can see what the classifier did with everything rather than only what it complained about.
+- **Report only, and that is the point.** Nothing is blocked, refused, or rewritten. The
+  distinction between a threshold and an instruction to set one is fuzzy, and this rule will
+  be wrong at the edges; a report that is wrong is a nuisance, while a refusal that is wrong
+  is a wall. The two stronger siblings — refusing a result against an unfixed threshold, and
+  moving the threshold out of prose into a required field — stay unbuilt on purpose.
+- **A bar wins over an imperative opening**, deliberately: "Decide the bar; last time 5 of
+  20 booked" reads as `bound`, because something *was* fixed. The false positive that costs
+  most is nagging about a well-written threshold — that is how the report gets turned off,
+  and the genuinely empty ones come back with it. What it still cannot see is documented in
+  the module: "Two numbers, both fixed in advance: …" names two numbers and states neither.
+- **A second failure mode, found by running it:** `ost-agent-meta` has **12** assumption
+  tests with no pre-commitment paragraph at all (0 instructions), against `tetrix-ost`'s
+  **18** instructions and 0 absent. The same agent wrote both trees. One defers the bar;
+  the other never opens the question.
+- New: `thresholdKindOf`, `computeUnfixedThresholds`, `ThresholdKind` in `src/eval/coverage.ts`.
+- 315 tests across 47 files (up from 299 / 46).
+
 ## 0.9.0
 
 - **The uncovered statement now has somewhere to be *checked*, not just written.** v0.8.0

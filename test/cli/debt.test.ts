@@ -120,3 +120,70 @@ describe("ost-agent gate", () => {
     expect(stdout).toMatch(/cleared/i);
   }, 30_000);
 });
+
+describe("ost-agent debt — thresholds that were never fixed", () => {
+  test("names a test whose pre-commitment is still an instruction to pick one", async () => {
+    // The finding that produced this feature: a pre-commitment section exists,
+    // so the tree looks rigorous, and what stands in it is "decide the bar".
+    const vault = new Vault(dir);
+    vault.createNode({
+      title: "Unfixed bar",
+      layer: "AssumptionTest",
+      tags: [],
+      links: [],
+      body: "plan\n\n**Pre-commit before looking:** Decide the minimum before starting.",
+      evidence: "assertion",
+    });
+    vault.linkNodes("Untested idea", "Unfixed bar");
+
+    const { stdout } = await cli(["debt", "--vault", dir]);
+
+    expect(stdout).toContain("[not fixed] Unfixed bar");
+    expect(stdout).toMatch(/cannot come out a failure/i);
+  }, 30_000);
+
+  test("leaves a test alone once its threshold carries a bar", async () => {
+    const vault = new Vault(dir);
+    vault.createNode({
+      title: "Fixed bar",
+      layer: "AssumptionTest",
+      tags: [],
+      links: [],
+      body: "plan\n\n**Pre-committed threshold:** at least 5 of 20 book a kickoff.",
+      evidence: "assertion",
+    });
+    vault.linkNodes("Untested idea", "Fixed bar");
+
+    const { stdout } = await cli(["debt", "--vault", dir]);
+
+    expect(stdout).not.toContain("[not fixed] Fixed bar");
+    expect(stdout).toMatch(/Thresholds: \d+ assumption test\(s\)/);
+  }, 30_000);
+
+  test("reports only — a flagged threshold never blocks the gate", async () => {
+    // Deliberately the weakest of the three things that could be built here.
+    // A report that is wrong is a nuisance; a refusal that is wrong is a wall.
+    const vault = new Vault(dir);
+    vault.createNode({
+      title: "Unfixed but run",
+      layer: "AssumptionTest",
+      tags: [],
+      links: [],
+      body: [
+        "**Pre-committed threshold:** Choose the bar before starting.",
+        "",
+        "## Results",
+        "- 2026-07-25 **supported** (ran by Tanner) — went well",
+        "",
+        "## Uncovered",
+        "- 2026-07-25 (supported) — only covers desktop",
+      ].join("\n"),
+      evidence: "observed",
+    });
+    vault.linkNodes("Untested idea", "Unfixed but run");
+
+    const { stdout } = await cli(["gate", "Untested idea", "--vault", dir]);
+
+    expect(stdout).toMatch(/cleared/i);
+  }, 30_000);
+});

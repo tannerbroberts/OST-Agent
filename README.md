@@ -206,6 +206,24 @@ Two pieces of text the tool already held, printed together — that is the whole
 
 The check is shallow on purpose: it never reads the statement or tests whether it is true, only that a person was made to write one. Whether the limit is honest — and whether the run answered the threshold printed next to it — stays a human judgement, and nothing here pretends otherwise.
 
+#### A threshold that is still an instruction to choose one
+
+Run that side-by-side over a real tree and the next thing you notice is that some of the thresholds are not thresholds. The pre-commitment section is there, so the node looks rigorous, and what stands in it is *"Fix the minimum before starting"*. Nobody fixed it. **A test whose threshold was never fixed cannot come out a failure** — whatever the run produces reads as clearing a bar nobody set, and the reader will clear it, because by then they want to build the thing.
+
+`ost-agent debt` classifies every assumption test's pre-commitment and names the ones with no bar in them; `ost-agent status` says how many in one line:
+
+```text
+Thresholds: 28 assumption test(s)  (fixed 6, stated in words 4, still an instruction 18, none written 0)
+  [not fixed] Does an invited stranger play, and do they stay
+      reads: Fix both the open-to-play rate and the seven-day return rate in advance, and
+             treat the second as the one that decides the candidate.
+  a test whose threshold was never fixed cannot come out a failure.
+```
+
+Four kinds, and they sum to the test count so you can see what it did with everything: **bound** (a number, or a comparison in words like "no more than a third"), **instruction** (opens on *Fix… / Decide… / Choose…* with no bar in it), **prose** (neither — often a perfectly good falsifiable bar written in words, and deliberately not flagged), **absent** (no pre-commitment paragraph at all). A bar anywhere in the paragraph wins over how the paragraph opens, because something *was* fixed even if the sentence is phrased as an ask.
+
+It reports; it never refuses. The line between a threshold and an instruction to set one is fuzzy and this rule will be wrong at the edges — a report that is wrong is a nuisance, while a refusal that is wrong is a wall. Fixing a threshold is also exactly the decision that cannot be delegated to the party that wants to build the thing.
+
 ### Lanes — what each assumption test actually costs a person
 
 A backlog of assumption tests is not one queue. Some are replays and audits over artifacts already sitting on disk; some need a person for one keystroke; some are blocked on a credential nobody delegated; and some need real outside people and can never be anything else. Treated as one queue they all wait on the scarcest resource in the list — the operator — and the free ones never get run.
