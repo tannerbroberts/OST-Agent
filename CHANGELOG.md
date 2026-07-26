@@ -20,6 +20,60 @@
     the product's own metrics, exactly where it should.
   - Autonomous passes (P1–P5) stay hermetic: the new tools live on the MCP surface only.
 
+## 0.14.0
+
+- **`ost-agent loop start | step | decide | seal` — deterministic health records for one
+  unattended firing.** Tasks 2 and 3 of the self-bootstrapping loop plan the founder
+  committed today (`docs/superpowers/plans/2026-07-26-self-bootstrapping-loop.md`), built to
+  that plan's exact contract so tasks 4–9 have the interfaces they were written against.
+- **The verdict is computed, never supplied.** No command takes a verdict. A firing brackets
+  itself and `seal` derives `healthy | unhealthy | no-op | crashed` from what the CLI
+  observed. The problem this exists for is that the thing describing an unattended run is
+  the same model that performed it, so "the pass went well" is a self-report, and a fleet of
+  loops cannot be steered on self-report.
+- **`loop step` wraps the command rather than being told about it.** `ost-agent loop step
+  --phase build -- pnpm test` spawns the command (`shell: false`), streams its stdio, records
+  the exit code it actually observed, and propagates it. There is no `--exit` flag to get
+  wrong or to lie with. A command that never ran at all — binary not found, `spawnSync`
+  status `null` — records a non-zero exit rather than a 0, so a phase whose command could not
+  be found cannot seal healthy.
+- **`seal` re-runs the tree invariants itself** and records the result as a `check` step, so a
+  firing cannot end healthy over a broken tree however green its phases were. A test proves
+  it bites: a dangling link seals the run `unhealthy` with every phase at exit 0.
+- **Omission is visible.** A work run must show `sense`, `decide`, `build` and `ost-pass`;
+  any missing phase seals `unhealthy`. Not running the health system is itself a health
+  signal rather than a gap in the data. A `no-op` directive seals `no-op` without them, and a
+  `restore` run needs at least one step — a restore that ran nothing restored nothing.
+- **A dead process still leaves a record.** The open-run marker outlives it, and the next
+  firing's `start` sweeps it into `runs.jsonl` as `crashed` before opening its own. A marker
+  too corrupt to parse still gets a line: invisibility is the failure mode this file exists
+  to prevent.
+- **Two corrections to the plan, both found by running it**, recorded in the plan document
+  next to the tasks they belong to:
+  - *`runId` collided.* The specified `${startedAt}-loop` is millisecond-resolved, and a
+    sweep plus a start is two small writes — 50 back-to-back `startRun` calls produced **4**
+    distinct ids. That made the plan's own crash-sweep test flaky, because a crashed run and
+    its successor could share an identity. A per-millisecond counter disambiguates, with a
+    test that fails against the original expression.
+  - *The plan's first CLI test could never pass.* Its fixture wrote only `ost.config.yaml`,
+    giving a tree with no root Outcome — which `seal`'s invariant check correctly refuses.
+    The fixture now builds a real vault.
+- **Records are append-only JSONL** at `.ost-agent/health/runs.jsonl`, one line per firing,
+  stamped with the loop version that produced it — which is what makes "did version N+1 beat
+  version N" arithmetic rather than an argument. A corrupt line is skipped, never thrown on.
+- **What this release does *not* include**, so the design is not read as delivered: the
+  `loop:` config block (task 1), the preflight directive (4), `LOOP_RULESET.md` (5), the
+  prompt renderer and bare `ost-agent loop` command (6), fleet aggregation (7), the
+  dist-tag canary and promote gate (8), and the full-firing integration test (9). This is the
+  spine the other seven hang on.
+- 376 tests across 55 files (up from 360 / 53).
+
+**Not yet on npm.** 0.10.0 through this release are cut but unpublished — the environment the
+release commits were made in holds no npm credential (`npm whoami` → `ENEEDAUTH`), and
+`git push --tags` is refused here with HTTP 403, so `RELEASING.md`'s GitHub-Release path is
+unavailable from here regardless of credentials. Until `npm publish` runs, the plugin's
+`npx -y ost-agent@latest mcp` still resolves to 0.9.0.
+
 ## 0.13.0
 
 - **`check` now fails on a wikilink split across a line break** (rule `wrapped-wikilink`),

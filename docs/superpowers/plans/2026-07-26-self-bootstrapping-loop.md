@@ -174,7 +174,7 @@ export function readRuns(dir: string): LoopRunRecord[];               // newest 
 3. Else `directive === "restore"` → `"healthy"` if `steps.length >= 1`, otherwise `"unhealthy"` (a restore run that ran nothing restored nothing).
 4. Else (`"work"` or directive missing): `"healthy"` iff the set of `steps[].phase` contains all of `sense`, `decide`, `build`, `ost-pass`; any missing → `"unhealthy"`. (Omission is visible: skipping the health system is itself unhealthy.)
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```ts
 // test/loop/health.test.ts
@@ -267,12 +267,12 @@ describe("loop health records", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npx vitest run test/loop/health.test.ts`
 Expected: FAIL — module `src/loop/health.ts` does not exist.
 
-- [ ] **Step 3: Implement `src/loop/health.ts`**
+- [x] **Step 3: Implement `src/loop/health.ts`**
 
 ```ts
 /**
@@ -432,12 +432,12 @@ export function readRuns(dir: string): LoopRunRecord[] {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run test/loop/health.test.ts`
 Expected: PASS (9 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/loop/health.ts test/loop/health.test.ts
@@ -461,7 +461,7 @@ git commit -m "feat(loop): deterministic health records — CLI-stamped runs.jso
   - `ost-agent loop seal [--vault DIR]` — first records a synthetic `check` step by running `checkInvariants` (exit 1 on violations), then seals; prints the computed verdict; exits non-zero iff verdict is `unhealthy` or `crashed`.
   - `ost-agent loop decide <workItem> [--vault DIR]` — records the picked work item title onto the open run (`updateOpenRun`) AND appends a zero-exit `decide` step. (The pick itself comes from `ost_next_work`; this records it.)
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```ts
 // test/cli/loop.test.ts
@@ -530,12 +530,12 @@ describe("ost-agent loop start/step/seal", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npx vitest run test/cli/loop.test.ts`
 Expected: FAIL — `error: unknown command 'loop'`.
 
-- [ ] **Step 3: Implement `src/cli/loop.ts`**
+- [x] **Step 3: Implement `src/cli/loop.ts`**
 
 ```ts
 /**
@@ -623,12 +623,12 @@ export function registerLoopCommands(program: Command): void {
 
 In `src/cli/index.ts`: add `import { registerLoopCommands } from "./loop.js";` with the other imports, and `registerLoopCommands(program);` immediately before `program.parseAsync()`.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run test/cli/loop.test.ts`
 Expected: PASS (4 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/cli/loop.ts src/cli/index.ts test/cli/loop.test.ts
@@ -636,6 +636,23 @@ git commit -m "feat(loop): CLI bookends — loop start/step/decide/seal with pro
 ```
 
 ---
+
+> **Tasks 2 and 3 shipped in v0.14.0** (autonomous bootstrap loop, ninth pass). Two
+> corrections to the plan as written, both found by running it:
+>
+> - **`runId` collided.** `${startedAt.replaceAll(":","-")}-loop` is millisecond-resolved,
+>   and a sweep plus a start is two small writes — 50 back-to-back `startRun` calls
+>   produced 4 distinct ids. That made Task 2's own crash-sweep test flaky (a crashed run
+>   and its successor sharing an identity). A per-millisecond counter now disambiguates,
+>   with a test that fails against the original expression.
+> - **Task 3's first test could never pass.** Its fixture writes only `ost.config.yaml`,
+>   so the tree has no root Outcome — and `seal` runs `checkInvariants`, which fails
+>   `single-outcome`, so the run sealed `unhealthy`. The fixture now calls `initVault`.
+>   A new test asserts the invariant check bites: a dangling link seals the run unhealthy
+>   even when every phase exited 0.
+>
+> Also added beyond the plan: a step whose command never ran (binary not found,
+> `spawnSync` status `null`) records a non-zero exit rather than a 0.
 
 ### Task 4: Preflight directive (`src/loop/preflight.ts` + CLI)
 
