@@ -132,17 +132,27 @@ refuses with the command that fixes it. It still never bootstraps a tree on its 
 Outcome is the one human-set input the whole tree hangs from, so the skill asks you for it
 in your words and runs `ost-agent init` with them. It will not invent one to make progress.
 
+**`/ost-setup` is the front door.** Reporting first run is not the same as being findable:
+the skill's bootstrap branch only fires once you ask for discovery work, which is the thing
+you installed this to learn how to do. `/ost-setup` puts that branch in the slash-command
+menu, where someone who has just installed a plugin actually looks. It reads the bootstrap
+state, asks you the one question it may not answer for you, reads your sentence back, and
+runs `init` (or `set-outcome`) with your words. Run it in a folder that is already a vault
+and it says so and stops. It is generated from the same `firstRun` rules as the skill, so
+the menu entry and the branch cannot teach different things.
+
 **Skill + slash commands + one-command install.** This repo also ships a Claude Code
 **skill** (`opportunity-solution-tree`, generated from the same ruleset the standalone
 agent uses, so the two brains never drift) and `/ost-*` **slash commands**
-(`/ost-status`, `/ost-map`, `/ost-ideate`, `/ost-assumptions`, `/ost-hygiene`,
-`/ost-add-opportunity`, and the unattended `/ost-pass`). It is packaged as a **plugin
-with its own marketplace**, so a consumer wires up skill + commands + MCP server in one
-step:
+(`/ost-setup`, `/ost-status`, `/ost-map`, `/ost-ideate`, `/ost-assumptions`,
+`/ost-hygiene`, `/ost-add-opportunity`, and the unattended `/ost-pass`). It is packaged as
+a **plugin with its own marketplace**, so a consumer wires up skill + commands + MCP server
+in one step:
 
 ```text
 /plugin marketplace add tannerbroberts/OST-Agent
 /plugin install ost-agent@ost-agent
+/ost-setup
 ```
 
 Full setup for both **participant** (human-in-the-loop) and **autonomous** (scheduled,

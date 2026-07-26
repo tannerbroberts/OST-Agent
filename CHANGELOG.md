@@ -2,6 +2,41 @@
 
 ## Unreleased
 
+## 0.12.0
+
+- **`/ost-setup` — the first run becomes findable, not just reportable.** v0.11.0 made an
+  empty directory answer `{ bootstrap: true }` instead of failing to connect, and taught
+  the skill a branch for it. Both are only reachable by someone who already asks for
+  discovery work, which is the thing a stranger installs this to learn how to do. The
+  slash-command menu is where a person who has just run `/plugin install` actually looks,
+  so the branch now has a name in it.
+- **What the command does.** Calls `ost_next_work`; on `no-vault` it asks the one question
+  it is not allowed to answer — *what outcome do you want this tree to serve?* — reads the
+  human's sentence back verbatim, and runs `ost-agent init <folder> --outcome "<their
+  words>"`. On `no-outcome` it does the same through `set-outcome`. On an existing vault it
+  reports the outcome and node counts, points at `/ost-status`, and **stops** — it does not
+  re-initialise over a live tree or touch an Outcome someone already chose.
+- **Generated from `OST_RULESET.firstRun`, like the skill.** `scripts/gen-skill.ts` now
+  writes both `SKILL.md` and `.claude/commands/ost-setup.md`, and `test/skill/drift.test.ts`
+  fails on either being stale. Two hand-maintained copies of the one branch that must never
+  invent the outcome would drift, and the drift would be silent.
+- **Its shell allowance is four named commands, not a shell.** `allowed-tools` grants
+  `Bash(ost-agent init:*)`, `Bash(ost-agent set-outcome:*)` and their `npx` forms, and a
+  test asserts the shape of every grant — a bare `Bash` would hand a shell to the one
+  product whose promise is that no tool it holds can take a destructive action.
+- **Both bootstrap messages now name the front door**, so a human who hits the state
+  through the tool layer and one who hits it through the menu are sent to the same place.
+- **A ruleset rule says it out loud**: *reporting first run is not the same as being
+  findable* — if a human seems to be starting from nothing, say `/ost-setup` rather than
+  waiting to be asked. It renders into the skill, so both brains learned it.
+- 351 tests across 53 files (up from 340 / 52).
+
+**Not yet on npm.** 0.10.0, 0.11.0 and this release are cut but unpublished — the
+environment the release commits were made in holds no npm credential. Until
+`npm publish` runs, the plugin's `npx -y ost-agent@latest mcp` still resolves to 0.9.0,
+which refuses to start outside a vault — so the front door added here is not reachable by
+the person it was built for.
+
 ## 0.11.0
 
 - **The first run stops being a wall.** The founder's launch bar for handing this to

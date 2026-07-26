@@ -68,6 +68,24 @@ describe("vaultReadiness", () => {
     await initVault(dir, "Reach 10,000 daily active users", "Retention");
     expect(vaultReadiness(buildPassContext(dir)).ready).toBe(true);
   });
+
+  /**
+   * Reporting the state is not the same as being findable. Whoever reads a
+   * bootstrap message — a session, or a human staring at a failed-looking tool —
+   * should be told the one thing they can type, and it should be the same door
+   * the slash-command menu offers.
+   */
+  test("both not-ready messages name the /ost-setup front door", async () => {
+    const empty = vaultReadiness(buildPassContext(dir, { allowMissingConfig: true }));
+    if (empty.ready) throw new Error("unreachable");
+    expect(empty.message).toMatch(/\/ost-setup/);
+
+    await initVault(dir, "Reach 10,000 daily active users", "Retention");
+    fs.rmSync(path.join(dir, "Retention.md"));
+    const rootless = vaultReadiness(buildPassContext(dir));
+    if (rootless.ready) throw new Error("unreachable");
+    expect(rootless.message).toMatch(/\/ost-setup/);
+  });
 });
 
 describe("the MCP server with no vault", () => {

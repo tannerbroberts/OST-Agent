@@ -74,6 +74,7 @@ All are exposed by the `ost-agent` MCP server (names may appear as `mcp__ost-age
 - If the human is not available to answer, stop and say what you are waiting for. Do not scaffold a vault around a placeholder outcome to make progress.
 - Setting up a vault needs no model and no API key. Neither does `status`, `check`, `debt`, `lanes`, or `result` — a credential is only needed by the standalone `ost-agent run` path, because this MCP server holds no model and the connected session supplies the reasoning.
 - Once the vault is set up, call `ost_next_work` again and continue into the normal maintenance loop; a fresh tree with only an Outcome is legitimately `done`, and the next thing it needs is evidence, not ideation.
+- `/ost-setup` is the front door onto this same branch, named in the slash-command menu so that someone who has just installed the plugin can find it without already knowing to ask for discovery work. Reporting first run is not the same as being findable: if a human seems to be starting from nothing, say `/ost-setup` out loud rather than waiting to be asked.
 
 ## The maintenance loop
 

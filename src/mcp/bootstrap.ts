@@ -49,7 +49,8 @@ export function vaultReadiness(ctx: PassContext): VaultReadiness {
         `No OST vault at ${vault} — this directory has not been set up yet. ` +
         `Setting one up needs no model and no API key: it creates a git repo, a config, and the single root Outcome node. ` +
         `The Outcome is the human's mandate, so ask the human what outcome they want this tree to serve, in one sentence, ` +
-        `and pass their words through verbatim. Never invent it, and never proceed without it. Then run: ${nextStep}`,
+        `and pass their words through verbatim. Never invent it, and never proceed without it. Then run: ${nextStep}. ` +
+        `The guided version of exactly this is the /ost-setup slash command.`,
       nextStep,
     };
   }
@@ -62,7 +63,8 @@ export function vaultReadiness(ctx: PassContext): VaultReadiness {
       message:
         `The vault at ${vault} is a git repository but has no Outcome node, so nothing in it can ladder up to anything. ` +
         `The MCP server maintains an existing tree; it does not bootstrap one, and it may not choose the outcome. ` +
-        `Ask the human for the outcome this tree serves and pass their words through verbatim. Then run: ${nextStep}`,
+        `Ask the human for the outcome this tree serves and pass their words through verbatim. Then run: ${nextStep}. ` +
+        `The guided version of exactly this is the /ost-setup slash command.`,
       nextStep,
     };
   }

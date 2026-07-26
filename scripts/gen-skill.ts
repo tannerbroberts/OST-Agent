@@ -18,6 +18,8 @@ import { OST_RULESET as R } from "../src/knowledge/ruleset.js";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..");
 export const SKILL_PATH = path.join(REPO, ".claude", "skills", "opportunity-solution-tree", "SKILL.md");
+export const COMMANDS_DIR = path.join(REPO, ".claude", "commands");
+export const SETUP_COMMAND_PATH = path.join(COMMANDS_DIR, "ost-setup.md");
 
 const bullets = (items: readonly string[]) => items.map((s) => `- ${s}`).join("\n");
 
@@ -101,12 +103,89 @@ You never validate your own ideas and never declare the outcome met. Everything 
 `;
 }
 
+/**
+ * Render `/ost-setup` — the first-run front door — from the same `firstRun`
+ * rules the skill renders from.
+ *
+ * Why a slash command and not more prose in the skill: the skill's branch only
+ * fires once someone asks for discovery work, which is precisely the thing a
+ * stranger installed this to learn how to do. The slash-command menu is where a
+ * person who has just run `/plugin install` actually looks, so the front door
+ * has to have a name in it.
+ *
+ * Generated rather than hand-written for the same reason SKILL.md is: two hand-
+ * maintained copies of the one branch that must never invent the outcome would
+ * drift, and the drift would be silent.
+ */
+export function renderSetupCommand(): string {
+  // Narrow, named grants. `init` and `set-outcome` are the only two commands
+  // this branch ever runs, and both are model-free. A bare `Bash` grant here
+  // would hand a shell to the one product whose promise is that it has none.
+  const allowed = [
+    "mcp__ost-agent__ost_next_work",
+    "Bash(ost-agent init:*)",
+    "Bash(ost-agent set-outcome:*)",
+    "Bash(npx -y ost-agent@latest init:*)",
+    "Bash(npx -y ost-agent@latest set-outcome:*)",
+  ].join(", ");
+
+  return `---
+description: Set up an Opportunity Solution Tree in this folder — the first-run front door
+allowed-tools: ${allowed}
+---
+
+Set this directory up as an OST vault, or report that it already is one.
+
+> **This file is generated** from \`src/knowledge/ruleset.ts\` (\`OST_RULESET.firstRun\`) by \`scripts/gen-skill.ts\`. Do not edit it by hand — change the ruleset and run \`npm run gen:skill\`. The \`opportunity-solution-tree\` skill renders the same rules, so the menu entry and the skill branch cannot teach different things.
+
+## 1. Find out where you are
+
+Call \`ost_next_work\` first. It answers one of three ways:
+
+- **\`bootstrap: true\`, \`reason: "no-vault"\`** — nothing here yet. Go to step 2.
+- **\`bootstrap: true\`, \`reason: "no-outcome"\`** — a vault with no root. Go to step 3.
+- **no \`bootstrap\` field** — this folder is **already** a working vault. Say so, report the outcome it serves and the node counts, and point the human at \`/ost-status\` for what is outstanding and \`/ost-pass\` for a maintenance sweep. **Do not re-initialise, and do not touch the existing Outcome.** Stop here.
+
+## 2. No vault — ask one question, then create it
+
+Ask the human, and wait for their answer:
+
+> **What outcome do you want this tree to serve?** One sentence, in your own words.
+
+Read their sentence back to them for confirmation, verbatim. Then run:
+
+\`\`\`
+ost-agent init <folder> --outcome "<their words>"
+\`\`\`
+
+## 3. A vault with no root Outcome
+
+Ask the same question, confirm the same way, then run:
+
+\`\`\`
+ost-agent set-outcome "<their words>" --vault <dir>
+\`\`\`
+
+## 4. Confirm
+
+Call \`ost_next_work\` again and report what it says. A fresh tree holding only an Outcome is legitimately \`done\` — the next thing it needs is evidence, not ideation. Tell the human where to drop notes (the inbox path in \`ost.config.yaml\`) and that \`/ost-pass\` runs the maintenance loop once there is something to map.
+
+## The rules this command is bound by
+
+${bullets(R.firstRun)}
+`;
+}
+
 function main(): void {
-  const content = renderSkill();
-  fs.mkdirSync(path.dirname(SKILL_PATH), { recursive: true });
-  fs.writeFileSync(SKILL_PATH, content, "utf8");
-  const rel = path.relative(REPO, SKILL_PATH);
-  process.stdout.write(`wrote ${rel} (${content.length} bytes)\n`);
+  const outputs: ReadonlyArray<readonly [string, string]> = [
+    [SKILL_PATH, renderSkill()],
+    [SETUP_COMMAND_PATH, renderSetupCommand()],
+  ];
+  for (const [target, content] of outputs) {
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, content, "utf8");
+    process.stdout.write(`wrote ${path.relative(REPO, target)} (${content.length} bytes)\n`);
+  }
 }
 
 // Run as a script, but stay importable by the drift test.
