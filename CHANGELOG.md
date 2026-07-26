@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.16.0
+
+- **`check` now fails when a test answers "may an unattended pass run this?" twice,
+  differently** (rule `lane-conflict`). A `lane:` in the frontmatter and a different lane
+  declared in the node's own prose is one node contradicting itself about the one question a
+  lane exists to settle — the same shape as `no-self-validation`, and a hard failure for the
+  same reason: the fail-closed direction of a lane is the whole safety argument, and a
+  contradiction has no direction. The message names both readings and says which one costs
+  something: labelled `compute-only` over prose saying `humans-required` is the expensive
+  direction, because the label is what `runnableByCompute` obeys, so a pass will go and run a
+  test whose own text says a person is part of the measurement. `ost-agent lanes` lists
+  conflicts too, and the hygiene detector annotates them. Reported, never resolved — picking
+  the permissive side stays a human's call.
+
+- **The prose-lane reader stopped reporting fragments as declarations.** 0.15.0 read the
+  first `lane: <id>` match anywhere in a node body. That was wrong twice over, and both were
+  live in the vault this product maintains for itself:
+  - **A qualified declaration was reported as a clean one.** A test reading
+    `**Lane: compute-only for the census, humans-required for the fixing.**` was printed as a
+    paste-ready `--set compute-only`, quoting the test's own words as the justification —
+    i.e. the tool invited a human to classify the human half of a split test into compute's
+    reach, and the invitation looked authoritative *because* it was a quote. A declaration
+    naming two lanes now yields no declaration and no paste-ready command; it is reported
+    separately as an ambiguity, with the **whole sentence**, since the fragment is what made
+    it look unambiguous. The tree's advice: split the test.
+  - **The audit trail read as prose.** `Vault.setLane` appends
+    `- <date> lane: <prev> → <next>` under `## History`. Surfacing conflicts on top of the
+    old reader would therefore have flagged every *reclassified* test as conflicting with its
+    own paper trail — the tool arguing with its own record, in a rule whose only job is to
+    report contradictions. The reader now scans a node's own prose only: everything above the
+    first `##` heading. `## History` is an audit trail and `## Issues` is commentary; neither
+    is the node speaking. Verified against a real reclassification in a copy of the tetrix
+    vault: the pre-fix regex matches `lane: humans-required` from the history line and would
+    report a conflict; the shipped reader reports none.
+
+- A ruleset rule states the writing habit both brains now learn: one lane, one sentence, one
+  name — and a lane in prose is a suggestion, never a label.
+
+- 453 tests across 62 files (up from 432), `tsc` clean, `check` PASS with 0 violations on the
+  meta vault and 0 `lane-conflict` findings on either live vault.
+
 ## 0.15.0
 
 - **`ost-agent lanes` now reports a lane a test states in its own prose.** A test could

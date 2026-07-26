@@ -12,6 +12,7 @@
  */
 import { byTitle, childrenOfLayer, getMapped, readEvidence } from "../processes/tree.js";
 import { findNearDuplicateIssues } from "../ost/dedupe.js";
+import { laneConflicts } from "../ost/lanes.js";
 import { wrappedLinkTargets, type OstNode } from "../ost/node.js";
 import type { Vault } from "../ost/vault.js";
 
@@ -70,6 +71,15 @@ function detectHygiene(tree: OstNode[]): HygieneIssue[] {
       const parents = tree.filter((p) => p.layer === "Opportunity" && p.links.includes(n.title));
       if (parents.length === 0) issues.push({ title: n.title, issue: "orphan solution: not linked under any opportunity" });
     }
+  }
+  // a test that names one lane in its label and another in its prose: the tree
+  // answering "may compute run this?" twice, differently. Annotated, never
+  // resolved — picking the permissive side is a human's call by construction.
+  for (const c of laneConflicts(tree)) {
+    issues.push({
+      title: c.test,
+      issue: `lane conflict: labelled ${c.labelled} but its prose says "${c.quote}" — a person decides which is stale`,
+    });
   }
   // likely duplicates (same-layer near-identical titles) — flagged for a human, never merged
   issues.push(...findNearDuplicateIssues(tree));

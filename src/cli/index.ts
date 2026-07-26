@@ -367,6 +367,33 @@ program
       }
     }
 
+    // A declaration naming two lanes is not a classification anyone can paste.
+    // It is listed here instead, whole sentence included, because the fragment
+    // is what made it look unambiguous in the first place.
+    if (t.proseAmbiguous.length > 0) {
+      console.log(
+        `\n${t.proseAmbiguous.length} test(s) declare a lane and then qualify it — no paste-ready command for these.`,
+      );
+      console.log("The test is saying it splits. Split the test, or decide which half the label is about.");
+      for (const a of t.proseAmbiguous) {
+        console.log(`  - ${a.test}\n      names ${a.names.join(" and ")}: "${a.quote}"`);
+      }
+    }
+
+    // The disagreement half. `check` fails on these; repeating them here is for
+    // the person already looking at lanes, who is the one who can settle it.
+    if (t.laneConflicts.length > 0) {
+      console.log(`\n⚠ ${t.laneConflicts.length} test(s) carry a lane that contradicts their own prose.`);
+      for (const c of t.laneConflicts) {
+        const risk =
+          c.labelled === "compute-only"
+            ? "an unattended pass may run this one — the label is what compute obeys"
+            : "stale in the safe direction";
+        console.log(`  - ${c.test}\n      labelled ${c.labelled}, prose says "${c.quote}" — ${risk}`);
+      }
+      console.log("Reported, not resolved: choosing the permissive reading is a human's call.");
+    }
+
     console.log(`\nRunnable right now (compute-only, no result yet): ${t.runnable.length}`);
     for (const title of t.runnable) console.log(`  - ${title}`);
     console.log(

@@ -2,7 +2,15 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { proseDeclaredLane, runnableByCompute, setLane, suggestCaution, triageLanes } from "../../src/ost/lanes.js";
+import {
+  laneConflicts,
+  proseDeclaredLane,
+  proseLaneAmbiguity,
+  runnableByCompute,
+  setLane,
+  suggestCaution,
+  triageLanes,
+} from "../../src/ost/lanes.js";
 import { serialize, type OstNode } from "../../src/ost/node.js";
 import { Vault } from "../../src/ost/vault.js";
 
@@ -271,6 +279,182 @@ describe("proseDeclaredLane — the label the tool cannot read", () => {
     const sol = node("S", "Solution", [], { body: "**Lane: compute-only.**" });
 
     expect(proseDeclaredLane(sol)).toBeUndefined();
+  });
+});
+
+describe("proseDeclaredLane reads a declaration, not any sentence containing the word", () => {
+  // Both cases below were found in the live ost-agent-meta vault, not invented.
+  // They are the reason the conflict half could not ship on top of the reader
+  // as it stood: one of them the reader gets wrong today, and the other it
+  // would start getting wrong the moment conflicts became visible.
+
+  test("ignores the audit trail `lane: X → Y` that setLane itself writes under ## History", () => {
+    // This is the trap. `Vault.setLane` appends `- <date> lane: <prev> → <next>`
+    // to ## History. Reclassify a test and its own audit line reads, to a regex,
+    // as prose declaring the OLD lane — so every reclassified node would report
+    // a conflict against its own history. The tool would be arguing with itself.
+    const t = node("A", "AssumptionTest", [], {
+      lane: "humans-required",
+      body: [
+        "It needs five players in a room.",
+        "",
+        "## History",
+        "- 2026-07-26 lane: compute-only → humans-required — by Tanner — it needs real people",
+      ].join("\n"),
+    });
+
+    expect(proseDeclaredLane(t, { includeConflicts: true })).toBeUndefined();
+  });
+
+  test("ignores a lane named in an ## Issues annotation — commentary is not a declaration", () => {
+    const t = node("A", "AssumptionTest", [], {
+      body: ["Some test.", "", "## Issues", "- 2026-07-26 flagged: should this be lane: compute-only?"].join("\n"),
+    });
+
+    expect(proseDeclaredLane(t)).toBeUndefined();
+  });
+
+  test("still reads a declaration in the node's own prose above the sections", () => {
+    const t = node("A", "AssumptionTest", [], {
+      body: ["**Lane: compute-only.** A regex over git history.", "", "## History", "- 2026-07-26 created"].join("\n"),
+    });
+
+    expect(proseDeclaredLane(t)?.lane).toBe("compute-only");
+  });
+});
+
+describe("a declaration that names two lanes is not a declaration", () => {
+  // Live, in ost-agent-meta, on "Do named unfixed thresholds actually get fixed":
+  //   **Lane: compute-only for the census, humans-required for the fixing.**
+  // The reader took the first match and handed the operator a paste-ready
+  // `--set compute-only` — i.e. it invited a human to classify the human half
+  // of a split test into compute's reach, using the test's own words as the
+  // justification. Reading half a sentence and reporting it as the whole is the
+  // one failure this reader cannot be allowed to have.
+  const split = () =>
+    node("A", "AssumptionTest", [], {
+      body: "**Lane: compute-only for the census, humans-required for the fixing.** Counting is mechanical.",
+    });
+
+  test("refuses to report a qualified declaration as a clean one", () => {
+    expect(proseDeclaredLane(split())).toBeUndefined();
+  });
+
+  test("reports it as an ambiguity instead, naming every lane the sentence claims", () => {
+    expect(proseLaneAmbiguity(split())).toEqual({
+      quote: "Lane: compute-only for the census, humans-required for the fixing.",
+      names: ["compute-only", "humans-required"],
+    });
+  });
+
+  test("a clean declaration is not an ambiguity", () => {
+    const t = node("A", "AssumptionTest", [], { body: "**Lane: compute-only.** A regex over git history." });
+
+    expect(proseLaneAmbiguity(t)).toBeUndefined();
+  });
+
+  test("the ambiguity check is scoped to the declaring sentence, not the whole note", () => {
+    // A later paragraph explaining why the OTHER lane does not apply is normal
+    // prose and must not poison the declaration.
+    const t = node("A", "AssumptionTest", [], {
+      body: "**Lane: compute-only.** It is not humans-required: no person is part of the measurement.",
+    });
+
+    expect(proseDeclaredLane(t)?.lane).toBe("compute-only");
+    expect(proseLaneAmbiguity(t)).toBeUndefined();
+  });
+
+  test("an ambiguous declaration never surfaces as a conflict either", () => {
+    const t = node("A", "AssumptionTest", [], {
+      lane: "humans-required",
+      body: "**Lane: compute-only for the census, humans-required for the fixing.**",
+    });
+
+    expect(proseDeclaredLane(t, { includeConflicts: true })).toBeUndefined();
+  });
+});
+
+describe("laneConflicts — prose and frontmatter disagreeing about who may run a test", () => {
+  test("reports a test whose label and prose name different lanes", () => {
+    const tree = [
+      node("Sol", "Solution", ["A", "B"]),
+      node("A", "AssumptionTest", [], { lane: "compute-only", body: "**Lane: humans-required.** five players" }),
+      node("B", "AssumptionTest", [], { lane: "compute-only", body: "**Lane: compute-only.** a regex" }),
+    ];
+
+    expect(laneConflicts(tree)).toEqual([
+      { test: "A", declared: "humans-required", labelled: "compute-only", quote: "Lane: humans-required" },
+    ]);
+  });
+
+  test("names the direction that actually costs something", () => {
+    // Labelled compute-only while its own text says a person is needed: an
+    // unattended pass will run this one. The reverse is merely stale.
+    const tree = [
+      node("Sol", "Solution", ["A"]),
+      node("A", "AssumptionTest", [], { lane: "compute-only", body: "**Lane: humans-required.**" }),
+    ];
+
+    expect(runnableByCompute(tree).map((t) => t.title)).toEqual(["A"]);
+    expect(laneConflicts(tree)[0].labelled).toBe("compute-only");
+  });
+
+  test("an unclassified test cannot conflict — it is a declaration, not a disagreement", () => {
+    const tree = [
+      node("Sol", "Solution", ["A"]),
+      node("A", "AssumptionTest", [], { body: "**Lane: compute-only.**" }),
+    ];
+
+    expect(laneConflicts(tree)).toEqual([]);
+    expect(triageLanes(tree).proseDeclared).toHaveLength(1);
+  });
+
+  test("reporting a conflict still does not move the boundary", () => {
+    // The report-never-apply rule, extended to the conflict half: surfacing a
+    // disagreement must not resolve it in either direction.
+    const tree = [
+      node("Sol", "Solution", ["A"]),
+      node("A", "AssumptionTest", [], { lane: "compute-only", body: "**Lane: humans-required.**" }),
+    ];
+
+    laneConflicts(tree);
+
+    expect(tree[1].lane).toBe("compute-only");
+    expect(runnableByCompute(tree).map((t) => t.title)).toEqual(["A"]);
+  });
+});
+
+describe("triageLanes surfaces both new readings", () => {
+  test("carries conflicts and ambiguities alongside the clean declarations", () => {
+    const tree = [
+      node("Sol", "Solution", ["A", "B", "C"]),
+      node("A", "AssumptionTest", [], { body: "**Lane: compute-only.**" }),
+      node("B", "AssumptionTest", [], { lane: "compute-only", body: "**Lane: humans-required.**" }),
+      node("C", "AssumptionTest", [], { body: "**Lane: compute-only for the census, humans-required after.**" }),
+    ];
+
+    const t = triageLanes(tree);
+
+    expect(t.proseDeclared).toEqual([{ test: "A", lane: "compute-only", quote: "Lane: compute-only" }]);
+    expect(t.laneConflicts).toEqual([
+      { test: "B", declared: "humans-required", labelled: "compute-only", quote: "Lane: humans-required" },
+    ]);
+    expect(t.proseAmbiguous).toEqual([
+      {
+        test: "C",
+        quote: "Lane: compute-only for the census, humans-required after.",
+        names: ["compute-only", "humans-required"],
+      },
+    ]);
+  });
+
+  test("a test with an ambiguous declaration is not offered as a paste-ready classification", () => {
+    const tree = [
+      node("Sol", "Solution", ["C"]),
+      node("C", "AssumptionTest", [], { body: "**Lane: compute-only for the census, humans-required after.**" }),
+    ];
+
+    expect(triageLanes(tree).proseDeclared).toEqual([]);
   });
 });
 

@@ -138,3 +138,67 @@ describe("wrapped-wikilink", () => {
     expect(checkInvariants(tree("Plain prose with no links at all."))).toEqual([]);
   });
 });
+
+/**
+ * A node that says one thing in the field the tool reads and another in the
+ * sentence a human reads has, between its two halves, no answer to the only
+ * question a lane exists to settle: may an unattended pass run this by itself?
+ * Same shape as `no-self-validation` — a contradiction inside one node — and
+ * treated the same way: a hard failure, because the fail-closed direction of a
+ * lane is the whole safety argument and a contradiction has no direction.
+ */
+describe("lane-conflict", () => {
+  const tree = (extra: Partial<OstNode>): OstNode[] => [
+    node(OUT, "Outcome", ["Opp"], { evidence: "assertion" }),
+    node("Opp", "Opportunity", ["Sol"], { evidence: "stated" }),
+    node("Sol", "Solution", ["Asm"], { evidence: "assertion" }),
+    node("Asm", "AssumptionTest", [], { evidence: "assertion", ...extra }),
+  ];
+  const conflicts = (extra: Partial<OstNode>) =>
+    checkInvariants(tree(extra)).filter((v) => v.rule === "lane-conflict");
+
+  test("fails when the label says compute may run it and the prose says a person is needed", () => {
+    const v = conflicts({ lane: "compute-only", body: "**Lane: humans-required.** five players in a room" });
+    expect(v).toHaveLength(1);
+    expect(v[0].node).toBe("Asm");
+    // Both readings must be in the message: the reader has to decide which is
+    // wrong, and cannot do that from a message naming only one of them.
+    expect(v[0].detail).toContain("compute-only");
+    expect(v[0].detail).toContain("humans-required");
+  });
+
+  test("fails in the stale direction too — the tree still contradicts itself", () => {
+    expect(conflicts({ lane: "humans-required", body: "**Lane: compute-only.** a regex" })).toHaveLength(1);
+  });
+
+  test("passes when label and prose agree", () => {
+    expect(conflicts({ lane: "compute-only", body: "**Lane: compute-only.** a regex" })).toEqual([]);
+  });
+
+  test("passes when the prose declares nothing", () => {
+    expect(conflicts({ lane: "compute-only", body: "a regex over two git histories" })).toEqual([]);
+  });
+
+  test("passes on an unclassified test that declares a lane — that is a suggestion, not a conflict", () => {
+    expect(conflicts({ body: "**Lane: compute-only.** a regex" })).toEqual([]);
+  });
+
+  test("does not fail a node on the audit trail setLane wrote into its own ## History", () => {
+    // The regression this rule was most likely to ship with: reclassifying a
+    // test writes `lane: <prev> → <next>` under ## History, and a naive reader
+    // sees <prev> as a competing declaration. Every reclassified node in every
+    // vault would have gone red on its own paper trail.
+    const body = [
+      "It needs five players in a room.",
+      "",
+      "## History",
+      "- 2026-07-26 lane: compute-only → humans-required — by Tanner — real people",
+    ].join("\n");
+    expect(conflicts({ lane: "humans-required", body })).toEqual([]);
+  });
+
+  test("does not fail a node whose declaration names two lanes — that is ambiguity, not conflict", () => {
+    const body = "**Lane: compute-only for the census, humans-required for the fixing.**";
+    expect(conflicts({ lane: "humans-required", body })).toEqual([]);
+  });
+});

@@ -7,6 +7,7 @@
  */
 import { BELIEVABILITY_LADDER } from "../knowledge/believability.js";
 import { byTitle } from "../processes/tree.js";
+import { laneConflicts } from "../ost/lanes.js";
 import { wrappedLinkTargets, type OstNode } from "../ost/node.js";
 
 export interface Violation {
@@ -85,6 +86,22 @@ export function checkInvariants(tree: OstNode[]): Violation[] {
     if (n.tags.includes("unvalidated") && n.status === "validated") {
       v.push({ rule: "no-self-validation", node: n.title, detail: "carries the 'unvalidated' tag but status is 'validated' — contradiction" });
     }
+  }
+
+  // a test must not answer "may an unattended pass run this?" twice, differently.
+  // Same shape as no-self-validation above — one node, two fields, opposite
+  // claims — and a hard failure for the same reason: the fail-closed direction
+  // of a lane is the safety argument, and a contradiction has no direction.
+  for (const c of laneConflicts(tree)) {
+    v.push({
+      rule: "lane-conflict",
+      node: c.test,
+      detail:
+        `labelled lane: ${c.labelled} but its own prose says "${c.quote}" — ` +
+        (c.labelled === "compute-only"
+          ? "an unattended pass will run it while the test says a person is needed; reconcile before it does"
+          : "one of the two is stale; a human decides which"),
+    });
   }
 
   return v;

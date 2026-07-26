@@ -27,6 +27,16 @@ export interface LaneTriage {
    * cheapest end of the triage backlog to work.
    */
   proseDeclared: ProseLaneEntry[];
+  /**
+   * Tests whose frontmatter lane and whose own prose name *different* lanes.
+   * A human decides which is stale; nothing here resolves it.
+   */
+  laneConflicts: LaneConflict[];
+  /**
+   * Tests whose prose declaration names more than one lane, so it cannot be
+   * read as an answer at all. Kept visible, never offered as a classification.
+   */
+  proseAmbiguous: ProseAmbiguityEntry[];
 }
 
 /** One entry of {@link LaneTriage.proseDeclared}. */
@@ -34,6 +44,23 @@ export interface ProseLaneEntry {
   test: string;
   lane: LaneId;
   quote: string;
+}
+
+/** One entry of {@link LaneTriage.laneConflicts}. */
+export interface LaneConflict {
+  test: string;
+  /** What the test's own prose says. */
+  declared: LaneId;
+  /** What the frontmatter label says — the one the tools actually obey. */
+  labelled: LaneId;
+  quote: string;
+}
+
+/** One entry of {@link LaneTriage.proseAmbiguous}. */
+export interface ProseAmbiguityEntry {
+  test: string;
+  quote: string;
+  names: LaneId[];
 }
 
 function assumptionTests(tree: readonly OstNode[]): OstNode[] {
@@ -61,9 +88,12 @@ export function triageLanes(tree: readonly OstNode[]): LaneTriage {
   }
 
   const proseDeclared: ProseLaneEntry[] = [];
+  const proseAmbiguous: ProseAmbiguityEntry[] = [];
   for (const t of tests) {
     const declared = proseDeclaredLane(t);
     if (declared) proseDeclared.push({ test: t.title, lane: declared.lane, quote: declared.quote });
+    const ambiguous = proseLaneAmbiguity(t);
+    if (ambiguous) proseAmbiguous.push({ test: t.title, quote: ambiguous.quote, names: ambiguous.names });
   }
 
   return {
@@ -72,7 +102,34 @@ export function triageLanes(tree: readonly OstNode[]): LaneTriage {
     totals: { tests: tests.length, labelled: tests.length - unlabelled.length, unlabelled: unlabelled.length },
     runnable: runnableByCompute(tree).map((t) => t.title),
     proseDeclared,
+    laneConflicts: laneConflicts(tree),
+    proseAmbiguous,
   };
+}
+
+/**
+ * Tests that answer the run-me-unattended question twice, differently: a
+ * `lane:` in the frontmatter and a different one declared in the prose.
+ *
+ * Both directions are reported, because both are a tree contradicting itself,
+ * but they do not cost the same. Labelled `compute-only` over prose saying
+ * `humans-required` is the expensive one — the label is what
+ * {@link runnableByCompute} obeys, so an unattended pass will go and run a test
+ * whose own text says a person is part of the measurement. The reverse merely
+ * leaves a cheap test sitting in the backlog.
+ *
+ * Reported, never resolved. Picking a side is exactly the permissive call that
+ * {@link flagHumansRequired}'s asymmetry exists to keep with a human.
+ */
+export function laneConflicts(tree: readonly OstNode[]): LaneConflict[] {
+  const out: LaneConflict[] = [];
+  for (const t of assumptionTests(tree)) {
+    const d = proseDeclaredLane(t, { includeConflicts: true });
+    if (d?.conflictsWith) {
+      out.push({ test: t.title, declared: d.lane, labelled: d.conflictsWith, quote: d.quote });
+    }
+  }
+  return out;
 }
 
 /**
@@ -101,24 +158,110 @@ export function proseDeclaredLane(
   test: OstNode,
   opts: { includeConflicts?: boolean } = {},
 ): ProseLaneDeclaration | undefined {
-  if (test.layer !== "AssumptionTest") return undefined;
+  const found = readProseLane(test);
+  if (!found || found.names.length !== 1) return undefined;
 
-  const hit = PROSE_LANE_DECLARATION.exec(test.body ?? "");
-  if (!hit) return undefined;
-
-  const declared = hit[1].toLowerCase();
-  // An unrecognised lane name is dropped rather than reported, on the same rule
-  // the frontmatter parser uses: a label nobody defined is not a label.
-  if (!isLane(declared)) return undefined;
+  const declared = found.names[0];
 
   if (test.lane) {
     // Already classified and the prose agrees: nothing to reconcile, and
     // repeating it would only add noise to a triage list.
     if (!opts.includeConflicts || test.lane === declared) return undefined;
-    return { lane: declared, quote: hit[0], conflictsWith: test.lane };
+    return { lane: declared, quote: found.fragment, conflictsWith: test.lane };
   }
 
-  return { lane: declared, quote: hit[0] };
+  return { lane: declared, quote: found.fragment };
+}
+
+/**
+ * A prose declaration that names more than one lane — reported so it stays
+ * visible, and deliberately never reported as a *declaration*.
+ *
+ * This exists because of a real one. In the vault this product maintains for
+ * itself, a test reads `**Lane: compute-only for the census, humans-required
+ * for the fixing.**` The reader took the first match and printed a paste-ready
+ * `lane … --set compute-only`, quoting the test's own words as the reason —
+ * that is, it invited a human to classify the human half of a split test into
+ * compute's reach, and the invitation looked authoritative because it was a
+ * quote. Reading half a sentence and reporting it as the whole is the one
+ * failure mode a reader whose output authorizes execution cannot have.
+ *
+ * So a sentence that names two lanes yields no declaration, only this.
+ */
+export function proseLaneAmbiguity(test: OstNode): ProseLaneAmbiguity | undefined {
+  const found = readProseLane(test);
+  if (!found || found.names.length < 2) return undefined;
+  return { quote: found.sentence, names: found.names };
+}
+
+/** What {@link proseLaneAmbiguity} found: a declaration that says two things. */
+export interface ProseLaneAmbiguity {
+  /**
+   * The whole declaring sentence — deliberately not the `lane: …` fragment. The
+   * fragment is what made this misread in the first place; a reader deciding
+   * what the node meant needs the qualification that follows it.
+   */
+  quote: string;
+  /** Every lane the sentence names, in the order it names them. */
+  names: LaneId[];
+}
+
+/**
+ * The shared read: find the declaring sentence in the node's *own* prose and
+ * report every lane it names.
+ *
+ * Two exclusions, each one a false positive that would otherwise be certain
+ * rather than hypothetical:
+ *
+ * 1. **Sections are skipped.** `## History` carries the audit trail that
+ *    {@link Vault.setLane} itself writes — `lane: <prev> → <next>` — so a
+ *    reclassified test would report its own paper trail as prose declaring the
+ *    lane it was moved *off* of, and every conflict check would find the tool
+ *    arguing with its own record. `## Issues` carries hygiene annotations,
+ *    which discuss lanes for the same reason. Neither is the node speaking; both
+ *    are commentary about it, in the past tense.
+ * 2. **The scan stops at the sentence.** A later sentence explaining why the
+ *    other lane does not apply is ordinary prose and must not read as a second
+ *    claim.
+ */
+function readProseLane(
+  test: OstNode,
+): { fragment: string; sentence: string; names: LaneId[] } | undefined {
+  if (test.layer !== "AssumptionTest") return undefined;
+
+  const own = ownProse(test.body ?? "");
+  const hit = PROSE_LANE_DECLARATION.exec(own);
+  if (!hit) return undefined;
+
+  const sentence = declaringSentence(own, hit.index);
+  const names: LaneId[] = [];
+  for (const m of sentence.matchAll(LANE_MENTION)) {
+    const id = m[0].toLowerCase();
+    // An unrecognised lane name is dropped rather than reported, on the same
+    // rule the frontmatter parser uses: a label nobody defined is not a label.
+    if (isLane(id) && !names.includes(id)) names.push(id);
+  }
+  if (names.length === 0) return undefined;
+
+  return { fragment: hit[0].replace(/\*+/g, "").trim(), sentence, names };
+}
+
+/** The node's own statement: everything above the first `## ` section heading. */
+function ownProse(body: string): string {
+  const section = /^##\s+/m.exec(body);
+  return section ? body.slice(0, section.index) : body;
+}
+
+/**
+ * The sentence containing the declaration at `from`, trimmed of the emphasis
+ * markers Obsidian prose wraps it in. Ends at the first `.`/`!`/`?` that is
+ * followed by whitespace, a closing `**`, or the end of the text.
+ */
+function declaringSentence(text: string, from: number): string {
+  const rest = text.slice(from);
+  const end = /[.!?](\*{1,2})?(\s|$)/.exec(rest);
+  const sentence = end ? rest.slice(0, end.index + 1) : rest;
+  return sentence.replace(/\*+/g, "").replace(/\s+/g, " ").trim();
 }
 
 /**
@@ -126,7 +269,10 @@ export function proseDeclaredLane(
  * *declaration* and not a mention, so prose that merely discusses the
  * compute-only lane does not read as a claim to be in it.
  */
-const PROSE_LANE_DECLARATION = /\blane\s*:\s*([a-z][a-z-]*)/i;
+const PROSE_LANE_DECLARATION = /\blane\s*:\s*[a-z][a-z-]*/i;
+
+/** Any lane id named anywhere in the declaring sentence — the ambiguity check. */
+const LANE_MENTION = /\b[a-z][a-z-]*\b/gi;
 
 /** What {@link proseDeclaredLane} found, quoted so the call can be checked. */
 export interface ProseLaneDeclaration {
