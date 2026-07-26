@@ -27,7 +27,9 @@ import { failed, lastFailedRun, lastRunPerProcess, readRunJournals, type RunJour
 import { runTool } from "../runner/tool.js";
 import { setOutcome } from "../runner/set-outcome.js";
 import { anthropicDriver } from "../runner/driver.js";
+import { anthropicCredentialsPresent, credentialGuidance } from "../runner/credentials.js";
 import { getProcess, PROCESSES } from "../processes/registry.js";
+import { drivesModel } from "../processes/types.js";
 import { checkInvariants } from "../eval/invariants.js";
 import { computeEvidenceDebt, gateSolution } from "../eval/evidence-debt.js";
 import { computeCoverageDebt, computeCoveragePairs, computeUnfixedThresholds } from "../eval/coverage.js";
@@ -37,7 +39,8 @@ import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLane
 import { laneDef, LANES, type LaneId } from "../knowledge/lanes.js";
 import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapters/friction.js";
 import { ALLOWED_TOOL_NAMES } from "../security/policy.js";
-import { createOstMcpServer, assertVaultReady, MCP_TOOL_NAMES } from "../mcp/server.js";
+import { createOstMcpServer, MCP_TOOL_NAMES } from "../mcp/server.js";
+import { vaultReadiness } from "../mcp/bootstrap.js";
 import { VERSION } from "../index.js";
 
 async function prompt(question: string, fallback?: string): Promise<string> {
@@ -81,6 +84,17 @@ program
   .action(async (processId: string, opts: { vault: string }) => {
     const proc = getProcess(processId);
     if (!proc) throw new Error(`unknown process "${processId}". Known: ${PROCESSES.map((p) => p.id).join(", ")}`);
+    // Fail before the pass rather than inside it: an unrunnable pass should not
+    // leave a journal entry and a commit behind to explain later. Only the
+    // model-driven processes are gated — ingest and hygiene need no credential
+    // and must keep working without one.
+    // `<id> FAILED:` is the token cron and `status` already key off, so the
+    // pre-flight reports failure in the same shape a dead pass would.
+    if (drivesModel(proc) && !anthropicCredentialsPresent()) {
+      console.error(`${proc.id} FAILED: ${credentialGuidance(`run ${proc.id}`)}`);
+      process.exitCode = 1;
+      return;
+    }
     const ctx = buildPassContext(opts.vault);
     const outcome = await runPass(proc, ctx, anthropicDriver());
     console.log(`${proc.id} ${proc.title}: created=${outcome.result.created} linked=${outcome.result.linked} annotated=${outcome.result.annotated} evidence=${outcome.result.evidence}`);
@@ -416,13 +430,17 @@ program
   .description("run a stdio MCP server exposing the append-only OST tools (no API key needed)")
   .option("--vault <dir>", "vault directory", process.env.OST_VAULT ?? ".")
   .action(async (opts: { vault: string }) => {
-    const ctx = buildPassContext(opts.vault);
-    assertVaultReady(ctx);
+    const ctx = buildPassContext(opts.vault, { allowMissingConfig: true });
     const { StdioServerTransport } = await import("@modelcontextprotocol/sdk/server/stdio.js");
     const server = createOstMcpServer(ctx);
     await server.connect(new StdioServerTransport());
     // stdout is the JSON-RPC channel — log only to stderr.
     console.error(`ost-agent mcp serving ${ctx.dir} over stdio. Tools: ${MCP_TOOL_NAMES.join(", ")}`);
+    // Serve first, report readiness second. A server that refuses to start on a
+    // first run shows the operator a failed connection — the least actionable
+    // signal available. Started, it can say what to do instead.
+    const readiness = vaultReadiness(ctx);
+    if (!readiness.ready) console.error(`ost-agent mcp: ${readiness.message}`);
   });
 
 program

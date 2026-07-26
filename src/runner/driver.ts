@@ -9,6 +9,8 @@
  * Either way the ONLY tools available are the allowlisted OST/git tools, so a
  * prompt-injection in the evidence can never reach a destructive capability.
  */
+import { assertAnthropicCredentials } from "./credentials.js";
+
 /**
  * A built allowlist tool. We only ever touch `.name` and `.run`; the `any` run
  * signature lets the heterogeneous betaTool objects (each with a distinct input
@@ -80,6 +82,9 @@ export function scriptedDriver(scripts: Record<string, ScriptedCall[]>): PassDri
 export function anthropicDriver(): PassDriver {
   return {
     async run(opts: DriverRunOpts): Promise<DriverResult> {
+      // Pre-flight before the SDK gets a chance to fail in its own words. Every
+      // model-driven entry point funnels through here — `run`, `schedule`, `eval`.
+      assertAnthropicCredentials(process.env, "this pass");
       const { Anthropic } = await import("@anthropic-ai/sdk");
       const client = new Anthropic();
 

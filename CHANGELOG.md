@@ -2,6 +2,57 @@
 
 ## Unreleased
 
+## 0.11.0
+
+- **The first run stops being a wall.** The founder's launch bar for handing this to
+  another PM is one sentence — *"Just install ost-agent, setup runs itself."* A fresh-user
+  simulation on 2026-07-25 walked the cold path from an empty directory and found the
+  one-liner true everywhere except two places, both of which failed in the same way:
+  technically correct, operationally useless. This release is those two places.
+- **`ost-agent mcp` now starts in a directory that is not a vault.** It used to refuse,
+  which meant the plugin — whose server runs against `${CLAUDE_PROJECT_DIR}` — showed a
+  first-time operator an MCP server that failed to connect. That is the least actionable
+  signal available: it names no cause and no fix. The server now comes up, serves the
+  identical tool surface, and answers with the command that creates the vault.
+- **`ost_next_work` reports first run as state, not as an error.** It returns
+  `{ bootstrap: true, done: false, reason, vault, message, nextStep }`. `reason` is
+  `no-vault` (nothing here) or `no-outcome` (a repo whose root Outcome is missing) —
+  different reasons because they need different commands. Every other tool refuses with
+  the same message and `isError: true`; `ost_read_tree` refuses rather than returning an
+  empty tree, because an empty tree is a lie about a missing vault.
+- **The skill learned the matching branch**, generated from `OST_RULESET.firstRun` like
+  every other rule, so the standalone agent and the Claude-Code-driven one cannot drift.
+  It says to ask the human for the outcome, in their words, and it says three times over
+  not to invent one. **Setup needs no model — but it does need the one human input the
+  agent may never supply**, and an agent that scaffolds a vault around a placeholder to
+  keep making progress has quietly chosen the mandate the whole tree hangs from.
+- **The credential wall is now an instruction.** `ost-agent run P2_map` without a key
+  died with the SDK's own words — *"Could not resolve authentication method. Expected
+  either apiKey or authToken to be set."* Accurate, and it conceals the thing that matters
+  most: **a credential is not the only way in.** The MCP server holds no model and needs
+  no key. The message now names the variable to set *and* the two-line plugin install
+  that needs none, and lists the commands that already work without one.
+- **Only the model-driven processes are gated, and that is derived rather than declared.**
+  `drivesModel(process)` is `allowedTools.length > 0` — a process delegates to the driver
+  exactly when it has tools to hand it. `test/processes/model-free.test.ts` runs every
+  model-free process against a driver that throws if anyone calls it, so the derivation is
+  proved against the implementations instead of trusted. `P1_ingest` and `P5_hygiene`
+  keep working with no credential, as they always did.
+- The pre-flight fails **before** the pass, so an unrunnable run leaves no journal entry
+  and no commit to explain later, and it still prints `<id> FAILED:` — the token cron and
+  `status` already key off.
+- New: `src/mcp/bootstrap.ts` (`vaultReadiness`, `bootstrapNextWork`),
+  `src/runner/credentials.ts` (`anthropicCredentialsPresent`, `credentialGuidance`,
+  `assertAnthropicCredentials`), `drivesModel` in `src/processes/types.ts`, and
+  `loadConfig(dir, { missing: "defaults" })` / `buildPassContext(dir, { allowMissingConfig })`
+  for the one caller that must survive a directory that is not a vault. An *invalid*
+  config still throws either way.
+- **What this does not fix.** Nothing yet runs `init` on the operator's behalf, and
+  deliberately so: the one input it needs is the outcome, which is the human's to give.
+  The gap between "the tools tell you the command" and "the wizard walks you through it"
+  is the next seam, and it is a smaller one than it was this morning.
+- 340 tests across 52 files (up from 315 / 47).
+
 ## 0.10.0
 
 - **A threshold that is still an instruction to choose one is now named.** v0.9.0's

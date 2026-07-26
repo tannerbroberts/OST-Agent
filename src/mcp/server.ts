@@ -6,14 +6,13 @@
  * commits each write. Reuses buildOstTools verbatim, so the allowlist +
  * fail-closed guard remain the single source of truth for what is callable.
  */
-import fs from "node:fs";
-import path from "node:path";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { buildOstTools } from "../security/tools.js";
 import { assertNoDestructiveTool } from "../security/policy.js";
 import type { PassContext } from "../processes/types.js";
 import { enqueueCommit } from "./commit.js";
+import { bootstrapNextWork, vaultReadiness } from "./bootstrap.js";
 import { VERSION } from "../index.js";
 
 export const MCP_TOOL_NAMES = [
@@ -34,17 +33,16 @@ export const MCP_TOOL_NAMES = [
 const READ_ONLY = new Set<string>(["ost_read_tree", "ost_next_work"]);
 const MUTATING = new Set<string>(MCP_TOOL_NAMES.filter((n) => !READ_ONLY.has(n)));
 
-/** Throw unless the vault is initialized: a git repo with an Outcome node. */
+/**
+ * Throw unless the vault is initialized: a git repo with an Outcome node.
+ *
+ * Kept for callers that genuinely cannot proceed without a tree. The stdio
+ * server no longer uses it — refusing to start is the least actionable thing it
+ * could do on a first run (see `vaultReadiness`).
+ */
 export function assertVaultReady(ctx: PassContext): void {
-  if (!fs.existsSync(path.join(ctx.dir, ".git"))) {
-    throw new Error(`vault at ${ctx.dir} is not a git repository — run \`ost-agent init\` first`);
-  }
-  if (!ctx.vault.readTree().some((n) => n.layer === "Outcome")) {
-    throw new Error(
-      `vault at ${ctx.dir} has no Outcome node — run \`ost-agent init\` / \`ost-agent set-outcome\` first. ` +
-        `The MCP server maintains an existing tree; it does not bootstrap one.`,
-    );
-  }
+  const r = vaultReadiness(ctx);
+  if (!r.ready) throw new Error(r.message);
 }
 
 interface McpToolDef {
@@ -93,6 +91,17 @@ export function createOstMcpServer(ctx: PassContext): Server {
     const tool = byName.get(name);
     if (!tool) {
       return { content: [{ type: "text", text: `unknown tool "${name}" — not on the OST surface` }], isError: true };
+    }
+    // First run: the session has the tools but no vault to point them at. Answer
+    // with the command that fixes it rather than with whatever the vault layer
+    // happens to throw. `ost_next_work` gets it as state — it is where every pass
+    // starts, so that is where the skill's first-run branch can key off it.
+    const readiness = vaultReadiness(ctx);
+    if (!readiness.ready) {
+      if (name === "ost_next_work") {
+        return { content: [{ type: "text", text: JSON.stringify(bootstrapNextWork(readiness)) }] };
+      }
+      return { content: [{ type: "text", text: readiness.message }], isError: true };
     }
     try {
       const out = await tool.run(args);

@@ -122,9 +122,15 @@ The append-only tools then appear in any session as
 still needs (unmapped evidence, under-served opportunities, solutions missing an
 assumption test, hygiene issues), so the session knows what to do without re-deriving
 it. Every write is auto-committed; no `git`, delete, or shell tool is ever exposed, so
-a prompt-injected instruction still maps to no dangerous tool. The server refuses to
-start on a vault that has no human-set Outcome — it maintains a tree, it never
-bootstraps one. A newly added MCP server is picked up on the next session start.
+a prompt-injected instruction still maps to no dangerous tool. A newly added MCP server
+is picked up on the next session start.
+
+**First run, before a vault exists.** The plugin points its server at whatever directory
+you are in, so the very first session usually has no vault. The server starts anyway:
+`ost_next_work` returns `{ bootstrap: true, reason, nextStep }` and every other tool
+refuses with the command that fixes it. It still never bootstraps a tree on its own — the
+Outcome is the one human-set input the whole tree hangs from, so the skill asks you for it
+in your words and runs `ost-agent init` with them. It will not invent one to make progress.
 
 **Skill + slash commands + one-command install.** This repo also ships a Claude Code
 **skill** (`opportunity-solution-tree`, generated from the same ruleset the standalone

@@ -66,6 +66,10 @@ All are exposed by the \`ost-agent\` MCP server (names may appear as \`mcp__ost-
 - **ost_set_status** — set a node's status; never mark something \`validated\` without human-provided evidence in the note.
 - **ost_annotate** — attach a hygiene/issue note (add-only). Used to flag orphans, dangling links, likely duplicates — never to delete.
 
+## First run — there may be no vault yet
+
+${bullets(R.firstRun)}
+
 ## The maintenance loop
 
 1. **Call \`ost_next_work\`.** If \`done: true\`, report that the tree is fully maintained and stop.

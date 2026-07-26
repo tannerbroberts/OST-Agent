@@ -65,6 +65,16 @@ All are exposed by the `ost-agent` MCP server (names may appear as `mcp__ost-age
 - **ost_set_status** — set a node's status; never mark something `validated` without human-provided evidence in the note.
 - **ost_annotate** — attach a hygiene/issue note (add-only). Used to flag orphans, dangling links, likely duplicates — never to delete.
 
+## First run — there may be no vault yet
+
+- A session can be connected to these tools before any vault exists — that is the normal first minute, not a malfunction. `ost_next_work` reports it as `bootstrap: true` with a `reason` and a `nextStep`; treat that as the state of the world and follow the branch below instead of reporting a broken tool.
+- When `reason` is `no-vault`: ask the human what outcome they want this tree to serve, in one sentence, and wait for their answer. Then run their words back to them for confirmation and set up the vault with `ost-agent init <folder> --outcome "<their words>"`.
+- When `reason` is `no-outcome`: the vault exists but its root is missing; ask the human for the outcome and use `ost-agent set-outcome "<their words>" --vault <dir>`.
+- Never invent, paraphrase into something sharper, or guess the outcome — it is the single human-set mandate the whole tree hangs from, and inventing it would make every node below it ladder up to a goal nobody chose.
+- If the human is not available to answer, stop and say what you are waiting for. Do not scaffold a vault around a placeholder outcome to make progress.
+- Setting up a vault needs no model and no API key. Neither does `status`, `check`, `debt`, `lanes`, or `result` — a credential is only needed by the standalone `ost-agent run` path, because this MCP server holds no model and the connected session supplies the reasoning.
+- Once the vault is set up, call `ost_next_work` again and continue into the normal maintenance loop; a fresh tree with only an Outcome is legitimately `done`, and the next thing it needs is evidence, not ideation.
+
 ## The maintenance loop
 
 1. **Call `ost_next_work`.** If `done: true`, report that the tree is fully maintained and stop.

@@ -38,6 +38,19 @@ export function emptyResult(): ProcessResult {
   return { created: 0, linked: 0, annotated: 0, evidence: 0, toolCalls: [], notes: [] };
 }
 
+/**
+ * Does this process need a model — and therefore a credential — to run?
+ *
+ * Derived, not declared. A process delegates to the driver precisely when it has
+ * tools to hand it; the deterministic ones (bootstrap, ingest, hygiene) act
+ * straight through the Vault and carry an empty allowlist. Deriving it means a
+ * new process cannot forget to declare itself, and `test/processes/model-free.test.ts`
+ * proves the derivation against the real implementations rather than trusting it.
+ */
+export function drivesModel(process: ProcessDef): boolean {
+  return process.allowedTools.length > 0;
+}
+
 export interface ProcessDef {
   id: string;
   title: string;

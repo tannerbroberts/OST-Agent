@@ -15,9 +15,19 @@ import { Vault } from "../ost/vault.js";
 import { OST_RULESET } from "../knowledge/ruleset.js";
 import type { PassContext } from "../processes/types.js";
 
-export function buildPassContext(vaultDir: string): PassContext {
+export interface BuildPassContextOptions {
+  /**
+   * Tolerate a directory that has no `ost.config.yaml` yet, falling back to
+   * defaults. Only the MCP server sets this: it must start in a not-yet-a-vault
+   * directory in order to tell the operator how to create one. Every tool it
+   * exposes is gated behind `vaultReadiness`, so the defaults are never acted on.
+   */
+  allowMissingConfig?: boolean;
+}
+
+export function buildPassContext(vaultDir: string, opts: BuildPassContextOptions = {}): PassContext {
   const dir = path.resolve(vaultDir);
-  const config = loadConfig(dir);
+  const config = loadConfig(dir, opts.allowMissingConfig ? { missing: "defaults" } : {});
 
   const sources: Source[] = [];
   if (config.adapters.inbox.enabled) {
