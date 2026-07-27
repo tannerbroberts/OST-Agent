@@ -97,11 +97,11 @@ export function computeNextWork(vault: Vault, dir: string, min: number): NextWor
   const tree = vault.readTree();
   const index = byTitle(tree);
 
-  // Evidence counts as mapped if the batch P2_map runner recorded it in mapped.json,
-  // OR any node in the tree cites it as its `source`. The MCP-driven path attaches the
-  // evidence id via ost_create_node's `source` but never writes mapped.json, so deriving
-  // "mapped" from the tree too keeps this read-only report self-consistent no matter which
-  // driver did the mapping — otherwise a session-driven /ost-pass can never reach done.
+  // Evidence counts as mapped if any node in the tree cites it as its `source` — that is
+  // how a session records the mapping, via ost_create_node's `source`. `mapped.json` is
+  // read too, because vaults mapped before the batch runner was deleted recorded it there
+  // and nowhere else; deriving "mapped" from the tree as well is what lets /ost-pass reach
+  // done on a vault the session mapped itself.
   const mapped = getMapped(dir);
   const citedSources = new Set(tree.map((n) => n.source).filter((s): s is string => !!s));
   const unmappedEvidence: UnmappedEvidence[] = readEvidence(dir)
