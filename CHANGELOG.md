@@ -1,5 +1,51 @@
 # Changelog
 
+## 0.18.0
+
+- **The vault now refuses to write content that is empty or the literal string
+  `undefined`/`null`.** This is the complement to 0.17.0's schema check, and it was built
+  only after a test said it should be a tripwire rather than a policy.
+
+  0.17.0 validated the tool *call*. It provably cannot see a malformed *value* arriving
+  through a well-formed call: `{ issue: String(x) }` where `x` was never set is a
+  schema-valid call carrying the four characters `undefined`. The guard added here sits in
+  `Vault`, at the single point every node write funnels through, so it also holds for entry
+  points that do not exist yet — including callers that never touch the CLI or the MCP
+  server. Covered paths: `createNode`, `appendToNode`, `appendUnderSection`, `annotate`, and
+  the optional notes on `setStatus`, `setEvidence`, `setLane`.
+
+  **It is deliberately a tripwire, not a policy.** The rule is that content *is* exactly one
+  of these strings, never that it *contains* one — several real annotations in this project's
+  own vaults discuss the word `undefined`, and they must stay writable. A test pins that.
+  Another test pins the distinction the guard turns on: an *absent* optional note (`undefined`
+  the JS value) is a caller legitimately declining to explain itself and passes; the *string*
+  `"undefined"` is a caller that stringified a variable it never set, and is refused.
+
+- **Correction to the 0.17.0 entry above: the count was wrong, in both directions.** That
+  entry says "fourteen such lines — 8 in `ost-agent-meta`, 6 in `tetrix-ost`". The real
+  figure is **21 lines across 16 nodes — 6 in `ost-agent-meta`, 15 in `tetrix-ost`**. The
+  original number came from `grep -rlc` over files *containing the word* `undefined`, which
+  is a different question from *lines matching the annotation shape*; it under-counted nodes
+  carrying several damaged lines and mis-split the total across the two vaults. The 0.17.0
+  text is left standing and corrected here rather than edited, on the same principle the
+  vaults use.
+
+- **The count is now measured rather than asserted.** The assumption test
+  *"Sweep both vault histories for writes that landed as undefined or empty"* was run before
+  this feature was built, with its threshold fixed in advance: the "the `undefined` lines are
+  the whole population" claim survived if fewer than 3 bad writes of any *other* shape turned
+  up across both vaults. Replaying all 106 commits in the two vaults and classifying every
+  annotation entry added under `## History` or `## Issues` — 306 entries — found **21
+  `undefined`, 0 empty, 0 truncated**. The assumption held, which is why this guard ships as
+  a tripwire for one known shape instead of as the primary fix.
+
+  Two bugs in the sweep itself had to be fixed before its result meant anything, and both
+  were the failure mode this project keeps meeting: a check that quietly measures nothing.
+  Git quotes non-ASCII paths in `--name-only`, so `git show` failed on the vault's
+  em-dashed filenames and the sweep *skipped four affected files without saying so*; and
+  merge commits re-counted entries already counted on the side branch. The first run
+  reported a clean, confident, wrong number.
+
 ## 0.17.0
 
 - **A tool call that does not match the tool's own schema is now refused instead of

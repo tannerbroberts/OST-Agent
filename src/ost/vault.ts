@@ -22,6 +22,49 @@ function isoToday(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/**
+ * Content that is structurally present but carries nothing — the shape a stringified
+ * unset variable takes on its way to disk.
+ *
+ * This is the *last* line of defence, complementing the schema check on the tool call.
+ * Schema validation catches a malformed CALL; it provably cannot see a malformed VALUE
+ * arriving through a well-formed one (`{ issue: String(x) }` where x was never set is a
+ * schema-valid call). This sits at the single point every node write funnels through, so
+ * it holds for entry points that do not exist yet.
+ *
+ * Deliberately a tripwire, not a policy: the test is that the content IS exactly one of
+ * these, never that it CONTAINS one. Real annotations discuss the word "undefined" —
+ * several in this project's own vaults do — and must stay writable.
+ */
+const VOID_CONTENT = new Set(["undefined", "null"]);
+
+function assertWritableContent(what: string, value: string): void {
+  const trimmed = value.trim();
+  if (trimmed === "") {
+    throw new Error(
+      `refusing to write empty ${what}: content was empty or whitespace only. ` +
+        `An append-only vault cannot take this back — pass real content or make no call.`,
+    );
+  }
+  if (VOID_CONTENT.has(trimmed.toLowerCase())) {
+    throw new Error(
+      `refusing to write ${what}: content was the literal string "${trimmed}". ` +
+        `This is almost always a stringified unset variable rather than something meant ` +
+        `to be recorded; an append-only vault cannot take it back.`,
+    );
+  }
+}
+
+/**
+ * Guard an OPTIONAL note. `undefined` is a caller legitimately declining to explain
+ * itself and is allowed through untouched; the four-character string "undefined" is a
+ * caller that stringified a variable it never set, and is exactly the defect.
+ */
+function assertWritableNote(what: string, value: string | undefined): void {
+  if (value === undefined) return;
+  assertWritableContent(what, value);
+}
+
 export class Vault {
   readonly root: string;
 
@@ -66,6 +109,7 @@ export class Vault {
 
   /** Create a new node file. Throws if a file for this title already exists. */
   createNode(node: OstNode): void {
+    assertWritableContent(`the body of "${node.title}"`, node.body);
     const p = this.nodePath(node.title);
     if (fs.existsSync(p)) {
       throw new Error(`node already exists (create is non-overwriting): ${node.title}`);
@@ -78,6 +122,7 @@ export class Vault {
    * the prior bytes remain an exact prefix of the new content.
    */
   appendToNode(title: string, section: string): void {
+    assertWritableContent(`a section of "${title}"`, section);
     const p = this.nodePath(title);
     if (!fs.existsSync(p)) throw new Error(`no such node: ${title}`);
     const prev = fs.readFileSync(p, "utf8");
@@ -91,6 +136,7 @@ export class Vault {
    * already recorded under that heading is touched.
    */
   appendUnderSection(title: string, heading: string, line: string): void {
+    assertWritableContent(`a line under ${heading} of "${title}"`, line);
     const node = this.read(title);
     node.body = appendUnderHeading(node.body, heading, line);
     fs.writeFileSync(this.nodePath(title), serialize(node), "utf8");
@@ -113,6 +159,7 @@ export class Vault {
    * the prior value stays visible in the note (and always in git).
    */
   setStatus(title: string, status: NodeStatus, note?: string): void {
+    assertWritableNote(`the status note on "${title}"`, note);
     const node = this.read(title);
     const prev = node.status ?? "(none)";
     node.status = status;
@@ -127,6 +174,7 @@ export class Vault {
    * becomes labelled without rewriting or losing anything.
    */
   setEvidence(title: string, evidence: RungId, note?: string): void {
+    assertWritableNote(`the evidence note on "${title}"`, note);
     const node = this.read(title);
     const prev = node.evidence ?? "(none)";
     node.evidence = evidence;
@@ -141,6 +189,7 @@ export class Vault {
    * and of who/why, lives in `ost/lanes.ts` — this is the write.
    */
   setLane(title: string, lane: LaneId, note?: string): string {
+    assertWritableNote(`the lane note on "${title}"`, note);
     const node = this.read(title);
     const prev = node.lane ?? "(none)";
     node.lane = lane;
@@ -167,6 +216,7 @@ export class Vault {
 
   /** Attach a hygiene/issue annotation under a `## Issues` section. Add-only. */
   annotate(title: string, issue: string): void {
+    assertWritableContent(`an annotation on "${title}"`, issue);
     const node = this.read(title);
     node.body = appendUnderHeading(node.body, "## Issues", `- ${isoToday()} ${issue}`);
     fs.writeFileSync(this.nodePath(title), serialize(node), "utf8");
