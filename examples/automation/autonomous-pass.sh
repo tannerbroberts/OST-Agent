@@ -15,8 +15,10 @@
 # Prereqs:
 #   - Claude Code CLI installed and logged in (`claude` on PATH; `claude setup-token`
 #     for a non-interactive machine).
-#   - `ost-agent` resolvable (published to npm, or set the plugin's mcpServers command
-#     to your local build). The plugin declares the MCP server; --plugin-dir loads it.
+#   - This OST-Agent checkout at OST_AGENT_DIR, with dist/ost-agent.mjs present (it's
+#     committed, so a plain `git clone` is enough — no build, no npm install). The
+#     plugin declares its MCP server as `node dist/ost-agent.mjs mcp`; --plugin-dir
+#     loads it straight out of this checkout.
 set -euo pipefail
 
 VAULT_DIR="${1:-.}"
