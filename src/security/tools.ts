@@ -24,6 +24,8 @@ import { searchWeb, DEFAULT_SEARCH_RESULTS, MAX_SEARCH_RESULTS } from "../web/se
 import { budgetSpentMessage, createLookupBudget, type LookupBudget } from "../web/budget.js";
 import { HOST_RUNGS, hostRung, rankHost, readHostTrust } from "../knowledge/web-trust.js";
 import { readProductRepo } from "../product/repo.js";
+import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/render.js";
+import type { PassContext } from "../processes/types.js";
 
 const STATUS_VALUES = ["unvalidated", "validated", "in-discovery", "shipped", "deferred"];
 
@@ -52,6 +54,8 @@ export interface ToolContext {
   web?: { searchApiKey?: string; fetchFn?: WebFetchFn; budget?: LookupBudget };
   /** Local product repo roots the agent may read (config `product.repos`). */
   productRepos?: readonly string[];
+  /** The full pass context, needed by the tools that report on the whole vault. */
+  passContext?: PassContext;
 }
 
 /**
@@ -395,6 +399,48 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         const rec = rankHost(dir, { host: input.host, rung: input.rung, reason: input.reason, by: rankedBy });
         return `"${rec.host}" is now ranked ${rec.rung} — ${rec.reason}`;
       },
+    }),
+
+    tool({
+      name: "ost_check",
+      description:
+        "Run the deterministic tree invariants and report every violation. No model, no writes — the same check the CI gate runs. Read-only.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      run: async () => renderCheck(vault.readTree()).text,
+    }),
+
+    tool({
+      name: "ost_debt",
+      description:
+        "Report what each Solution owes in evidence before anyone builds it: which solutions have no assumption test, which tests have run, and which recorded results never said what they failed to cover. Counts mechanically and never judges whether the RIGHT assumption was tested — that is a human call. Read-only.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      run: async () => renderDebt(vault.readTree()),
+    }),
+
+    tool({
+      name: "ost_status",
+      description:
+        "Report the tree's shape and health: node counts by layer, how many are agent-ideated and awaiting review, the believability rollup and the weakest rung the tree rests on, and any coverage or threshold gaps. Read-only.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      run: async () => {
+        if (!ctx.passContext) throw new Error("ost_status needs a pass context");
+        return renderStatus(ctx.passContext);
+      },
+    }),
+
+    tool({
+      name: "ost_gate",
+      description:
+        "Ask whether a named Solution has a tested assumption behind it. Returns CLEARED or BLOCKED with the reason. Advisory: it reports, it does not prevent. Read-only.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          solution: { type: "string", description: "Title of the Solution node about to be built." },
+        },
+        required: ["solution"],
+      },
+      run: async (input: { solution: string }) => renderGate(vault.readTree(), input.solution).text,
     }),
 
     tool({
