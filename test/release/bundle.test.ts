@@ -40,12 +40,9 @@ test("no plugin asset reaches for npm", () => {
   // Collected across the WHOLE list, not asserted file-by-file inside the
   // loop: an `expect` that throws on the first match aborts the loop, so
   // every file sorting after the first offender is silently never checked.
-  // .claude/commands/ost-setup.md is a known, sanctioned exception — its
-  // allowed-tools frontmatter still grants `npx -y ost-agent@latest ...`;
-  // rewriting that grant is Task 8's job, not this one's. Asserting once
-  // at the end keeps that failure visible (this test still fails until
-  // Task 8 lands) while proving every OTHER file was actually checked, not
-  // just skipped past.
+  // Asserting once at the end keeps any future violation's location visible
+  // while still proving every file was actually checked, not just skipped
+  // past.
   const violations: string[] = [];
   for (const f of files) {
     const text = fs.readFileSync(path.join(root, f), "utf8");

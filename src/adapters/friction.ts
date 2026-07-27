@@ -9,9 +9,9 @@
  * forced to guess, while the context is still live.
  *
  * A filing is an ordinary inbox note: append-only, never overwriting an earlier
- * filing, picked up by P1_ingest like any other evidence. Notes are redacted
- * before they land, because whatever the agent was stuck on may be in its hands
- * at the time.
+ * filing, picked up by `ost_ingest_inbox` like any other evidence. Notes are
+ * redacted before they land, because whatever the agent was stuck on may be
+ * in its hands at the time.
  */
 import fs from "node:fs";
 import path from "node:path";
