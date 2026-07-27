@@ -8,7 +8,7 @@
  *
  * Tools are defined with the local `tool()` helper (raw JSON Schema) rather
  * than a Zod-bound one, so the tool schemas do not couple us to a specific Zod
- * major version — or, since the runner was removed, to the Anthropic SDK.
+ * major version — or, now that the API-key runner is gone, to any model SDK.
  */
 import { tool } from "./tool.js";
 import { gitCommit, gitPush } from "../git/safe-git.js";

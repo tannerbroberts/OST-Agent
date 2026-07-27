@@ -1,9 +1,9 @@
 /**
  * Generate the Claude Code skill from OST_RULESET — the single source of truth.
  *
- * The standalone agent (anthropicDriver) and the Claude-Code-driven path must
- * teach the *same* methodology, or the two brains drift. Rather than hand-copy
- * the ruleset into a SKILL.md, we render it. `npm run gen:skill` writes the file;
+ * The skill and the `/ost-setup` command must teach the *same* methodology, or
+ * the two doors onto it drift. Rather than hand-copy the ruleset into a
+ * SKILL.md, we render it. `npm run gen:skill` writes the file;
  * `test/skill/drift.test.ts` re-renders in memory and fails if the committed file
  * is stale — so a rule change forces the skill to be regenerated in the same PR.
  *
