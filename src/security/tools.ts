@@ -34,6 +34,26 @@ import type { PassContext } from "../processes/types.js";
 
 const STATUS_VALUES = ["unvalidated", "validated", "in-discovery", "shipped", "deferred"];
 
+/**
+ * A captured note's title comes straight from an untrusted filename — "the user
+ * (or any script)" drops it (see adapters/inbox.ts) — and unlike the note body,
+ * the title IS meant to reach the transcript as feedback (see ost_ingest_inbox).
+ * Only "/" and NUL are illegal in a filename, so a title can still carry raw
+ * newlines or other control characters that would otherwise forge the look of
+ * an extra line of tool output. Flatten those to spaces and cap the length
+ * rather than dropping the title outright — it stays useful, it just can't
+ * inject formatting.
+ */
+const MAX_TITLE_DISPLAY_LENGTH = 80;
+const MAX_TITLES_LISTED = 20;
+// C0 control chars (incl. newline/tab) + DEL, built from an escape string so the
+// source contains no literal control bytes — same construction as ost/sanitize.ts.
+const TITLE_CONTROL_CHARS = new RegExp("[\\u0000-\\u001F\\u007F]+", "g");
+function displaySafeTitle(title: string): string {
+  const flat = title.replace(TITLE_CONTROL_CHARS, " ").trim();
+  return flat.length > MAX_TITLE_DISPLAY_LENGTH ? `${flat.slice(0, MAX_TITLE_DISPLAY_LENGTH)}…` : flat;
+}
+
 /** Which parent layers a given child layer may attach under (Outcome is not creatable). */
 const CHILD_HIERARCHY: Record<string, string[]> = {
   Opportunity: ["Outcome", "Opportunity"],
@@ -451,20 +471,33 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
     tool({
       name: "ost_ingest_inbox",
       description:
-        "Capture new notes from the vault's local inbox folder as evidence, ready to be mapped into #Opportunity nodes. Reads every *.md / *.txt file dropped there since the last run and records each one with its provenance. Idempotent: a note already captured is never captured twice, and inbox files are never modified or deleted. Call this before ost_next_work when the user says they have added notes.",
+        "Capture new notes from the vault's local inbox folder as evidence, ready to be mapped into #Opportunity nodes. Reads every *.md / *.txt / *.markdown file dropped there since the last run and records each one with its provenance. Idempotent: a note already captured is never captured twice, and inbox files are never modified or deleted. Call this before ost_next_work when the user says they have added notes.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       run: async () => {
-        const inboxPath = loadConfig(dir).adapters.inbox.path;
-        const source = new InboxSource(path.join(dir, inboxPath));
+        const inboxConfig = loadConfig(dir).adapters.inbox;
+        // Respect the same flag buildPassContext gates InboxSource on (config
+        // adapters.inbox.enabled, default true). A user who deliberately turns
+        // the adapter off must be told that plainly — "0 new notes" would read
+        // as "inbox checked, empty" when the truth is "inbox never looked at".
+        if (!inboxConfig.enabled) {
+          return "the inbox adapter is disabled (adapters.inbox.enabled: false in ost.config.yaml) — nothing was read.";
+        }
+        const source = new InboxSource(path.join(dir, inboxConfig.path));
         const { items, cursor } = await source.fetchSince(loadCursor(dir, source.name));
-        let captured = 0;
-        for (const item of items) if (writeEvidence(dir, item)) captured += 1;
+        const capturedTitles: string[] = [];
+        for (const item of items) if (writeEvidence(dir, item)) capturedTitles.push(item.title);
         saveCursor(dir, source.name, cursor);
-        // Titles only. The note bodies are untrusted text and reach the model as
-        // evidence via ost_next_work, not as tool output.
-        return captured === 0
-          ? "0 new notes — the inbox holds nothing that has not already been captured."
-          : `captured ${captured} new note(s): ${items.map((i) => i.title).join(", ")}`;
+        if (capturedTitles.length === 0) {
+          return "0 new notes — the inbox holds nothing that has not already been captured.";
+        }
+        // Titles reach the transcript (see displaySafeTitle above) but bodies
+        // never do: they are untrusted text and reach the model as evidence via
+        // ost_next_work, not as tool output. Cap how many titles are listed so a
+        // single bulk drop can't turn the report into a wall of untrusted text.
+        const shown = capturedTitles.slice(0, MAX_TITLES_LISTED).map(displaySafeTitle);
+        const overflow = capturedTitles.length - shown.length;
+        const suffix = overflow > 0 ? ` (+${overflow} more)` : "";
+        return `captured ${capturedTitles.length} new note(s): ${shown.join(", ")}${suffix}`;
       },
     }),
 
