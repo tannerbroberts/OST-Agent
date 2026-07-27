@@ -81,26 +81,18 @@ const ProductSchema = z
   })
   .default({ repos: [] });
 
-const ProcessSchema = z
-  .object({
-    cron: z.string().default(""),
-    triggers: z.array(z.string()).default([]),
-    limits: z
-      .object({
-        maxIterations: z.number().int().positive().default(30),
-        timeoutSec: z.number().int().positive().default(300),
-        tokenBudget: z.number().int().positive().optional(),
-      })
-      .default({ maxIterations: 30, timeoutSec: 300 }),
-    minSolutionsPerOpportunity: z.number().int().positive().default(3),
-  })
-  .partial()
-  .transform((p) => ({
-    cron: p.cron ?? "",
-    triggers: p.triggers ?? [],
-    limits: p.limits ?? { maxIterations: 30, timeoutSec: 300 },
-    minSolutionsPerOpportunity: p.minSolutionsPerOpportunity ?? 3,
-  }));
+// Per-process tuning. `minSolutionsPerOpportunity` is the only knob left: it is
+// what `ost_next_work` uses to decide an opportunity is under-served.
+//
+// Vaults created before the API-key runner was deleted still carry `cron`,
+// `triggers`, and `limits` here, and `model` at the top level — they scheduled
+// and bounded passes that no longer exist. Those keys are deliberately NOT
+// declared and deliberately NOT rejected: this schema uses Zod's default
+// object behaviour, which strips undeclared keys instead of failing, so an
+// existing vault keeps loading and simply stops being asked about a model.
+const ProcessSchema = z.object({
+  minSolutionsPerOpportunity: z.number().int().positive().default(3),
+});
 
 export const ConfigSchema = z.object({
   // The steering mandate the agentic system optimizes toward (tuned often via
@@ -109,7 +101,6 @@ export const ConfigSchema = z.object({
   // Stable, unique title/label for the root node (the graph's central hub).
   // Defaults to the vault folder name at init. Rarely changed.
   outcomeTitle: z.string().optional(),
-  model: z.string().default("claude-opus-4-8"),
   remote: RemoteSchema,
   adapters: z
     .object({
@@ -133,7 +124,10 @@ export function defaultConfigYaml(outcome: string, outcomeTitle = "Outcome"): st
   return `# OST-Agent configuration
 outcome: ${JSON.stringify(outcome)}   # the steering mandate (human-set; tune with \`ost-agent set-outcome\`)
 outcomeTitle: ${JSON.stringify(outcomeTitle)}   # stable label for the root node (rarely changed)
-model: claude-opus-4-8
+
+# No model is named here, and none is needed: OST-Agent never calls one. The
+# Claude Code session you are talking to supplies all the reasoning; everything
+# this project runs on its own is deterministic.
 
 remote:
   enabled: false            # default: local-only, no push. Set url + enabled to push.
@@ -165,10 +159,7 @@ product:
   repos: []                 # local repo paths the agent may READ (read-only) to ground ideas in what the product is
 
 processes:
-  P1_ingest:      { cron: "*/15 * * * *", triggers: ["inbox:new"] }
-  P2_map:         { cron: "",             triggers: ["after:P1_ingest"] }
-  P3_ideate:      { cron: "0 */6 * * *",  triggers: ["after:P2_map"], minSolutionsPerOpportunity: 3 }
-  P4_assumptions: { cron: "",             triggers: ["after:P3_ideate"] }
-  P5_hygiene:     { cron: "0 3 * * *",    triggers: [] }
+  P3_ideate:
+    minSolutionsPerOpportunity: 3   # how many candidate solutions an opportunity needs before \`ost_next_work\` stops calling it under-served
 `;
 }
