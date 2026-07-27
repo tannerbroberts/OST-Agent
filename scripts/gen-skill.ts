@@ -32,7 +32,7 @@ export function renderSkill(): string {
 name: opportunity-solution-tree
 description: Maintain a Teresa Torres Opportunity Solution Tree (OST) — distill customer evidence into Opportunity nodes, ideate candidate Solutions, and surface Assumption Tests — as append-only Obsidian Markdown, driven through the ost-agent MCP tools. Use whenever asked to run product discovery, do opportunity mapping / solution ideation / assumption surfacing, or maintain an OST vault.
 when_to_use: The user wants to build or update an Opportunity Solution Tree, run continuous product discovery, map customer opportunities, ideate solutions, surface assumptions, or run an OST maintenance pass. Requires the ost-agent MCP server to be connected (its ost_* tools are present).
-allowed-tools: mcp__ost-agent__ost_next_work, mcp__ost-agent__ost_read_tree, mcp__ost-agent__ost_create_node, mcp__ost-agent__ost_link_nodes, mcp__ost-agent__ost_append_to_node, mcp__ost-agent__ost_set_status, mcp__ost-agent__ost_annotate, mcp__ost-agent__ost_search_web, mcp__ost-agent__ost_read_web, mcp__ost-agent__ost_read_repo, mcp__ost-agent__ost_rank_source
+allowed-tools: mcp__ost-agent__ost_ingest_inbox, mcp__ost-agent__ost_next_work, mcp__ost-agent__ost_read_tree, mcp__ost-agent__ost_create_node, mcp__ost-agent__ost_link_nodes, mcp__ost-agent__ost_append_to_node, mcp__ost-agent__ost_set_status, mcp__ost-agent__ost_annotate, mcp__ost-agent__ost_search_web, mcp__ost-agent__ost_read_web, mcp__ost-agent__ost_read_repo, mcp__ost-agent__ost_rank_source
 ---
 
 # Maintaining an Opportunity Solution Tree
@@ -63,6 +63,7 @@ ${bullets(R.agentMustNot)}
 
 All are exposed by the \`ost-agent\` MCP server (names may appear as \`mcp__ost-agent__ost_*\`):
 
+- **ost_ingest_inbox** — capture new notes from the vault's local inbox folder as evidence. Idempotent: a note already captured is never captured twice, and inbox files are never modified or deleted. Call this before \`ost_next_work\` when the user says they have added notes.
 - **ost_next_work** — read-only. Reports exactly what's outstanding: unmapped evidence, under-served opportunities, solutions missing assumption tests, and hygiene issues. **Start every pass here.**
 - **ost_read_tree** — read-only. The whole tree with each node's layer, status, tags, and child links.
 - **ost_create_node** — create a node AND attach it under an existing parent atomically (never an orphan). You cannot create an Outcome. An Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an AssumptionTest under a Solution.
@@ -84,7 +85,7 @@ ${bullets(R.firstRun)}
 
 ## The maintenance loop
 
-1. **Call \`ost_next_work\`.** If \`done: true\`, report that the tree is fully maintained and stop.
+1. **Call \`ost_ingest_inbox\`, then \`ost_next_work\`.** If \`done: true\`, report that the tree is fully maintained and stop.
 2. **Map evidence → opportunities** (for each \`unmappedEvidence\` item). Distill the *customer need/pain/desire* it reveals, from the customer's perspective — never a solution. Create an \`#Opportunity\` under the Outcome (or a parent opportunity), with \`source\` set to the evidence id. Reuse an existing opportunity instead of duplicating. If an item reveals no genuine need, skip it.
 3. **Ideate solutions** (for each \`underservedOpportunity\`). Generate genuinely distinct candidate \`#Solution\` nodes until it has the required minimum, each with \`status: unvalidated\` and an \`unvalidated\` tag. Compare-and-contrast — do not describe implementation steps or code.
 4. **Surface assumptions** (for each \`solutionsMissingAssumptions\` entry). Create \`#AssumptionTest\` nodes (\`unvalidated\`) that each *propose* a small, fast test of one underlying assumption across the risk categories (${R.assumptionCategories.join(", ")}). You propose tests; humans run them.

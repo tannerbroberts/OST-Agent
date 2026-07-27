@@ -10,6 +10,7 @@
  * than a Zod-bound one, so the tool schemas do not couple us to a specific Zod
  * major version — or, now that the API-key runner is gone, to any model SDK.
  */
+import path from "node:path";
 import { tool } from "./tool.js";
 import { gitCommit, gitPush } from "../git/safe-git.js";
 import { type NodeStatus, type OstNode } from "../ost/node.js";
@@ -25,6 +26,10 @@ import { budgetSpentMessage, createLookupBudget, type LookupBudget } from "../we
 import { HOST_RUNGS, hostRung, rankHost, readHostTrust } from "../knowledge/web-trust.js";
 import { readProductRepo } from "../product/repo.js";
 import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/render.js";
+import { InboxSource } from "../adapters/inbox.js";
+import { loadCursor, saveCursor } from "../adapters/source.js";
+import { writeEvidence } from "../processes/tree.js";
+import { loadConfig } from "../config/load.js";
 import type { PassContext } from "../processes/types.js";
 
 const STATUS_VALUES = ["unvalidated", "validated", "in-discovery", "shipped", "deferred"];
@@ -441,6 +446,26 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         required: ["solution"],
       },
       run: async (input: { solution: string }) => renderGate(vault.readTree(), input.solution).text,
+    }),
+
+    tool({
+      name: "ost_ingest_inbox",
+      description:
+        "Capture new notes from the vault's local inbox folder as evidence, ready to be mapped into #Opportunity nodes. Reads every *.md / *.txt file dropped there since the last run and records each one with its provenance. Idempotent: a note already captured is never captured twice, and inbox files are never modified or deleted. Call this before ost_next_work when the user says they have added notes.",
+      inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      run: async () => {
+        const inboxPath = loadConfig(dir).adapters.inbox.path;
+        const source = new InboxSource(path.join(dir, inboxPath));
+        const { items, cursor } = await source.fetchSince(loadCursor(dir, source.name));
+        let captured = 0;
+        for (const item of items) if (writeEvidence(dir, item)) captured += 1;
+        saveCursor(dir, source.name, cursor);
+        // Titles only. The note bodies are untrusted text and reach the model as
+        // evidence via ost_next_work, not as tool output.
+        return captured === 0
+          ? "0 new notes — the inbox holds nothing that has not already been captured."
+          : `captured ${captured} new note(s): ${items.map((i) => i.title).join(", ")}`;
+      },
     }),
 
     tool({
