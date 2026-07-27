@@ -36,6 +36,7 @@ import { computeEvidenceDebt, gateSolution } from "../eval/evidence-debt.js";
 import { computeCoverageDebt, computeCoveragePairs, computeUnfixedThresholds } from "../eval/coverage.js";
 import { BELIEVABILITY_LADDER, believabilityRollup, type RungId } from "../knowledge/believability.js";
 import { recordResult, VERDICTS, type Verdict } from "../ost/results.js";
+import { formatCensus, reconcileWithGit } from "../ost/census.js";
 import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
 import { laneDef, LANES, type LaneId } from "../knowledge/lanes.js";
 import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapters/friction.js";
@@ -161,15 +162,28 @@ program
   .command("check")
   .description("run the deterministic tree invariants (no model needed)")
   .option("--vault <dir>", "vault directory", ".")
-  .action((opts: { vault: string }) => {
+  .action(async (opts: { vault: string }) => {
     const ctx = buildPassContext(opts.vault);
-    const violations = checkInvariants(ctx.vault.readTree());
+    const census = ctx.vault.readTreeCensus();
+    census.independent = await reconcileWithGit(ctx.dir, census);
+    const violations = checkInvariants(census.nodes);
     if (violations.length === 0) {
-      console.log("invariants: PASS (0 violations)");
+      // "0 violations" over an unstated denominator is the shape of a check that
+      // passed because it looked at nothing. State what was checked.
+      console.log(`invariants: PASS (0 violations over ${census.nodes.length} node(s))`);
     } else {
-      console.log(`invariants: FAIL (${violations.length} violation(s))`);
+      console.log(`invariants: FAIL (${violations.length} violation(s) over ${census.nodes.length} node(s))`);
       for (const v of violations) console.log(`  ✗ [${v.rule}] ${v.node ? `"${v.node}": ` : ""}${v.detail}`);
       process.exitCode = 1;
+    }
+    const dropped = census.skipped.length + census.unreadable.length;
+    const unseen = census.independent?.unseenByWalk.length ?? 0;
+    if (dropped > 0 || unseen > 0) {
+      console.log(formatCensus(census, census.nodes.length));
+      console.log(
+        "  A node the reader never returned cannot violate an invariant. The verdict\n" +
+          "  above covers the nodes in this denominator and no others.",
+      );
     }
   });
 
@@ -437,16 +451,21 @@ program
 program
   .command("status")
   .option("--vault <dir>", "vault directory", ".")
-  .action((opts: { vault: string }) => {
+  .action(async (opts: { vault: string }) => {
     const ctx = buildPassContext(opts.vault);
     const journals = readRunJournals(ctx.dir);
     printLastFailure(journals);
-    const tree = ctx.vault.readTree();
+    const census = ctx.vault.readTreeCensus();
+    census.independent = await reconcileWithGit(ctx.dir, census);
+    const tree = census.nodes;
     const byLayer = (l: string) => tree.filter((n) => n.layer === l).length;
     const unvalidated = tree.filter((n) => n.status === "unvalidated").length;
     console.log(`Vault: ${ctx.dir}`);
     console.log(`Outcome: ${ctx.config.outcome}`);
     console.log(`Nodes: ${tree.length}  (Outcome ${byLayer("Outcome")}, Opportunity ${byLayer("Opportunity")}, Solution ${byLayer("Solution")}, AssumptionTest ${byLayer("AssumptionTest")})`);
+    // Every number above this line is taken over the set the walk returned. This
+    // says what that set was, so a count that shrank silently cannot read as health.
+    console.log(formatCensus(census, tree.length));
     console.log(`Unvalidated (agent-ideated, awaiting review): ${unvalidated}`);
     const rollup = believabilityRollup(tree);
     const perRung = BELIEVABILITY_LADDER.map((r) => `${r.id} ${rollup.counts[r.id]}`).join(", ");
