@@ -3,7 +3,7 @@
  * instantiate the enabled read-only sources.
  */
 import path from "node:path";
-import { loadConfig } from "../config/load.js";
+import { defaultConfig, loadConfig } from "../config/load.js";
 import { InboxSource } from "../adapters/inbox.js";
 import { AtlassianSource, HttpAtlassianClient } from "../adapters/atlassian.js";
 import { TranscriptSource, defaultTranscriptDir } from "../adapters/transcript.js";
@@ -24,17 +24,34 @@ export interface BuildPassContextOptions {
    * exposes is gated behind `vaultReadiness`, so the defaults are never acted on.
    */
   allowMissingConfig?: boolean;
+  /**
+   * Skip constructing adapter sources (and their env-var checks). The MCP
+   * server sets this on its live context: its tool surface never consumes
+   * `ctx.sources` — the tools are built from vault/dir/remote/web/product
+   * alone — so an adapter whose env vars are absent in the MCP host process
+   * must not be able to take unrelated tools down.
+   */
+  skipSources?: boolean;
+  /**
+   * Build a context fit only for RENDERING the tool listing: schema-default
+   * config (never reads `ost.config.yaml`, so a present-but-broken file cannot
+   * throw), no adapter sources, and a Vault handle that does not create the
+   * directory. Only the MCP server's pre-ready ListTools path uses this;
+   * nothing built this way may run a tool.
+   */
+  listingOnly?: boolean;
 }
 
 export function buildPassContext(vaultDir: string, opts: BuildPassContextOptions = {}): PassContext {
   const dir = path.resolve(vaultDir);
-  const config = loadConfig(dir, opts.allowMissingConfig ? { missing: "defaults" } : {});
+  const config = opts.listingOnly ? defaultConfig() : loadConfig(dir, opts.allowMissingConfig ? { missing: "defaults" } : {});
+  const skipSources = opts.skipSources === true || opts.listingOnly === true;
 
   const sources: Source[] = [];
-  if (config.adapters.inbox.enabled) {
+  if (!skipSources && config.adapters.inbox.enabled) {
     sources.push(new InboxSource(path.join(dir, config.adapters.inbox.path)));
   }
-  if (config.adapters.transcript.enabled) {
+  if (!skipSources && config.adapters.transcript.enabled) {
     const t = config.adapters.transcript;
     if (!t.path && !t.projectDir) {
       throw new Error(
@@ -50,10 +67,10 @@ export function buildPassContext(vaultDir: string, opts: BuildPassContextOptions
       }),
     );
   }
-  if (config.adapters.usage.enabled) {
+  if (!skipSources && config.adapters.usage.enabled) {
     sources.push(new UsageSource({ file: usageLogPath(dir), minEvents: config.adapters.usage.minEvents }));
   }
-  if (config.adapters.atlassian.enabled) {
+  if (!skipSources && config.adapters.atlassian.enabled) {
     const baseUrl = process.env.ATLASSIAN_BASE_URL;
     const email = process.env.ATLASSIAN_EMAIL;
     const apiToken = process.env.ATLASSIAN_API_TOKEN;
@@ -71,7 +88,7 @@ export function buildPassContext(vaultDir: string, opts: BuildPassContextOptions
       }),
     );
   }
-  if (config.adapters.slack.enabled) {
+  if (!skipSources && config.adapters.slack.enabled) {
     const token = process.env.SLACK_BOT_TOKEN;
     if (!token) {
       throw new Error(
@@ -83,7 +100,7 @@ export function buildPassContext(vaultDir: string, opts: BuildPassContextOptions
   }
 
   return {
-    vault: new Vault(dir),
+    vault: new Vault(dir, { create: !opts.listingOnly }),
     dir,
     config,
     ruleset: OST_RULESET,

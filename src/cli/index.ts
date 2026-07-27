@@ -40,7 +40,7 @@ import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLane
 import { laneDef, LANES, type LaneId } from "../knowledge/lanes.js";
 import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapters/friction.js";
 import { ALLOWED_TOOL_NAMES } from "../security/policy.js";
-import { createOstMcpServer, MCP_TOOL_NAMES } from "../mcp/server.js";
+import { createLazyOstMcpServer, MCP_TOOL_NAMES } from "../mcp/server.js";
 import { vaultReadiness } from "../mcp/bootstrap.js";
 import { registerLoopCommands } from "./loop.js";
 import { VERSION } from "../index.js";
@@ -479,16 +479,19 @@ program
   .description("run a stdio MCP server exposing the append-only OST tools (no API key needed)")
   .option("--vault <dir>", "vault directory", process.env.OST_VAULT ?? ".")
   .action(async (opts: { vault: string }) => {
-    const ctx = buildPassContext(opts.vault, { allowMissingConfig: true });
+    const dir = path.resolve(opts.vault);
     const { StdioServerTransport } = await import("@modelcontextprotocol/sdk/server/stdio.js");
-    const server = createOstMcpServer(ctx);
+    // Lazy: the real context is built on the first call that finds the vault
+    // ready, so a broken or absent config cannot keep the server from starting.
+    const server = createLazyOstMcpServer(dir);
     await server.connect(new StdioServerTransport());
     // stdout is the JSON-RPC channel — log only to stderr.
-    console.error(`ost-agent mcp serving ${ctx.dir} over stdio. Tools: ${MCP_TOOL_NAMES.join(", ")}`);
+    console.error(`ost-agent mcp serving ${dir} over stdio. Tools: ${MCP_TOOL_NAMES.join(", ")}`);
     // Serve first, report readiness second. A server that refuses to start on a
     // first run shows the operator a failed connection — the least actionable
     // signal available. Started, it can say what to do instead.
-    const readiness = vaultReadiness(ctx);
+    // Probe-only: no Vault handle, so a typo'd --vault path creates nothing.
+    const readiness = vaultReadiness({ dir });
     if (!readiness.ready) console.error(`ost-agent mcp: ${readiness.message}`);
   });
 

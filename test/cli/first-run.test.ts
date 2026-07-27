@@ -56,7 +56,7 @@ describe("ost-agent mcp in a folder that is not a vault", () => {
       expect(res.isError).toBeFalsy();
       const work = JSON.parse(res.content.map((c) => c.text ?? "").join(""));
       expect(work.bootstrap).toBe(true);
-      expect(work.nextStep).toMatch(/ost-agent init/);
+      expect(work.nextStep).toMatch(/ost-agent(@latest)? init/);
     } finally {
       await client.close();
     }

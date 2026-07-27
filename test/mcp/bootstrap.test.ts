@@ -49,7 +49,7 @@ describe("vaultReadiness", () => {
     expect(r.ready).toBe(false);
     if (r.ready) throw new Error("unreachable");
     expect(r.reason).toBe("no-vault");
-    expect(r.nextStep).toMatch(/ost-agent init/);
+    expect(r.nextStep).toMatch(/ost-agent(@latest)? init/);
     // the outcome is the one thing the agent may never supply for the human
     expect(r.message).toMatch(/ask the human/i);
   });
@@ -61,7 +61,7 @@ describe("vaultReadiness", () => {
     expect(r.ready).toBe(false);
     if (r.ready) throw new Error("unreachable");
     expect(r.reason).toBe("no-outcome");
-    expect(r.nextStep).toMatch(/ost-agent set-outcome/);
+    expect(r.nextStep).toMatch(/ost-agent(@latest)? set-outcome/);
   });
 
   test("an initialized vault is ready", async () => {
@@ -104,7 +104,7 @@ describe("the MCP server with no vault", () => {
     expect(work.bootstrap).toBe(true);
     expect(work.done).toBe(false);
     expect(work.reason).toBe("no-vault");
-    expect(work.nextStep).toMatch(/ost-agent init/);
+    expect(work.nextStep).toMatch(/ost-agent(@latest)? init/);
     expect(work.vault).toBe(path.resolve(dir));
   });
 
@@ -115,7 +115,7 @@ describe("the MCP server with no vault", () => {
       arguments: { title: "T", layer: "Opportunity", parent: "Nothing", body: "b", source: "INBOX:x", evidence: "stated" },
     })) as never;
     expect((res as { isError?: boolean }).isError).toBe(true);
-    expect(textOf(res)).toMatch(/ost-agent init/);
+    expect(textOf(res)).toMatch(/ost-agent(@latest)? init/);
     // nothing was created, and no git repo was conjured to hold it
     expect(fs.readdirSync(dir)).toEqual([]);
   });
@@ -124,7 +124,7 @@ describe("the MCP server with no vault", () => {
     const client = await connect(dir);
     const res = (await client.callTool({ name: "ost_read_tree", arguments: {} })) as never;
     expect((res as { isError?: boolean }).isError).toBe(true);
-    expect(textOf(res)).toMatch(/ost-agent init/);
+    expect(textOf(res)).toMatch(/ost-agent(@latest)? init/);
   });
 
   test("an initialized vault is unaffected: no bootstrap field, work reported normally", async () => {

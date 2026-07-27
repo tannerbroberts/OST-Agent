@@ -34,11 +34,21 @@ export interface LoadConfigOptions {
   missing?: "throw" | "defaults";
 }
 
+/**
+ * The schema defaults with the placeholder outcome — a config that reads no
+ * file at all. Only for surfaces that must render something before a real
+ * config can be trusted (the MCP server's pre-ready tool listing); nothing
+ * built from it may act on the tree.
+ */
+export function defaultConfig(): Config {
+  return ConfigSchema.parse({ outcome: BOOTSTRAP_PLACEHOLDER_OUTCOME });
+}
+
 /** Read + validate the config. Throws a readable error on invalid/missing config. */
 export function loadConfig(vaultDir: string, opts: LoadConfigOptions = {}): Config {
   const p = configPath(vaultDir);
   if (!fs.existsSync(p)) {
-    if (opts.missing === "defaults") return ConfigSchema.parse({ outcome: BOOTSTRAP_PLACEHOLDER_OUTCOME });
+    if (opts.missing === "defaults") return defaultConfig();
     throw new Error(`no ${CONFIG_FILENAME} in ${vaultDir} — run \`ost-agent init\` first`);
   }
   const raw = parseYaml(fs.readFileSync(p, "utf8")) ?? {};

@@ -6,13 +6,16 @@
  * commits each write. Reuses buildOstTools verbatim, so the allowlist +
  * fail-closed guard remain the single source of truth for what is callable.
  */
+import path from "node:path";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { buildOstTools } from "../security/tools.js";
 import { assertNoDestructiveTool } from "../security/policy.js";
 import type { PassContext } from "../processes/types.js";
+import { buildPassContext } from "../runner/context.js";
 import { enqueueCommit } from "./commit.js";
-import { bootstrapNextWork, vaultReadiness } from "./bootstrap.js";
+import { bootstrapNextWork, vaultReadiness, type VaultNotReady } from "./bootstrap.js";
+import { configProblemGuidance, setupGuidance } from "./setup.js";
 import { VERSION } from "../index.js";
 
 export const MCP_TOOL_NAMES = [
@@ -57,7 +60,15 @@ interface McpToolDef {
   run: (input: unknown) => Promise<unknown>;
 }
 
-export function createOstMcpServer(ctx: PassContext): Server {
+interface ToolCallResult {
+  // Index signature: the SDK's CallToolResult is a passthrough schema, and the
+  // handler return type only unifies with it when the extra keys are allowed.
+  [key: string]: unknown;
+  content: Array<{ type: "text"; text: string }>;
+  isError?: boolean;
+}
+
+function buildDefs(ctx: PassContext): McpToolDef[] {
   const built = buildOstTools(
     {
       vault: ctx.vault,
@@ -75,52 +86,152 @@ export function createOstMcpServer(ctx: PassContext): Server {
   // which the "exposes exactly the six" test locks down.)
   assertNoDestructiveTool(built.map((t) => t.name));
 
-  const defs: McpToolDef[] = built.map((t) => {
+  return built.map((t) => {
     const raw = t as unknown as {
       name: string;
       description: string;
       input_schema: Record<string, unknown>;
       run: (i: unknown) => Promise<unknown>;
     };
-    return { name: raw.name, description: raw.description, inputSchema: raw.input_schema, run: (i) => raw.run(i) };
+    return { name: raw.name, description: raw.description, inputSchema: raw.input_schema, run: (i: unknown) => raw.run(i) };
   });
+}
+
+function listToolsPayload(defs: McpToolDef[]): { tools: Array<{ name: string; description: string; inputSchema: Record<string, unknown> }> } {
+  return { tools: defs.map((d) => ({ name: d.name, description: d.description, inputSchema: d.inputSchema })) };
+}
+
+function unknownTool(name: string): ToolCallResult {
+  return { content: [{ type: "text", text: `unknown tool "${name}" — not on the OST surface` }], isError: true };
+}
+
+/**
+ * The one refusal both server factories use for a not-ready vault, so their
+ * wording cannot fork. `ost_next_work` gets the state as state — it is where
+ * every pass starts, so that is where the skill's first-run branch keys off it;
+ * every other tool refuses with the shared setup guidance, which names the same
+ * `nextStep` command the bootstrap payload carries.
+ */
+function notReadyResult(readiness: VaultNotReady, name: string): ToolCallResult {
+  if (name === "ost_next_work") {
+    return { content: [{ type: "text", text: JSON.stringify(bootstrapNextWork(readiness)) }] };
+  }
+  return { content: [{ type: "text", text: setupGuidance(readiness) }], isError: true };
+}
+
+async function handleOstCall(ctx: PassContext, byName: Map<string, McpToolDef>, name: string, args: unknown): Promise<ToolCallResult> {
+  const tool = byName.get(name);
+  if (!tool) return unknownTool(name);
+  // First run: the session has the tools but no vault to point them at. Answer
+  // with the command that fixes it rather than with whatever the vault layer
+  // happens to throw.
+  const readiness = vaultReadiness(ctx);
+  if (!readiness.ready) return notReadyResult(readiness, name);
+  try {
+    const out = await tool.run(args);
+    let text = typeof out === "string" ? out : JSON.stringify(out);
+    if (MUTATING.has(name)) {
+      const commit = await enqueueCommit(ctx.dir, `mcp: ${name} — ${text}`);
+      text += commit.committed ? `\ncommitted ${commit.sha.slice(0, 8)}` : `\n(no changes to commit)`;
+    }
+    return { content: [{ type: "text", text }] };
+  } catch (e) {
+    return { content: [{ type: "text", text: e instanceof Error ? e.message : String(e) }], isError: true };
+  }
+}
+
+function newServer(): Server {
+  return new Server({ name: "ost-agent", version: VERSION }, { capabilities: { tools: {} } });
+}
+
+export function createOstMcpServer(ctx: PassContext): Server {
+  const defs = buildDefs(ctx);
   const byName = new Map(defs.map((d) => [d.name, d]));
 
-  const server = new Server({ name: "ost-agent", version: VERSION }, { capabilities: { tools: {} } });
+  const server = newServer();
+  server.setRequestHandler(ListToolsRequestSchema, async () => listToolsPayload(defs));
+  server.setRequestHandler(CallToolRequestSchema, async (req) =>
+    handleOstCall(ctx, byName, req.params.name, req.params.arguments ?? {}),
+  );
+  return server;
+}
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: defs.map((d) => ({ name: d.name, description: d.description, inputSchema: d.inputSchema })),
-  }));
+interface LiveTools {
+  ctx: PassContext;
+  defs: McpToolDef[];
+  byName: Map<string, McpToolDef>;
+}
+
+/**
+ * The same server, built from a directory that may not be a vault yet.
+ *
+ * The plugin auto-starts `ost-agent mcp` with OST_VAULT pointed at whatever
+ * project the session is in, so this factory must come up with no vault, list
+ * the full surface, refuse calls with the setup guidance while writing NOTHING,
+ * and serve the real tools on the first call after `init` — no reconnect. Calls
+ * delegate to the exact handler `createOstMcpServer` uses, so the two paths
+ * cannot drift.
+ */
+export function createLazyOstMcpServer(vaultDir: string): Server {
+  const dir = path.resolve(vaultDir);
+
+  // Built on the first call that finds the vault ready, then cached. Never
+  // earlier: the context must load the config `init` wrote, not the bootstrap
+  // defaults — and readiness itself needs only the directory (see
+  // `vaultReadiness`), so probing costs no config load and no side effect.
+  let live: LiveTools | undefined;
+  // Tool names/descriptions/schemas are context-independent; a defaults-loaded
+  // context renders the pre-init listing and is never used to run anything.
+  let listingDefs: McpToolDef[] | undefined;
+
+  const acquire = (): { live: LiveTools } | { setup: VaultNotReady } => {
+    if (!live) {
+      const readiness = vaultReadiness({ dir });
+      if (!readiness.ready) return { setup: readiness };
+      // Strict about the config — the vault exists now, so it must parse — but
+      // with NO adapter sources: the MCP surface never consumes ctx.sources,
+      // so an adapter whose env vars are absent in the MCP host process (the
+      // plugin launches this server without the operator's shell env) must not
+      // take unrelated tools down. May still throw on a broken config; both
+      // request handlers catch that and answer with the fix.
+      const ctx = buildPassContext(dir, { skipSources: true });
+      const defs = buildDefs(ctx);
+      live = { ctx, defs, byName: new Map(defs.map((d) => [d.name, d])) };
+    }
+    return { live };
+  };
+
+  const server = newServer();
+
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    let got: ReturnType<typeof acquire> | undefined;
+    try {
+      got = acquire();
+    } catch {
+      // A present-but-broken config must not take tools/list down. The listing
+      // is context-independent, so fall through to the defaults-built one and
+      // let the CallTool path report what to fix.
+    }
+    if (got && "live" in got) return listToolsPayload(got.live.defs);
+    listingDefs ??= buildDefs(buildPassContext(dir, { listingOnly: true }));
+    return listToolsPayload(listingDefs);
+  });
 
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
     const { name } = req.params;
-    const args = req.params.arguments ?? {};
-    const tool = byName.get(name);
-    if (!tool) {
-      return { content: [{ type: "text", text: `unknown tool "${name}" — not on the OST surface` }], isError: true };
-    }
-    // First run: the session has the tools but no vault to point them at. Answer
-    // with the command that fixes it rather than with whatever the vault layer
-    // happens to throw. `ost_next_work` gets it as state — it is where every pass
-    // starts, so that is where the skill's first-run branch can key off it.
-    const readiness = vaultReadiness(ctx);
-    if (!readiness.ready) {
-      if (name === "ost_next_work") {
-        return { content: [{ type: "text", text: JSON.stringify(bootstrapNextWork(readiness)) }] };
-      }
-      return { content: [{ type: "text", text: readiness.message }], isError: true };
-    }
+    if (!(MCP_TOOL_NAMES as readonly string[]).includes(name)) return unknownTool(name);
+    let got: ReturnType<typeof acquire>;
     try {
-      const out = await tool.run(args);
-      let text = typeof out === "string" ? out : JSON.stringify(out);
-      if (MUTATING.has(name)) {
-        const commit = await enqueueCommit(ctx.dir, `mcp: ${name} — ${text}`);
-        text += commit.committed ? `\ncommitted ${commit.sha.slice(0, 8)}` : `\n(no changes to commit)`;
-      }
-      return { content: [{ type: "text", text }] };
+      got = acquire();
     } catch (e) {
-      return { content: [{ type: "text", text: e instanceof Error ? e.message : String(e) }], isError: true };
+      // Ready vault, unloadable config: answer with the cause and the fix, not
+      // a raw JSON-RPC error. `live` was not cached, so the first call after
+      // the human fixes the config builds the real context — no reconnect.
+      const cause = e instanceof Error ? e.message : String(e);
+      return { content: [{ type: "text", text: configProblemGuidance(dir, cause) }], isError: true };
     }
+    if ("setup" in got) return notReadyResult(got.setup, name);
+    return handleOstCall(got.live.ctx, got.live.byName, name, req.params.arguments ?? {});
   });
 
   return server;

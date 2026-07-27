@@ -68,9 +68,12 @@ function assertWritableNote(what: string, value: string | undefined): void {
 export class Vault {
   readonly root: string;
 
-  constructor(rootDir: string) {
+  constructor(rootDir: string, opts: { create?: boolean } = {}) {
     this.root = path.resolve(rootDir);
-    fs.mkdirSync(this.root, { recursive: true });
+    // Creation is the default because every write path assumes the root exists.
+    // Probe-only callers (the MCP server's readiness check and its pre-ready
+    // tool listing) opt out: probing a directory must never create it.
+    if (opts.create !== false) fs.mkdirSync(this.root, { recursive: true });
   }
 
   /** Absolute path for a node title, asserted to stay within the vault root. */

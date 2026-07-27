@@ -13,6 +13,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { configPath } from "../config/load.js";
+import { Vault } from "../ost/vault.js";
+import { initCommand, setOutcomeCommand } from "./setup.js";
 import type { PassContext } from "../processes/types.js";
 
 export type NotReadyReason = "no-vault" | "no-outcome";
@@ -35,12 +37,20 @@ export type VaultReadiness = { ready: true } | VaultNotReady;
  * fail, kept distinct because they need different commands: nothing here at all,
  * versus a vault whose root Outcome is missing.
  */
-export function vaultReadiness(ctx: PassContext): VaultReadiness {
+export function vaultReadiness(ctx: Pick<PassContext, "dir"> & Partial<Pick<PassContext, "vault">>): VaultReadiness {
+  // Only `dir` (plus an optional already-open vault) — readiness must be
+  // probeable before a config can be loaded, or the lazy server could never say
+  // what to do about that. Probing is strictly read-only: no Vault is opened
+  // until the directory is known to exist, so a probe against a typo'd or
+  // not-yet-created path creates NOTHING on disk.
   const vault = ctx.dir;
   // Either half missing means "not a vault". Checking the config too keeps the
   // placeholder outcome a defaults-loader borrows out of every reachable path.
   if (!fs.existsSync(path.join(vault, ".git")) || !fs.existsSync(configPath(vault))) {
-    const nextStep = `ost-agent init <folder> --outcome "<the outcome, in the human's words>"`;
+    // The npx form: it works whether or not the ost-agent binary is on PATH,
+    // and it is the SAME command `setupGuidance` renders — one wording, both
+    // surfaces (see src/mcp/setup.ts).
+    const nextStep = initCommand(vault);
     return {
       ready: false,
       reason: "no-vault",
@@ -54,8 +64,8 @@ export function vaultReadiness(ctx: PassContext): VaultReadiness {
       nextStep,
     };
   }
-  if (!ctx.vault.readTree().some((n) => n.layer === "Outcome")) {
-    const nextStep = `ost-agent set-outcome "<the outcome, in the human's words>" --vault ${vault}`;
+  if (!(ctx.vault ?? new Vault(vault, { create: false })).readTree().some((n) => n.layer === "Outcome")) {
+    const nextStep = setOutcomeCommand(vault);
     return {
       ready: false,
       reason: "no-outcome",

@@ -88,4 +88,81 @@ describe("MCP setup mode (uninitialized vault)", () => {
     expect(res.isError).toBeFalsy();
     expect(textOf(res as never)).toContain("Players");
   });
+
+  test("pointing the server at a nonexistent path creates nothing on disk", async () => {
+    // OST_VAULT typo'd or aimed at a not-yet-cloned project: probing must not
+    // conjure the directory chain — setup mode claims it writes NOTHING.
+    const missing = path.join(dir, "porjects", "app");
+    const client = await connectLazy(missing);
+    const { tools } = await client.listTools();
+    expect(tools.map((t) => t.name).sort()).toEqual([...MCP_TOOL_NAMES].sort());
+    const res = await client.callTool({ name: "ost_read_tree", arguments: {} });
+    expect(res.isError).toBe(true);
+    expect(textOf(res as never)).toMatch(/ost-agent(@latest)? init/);
+    expect(fs.existsSync(missing)).toBe(false);
+    expect(fs.existsSync(path.join(dir, "porjects"))).toBe(false);
+  });
+
+  test("a present-but-invalid config degrades to guidance, not a protocol error, and recovers once fixed", async () => {
+    await initVault(dir, "Grow weekly active players", "Players");
+    const cfg = path.join(dir, "ost.config.yaml");
+    const good = fs.readFileSync(cfg, "utf8");
+    fs.writeFileSync(cfg, "outcome: 42\n"); // schema-invalid: outcome must be a string
+
+    const client = await connectLazy(dir);
+    // tools/list must not become a JSON-RPC internal error
+    const { tools } = await client.listTools();
+    expect(tools.map((t) => t.name).sort()).toEqual([...MCP_TOOL_NAMES].sort());
+    // a call answers with the cause and the fix, in-band
+    const res = await client.callTool({ name: "ost_next_work", arguments: {} });
+    expect(res.isError).toBe(true);
+    const text = textOf(res as never);
+    expect(text).toContain("ost.config.yaml");
+    expect(text).toMatch(/no reconnect/i);
+
+    // fixing the file recovers the same session — no reconnect
+    fs.writeFileSync(cfg, good);
+    const after = await client.callTool({ name: "ost_read_tree", arguments: {} });
+    expect(after.isError).toBeFalsy();
+    expect(textOf(after as never)).toContain("Players");
+  });
+
+  test("an enabled adapter whose env vars are absent does not block the MCP tools", async () => {
+    await initVault(dir, "Grow weekly active players", "Players");
+    fs.writeFileSync(
+      path.join(dir, "ost.config.yaml"),
+      'outcome: "Grow weekly active players"\noutcomeTitle: "Players"\nadapters:\n  slack:\n    enabled: true\n',
+    );
+    const saved = process.env.SLACK_BOT_TOKEN;
+    delete process.env.SLACK_BOT_TOKEN;
+    try {
+      const client = await connectLazy(dir);
+      // the MCP surface never consumes adapter sources, so the missing token
+      // must not take read-only tools (or any tool) down
+      const res = await client.callTool({ name: "ost_read_tree", arguments: {} });
+      expect(res.isError).toBeFalsy();
+      expect(textOf(res as never)).toContain("Players");
+    } finally {
+      if (saved !== undefined) process.env.SLACK_BOT_TOKEN = saved;
+    }
+  });
+
+  test("a vault missing its Outcome node is told set-outcome — the same command on every tool", async () => {
+    await initVault(dir, "Grow weekly active players", "Players");
+    fs.rmSync(path.join(dir, "Players.md")); // remove the only Outcome node
+
+    const client = await connectLazy(dir);
+    const work = JSON.parse(textOf((await client.callTool({ name: "ost_next_work", arguments: {} })) as never));
+    expect(work.bootstrap).toBe(true);
+    expect(work.reason).toBe("no-outcome");
+    expect(work.nextStep).toMatch(/ost-agent(@latest)? set-outcome/);
+
+    const res = await client.callTool({ name: "ost_read_tree", arguments: {} });
+    expect(res.isError).toBe(true);
+    const text = textOf(res as never);
+    // exactly the command ost_next_work named — never `init`, which on an
+    // existing vault silently keeps the old config and discards the outcome
+    expect(text).toContain(work.nextStep);
+    expect(text).not.toMatch(/ost-agent(@latest)? init/);
+  });
 });
