@@ -753,6 +753,7 @@ Create `test/mcp/analysis-tools.test.ts`:
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { afterEach, beforeEach, expect, test } from "vitest";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -782,6 +783,20 @@ async function call(client: Client, name: string, args: Record<string, unknown> 
     isError?: boolean;
     content: Array<{ text: string }>;
   };
+}
+
+// `initVault` runs `git init` but commits nothing, so a fresh vault has zero
+// commits and `git rev-parse HEAD` throws. Counting tolerates that; reading
+// .git/HEAD would not work at all — it holds `ref: refs/heads/<branch>` and
+// never changes when a commit lands.
+function commitCount(d: string): number {
+  try {
+    return Number(
+      execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: d, encoding: "utf8" }).trim(),
+    );
+  } catch {
+    return 0;
+  }
 }
 
 test("all four are on the surface", () => {
@@ -820,14 +835,14 @@ test("ost_gate carries the verdict in its text", async () => {
 
 test("read-only: no commit is appended and git history does not grow", async () => {
   const client = await connect(dir);
-  const before = fs.readFileSync(path.join(dir, ".git", "HEAD"), "utf8");
+  const before = commitCount(dir);
   for (const n of ["ost_check", "ost_debt", "ost_status"]) {
     const res = await call(client, n);
     // The commit suffix the mutating path appends. Its absence is the assertion.
     expect(res.content[0].text).not.toMatch(/committed [0-9a-f]{8}/);
     expect(res.content[0].text).not.toMatch(/no changes to commit/);
   }
-  expect(fs.readFileSync(path.join(dir, ".git", "HEAD"), "utf8")).toBe(before);
+  expect(commitCount(dir)).toBe(before);
 });
 
 test("ost_gate rejects a call with no solution", async () => {
