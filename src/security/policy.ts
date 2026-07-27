@@ -28,6 +28,13 @@ export const ALLOWED_TOOL_NAMES = [
   "ost_read_web",
   "ost_read_repo",
   "ost_rank_source",
+  // The deterministic analysis surface: no model, no writes. These were CLI
+  // commands reachable only through a Bash grant on a published binary; with
+  // the binary gone they belong on the tool surface like everything else.
+  "ost_check",
+  "ost_debt",
+  "ost_status",
+  "ost_gate",
   "git_commit",
   "git_push",
 ] as const;
