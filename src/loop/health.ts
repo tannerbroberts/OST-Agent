@@ -16,7 +16,28 @@ export type LoopDirective = "restore" | "work" | "no-op";
 
 export interface LoopStepRecord {
   phase: string;
+  /**
+   * The command as one display string — `argv.join(" ")`. Lossy by
+   * construction (it cannot tell one spaced argument from two), and kept
+   * because every record written before `argv` existed has only this.
+   */
   command: string;
+  /**
+   * The argv exactly as spawned. Optional: lines written before this field
+   * existed do not carry it, and the record is append-only, so a reader must
+   * tolerate its absence rather than treat old runs as malformed.
+   */
+  argv?: string[];
+  /**
+   * The working directory the command actually ran in. Optional for the same
+   * append-only reason as `argv`.
+   *
+   * Without it a recorded failure cannot be reproduced from its own record —
+   * observed live, when a `pnpm --filter …` step invoked from a vault
+   * directory rather than the repo produced no output and recorded a line
+   * indistinguishable from the same command run correctly.
+   */
+  cwd?: string;
   exit: number;
   durationMs: number;
   at: string;

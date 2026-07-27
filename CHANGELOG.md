@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.20.0
+
+- **Every recorded step now carries the directory and argv it actually ran with.**
+  `loop step` observed phase, command, exit code and duration — but not *where* the
+  command ran, so a recorded failure could not be reproduced from its own record. Both
+  halves of that gap were observed live in one firing: a `loop step -- pnpm --filter …`
+  invoked from a vault directory rather than the repo produced no output at all and
+  recorded a line indistinguishable from the same command run correctly, and `command`
+  is an `argv.join(" ")` that cannot tell one spaced argument from two. `LoopStepRecord`
+  gains optional `cwd` and `argv`; `cwd` is captured *before* the child spawns, so it
+  reports where the command was given rather than wherever the process ended up. Both
+  fields are optional because `runs.jsonl` is append-only — a reader that threw on
+  older lines would make the record unreadable at exactly the moment it matters.
+
+- **The shipped checks now have a positive control: each one is observed finding an
+  instance planted in its subject.** Three of this codebase's reporting rules were
+  found blind *after* shipping green — the lane reader that read a fragment as a
+  declaration, eleven audio tests that could not fail, and a history sweep that
+  measured only the files it could open. The common property was that none had ever
+  been seen finding anything, and a rule that has only ever reported success is
+  indistinguishable from one that cannot report failure. `test/eval/planted-instance.test.ts`
+  plants a synthetic violation for all eight `checkInvariants` rules and for the
+  lane-conflict rule, each against an asserted-clean baseline so a hit is demonstrably
+  the plant and not fixture noise, plus a negative control (a prose lane that *agrees*
+  with its label must not be reported).
+
+  Run as a one-off first, against the pre-committed threshold "2 or more checks failing
+  to find their plant means blindness is the default rather than an accident":
+  **12 plants, 12 found, 0 checks blind.** Threshold not crossed. Worth recording that
+  the run's three apparent misses were all defects in the *plants* — a wikilink placed
+  in prose rather than the contiguous edge block (correctly not an edge), a "conflict"
+  whose two halves agreed, and an assertion grepping for a word the reporter never
+  prints. An unattended pass that had not verified its own plants would have reported
+  three blind checks and triggered the wrong fix.
+
 ## 0.19.0
 
 - **The server the plugin auto-starts no longer needs a vault to exist — and the first

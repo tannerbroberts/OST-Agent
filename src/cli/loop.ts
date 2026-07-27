@@ -37,6 +37,10 @@ export function registerLoopCommands(program: Command): void {
     .argument("<command...>", "the command to run (after --)")
     .action((command: string[], opts: { phase: string; vault: string }) => {
       const startedAt = Date.now();
+      // Captured BEFORE the child runs. A step's record has to answer "where
+      // was this?" to be reproducible, and reading cwd afterwards would report
+      // wherever the process ended up rather than where the command was given.
+      const cwd = process.cwd();
       const child = spawnSync(command[0], command.slice(1), { stdio: "inherit" });
       // `status` is null when the child never ran at all (binary not found) or
       // died on a signal. Either way the phase did not succeed, and recording a
@@ -46,6 +50,8 @@ export function registerLoopCommands(program: Command): void {
       appendStep(opts.vault, {
         phase: opts.phase,
         command: command.join(" "),
+        argv: command,
+        cwd,
         exit,
         durationMs: Date.now() - startedAt,
       });
