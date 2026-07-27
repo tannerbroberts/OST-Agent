@@ -42,6 +42,7 @@ import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapte
 import { ALLOWED_TOOL_NAMES } from "../security/policy.js";
 import { createLazyOstMcpServer, MCP_TOOL_NAMES } from "../mcp/server.js";
 import { vaultReadiness } from "../mcp/bootstrap.js";
+import { withAuthHint } from "../runner/errors.js";
 import { registerLoopCommands } from "./loop.js";
 import { VERSION } from "../index.js";
 
@@ -105,7 +106,7 @@ program
       // A partial pass (work committed, then an error) still fails: one exit code
       // that means "do not trust this run" is the contract cron and CI already speak.
       // Whatever landed before the error is in the commit above and in the journal.
-      console.error(`${proc.id} FAILED: ${outcome.error}`);
+      console.error(`${proc.id} FAILED: ${withAuthHint(outcome.error)}`);
       process.exitCode = 1;
     }
   });
@@ -509,7 +510,7 @@ program
       // rebuild context each fire so config/state changes are picked up
       const ctx = buildPassContext(dir);
       const outcome = await runPass(proc, ctx, anthropicDriver()).catch((e) => {
-        console.error(`${id} failed:`, e instanceof Error ? e.message : e);
+        console.error(`${id} failed:`, e instanceof Error ? withAuthHint(e.message) : e);
         return null;
       });
       if (!outcome) return;
@@ -517,7 +518,7 @@ program
       if (outcome.error) {
         // The supervisor stays up (that is its job), but the failure goes to stderr
         // where a wrapper, launchd, or a log scraper can see it.
-        console.error(`[${new Date().toISOString()}] ${id} FAILED: ${outcome.error}`);
+        console.error(`[${new Date().toISOString()}] ${id} FAILED: ${withAuthHint(outcome.error)}`);
       }
       // fire downstream `after:<id>` triggers
       for (const [depId, cfg] of Object.entries(ctx.config.processes)) {

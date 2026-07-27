@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.19.0
+
+- **The server the plugin auto-starts no longer needs a vault to exist — and the first
+  minute is served instead of refused.** The plugin points its MCP server at
+  `${CLAUDE_PROJECT_DIR}`, so a fresh consumer's very first session connects it to a
+  directory with no vault, no config, and no git repo. `createLazyOstMcpServer` comes up
+  anyway: it advertises the full 13-tool surface, answers every pre-init call with the
+  setup guidance from one source (`src/mcp/setup.ts` — exact directory, exact init
+  command, the outcome stays human-set, no API key needed), keeps `ost_next_work`'s
+  `bootstrap: true` state contract, and starts serving the real tools on the first call
+  after `init` runs — same session, no reconnect. The eager `createOstMcpServer` is
+  unchanged; both factories delegate to the same handler internals, so the two paths
+  cannot drift.
+
+- **Adversarial review of that change found four ways the promise was false, each now
+  fixed with a regression test.** Probing wrote to disk: `Vault`'s constructor ran
+  `mkdirSync(recursive: true)`, so a typo'd `OST_VAULT` silently conjured the whole
+  directory chain — probes now open the vault with `create: false`, and readiness is
+  confirmed before anything is opened. A present-but-invalid `ost.config.yaml` turned
+  every request, `tools/list` included, into a raw JSON-RPC -32603 — it now degrades to
+  in-band guidance naming the file and the fix, and recovers the moment the file is
+  fixed. An enabled adapter's missing env vars blocked every MCP tool, though the MCP
+  surface never consumes adapter sources — context construction now skips them. And a
+  vault missing only its Outcome node was told to run `init`, which on an existing vault
+  would have silently discarded the human's outcome — every tool now names
+  `set-outcome`, the same command `ost_next_work` gives.
+
+- **An auth-shaped pass failure now names both ways forward.** The SDK's "Could not
+  resolve authentication method" said neither of the real fixes. `withAuthHint` appends
+  them — set a credential, or skip API keys entirely and drive the tree from Claude Code
+  over MCP — to `run` and supervisor failure lines. The original error is preserved:
+  a hint is added, information is never replaced.
+
+- 493 tests across 66 files (up from 461 at 0.17.0 — the 0.18.0 release recorded no count), `tsc` clean.
+
 ## 0.18.0
 
 - **The vault now refuses to write content that is empty or the literal string
