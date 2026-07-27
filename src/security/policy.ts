@@ -36,6 +36,10 @@ export const ALLOWED_TOOL_NAMES = [
   "ost_debt",
   "ost_status",
   "ost_gate",
+  // The vault's one input path: read the local drop folder and capture each new
+  // note as an evidence record. Append-only and idempotent — the adapter's cursor
+  // and writeEvidence both refuse to re-ingest. No credentials, no network.
+  "ost_ingest_inbox",
   "git_commit",
   "git_push",
 ] as const;
