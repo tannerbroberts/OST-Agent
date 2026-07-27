@@ -15,9 +15,12 @@ paths work: `npx ost-agent mcp`, and the plugin's `npx -y ost-agent@latest mcp` 
 
 ## Cutting a release
 
-1. **Bump the version in both places** (a test enforces they match):
+1. **Bump the version in all three places** (a test enforces they match):
    - `package.json` → `version`
    - `src/index.ts` → `VERSION`
+   - `.claude-plugin/plugin.json` → `version` (this is what makes installed
+     plugins see the update — the marketplace only offers a new version when
+     this number changes)
 2. `npm test` locally (also runs automatically via `prepublishOnly`).
 3. Commit, tag, and push:
    ```bash

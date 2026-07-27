@@ -11,4 +11,12 @@ describe("release", () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(REPO, "package.json"), "utf8")) as { version: string };
     expect(VERSION).toBe(pkg.version);
   });
+
+  test("plugin.json version matches package.json version (a stale plugin version means installed plugins never see updates)", () => {
+    const pkg = JSON.parse(fs.readFileSync(path.join(REPO, "package.json"), "utf8")) as { version: string };
+    const plugin = JSON.parse(
+      fs.readFileSync(path.join(REPO, ".claude-plugin", "plugin.json"), "utf8"),
+    ) as { version: string };
+    expect(plugin.version).toBe(pkg.version);
+  });
 });
