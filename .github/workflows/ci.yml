@@ -30,6 +30,13 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      # "bundle" (package.json) invokes esbuild with a --banner:js that installs
+      # a real `require` via node:module's createRequire. Without it, commander's
+      # own `require("node:events")` etc. (called at its module top level) hits
+      # esbuild's CJS-in-ESM shim, which throws under pure ESM output because
+      # there is no ambient `require` for it to find — see test/release/bundle.test.ts
+      # for the full explanation and a test that exercises real tool handlers
+      # against the built bundle, not just its module graph.
       - run: npm run bundle
       - name: Fail if the committed bundle is stale
         run: |
