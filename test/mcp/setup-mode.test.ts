@@ -47,7 +47,7 @@ describe("MCP setup mode (uninitialized vault)", () => {
     expect(res.isError).toBe(true);
     const text = textOf(res as never);
     expect(text).toContain(dir); // names the exact directory
-    expect(text).toMatch(/ost-agent(@latest)? init/); // gives the exact command
+    expect(text).toMatch(/ost-agent\.mjs init/); // gives the exact command
     expect(text).toMatch(/outcome/i); // explains what init needs
     expect(text).toMatch(/never (invent|assume)/i); // outcome is human-set — the agent must ask
     expect(text).toMatch(/no api key/i); // setup needs no credential
@@ -60,7 +60,7 @@ describe("MCP setup mode (uninitialized vault)", () => {
       arguments: { title: "X", layer: "Opportunity", parent: "Y", body: "b", evidence: "assertion" },
     });
     expect(res.isError).toBe(true);
-    expect(textOf(res as never)).toMatch(/ost-agent(@latest)? init/);
+    expect(textOf(res as never)).toMatch(/ost-agent\.mjs init/);
     // nothing scaffolded as a side effect: no vault config, no git repo, no node file
     expect(fs.readdirSync(dir)).toEqual([]);
   });
@@ -98,7 +98,7 @@ describe("MCP setup mode (uninitialized vault)", () => {
     expect(tools.map((t) => t.name).sort()).toEqual([...MCP_TOOL_NAMES].sort());
     const res = await client.callTool({ name: "ost_read_tree", arguments: {} });
     expect(res.isError).toBe(true);
-    expect(textOf(res as never)).toMatch(/ost-agent(@latest)? init/);
+    expect(textOf(res as never)).toMatch(/ost-agent\.mjs init/);
     expect(fs.existsSync(missing)).toBe(false);
     expect(fs.existsSync(path.join(dir, "porjects"))).toBe(false);
   });
@@ -155,7 +155,7 @@ describe("MCP setup mode (uninitialized vault)", () => {
     const work = JSON.parse(textOf((await client.callTool({ name: "ost_next_work", arguments: {} })) as never));
     expect(work.bootstrap).toBe(true);
     expect(work.reason).toBe("no-outcome");
-    expect(work.nextStep).toMatch(/ost-agent(@latest)? set-outcome/);
+    expect(work.nextStep).toMatch(/ost-agent\.mjs set-outcome/);
 
     const res = await client.callTool({ name: "ost_read_tree", arguments: {} });
     expect(res.isError).toBe(true);
@@ -163,6 +163,6 @@ describe("MCP setup mode (uninitialized vault)", () => {
     // exactly the command ost_next_work named — never `init`, which on an
     // existing vault silently keeps the old config and discards the outcome
     expect(text).toContain(work.nextStep);
-    expect(text).not.toMatch(/ost-agent(@latest)? init/);
+    expect(text).not.toMatch(/ost-agent\.mjs init/);
   });
 });

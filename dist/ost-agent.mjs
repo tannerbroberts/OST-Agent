@@ -32287,8 +32287,8 @@ var OST_RULESET = {
   ],
   "firstRun": [
     "A session can be connected to these tools before any vault exists \u2014 that is the normal first minute, not a malfunction. `ost_next_work` reports it as `bootstrap: true` with a `reason` and a `nextStep`; treat that as the state of the world and follow the branch below instead of reporting a broken tool.",
-    'When `reason` is `no-vault`: ask the human what outcome they want this tree to serve, in one sentence, and wait for their answer. Then run their words back to them for confirmation and set up the vault with `ost-agent init <folder> --outcome "<their words>"`.',
-    'When `reason` is `no-outcome`: the vault exists but its root is missing; ask the human for the outcome and use `ost-agent set-outcome "<their words>" --vault <dir>`.',
+    'When `reason` is `no-vault`: ask the human what outcome they want this tree to serve, in one sentence, and wait for their answer. Then run their words back to them for confirmation and set up the vault with `node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init <folder> --outcome "<their words>"`.',
+    'When `reason` is `no-outcome`: the vault exists but its root is missing; ask the human for the outcome and use `node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs set-outcome "<their words>" --vault <dir>`.',
     "Never invent, paraphrase into something sharper, or guess the outcome \u2014 it is the single human-set mandate the whole tree hangs from, and inventing it would make every node below it ladder up to a goal nobody chose.",
     "If the human is not available to answer, stop and say what you are waiting for. Do not scaffold a vault around a placeholder outcome to make progress.",
     "Setting up a vault needs no model and no API key, and neither does anything else here \u2014 `status`, `check`, `debt`, `lanes`, `result`, and every tool on this surface are deterministic. This project calls no model at all: the server holds none, and the connected session supplies every bit of the reasoning.",
@@ -40968,10 +40968,10 @@ import path17 from "node:path";
 // src/mcp/setup.ts
 var ASK_HUMAN_RULE = "Ask the human what outcome this tree should steer toward \u2014 a product outcome, in their words. NEVER invent or assume the outcome yourself: the outcome is human-set, always.";
 function initCommand(dir) {
-  return `npx -y ost-agent@latest init "${dir}" --outcome "<the human's outcome, verbatim>"`;
+  return `node \${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init "${dir}" --outcome "<the human's outcome, verbatim>"`;
 }
 function setOutcomeCommand(dir) {
-  return `npx -y ost-agent@latest set-outcome "<the human's outcome, verbatim>" --vault "${dir}"`;
+  return `node \${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs set-outcome "<the human's outcome, verbatim>" --vault "${dir}"`;
 }
 var NO_KEY_NOTE = "Setup needs no AI and no API key.";
 function setupGuidance(r2) {

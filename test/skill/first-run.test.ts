@@ -20,7 +20,7 @@ describe("the generated skill teaches the first run", () => {
 
   test("it names the bootstrap signal the MCP layer actually emits", () => {
     expect(skill).toMatch(/bootstrap/);
-    expect(skill).toMatch(/ost-agent init/);
+    expect(skill).toMatch(/ost-agent\.mjs init/);
   });
 
   test("it forbids inventing the outcome and requires asking the human", () => {

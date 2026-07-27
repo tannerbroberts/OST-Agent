@@ -132,12 +132,12 @@ export function renderSetupCommand(): string {
   // Narrow, named grants. `init` and `set-outcome` are the only two commands
   // this branch ever runs, and both are model-free. A bare `Bash` grant here
   // would hand a shell to the one product whose promise is that it has none.
+  // There is no `ost-agent` binary on any PATH — the plugin ships one committed
+  // bundle, launched with `node`, and that is the only launch path there is.
   const allowed = [
     "mcp__ost-agent__ost_next_work",
-    "Bash(ost-agent init:*)",
-    "Bash(ost-agent set-outcome:*)",
-    "Bash(npx -y ost-agent@latest init:*)",
-    "Bash(npx -y ost-agent@latest set-outcome:*)",
+    "Bash(node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init:*)",
+    "Bash(node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs set-outcome:*)",
   ].join(", ");
 
   return `---
@@ -166,7 +166,7 @@ Ask the human, and wait for their answer:
 Read their sentence back to them for confirmation, verbatim. Then run:
 
 \`\`\`
-ost-agent init <folder> --outcome "<their words>"
+node \${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init <folder> --outcome "<their words>"
 \`\`\`
 
 ## 3. A vault with no root Outcome
@@ -174,7 +174,7 @@ ost-agent init <folder> --outcome "<their words>"
 Ask the same question, confirm the same way, then run:
 
 \`\`\`
-ost-agent set-outcome "<their words>" --vault <dir>
+node \${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs set-outcome "<their words>" --vault <dir>
 \`\`\`
 
 ## 4. Confirm
