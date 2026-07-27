@@ -179,7 +179,7 @@ ost-agent set-outcome "<their words>" --vault <dir>
 
 ## 4. Confirm
 
-Call \`ost_next_work\` again and report what it says. A fresh tree holding only an Outcome is legitimately \`done\` — the next thing it needs is evidence, not ideation. Tell the human where to drop notes (the inbox path in \`ost.config.yaml\`) and that \`/ost-pass\` runs the maintenance loop once there is something to map.
+Call \`ost_next_work\` again and report what it says. A fresh tree holding only an Outcome is legitimately \`done\` — the next thing it needs is evidence, not ideation. Tell the human where to drop notes (the inbox path in \`ost.config.yaml\`) — \`/ost-map\` and \`/ost-pass\` both capture the inbox themselves before mapping, so nothing else needs to be run to get a dropped note onto the tree.
 
 ## The rules this command is bound by
 
