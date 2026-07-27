@@ -11,6 +11,7 @@ import { spawnSync } from "node:child_process";
 import type { Command } from "commander";
 import { buildPassContext } from "../runner/context.js";
 import { checkInvariants } from "../eval/invariants.js";
+import { detectLaunderedExit, launderedExitMessage } from "../loop/exitLaundering.js";
 import { appendStep, readRuns, sealRun, startRun, updateOpenRun } from "../loop/health.js";
 import { VERSION } from "../index.js";
 
@@ -36,6 +37,18 @@ export function registerLoopCommands(program: Command): void {
     .option("--vault <dir>", "vault directory", ".")
     .argument("<command...>", "the command to run (after --)")
     .action((command: string[], opts: { phase: string; vault: string }) => {
+      // Checked BEFORE anything runs and before anything is written. A command
+      // whose exit code cannot report failure would be recorded as a pass no
+      // matter what happened inside it, and one such step is enough to make the
+      // whole record require corroboration. See loop/exitLaundering.ts for the
+      // run this was written from.
+      const laundered = detectLaunderedExit(command);
+      if (laundered) {
+        console.error(launderedExitMessage(laundered));
+        process.exitCode = 2;
+        return;
+      }
+
       const startedAt = Date.now();
       // Captured BEFORE the child runs. A step's record has to answer "where
       // was this?" to be reproducible, and reading cwd afterwards would report

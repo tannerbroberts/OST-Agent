@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.21.0
+
+- **`loop step` now refuses a proving command whose exit code cannot report failure.**
+  Observed, not theorised: a firing wrapped its build phase as
+  `bash -c "npx vitest run 2>&1 | tail -25"`, `vitest` was not on the path, the shell
+  printed `vitest: not found` — and the step recorded **exit 0**, because a pipeline's
+  status is its *last* command's and `tail` succeeded at reading nothing. The health
+  record gained a green build step for a command that never ran, and only a re-read of
+  `runs.jsonl` afterwards revealed it.
+
+  `loop step` was not wrong to record what the shell handed it. The defect is that the
+  tool accepted a construction in which a red step *cannot* come out red — the exact
+  failure the bookend exists to prevent, arriving through the recorder's own front
+  door, and the fifth variant this project has met of "a rule reports success while
+  covering less than it claims".
+
+  A shell `-c` script containing an unguarded pipeline is now refused **before the
+  child spawns and before anything is written**, so a laundered step never reaches the
+  record at all. The message names the command, why it cannot be recorded, and the fix.
+  There is deliberately no override flag: `set -o pipefail` makes the pipeline report
+  its first failing stage and is the correct repair, and an escape hatch would be
+  reached for exactly when it does the most damage. Direct `argv` commands have no
+  shell between the tool and the process and are untouched; so are `||`, pipes inside
+  quotes, escaped pipes, and any script that already enables `pipefail`.
+
 ## 0.20.0
 
 - **Every recorded step now carries the directory and argv it actually ran with.**
