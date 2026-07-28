@@ -14,6 +14,13 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
+// The local tsx binary, invoked directly rather than through `npx`.
+// `npx` adds a process layer AND consults npm's cache, which takes a cacache
+// lock; dozens of concurrent spawns on a small CI runner contend on that lock
+// and can wedge the whole suite. Nothing here needs resolution — tsx is a
+// devDependency, so the binary is already on disk.
+const TSX = path.resolve(__dirname, "../../node_modules/.bin/tsx");
+
 const run = promisify(execFile);
 const REPO = path.resolve(__dirname, "../..");
 const CLI = path.join(REPO, "src/cli/index.ts");
@@ -36,8 +43,8 @@ afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 describe("ost-agent mcp in a folder that is not a vault", () => {
   test("still serves the tools, and ost_next_work says how to create the vault", async () => {
     const transport = new StdioClientTransport({
-      command: "npx",
-      args: ["tsx", CLI, "mcp", "--vault", dir],
+      command: TSX,
+      args: [CLI, "mcp", "--vault", dir],
       env: envWithoutCredentials(),
       cwd: REPO,
     });

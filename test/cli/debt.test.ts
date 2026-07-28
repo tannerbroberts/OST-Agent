@@ -7,6 +7,13 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { initVault } from "../../src/runner/init.js";
 import { Vault } from "../../src/ost/vault.js";
 
+// The local tsx binary, invoked directly rather than through `npx`.
+// `npx` adds a process layer AND consults npm's cache, which takes a cacache
+// lock; dozens of concurrent spawns on a small CI runner contend on that lock
+// and can wedge the whole suite. Nothing here needs resolution — tsx is a
+// devDependency, so the binary is already on disk.
+const TSX = path.resolve(__dirname, "../../node_modules/.bin/tsx");
+
 const run = promisify(execFile);
 const CLI = path.resolve(__dirname, "../../src/cli/index.ts");
 
@@ -27,7 +34,7 @@ afterEach(() => {
 });
 
 function cli(args: string[]) {
-  return run("npx", ["tsx", CLI, ...args], { cwd: path.resolve(__dirname, "../..") });
+  return run(TSX, [CLI, ...args], { cwd: path.resolve(__dirname, "../..") });
 }
 
 describe("ost-agent debt", () => {
