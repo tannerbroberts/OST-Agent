@@ -65,13 +65,16 @@ const SlackSchema = z
   })
   .default({ enabled: false, channels: [] });
 
-// Outward web sensing. The budget bounds how much a single session can look
-// (search + page reads share it); looking stays easy to start, hard to binge.
+// Outward web sensing. `lookupBudget` is the burst capacity (search + page
+// reads share it); `lookupRefillPerHour` is the sustained rate, which is what
+// lets a session that lives for weeks keep working. Set the rate to 0 to get
+// the old non-refilling behaviour.
 const WebSchema = z
   .object({
     lookupBudget: z.number().int().positive().default(10),
+    lookupRefillPerHour: z.number().int().nonnegative().default(10),
   })
-  .default({ lookupBudget: 10 });
+  .default({ lookupBudget: 10, lookupRefillPerHour: 10 });
 
 // The product the tree is FOR: local repo roots the agent may read (read-only,
 // path-confined) so ideation is grounded in what the product actually is.
@@ -171,7 +174,8 @@ adapters:
     channels: []
 
 web:
-  lookupBudget: 10          # web lookups (search + page reads) one session may spend; set BRAVE_SEARCH_API_KEY to enable search
+  lookupBudget: 10          # burst: web lookups (search + page reads) available at once
+  lookupRefillPerHour: 10   # sustained rate; 0 disables refill (one burst per process)
 
 product:
   repos: []                 # local repo paths the agent may READ (read-only) to ground ideas in what the product is

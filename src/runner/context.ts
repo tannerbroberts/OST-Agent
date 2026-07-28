@@ -124,8 +124,12 @@ export function buildPassContext(vaultDir: string, opts: BuildPassContextOptions
     web: {
       searchApiKey: process.env.BRAVE_SEARCH_API_KEY,
       // The operator's number governs unless the genome explicitly overrides
-      // it — one budget, never two that can disagree.
-      budget: createLookupBudget(genome.budgets, config.web.lookupBudget),
+      // it — one budget, never two that can disagree. The refill rate stays
+      // the operator's alone: it is what makes a weeks-long session workable,
+      // not a trait worth varying between vaults.
+      budget: createLookupBudget(genome.budgets, config.web.lookupBudget, {
+        refillPerHour: config.web.lookupRefillPerHour,
+      }),
     },
     productRepos: config.product.repos,
   };
