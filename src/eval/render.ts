@@ -7,6 +7,7 @@
  * the text has to carry the verdict either way.
  */
 import { checkInvariants } from "./invariants.js";
+import { computeAttention, weightedTokenCost } from "./attention.js";
 import { computeEvidenceDebt, gateSolution } from "./evidence-debt.js";
 import { computeCoverageDebt, computeCoveragePairs, computeUnfixedThresholds } from "./coverage.js";
 import { BELIEVABILITY_LADDER, believabilityRollup } from "../knowledge/believability.js";
@@ -137,6 +138,90 @@ export function renderGate(tree: OstNode[], solution: string): { text: string; c
   return { text: `gate: BLOCKED — ${verdict.reason}`, cleared: false };
 }
 
+/**
+ * Weighted cost is a ratio, not currency, and prints like one: whole when it is
+ * whole, one decimal otherwise. A float tail like 62.550000000000004 in a status
+ * line reads as precision the number does not have.
+ */
+function formatCost(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
+}
+
+/**
+ * What darkness cost, and what it bought — the one place the attention ledger
+ * reaches a human. The layer breakdown above already counts unknowns; this says
+ * what was spent on them, which is the number that decides where to look next.
+ *
+ * Three things beyond the per-class counts are load-bearing. **Weighted cost**
+ * is priced with the genome's tier weights, at read time, so the cost model
+ * stays an allele rather than a constant. **Unattributed share** is reported
+ * because a variant that cannot say what it spent attention on is measurably
+ * worse (design, "Error handling") — the denominator is every recorded call,
+ * attributed or not; a call naming a title no longer on the tree falls out of
+ * both halves under `attribution.staleAttribution: drop`, because crediting it
+ * to a node that does not exist would be a fabrication. **Cost basis** is
+ * printed because a rollup priced in calls-and-ms and one priced in tokens are
+ * not comparable, and a comparison that mixes them must be refusable rather
+ * than silently normalized.
+ *
+ * Nothing is printed when there is no darkness. The guard reads the tree rather
+ * than the rollup so an unknown-free vault does not even open the usage log:
+ * silence here is the regression contract, and the cheapest way to keep a
+ * contract is to do no work that could break it.
+ */
+function appendAttention(lines: string[], ctx: PassContext, tree: readonly OstNode[]): void {
+  if (!tree.some((n) => n.layer === "Unknown")) return;
+
+  const rollup = computeAttention(tree, ctx.dir, {
+    weights: ctx.genome.tokenWeights,
+    classifier: ctx.genome.classifier,
+    resolution: ctx.genome.resolution,
+    attribution: ctx.genome.attribution,
+    costBasis: ctx.genome.tokenSplit.costBasis,
+  });
+
+  let satisfied = 0;
+  let abandoned = 0;
+  let open = 0;
+  for (const bucket of Object.values(rollup.byClass)) {
+    satisfied += bucket.satisfied;
+    abandoned += bucket.abandoned;
+    open += bucket.open;
+  }
+  lines.push(
+    `Attention: ${rollup.unknowns.length} unknown(s) — satisfied ${satisfied}, abandoned ${abandoned}, open ${open}`,
+  );
+
+  // Class order comes from the genome's vocabulary, not from insertion; a class
+  // nothing carries has nothing to say, so it gets no line.
+  for (const [klass, bucket] of Object.entries(rollup.byClass)) {
+    if (bucket.count === 0) continue;
+    lines.push(
+      `  ${klass}: ${bucket.count} unknown(s) (satisfied ${bucket.satisfied}, abandoned ${bucket.abandoned}, ` +
+        `open ${bucket.open}) — weighted cost ${formatCost(bucket.weightedCost)}`,
+    );
+  }
+
+  const attributed = rollup.unknowns.reduce((n, u) => n + u.calls, 0);
+  const recorded = attributed + rollup.unattributed.calls;
+  if (recorded > 0) {
+    const share = Math.round((rollup.unattributed.calls / recorded) * 100);
+    const stray = weightedTokenCost(rollup.unattributed.tokens, ctx.genome.tokenWeights);
+    lines.push(
+      `  unattributed: ${rollup.unattributed.calls}/${recorded} recorded call(s) (${share}%) named no unknown` +
+        (stray > 0 ? `, weighted cost ${formatCost(stray)}` : ""),
+    );
+    lines.push("  a variant that cannot say what it spent attention on is measurably worse.");
+  }
+
+  lines.push(
+    `  cost basis: ${rollup.costBasis}` +
+      (rollup.costBasis === "tokens"
+        ? ""
+        : " — no token data; a comparison against a token-based rollup is refused, never normalized"),
+  );
+}
+
 export function renderStatus(ctx: PassContext, census: TreeCensus): string {
   const lines: string[] = [];
   const tree = census.nodes;
@@ -177,5 +262,9 @@ export function renderStatus(ctx: PassContext, census: TreeCensus): string {
         `(${instruction} still an instruction, ${absent} unwritten) — see \`debt\``,
     );
   }
+  // Last, and appended rather than interleaved: every line above keeps the
+  // position it had before darkness was priced, so "a vault with no unknowns
+  // renders what it always did" is checkable by reading rather than diffing.
+  appendAttention(lines, ctx, tree);
   return lines.join("\n");
 }
