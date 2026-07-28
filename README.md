@@ -310,6 +310,10 @@ scorecard shipped with the plugin. The design reasoning behind that three-layer 
 an earlier, since-removed automated harness for it) is recorded in
 [`docs/reference/evaluating-ost-agent.md`](docs/reference/evaluating-ost-agent.md).
 
+The policy governing how the agent handles what it does *not* know — and the fail-closed
+mechanisms deliberately excluded from it — is documented in
+[`docs/reference/genome.md`](docs/reference/genome.md).
+
 The one constant across both eras: **the tool proposes, and only a human plus reality
 disposes** — it never validates its own ideas or declares its own outcome met.
 

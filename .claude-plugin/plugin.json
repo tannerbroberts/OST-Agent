@@ -1,7 +1,7 @@
 {
   "name": "ost-agent",
   "displayName": "OST-Agent \u2014 Opportunity Solution Tree",
-  "version": "0.22.0",
+  "version": "0.23.0",
   "description": "Run and maintain a Teresa Torres Opportunity Solution Tree from Claude Code. Start with /ost-setup \u2014 it asks you the one question it may not answer for you and creates the vault. Bundles the OST skill, the /ost-* slash commands, and the append-only ost-agent MCP server (create/link/annotate nodes, auto-committed; no delete, edit, or shell tool exists).",
   "author": {
     "name": "Tanner Roberts"
