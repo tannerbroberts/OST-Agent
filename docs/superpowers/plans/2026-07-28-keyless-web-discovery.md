@@ -922,6 +922,14 @@ export class AllSourcesFailedError extends Error {
 
 export const DEFAULT_COOLDOWN_MS = 15 * 60 * 1000;
 
+/**
+ * Wikimedia serves 403 at the edge to clients that send no descriptive
+ * User-Agent, and Node sends none by default — so without this, Wikipedia
+ * never works. Identifying the tool is also just the polite way to use
+ * somebody's free API.
+ */
+export const FEDERATED_USER_AGENT = "ost-agent (+https://github.com/tannerbroberts/OST-Agent)";
+
 export interface FederatedOptions {
   now?: () => number;
   cooldownMs?: number;
@@ -942,7 +950,7 @@ export function federatedProvider(sources: KeylessSource[], opts: FederatedOptio
     const url = assertAllowedUrl(src.url(query, count)); // federated sources are not exempt from the guard
     const res = await fetchFn(url.toString(), {
       method: "GET",
-      headers: { accept: "application/json" },
+      headers: { accept: "application/json", "user-agent": FEDERATED_USER_AGENT },
       redirect: "manual",
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });

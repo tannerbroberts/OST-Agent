@@ -60,11 +60,14 @@ export function wikipediaSource(): KeylessSource {
   return {
     name: "wikipedia",
     url: (query, count) => {
+      // No `origin` parameter: it exists to drive CORS headers a browser would
+      // enforce, does nothing for a server-side GET, and varies the edge-cache
+      // key for no gain. The thing Wikimedia actually cares about is a
+      // descriptive User-Agent, which the fetch layer sends.
       const p = new URLSearchParams({
         action: "query",
         list: "search",
         format: "json",
-        origin: "*",
         srsearch: query,
         srlimit: String(count),
       });
@@ -90,7 +93,11 @@ export function hackerNewsSource(): KeylessSource {
   return {
     name: "hackernews",
     url: (query, count) => {
-      const p = new URLSearchParams({ query, hitsPerPage: String(count) });
+      // `tags=story` is load-bearing. Without it the search spans comments too,
+      // and comment hits have `title: null` — so they pass through the API,
+      // get dropped by the filter below, and the caller sees "no results"
+      // rather than a failure. Asking for stories is asking for what we can use.
+      const p = new URLSearchParams({ query, tags: "story", hitsPerPage: String(count) });
       return `https://hn.algolia.com/api/v1/search?${p}`;
     },
     parse: (body) => {
@@ -117,10 +124,17 @@ export function discourseSource(host: string): KeylessSource {
     .replace(/^https?:\/\//, "")
     .replace(/\/+$/, "")
     .toLowerCase();
+  // Forums are commonly hosted on a subpath (example.com/forum), so `clean` is
+  // not necessarily a hostname. Provenance is `WEB:<host>` and trust is looked
+  // up by host, so derive a real one rather than storing "example.com/forum",
+  // which would never match a trust entry.
+  const hostname = hostOf(`https://${clean}`) || clean;
   return {
     name: `discourse:${clean}`,
-    url: (query, count) => {
-      const p = new URLSearchParams({ q: query, per_page: String(count) });
+    url: (query) => {
+      // `/search.json` documents only `q` and `page` — there is no per_page, and
+      // sending one would be noise. The caller caps the merged result set.
+      const p = new URLSearchParams({ q: query });
       return `https://${clean}/search.json?${p}`;
     },
     parse: (body) => {
@@ -137,7 +151,7 @@ export function discourseSource(host: string): KeylessSource {
           title: t.title,
           url: `https://${clean}/t/${t.slug}/${t.id}`,
           snippet: "",
-          host: clean,
+          host: hostname,
         }));
     },
   };

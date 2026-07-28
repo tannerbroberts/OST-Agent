@@ -23,6 +23,9 @@ describe("wikipediaSource", () => {
     expect(u.searchParams.get("srsearch")).toBe("opportunity solution tree");
     expect(u.searchParams.get("srlimit")).toBe("3");
     expect(u.searchParams.get("format")).toBe("json");
+    // `origin` drives CORS headers only a browser enforces; server-side it does
+    // nothing but vary the edge-cache key.
+    expect(u.searchParams.has("origin")).toBe(false);
   });
 
   test("maps hits to results with article URLs and stripped snippets", () => {
@@ -54,6 +57,10 @@ describe("hackerNewsSource", () => {
     expect(u.hostname).toBe("hn.algolia.com");
     expect(u.searchParams.get("query")).toBe("mcp hosts");
     expect(u.searchParams.get("hitsPerPage")).toBe("5");
+    // Without tags=story the search spans comments, whose hits have title:null.
+    // They would be dropped by the parser, so a comment-heavy query would come
+    // back empty and look like "nothing found" rather than "asked wrongly".
+    expect(u.searchParams.get("tags")).toBe("story");
   });
 
   test("prefers the story URL and falls back to the HN item page", () => {
@@ -95,5 +102,15 @@ describe("discourseSource", () => {
 
   test("names the host in its source name so failures are attributable", () => {
     expect(src.name).toBe("discourse:forum.obsidian.md");
+  });
+
+  // Subpath-hosted forums are common. Provenance is WEB:<host> and trust is
+  // looked up by host, so "example.com/forum" as a host would match nothing.
+  test("derives a real hostname when the forum lives on a subpath", () => {
+    const sub = discourseSource("example.com/forum");
+    expect(new URL(sub.url("q", 5)).pathname).toBe("/forum/search.json");
+    const [r] = sub.parse(JSON.stringify({ topics: [{ id: 7, slug: "s", title: "T" }] }));
+    expect(r.host).toBe("example.com");
+    expect(r.url).toBe("https://example.com/forum/t/s/7");
   });
 });
