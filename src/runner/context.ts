@@ -13,10 +13,30 @@ import { SlackSource, HttpSlackClient } from "../adapters/slack.js";
 import type { Source } from "../adapters/source.js";
 import { Vault } from "../ost/vault.js";
 import { createLookupBudget } from "../web/budget.js";
-import { braveProvider } from "../web/search.js";
+import { braveProvider, type SearchProvider } from "../web/search.js";
+import { federatedProvider } from "../web/federated.js";
+import { wikipediaSource, hackerNewsSource, discourseSource } from "../web/sources.js";
+import type { Config } from "../config/schema.js";
 import { OST_RULESET } from "../knowledge/ruleset.js";
 import { defaultGenome, loadGenome } from "../genome/load.js";
 import type { PassContext } from "../processes/types.js";
+
+/**
+ * Brave if a key is set, else the keyless federated sources if they are turned
+ * on, else nothing — in which case ost_search_web tells the agent to use its
+ * host's own search, which is the normal path in Claude Code.
+ */
+function resolveSearchProvider(config: Config): SearchProvider | undefined {
+  const key = process.env.BRAVE_SEARCH_API_KEY;
+  if (key) return braveProvider(key);
+  if (!config.web.search.federated.enabled) return undefined;
+  const sources = [
+    wikipediaSource(),
+    hackerNewsSource(),
+    ...config.web.search.federated.discourseHosts.map((h) => discourseSource(h)),
+  ];
+  return federatedProvider(sources);
+}
 
 export interface BuildPassContextOptions {
   /**
@@ -125,7 +145,7 @@ export function buildPassContext(vaultDir: string, opts: BuildPassContextOptions
     // with the delegation instruction.
     web: {
       searchApiKey: process.env.BRAVE_SEARCH_API_KEY,
-      provider: process.env.BRAVE_SEARCH_API_KEY ? braveProvider(process.env.BRAVE_SEARCH_API_KEY) : undefined,
+      provider: resolveSearchProvider(config),
       // The operator's number governs unless the genome explicitly overrides
       // it — one budget, never two that can disagree. The refill rate stays
       // the operator's alone: it is what makes a weeks-long session workable,

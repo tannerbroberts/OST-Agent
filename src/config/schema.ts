@@ -69,12 +69,34 @@ const SlackSchema = z
 // reads share it); `lookupRefillPerHour` is the sustained rate, which is what
 // lets a session that lives for weeks keep working. Set the rate to 0 to get
 // the old non-refilling behaviour.
+//
+// Federated search is OFF by default and that is deliberate: if it defaulted
+// on, provider resolution would never reach the delegation branch, and an
+// agent in a host that HAS web search would call ost_search_web, get the
+// narrower federated results, and never learn its own search was better.
+// discourseHosts is capped because the merge fills from the front: with more
+// sources than result slots, the tail contributes nothing to a given call while
+// still costing a live request against somebody's free forum. The provider
+// rotates who goes first so starvation is temporary, but a long list is still
+// mostly wasted traffic. Five is generous for a fallback.
+const FederatedSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+    discourseHosts: z.array(z.string()).max(5).default([]),
+  })
+  .default({ enabled: false, discourseHosts: [] });
+
 const WebSchema = z
   .object({
     lookupBudget: z.number().int().positive().default(10),
     lookupRefillPerHour: z.number().int().nonnegative().default(10),
+    search: z.object({ federated: FederatedSchema }).default({ federated: { enabled: false, discourseHosts: [] } }),
   })
-  .default({ lookupBudget: 10, lookupRefillPerHour: 10 });
+  .default({
+    lookupBudget: 10,
+    lookupRefillPerHour: 10,
+    search: { federated: { enabled: false, discourseHosts: [] } },
+  });
 
 // The product the tree is FOR: local repo roots the agent may read (read-only,
 // path-confined) so ideation is grounded in what the product actually is.
@@ -176,6 +198,12 @@ adapters:
 web:
   lookupBudget: 10          # burst: web lookups (search + page reads) available at once
   lookupRefillPerHour: 10   # sustained rate; 0 disables refill (one burst per process)
+  search:
+    federated:
+      enabled: false        # keyless fallback for hosts with NO web search of their own.
+                            # Leave off if your host has search — ost_search_web will tell
+                            # the agent to use it, which is better than these sources.
+      discourseHosts: []    # e.g. [forum.obsidian.md]
 
 product:
   repos: []                 # local repo paths the agent may READ (read-only) to ground ideas in what the product is

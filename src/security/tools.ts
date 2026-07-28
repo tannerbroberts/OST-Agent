@@ -29,6 +29,7 @@ import {
   searchDelegationMessage,
   type SearchProvider,
 } from "../web/search.js";
+import { AllSourcesFailedError } from "../web/federated.js";
 import { budgetSpentMessage, createLookupBudget, type LookupBudget } from "../web/budget.js";
 import { HOST_RUNGS, hostRung, rankHost, readHostTrust } from "../knowledge/web-trust.js";
 import { readProductRepo } from "../product/repo.js";
@@ -444,14 +445,41 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         const provider =
           ctx.web?.provider ?? (ctx.web?.searchApiKey ? braveProvider(ctx.web.searchApiKey) : undefined);
         if (!provider) return searchDelegationMessage(input.query);
-        if (!lookupBudget.take(spendClass()))
+        // Held in a local so the refunds below return the token to the same
+        // class it was taken from — a per-class counter that only ever counts
+        // up would close that class off partway into a long run.
+        const klass = spendClass();
+        if (!lookupBudget.take(klass))
           return budgetSpentMessage(lookupBudget.limit, genome.budgets.onExhaustion, lookupBudget.msUntilNext());
-        const { results } = await provider.search(input.query, input.count ?? DEFAULT_SEARCH_RESULTS, ctx.web?.fetchFn);
+        // Clamp here, not in the provider: `searchWeb` clamps internally for Brave,
+        // but a federated source would otherwise turn `count: 500` into srlimit=500
+        // against a live third-party API. Every provider gets a sane count.
+        const count = Math.min(Math.max(1, input.count ?? DEFAULT_SEARCH_RESULTS), MAX_SEARCH_RESULTS);
+        let outcome;
+        try {
+          outcome = await provider.search(input.query, count, ctx.web?.fetchFn);
+        } catch (err) {
+          if (err instanceof AllSourcesFailedError) {
+            // An outage cost a lookup that bought nothing — refund it. An
+            // all-cooling failure touched no network and returned instantly, so
+            // refunding it would make retrying free AND instant in exactly the
+            // state where an agent is most likely to spin. The budget is the
+            // only backpressure this system has; do not hand it back here.
+            if (!err.allCooling) lookupBudget.refund(klass);
+            const charged = err.allCooling
+              ? "This attempt was charged: every source is rate-limited, so retrying immediately will not help."
+              : "Nothing was charged against the lookup budget.";
+            return `${err.message}. ${charged} Use your own web search and call ost_read_web on the URLs you find.`;
+          }
+          lookupBudget.refund(klass);
+          throw err;
+        }
         const trust = readHostTrust(dir);
         return JSON.stringify(
           {
             lookupsRemaining: lookupBudget.remaining(),
-            results: results.map((r) => ({ ...r, hostTrust: hostRung(trust, r.host) })),
+            results: outcome.results.map((r) => ({ ...r, hostTrust: hostRung(trust, r.host) })),
+            ...(outcome.failures.length > 0 ? { sourcesUnavailable: outcome.failures } : {}),
           },
           null,
           2,
