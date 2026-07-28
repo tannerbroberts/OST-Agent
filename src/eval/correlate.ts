@@ -42,10 +42,29 @@
  * WHO CALLS THIS. Not `ost_status`, and not anything under `eval/`. This module
  * writes — `markCorrelated` saves a cursor — and the read surfaces are write-free
  * by contract, so `renderStatus` is forbidden from running it. Its caller is the
- * Phase 3 harness, which owns the one process allowed to advance the cursor. The
- * seam is already typed: `AttentionOptions.correlated` / `.residual` /
- * `.costBasis` (`src/eval/attention.ts:302-313`) match `CorrelationResult`
- * field-for-field, so the harness correlates and hands the result to the rollup.
+ * Phase 3 harness, which owns the one process allowed to advance the cursor.
+ *
+ * The handoff to the rollup is an explicit MAPPING, not a spread — the two
+ * shapes are close but not identical. `residual` and `costBasis` carry across by
+ * name; `CorrelationResult.byUnknown` becomes `AttentionOptions.correlated`; and
+ * `sessions` has no counterpart on the rollup at all, because it is the argument
+ * to `markCorrelated` rather than an input to costing:
+ *
+ *     const r = correlateTokens(vaultDir, tree, genome);
+ *     const rollup = computeAttention(tree, vaultDir, {
+ *       correlated: r.byUnknown, residual: r.residual, costBasis: r.costBasis,
+ *       weightedTokenSpend: genome.weightedTokenSpend, classifier: genome.classifier,
+ *       resolution: genome.resolution, attribution: genome.attribution,
+ *     });
+ *     markCorrelated(vaultDir, r.sessions);
+ *
+ * Passing `correlated` is also what makes the rollup's basis honest:
+ * `resolveCostBasis` reports `calls-and-ms` whenever `correlated` is absent, so a
+ * caller that writes tokens into the ledger but omits this argument gets a
+ * token-derived `weightedCost` under a `calls-and-ms` label. Note the two are
+ * ADDITIVE (see `computeAttention`) — supplying the same tokens by both routes
+ * double-counts them.
+ *
  * Fail-open still matters for the same reason it does everywhere else: a
  * correlator that throws would kill the run it was measuring, and a dead harness
  * must not be mistakable for a bad genome.
