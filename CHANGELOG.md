@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.22.0
+
+- **Every count now states the denominator it was taken over.** `status` reported
+  `Nodes: 240` and `check` reported `0 violations`; neither said what set those numbers
+  were taken over. `readTree()` enumerated the vault root and silently dropped any
+  markdown file whose frontmatter `type` was missing or misspelled — so a typo in one
+  node subtracted it from every count in the product, and the operator read a confident
+  integer over a set that had quietly shrunk. Nothing anywhere reported the drop.
+
+  `readTreeCensus()` returns the same node list plus what the walk declined: how many
+  markdown files were examined, which were dropped and why, which could not be parsed
+  at all. It is the *same* traversal that produces the node list, deliberately — a
+  census taken by a second walk measures the second walk, and can agree with itself
+  while the real counter drops files.
+
+  That covers files the walk saw. **Files the walk never enumerated are invisible from
+  inside it by construction**, and that is the failure this idea was written against: a
+  denominator computed by the same broken traversal excludes exactly the files the
+  counter excluded, reads 100%, and says nothing. So the second denominator comes from
+  a genuinely different source — `git ls-files`, an index maintained by another program
+  through another code path. When git knows about a markdown file the walk never
+  returned, `check` and `status` now name the file and say plainly that every count in
+  the vault is short by at least that much.
+
+  `ls-files -z`, because vault filenames legitimately contain quotes, spaces and
+  em-dashes — the characters in the original failure. Git would otherwise C-quote them
+  and the reconciliation would report phantom discrepancies on precisely the files that
+  matter most. A positive control is recorded: with `-z` removed, the em-dash test
+  fails; with it restored, it passes.
+
+  Unparseable frontmatter is now recorded as `unreadable` rather than thrown. It
+  previously escaped `readTree()` and took every command down with a stack trace that
+  named no file — one malformed node made the whole vault unreadable.
+
+  Both outputs stay quiet when the two sources agree, so the line is a ratio in the
+  healthy case and a named repair in the unhealthy one. 16 new tests.
+
 ## 0.21.0
 
 - **`loop step` now refuses a proving command whose exit code cannot report failure.**

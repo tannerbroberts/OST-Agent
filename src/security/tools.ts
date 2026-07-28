@@ -26,6 +26,7 @@ import { budgetSpentMessage, createLookupBudget, type LookupBudget } from "../we
 import { HOST_RUNGS, hostRung, rankHost, readHostTrust } from "../knowledge/web-trust.js";
 import { readProductRepo } from "../product/repo.js";
 import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/render.js";
+import { reconcileWithGit } from "../ost/census.js";
 import { InboxSource } from "../adapters/inbox.js";
 import { loadCursor, saveCursor } from "../adapters/source.js";
 import { writeEvidence } from "../processes/tree.js";
@@ -432,7 +433,11 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
       description:
         "Run the deterministic tree invariants and report every violation. No model, no writes — the same check the CI gate runs. Read-only.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
-      run: async () => renderCheck(vault.readTree()).text,
+      run: async () => {
+        const census = vault.readTreeCensus();
+        census.independent = await reconcileWithGit(dir, census);
+        return renderCheck(census).text;
+      },
     }),
 
     tool({
@@ -450,7 +455,9 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       run: async () => {
         if (!ctx.passContext) throw new Error("ost_status needs a pass context");
-        return renderStatus(ctx.passContext);
+        const census = vault.readTreeCensus();
+        census.independent = await reconcileWithGit(ctx.passContext.dir, census);
+        return renderStatus(ctx.passContext, census);
       },
     }),
 

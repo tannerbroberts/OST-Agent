@@ -12,16 +12,38 @@ import { computeCoverageDebt, computeCoveragePairs, computeUnfixedThresholds } f
 import { BELIEVABILITY_LADDER, believabilityRollup } from "../knowledge/believability.js";
 import type { PassContext } from "../processes/types.js";
 import { LAYERS, type OstNode } from "../ost/node.js";
+import { formatCensus, type TreeCensus } from "../ost/census.js";
 
-export function renderCheck(tree: OstNode[]): { text: string; violations: number } {
+/**
+ * Append the census whenever the walk declined anything, so a count that shrank
+ * silently cannot read as health. Nothing is printed when nothing was dropped —
+ * the denominator only needs saying when it differs from what a reader assumes.
+ */
+function appendCensus(lines: string[], census: TreeCensus, coda?: string): void {
+  const dropped = census.skipped.length + census.unreadable.length;
+  const unseen = census.independent?.unseenByWalk.length ?? 0;
+  if (dropped === 0 && unseen === 0) return;
+  lines.push(formatCensus(census, census.nodes.length));
+  if (coda) lines.push(coda);
+}
+
+export function renderCheck(census: TreeCensus): { text: string; violations: number } {
   const lines: string[] = [];
-  const violations = checkInvariants(tree);
+  const violations = checkInvariants(census.nodes);
   if (violations.length === 0) {
-    lines.push("invariants: PASS (0 violations)");
+    // "0 violations" over an unstated denominator is the shape of a check that
+    // passed because it looked at nothing. State what was checked.
+    lines.push(`invariants: PASS (0 violations over ${census.nodes.length} node(s))`);
   } else {
-    lines.push(`invariants: FAIL (${violations.length} violation(s))`);
+    lines.push(`invariants: FAIL (${violations.length} violation(s) over ${census.nodes.length} node(s))`);
     for (const v of violations) lines.push(`  ✗ [${v.rule}] ${v.node ? `"${v.node}": ` : ""}${v.detail}`);
   }
+  appendCensus(
+    lines,
+    census,
+    "  A node the reader never returned cannot violate an invariant. The verdict\n" +
+      "  above covers the nodes in this denominator and no others.",
+  );
   return { text: lines.join("\n"), violations: violations.length };
 }
 
@@ -115,9 +137,9 @@ export function renderGate(tree: OstNode[], solution: string): { text: string; c
   return { text: `gate: BLOCKED — ${verdict.reason}`, cleared: false };
 }
 
-export function renderStatus(ctx: PassContext): string {
+export function renderStatus(ctx: PassContext, census: TreeCensus): string {
   const lines: string[] = [];
-  const tree = ctx.vault.readTree();
+  const tree = census.nodes;
   const byLayer = (l: string) => tree.filter((n) => n.layer === l).length;
   const unvalidated = tree.filter((n) => n.status === "unvalidated").length;
   lines.push(`Vault: ${ctx.dir}`);
@@ -127,6 +149,9 @@ export function renderStatus(ctx: PassContext): string {
   // parenthesized counts are supposed to sum to.
   const breakdown = LAYERS.map((l) => `${l} ${byLayer(l)}`).join(", ");
   lines.push(`Nodes: ${tree.length}  (${breakdown})`);
+  // Every number above this line is taken over the set the walk returned. This
+  // says what that set was, so a count that shrank silently cannot read as health.
+  appendCensus(lines, census);
   lines.push(`Unvalidated (agent-ideated, awaiting review): ${unvalidated}`);
   const rollup = believabilityRollup(tree);
   const perRung = BELIEVABILITY_LADDER.map((r) => `${r.id} ${rollup.counts[r.id]}`).join(", ");

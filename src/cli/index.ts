@@ -22,6 +22,7 @@ import { setOutcome } from "../runner/set-outcome.js";
 import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/render.js";
 import { BELIEVABILITY_LADDER, type RungId } from "../knowledge/believability.js";
 import { recordResult, VERDICTS, type Verdict } from "../ost/results.js";
+import { formatCensus, reconcileWithGit } from "../ost/census.js";
 import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
 import { laneDef, LANES, type LaneId } from "../knowledge/lanes.js";
 import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapters/friction.js";
@@ -97,9 +98,11 @@ program
   .command("check")
   .description("run the deterministic tree invariants (no model needed)")
   .option("--vault <dir>", "vault directory", ".")
-  .action((opts: { vault: string }) => {
+  .action(async (opts: { vault: string }) => {
     const ctx = buildPassContext(opts.vault);
-    const { text, violations } = renderCheck(ctx.vault.readTree());
+    const census = ctx.vault.readTreeCensus();
+    census.independent = await reconcileWithGit(ctx.dir, census);
+    const { text, violations } = renderCheck(census);
     console.log(text);
     if (violations > 0) process.exitCode = 1;
   });
@@ -292,8 +295,11 @@ program
 program
   .command("status")
   .option("--vault <dir>", "vault directory", ".")
-  .action((opts: { vault: string }) => {
-    console.log(renderStatus(buildPassContext(opts.vault)));
+  .action(async (opts: { vault: string }) => {
+    const ctx = buildPassContext(opts.vault);
+    const census = ctx.vault.readTreeCensus();
+    census.independent = await reconcileWithGit(ctx.dir, census);
+    console.log(renderStatus(ctx, census));
   });
 
 program

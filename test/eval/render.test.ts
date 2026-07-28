@@ -20,9 +20,11 @@ afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
 test("renderCheck reports a passing tree with zero violations", () => {
   const ctx = buildPassContext(dir);
-  const out = renderCheck(ctx.vault.readTree());
+  const out = renderCheck(ctx.vault.readTreeCensus());
   expect(out.violations).toBe(0);
-  expect(out.text).toMatch(/invariants: PASS \(0 violations\)/);
+  // The denominator is load-bearing: "0 violations" over an unstated set is the
+  // shape of a check that passed because it looked at nothing.
+  expect(out.text).toMatch(/invariants: PASS \(0 violations over \d+ node\(s\)\)/);
 });
 
 test("renderDebt keeps the sentence that says it never judges", () => {
@@ -37,7 +39,7 @@ test("renderDebt keeps the sentence that says it never judges", () => {
 
 test("renderStatus names the vault and the outcome", () => {
   const ctx = buildPassContext(dir);
-  const text = renderStatus(ctx);
+  const text = renderStatus(ctx, ctx.vault.readTreeCensus());
   expect(text).toMatch(/Vault: /);
   expect(text).toMatch(/Outcome: Reach ten returning operators\./);
   expect(text).toMatch(/Nodes: /);
@@ -57,9 +59,9 @@ test("renderers return text, never print", () => {
   const real = console.log;
   console.log = (...a: unknown[]) => void logged.push(a);
   try {
-    renderCheck(ctx.vault.readTree());
+    renderCheck(ctx.vault.readTreeCensus());
     renderDebt(ctx.vault.readTree());
-    renderStatus(ctx);
+    renderStatus(ctx, ctx.vault.readTreeCensus());
     renderGate(ctx.vault.readTree(), "x");
   } finally {
     console.log = real;
@@ -78,7 +80,7 @@ test("renderStatus's per-layer breakdown names every layer, including Unknown, a
     evidence: "assertion",
   });
 
-  const line = renderStatus(buildPassContext(dir)).split("\n").find((l) => l.startsWith("Nodes:"));
+  const line = renderStatus(buildPassContext(dir), buildPassContext(dir).vault.readTreeCensus()).split("\n").find((l) => l.startsWith("Nodes:"));
   expect(line, 'expected a "Nodes:" line in status output').toBeDefined();
 
   const total = Number(line!.match(/^Nodes: (\d+)/)?.[1]);

@@ -13,6 +13,7 @@ import path from "node:path";
 import matter from "gray-matter";
 import { deserialize, serialize, type Layer, type NodeStatus, type OstNode, LAYERS } from "./node.js";
 import { fileNameForTitle, sanitizeTitle } from "./sanitize.js";
+import type { CensusDrop, TreeCensus } from "./census.js";
 import type { RungId } from "../knowledge/believability.js";
 import type { LaneId } from "../knowledge/lanes.js";
 
@@ -90,16 +91,73 @@ export class Vault {
 
   /** Read all node files at the vault root (skips non-node files and subdirs). */
   readTree(): OstNode[] {
+    return this.readTreeCensus().nodes;
+  }
+
+  /**
+   * `readTree`, plus an account of everything it declined to return.
+   *
+   * This is the SAME traversal that produces the node list rather than a second one
+   * run alongside it, and that is deliberate: a census taken by a different walk
+   * would be measuring a different walk, and could agree with itself while the real
+   * counter quietly dropped files. The only thing that knows the counter skipped
+   * something is the counter.
+   *
+   * That covers files the walk saw. Files the walk never enumerated at all are
+   * invisible from in here by construction — `reconcileWithGit` exists for those,
+   * and takes its denominator from outside this function on purpose.
+   */
+  readTreeCensus(): TreeCensus {
     const entries = fs.readdirSync(this.root, { withFileTypes: true });
     const nodes: OstNode[] = [];
+    const seenFiles: string[] = [];
+    const skipped: CensusDrop[] = [];
+    const unreadable: CensusDrop[] = [];
+
     for (const e of entries) {
+      // Not a markdown file at the vault root, so it was never a candidate to be a
+      // node. Counting these as "dropped" would bury the real drops in config files.
       if (!e.isFile() || !e.name.endsWith(".md")) continue;
-      const raw = fs.readFileSync(path.join(this.root, e.name), "utf8");
-      const type = (matter(raw).data as Record<string, unknown>).type;
-      if (typeof type !== "string" || !LAYERS.includes(type as Layer)) continue;
-      nodes.push(deserialize(e.name.replace(/\.md$/, ""), raw));
+      seenFiles.push(e.name);
+
+      let raw: string;
+      try {
+        raw = fs.readFileSync(path.join(this.root, e.name), "utf8");
+      } catch (err) {
+        unreadable.push({ file: e.name, reason: `could not be read: ${(err as Error).message}` });
+        continue;
+      }
+
+      let type: unknown;
+      try {
+        type = (matter(raw).data as Record<string, unknown>).type;
+      } catch (err) {
+        // Frontmatter that will not parse. Before the census this threw out of
+        // readTree and took every command down with a stack trace that named no
+        // file; one malformed node made the whole vault unreadable.
+        unreadable.push({ file: e.name, reason: `frontmatter did not parse: ${(err as Error).message}` });
+        continue;
+      }
+
+      if (typeof type !== "string" || !LAYERS.includes(type as Layer)) {
+        skipped.push({
+          file: e.name,
+          reason:
+            type === undefined
+              ? "no frontmatter `type` — not an OST node"
+              : `unrecognised type ${JSON.stringify(String(type))}`,
+        });
+        continue;
+      }
+
+      try {
+        nodes.push(deserialize(e.name.replace(/\.md$/, ""), raw));
+      } catch (err) {
+        unreadable.push({ file: e.name, reason: (err as Error).message });
+      }
     }
-    return nodes;
+
+    return { nodes, examined: seenFiles.length, seenFiles, skipped, unreadable };
   }
 
   read(title: string): OstNode {
