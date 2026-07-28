@@ -29,13 +29,19 @@
  * vocabulary, which is all it ever really was.
  */
 import { defaultGenome } from "../genome/load.js";
-import type { ClassifierGene } from "../genome/schema.js";
+import type { ClassifierGene, ResolutionGene } from "../genome/schema.js";
 import type { OstNode } from "../ost/node.js";
 
 /** A class name is genome data now — no compile-time union can enumerate them. */
 export type UnknownClass = string;
 
-export type ResolutionState = "open" | "satisfied" | "abandoned";
+/**
+ * A terminal (or non-terminal) label for an unknown. A `string`, not a union:
+ * the vocabulary is genome data now, and zod cannot hand a compile-time union
+ * back from a YAML file parsed at runtime. The default gene's three values —
+ * `open`, `satisfied`, `abandoned` — are the v1 vocabulary, not the ceiling.
+ */
+export type ResolutionState = string;
 
 /**
  * The v1 classifier, read from the genome schema's own defaults rather than
@@ -43,6 +49,13 @@ export type ResolutionState = "open" | "satisfied" | "abandoned";
  * out from under the file that governs behaviour.
  */
 export const DEFAULT_CLASSIFIER: ClassifierGene = defaultGenome().classifier;
+
+/**
+ * The v1 resolution gene, sourced from the schema so the default lives in
+ * exactly one place. Imports run knowledge → genome and never back (the genome
+ * module knows nothing about unknowns).
+ */
+export const DEFAULT_RESOLUTION: ResolutionGene = defaultGenome().resolution;
 
 /** The DEFAULT class vocabulary. A loaded genome may name a different one. */
 export const UNKNOWN_CLASSES: readonly string[] = Object.freeze([...DEFAULT_CLASSIFIER.classes]);
@@ -89,17 +102,42 @@ export function classifyUnknown(node: OstNode, classifier: ClassifierGene = DEFA
 }
 
 /**
- * A mechanical presence check, on the same precedent as `hasRecordedResult`
- * (`eval/evidence-debt.ts`): satisfied means an `## Answer` heading exists or a
- * human moved the node to `validated`, never that the answer was checked
- * against its declared Format. That is a floor, not a verdict — an agent can
- * still write `## Answer` on nothing, or set `status: validated` on its own
- * node, and this function will call it satisfied either way. Abandonment is
- * checked first so that a deferred unknown reads as abandoned even if an
- * answer was drafted — the human's call outranks the draft.
+ * Resolution is recorded, never claimed — an interpreter over the resolution
+ * gene's rule list.
+ *
+ * A rule matches when the node's `status` appears in the rule's `status` list,
+ * OR — when the rule names a `section` — when the body carries that `## <name>`
+ * heading. The first matching rule wins; nothing matches, the `fallback` does.
+ *
+ * RULE ORDER IS THE PRECEDENCE, and that sentence is the gene's load-bearing
+ * property. The machine this replaced checked abandonment first, in a statement
+ * order no reader could reorder by accident, so that a human's `deferred`
+ * outranked an agent's drafted `## Answer`. That guarantee now lives in the
+ * position of two entries in a YAML list. Swap them and an abandoned unknown
+ * with a stray answer reads as satisfied — no error, no warning, a corrupted
+ * fitness record that announces nothing. It is the one mutation the schema
+ * cannot catch, so it is the one the tests pin.
+ *
+ * The check remains mechanical, on the same precedent as `hasRecordedResult`
+ * (`eval/evidence-debt.ts`): satisfaction means a heading exists or a status was
+ * set, never that an answer was checked against its declared Format. That is a
+ * floor, not a verdict. The fail-closed direction is pinned in the schema, not
+ * here: a rule that matched on nothing would fire on every node including one
+ * with no answer at all, so satisfaction can never be claimed on absence.
+ *
+ * `answerSection` is the gene's canonical name for the heading that means "an
+ * answer exists". The interpreter reads only `rules`, so renaming it there is
+ * what changes behaviour — but the default rule set names it, which keeps the
+ * rename a one-line edit and is asserted as an invariant by the tests.
  */
-export function resolutionState(node: OstNode): ResolutionState {
-  if (node.status === "deferred") return "abandoned";
-  if (node.status === "validated" || hasSection(node.body, "Answer")) return "satisfied";
-  return "open";
+export function resolutionState(
+  node: OstNode,
+  resolution: ResolutionGene = DEFAULT_RESOLUTION,
+): ResolutionState {
+  for (const rule of resolution.rules) {
+    const byStatus = node.status !== undefined && rule.status.includes(node.status);
+    const bySection = rule.section !== undefined && hasSection(node.body, rule.section);
+    if (byStatus || bySection) return rule.state;
+  }
+  return resolution.fallback;
 }

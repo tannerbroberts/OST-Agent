@@ -28,7 +28,7 @@
  */
 import { defaultGenome } from "../genome/load.js";
 import type { AttributionGene, ClassifierGene, ResolutionGene, TokenWeightsGene } from "../genome/schema.js";
-import { classifyUnknown, resolutionState, DEFAULT_CLASSIFIER, type ResolutionState, type UnknownClass } from "../knowledge/unknowns.js";
+import { classifyUnknown, resolutionState, DEFAULT_CLASSIFIER, DEFAULT_RESOLUTION, type ResolutionState, type UnknownClass } from "../knowledge/unknowns.js";
 import type { OstNode } from "../ost/node.js";
 import { addTiers, emptyTiers, readAttention, type TokenTiers } from "../telemetry/attention.js";
 import { usageLogPath } from "../telemetry/usage.js";
@@ -186,6 +186,7 @@ export function computeAttention(
 ): AttentionRollup {
   const weights = opts.weights ?? DEFAULT_TOKEN_WEIGHTS;
   const classifier = opts.classifier ?? DEFAULT_CLASSIFIER;
+  const resolution = opts.resolution ?? DEFAULT_RESOLUTION;
   const darkNodes = tree.filter((n) => n.layer === "Unknown");
   const usage = rollUpUsage(vaultDir, new Set(darkNodes.map((n) => n.title)));
 
@@ -211,7 +212,7 @@ export function computeAttention(
     return {
       title: node.title,
       klass: classifyUnknown(node, classifier),
-      state: resolutionState(node),
+      state: resolutionState(node, resolution),
       calls,
       ms,
       tokens,

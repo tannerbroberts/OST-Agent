@@ -1,8 +1,9 @@
 import { describe, expect, test } from "vitest";
-import type { ClassifierGene } from "../../src/genome/schema.js";
+import type { ClassifierGene, ResolutionGene } from "../../src/genome/schema.js";
 import {
   CONTRACT_SECTIONS,
   DEFAULT_CLASSIFIER,
+  DEFAULT_RESOLUTION,
   UNKNOWN_CLASSES,
   classifyUnknown,
   contractGaps,
@@ -151,5 +152,91 @@ describe("contractGaps — the section list is genome data", () => {
 
   test("a genome that asks for one section only ever reports that one missing", () => {
     expect(contractGaps(unknown("## Format\nx"), ["Format", "Provenance"])).toEqual(["Provenance"]);
+  });
+});
+
+describe("the resolution gene — rule order IS the precedence", () => {
+  const DEFERRED_FIRST: ResolutionGene = {
+    answerSection: "Answer",
+    fallback: "open",
+    rules: [
+      { state: "abandoned", status: ["deferred"] },
+      { state: "satisfied", status: ["validated"], section: "Answer" },
+    ],
+  };
+
+  const ANSWER_FIRST: ResolutionGene = {
+    answerSection: "Answer",
+    fallback: "open",
+    rules: [
+      { state: "satisfied", status: ["validated"], section: "Answer" },
+      { state: "abandoned", status: ["deferred"] },
+    ],
+  };
+
+  const DRAFTED_AND_DEFERRED = () => unknown(`${FULL}\n\n## Answer\nx`, { status: "deferred" });
+
+  test("the default gene decides exactly what the compiled-in machine decided", () => {
+    const node = DRAFTED_AND_DEFERRED();
+    expect(resolutionState(node)).toBe(resolutionState(node, DEFAULT_RESOLUTION));
+    expect(resolutionState(node, DEFERRED_FIRST)).toBe("abandoned");
+  });
+
+  test("reversing the two rules makes a drafted Answer beat deferred — order, and ONLY order, decides", () => {
+    const node = DRAFTED_AND_DEFERRED();
+    expect(resolutionState(node, DEFERRED_FIRST)).toBe("abandoned");
+    expect(resolutionState(node, ANSWER_FIRST)).toBe("satisfied");
+  });
+
+  test("a genome may name its own answer section — the heading is data, never a literal in the kernel", () => {
+    const finding: ResolutionGene = {
+      answerSection: "Finding",
+      fallback: "open",
+      rules: [
+        { state: "abandoned", status: ["deferred"] },
+        { state: "satisfied", status: ["validated"], section: "Finding" },
+      ],
+    };
+    expect(resolutionState(unknown(`${FULL}\n\n## Finding\n412 per day`), finding)).toBe("satisfied");
+    expect(resolutionState(unknown(`${FULL}\n\n## Answer\n412 per day`), finding)).toBe("open");
+  });
+
+  test("the default gene's satisfied rule names its own answerSection — renaming the heading stays a one-line edit", () => {
+    expect(DEFAULT_RESOLUTION.rules.some((r) => r.section === DEFAULT_RESOLUTION.answerSection)).toBe(true);
+  });
+
+  test("a node no rule matches takes the fallback, whatever the fallback is named", () => {
+    const gene: ResolutionGene = {
+      answerSection: "Answer",
+      fallback: "unexamined",
+      rules: [{ state: "abandoned", status: ["deferred"] }],
+    };
+    expect(resolutionState(unknown(FULL), gene)).toBe("unexamined");
+    expect(resolutionState(unknown(FULL, { status: "validated" }), gene)).toBe("unexamined");
+    expect(resolutionState(unknown(FULL, { status: "deferred" }), gene)).toBe("abandoned");
+  });
+
+  test("a status-only rule NEVER reads the body — a rule that names no section probes none", () => {
+    const gene: ResolutionGene = {
+      answerSection: "Answer",
+      fallback: "open",
+      rules: [{ state: "satisfied", status: ["validated"] }],
+    };
+    expect(resolutionState(unknown(`${FULL}\n\n## Answer\nx`), gene)).toBe("open");
+    expect(resolutionState(unknown(FULL, { status: "validated" }), gene)).toBe("satisfied");
+  });
+
+  test("a genome can express superseded with no code change — which is the entire reason the vocabulary left TypeScript", () => {
+    const gene: ResolutionGene = {
+      answerSection: "Answer",
+      fallback: "open",
+      rules: [
+        { state: "superseded", status: ["shipped"] },
+        { state: "abandoned", status: ["deferred"] },
+        { state: "satisfied", status: ["validated"], section: "Answer" },
+      ],
+    };
+    expect(resolutionState(unknown(FULL, { status: "shipped" }), gene)).toBe("superseded");
+    expect(resolutionState(unknown(FULL, { status: "deferred" }), gene)).toBe("abandoned");
   });
 });

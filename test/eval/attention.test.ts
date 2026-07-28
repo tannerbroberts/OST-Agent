@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, test } from "vitest";
 import { computeAttention, DEFAULT_TOKEN_WEIGHTS, weightedTokenCost } from "../../src/eval/attention.js";
 import { defaultGenome, loadGenome } from "../../src/genome/load.js";
+import type { ResolutionGene } from "../../src/genome/schema.js";
 import type { OstNode } from "../../src/ost/node.js";
 import { recordAttention } from "../../src/telemetry/attention.js";
 import { usageLogPath } from "../../src/telemetry/usage.js";
@@ -195,6 +196,28 @@ describe("the token-weighting gene", () => {
     const bare = computeAttention([unknown("U")], dir);
     expect(computeAttention([unknown("U")], dir, {})).toEqual(bare);
     expect(computeAttention([unknown("U")], dir, { weights: defaultGenome().tokenWeights })).toEqual(bare);
+  });
+
+  test("a resolution gene reaches the rollup — reversing rule order flips abandoned to satisfied", () => {
+    const ANSWER_FIRST: ResolutionGene = {
+      answerSection: "Answer",
+      fallback: "open",
+      rules: [
+        { state: "satisfied", status: ["validated"], section: "Answer" },
+        { state: "abandoned", status: ["deferred"] },
+      ],
+    };
+    const node = unknown("U", `${FULL}\n\n## Answer\nx`, { status: "deferred" });
+
+    // The default gene: abandonment outranks a drafted answer.
+    expect(computeAttention([node], tmp()).byClass.bounded.abandoned).toBe(1);
+
+    // The same node, same tree, one reordered gene — and `ost_status` now agrees
+    // with what `ost_next_work` would say under that genome, which is the point.
+    const rollup = computeAttention([node], tmp(), { resolution: ANSWER_FIRST });
+    expect(rollup.unknowns[0].state).toBe("satisfied");
+    expect(rollup.byClass.bounded.satisfied).toBe(1);
+    expect(rollup.byClass.bounded.abandoned).toBe(0);
   });
 });
 
