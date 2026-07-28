@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
-import { computeAttention, DEFAULT_TOKEN_WEIGHTS, weightedTokenCost } from "../../src/eval/attention.js";
+import { computeAttention, DEFAULT_WEIGHTED_TOKEN_SPEND, weightedTokenCost } from "../../src/eval/attention.js";
 import { defaultGenome, loadGenome } from "../../src/genome/load.js";
 import type { ResolutionGene } from "../../src/genome/schema.js";
 import type { OstNode } from "../../src/ost/node.js";
@@ -30,9 +30,9 @@ describe("weightedTokenCost", () => {
     expect(out).toBeGreaterThan(inp);
   });
 
-  test("honours supplied weights over the defaults", () => {
+  test("honours a supplied cost model over the defaults", () => {
     const tiers = { input: 10, output: 0, cacheCreate: 0, cacheRead: 0 };
-    expect(weightedTokenCost(tiers, { ...DEFAULT_TOKEN_WEIGHTS, input: 2 })).toBe(20);
+    expect(weightedTokenCost(tiers, { ...DEFAULT_WEIGHTED_TOKEN_SPEND, input: 2 })).toBe(20);
   });
 });
 
@@ -154,11 +154,11 @@ describe("the token-weighting gene", () => {
   test("the exported default IS the genome's default — one literal for the cost model, or none", () => {
     // A drift guard, not a behavior test: it passes today because two hand-kept
     // literals happen to agree, and its job is to fail the moment they stop.
-    expect(DEFAULT_TOKEN_WEIGHTS).toEqual(defaultGenome().tokenWeights);
+    expect(DEFAULT_WEIGHTED_TOKEN_SPEND).toEqual(defaultGenome().weightedTokenSpend);
   });
 
   test("the shipped default preserves published pricing order — cache reads are cheap, output is dear", () => {
-    const w = defaultGenome().tokenWeights;
+    const w = defaultGenome().weightedTokenSpend;
     expect(w.cacheRead).toBeLessThan(w.input);
     expect(w.input).toBeLessThan(w.cacheCreate);
     expect(w.cacheCreate).toBeLessThan(w.output);
@@ -170,12 +170,12 @@ describe("the token-weighting gene", () => {
       tokens: { input: 100, output: 10, cacheCreate: 0, cacheRead: 0 } });
     fs.writeFileSync(
       path.join(dir, "genome.yaml"),
-      "tokenWeights:\n  input: 1\n  output: 1\n  cacheCreate: 1.25\n  cacheRead: 0.1\n",
+      "weightedTokenSpend:\n  input: 1\n  output: 1\n  cacheCreate: 1.25\n  cacheRead: 0.1\n",
       "utf8",
     );
 
     const shipped = computeAttention([unknown("U")], dir);
-    const cheap = computeAttention([unknown("U")], dir, { weights: loadGenome(dir).tokenWeights });
+    const cheap = computeAttention([unknown("U")], dir, { weightedTokenSpend: loadGenome(dir).weightedTokenSpend });
 
     expect(shipped.unknowns[0].weightedCost).toBe(150); // 100×1 + 10×5
     expect(cheap.unknowns[0].weightedCost).toBe(110); // 100×1 + 10×1
@@ -188,7 +188,7 @@ describe("the token-weighting gene", () => {
       tokens: { input: 0, output: 100, cacheCreate: 0, cacheRead: 0 } });
     const dear = computeAttention([unknown("U")], dir);
     const flat = computeAttention([unknown("U")], dir, {
-      weights: { ...DEFAULT_TOKEN_WEIGHTS, output: 1 },
+      weightedTokenSpend: { ...DEFAULT_WEIGHTED_TOKEN_SPEND, output: 1 },
     });
     expect(dear.byClass.bounded.weightedCost).toBeGreaterThan(flat.byClass.bounded.weightedCost);
   });
@@ -199,7 +199,7 @@ describe("the token-weighting gene", () => {
       tokens: { input: 100, output: 10, cacheCreate: 8, cacheRead: 900 } });
     const bare = computeAttention([unknown("U")], dir);
     expect(computeAttention([unknown("U")], dir, {})).toEqual(bare);
-    expect(computeAttention([unknown("U")], dir, { weights: defaultGenome().tokenWeights })).toEqual(bare);
+    expect(computeAttention([unknown("U")], dir, { weightedTokenSpend: defaultGenome().weightedTokenSpend })).toEqual(bare);
   });
 
   test("a resolution gene reaches the rollup — reversing rule order flips abandoned to satisfied", () => {

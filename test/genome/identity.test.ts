@@ -53,7 +53,7 @@ const tmp = (prefix: string) => fs.mkdtempSync(path.join(os.tmpdir(), prefix));
  */
 const SHIPPED: Genome = {
   version: 1,
-  tokenWeights: { input: 1, output: 5, cacheCreate: 1.25, cacheRead: 0.1 },
+  weightedTokenSpend: { input: 1, output: 5, cacheCreate: 1.25, cacheRead: 0.1 },
   classifier: {
     contractSections: ["Format", "Methodology", "Rationale"],
     classes: ["bounded", "unreached", "unbounded"],
@@ -183,7 +183,7 @@ describe("the default genome is today's behavior, written down", () => {
     });
     // Passing the default genome explicitly must be indistinguishable from not passing it.
     const g = defaultGenome();
-    expect(computeAttention(tree, dir, { weights: g.tokenWeights, classifier: g.classifier, resolution: g.resolution }).byClass)
+    expect(computeAttention(tree, dir, { weightedTokenSpend: g.weightedTokenSpend, classifier: g.classifier, resolution: g.resolution }).byClass)
       .toEqual(computeAttention(tree, dir).byClass);
   });
 
@@ -257,7 +257,7 @@ describe("the default genome is today's behavior, written down", () => {
 
   describe("negative controls — a mutated allele has to SHOW, or the genome is data nothing reads", () => {
     test("doubling the input weight doubles the weighted cost", async () => {
-      const dir = tmp("ost-genome-nc-weights-");
+      const dir = tmp("ost-genome-nc-weightedTokenSpend-");
       await initVault(dir, "Reach 10,000 daily active users", "Retention");
       recordAttention(dir, {
         ts: "a", unknown: "Bounded", kind: "spend", calls: 1, ms: 1,
@@ -266,7 +266,7 @@ describe("the default genome is today's behavior, written down", () => {
       const tree = [node("Bounded")];
       expect(computeAttention(tree, dir).unknowns[0].weightedCost).toBe(10);
       expect(
-        computeAttention(tree, dir, { weights: { input: 2, output: 5, cacheCreate: 1.25, cacheRead: 0.1 } })
+        computeAttention(tree, dir, { weightedTokenSpend: { input: 2, output: 5, cacheCreate: 1.25, cacheRead: 0.1 } })
           .unknowns[0].weightedCost,
       ).toBe(20);
     });
@@ -369,9 +369,9 @@ describe("the default genome is today's behavior, written down", () => {
       expect(() => loadGenome(bad)).toThrow(/genome\.yaml/);
 
       const good = tmp("ost-genome-nc-typo-ok-");
-      fs.writeFileSync(genomePath(good), "tokenWeights:\n  input: 2\n", "utf8");
-      expect(loadGenome(good).tokenWeights.input).toBe(2);
-      expect(loadGenome(good).tokenWeights.output).toBe(5);
+      fs.writeFileSync(genomePath(good), "weightedTokenSpend:\n  input: 2\n", "utf8");
+      expect(loadGenome(good).weightedTokenSpend.input).toBe(2);
+      expect(loadGenome(good).weightedTokenSpend.output).toBe(5);
     });
   });
 });

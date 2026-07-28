@@ -63,13 +63,13 @@ describe("the genome a pass runs on", () => {
   });
 
   test("a genome.yaml beside ost.config.yaml is what the pass runs on", () => {
-    writeGenome("tokenWeights:\n  output: 9\nbudgets:\n  sharedPool: 4\n");
+    writeGenome("weightedTokenSpend:\n  output: 9\nbudgets:\n  sharedPool: 4\n");
     const ctx = buildPassContext(dir);
-    expect(ctx.genome.tokenWeights.output).toBe(9);
+    expect(ctx.genome.weightedTokenSpend.output).toBe(9);
     expect(ctx.genome.budgets.sharedPool).toBe(4);
     // An untouched leaf keeps its default, and an untouched section materialises
     // whole — a partial genome is a genome, not a hole.
-    expect(ctx.genome.tokenWeights.input).toBe(1);
+    expect(ctx.genome.weightedTokenSpend.input).toBe(1);
     expect(ctx.genome.pivot.ranking).toBe("tree-order");
   });
 

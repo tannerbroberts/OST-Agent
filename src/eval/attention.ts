@@ -9,8 +9,8 @@
  *
  * The token weighting lives here rather than in the store on purpose. Summing
  * tiers at write time would bake in a cost model; here it is read-time policy,
- * and as of Phase 2 the numbers themselves are an allele — `tokenWeights` in
- * `genome.yaml` — rather than a constant this module owns. `DEFAULT_TOKEN_WEIGHTS`
+ * and as of Phase 2 the numbers themselves are an allele — `weightedTokenSpend` in
+ * `genome.yaml` — rather than a constant this module owns. `DEFAULT_WEIGHTED_TOKEN_SPEND`
  * below is a READER of the genome's defaults, not a second copy of them: a vault
  * with no genome.yaml and a vault carrying the shipped default resolve through
  * the same parse and therefore cannot disagree.
@@ -46,7 +46,7 @@
  * `calls-and-ms` until an explicit non-default genome turns the split on.
  */
 import { defaultGenome } from "../genome/load.js";
-import type { AttributionGene, ClassifierGene, ResolutionGene, TokenWeightsGene } from "../genome/schema.js";
+import type { AttributionGene, ClassifierGene, ResolutionGene, WeightedTokenSpendGene } from "../genome/schema.js";
 import { classifyUnknown, resolutionState, DEFAULT_CLASSIFIER, DEFAULT_RESOLUTION, type ResolutionState, type UnknownClass } from "../knowledge/unknowns.js";
 import type { OstNode } from "../ost/node.js";
 import { addTiers, emptyTiers, readAttention, type TokenTiers } from "../telemetry/attention.js";
@@ -54,11 +54,11 @@ import { usageLogPath } from "../telemetry/usage.js";
 import fs from "node:fs";
 
 /**
- * The cost model, structurally identical to the genome's `tokenWeights` gene
+ * The cost model, structurally identical to the genome's `weightedTokenSpend` gene
  * because it IS that gene. The alias is kept exported so every existing
  * importer compiles unchanged while the numbers move out of TypeScript.
  */
-export type TokenWeights = TokenWeightsGene;
+export type WeightedTokenSpend = WeightedTokenSpendGene;
 
 /**
  * Relative cost per tier, tracking published pricing ratios: output is the
@@ -69,14 +69,14 @@ export type TokenWeights = TokenWeightsGene;
  * exactly one literal `5` for the cost of an output token in this repo and it
  * lives in `GenomeSchema`; this const is how the rest of `eval/` reaches it.
  */
-export const DEFAULT_TOKEN_WEIGHTS: TokenWeights = defaultGenome().tokenWeights;
+export const DEFAULT_WEIGHTED_TOKEN_SPEND: WeightedTokenSpend = defaultGenome().weightedTokenSpend;
 
-export function weightedTokenCost(tokens: TokenTiers, weights: TokenWeights = DEFAULT_TOKEN_WEIGHTS): number {
+export function weightedTokenCost(tokens: TokenTiers, weightedTokenSpend: WeightedTokenSpend = DEFAULT_WEIGHTED_TOKEN_SPEND): number {
   return (
-    tokens.input * weights.input +
-    tokens.output * weights.output +
-    tokens.cacheCreate * weights.cacheCreate +
-    tokens.cacheRead * weights.cacheRead
+    tokens.input * weightedTokenSpend.input +
+    tokens.output * weightedTokenSpend.output +
+    tokens.cacheCreate * weightedTokenSpend.cacheCreate +
+    tokens.cacheRead * weightedTokenSpend.cacheRead
   );
 }
 
@@ -290,8 +290,8 @@ function emptyByClass(classes: readonly string[]): Record<string, ClassRollup> {
  * which is what makes a vault with no genome.yaml behave exactly as it did.
  */
 export interface AttentionOptions {
-  /** The cost model. Omitted ⇒ {@link DEFAULT_TOKEN_WEIGHTS}, i.e. the genome's default. */
-  weights?: TokenWeightsGene;
+  /** The cost model. Omitted ⇒ {@link DEFAULT_WEIGHTED_TOKEN_SPEND}, i.e. the genome's default. */
+  weightedTokenSpend?: WeightedTokenSpendGene;
   /** The classification thresholds. Declared here; read from Task 4 onward. */
   classifier?: ClassifierGene;
   /** The resolution machine's parameters. Declared here; read from Task 5 onward. */
@@ -319,7 +319,7 @@ export function computeAttention(
   vaultDir: string,
   opts: AttentionOptions = {},
 ): AttentionRollup {
-  const weights = opts.weights ?? DEFAULT_TOKEN_WEIGHTS;
+  const weightedTokenSpend = opts.weightedTokenSpend ?? DEFAULT_WEIGHTED_TOKEN_SPEND;
   const classifier = opts.classifier ?? DEFAULT_CLASSIFIER;
   const resolution = opts.resolution ?? DEFAULT_RESOLUTION;
   const darkNodes = tree.filter((n) => n.layer === "Unknown");
@@ -355,7 +355,7 @@ export function computeAttention(
       calls,
       ms,
       tokens,
-      weightedCost: weightedTokenCost(tokens, weights),
+      weightedCost: weightedTokenCost(tokens, weightedTokenSpend),
     };
   });
 

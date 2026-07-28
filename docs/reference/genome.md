@@ -17,7 +17,7 @@ stating bluntly because it is easy to violate by accident:
 > **Anything compiled in is a trait excluded from evolution. A policy expressed as a
 > TypeScript table cannot breed.**
 
-`DEFAULT_TOKEN_WEIGHTS` was readable, parameterised, well-factored — and inert, because
+`DEFAULT_WEIGHTED_TOKEN_SPEND` was readable, parameterised, well-factored — and inert, because
 nothing could vary it and record what varying it bought. Moving it here is what makes the
 cost model a measurable hypothesis instead of an assumption.
 
@@ -81,7 +81,7 @@ version: 1
 # What attention costs. Ratios, not currency — output is the dear one, a cache
 # write costs a little more than fresh input, a cache read roughly a tenth.
 # Weighting is applied at READ time so the four tiers stay unmixed in storage.
-tokenWeights:
+weightedTokenSpend:
   input: 1
   output: 5
   cacheCreate: 1.25

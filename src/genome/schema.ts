@@ -28,7 +28,7 @@
 import { z } from "zod";
 
 /** Relative cost per token tier. Ratios, not currency. */
-export interface TokenWeightsGene {
+export interface WeightedTokenSpendGene {
   input: number;
   output: number;
   cacheCreate: number;
@@ -99,7 +99,7 @@ export interface TokenSplitGene {
 
 export interface Genome {
   version: number;
-  tokenWeights: TokenWeightsGene;
+  weightedTokenSpend: WeightedTokenSpendGene;
   classifier: ClassifierGene;
   resolution: ResolutionGene;
   budgets: BudgetsGene;
@@ -111,7 +111,7 @@ export interface Genome {
 // What attention costs. Output is the dear one, a cache write costs a little
 // more than fresh input, a cache read roughly a tenth — the published pricing
 // order, carried as ratios so the weighting can be varied without a currency.
-const TokenWeightsSchema = z
+const WeightedTokenSpendSchema = z
   .object({
     input: z.number().nonnegative().default(1),
     output: z.number().nonnegative().default(5),
@@ -241,7 +241,7 @@ const TokenSplitSchema = z
 export const GenomeSchema: z.ZodType<Genome, z.ZodTypeDef, unknown> = z
   .object({
     version: z.number().int().positive().default(1),
-    tokenWeights: TokenWeightsSchema,
+    weightedTokenSpend: WeightedTokenSpendSchema,
     classifier: ClassifierSchema,
     resolution: ResolutionSchema,
     budgets: BudgetsSchema,

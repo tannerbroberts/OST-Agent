@@ -22,7 +22,7 @@ describe("defaultGenome", () => {
   test("materialises every gene from an empty document — the defaults live in the schema, nowhere else", () => {
     const g = defaultGenome();
     expect(g.version).toBe(1);
-    expect(g.tokenWeights).toEqual({ input: 1, output: 5, cacheCreate: 1.25, cacheRead: 0.1 });
+    expect(g.weightedTokenSpend).toEqual({ input: 1, output: 5, cacheCreate: 1.25, cacheRead: 0.1 });
     expect(g.classifier.contractSections).toEqual(["Format", "Methodology", "Rationale"]);
     expect(g.classifier.classes).toEqual(["bounded", "unreached", "unbounded"]);
     expect(g.classifier.fallback).toBe("unbounded");
@@ -86,11 +86,11 @@ describe("loadGenome — an absent file", () => {
 describe("loadGenome — a partial genome", () => {
   test("one stated allele leaves every other gene at its default", () => {
     const dir = tmp();
-    write(dir, "tokenWeights:\n  output: 9\n");
+    write(dir, "weightedTokenSpend:\n  output: 9\n");
     const g = loadGenome(dir);
-    expect(g.tokenWeights.output).toBe(9);
-    expect(g.tokenWeights.input).toBe(1);
-    expect(g.tokenWeights.cacheRead).toBe(0.1);
+    expect(g.weightedTokenSpend.output).toBe(9);
+    expect(g.weightedTokenSpend.input).toBe(1);
+    expect(g.weightedTokenSpend.cacheRead).toBe(0.1);
     expect(g.pivot.ranking).toBe("tree-order");
     expect(g.classifier.rules).toHaveLength(3);
   });
@@ -178,7 +178,7 @@ describe("loadGenome — a wrong genome is fatal", () => {
 
   test("a wrongly-typed leaf throws, naming the path to the gene", () => {
     const dir = tmp();
-    write(dir, "tokenWeights:\n  output: heavy\n");
-    expect(() => loadGenome(dir)).toThrow(/tokenWeights\.output/);
+    write(dir, "weightedTokenSpend:\n  output: heavy\n");
+    expect(() => loadGenome(dir)).toThrow(/weightedTokenSpend\.output/);
   });
 });

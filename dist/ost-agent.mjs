@@ -32510,7 +32510,7 @@ import fs7 from "node:fs";
 import path6 from "node:path";
 
 // src/genome/schema.ts
-var TokenWeightsSchema = external_exports.object({
+var WeightedTokenSpendSchema = external_exports.object({
   input: external_exports.number().nonnegative().default(1),
   output: external_exports.number().nonnegative().default(5),
   cacheCreate: external_exports.number().nonnegative().default(1.25),
@@ -32576,7 +32576,7 @@ var TokenSplitSchema = external_exports.object({
 }).strict().default({});
 var GenomeSchema = external_exports.object({
   version: external_exports.number().int().positive().default(1),
-  tokenWeights: TokenWeightsSchema,
+  weightedTokenSpend: WeightedTokenSpendSchema,
   classifier: ClassifierSchema,
   resolution: ResolutionSchema,
   budgets: BudgetsSchema,
@@ -38180,9 +38180,9 @@ function readAttention(vaultDir, unknown2) {
 
 // src/eval/attention.ts
 import fs13 from "node:fs";
-var DEFAULT_TOKEN_WEIGHTS = defaultGenome().tokenWeights;
-function weightedTokenCost(tokens2, weights = DEFAULT_TOKEN_WEIGHTS) {
-  return tokens2.input * weights.input + tokens2.output * weights.output + tokens2.cacheCreate * weights.cacheCreate + tokens2.cacheRead * weights.cacheRead;
+var DEFAULT_WEIGHTED_TOKEN_SPEND = defaultGenome().weightedTokenSpend;
+function weightedTokenCost(tokens2, weightedTokenSpend = DEFAULT_WEIGHTED_TOKEN_SPEND) {
+  return tokens2.input * weightedTokenSpend.input + tokens2.output * weightedTokenSpend.output + tokens2.cacheCreate * weightedTokenSpend.cacheCreate + tokens2.cacheRead * weightedTokenSpend.cacheRead;
 }
 function emptyCallCost() {
   return { calls: 0, ms: 0, tokens: emptyTiers() };
@@ -38247,7 +38247,7 @@ function emptyByClass(classes) {
   return Object.fromEntries(classes.map((c3) => [c3, emptyClassRollup()]));
 }
 function computeAttention(tree, vaultDir, opts = {}) {
-  const weights = opts.weights ?? DEFAULT_TOKEN_WEIGHTS;
+  const weightedTokenSpend = opts.weightedTokenSpend ?? DEFAULT_WEIGHTED_TOKEN_SPEND;
   const classifier = opts.classifier ?? DEFAULT_CLASSIFIER;
   const resolution = opts.resolution ?? DEFAULT_RESOLUTION;
   const darkNodes = tree.filter((n) => n.layer === "Unknown");
@@ -38278,7 +38278,7 @@ function computeAttention(tree, vaultDir, opts = {}) {
       calls,
       ms,
       tokens: tokens2,
-      weightedCost: weightedTokenCost(tokens2, weights)
+      weightedCost: weightedTokenCost(tokens2, weightedTokenSpend)
     };
   });
   const byClass = emptyByClass(classifier.classes);
@@ -38539,7 +38539,7 @@ function formatCost(n) {
 function appendAttention(lines, ctx, tree) {
   if (!tree.some((n) => n.layer === "Unknown")) return;
   const rollup = computeAttention(tree, ctx.dir, {
-    weights: ctx.genome.tokenWeights,
+    weightedTokenSpend: ctx.genome.weightedTokenSpend,
     classifier: ctx.genome.classifier,
     resolution: ctx.genome.resolution,
     attribution: ctx.genome.attribution,
@@ -38566,7 +38566,7 @@ function appendAttention(lines, ctx, tree) {
   const recorded = attributed + rollup.unattributed.calls;
   if (recorded > 0) {
     const share = Math.round(rollup.unattributed.calls / recorded * 100);
-    const stray = weightedTokenCost(rollup.unattributed.tokens, ctx.genome.tokenWeights);
+    const stray = weightedTokenCost(rollup.unattributed.tokens, ctx.genome.weightedTokenSpend);
     lines.push(
       `  unattributed: ${rollup.unattributed.calls}/${recorded} recorded call(s) (${share}%) named no unknown` + (stray > 0 ? `, weighted cost ${formatCost(stray)}` : "")
     );
