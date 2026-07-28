@@ -47,9 +47,14 @@ export function classifyUnknown(node: OstNode): UnknownClass {
 }
 
 /**
- * Resolution is recorded, never claimed. Abandonment is checked first so that
- * a deferred unknown reads as abandoned even if an answer was drafted — the
- * human's call outranks the draft.
+ * A mechanical presence check, on the same precedent as `hasRecordedResult`
+ * (`eval/evidence-debt.ts`): satisfied means an `## Answer` heading exists or a
+ * human moved the node to `validated`, never that the answer was checked
+ * against its declared Format. That is a floor, not a verdict — an agent can
+ * still write `## Answer` on nothing, or set `status: validated` on its own
+ * node, and this function will call it satisfied either way. Abandonment is
+ * checked first so that a deferred unknown reads as abandoned even if an
+ * answer was drafted — the human's call outranks the draft.
  */
 export function resolutionState(node: OstNode): ResolutionState {
   if (node.status === "deferred") return "abandoned";
