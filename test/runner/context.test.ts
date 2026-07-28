@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { initVault } from "../../src/runner/init.js";
 import { buildPassContext } from "../../src/runner/context.js";
 import { configPath } from "../../src/config/load.js";
+import { genomePath } from "../../src/genome/load.js";
 
 let dir: string;
 const ENV_KEYS = ["ATLASSIAN_BASE_URL", "ATLASSIAN_EMAIL", "ATLASSIAN_API_TOKEN"];
@@ -69,5 +70,37 @@ describe("buildPassContext adapter wiring", () => {
     process.env.ATLASSIAN_API_TOKEN = "tok";
     const ctx = buildPassContext(dir);
     expect(ctx.sources.map((s) => s.name).sort()).toEqual(["atlassian", "inbox", "usage"]);
+  });
+});
+
+describe("buildPassContext budget wiring — the operator's number, unless the genome says otherwise", () => {
+  test("with NO genome.yaml the budget is the operator's configured number — an absent genome changes nothing", () => {
+    fs.writeFileSync(
+      configPath(dir),
+      `outcome: "Reach 10,000 daily active users"\nweb:\n  lookupBudget: 4\n`,
+      "utf8",
+    );
+    expect(fs.existsSync(genomePath(dir))).toBe(false);
+    expect(buildPassContext(dir).web?.budget?.limit).toBe(4);
+  });
+
+  test("a genome with a null sharedPool still defers to the operator — the default genome is not an override", () => {
+    fs.writeFileSync(
+      configPath(dir),
+      `outcome: "Reach 10,000 daily active users"\nweb:\n  lookupBudget: 4\n`,
+      "utf8",
+    );
+    fs.writeFileSync(genomePath(dir), `budgets:\n  perClass: {}\n`, "utf8");
+    expect(buildPassContext(dir).web?.budget?.limit).toBe(4);
+  });
+
+  test("an explicit sharedPool takes the wheel and the operator's number stands down", () => {
+    fs.writeFileSync(
+      configPath(dir),
+      `outcome: "Reach 10,000 daily active users"\nweb:\n  lookupBudget: 4\n`,
+      "utf8",
+    );
+    fs.writeFileSync(genomePath(dir), `budgets:\n  sharedPool: 2\n`, "utf8");
+    expect(buildPassContext(dir).web?.budget?.limit).toBe(2);
   });
 });

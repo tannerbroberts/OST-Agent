@@ -9,6 +9,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { buildOstTools, type ToolContext } from "../../src/security/tools.js";
 import { createLookupBudget } from "../../src/web/budget.js";
+import { defaultGenome } from "../../src/genome/load.js";
 import { hostTrustPath } from "../../src/knowledge/web-trust.js";
 import type { WebFetchFn } from "../../src/web/reader.js";
 import { Vault } from "../../src/ost/vault.js";
@@ -110,5 +111,30 @@ describe("ost_read_repo", () => {
     } finally {
       fs.rmSync(repo, { recursive: true, force: true });
     }
+  });
+});
+
+describe("the exhaustion instruction is genome policy, not a constant", () => {
+  test("the default genome answers with today's sentence — extraction changed nothing an operator can see", async () => {
+    const ctx = baseCtx({ genome: defaultGenome(), web: { fetchFn: htmlFetch, budget: createLookupBudget(1) } });
+    const read = tool(ctx, "ost_read_web");
+    await read.run({ url: "https://example.com/a" });
+    const refused = await read.run({ url: "https://example.com/b" });
+    expect(refused).toMatch(/open question|annotate/i);
+    expect(refused).not.toContain("ost_create_node");
+  });
+
+  test("onExhaustion record-unknown tells the session to file the darkness on the tree instead", async () => {
+    const g = defaultGenome();
+    const ctx = baseCtx({
+      genome: { ...g, budgets: { ...g.budgets, onExhaustion: "record-unknown" } },
+      web: { fetchFn: htmlFetch, budget: createLookupBudget(1) },
+    });
+    const read = tool(ctx, "ost_read_web");
+    await read.run({ url: "https://example.com/a" });
+    const refused = await read.run({ url: "https://example.com/b" });
+    expect(refused).toMatch(/budget spent/i);
+    expect(refused).toContain("ost_create_node");
+    expect(refused).toContain("## Format");
   });
 });

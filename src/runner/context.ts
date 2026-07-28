@@ -123,7 +123,9 @@ export function buildPassContext(vaultDir: string, opts: BuildPassContextOptions
     // answers with the setup hint at call time rather than failing the build.
     web: {
       searchApiKey: process.env.BRAVE_SEARCH_API_KEY,
-      budget: createLookupBudget(config.web.lookupBudget),
+      // The operator's number governs unless the genome explicitly overrides
+      // it — one budget, never two that can disagree.
+      budget: createLookupBudget(genome.budgets, config.web.lookupBudget),
     },
     productRepos: config.product.repos,
   };

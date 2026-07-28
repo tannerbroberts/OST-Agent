@@ -107,13 +107,15 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
   // Resolved ONCE here, at tool-set construction, and captured by every closure
   // below — never re-read inside a tool's `run`. `ost_ingest_inbox` further down
   // this file calls `loadConfig(dir)` per invocation; that is the shape to avoid,
-  // not the shape to copy. Nothing reads `genome` yet (the budget gene lands in
-  // Task 6, the pivot gene in Task 8); the resolution point exists first so that
-  // when they do, there is exactly one of it and it is above every closure.
+  // not the shape to copy. The budget gene reads from here; every later gene
+  // takes the same route, so there is exactly one resolution point and it sits
+  // above every closure.
   const genome: Genome = ctx.genome ?? defaultGenome();
   // One budget for all web lookups this pass/session — created here if the
-  // context didn't bring one, so the bound holds on every surface.
-  const lookupBudget = ctx.web?.budget ?? createLookupBudget();
+  // context didn't bring one, so the bound holds on every surface. Under the
+  // default gene (sharedPool: null, perClass: {}) this is the same class-blind
+  // counter of ten it has always been.
+  const lookupBudget = ctx.web?.budget ?? createLookupBudget(genome.budgets);
   const rankedBy = `agent${ctx.surface ? `:${ctx.surface}` : ""}`;
 
   const all = [
@@ -365,7 +367,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
             "web search is not configured — set BRAVE_SEARCH_API_KEY (free tier at brave.com/search/api) in the environment that starts ost-agent. ost_read_web still works for direct URLs.",
           );
         }
-        if (!lookupBudget.take()) return budgetSpentMessage(lookupBudget.limit);
+        if (!lookupBudget.take()) return budgetSpentMessage(lookupBudget.limit, genome.budgets.onExhaustion);
         const results = await searchWeb(input.query, { apiKey, count: input.count, fetchFn: ctx.web?.fetchFn });
         const trust = readHostTrust(dir);
         return JSON.stringify(
@@ -392,7 +394,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         required: ["url"],
       },
       run: async (input: { url: string }) => {
-        if (!lookupBudget.take()) return budgetSpentMessage(lookupBudget.limit);
+        if (!lookupBudget.take()) return budgetSpentMessage(lookupBudget.limit, genome.budgets.onExhaustion);
         const page = await readWebPage(input.url, { fetchFn: ctx.web?.fetchFn });
         const trust = hostRung(readHostTrust(dir), page.host);
         return [
