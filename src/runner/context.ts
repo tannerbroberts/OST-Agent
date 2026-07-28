@@ -13,6 +13,7 @@ import { SlackSource, HttpSlackClient } from "../adapters/slack.js";
 import type { Source } from "../adapters/source.js";
 import { Vault } from "../ost/vault.js";
 import { createLookupBudget } from "../web/budget.js";
+import { braveProvider } from "../web/search.js";
 import { OST_RULESET } from "../knowledge/ruleset.js";
 import { defaultGenome, loadGenome } from "../genome/load.js";
 import type { PassContext } from "../processes/types.js";
@@ -120,9 +121,11 @@ export function buildPassContext(vaultDir: string, opts: BuildPassContextOptions
     sources,
     remote: { enabled: config.remote.enabled, url: config.remote.url },
     // The key is optional: ost_read_web works without it, and ost_search_web
-    // answers with the setup hint at call time rather than failing the build.
+    // answers at call time — with results if a provider resolved, otherwise
+    // with the delegation instruction.
     web: {
       searchApiKey: process.env.BRAVE_SEARCH_API_KEY,
+      provider: process.env.BRAVE_SEARCH_API_KEY ? braveProvider(process.env.BRAVE_SEARCH_API_KEY) : undefined,
       // The operator's number governs unless the genome explicitly overrides
       // it — one budget, never two that can disagree. The refill rate stays
       // the operator's alone: it is what makes a weeks-long session workable,

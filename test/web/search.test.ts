@@ -4,7 +4,7 @@
  * results or error messages.
  */
 import { describe, expect, test } from "vitest";
-import { searchWeb, DEFAULT_SEARCH_RESULTS, MAX_SEARCH_RESULTS } from "../../src/web/search.js";
+import { searchWeb, braveProvider, DEFAULT_SEARCH_RESULTS, MAX_SEARCH_RESULTS } from "../../src/web/search.js";
 import type { WebFetchFn } from "../../src/web/reader.js";
 
 const braveBody = JSON.stringify({
@@ -66,5 +66,21 @@ describe("searchWeb", () => {
     expect(err).toBeInstanceOf(Error);
     expect((err as Error).message).toMatch(/429/);
     expect((err as Error).message).not.toContain("sk-secret-xyz");
+  });
+});
+
+describe("braveProvider", () => {
+  test("wraps searchWeb and reports no failures", async () => {
+    const fetchFn: WebFetchFn = async () => ({
+      status: 200,
+      ok: true,
+      headers: { get: () => null },
+      text: async () => braveBody,
+    });
+    const out = await braveProvider("k").search("q", 2, fetchFn);
+    expect(out.results).toHaveLength(2);
+    expect(out.results[0].url).toBe("https://example.com/ab");
+    expect(out.failures).toEqual([]);
+    expect(braveProvider("k").name).toBe("brave");
   });
 });

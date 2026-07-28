@@ -22,7 +22,7 @@ import { flagHumansRequired } from "../ost/lanes.js";
 import { ALLOWED_TOOL_NAMES } from "./policy.js";
 import { withUsageTracing } from "../telemetry/usage.js";
 import { readWebPage, type WebFetchFn } from "../web/reader.js";
-import { searchWeb, DEFAULT_SEARCH_RESULTS, MAX_SEARCH_RESULTS } from "../web/search.js";
+import { braveProvider, DEFAULT_SEARCH_RESULTS, MAX_SEARCH_RESULTS, type SearchProvider } from "../web/search.js";
 import { budgetSpentMessage, createLookupBudget, type LookupBudget } from "../web/budget.js";
 import { HOST_RUNGS, hostRung, rankHost, readHostTrust } from "../knowledge/web-trust.js";
 import { readProductRepo } from "../product/repo.js";
@@ -145,7 +145,7 @@ export interface ToolContext {
   /** Which surface is dispatching ("mcp", "cli-tool", "pass:P2_map"); lands in the usage trace. */
   surface?: string;
   /** Outward web sensing: search key, injectable fetch, and the per-session lookup budget. */
-  web?: { searchApiKey?: string; fetchFn?: WebFetchFn; budget?: LookupBudget };
+  web?: { searchApiKey?: string; provider?: SearchProvider; fetchFn?: WebFetchFn; budget?: LookupBudget };
   /** Local product repo roots the agent may read (config `product.repos`). */
   productRepos?: readonly string[];
   /** The full pass context, needed by the tools that report on the whole vault. */
@@ -435,14 +435,16 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         required: ["query"],
       },
       run: async (input: { query: string; count?: number }) => {
-        const apiKey = ctx.web?.searchApiKey;
-        if (!apiKey) {
+        const provider =
+          ctx.web?.provider ?? (ctx.web?.searchApiKey ? braveProvider(ctx.web.searchApiKey) : undefined);
+        if (!provider) {
           throw new Error(
             "web search is not configured — set BRAVE_SEARCH_API_KEY (free tier at brave.com/search/api) in the environment that starts ost-agent. ost_read_web still works for direct URLs.",
           );
         }
-        if (!lookupBudget.take(spendClass())) return budgetSpentMessage(lookupBudget.limit, genome.budgets.onExhaustion);
-        const results = await searchWeb(input.query, { apiKey, count: input.count, fetchFn: ctx.web?.fetchFn });
+        if (!lookupBudget.take(spendClass()))
+          return budgetSpentMessage(lookupBudget.limit, genome.budgets.onExhaustion, lookupBudget.msUntilNext());
+        const { results } = await provider.search(input.query, input.count ?? DEFAULT_SEARCH_RESULTS, ctx.web?.fetchFn);
         const trust = readHostTrust(dir);
         return JSON.stringify(
           {

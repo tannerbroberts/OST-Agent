@@ -64,3 +64,30 @@ function safeHost(url: string): string {
     return "";
   }
 }
+
+/** What one search returned, plus any sources that could not be reached. */
+export interface SearchOutcome {
+  results: SearchResult[];
+  /** Sources that failed this call. Empty for single-source providers. */
+  failures: { source: string; reason: string }[];
+}
+
+/**
+ * A way to turn a query into candidate URLs. Brave is one; the federated
+ * keyless sources are another. The tool handler knows only this interface.
+ */
+export interface SearchProvider {
+  readonly name: string;
+  search(query: string, count: number, fetchFn?: WebFetchFn): Promise<SearchOutcome>;
+}
+
+/** The Brave-backed provider. Requires a key; the key never leaves the header. */
+export function braveProvider(apiKey: string): SearchProvider {
+  return {
+    name: "brave",
+    search: async (query, count, fetchFn) => ({
+      results: await searchWeb(query, { apiKey, count, fetchFn }),
+      failures: [],
+    }),
+  };
+}
