@@ -64,3 +64,48 @@ function safeHost(url: string): string {
     return "";
   }
 }
+
+/** What one search returned, plus any sources that could not be reached. */
+export interface SearchOutcome {
+  results: SearchResult[];
+  /** Sources that failed this call. Empty for single-source providers. */
+  /** `cooling` distinguishes "skipped, no request made" from "tried and failed". */
+  failures: { source: string; reason: string; cooling: boolean }[];
+}
+
+/**
+ * A way to turn a query into candidate URLs. Brave is one; the federated
+ * keyless sources are another. The tool handler knows only this interface.
+ */
+export interface SearchProvider {
+  readonly name: string;
+  search(query: string, count: number, fetchFn?: WebFetchFn): Promise<SearchOutcome>;
+}
+
+/** The Brave-backed provider. Requires a key; the key never leaves the header. */
+export function braveProvider(apiKey: string): SearchProvider {
+  return {
+    name: "brave",
+    search: async (query, count, fetchFn) => ({
+      results: await searchWeb(query, { apiKey, count, fetchFn }),
+      failures: [],
+    }),
+  };
+}
+
+/**
+ * What ost_search_web answers when no provider resolved.
+ *
+ * MCP gives a server no way to call the host's tools, so delegation cannot be
+ * hidden behind this tool — it has to be said to the agent, which is what this
+ * is. Provenance is unaffected: however a URL is found, ost_read_web is what
+ * fetches and records it.
+ */
+export function searchDelegationMessage(query: string): string {
+  return (
+    `Use your own web search tool to find candidate URLs for "${query}", then call ost_read_web ` +
+    "on each one — that is what fetches the page and records provenance as WEB:<host>, so " +
+    "traceability is identical either way. (This server has no search provider of its own, which " +
+    "is the normal setup — nothing is broken and nothing needs installing.)"
+  );
+}

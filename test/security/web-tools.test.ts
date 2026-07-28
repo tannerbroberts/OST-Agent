@@ -10,7 +10,9 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { buildOstTools, type ToolContext } from "../../src/security/tools.js";
 import { createLookupBudget } from "../../src/web/budget.js";
 import { defaultGenome } from "../../src/genome/load.js";
+import { AllSourcesFailedError } from "../../src/web/federated.js";
 import { hostTrustPath } from "../../src/knowledge/web-trust.js";
+import { MAX_SEARCH_RESULTS } from "../../src/web/search.js";
 import type { WebFetchFn } from "../../src/web/reader.js";
 import { Vault } from "../../src/ost/vault.js";
 
@@ -42,8 +44,21 @@ const htmlFetch: WebFetchFn = async () => ({
 });
 
 describe("ost_search_web", () => {
-  test("without a key, answers with the setup hint (and never a stack of vault errors)", async () => {
-    await expect(tool(baseCtx(), "ost_search_web").run({ query: "q" })).rejects.toThrow(/BRAVE_SEARCH_API_KEY/);
+  test("without a provider, instructs the agent to use its own search — and spends no budget", async () => {
+    const budget = createLookupBudget(5);
+    const out = await tool(baseCtx({ web: { budget } }), "ost_search_web").run({ query: "how do MCP hosts launch servers" });
+    expect(out).toMatch(/your own web search|host's web search/i);
+    expect(out).toMatch(/ost_read_web/);
+    expect(out).toContain("how do MCP hosts launch servers"); // re-issuing costs the agent nothing
+    expect(budget.remaining()).toBe(5); // the dead-end branch must not charge for a lookup
+  });
+
+  // This message is read by an AGENT, mid-task. Naming a credential in it is how
+  // you get an agent that stops and tells the user to go buy an API key — the
+  // exact failure the delegation default exists to remove.
+  test("the delegation message never names a credential or a config knob", async () => {
+    const out = await tool(baseCtx({ web: { budget: createLookupBudget(5) } }), "ost_search_web").run({ query: "q" });
+    expect(out).not.toMatch(/BRAVE|API[_ ]KEY|ost\.config\.yaml/i);
   });
 
   test("results carry each host's trust rung", async () => {
@@ -57,6 +72,65 @@ describe("ost_search_web", () => {
     const out = JSON.parse(await tool(ctx, "ost_search_web").run({ query: "q" }));
     expect(out.results[0].hostTrust).toBe("assertion");
     expect(out.lookupsRemaining).toBe(4);
+  });
+
+  test("names sources that were unavailable so the agent can record an honest gap", async () => {
+    const provider = {
+      name: "federated",
+      search: async () => ({
+        results: [{ title: "t", url: "https://example.com/a", snippet: "s", host: "example.com" }],
+        failures: [{ source: "wikipedia", reason: "HTTP 500", cooling: false }],
+      }),
+    };
+    const ctx = baseCtx({ web: { provider, budget: createLookupBudget(5) } });
+    const out = JSON.parse(await tool(ctx, "ost_search_web").run({ query: "q" }));
+    expect(out.results).toHaveLength(1);
+    expect(out.sourcesUnavailable).toEqual([{ source: "wikipedia", reason: "HTTP 500", cooling: false }]);
+  });
+
+  test("refunds the lookup when an outage meant it bought nothing", async () => {
+    const budget = createLookupBudget(5);
+    const provider = {
+      name: "federated",
+      search: async () => {
+        throw new AllSourcesFailedError([{ source: "wikipedia", reason: "HTTP 500", cooling: false }]);
+      },
+    };
+    const out = await tool(baseCtx({ web: { provider, budget } }), "ost_search_web").run({ query: "q" });
+    expect(out).toMatch(/every search source failed/i);
+    expect(budget.remaining()).toBe(5); // a dead lookup must not cost one
+  });
+
+  // The counterpart: an all-cooling failure is instant and touches no network,
+  // so refunding it would make retrying free and unbounded.
+  test("charges the lookup when every source is merely cooling", async () => {
+    const budget = createLookupBudget(5);
+    const provider = {
+      name: "federated",
+      search: async () => {
+        throw new AllSourcesFailedError([{ source: "wikipedia", reason: "cooling down", cooling: true }]);
+      },
+    };
+    const out = await tool(baseCtx({ web: { provider, budget } }), "ost_search_web").run({ query: "q" });
+    expect(out).toMatch(/retrying immediately will not help/i);
+    expect(budget.remaining()).toBe(4);
+  });
+
+  // A provider must not be able to turn `count: 500` into srlimit=500 against
+  // somebody's free API.
+  test("clamps count into [1, MAX_SEARCH_RESULTS] before the provider sees it", async () => {
+    const seen: number[] = [];
+    const provider = {
+      name: "federated",
+      search: async (_q: string, count: number) => {
+        seen.push(count);
+        return { results: [], failures: [] };
+      },
+    };
+    const ctx = baseCtx({ web: { provider, budget: createLookupBudget(5) } });
+    await tool(ctx, "ost_search_web").run({ query: "q", count: 500 });
+    await tool(ctx, "ost_search_web").run({ query: "q", count: 0 });
+    expect(seen).toEqual([MAX_SEARCH_RESULTS, 1]);
   });
 });
 

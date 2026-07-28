@@ -12,6 +12,7 @@ import type { RemoteConfig } from "../security/tools.js";
 import type { Source } from "../adapters/source.js";
 import type { Vault } from "../ost/vault.js";
 import type { WebFetchFn } from "../web/reader.js";
+import type { SearchProvider } from "../web/search.js";
 import type { LookupBudget } from "../web/budget.js";
 
 export interface PassContext {
@@ -34,7 +35,7 @@ export interface PassContext {
   sources: Source[];
   remote: RemoteConfig;
   /** Outward web sensing: search key, injectable fetch, per-session lookup budget. */
-  web?: { searchApiKey?: string; fetchFn?: WebFetchFn; budget?: LookupBudget };
+  web?: { searchApiKey?: string; provider?: SearchProvider; fetchFn?: WebFetchFn; budget?: LookupBudget };
   /** Local product repo roots the agent may read (config `product.repos`). */
   productRepos?: readonly string[];
 }

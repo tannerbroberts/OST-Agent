@@ -52,6 +52,59 @@ describe("createLookupBudget", () => {
     expect(msg).toMatch(/budget/i);
     expect(msg).toMatch(/annotate|record|cite|open question/i);
   });
+
+  test("refills over time at the configured hourly rate", () => {
+    let clock = 0;
+    const b = createLookupBudget(10, undefined, { refillPerHour: 10, now: () => clock });
+    for (let i = 0; i < 10; i++) b.take();
+    expect(b.take()).toBe(false);
+
+    clock += 6 * 60 * 1000; // six minutes = one token at 10/hour
+    expect(b.remaining()).toBe(1);
+    expect(b.take()).toBe(true);
+    expect(b.take()).toBe(false);
+  });
+
+  test("never refills past the burst capacity", () => {
+    let clock = 0;
+    const b = createLookupBudget(10, undefined, { refillPerHour: 10, now: () => clock });
+    b.take();
+    clock += 24 * 60 * 60 * 1000; // a full day of refill
+    expect(b.remaining()).toBe(10);
+  });
+
+  test("refillPerHour: 0 reproduces the old non-refilling behaviour", () => {
+    let clock = 0;
+    const b = createLookupBudget(2, undefined, { refillPerHour: 0, now: () => clock });
+    b.take();
+    b.take();
+    clock += 365 * 24 * 60 * 60 * 1000;
+    expect(b.take()).toBe(false);
+    expect(b.msUntilNext()).toBe(Infinity);
+  });
+
+  test("refund returns a token without exceeding capacity", () => {
+    const b = createLookupBudget(2, undefined, { refillPerHour: 0 });
+    b.take();
+    b.refund();
+    expect(b.remaining()).toBe(2);
+    b.refund(); // already full
+    expect(b.remaining()).toBe(2);
+  });
+
+  test("msUntilNext reports the wait once exhausted", () => {
+    let clock = 0;
+    const b = createLookupBudget(1, undefined, { refillPerHour: 60, now: () => clock }); // one per minute
+    b.take();
+    expect(b.msUntilNext()).toBe(60_000);
+    clock += 30_000;
+    expect(b.msUntilNext()).toBe(30_000);
+  });
+
+  test("the spent message names the wait when one is known", () => {
+    expect(budgetSpentMessage(10, "instruct", 12 * 60 * 1000)).toMatch(/12 minutes/);
+    expect(budgetSpentMessage(10, "instruct", Infinity)).not.toMatch(/minutes/);
+  });
 });
 
 describe("createLookupBudget — the operator's number and the genome's", () => {
@@ -122,9 +175,15 @@ describe("createLookupBudget — per-class caps", () => {
 });
 
 describe("budgetSpentMessage — the exhaustion instruction is an allele", () => {
-  test("instruct is the default and is byte-identical to the sentence that shipped before the genome", () => {
+  // This pinned the sentence byte-for-byte against the genome extraction, which
+  // was meant to change no behaviour. Refill is a real behaviour change and it
+  // moved one clause: the pool is no longer "this session", it is a burst that
+  // refills within a session, so the old wording had become false. Everything
+  // downstream of the first sentence is still pinned, and `instruct` is still
+  // the default — which is what this test was actually guarding.
+  test("instruct is the default, and says what the pool now is", () => {
     const expected =
-      "Lookup budget spent (10 web lookups this session). " +
+      "Lookup budget spent (10 web lookups in this burst). " +
       "Work from what you have already read and cite it. If something essential is still unknown, " +
       "record it as an open question on the relevant node (ost_annotate or a note in the body) " +
       "so the next session can pick it up with a fresh budget.";

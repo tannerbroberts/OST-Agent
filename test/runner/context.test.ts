@@ -8,7 +8,7 @@ import { configPath } from "../../src/config/load.js";
 import { genomePath } from "../../src/genome/load.js";
 
 let dir: string;
-const ENV_KEYS = ["ATLASSIAN_BASE_URL", "ATLASSIAN_EMAIL", "ATLASSIAN_API_TOKEN"];
+const ENV_KEYS = ["ATLASSIAN_BASE_URL", "ATLASSIAN_EMAIL", "ATLASSIAN_API_TOKEN", "BRAVE_SEARCH_API_KEY"];
 let saved: Record<string, string | undefined>;
 
 beforeEach(async () => {
@@ -102,5 +102,43 @@ describe("buildPassContext budget wiring — the operator's number, unless the g
     );
     fs.writeFileSync(genomePath(dir), `budgets:\n  sharedPool: 2\n`, "utf8");
     expect(buildPassContext(dir).web?.budget?.limit).toBe(2);
+  });
+});
+
+/**
+ * Brave, else the keyless federated sources if they are turned on, else
+ * nothing — in which case ost_search_web tells the agent to use its host's own
+ * search, which is the normal path in Claude Code.
+ */
+describe("search provider resolution", () => {
+  function enableFederated(hosts: string[] = []) {
+    fs.writeFileSync(
+      configPath(dir),
+      `outcome: "Reach 10,000 daily active users"\nweb:\n  search:\n    federated:\n      enabled: true\n      discourseHosts: [${hosts.join(", ")}]\n`,
+      "utf8",
+    );
+  }
+
+  test("no key and federated off resolves no provider — the delegation default", () => {
+    expect(buildPassContext(dir).web?.provider).toBeUndefined();
+  });
+
+  test("a Brave key wins over the keyless fallback", () => {
+    process.env.BRAVE_SEARCH_API_KEY = "k";
+    enableFederated();
+    expect(buildPassContext(dir).web?.provider?.name).toBe("brave");
+  });
+
+  test("federated enabled resolves the keyless sources, including configured Discourse hosts", async () => {
+    enableFederated(["forum.obsidian.md"]);
+    const provider = buildPassContext(dir).web?.provider;
+    expect(provider?.name).toBe("federated");
+
+    const asked: string[] = [];
+    await provider?.search("q", 3, async (url) => {
+      asked.push(new URL(url).hostname);
+      return { status: 200, ok: true, headers: { get: () => null }, text: async () => "{}" };
+    });
+    expect(asked.sort()).toEqual(["en.wikipedia.org", "forum.obsidian.md", "hn.algolia.com"]);
   });
 });

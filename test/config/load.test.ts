@@ -74,6 +74,29 @@ describe("loadConfig", () => {
     expect(() => loadConfig(dir)).toThrow(/ost-agent init/);
   });
 
+  /**
+   * Federated search must default OFF. If it defaulted on, provider resolution
+   * would never reach the delegation branch, and an agent in a host that HAS
+   * web search would silently get the narrower keyless results instead.
+   */
+  test("federated search is off by default and its host list is capped", () => {
+    write("outcome: X\n");
+    const cfg = loadConfig(dir);
+    expect(cfg.web.search.federated.enabled).toBe(false);
+    expect(cfg.web.search.federated.discourseHosts).toEqual([]);
+
+    write("outcome: X\nweb:\n  search:\n    federated:\n      enabled: true\n      discourseHosts: [forum.obsidian.md]\n");
+    const on = loadConfig(dir);
+    expect(on.web.search.federated.enabled).toBe(true);
+    expect(on.web.search.federated.discourseHosts).toEqual(["forum.obsidian.md"]);
+
+    // The merge fills from the front, so a long list is mostly live requests
+    // against somebody's free forum whose results are thrown away.
+    const six = ["a.com", "b.com", "c.com", "d.com", "e.com", "f.com"];
+    write(`outcome: X\nweb:\n  search:\n    federated:\n      discourseHosts: [${six.join(", ")}]\n`);
+    expect(() => loadConfig(dir)).toThrow(/discourseHosts/);
+  });
+
   test("applies inbox defaults when adapters omitted", () => {
     write("outcome: X\n");
     const cfg = loadConfig(dir);

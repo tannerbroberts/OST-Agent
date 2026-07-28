@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- **Web search no longer needs an API key.** `ost_search_web` now tells the agent
+  to use its host's own web search and feed URLs to `ost_read_web`, which is what
+  records provenance. Keyless federated sources (Wikipedia, Hacker News, Discourse)
+  are available as an opt-in fallback for hosts with no search of their own, and a
+  `BRAVE_SEARCH_API_KEY` remains supported as an optional upgrade.
+- **The lookup budget refills.** It was capped per process, which meant a session
+  running for weeks got 10 lookups in total. Burst capacity is unchanged;
+  `web.lookupRefillPerHour` (default 10) sets the sustained rate.
+
 ## 0.23.0
 
 - **Every policy governing what OST-Agent does with what it cannot see is now data, and
@@ -51,7 +62,6 @@
   promotion gate are all documented as permanently outside the genome, with the reason
   stated: a variant able to relax any of them would score well by corrupting the instrument
   rather than by being better, and a fitness number cannot tell those two apart.
-
 ## 0.22.0
 
 - **Every count now states the denominator it was taken over.** `status` reported
