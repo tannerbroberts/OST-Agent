@@ -13,6 +13,17 @@
  *
  * Every parse failure degrades to zero rather than to NaN or a throw: this
  * reads a file no OST-Agent process wrote, so it is untrusted input.
+ *
+ * This module is the EXTRACTION half only — it has no production caller yet.
+ * A session's tokens cover everything that session did, which may span several
+ * unknowns (or none), so attributing them to one unknown needs a split policy;
+ * per the design, that policy is a genome allele, not a constant to bake in
+ * early. It is consumed starting in Phase 2, once genome extraction lands and
+ * the loop is setting `OST_UNKNOWN` itself, which is what gives token
+ * correlation something real to attribute against. Until then, per-unknown
+ * cost in `computeAttention` is calls and wall-clock only — see
+ * `docs/superpowers/specs/2026-07-27-epistemic-uncertainty-design.md`,
+ * "Scope and sequencing".
  */
 import fs from "node:fs";
 import { addTiers, emptyTiers, type TokenTiers } from "../telemetry/attention.js";

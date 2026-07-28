@@ -149,8 +149,8 @@ friction filing / failed evaluation / unanswerable node
 
 Four phases, each its own implementation plan. Phase 1 answers the original problem statement standing alone.
 
-1. **The ledger** — `#Unknown` node type, attention sidecar, `OST_UNKNOWN` attribution, transcript cost correlation, resolution recording. Makes uncertainty visible and measurable with no harness in sight.
-2. **Genome extraction** — move policy out of code into declarative data; kernel interprets. Verified by behavioral identity under the default genome.
+1. **The ledger** — `#Unknown` node type, attention sidecar, `OST_UNKNOWN` attribution, resolution recording. Makes uncertainty visible and measurable — from tool-call counts and wall-clock, not yet tokens — with no harness in sight.
+2. **Genome extraction** — move policy out of code into declarative data; kernel interprets. Verified by behavioral identity under the default genome. **Transcript token correlation lands here, not in Phase 1**: attributing one Claude Code session's tokens across multiple unknowns needs a split policy, and per this design's own rule (`src/eval/attention.ts`'s weighting-at-read-time discipline) that policy must be an evolvable allele rather than a constant baked in early — so it waits on genome extraction. It also has nothing real to correlate against until `OST_UNKNOWN` is set by the loop rather than by hand, which is this same phase. `src/adapters/tokens.ts` ships its extraction half in Phase 1 groundwork but is not called by any production path until Phase 2 wires it in.
 3. **Harness and environments** — generator, replay holdout, null environments, fitness computation.
 4. **Selection** — variance decomposition, replication requirement, promotion gate, periodic re-widening.
 
