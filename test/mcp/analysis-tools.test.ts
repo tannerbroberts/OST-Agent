@@ -62,7 +62,7 @@ test("ost_check returns exactly what the renderer returns", async () => {
   const client = await connect(dir);
   const res = await call(client, "ost_check");
   expect(res.isError).toBeFalsy();
-  expect(res.content[0].text).toBe(renderCheck(buildPassContext(dir).vault.readTree()).text);
+  expect(res.content[0].text).toBe(renderCheck(buildPassContext(dir).vault.readTreeCensus()).text);
 });
 
 test("ost_debt returns exactly what the renderer returns", async () => {
@@ -74,7 +74,7 @@ test("ost_debt returns exactly what the renderer returns", async () => {
 test("ost_status returns exactly what the renderer returns", async () => {
   const client = await connect(dir);
   const res = await call(client, "ost_status");
-  expect(res.content[0].text).toBe(renderStatus(buildPassContext(dir)));
+  expect(res.content[0].text).toBe(renderStatus(buildPassContext(dir), buildPassContext(dir).vault.readTreeCensus()));
 });
 
 test("ost_gate carries the verdict in its text", async () => {

@@ -85,3 +85,27 @@ describe("serialize / deserialize round-trip", () => {
     expect(() => deserialize("bad", bad)).toThrow();
   });
 });
+
+describe("the Unknown layer", () => {
+  test("round-trips an Unknown node with its contract sections intact", () => {
+    const node: OstNode = {
+      title: "How many users hit the export path",
+      layer: "Unknown",
+      tags: [],
+      links: [],
+      evidence: "assertion",
+      body: "## Format\ncount per day\n\n## Methodology\nproduct telemetry\n\n## Rationale\nserves [[Reach 10,000 daily active users]]",
+    };
+    const back = deserialize(node.title, serialize(node));
+    expect(back.layer).toBe("Unknown");
+    expect(back.body).toContain("## Format");
+    expect(back.body).toContain("## Methodology");
+  });
+
+  test("renders the #Unknown tag so Obsidian colors darkness distinctly", () => {
+    const node: OstNode = {
+      title: "U", layer: "Unknown", tags: [], links: [], body: "b", evidence: "assertion",
+    };
+    expect(serialize(node)).toContain("#Unknown");
+  });
+});

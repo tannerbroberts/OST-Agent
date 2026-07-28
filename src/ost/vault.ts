@@ -11,13 +11,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
-import { deserialize, serialize, type Layer, type NodeStatus, type OstNode } from "./node.js";
+import { deserialize, serialize, type Layer, type NodeStatus, type OstNode, LAYERS } from "./node.js";
 import { fileNameForTitle, sanitizeTitle } from "./sanitize.js";
 import type { CensusDrop, TreeCensus } from "./census.js";
 import type { RungId } from "../knowledge/believability.js";
 import type { LaneId } from "../knowledge/lanes.js";
-
-const VALID_LAYERS: readonly Layer[] = ["Outcome", "Opportunity", "Solution", "AssumptionTest"];
 
 function isoToday(): string {
   return new Date().toISOString().slice(0, 10);
@@ -141,7 +139,7 @@ export class Vault {
         continue;
       }
 
-      if (typeof type !== "string" || !VALID_LAYERS.includes(type as Layer)) {
+      if (typeof type !== "string" || !LAYERS.includes(type as Layer)) {
         skipped.push({
           file: e.name,
           reason:

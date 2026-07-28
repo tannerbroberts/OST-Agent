@@ -15,6 +15,7 @@ import { tool } from "./tool.js";
 import { gitCommit, gitPush } from "../git/safe-git.js";
 import { type NodeStatus, type OstNode } from "../ost/node.js";
 import { BELIEVABILITY_LADDER, isRung, type RungId } from "../knowledge/believability.js";
+import { classifyUnknown } from "../knowledge/unknowns.js";
 import { Vault } from "../ost/vault.js";
 import { computeNextWork } from "../mcp/next-work.js";
 import { flagHumansRequired } from "../ost/lanes.js";
@@ -26,10 +27,14 @@ import { budgetSpentMessage, createLookupBudget, type LookupBudget } from "../we
 import { HOST_RUNGS, hostRung, rankHost, readHostTrust } from "../knowledge/web-trust.js";
 import { readProductRepo } from "../product/repo.js";
 import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/render.js";
+import { reconcileWithGit } from "../ost/census.js";
 import { InboxSource } from "../adapters/inbox.js";
 import { loadCursor, saveCursor } from "../adapters/source.js";
 import { writeEvidence } from "../processes/tree.js";
 import { loadConfig } from "../config/load.js";
+import { DEFAULT_MIN_SOLUTIONS_PER_OPPORTUNITY } from "../config/schema.js";
+import { defaultGenome } from "../genome/load.js";
+import type { Genome } from "../genome/schema.js";
 import type { PassContext } from "../processes/types.js";
 
 const STATUS_VALUES = ["unvalidated", "validated", "in-discovery", "shipped", "deferred"];
@@ -59,7 +64,63 @@ const CHILD_HIERARCHY: Record<string, string[]> = {
   Opportunity: ["Outcome", "Opportunity"],
   Solution: ["Opportunity"],
   AssumptionTest: ["Solution"],
+  Unknown: ["Outcome", "Opportunity", "Solution", "AssumptionTest"],
 };
+
+/**
+ * The tools whose spend can honestly belong to ONE unknown.
+ *
+ * Attribution is declared, not inferred: each of these carries an optional
+ * `unknown` property naming the #Unknown node the call is being spent on, which
+ * the MCP dispatch point turns into the OST_UNKNOWN marker `withUsageTracing`
+ * already reads. The alternative — inferring attribution from whichever node a
+ * call happens to name — would make "unattributed share" a heuristic artifact
+ * rather than the honest metric the design requires it to be.
+ *
+ * The line is: does this call do work on behalf of one unknown — write to the
+ * tree, or reach outside the vault? The whole-tree reports (`ost_read_tree`,
+ * `ost_next_work`, `ost_check`, `ost_debt`, `ost_status`, `ost_gate`) and
+ * `ost_ingest_inbox` are not here: they answer questions about the tree as a
+ * whole, and `ost_next_work` in particular is the call you make BEFORE you know
+ * which unknown you are working.
+ *
+ * `ost_flag_humans_required` is excluded deliberately despite being a write. Its
+ * schema is pinned to exactly two properties by a guard that exists to keep the
+ * permissive lane call inexpressible (test/security/lane-capability.test.ts);
+ * widening it, even with something inert, re-opens a boundary settled elsewhere,
+ * and one rarely-called tool's attribution is not worth that.
+ */
+export const ATTRIBUTABLE_TOOLS: readonly string[] = [
+  "ost_create_node",
+  "ost_append_to_node",
+  "ost_link_nodes",
+  "ost_set_status",
+  "ost_set_evidence",
+  "ost_annotate",
+  "ost_search_web",
+  "ost_read_web",
+  "ost_read_repo",
+  "ost_rank_source",
+] as const;
+
+const ATTRIBUTABLE = new Set<string>(ATTRIBUTABLE_TOOLS);
+
+/**
+ * A fresh schema fragment per tool, so no two schemas share one object.
+ *
+ * Nothing validates the title against the tree here. A name that is not (or is
+ * no longer) on the tree is a bookkeeping disagreement, and refusing an
+ * otherwise-valid write over one would be a worse trade than an honestly stale
+ * record; what to do with it is a read-time decision the genome makes
+ * (`attribution.staleAttribution`).
+ */
+function unknownProperty(): Record<string, unknown> {
+  return {
+    type: "string",
+    description:
+      "Optional: the title of the #Unknown node this call is being spent on, so the attention it costs is attributed to the darkness it was meant to reduce. Omit it when the call serves no particular unknown — spend with no marker is recorded as unattributed, and an unattributed call is better than one billed to the wrong unknown.",
+  };
+}
 
 export interface RemoteConfig {
   enabled: boolean;
@@ -73,6 +134,14 @@ export interface ToolContext {
   remote: RemoteConfig;
   /** minSolutionsPerOpportunity — how ost_next_work decides an opportunity is under-served (default 3). */
   minSolutionsPerOpportunity?: number;
+  /**
+   * The pass's genome — the policy this tool set interprets. Optional because a
+   * ToolContext is also assembled by hand (tests, the CLI's narrow surfaces);
+   * absent means the default genome, which is today's behaviour exactly. A
+   * `PassContext` satisfies this structurally, so the MCP and CLI surfaces get
+   * it for free.
+   */
+  genome?: Genome;
   /** Which surface is dispatching ("mcp", "cli-tool", "pass:P2_map"); lands in the usage trace. */
   surface?: string;
   /** Outward web sensing: search key, injectable fetch, and the per-session lookup budget. */
@@ -90,10 +159,37 @@ export interface ToolContext {
  */
 export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]) {
   const { vault, dir, remote } = ctx;
-  const minSolutions = ctx.minSolutionsPerOpportunity ?? 3;
+  const minSolutions = ctx.minSolutionsPerOpportunity ?? DEFAULT_MIN_SOLUTIONS_PER_OPPORTUNITY;
+  // Resolved ONCE here, at tool-set construction, and captured by every closure
+  // below — never re-read inside a tool's `run`. `ost_ingest_inbox` further down
+  // this file calls `loadConfig(dir)` per invocation; that is the shape to avoid,
+  // not the shape to copy. The budget gene reads from here; every later gene
+  // takes the same route, so there is exactly one resolution point and it sits
+  // above every closure.
+  const genome: Genome = ctx.genome ?? defaultGenome();
   // One budget for all web lookups this pass/session — created here if the
-  // context didn't bring one, so the bound holds on every surface.
-  const lookupBudget = ctx.web?.budget ?? createLookupBudget();
+  // context didn't bring one, so the bound holds on every surface. Under the
+  // default gene (sharedPool: null, perClass: {}) this is the same class-blind
+  // counter of ten it has always been.
+  const lookupBudget = ctx.web?.budget ?? createLookupBudget(genome.budgets);
+  // The class the budget charges against comes from the marker the caller set:
+  // which unknown this lookup is for, classed by the genome's classifier. A call
+  // with no marker charges the shared pool, exactly as before — and so does a
+  // marker naming a title that is not on the tree, because a class we cannot
+  // derive is not a class we may invent.
+  //
+  // Resolved per call rather than per tool set: the marker changes between
+  // calls (dispatch owns it for exactly one call's span), so a value captured at
+  // build time would bill every lookup to whichever unknown happened to be
+  // current when the tools were built. The tree read is one directory scan
+  // against a network fetch — the wrong thing to optimise here would be
+  // correctness.
+  const spendClass = (): string | undefined => {
+    const title = process.env.OST_UNKNOWN;
+    if (!title) return undefined;
+    const node = vault.readTree().find((n) => n.layer === "Unknown" && n.title === title);
+    return node ? classifyUnknown(node, genome.classifier) : undefined;
+  };
   const rankedBy = `agent${ctx.surface ? `:${ctx.surface}` : ""}`;
 
   const all = [
@@ -117,21 +213,21 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
     tool({
       name: "ost_next_work",
       description:
-        "Read-only orchestration: report exactly what maintenance the tree still needs, so you know what to do next without re-deriving it. Returns unmapped evidence (→ create #Opportunity nodes), under-served opportunities with < the configured minimum solutions (→ ideate #Solution nodes, status 'unvalidated'), solutions with no assumption test (→ surface #AssumptionTest nodes), and structural hygiene issues (→ annotate, never delete). `done: true` means nothing is outstanding. Call this at the start of a pass.",
+        "Read-only orchestration: report exactly what maintenance the tree still needs, so you know what to do next without re-deriving it. Returns unmapped evidence (→ create #Opportunity nodes), under-served opportunities with < the configured minimum solutions (→ ideate #Solution nodes, status 'unvalidated'), solutions with no assumption test (→ surface #AssumptionTest nodes), structural hygiene issues (→ annotate, never delete), and `openUnknowns` — every #Unknown still unresolved, with its class and contract gaps, offered as darkness worth exploring. `done: true` means nothing is outstanding; open unknowns are reported but never block `done`. Call this at the start of a pass.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
-      run: async () => JSON.stringify(computeNextWork(vault, dir, minSolutions), null, 2),
+      run: async () => JSON.stringify(computeNextWork(vault, dir, minSolutions, genome), null, 2),
     }),
 
     tool({
       name: "ost_create_node",
       description:
-        "Create a NEW node AND attach it under an existing parent in one atomic step — so a node can never be an orphan. You CANNOT create an Outcome (there is exactly one, human-set at init). Hierarchy is enforced: an Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an AssumptionTest under a Solution. The type tag (#Opportunity / #Solution / #AssumptionTest) is applied automatically.",
+        "Create a NEW node AND attach it under an existing parent in one atomic step — so a node can never be an orphan. You CANNOT create an Outcome (there is exactly one, human-set at init). Hierarchy is enforced: an Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an AssumptionTest under a Solution; an Unknown (darkness, representing uncertainty) attaches under any layer. The type tag (#Opportunity / #Solution / #AssumptionTest / #Unknown) is applied automatically. For an Unknown, write its body with three `## ` sections — `## Format` (the shape a valid answer would take), `## Methodology` (how it would be collected), and `## Rationale` (which node this darkens and what metric it serves) — because Format is the stopping condition: an unknown that cannot say what an answer looks like cannot know when it is done, and one lacking Methodology is worth commissioning observability for rather than chasing further.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
         properties: {
           title: { type: "string", description: "Node title; also the filename." },
-          layer: { type: "string", enum: ["Opportunity", "Solution", "AssumptionTest"], description: "Opportunity | Solution | AssumptionTest (Outcome cannot be created here)" },
+          layer: { type: "string", enum: ["Opportunity", "Solution", "AssumptionTest", "Unknown"], description: "Opportunity | Solution | AssumptionTest | Unknown (Outcome cannot be created here)" },
           parent: { type: "string", description: "Title of the existing parent node to attach under." },
           body: { type: "string", description: "Prose description of the node." },
           status: { type: "string", enum: STATUS_VALUES },
@@ -345,7 +441,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
             "web search is not configured — set BRAVE_SEARCH_API_KEY (free tier at brave.com/search/api) in the environment that starts ost-agent. ost_read_web still works for direct URLs.",
           );
         }
-        if (!lookupBudget.take()) return budgetSpentMessage(lookupBudget.limit);
+        if (!lookupBudget.take(spendClass())) return budgetSpentMessage(lookupBudget.limit, genome.budgets.onExhaustion);
         const results = await searchWeb(input.query, { apiKey, count: input.count, fetchFn: ctx.web?.fetchFn });
         const trust = readHostTrust(dir);
         return JSON.stringify(
@@ -372,7 +468,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         required: ["url"],
       },
       run: async (input: { url: string }) => {
-        if (!lookupBudget.take()) return budgetSpentMessage(lookupBudget.limit);
+        if (!lookupBudget.take(spendClass())) return budgetSpentMessage(lookupBudget.limit, genome.budgets.onExhaustion);
         const page = await readWebPage(input.url, { fetchFn: ctx.web?.fetchFn });
         const trust = hostRung(readHostTrust(dir), page.host);
         return [
@@ -431,7 +527,11 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
       description:
         "Run the deterministic tree invariants and report every violation. No model, no writes — the same check the CI gate runs. Read-only.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
-      run: async () => renderCheck(vault.readTree()).text,
+      run: async () => {
+        const census = vault.readTreeCensus();
+        census.independent = await reconcileWithGit(dir, census);
+        return renderCheck(census).text;
+      },
     }),
 
     tool({
@@ -449,7 +549,9 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       run: async () => {
         if (!ctx.passContext) throw new Error("ost_status needs a pass context");
-        return renderStatus(ctx.passContext);
+        const census = vault.readTreeCensus();
+        census.independent = await reconcileWithGit(ctx.passContext.dir, census);
+        return renderStatus(ctx.passContext, census);
       },
     }),
 
@@ -531,6 +633,16 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
       },
     }),
   ];
+
+  // Declared, never smuggled: every schema above carries
+  // `additionalProperties: false`, so an undeclared `unknown` would be refused
+  // by validateToolInput before the tool ever ran. Each `all` element is built
+  // fresh on every call, so mutating its schema here is local to this tool set.
+  for (const t of all) {
+    if (!ATTRIBUTABLE.has(t.name)) continue;
+    const schema = t.input_schema as { properties?: Record<string, unknown> };
+    schema.properties = { ...(schema.properties ?? {}), unknown: unknownProperty() };
+  }
 
   const names = allowedNames ? new Set(allowedNames) : null;
   const selected = names ? all.filter((t) => names.has(t.name)) : all;

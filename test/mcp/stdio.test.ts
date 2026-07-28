@@ -6,6 +6,13 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { initVault } from "../../src/runner/init.js";
 
+// The local tsx binary, invoked directly rather than through `npx`.
+// `npx` adds a process layer AND consults npm's cache, which takes a cacache
+// lock; dozens of concurrent spawns on a small CI runner contend on that lock
+// and can wedge the whole suite. Nothing here needs resolution — tsx is a
+// devDependency, so the binary is already on disk.
+const TSX = path.resolve(__dirname, "../../node_modules/.bin/tsx");
+
 let dir: string;
 beforeEach(async () => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "ost-mcp-stdio-"));
@@ -20,8 +27,8 @@ describe("ost-agent mcp (stdio, no API key)", () => {
       if (k !== "ANTHROPIC_API_KEY" && v !== undefined) env[k] = v;
     }
     const transport = new StdioClientTransport({
-      command: "npx",
-      args: ["tsx", "src/cli/index.ts", "mcp", "--vault", dir],
+      command: TSX,
+      args: ["src/cli/index.ts", "mcp", "--vault", dir],
       env,
     });
     const client = new Client({ name: "test", version: "0.0.0" });

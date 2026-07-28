@@ -1,6 +1,7 @@
 {
   "name": "ost-agent",
-  "version": "0.22.0",
+  "version": "0.23.0",
+  "private": true,
   "description": "Autonomous, append-only agent that maintains a Teresa Torres Opportunity Solution Tree as Obsidian-graph Markdown. Runs unmonitored; incapable of destructive action by construction.",
   "type": "module",
   "license": "MIT",
@@ -31,6 +32,7 @@
     "bundle": "esbuild src/cli/index.ts --bundle --platform=node --target=node20 --format=esm --banner:js=\"import{createRequire as __ost_createRequire}from'node:module';const require=__ost_createRequire(import.meta.url);\" --outfile=dist/ost-agent.mjs",
     "dev": "tsx src/cli/index.ts",
     "gen:skill": "tsx scripts/gen-skill.ts",
+    "harness": "tsx scripts/harness.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

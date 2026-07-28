@@ -8,6 +8,14 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # A job with no timeout inherits GitHub's 6-hour ceiling. This suite spawns
+    # git and tsx subprocesses per test, and it has wedged twice — runs
+    # 30365354275 and 30388964758 both sat in `npm test` indefinitely, the first
+    # for over three hours. The cost of a wedge is not just runner minutes: a job
+    # that never finishes never publishes its log, so the one artifact needed to
+    # diagnose it is exactly what a hang withholds. Ten minutes is ~50x the
+    # suite's real runtime, so this bounds a hang without failing a slow runner.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -16,9 +24,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx tsc --noEmit
-      - run: npm test
+      # Report anything still holding the event loop open when the run ends.
+      # If this wedges again, the log names the handle instead of leaving a
+      # silent timeout to be guessed at.
+      - run: npm test -- --reporter=default --reporter=hanging-process
 
   bundle-drift:
+    timeout-minutes: 10
     # The plugin launches a committed artifact. If it can drift from source,
     # what users run is whatever was last remembered to be rebuilt — so this
     # job is the control that makes committing it safe.

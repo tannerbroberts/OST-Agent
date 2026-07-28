@@ -1,5 +1,57 @@
 # Changelog
 
+## 0.23.0
+
+- **Every policy governing what OST-Agent does with what it cannot see is now data, and
+  the default data is byte-for-byte the old code.** The previous release gave darkness a
+  node, an append-only ledger and an attributed cost. What to *do* with it stayed a set of
+  TypeScript constants: a three-branch classifier, a resolution state machine, a lookup
+  counter, a token weighting. Each was parameterised and well-factored, and each was inert
+  — a constant is a trait excluded from evolution, so nothing could vary the cost model and
+  record what varying it bought. **A policy expressed as a TypeScript table cannot breed.**
+
+  Those policies now live in an optional `genome.yaml` at the vault root, beside
+  `ost.config.yaml`, which the kernel interprets. `init` deliberately never writes one:
+  an absent file *is* the shipped default, so no vault that exists today changes behaviour
+  and none acquires a file it did not ask for. There is exactly one source of truth for the
+  defaults — the zod schema — with the annotated copy in `docs/reference/genome.md` held to
+  it by a test, because a documented default that has drifted is the file an operator edits.
+
+  The schema is **`.strict()`**, deliberately unlike `ost.config.yaml`, which strips
+  undeclared keys so a pre-runner vault keeps loading. A genome has no legacy vaults to
+  protect and it is the artifact a harness mutates: a misspelled allele silently dropped
+  reads as *"behaviour unchanged"*, which is the one failure mode that corrupts a fitness
+  record without announcing itself. A typo throws and names the field.
+
+  Two numbers stay where an operator can reach them rather than becoming alleles.
+  `web.lookupBudget` remains the operator's, and `budgets.sharedPool` defaults to `null`
+  meaning *use it* — because the alternative is two numbers in two files that can silently
+  disagree, and the honest failure of that arrangement is that neither is wrong. Token
+  correlation ships whole and tested but `tokenSplit.enabled` defaults to `false`, so under
+  the default genome nothing correlates and cost stays exactly what it was; every rollup now
+  carries the `costBasis` it was computed on, so a comparison that mixes bases can be refused
+  rather than quietly normalized.
+
+  The refactor claim is made executable rather than asserted. `test/genome/identity.test.ts`
+  pins the shipped defaults as a hand-written table, replays the Phase 1 classifier and
+  resolution fixtures against the interpreter *as literals* so the old functions can be
+  deleted without the test going hollow, and deep-equals a golden per-class rollup and the
+  `ost_next_work` output. Five of those six checks pass perfectly well against an interpreter
+  that accepts a genome and ignores it — which would be worse than not extracting anything,
+  since the harness would then be measuring a variable that does not vary. So the suite ends
+  with negative controls: doubling the input weight must double the cost, deleting the
+  `unreached` rule must collapse three buckets into two, reversing resolution precedence must
+  move a deferred-but-answered unknown from abandoned to satisfied, flipping `staleAttribution`
+  must surface the ghost spend the default drops, and `unknownsBlockDone` must actually block.
+  The same anti-vacuity guard the examples-allowlist test already carries.
+
+  Nothing was added to the tool surface. `OST_UNKNOWN` is declared as an optional argument
+  on tools that already exist; `ALLOWED_TOOL_NAMES` is unchanged at 20 names. The allowlist,
+  the lane gate, the invariant checker, the SSRF guard, the believability floor and the
+  promotion gate are all documented as permanently outside the genome, with the reason
+  stated: a variant able to relax any of them would score well by corrupting the instrument
+  rather than by being better, and a fitness number cannot tell those two apart.
+
 ## 0.22.0
 
 - **Every count now states the denominator it was taken over.** `status` reported

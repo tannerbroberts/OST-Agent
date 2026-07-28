@@ -100,33 +100,11 @@ program
   .option("--vault <dir>", "vault directory", ".")
   .action(async (opts: { vault: string }) => {
     const ctx = buildPassContext(opts.vault);
-<<<<<<< HEAD
     const census = ctx.vault.readTreeCensus();
     census.independent = await reconcileWithGit(ctx.dir, census);
-    const violations = checkInvariants(census.nodes);
-    if (violations.length === 0) {
-      // "0 violations" over an unstated denominator is the shape of a check that
-      // passed because it looked at nothing. State what was checked.
-      console.log(`invariants: PASS (0 violations over ${census.nodes.length} node(s))`);
-    } else {
-      console.log(`invariants: FAIL (${violations.length} violation(s) over ${census.nodes.length} node(s))`);
-      for (const v of violations) console.log(`  ✗ [${v.rule}] ${v.node ? `"${v.node}": ` : ""}${v.detail}`);
-      process.exitCode = 1;
-    }
-    const dropped = census.skipped.length + census.unreadable.length;
-    const unseen = census.independent?.unseenByWalk.length ?? 0;
-    if (dropped > 0 || unseen > 0) {
-      console.log(formatCensus(census, census.nodes.length));
-      console.log(
-        "  A node the reader never returned cannot violate an invariant. The verdict\n" +
-          "  above covers the nodes in this denominator and no others.",
-      );
-    }
-=======
-    const { text, violations } = renderCheck(ctx.vault.readTree());
+    const { text, violations } = renderCheck(census);
     console.log(text);
     if (violations > 0) process.exitCode = 1;
->>>>>>> 21a5dc5 (refactor(eval): one source of wording for check, debt, status, gate)
   });
 
 program
@@ -317,52 +295,11 @@ program
 program
   .command("status")
   .option("--vault <dir>", "vault directory", ".")
-<<<<<<< HEAD
   .action(async (opts: { vault: string }) => {
     const ctx = buildPassContext(opts.vault);
-    const journals = readRunJournals(ctx.dir);
-    printLastFailure(journals);
     const census = ctx.vault.readTreeCensus();
     census.independent = await reconcileWithGit(ctx.dir, census);
-    const tree = census.nodes;
-    const byLayer = (l: string) => tree.filter((n) => n.layer === l).length;
-    const unvalidated = tree.filter((n) => n.status === "unvalidated").length;
-    console.log(`Vault: ${ctx.dir}`);
-    console.log(`Outcome: ${ctx.config.outcome}`);
-    console.log(`Nodes: ${tree.length}  (Outcome ${byLayer("Outcome")}, Opportunity ${byLayer("Opportunity")}, Solution ${byLayer("Solution")}, AssumptionTest ${byLayer("AssumptionTest")})`);
-    // Every number above this line is taken over the set the walk returned. This
-    // says what that set was, so a count that shrank silently cannot read as health.
-    console.log(formatCensus(census, tree.length));
-    console.log(`Unvalidated (agent-ideated, awaiting review): ${unvalidated}`);
-    const rollup = believabilityRollup(tree);
-    const perRung = BELIEVABILITY_LADDER.map((r) => `${r.id} ${rollup.counts[r.id]}`).join(", ");
-    console.log(`Believability: ${perRung}${rollup.unlabelled ? `, unlabelled ${rollup.unlabelled}` : ""}`);
-    console.log(`  the tree as a whole rests on its weakest rung: ${rollup.weakest}`);
-    const coverage = computeCoverageDebt(tree);
-    if (coverage.totals.withResults > 0) {
-      console.log(
-        `Coverage: ${coverage.totals.bounded}/${coverage.totals.withResults} recorded result(s) say what they do not cover`,
-      );
-      for (const g of coverage.gaps) {
-        console.log(`  unbounded: ${g.title} (${g.claimed} result(s), ${g.stated} stated limit(s)) — see \`debt\``);
-      }
-    }
-    // One line, and only when there is something to say. A test whose threshold
-    // is still an instruction to pick one cannot come out a failure, and that is
-    // worth seeing next to the tree's shape rather than only on demand.
-    const thresholds = computeUnfixedThresholds(tree);
-    if (thresholds.unfixed.length > 0) {
-      const { instruction, absent, tests } = thresholds.totals;
-      console.log(
-        `Thresholds: ${instruction + absent}/${tests} assumption test(s) have no fixed bar ` +
-          `(${instruction} still an instruction, ${absent} unwritten) — see \`debt\``,
-      );
-    }
-    printLastRuns(journals);
-=======
-  .action((opts: { vault: string }) => {
-    console.log(renderStatus(buildPassContext(opts.vault)));
->>>>>>> 21a5dc5 (refactor(eval): one source of wording for check, debt, status, gate)
+    console.log(renderStatus(ctx, census));
   });
 
 program
