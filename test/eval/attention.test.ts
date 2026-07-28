@@ -197,3 +197,32 @@ describe("the token-weighting gene", () => {
     expect(computeAttention([unknown("U")], dir, { weights: defaultGenome().tokenWeights })).toEqual(bare);
   });
 });
+
+describe("computeAttention — byClass keys off the genome's vocabulary", () => {
+  const twoClass = {
+    contractSections: ["Format", "Methodology", "Rationale"],
+    classes: ["bounded", "unbounded"],
+    fallback: "unbounded",
+    rules: [{ class: "bounded", present: ["Format"], absent: [] }],
+  };
+
+  test("a two-class genome produces two buckets and NO ghost `unreached`", () => {
+    const rollup = computeAttention(
+      [unknown("Bounded"), unknown("Shape only", "## Format\nx"), unknown("Dark", "nothing declared")],
+      tmp(),
+      { classifier: twoClass },
+    );
+    expect(Object.keys(rollup.byClass).sort()).toEqual(["bounded", "unbounded"]);
+    expect(rollup.byClass.bounded.count).toBe(2);
+    expect(rollup.byClass.unbounded.count).toBe(1);
+  });
+
+  test("a class the genome declares but no node earns still gets a zero bucket — absent reads as zero, not missing", () => {
+    const rollup = computeAttention([unknown("Bounded")], tmp(), {
+      classifier: { ...twoClass, classes: ["bounded", "unbounded", "commissioned"] },
+    });
+    expect(rollup.byClass.commissioned).toEqual({
+      count: 0, satisfied: 0, abandoned: 0, open: 0, weightedCost: 0,
+    });
+  });
+});

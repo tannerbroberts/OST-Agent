@@ -28,7 +28,7 @@
  */
 import { defaultGenome } from "../genome/load.js";
 import type { AttributionGene, ClassifierGene, ResolutionGene, TokenWeightsGene } from "../genome/schema.js";
-import { classifyUnknown, resolutionState, UNKNOWN_CLASSES, type ResolutionState, type UnknownClass } from "../knowledge/unknowns.js";
+import { classifyUnknown, resolutionState, DEFAULT_CLASSIFIER, type ResolutionState, type UnknownClass } from "../knowledge/unknowns.js";
 import type { OstNode } from "../ost/node.js";
 import { addTiers, emptyTiers, readAttention, type TokenTiers } from "../telemetry/attention.js";
 import { usageLogPath } from "../telemetry/usage.js";
@@ -82,7 +82,8 @@ export interface ClassRollup {
 
 export interface AttentionRollup {
   unknowns: UnknownAttention[];
-  byClass: Record<UnknownClass, ClassRollup>;
+  /** Keyed by the genome's class vocabulary — every declared class gets a bucket, earned or not. */
+  byClass: Record<string, ClassRollup>;
   /** Spend the trace could not attribute to any unknown. */
   unattributed: { calls: number; ms: number };
 }
@@ -142,10 +143,18 @@ function rollUpUsage(vaultDir: string, knownTitles: ReadonlySet<string>): UsageR
   return { byUnknown, unattributed };
 }
 
-function emptyByClass(): Record<UnknownClass, ClassRollup> {
-  return Object.fromEntries(
-    UNKNOWN_CLASSES.map((c) => [c, { count: 0, satisfied: 0, abandoned: 0, open: 0, weightedCost: 0 }]),
-  ) as Record<UnknownClass, ClassRollup>;
+function emptyClassRollup(): ClassRollup {
+  return { count: 0, satisfied: 0, abandoned: 0, open: 0, weightedCost: 0 };
+}
+
+/**
+ * A bucket per class the genome declares, whether or not any node earned it.
+ * A class that appears with zero is a measured zero; a class that is simply
+ * absent from the record is indistinguishable from a class that was never
+ * declared, and fitness has to be able to tell those apart.
+ */
+function emptyByClass(classes: readonly string[]): Record<string, ClassRollup> {
+  return Object.fromEntries(classes.map((c) => [c, emptyClassRollup()]));
 }
 
 /**
@@ -176,6 +185,7 @@ export function computeAttention(
   opts: AttentionOptions = {},
 ): AttentionRollup {
   const weights = opts.weights ?? DEFAULT_TOKEN_WEIGHTS;
+  const classifier = opts.classifier ?? DEFAULT_CLASSIFIER;
   const darkNodes = tree.filter((n) => n.layer === "Unknown");
   const usage = rollUpUsage(vaultDir, new Set(darkNodes.map((n) => n.title)));
 
@@ -200,7 +210,7 @@ export function computeAttention(
     }
     return {
       title: node.title,
-      klass: classifyUnknown(node),
+      klass: classifyUnknown(node, classifier),
       state: resolutionState(node),
       calls,
       ms,
@@ -209,9 +219,12 @@ export function computeAttention(
     };
   });
 
-  const byClass = emptyByClass();
+  const byClass = emptyByClass(classifier.classes);
   for (const u of unknowns) {
-    const bucket = byClass[u.klass];
+    // A class outside the declared vocabulary cannot arrive from a loaded
+    // genome — the schema refuses one — but a hand-built gene may carry one,
+    // and dropping the spend on the floor would be worse than naming it.
+    const bucket = (byClass[u.klass] ??= emptyClassRollup());
     bucket.count++;
     bucket.weightedCost += u.weightedCost;
     if (u.state === "satisfied") bucket.satisfied++;
