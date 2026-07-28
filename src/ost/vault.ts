@@ -11,12 +11,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
-import { deserialize, serialize, type Layer, type NodeStatus, type OstNode } from "./node.js";
+import { deserialize, serialize, type Layer, type NodeStatus, type OstNode, LAYERS } from "./node.js";
 import { fileNameForTitle, sanitizeTitle } from "./sanitize.js";
 import type { RungId } from "../knowledge/believability.js";
 import type { LaneId } from "../knowledge/lanes.js";
-
-const VALID_LAYERS: readonly Layer[] = ["Outcome", "Opportunity", "Solution", "AssumptionTest"];
 
 function isoToday(): string {
   return new Date().toISOString().slice(0, 10);
@@ -98,7 +96,7 @@ export class Vault {
       if (!e.isFile() || !e.name.endsWith(".md")) continue;
       const raw = fs.readFileSync(path.join(this.root, e.name), "utf8");
       const type = (matter(raw).data as Record<string, unknown>).type;
-      if (typeof type !== "string" || !VALID_LAYERS.includes(type as Layer)) continue;
+      if (typeof type !== "string" || !LAYERS.includes(type as Layer)) continue;
       nodes.push(deserialize(e.name.replace(/\.md$/, ""), raw));
     }
     return nodes;

@@ -146,4 +146,14 @@ describe("Vault append-only operations", () => {
     vault.linkNodes("Opp", "Reason: come back daily");
     expect(vault.read("Opp").links).toEqual(["Reason come back daily"]);
   });
+
+  test("readTree includes Unknown nodes, not just the four mapped layers", () => {
+    vault.createNode({ title: "Opp", layer: "Opportunity", tags: [], links: [], body: "b" });
+    vault.createNode({ title: "Dark", layer: "Unknown", tags: [], links: [], body: "## Format\nx", evidence: "assertion" });
+    const tree = vault.readTree();
+    expect(tree).toHaveLength(2);
+    const unknown = tree.find((n) => n.title === "Dark");
+    expect(unknown).toBeDefined();
+    expect(unknown?.layer).toBe("Unknown");
+  });
 });
