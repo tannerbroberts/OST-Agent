@@ -10,6 +10,17 @@
  * The token weighting lives here rather than in the store on purpose. Summing
  * tiers at write time would bake in a cost model; here it is a parameter, and
  * in Phase 2 it becomes an allele of the genome rather than a constant.
+ *
+ * Cost per unknown is the SUM of two independent sources, read from the trace
+ * they each actually land in: the attention ledger (`recordAttention`, keyed
+ * per unknown) and the usage trace (`withUsageTracing`, every allowlisted tool
+ * call, self-attributed via OST_UNKNOWN). Most calls travel through the usage
+ * trace alone — the ledger has no production writer yet — so deriving
+ * calls/ms from the trace as well as the ledger is what makes per-unknown cost
+ * non-zero in practice. The usage log is read exactly once per rollup and
+ * split three ways: attributed (a known unknown), unattributed (no `unknown`
+ * field), or neither (an `unknown` field naming a title not on this tree,
+ * which is not credited to anything rather than guessed at).
  */
 import { classifyUnknown, resolutionState, UNKNOWN_CLASSES, type ResolutionState, type UnknownClass } from "../knowledge/unknowns.js";
 import type { OstNode } from "../ost/node.js";
@@ -71,30 +82,59 @@ export interface AttentionRollup {
   unattributed: { calls: number; ms: number };
 }
 
-/** Tool calls in the usage trace that carry no `unknown` attribution. */
-function unattributedSpend(vaultDir: string): { calls: number; ms: number } {
+interface CallCost {
+  calls: number;
+  ms: number;
+}
+
+interface UsageRollup {
+  /** Per-unknown calls/ms, for titles present in `knownTitles` only. */
+  byUnknown: Map<string, CallCost>;
+  /** Spend the trace could not attribute to any unknown. */
+  unattributed: CallCost;
+}
+
+/**
+ * One pass over the usage trace, splitting every event three ways: attributed
+ * to a known unknown, unattributed (no `unknown` field), or — an event naming
+ * an unknown that is not (or no longer) on the tree — neither, since crediting
+ * it to a title that does not exist would be a fabrication and folding it into
+ * `unattributed` would conflate "said nothing" with "said something stale".
+ *
+ * Read once and shared by every caller in {@link computeAttention} so the log
+ * is never parsed twice for the same rollup.
+ */
+function rollUpUsage(vaultDir: string, knownTitles: ReadonlySet<string>): UsageRollup {
+  const byUnknown = new Map<string, CallCost>();
+  const unattributed: CallCost = { calls: 0, ms: 0 };
   const file = usageLogPath(vaultDir);
   let raw: string;
   try {
     raw = fs.readFileSync(file, "utf8");
   } catch {
-    return { calls: 0, ms: 0 };
+    return { byUnknown, unattributed };
   }
-  let calls = 0;
-  let ms = 0;
   for (const line of raw.split("\n")) {
     const trimmed = line.trim();
     if (!trimmed) continue;
     try {
       const event = JSON.parse(trimmed) as { unknown?: string; ms?: number };
-      if (event.unknown) continue;
-      calls++;
-      ms += typeof event.ms === "number" && Number.isFinite(event.ms) ? event.ms : 0;
+      const ms = typeof event.ms === "number" && Number.isFinite(event.ms) ? event.ms : 0;
+      if (!event.unknown) {
+        unattributed.calls++;
+        unattributed.ms += ms;
+        continue;
+      }
+      if (!knownTitles.has(event.unknown)) continue; // stale/foreign attribution: not counted either way
+      const bucket = byUnknown.get(event.unknown) ?? { calls: 0, ms: 0 };
+      bucket.calls++;
+      bucket.ms += ms;
+      byUnknown.set(event.unknown, bucket);
     } catch {
       // a corrupt trace line is not attributable either way
     }
   }
-  return { calls, ms };
+  return { byUnknown, unattributed };
 }
 
 function emptyByClass(): Record<UnknownClass, ClassRollup> {
@@ -109,28 +149,38 @@ export function computeAttention(
   vaultDir: string,
   weights: TokenWeights = DEFAULT_TOKEN_WEIGHTS,
 ): AttentionRollup {
-  const unknowns: UnknownAttention[] = tree
-    .filter((n) => n.layer === "Unknown")
-    .map((node) => {
-      let calls = 0;
-      let ms = 0;
-      let tokens = emptyTiers();
-      for (const entry of readAttention(vaultDir, node.title)) {
-        if (entry.kind !== "spend") continue;
-        calls += entry.calls ?? 0;
-        ms += entry.ms ?? 0;
-        if (entry.tokens) tokens = addTiers(tokens, entry.tokens);
-      }
-      return {
-        title: node.title,
-        klass: classifyUnknown(node),
-        state: resolutionState(node),
-        calls,
-        ms,
-        tokens,
-        weightedCost: weightedTokenCost(tokens, weights),
-      };
-    });
+  const darkNodes = tree.filter((n) => n.layer === "Unknown");
+  const usage = rollUpUsage(vaultDir, new Set(darkNodes.map((n) => n.title)));
+
+  const unknowns: UnknownAttention[] = darkNodes.map((node) => {
+    // Ledger spend (`recordAttention`, e.g. explicit harness bookkeeping) and
+    // usage-trace spend (every allowlisted tool call, stamped by
+    // `withUsageTracing` via OST_UNKNOWN) are two independent sources of the
+    // same cost — additive, never one replacing the other.
+    let calls = 0;
+    let ms = 0;
+    let tokens = emptyTiers();
+    for (const entry of readAttention(vaultDir, node.title)) {
+      if (entry.kind !== "spend") continue;
+      calls += entry.calls ?? 0;
+      ms += entry.ms ?? 0;
+      if (entry.tokens) tokens = addTiers(tokens, entry.tokens);
+    }
+    const traced = usage.byUnknown.get(node.title);
+    if (traced) {
+      calls += traced.calls;
+      ms += traced.ms;
+    }
+    return {
+      title: node.title,
+      klass: classifyUnknown(node),
+      state: resolutionState(node),
+      calls,
+      ms,
+      tokens,
+      weightedCost: weightedTokenCost(tokens, weights),
+    };
+  });
 
   const byClass = emptyByClass();
   for (const u of unknowns) {
@@ -142,5 +192,5 @@ export function computeAttention(
     else bucket.open++;
   }
 
-  return { unknowns, byClass, unattributed: unattributedSpend(vaultDir) };
+  return { unknowns, byClass, unattributed: usage.unattributed };
 }

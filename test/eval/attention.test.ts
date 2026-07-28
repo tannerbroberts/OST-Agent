@@ -102,4 +102,44 @@ describe("computeAttention", () => {
   test("a vault with no usage log reports no unattributed spend rather than throwing", () => {
     expect(computeAttention([unknown("U")], tmp()).unattributed).toEqual({ calls: 0, ms: 0 });
   });
+
+  test("derives calls/ms for an unknown purely from the usage trace when the ledger is empty", () => {
+    const dir = tmp();
+    fs.mkdirSync(path.dirname(usageLogPath(dir)), { recursive: true });
+    fs.writeFileSync(usageLogPath(dir), [
+      JSON.stringify({ ts: "a", tool: "ost_read_tree", ok: true, ms: 5, surface: "mcp", argBytes: 0, unknown: "U" }),
+      JSON.stringify({ ts: "b", tool: "ost_read_tree", ok: true, ms: 7, surface: "mcp", argBytes: 0, unknown: "U" }),
+    ].join("\n"), "utf8");
+
+    const rollup = computeAttention([unknown("U")], dir);
+    expect(rollup.unknowns[0].calls).toBe(2);
+    expect(rollup.unknowns[0].ms).toBe(12);
+  });
+
+  test("adds usage-trace attribution on top of ledger spend, rather than replacing it", () => {
+    const dir = tmp();
+    recordAttention(dir, { ts: "a", unknown: "U", kind: "spend", calls: 2, ms: 50,
+      tokens: { input: 100, output: 10, cacheCreate: 0, cacheRead: 0 } });
+    fs.mkdirSync(path.dirname(usageLogPath(dir)), { recursive: true });
+    fs.writeFileSync(usageLogPath(dir), [
+      JSON.stringify({ ts: "b", tool: "ost_read_tree", ok: true, ms: 9, surface: "mcp", argBytes: 0, unknown: "U" }),
+    ].join("\n"), "utf8");
+
+    const rollup = computeAttention([unknown("U")], dir);
+    expect(rollup.unknowns[0].calls).toBe(3);
+    expect(rollup.unknowns[0].ms).toBe(59);
+  });
+
+  test("an event naming an unknown not on the tree is neither attributed nor counted as unattributed", () => {
+    const dir = tmp();
+    fs.mkdirSync(path.dirname(usageLogPath(dir)), { recursive: true });
+    fs.writeFileSync(usageLogPath(dir), [
+      JSON.stringify({ ts: "a", tool: "ost_read_tree", ok: true, ms: 5, surface: "mcp", argBytes: 0, unknown: "Ghost" }),
+    ].join("\n"), "utf8");
+
+    const rollup = computeAttention([unknown("U")], dir);
+    expect(rollup.unknowns[0].calls).toBe(0);
+    expect(rollup.unknowns[0].ms).toBe(0);
+    expect(rollup.unattributed).toEqual({ calls: 0, ms: 0 });
+  });
 });
