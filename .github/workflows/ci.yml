@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm test
+
+  bundle-drift:
+    # The plugin launches a committed artifact. If it can drift from source,
+    # what users run is whatever was last remembered to be rebuilt — so this
+    # job is the control that makes committing it safe.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run bundle
+      - name: Fail if the committed bundle is stale
+        run: |
+          if ! git diff --exit-code dist/ost-agent.mjs; then
+            echo "::error::dist/ost-agent.mjs is stale. Run 'npm run bundle' and commit the result."
+            exit 1
+          fi
