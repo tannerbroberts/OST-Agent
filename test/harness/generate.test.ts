@@ -178,5 +178,24 @@ describe("makeSpec", () => {
   test("honours findableRatio so a null environment can be asked for by parameter", () => {
     const spec = makeSpec(5, { unknowns: 6, findableRatio: 0 });
     expect(spec.unknowns.every((u) => !u.findable)).toBe(true);
+    expect(spec.kind).toBe("null");
+  });
+
+  test("kind describes the world, not the request — a seed that draws nothing findable is null", () => {
+    // Seed 1 at the default ratio draws zero findable unknowns. Labelling it
+    // "generated" would put a null world in the generated arm of any later
+    // comparison that groups by kind.
+    const spec = makeSpec(1, { unknowns: 4, findableRatio: 0.5 });
+    expect(spec.unknowns.every((u) => !u.findable)).toBe(true);
+    expect(spec.kind).toBe("null");
+    // Provenance survives the relabel.
+    expect(spec.seed).toBe(1);
+    expect(spec.name).toBe("generated-1");
+  });
+
+  test("a seed that does draw findable unknowns stays generated", () => {
+    const spec = makeSpec(0, { unknowns: 4, findableRatio: 0.5 });
+    expect(spec.unknowns.some((u) => u.findable)).toBe(true);
+    expect(spec.kind).toBe("generated");
   });
 });

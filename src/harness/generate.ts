@@ -193,9 +193,16 @@ export function makeSpec(
     }
   }
 
+  // `kind` describes the WORLD, not the request. A findableRatio of 0.5 over
+  // four unknowns draws nothing findable about one seed in sixteen, and such an
+  // environment IS a null one however it was asked for — labelling it
+  // "generated" would quietly put a null world in the generated arm of every
+  // later comparison that groups by kind. Provenance is not lost: `name` and
+  // `seed` still say where it came from.
+  const drewNothing = unknowns.every((u) => !u.findable);
   return EnvironmentSpecSchema.parse({
     name: opts.name ?? `generated-${seed}`,
-    kind: findableRatio === 0 ? "null" : "generated",
+    kind: findableRatio === 0 || drewNothing ? "null" : "generated",
     seed,
     created: "2026-07-28",
     outcome: "Reach 10,000 daily active users",

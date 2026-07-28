@@ -6,6 +6,7 @@ import { initVault } from "../../src/runner/init.js";
 import { buildPassContext } from "../../src/runner/context.js";
 import { writeEvidence } from "../../src/processes/tree.js";
 import { computeNextWork } from "../../src/mcp/next-work.js";
+import { recordAttention } from "../../src/telemetry/attention.js";
 import { defaultGenome } from "../../src/genome/load.js";
 import { GenomeSchema } from "../../src/genome/schema.js";
 import type { Genome } from "../../src/genome/schema.js";
@@ -269,14 +270,61 @@ describe("computeNextWork — the pivot gene", () => {
     expect(work(pivot({ ranking: "tree-order" })).openUnknowns.map((u) => u.title)).toEqual(treeOrder);
   });
 
-  test("cost-to-resolve is not implemented here — it lists in tree order and SAYS so rather than pretending it ranked", () => {
+  test("cost-to-resolve surfaces the dearest darkness first, measured from the ledger", () => {
     addUnknown("How many users hit the export path", UNBOUNDED);
     addUnknown("Which cohort abandons at the second step", BOUNDED);
 
+    // Make the ledger disagree with tree order by spending heavily on whatever
+    // the tree walk happened to put LAST. Derived, never hard-coded: tree order
+    // is readdirSync order and is filesystem-dependent.
     const treeOrder = work().openUnknowns.map((u) => u.title);
-    const attempted = work(pivot({ ranking: "cost-to-resolve" }));
-    expect(attempted.openUnknowns.map((u) => u.title)).toEqual(treeOrder);
-    expect(attempted.summary).toContain("cost-to-resolve");
-    expect(attempted.summary).toContain("tree order");
+    const dearest = treeOrder[treeOrder.length - 1];
+    recordAttention(dir, {
+      ts: "2026-07-28T00:00:00.000Z",
+      unknown: dearest,
+      kind: "spend",
+      calls: 9,
+      ms: 900,
+    });
+
+    const ranked = work(pivot({ ranking: "cost-to-resolve" })).openUnknowns.map((u) => u.title);
+    expect(ranked[0]).toBe(dearest);
+    // And it genuinely re-ordered, rather than passing under the identity.
+    expect(ranked).not.toEqual(treeOrder);
+  });
+
+  test("no longer announces itself as unimplemented", () => {
+    addUnknown("How many users hit the export path", UNBOUNDED);
+    expect(work(pivot({ ranking: "cost-to-resolve" })).summary).not.toContain("not implemented");
+  });
+
+  test("equal cost keeps tree order, because the sort is stable", () => {
+    addUnknown("How many users hit the export path", UNBOUNDED);
+    addUnknown("Which cohort abandons at the second step", BOUNDED);
+    // No ledger entries at all: every unknown costs the same (zero).
+    expect(work(pivot({ ranking: "cost-to-resolve" })).openUnknowns.map((u) => u.title)).toEqual(
+      work().openUnknowns.map((u) => u.title),
+    );
+  });
+
+  test("the cap still applies AFTER ranking, and done still sees the uncapped set", () => {
+    addUnknown("How many users hit the export path", UNBOUNDED);
+    addUnknown("Which cohort abandons at the second step", BOUNDED);
+    const treeOrder = work().openUnknowns.map((u) => u.title);
+    const dearest = treeOrder[treeOrder.length - 1];
+    recordAttention(dir, {
+      ts: "2026-07-28T00:00:00.000Z",
+      unknown: dearest,
+      kind: "spend",
+      calls: 9,
+      ms: 900,
+    });
+    const capped = work(
+      pivot({ ranking: "cost-to-resolve", maxOpenUnknownsSurfaced: 1, unknownsBlockDone: true }),
+    );
+    // The cap keeps the dearest, which is what ranking-then-capping means.
+    expect(capped.openUnknowns.map((u) => u.title)).toEqual([dearest]);
+    // But `done` is computed over the uncapped set, so darkness cannot vanish.
+    expect(capped.done).toBe(false);
   });
 });

@@ -15,6 +15,7 @@ import { laneConflicts } from "../ost/lanes.js";
 import { wrappedLinkTargets, type OstNode } from "../ost/node.js";
 import type { Vault } from "../ost/vault.js";
 import { classifyUnknown, contractGaps, resolutionState, type UnknownClass } from "../knowledge/unknowns.js";
+import { computeAttention } from "../eval/attention.js";
 import { defaultGenome } from "../genome/load.js";
 import type { Genome, PivotGene } from "../genome/schema.js";
 
@@ -127,22 +128,64 @@ function detectHygiene(tree: OstNode[]): HygieneIssue[] {
  * of the same class keep their tree order and the gene stays a coarse
  * re-ordering rather than a shuffle.
  *
- * `cost-to-resolve` is a declared allele this kernel cannot execute: ranking by
- * cost means reading the attention ledger for every unknown on every
- * `ost_next_work` call, which is real work and belongs with the task that wires
- * `computeAttention` into a production path. Rather than reject the genome at
- * load time — a harness may legitimately breed an allele ahead of the kernel —
- * it falls back to tree order and the caller states the fallback in the
- * summary. A kernel that quietly does something other than what the genome said
- * produces a fitness record that is a lie.
+ * `cost-to-resolve` sorts dearest-first, because the design ranks by measured
+ * cost-to-resolve and the expensive darkness is what a session most needs to see
+ * before it commits. The cost index is built by the caller and passed in, and
+ * only on this branch — under any other allele `ost_next_work` must not pay a
+ * whole-ledger and usage-log read on every call, which is the cost that
+ * deferred this allele in the first place. If no index is supplied the order is
+ * left alone rather than guessed at.
+ *
+ * The sort key inside that index switches on the MEASURED cost basis, and that
+ * is not a detail. `weightedCost` is purely token-derived, so wherever nothing
+ * correlated tokens it is 0 for every unknown — ranking on it would silently
+ * reproduce tree order while claiming to rank by cost, which is worse than not
+ * implementing the allele at all, because it does not announce itself.
  */
-function rankOpenUnknowns(open: OpenUnknown[], pivot: PivotGene): OpenUnknown[] {
-  if (pivot.ranking !== "class-priority") return open;
-  const rank = (klass: UnknownClass): number => {
-    const at = pivot.classPriority.indexOf(klass);
-    return at === -1 ? pivot.classPriority.length : at;
-  };
-  return [...open].sort((a, b) => rank(a.klass) - rank(b.klass));
+function rankOpenUnknowns(
+  open: OpenUnknown[],
+  pivot: PivotGene,
+  costOf?: ReadonlyMap<string, number>,
+): OpenUnknown[] {
+  if (pivot.ranking === "class-priority") {
+    const rank = (klass: UnknownClass): number => {
+      const at = pivot.classPriority.indexOf(klass);
+      return at === -1 ? pivot.classPriority.length : at;
+    };
+    return [...open].sort((a, b) => rank(a.klass) - rank(b.klass));
+  }
+  if (pivot.ranking === "cost-to-resolve" && costOf) {
+    // Stable sort, so unknowns of equal cost keep their tree order — the same
+    // property `class-priority` leans on.
+    return [...open].sort((a, b) => (costOf.get(b.title) ?? 0) - (costOf.get(a.title) ?? 0));
+  }
+  return open;
+}
+
+/**
+ * Per-unknown cost, on whichever basis the rollup actually measured.
+ *
+ * Built only on the `cost-to-resolve` branch. Under `tokens` the scalar is the
+ * weighted token cost; under `calls-and-ms` it is calls plus wall-clock in
+ * seconds, because the token dimension is structurally zero there and would
+ * rank nothing.
+ */
+function costIndex(
+  tree: readonly OstNode[],
+  dir: string,
+  genome: Genome,
+): ReadonlyMap<string, number> {
+  const rollup = computeAttention(tree, dir, {
+    weightedTokenSpend: genome.weightedTokenSpend,
+    classifier: genome.classifier,
+    resolution: genome.resolution,
+    attribution: genome.attribution,
+    costBasis: genome.tokenSplit.costBasis,
+  });
+  const tokenBasis = rollup.costBasis === "tokens";
+  return new Map(
+    rollup.unknowns.map((u) => [u.title, tokenBasis ? u.weightedCost : u.calls + u.ms / 1000]),
+  );
 }
 
 /**
@@ -200,6 +243,9 @@ export function computeNextWork(vault: Vault, dir: string, min: number, genome: 
         gaps: contractGaps(u, genome.classifier.contractSections),
       })),
     genome.pivot,
+    // Lazily, and only where it is read: the default genome must not pay for a
+    // ledger walk on every `ost_next_work`.
+    genome.pivot.ranking === "cost-to-resolve" ? costIndex(tree, dir, genome) : undefined,
   );
 
   // The cap is a display limit, never an amnesty: `done` is computed over every
@@ -230,16 +276,11 @@ export function computeNextWork(vault: Vault, dir: string, min: number, genome: 
   const truncationNote = hidden
     ? ` Showing ${openUnknowns.length} of ${allOpenUnknowns.length} — ${hidden} more open unknown(s) not listed (pivot.maxOpenUnknownsSurfaced=${cap}).`
     : "";
-  const rankingNote =
-    genome.pivot.ranking === "cost-to-resolve"
-      ? " Ranking 'cost-to-resolve' is not implemented in this kernel — listed in tree order instead."
-      : "";
-
   const summary = done
     ? allOpenUnknowns.length
-      ? `Tree is fully maintained — nothing to do. ${allOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${truncationNote}${rankingNote}`
+      ? `Tree is fully maintained — nothing to do. ${allOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${truncationNote}`
       : "Tree is fully maintained — nothing to do."
-    : `Outstanding: ${parts.join("; ")}.${truncationNote}${rankingNote}`;
+    : `Outstanding: ${parts.join("; ")}.${truncationNote}`;
 
   return { done, summary, unmappedEvidence, underservedOpportunities, solutionsMissingAssumptions, hygieneIssues, openUnknowns };
 }

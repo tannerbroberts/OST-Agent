@@ -40573,13 +40573,31 @@ function detectHygiene(tree) {
     return node ? !node.body.includes(issue2) : true;
   });
 }
-function rankOpenUnknowns(open, pivot) {
-  if (pivot.ranking !== "class-priority") return open;
-  const rank = (klass) => {
-    const at = pivot.classPriority.indexOf(klass);
-    return at === -1 ? pivot.classPriority.length : at;
-  };
-  return [...open].sort((a, b2) => rank(a.klass) - rank(b2.klass));
+function rankOpenUnknowns(open, pivot, costOf) {
+  if (pivot.ranking === "class-priority") {
+    const rank = (klass) => {
+      const at = pivot.classPriority.indexOf(klass);
+      return at === -1 ? pivot.classPriority.length : at;
+    };
+    return [...open].sort((a, b2) => rank(a.klass) - rank(b2.klass));
+  }
+  if (pivot.ranking === "cost-to-resolve" && costOf) {
+    return [...open].sort((a, b2) => (costOf.get(b2.title) ?? 0) - (costOf.get(a.title) ?? 0));
+  }
+  return open;
+}
+function costIndex(tree, dir, genome) {
+  const rollup = computeAttention(tree, dir, {
+    weightedTokenSpend: genome.weightedTokenSpend,
+    classifier: genome.classifier,
+    resolution: genome.resolution,
+    attribution: genome.attribution,
+    costBasis: genome.tokenSplit.costBasis
+  });
+  const tokenBasis = rollup.costBasis === "tokens";
+  return new Map(
+    rollup.unknowns.map((u) => [u.title, tokenBasis ? u.weightedCost : u.calls + u.ms / 1e3])
+  );
 }
 function computeNextWork(vault, dir, min, genome = defaultGenome()) {
   const tree = vault.readTree();
@@ -40603,7 +40621,10 @@ function computeNextWork(vault, dir, min, genome = defaultGenome()) {
       darkens: tree.find((p2) => p2.layer !== "Unknown" && p2.links.includes(u.title))?.title ?? null,
       gaps: contractGaps(u, genome.classifier.contractSections)
     })),
-    genome.pivot
+    genome.pivot,
+    // Lazily, and only where it is read: the default genome must not pay for a
+    // ledger walk on every `ost_next_work`.
+    genome.pivot.ranking === "cost-to-resolve" ? costIndex(tree, dir, genome) : void 0
   );
   const cap = genome.pivot.maxOpenUnknownsSurfaced;
   const openUnknowns = cap > 0 ? allOpenUnknowns.slice(0, cap) : allOpenUnknowns;
@@ -40620,8 +40641,7 @@ function computeNextWork(vault, dir, min, genome = defaultGenome()) {
       `${allOpenUnknowns.length} open unknown(s) \u2192 explore (${blocksDone ? "blocks done" : "does not block done"})`
     );
   const truncationNote = hidden ? ` Showing ${openUnknowns.length} of ${allOpenUnknowns.length} \u2014 ${hidden} more open unknown(s) not listed (pivot.maxOpenUnknownsSurfaced=${cap}).` : "";
-  const rankingNote = genome.pivot.ranking === "cost-to-resolve" ? " Ranking 'cost-to-resolve' is not implemented in this kernel \u2014 listed in tree order instead." : "";
-  const summary = done ? allOpenUnknowns.length ? `Tree is fully maintained \u2014 nothing to do. ${allOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${truncationNote}${rankingNote}` : "Tree is fully maintained \u2014 nothing to do." : `Outstanding: ${parts.join("; ")}.${truncationNote}${rankingNote}`;
+  const summary = done ? allOpenUnknowns.length ? `Tree is fully maintained \u2014 nothing to do. ${allOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${truncationNote}` : "Tree is fully maintained \u2014 nothing to do." : `Outstanding: ${parts.join("; ")}.${truncationNote}`;
   return { done, summary, unmappedEvidence, underservedOpportunities, solutionsMissingAssumptions, hygieneIssues, openUnknowns };
 }
 
