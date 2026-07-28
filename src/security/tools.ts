@@ -88,7 +88,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
     betaTool({
       name: "ost_next_work",
       description:
-        "Read-only orchestration: report exactly what maintenance the tree still needs, so you know what to do next without re-deriving it. Returns unmapped evidence (→ create #Opportunity nodes), under-served opportunities with < the configured minimum solutions (→ ideate #Solution nodes, status 'unvalidated'), solutions with no assumption test (→ surface #AssumptionTest nodes), and structural hygiene issues (→ annotate, never delete). `done: true` means nothing is outstanding. Call this at the start of a pass.",
+        "Read-only orchestration: report exactly what maintenance the tree still needs, so you know what to do next without re-deriving it. Returns unmapped evidence (→ create #Opportunity nodes), under-served opportunities with < the configured minimum solutions (→ ideate #Solution nodes, status 'unvalidated'), solutions with no assumption test (→ surface #AssumptionTest nodes), structural hygiene issues (→ annotate, never delete), and `openUnknowns` — every #Unknown still unresolved, with its class and contract gaps, offered as darkness worth exploring. `done: true` means nothing is outstanding; open unknowns are reported but never block `done`. Call this at the start of a pass.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       run: async () => JSON.stringify(computeNextWork(vault, dir, minSolutions), null, 2),
     }),
@@ -96,7 +96,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
     betaTool({
       name: "ost_create_node",
       description:
-        "Create a NEW node AND attach it under an existing parent in one atomic step — so a node can never be an orphan. You CANNOT create an Outcome (there is exactly one, human-set at init). Hierarchy is enforced: an Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an AssumptionTest under a Solution; an Unknown (darkness, representing uncertainty) attaches under any layer. The type tag (#Opportunity / #Solution / #AssumptionTest / #Unknown) is applied automatically.",
+        "Create a NEW node AND attach it under an existing parent in one atomic step — so a node can never be an orphan. You CANNOT create an Outcome (there is exactly one, human-set at init). Hierarchy is enforced: an Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an AssumptionTest under a Solution; an Unknown (darkness, representing uncertainty) attaches under any layer. The type tag (#Opportunity / #Solution / #AssumptionTest / #Unknown) is applied automatically. For an Unknown, write its body with three `## ` sections — `## Format` (the shape a valid answer would take), `## Methodology` (how it would be collected), and `## Rationale` (which node this darkens and what metric it serves) — because Format is the stopping condition: an unknown that cannot say what an answer looks like cannot know when it is done, and one lacking Methodology is worth commissioning observability for rather than chasing further.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
