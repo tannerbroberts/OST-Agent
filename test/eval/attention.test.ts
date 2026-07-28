@@ -102,7 +102,9 @@ describe("computeAttention", () => {
   });
 
   test("a vault with no usage log reports no unattributed spend rather than throwing", () => {
-    expect(computeAttention([unknown("U")], tmp()).unattributed).toEqual({ calls: 0, ms: 0 });
+    expect(computeAttention([unknown("U")], tmp()).unattributed).toEqual({
+      calls: 0, ms: 0, tokens: { input: 0, output: 0, cacheCreate: 0, cacheRead: 0 },
+    });
   });
 
   test("derives calls/ms for an unknown purely from the usage trace when the ledger is empty", () => {
@@ -142,7 +144,9 @@ describe("computeAttention", () => {
     const rollup = computeAttention([unknown("U")], dir);
     expect(rollup.unknowns[0].calls).toBe(0);
     expect(rollup.unknowns[0].ms).toBe(0);
-    expect(rollup.unattributed).toEqual({ calls: 0, ms: 0 });
+    expect(rollup.unattributed).toEqual({
+      calls: 0, ms: 0, tokens: { input: 0, output: 0, cacheCreate: 0, cacheRead: 0 },
+    });
   });
 });
 
@@ -285,5 +289,86 @@ describe("computeAttention — the staleAttribution gene", () => {
     // The live attribution is untouched: only the ghost moves.
     expect(rollup.unknowns[0].calls).toBe(1);
     expect(rollup.unknowns[0].ms).toBe(7);
+  });
+});
+
+const ZERO = { input: 0, output: 0, cacheCreate: 0, cacheRead: 0 };
+const tiers = (input: number, output = 0, cacheCreate = 0, cacheRead = 0) =>
+  ({ input, output, cacheCreate, cacheRead });
+
+function usageLog(dir: string, events: Record<string, unknown>[]): void {
+  fs.mkdirSync(path.dirname(usageLogPath(dir)), { recursive: true });
+  fs.writeFileSync(usageLogPath(dir), events.map((e) => JSON.stringify(e)).join("\n"), "utf8");
+}
+
+describe("computeAttention — the token dimension", () => {
+  test("correlated tokens are a THIRD source, added to the ledger and the trace rather than replacing either", () => {
+    const dir = tmp();
+    recordAttention(dir, { ts: "a", unknown: "U", kind: "spend", calls: 2, ms: 50, tokens: tiers(100, 10) });
+    usageLog(dir, [{ ts: "b", tool: "ost_read_tree", ok: true, ms: 9, surface: "mcp", argBytes: 0, unknown: "U" }]);
+
+    const rollup = computeAttention([unknown("U")], dir, { correlated: new Map([["U", tiers(7, 3)]]) });
+    expect(rollup.unknowns[0].calls).toBe(3);
+    expect(rollup.unknowns[0].ms).toBe(59);
+    expect(rollup.unknowns[0].tokens).toEqual(tiers(107, 13));
+    expect(rollup.unknowns[0].weightedCost).toBeGreaterThan(0);
+  });
+
+  test("an unknown the trace never mentions is still credited its correlated tokens — the transcript sees spend the call log cannot", () => {
+    const rollup = computeAttention([unknown("U")], tmp(), { correlated: new Map([["U", tiers(0, 40)]]) });
+    expect(rollup.unknowns[0].calls).toBe(0);
+    expect(rollup.unknowns[0].tokens).toEqual(tiers(0, 40));
+    expect(rollup.unknowns[0].weightedCost).toBeGreaterThan(0);
+    expect(rollup.byClass.bounded.weightedCost).toBeGreaterThan(0);
+  });
+
+  test("correlated tokens naming a title not on the tree are dropped by default — crediting a ghost is a fabrication", () => {
+    const rollup = computeAttention([unknown("U")], tmp(), { correlated: new Map([["Ghost", tiers(500)]]) });
+    expect(rollup.unknowns[0].tokens).toEqual(ZERO);
+    expect(rollup.unattributed.tokens).toEqual(ZERO);
+  });
+
+  test("staleAttribution: unattributed folds a ghost's tokens into the unattributed share — the same allele that moves its calls moves its tokens", () => {
+    const rollup = computeAttention([unknown("U")], tmp(), {
+      correlated: new Map([["Ghost", tiers(500)]]),
+      attribution: { staleAttribution: "unattributed" },
+    });
+    expect(rollup.unattributed.tokens).toEqual(tiers(500));
+    expect(rollup.unknowns[0].tokens).toEqual(ZERO);
+  });
+
+  test("transcript spend inside no tool window at all is its own bucket — silence is NOT an unmarked call", () => {
+    const dir = tmp();
+    usageLog(dir, [{ ts: "a", tool: "ost_read_tree", ok: true, ms: 5, surface: "mcp", argBytes: 0 }]);
+
+    const rollup = computeAttention([unknown("U")], dir, {
+      correlated: new Map(),
+      residual: tiers(9000, 0, 0, 120000),
+    });
+    expect(rollup.uncorrelated).toEqual(tiers(9000, 0, 0, 120000));
+    expect(rollup.unattributed).toEqual({ calls: 1, ms: 5, tokens: ZERO });
+  });
+
+  test("a declared token basis with no correlator behind it is recorded as calls-and-ms — a basis with no data is a lie a fitness comparison would believe", () => {
+    expect(computeAttention([unknown("U")], tmp(), { costBasis: "tokens" }).costBasis).toBe("calls-and-ms");
+  });
+
+  test("a rollup built on a correlator records the token basis, so a mixed comparison can be refused rather than normalized", () => {
+    const rollup = computeAttention([unknown("U")], tmp(), { correlated: new Map(), costBasis: "tokens" });
+    expect(rollup.costBasis).toBe("tokens");
+  });
+
+  test("the default rollup is exactly today's — no correlation, no tokens, and the record says which basis it is on", () => {
+    const dir = tmp();
+    recordAttention(dir, { ts: "a", unknown: "U", kind: "spend", calls: 1, ms: 4 });
+
+    const rollup = computeAttention([unknown("U")], dir);
+    expect(rollup.unknowns[0].calls).toBe(1);
+    expect(rollup.unknowns[0].ms).toBe(4);
+    expect(rollup.unknowns[0].tokens).toEqual(ZERO);
+    expect(rollup.unknowns[0].weightedCost).toBe(0);
+    expect(rollup.uncorrelated).toEqual(ZERO);
+    expect(rollup.unattributed).toEqual({ calls: 0, ms: 0, tokens: ZERO });
+    expect(rollup.costBasis).toBe("calls-and-ms");
   });
 });
