@@ -16,6 +16,7 @@ import { gitCommit, gitPush } from "../git/safe-git.js";
 import { type NodeStatus, type OstNode } from "../ost/node.js";
 import { BELIEVABILITY_LADDER, isRung, type RungId } from "../knowledge/believability.js";
 import { classifyUnknown } from "../knowledge/unknowns.js";
+import { titlesMatch } from "../ost/sanitize.js";
 import { Vault } from "../ost/vault.js";
 import { computeNextWork } from "../mcp/next-work.js";
 import { flagHumansRequired } from "../ost/lanes.js";
@@ -194,7 +195,10 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
   const spendClass = (): string | undefined => {
     const title = process.env.OST_UNKNOWN;
     if (!title) return undefined;
-    const node = vault.readTree().find((n) => n.layer === "Unknown" && n.title === title);
+    // Through the sanitizer: OST_UNKNOWN carries the title the agent created
+    // the node with, the tree carries the title the filesystem allowed. Raw
+    // comparison silently billed every colon-bearing unknown to nothing.
+    const node = vault.readTree().find((n) => n.layer === "Unknown" && titlesMatch(n.title, title));
     return node ? classifyUnknown(node, genome.classifier) : undefined;
   };
   const rankedBy = `agent${ctx.surface ? `:${ctx.surface}` : ""}`;

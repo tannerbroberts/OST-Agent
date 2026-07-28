@@ -32080,6 +32080,17 @@ function sanitizeTitle(title) {
 function fileNameForTitle(title) {
   return `${sanitizeTitle(title)}.md`;
 }
+function canonicalTitle(title) {
+  try {
+    return sanitizeTitle(title);
+  } catch {
+    return null;
+  }
+}
+function titlesMatch(a, b2) {
+  const left = canonicalTitle(a);
+  return left !== null && left === canonicalTitle(b2);
+}
 
 // src/ost/vault.ts
 function isoToday() {
@@ -38201,11 +38212,11 @@ function computeEvidenceDebt(tree) {
   };
 }
 function gateSolution(tree, title) {
-  const solution = tree.find((n) => n.title === title && n.layer === "Solution");
+  const solution = tree.find((n) => n.layer === "Solution" && titlesMatch(n.title, title));
   if (!solution) {
     return { cleared: false, reason: `"${title}" is not in the tree as a Solution \u2014 nothing to gate against` };
   }
-  const debt = computeEvidenceDebt(tree).solutions.find((s) => s.title === title);
+  const debt = computeEvidenceDebt(tree).solutions.find((s) => titlesMatch(s.title, title));
   if (debt.state === "tested") {
     return { cleared: true, reason: `${debt.testsRun} of ${debt.testsProposed} assumption test(s) recorded a result`, debt };
   }
@@ -41306,7 +41317,7 @@ function buildOstTools(ctx, allowedNames) {
   const spendClass = () => {
     const title = process.env.OST_UNKNOWN;
     if (!title) return void 0;
-    const node = vault.readTree().find((n) => n.layer === "Unknown" && n.title === title);
+    const node = vault.readTree().find((n) => n.layer === "Unknown" && titlesMatch(n.title, title));
     return node ? classifyUnknown(node, genome.classifier) : void 0;
   };
   const rankedBy = `agent${ctx.surface ? `:${ctx.surface}` : ""}`;

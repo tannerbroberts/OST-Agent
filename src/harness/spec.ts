@@ -21,11 +21,15 @@
  * frontmatter. A generator calling `new Date()` would emit vaults that differ
  * between days and fitness records that cannot be reproduced.
  *
- * This module imports nothing from the rest of the repo and must stay a leaf: a
- * spec that read the tree could not describe an environment independently of
- * one.
+ * This module must stay a leaf: a spec that read the tree could not describe an
+ * environment independently of one. Its one import, `ost/sanitize`, is itself a
+ * leaf — pure string functions, no imports of its own, no filesystem, no tree.
+ * It is here because planting a node writes it as `fileNameForTitle(title)` and
+ * reads it back named after the file, so a spec that compares titles any other
+ * way is describing an environment the generator cannot actually produce.
  */
 import { z } from "zod";
+import { canonicalTitle, titlesMatch } from "../ost/sanitize.js";
 
 /** A planted `#Unknown`, plus whether its answer is discoverable and what it is. */
 export interface PlantedUnknown {
@@ -119,18 +123,42 @@ export const EnvironmentSpecSchema: z.ZodType<EnvironmentSpec, z.ZodTypeDef, unk
   // The edge has to have a source. `darkens` naming a node that was never
   // planted produces an unknown nothing links to, which resolves `darkens: null`
   // at `computeNextWork` and silently degrades every coverage metric.
-  .refine((s) => s.unknowns.every((u) => s.nodes.some((n) => n.title === u.darkens)), {
+  // Matched through the sanitizer, because that is what planting does: a node
+  // is written as `fileNameForTitle(title)` and read back named after the file.
+  // A raw match here would accept a spec that plants `Unknown: X`, stores it as
+  // `Unknown X`, and then fails to resolve `darkens` at run time — validating
+  // the very state this refine exists to reject.
+  .refine((s) => s.unknowns.every((u) => s.nodes.some((n) => titlesMatch(n.title, u.darkens))), {
     message: "every unknown's `darkens` must name a planted node",
   })
   // Two unknowns with one title share one attention ledger file, so their spend
-  // would merge and neither could be scored.
-  .refine((s) => new Set(s.unknowns.map((u) => u.title)).size === s.unknowns.length, {
-    message: "unknown titles must be unique",
+  // would merge and neither could be scored. The ledger path is keyed by
+  // `sanitizeTitle`, so uniqueness has to be judged there too — otherwise
+  // `Unknown: A` and `Unknown A` read as distinct and collide anyway.
+  .refine((s) => new Set(s.unknowns.map((u) => canonicalTitle(u.title))).size === s.unknowns.length, {
+    message: "unknown titles must be unique once sanitized (they share a ledger file otherwise)",
   });
 
-/** Unknown title ⇒ expected answer, for findable unknowns only. The grading key. */
+/**
+ * Unknown title ⇒ expected answer, for findable unknowns only. The grading key.
+ *
+ * Keyed by the SANITIZED title, and looked up the same way through
+ * {@link answerFor}. The spec holds the title as authored; a run reports the
+ * title as the vault stored it, which has been through `sanitizeTitle`. Keying
+ * this map raw made a planted `Unknown: X` unscoreable — the run resolved it
+ * correctly, `key.has` said no, and the fitness record showed a variant that
+ * had found nothing. A grading key that silently fails to match is worse than
+ * no key: it does not withhold a score, it reports a wrong one.
+ */
 export function answerKey(spec: EnvironmentSpec): Map<string, string> {
-  return new Map(spec.unknowns.filter((u) => u.findable).map((u) => [u.title, u.answer]));
+  return new Map(
+    spec.unknowns.filter((u) => u.findable).map((u) => [canonicalTitle(u.title) ?? u.title, u.answer]),
+  );
+}
+
+/** Look an answer up by whatever spelling of the title the caller has. */
+export function answerFor(key: ReadonlyMap<string, string>, title: string): string | undefined {
+  return key.get(canonicalTitle(title) ?? title);
 }
 
 /** How many unknowns a run could resolve at all. The denominator for observation quality. */

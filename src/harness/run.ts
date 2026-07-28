@@ -28,7 +28,7 @@ import { buildPassContext } from "../runner/context.js";
 import { recordAttention, type AttentionEntry } from "../telemetry/attention.js";
 import { createLookupBudget } from "../web/budget.js";
 import { generateEnvironment } from "./generate.js";
-import { answerKey, type EnvironmentSpec } from "./spec.js";
+import { answerFor, answerKey, type EnvironmentSpec } from "./spec.js";
 
 /** What became of one planted unknown. */
 export interface UnknownOutcome {
@@ -113,7 +113,7 @@ export function runEnvironment(args: {
       };
       recordAttention(dir, spend);
 
-      const answer = allowed ? (key.get(open.title) ?? "") : "";
+      const answer = allowed ? (answerFor(key, open.title) ?? "") : "";
       const resolved = answer.length > 0;
       if (resolved) {
         ctx.vault.appendUnderSection(open.title, "Answer", answer);

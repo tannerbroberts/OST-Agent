@@ -102,3 +102,36 @@ describe("gateSolution", () => {
     expect(verdict.reason).toMatch(/not in the tree|no node/i);
   });
 });
+
+/**
+ * A node's title is its filename, so by the time it is read back it has been
+ * through `sanitizeTitle` — which replaces `:` with a space. A caller naming a
+ * node types the title they created it with. Comparing the two raw makes a
+ * whole naming convention (`Unknown: what we cannot see`) permanently
+ * unaddressable, and does it silently: the lookup simply finds nothing.
+ */
+describe("titles that the vault had to sanitize are still addressable", () => {
+  const created = "Synthetic vault ladder: generate OST-shaped vaults";
+  const onDisk = "Synthetic vault ladder generate OST-shaped vaults"; // what sanitizeTitle leaves
+
+  test("gating by the title the caller created resolves the node the vault stored", () => {
+    const t = [
+      node(OUT, "Outcome", ["Opp"]),
+      node("Opp", "Opportunity", [onDisk]),
+      node(onDisk, "Solution", ["T"]),
+      node("T", "AssumptionTest", [], { body: "## Results\n- ran it" }),
+    ];
+    const verdict = gateSolution(t, created);
+    expect(verdict.reason).not.toMatch(/is not in the tree/);
+    expect(verdict.cleared).toBe(true);
+  });
+
+  test("and the sanitized spelling keeps working, so nothing that worked stops", () => {
+    const t = [
+      node(OUT, "Outcome", ["Opp"]),
+      node("Opp", "Opportunity", [onDisk]),
+      node(onDisk, "Solution", []),
+    ];
+    expect(gateSolution(t, onDisk).reason).toMatch(/no assumption test beneath it/);
+  });
+});

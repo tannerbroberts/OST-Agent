@@ -12,6 +12,7 @@
  * was the one that got run.
  */
 import type { OstNode } from "../ost/node.js";
+import { titlesMatch } from "../ost/sanitize.js";
 
 export type DebtState = "untested" | "proposed" | "tested";
 
@@ -82,11 +83,13 @@ export interface GateVerdict {
  * beneath it has recorded a result. Refusals name what to go run.
  */
 export function gateSolution(tree: readonly OstNode[], title: string): GateVerdict {
-  const solution = tree.find((n) => n.title === title && n.layer === "Solution");
+  // Matched through the sanitizer: the caller names the title they created,
+  // the tree carries the title the filesystem allowed.
+  const solution = tree.find((n) => n.layer === "Solution" && titlesMatch(n.title, title));
   if (!solution) {
     return { cleared: false, reason: `"${title}" is not in the tree as a Solution — nothing to gate against` };
   }
-  const debt = computeEvidenceDebt(tree).solutions.find((s) => s.title === title)!;
+  const debt = computeEvidenceDebt(tree).solutions.find((s) => titlesMatch(s.title, title))!;
 
   if (debt.state === "tested") {
     return { cleared: true, reason: `${debt.testsRun} of ${debt.testsProposed} assumption test(s) recorded a result`, debt };

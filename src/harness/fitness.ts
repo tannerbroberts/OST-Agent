@@ -28,7 +28,7 @@
  */
 import type { AttentionRollup } from "../eval/attention.js";
 import type { RunRecord } from "./run.js";
-import { answerKey, findableCount, type EnvironmentSpec } from "./spec.js";
+import { answerFor, answerKey, findableCount, type EnvironmentSpec } from "./spec.js";
 
 /**
  * The bootstrap weighting between orientation speed and observation quality.
@@ -100,7 +100,7 @@ export function computeFitness(args: {
   // nothing, and an unfindable unknown is not in the key at all — so a run that
   // invents an answer for one earns nothing by it.
   const resolvedCorrectly = run.outcomes.filter(
-    (o) => o.resolved && key.has(o.title) && key.get(o.title) === o.answer,
+    (o) => o.resolved && answerFor(key, o.title) !== undefined && answerFor(key, o.title) === o.answer,
   ).length;
 
   // A null environment has findable === 0. Quality is 0 rather than 1 or NaN:

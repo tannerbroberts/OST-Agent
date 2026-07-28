@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  answerFor,
   answerKey,
   EnvironmentSpecSchema,
   findableCount,
@@ -83,5 +84,52 @@ describe("answerKey", () => {
 describe("findableCount", () => {
   test("counts only what a run could actually resolve", () => {
     expect(findableCount(SPEC)).toBe(1);
+  });
+});
+
+/**
+ * The spec holds titles as authored; a run reports them as the vault stored
+ * them, which has been through `sanitizeTitle`. Matching those raw is not a
+ * withheld score — it is a WRONG one: the run resolves the unknown, the key
+ * says it never heard of it, and the fitness record shows a variant that found
+ * nothing.
+ */
+describe("titles survive the trip through the filesystem", () => {
+  const colonSpec: EnvironmentSpec = {
+    ...SPEC,
+    nodes: [{ title: "Retention: daily", layer: "Outcome", body: "b", links: [] }],
+    unknowns: [
+      {
+        title: "Unknown: how many users hit the export path",
+        darkens: "Retention: daily",
+        sections: ["Format"],
+        findable: true,
+        answer: "412 per day",
+      },
+    ],
+  };
+
+  test("`darkens` still resolves when the sanitizer rewrote the node's title", () => {
+    expect(EnvironmentSpecSchema.safeParse(colonSpec).success).toBe(true);
+  });
+
+  test("the grading key answers to the title the vault will actually report", () => {
+    const key = answerKey(colonSpec);
+    // what computeNextWork reads back off disk — no colon
+    expect(answerFor(key, "Unknown how many users hit the export path")).toBe("412 per day");
+    // and the authored spelling keeps working
+    expect(answerFor(key, "Unknown: how many users hit the export path")).toBe("412 per day");
+  });
+
+  test("two unknowns that collide only after sanitizing are rejected, not silently merged", () => {
+    const collide: EnvironmentSpec = {
+      ...colonSpec,
+      unknowns: [
+        { title: "Unknown: alpha", darkens: "Retention: daily", sections: ["Format"], findable: false, answer: "" },
+        { title: "Unknown alpha", darkens: "Retention: daily", sections: ["Format"], findable: false, answer: "" },
+      ],
+    };
+    const parsed = EnvironmentSpecSchema.safeParse(collide);
+    expect(parsed.success).toBe(false);
   });
 });
