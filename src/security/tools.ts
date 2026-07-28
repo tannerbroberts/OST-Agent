@@ -31,6 +31,9 @@ import { InboxSource } from "../adapters/inbox.js";
 import { loadCursor, saveCursor } from "../adapters/source.js";
 import { writeEvidence } from "../processes/tree.js";
 import { loadConfig } from "../config/load.js";
+import { DEFAULT_MIN_SOLUTIONS_PER_OPPORTUNITY } from "../config/schema.js";
+import { defaultGenome } from "../genome/load.js";
+import type { Genome } from "../genome/schema.js";
 import type { PassContext } from "../processes/types.js";
 
 const STATUS_VALUES = ["unvalidated", "validated", "in-discovery", "shipped", "deferred"];
@@ -75,6 +78,14 @@ export interface ToolContext {
   remote: RemoteConfig;
   /** minSolutionsPerOpportunity — how ost_next_work decides an opportunity is under-served (default 3). */
   minSolutionsPerOpportunity?: number;
+  /**
+   * The pass's genome — the policy this tool set interprets. Optional because a
+   * ToolContext is also assembled by hand (tests, the CLI's narrow surfaces);
+   * absent means the default genome, which is today's behaviour exactly. A
+   * `PassContext` satisfies this structurally, so the MCP and CLI surfaces get
+   * it for free.
+   */
+  genome?: Genome;
   /** Which surface is dispatching ("mcp", "cli-tool", "pass:P2_map"); lands in the usage trace. */
   surface?: string;
   /** Outward web sensing: search key, injectable fetch, and the per-session lookup budget. */
@@ -92,7 +103,14 @@ export interface ToolContext {
  */
 export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]) {
   const { vault, dir, remote } = ctx;
-  const minSolutions = ctx.minSolutionsPerOpportunity ?? 3;
+  const minSolutions = ctx.minSolutionsPerOpportunity ?? DEFAULT_MIN_SOLUTIONS_PER_OPPORTUNITY;
+  // Resolved ONCE here, at tool-set construction, and captured by every closure
+  // below — never re-read inside a tool's `run`. `ost_ingest_inbox` further down
+  // this file calls `loadConfig(dir)` per invocation; that is the shape to avoid,
+  // not the shape to copy. Nothing reads `genome` yet (the budget gene lands in
+  // Task 6, the pivot gene in Task 8); the resolution point exists first so that
+  // when they do, there is exactly one of it and it is above every closure.
+  const genome: Genome = ctx.genome ?? defaultGenome();
   // One budget for all web lookups this pass/session — created here if the
   // context didn't bring one, so the bound holds on every surface.
   const lookupBudget = ctx.web?.budget ?? createLookupBudget();
