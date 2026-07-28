@@ -46,7 +46,7 @@ Four parts. Parts 1–2 are useful standing alone; 3–4 need them.
 
 Split by cadence, mirroring the existing division between knowledge (tree) and mechanical trace (sidecar).
 
-**On the tree** — a fifth type tag, `#Unknown`, one Markdown file, append-only, linking to the node it darkens. Darkness becomes a visible region of the Obsidian graph, the way `#unvalidated` made speculation visually distinct. The node carries the contract:
+**On the tree** — a fifth type tag, `#Unknown`, one Markdown file, append-only. **The darkened node carries the edge**: the node an unknown darkens holds the `[[Unknown]]` wikilink, not the reverse. (Settled in Phase 2, was "Link direction" under [Least-settled](#least-settled). `computeNextWork` resolves `darkens` by searching for the non-`Unknown` node that links *to* the unknown — `src/mcp/next-work.ts:199`, pinned by `test/mcp/next-work.test.ts:120`. This matches `CHILD_HIERARCHY`, where parents carry children. **Anything that plants an `#Unknown` — including a Phase 3 environment generator — must emit the edge in this direction**; emitting it the other way resolves `darkens` to `null` for every planted unknown and degrades every coverage metric silently, without erroring.) Darkness becomes a visible region of the Obsidian graph, the way `#unvalidated` made speculation visually distinct. The node carries the contract:
 
 | Field | Meaning |
 |---|---|
@@ -56,7 +56,7 @@ Split by cadence, mirroring the existing division between knowledge (tree) and m
 
 The contract is what binds a commissioned faculty to a purpose, and it is what prevents open-ended chasing: **Format is the stopping condition.**
 
-**In the sidecar** — `.ost-agent/attention/<unknown-id>.jsonl`, append-only, machine-written, never narrated. Same discipline and location convention as `usage/events.jsonl` and `health/runs.jsonl`. Cost accrues here rather than in the node body, which would fight the never-rewrite rule and drown the prose.
+**In the sidecar** — `.ost-agent/attention/<unknown-id>.jsonl`, append-only, machine-written, never narrated. Same discipline and location convention as `usage/events.jsonl`. (This originally also cited `health/runs.jsonl`; `src/loop/health.ts` was deleted with the API-key runner in `16926b8`, so that convention now survives only as prose in `src/loop/exitLaundering.ts`. `usage/events.jsonl` remains live and is the pattern to copy.) Cost accrues here rather than in the node body, which would fight the never-rewrite rule and drown the prose.
 
 **Attribution rides existing plumbing.** `withUsageTracing` already stamps every event with `OST_SESSION` (`src/telemetry/usage.ts:72`). An `OST_UNKNOWN` marker, set when the loop picks up an unknown, adds one optional field to `UsageEvent` and every tool call self-attributes.
 
@@ -160,8 +160,8 @@ Recorded as assumptions, not decisions, so they are cheap to overturn:
 
 - **Generated environments carry generator bias the agent cannot see.** The replay holdout is the mitigation, but the holdout supply is small, and small-n validation is exactly the failure mode named above. This is the weakest joint in the design.
 - **`unreached` may not earn its own class.** It may be `bounded` with a blocker, in which case the v1 classifier has two classes, not three. It will lose or survive on predictive power like any allele.
-- **Link direction** — whether an `#Unknown` links to the node it darkens or is linked from it. A graph-shape call with real consequences for how visible darkness is in Obsidian, deferred to implementation.
-- **Fitness weighting** between orientation speed and observation quality is unspecified. It is itself a candidate gene, but bootstrapping it requires a starting value chosen by hand.
+- ~~**Link direction**~~ — **SETTLED in Phase 2.** The darkened node carries the edge; see [The unknown record](#1-the-unknown-record). Kept here as a record that it was an open question, not an oversight.
+- **Fitness weighting** between orientation speed and observation quality is unspecified. It is itself a candidate gene, but bootstrapping it requires a starting value chosen by hand. **Phase 3 pins it at 1:1 and does not breed it** — a weight that is itself bred is confounded with the genes it weights, so a single fitness scalar cannot identify both. The pinned value is stamped into every fitness record; revisit in Phase 4.
 
 ## Out of scope (YAGNI)
 

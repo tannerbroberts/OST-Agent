@@ -37,8 +37,18 @@
  *
  * Everything here is fail-open, like every other reader of a file no OST-Agent
  * process wrote: a missing directory, an unreadable transcript or a malformed
- * usage object degrades to an empty result. This runs inside `ost_status`; a
- * correlator that throws takes the status tool down with it.
+ * usage object degrades to an empty result.
+ *
+ * WHO CALLS THIS. Not `ost_status`, and not anything under `eval/`. This module
+ * writes — `markCorrelated` saves a cursor — and the read surfaces are write-free
+ * by contract, so `renderStatus` is forbidden from running it. Its caller is the
+ * Phase 3 harness, which owns the one process allowed to advance the cursor. The
+ * seam is already typed: `AttentionOptions.correlated` / `.residual` /
+ * `.costBasis` (`src/eval/attention.ts:302-313`) match `CorrelationResult`
+ * field-for-field, so the harness correlates and hands the result to the rollup.
+ * Fail-open still matters for the same reason it does everywhere else: a
+ * correlator that throws would kill the run it was measuring, and a dead harness
+ * must not be mistakable for a bad genome.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -333,7 +343,8 @@ export function correlateTokens(
 
     return { byUnknown, residual, sessions, costBasis: split.costBasis };
   } catch {
-    // fail-open by contract: this runs inside ost_status
+    // fail-open by contract: a correlator that throws kills the harness run it
+    // was measuring, and a dead harness must not read as a bad genome.
     return emptyResult(split.costBasis);
   }
 }
