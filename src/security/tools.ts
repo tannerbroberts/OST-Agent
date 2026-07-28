@@ -31,6 +31,7 @@ const CHILD_HIERARCHY: Record<string, string[]> = {
   Opportunity: ["Outcome", "Opportunity"],
   Solution: ["Opportunity"],
   AssumptionTest: ["Solution"],
+  Unknown: ["Outcome", "Opportunity", "Solution", "AssumptionTest"],
 };
 
 export interface RemoteConfig {

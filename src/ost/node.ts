@@ -30,13 +30,14 @@ import { isLane, type LaneId } from "../knowledge/lanes.js";
 /** Tag form of the evidence class: `#evidence/observed`. */
 const EVIDENCE_TAG = /^evidence\/(.+)$/;
 
-export type Layer = "Outcome" | "Opportunity" | "Solution" | "AssumptionTest";
+export type Layer = "Outcome" | "Opportunity" | "Solution" | "AssumptionTest" | "Unknown";
 
 export const LAYERS: readonly Layer[] = [
   "Outcome",
   "Opportunity",
   "Solution",
   "AssumptionTest",
+  "Unknown",
 ] as const;
 
 export type NodeStatus =
