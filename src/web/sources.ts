@@ -29,11 +29,20 @@ const ENTITIES: Record<string, string> = {
   "&nbsp;": " ",
 };
 
-/** Search APIs return snippets with markup in them; results are read as text. */
+/**
+ * Search APIs return snippets with markup in them; results are read as text.
+ *
+ * Numeric entities are decoded generically rather than table-matched: the same
+ * character arrives spelled several ways (`&#39;` and the zero-padded `&#039;`
+ * both appear in MediaWiki output), and a table can only ever list the
+ * spellings someone happened to hit.
+ */
 export function stripHtml(s: string): string {
   return s
     .replace(/<[^>]*>/g, "")
-    .replace(/&amp;|&lt;|&gt;|&quot;|&#39;|&nbsp;/g, (m) => ENTITIES[m] ?? m)
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(Number(dec)))
+    .replace(/&amp;|&lt;|&gt;|&quot;|&nbsp;/g, (m) => ENTITIES[m] ?? m)
     .replace(/\s+/g, " ")
     .trim();
 }

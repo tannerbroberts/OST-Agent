@@ -10,6 +10,14 @@ describe("stripHtml", () => {
     expect(stripHtml('a <span class="searchmatch">b</span> c')).toBe("a b c");
     expect(stripHtml("x &amp; y &quot;z&quot;")).toBe('x & y "z"');
   });
+
+  // The same character arrives spelled several ways; MediaWiki emits the
+  // zero-padded form, which a hand-written table will not contain.
+  test("decodes numeric entities in any spelling", () => {
+    expect(stripHtml("Lim&#039;s")).toBe("Lim's");
+    expect(stripHtml("Lim&#39;s")).toBe("Lim's");
+    expect(stripHtml("caf&#xe9;")).toBe("café");
+  });
 });
 
 describe("wikipediaSource", () => {
