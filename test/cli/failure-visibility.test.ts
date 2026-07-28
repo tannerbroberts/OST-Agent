@@ -89,4 +89,21 @@ describe("ost-agent status — the last failed run leads", () => {
     expect(stdout).not.toMatch(/FAILED/);
     expect(stdout).toMatch(/P1_ingest/);
   }, 60_000);
+
+  test("the per-layer breakdown names every layer, including Unknown, and sums to the total", async () => {
+    const { stdout } = await cli(["status", "--vault", dir]);
+
+    const line = stdout.split("\n").find((l) => l.startsWith("Nodes:"));
+    expect(line, "expected a \"Nodes:\" line in status output").toBeDefined();
+
+    const total = Number(line!.match(/^Nodes: (\d+)/)?.[1]);
+    expect(Number.isFinite(total)).toBe(true);
+
+    for (const layer of ["Outcome", "Opportunity", "Solution", "AssumptionTest", "Unknown"]) {
+      expect(line).toContain(layer);
+    }
+    const perLayerSum = [...line!.matchAll(/(?:Outcome|Opportunity|Solution|AssumptionTest|Unknown) (\d+)/g)]
+      .reduce((sum, m) => sum + Number(m[1]), 0);
+    expect(perLayerSum).toBe(total);
+  }, 60_000);
 });

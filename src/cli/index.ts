@@ -43,6 +43,7 @@ import { ALLOWED_TOOL_NAMES } from "../security/policy.js";
 import { createLazyOstMcpServer, MCP_TOOL_NAMES } from "../mcp/server.js";
 import { vaultReadiness } from "../mcp/bootstrap.js";
 import { withAuthHint } from "../runner/errors.js";
+import { LAYERS } from "../ost/node.js";
 import { registerLoopCommands } from "./loop.js";
 import { VERSION } from "../index.js";
 
@@ -446,7 +447,11 @@ program
     const unvalidated = tree.filter((n) => n.status === "unvalidated").length;
     console.log(`Vault: ${ctx.dir}`);
     console.log(`Outcome: ${ctx.config.outcome}`);
-    console.log(`Nodes: ${tree.length}  (Outcome ${byLayer("Outcome")}, Opportunity ${byLayer("Opportunity")}, Solution ${byLayer("Solution")}, AssumptionTest ${byLayer("AssumptionTest")})`);
+    // Derived from LAYERS rather than hand-listed, so a layer added to the
+    // model shows up here automatically instead of silently dropping out of a
+    // total the parenthesized counts are supposed to sum to.
+    const breakdown = LAYERS.map((l) => `${l} ${byLayer(l)}`).join(", ");
+    console.log(`Nodes: ${tree.length}  (${breakdown})`);
     console.log(`Unvalidated (agent-ideated, awaiting review): ${unvalidated}`);
     const rollup = believabilityRollup(tree);
     const perRung = BELIEVABILITY_LADDER.map((r) => `${r.id} ${rollup.counts[r.id]}`).join(", ");
