@@ -15,6 +15,8 @@ import { laneConflicts } from "../ost/lanes.js";
 import { wrappedLinkTargets, type OstNode } from "../ost/node.js";
 import type { Vault } from "../ost/vault.js";
 import { classifyUnknown, contractGaps, resolutionState, type UnknownClass } from "../knowledge/unknowns.js";
+import { defaultGenome } from "../genome/load.js";
+import type { Genome, PivotGene } from "../genome/schema.js";
 
 export interface UnmappedEvidence {
   id: string;
@@ -59,10 +61,18 @@ export interface NextWork {
   hygieneIssues: HygieneIssue[];
   /**
    * Darkness the tree has declared and not yet resolved. Reported as available
-   * work but deliberately NOT part of `done`: an unbounded unknown has no
-   * stopping condition, so counting it toward completion would wedge every
-   * pass forever. `done` means maintenance is complete; exploration is
-   * discretionary and budget-governed.
+   * work but, under the default genome, deliberately NOT part of `done`: an
+   * unbounded unknown has no stopping condition, so counting it toward
+   * completion would wedge every pass forever. `done` means maintenance is
+   * complete; exploration is discretionary and budget-governed.
+   *
+   * `pivot.unknownsBlockDone` is the allele that may overturn that — a variant
+   * that refuses to call a tree maintained while it still cannot see. It is
+   * `false` in v1 because the argument above is the one we can defend today,
+   * not because it is unfalsifiable.
+   *
+   * This list may be TRUNCATED by `pivot.maxOpenUnknownsSurfaced`. `done` never
+   * is: it is computed over every open unknown, before the cap applies.
    */
   openUnknowns: OpenUnknown[];
 }
@@ -108,10 +118,42 @@ function detectHygiene(tree: OstNode[]): HygieneIssue[] {
 }
 
 /**
- * Compute the outstanding maintenance work for the tree in `vault` (dir holds the
- * `.ost-agent/` evidence + state sidecar). `min` is minSolutionsPerOpportunity.
+ * Order the open unknowns the way the genome asked.
+ *
+ * `tree-order` is the identity — the order the tree walk produced, which is
+ * what every pass before the genome saw. `class-priority` sorts by the position
+ * of each unknown's class in `classPriority`, with any class the list does not
+ * name sorted last; `Array.prototype.sort` is stable (ES2019), so two unknowns
+ * of the same class keep their tree order and the gene stays a coarse
+ * re-ordering rather than a shuffle.
+ *
+ * `cost-to-resolve` is a declared allele this kernel cannot execute: ranking by
+ * cost means reading the attention ledger for every unknown on every
+ * `ost_next_work` call, which is real work and belongs with the task that wires
+ * `computeAttention` into a production path. Rather than reject the genome at
+ * load time — a harness may legitimately breed an allele ahead of the kernel —
+ * it falls back to tree order and the caller states the fallback in the
+ * summary. A kernel that quietly does something other than what the genome said
+ * produces a fitness record that is a lie.
  */
-export function computeNextWork(vault: Vault, dir: string, min: number): NextWork {
+function rankOpenUnknowns(open: OpenUnknown[], pivot: PivotGene): OpenUnknown[] {
+  if (pivot.ranking !== "class-priority") return open;
+  const rank = (klass: UnknownClass): number => {
+    const at = pivot.classPriority.indexOf(klass);
+    return at === -1 ? pivot.classPriority.length : at;
+  };
+  return [...open].sort((a, b) => rank(a.klass) - rank(b.klass));
+}
+
+/**
+ * Compute the outstanding maintenance work for the tree in `vault` (dir holds the
+ * `.ost-agent/` evidence + state sidecar). `min` is minSolutionsPerOpportunity —
+ * an operator knob from `ost.config.yaml`, not an allele. `genome` carries the
+ * alleles: how darkness is classed, when it is resolved, and whether it blocks
+ * `done`. Both are positional and defaulted, so an absent genome.yaml and a
+ * three-argument call behave exactly as they did before Phase 2.
+ */
+export function computeNextWork(vault: Vault, dir: string, min: number, genome: Genome = defaultGenome()): NextWork {
   const tree = vault.readTree();
   const index = byTitle(tree);
 
@@ -144,32 +186,60 @@ export function computeNextWork(vault: Vault, dir: string, min: number): NextWor
 
   const hygieneIssues = detectHygiene(tree);
 
-  const openUnknowns: OpenUnknown[] = tree
-    .filter((n) => n.layer === "Unknown" && resolutionState(n) === "open")
-    .map((u) => ({
-      title: u.title,
-      klass: classifyUnknown(u),
-      darkens: tree.find((p) => p.layer !== "Unknown" && p.links.includes(u.title))?.title ?? null,
-      gaps: contractGaps(u),
-    }));
+  // Classification and resolution are genome-driven: `class-priority` ranking
+  // orders by `klass`, and a klass derived from a compiled-in classifier while
+  // the genome declares a different vocabulary would rank against classes that
+  // do not exist.
+  const allOpenUnknowns: OpenUnknown[] = rankOpenUnknowns(
+    tree
+      .filter((n) => n.layer === "Unknown" && resolutionState(n, genome.resolution) === "open")
+      .map((u) => ({
+        title: u.title,
+        klass: classifyUnknown(u, genome.classifier),
+        darkens: tree.find((p) => p.layer !== "Unknown" && p.links.includes(u.title))?.title ?? null,
+        gaps: contractGaps(u, genome.classifier.contractSections),
+      })),
+    genome.pivot,
+  );
+
+  // The cap is a display limit, never an amnesty: `done` is computed over every
+  // open unknown, and the hidden count is named in the summary. A cap that
+  // silently shortened the list would read as "that is all the darkness there is".
+  const cap = genome.pivot.maxOpenUnknownsSurfaced;
+  const openUnknowns = cap > 0 ? allOpenUnknowns.slice(0, cap) : allOpenUnknowns;
+  const hidden = allOpenUnknowns.length - openUnknowns.length;
+  const blocksDone = genome.pivot.unknownsBlockDone;
 
   const done =
     unmappedEvidence.length === 0 &&
     underservedOpportunities.length === 0 &&
     solutionsMissingAssumptions.length === 0 &&
-    hygieneIssues.length === 0;
+    hygieneIssues.length === 0 &&
+    (!blocksDone || allOpenUnknowns.length === 0);
 
   const parts: string[] = [];
   if (unmappedEvidence.length) parts.push(`${unmappedEvidence.length} unmapped evidence item(s) → map into #Opportunity nodes`);
   if (underservedOpportunities.length) parts.push(`${underservedOpportunities.length} opportunity(ies) with < ${min} solutions → ideate #Solution nodes`);
   if (solutionsMissingAssumptions.length) parts.push(`${solutionsMissingAssumptions.length} solution(s) with no assumption test → surface #AssumptionTest nodes`);
   if (hygieneIssues.length) parts.push(`${hygieneIssues.length} hygiene issue(s) → annotate (never delete)`);
-  if (openUnknowns.length) parts.push(`${openUnknowns.length} open unknown(s) → explore (does not block done)`);
+  if (allOpenUnknowns.length)
+    parts.push(
+      `${allOpenUnknowns.length} open unknown(s) → explore (${blocksDone ? "blocks done" : "does not block done"})`,
+    );
+
+  const truncationNote = hidden
+    ? ` Showing ${openUnknowns.length} of ${allOpenUnknowns.length} — ${hidden} more open unknown(s) not listed (pivot.maxOpenUnknownsSurfaced=${cap}).`
+    : "";
+  const rankingNote =
+    genome.pivot.ranking === "cost-to-resolve"
+      ? " Ranking 'cost-to-resolve' is not implemented in this kernel — listed in tree order instead."
+      : "";
+
   const summary = done
-    ? openUnknowns.length
-      ? `Tree is fully maintained — nothing to do. ${openUnknowns.length} open unknown(s) remain to explore (does not block done).`
+    ? allOpenUnknowns.length
+      ? `Tree is fully maintained — nothing to do. ${allOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${truncationNote}${rankingNote}`
       : "Tree is fully maintained — nothing to do."
-    : `Outstanding: ${parts.join("; ")}.`;
+    : `Outstanding: ${parts.join("; ")}.${truncationNote}${rankingNote}`;
 
   return { done, summary, unmappedEvidence, underservedOpportunities, solutionsMissingAssumptions, hygieneIssues, openUnknowns };
 }

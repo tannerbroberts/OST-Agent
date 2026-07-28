@@ -215,7 +215,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
       description:
         "Read-only orchestration: report exactly what maintenance the tree still needs, so you know what to do next without re-deriving it. Returns unmapped evidence (→ create #Opportunity nodes), under-served opportunities with < the configured minimum solutions (→ ideate #Solution nodes, status 'unvalidated'), solutions with no assumption test (→ surface #AssumptionTest nodes), structural hygiene issues (→ annotate, never delete), and `openUnknowns` — every #Unknown still unresolved, with its class and contract gaps, offered as darkness worth exploring. `done: true` means nothing is outstanding; open unknowns are reported but never block `done`. Call this at the start of a pass.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
-      run: async () => JSON.stringify(computeNextWork(vault, dir, minSolutions), null, 2),
+      run: async () => JSON.stringify(computeNextWork(vault, dir, minSolutions, genome), null, 2),
     }),
 
     tool({
