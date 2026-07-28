@@ -17,13 +17,38 @@ import type { WebFetchFn } from "./reader.js";
 import type { SearchOutcome, SearchProvider, SearchResult } from "./search.js";
 import type { KeylessSource } from "./sources.js";
 
-/** Thrown when not one source answered — the caller should refund the lookup. */
+/**
+ * Thrown when not one source answered.
+ *
+ * The caller refunds the lookup UNLESS `allCooling` — see {@link SourceCoolingError}.
+ */
 export class AllSourcesFailedError extends Error {
-  readonly failures: { source: string; reason: string }[];
-  constructor(failures: { source: string; reason: string }[]) {
+  readonly failures: { source: string; reason: string; cooling: boolean }[];
+  /** Every source was skipped for cooldown, so this call touched no network. */
+  readonly allCooling: boolean;
+  constructor(failures: { source: string; reason: string; cooling: boolean }[]) {
     super(`every search source failed: ${failures.map((f) => `${f.source} (${f.reason})`).join(", ")}`);
     this.name = "AllSourcesFailedError";
     this.failures = failures;
+    this.allCooling = failures.length > 0 && failures.every((f) => f.cooling);
+  }
+}
+
+/**
+ * A source skipped without a request because it is still cooling from a 429.
+ *
+ * Distinguished from a real failure because the two deserve opposite budget
+ * treatment: an outage cost the agent a lookup that bought nothing and should
+ * be refunded, but a cooldown costs no network at all — and refunding it would
+ * make retrying free and instant in exactly the state where an agent is most
+ * likely to spin. The budget is the only backpressure this system has.
+ */
+export class SourceCoolingError extends Error {
+  readonly secondsRemaining: number;
+  constructor(secondsRemaining: number) {
+    super(`cooling down after a rate limit for another ${secondsRemaining}s`);
+    this.name = "SourceCoolingError";
+    this.secondsRemaining = secondsRemaining;
   }
 }
 
@@ -47,11 +72,12 @@ export function federatedProvider(sources: KeylessSource[], opts: FederatedOptio
   const cooldownMs = opts.cooldownMs ?? DEFAULT_COOLDOWN_MS;
   // Per-provider, not module-global: one instance per session, no shared state.
   const cooling = new Map<string, number>();
+  let turn = 0;
 
   async function one(src: KeylessSource, query: string, count: number, fetchFn: WebFetchFn): Promise<SearchResult[]> {
     const until = cooling.get(src.name);
     if (until !== undefined && now() < until) {
-      throw new Error(`cooling down after a rate limit for another ${Math.ceil((until - now()) / 1000)}s`);
+      throw new SourceCoolingError(Math.ceil((until - now()) / 1000));
     }
 
     const url = assertAllowedUrl(src.url(query, count)); // federated sources are not exempt from the guard
@@ -75,19 +101,28 @@ export function federatedProvider(sources: KeylessSource[], opts: FederatedOptio
     name: "federated",
     search: async (query, count, fetchFn) => {
       const fetcher = fetchFn ?? (globalThis.fetch as unknown as WebFetchFn);
+      // Rotate whose results get first pick. `interleave` fills from the front,
+      // so with more sources than result slots a fixed order would starve the
+      // tail permanently — those sources would issue a live request against
+      // somebody's free API on every single search and have the results thrown
+      // away, forever. Rotating costs nothing and makes starvation temporary.
+      const ordered = sources.map((_, i) => sources[(i + turn) % sources.length]);
+      turn = sources.length === 0 ? 0 : (turn + 1) % sources.length;
+
       const settled = await Promise.all(
-        sources.map(async (src) => {
+        ordered.map(async (src) => {
           try {
             return { src, results: await one(src, query, count, fetcher) };
           } catch (err) {
-            return { src, reason: err instanceof Error ? err.message : String(err) };
+            const cooling = err instanceof SourceCoolingError;
+            return { src, reason: err instanceof Error ? err.message : String(err), cooling };
           }
         }),
       );
 
       const failures = settled
-        .filter((s): s is { src: KeylessSource; reason: string } => "reason" in s)
-        .map((s) => ({ source: s.src.name, reason: s.reason }));
+        .filter((s): s is { src: KeylessSource; reason: string; cooling: boolean } => "reason" in s)
+        .map((s) => ({ source: s.src.name, reason: s.reason, cooling: s.cooling }));
 
       const answered = settled.filter((s): s is { src: KeylessSource; results: SearchResult[] } => "results" in s);
       if (answered.length === 0) throw new AllSourcesFailedError(failures);

@@ -88,6 +88,47 @@ describe("federatedProvider", () => {
     expect(bRequested).toBe(true);
   });
 
+  // The budget is the only backpressure in this system. If every source is
+  // cooling, the call touches no network and throws instantly — so refunding it
+  // would make retrying free AND instant, precisely when an agent is most
+  // likely to spin. `allCooling` is how the caller tells the two apart.
+  test("marks an all-cooling failure so the caller does not refund a free retry", async () => {
+    let clock = 0;
+    const p = federatedProvider([source("a", "a.com", ["a1"]), source("b", "b.com", ["b1"])], {
+      now: () => clock,
+      cooldownMs: 60_000,
+    });
+    await p.search("q", 5, statusByHost({ "a.com": 429, "b.com": 429 })).catch(() => {});
+
+    clock += 1_000;
+    let requested = false;
+    const spy: WebFetchFn = async () => {
+      requested = true;
+      return { status: 200, ok: true, headers: { get: () => null }, text: async () => "{}" };
+    };
+    const err = await p.search("q", 5, spy).catch((e) => e);
+    expect(err).toBeInstanceOf(AllSourcesFailedError);
+    expect(err.allCooling).toBe(true);
+    expect(requested).toBe(false); // no network was touched, so the retry cost nothing
+  });
+
+  test("an outage is not all-cooling, so the caller does refund it", async () => {
+    const p = federatedProvider([source("a", "a.com", ["a1"])]);
+    const err = await p.search("q", 5, statusByHost({ "a.com": 500 })).catch((e) => e);
+    expect(err).toBeInstanceOf(AllSourcesFailedError);
+    expect(err.allCooling).toBe(false);
+  });
+
+  // With more sources than result slots, interleave fills from the front — a
+  // fixed order would starve the tail forever while still costing it a request.
+  test("rotates which source gets first pick across calls", async () => {
+    const p = federatedProvider([source("a", "a.com", ["a1"]), source("b", "b.com", ["b1"])]);
+    const first = await p.search("q", 1, okFetch());
+    const second = await p.search("q", 1, okFetch());
+    expect(first.results[0].title).toBe("a1");
+    expect(second.results[0].title).toBe("b1");
+  });
+
   test("refuses a source whose URL fails the outbound guard", async () => {
     const bad: KeylessSource = { name: "bad", url: () => "http://localhost/search", parse: () => [] };
     const out = await federatedProvider([source("a", "a.com", ["a1"]), bad]).search("q", 5, okFetch());

@@ -69,7 +69,8 @@ function safeHost(url: string): string {
 export interface SearchOutcome {
   results: SearchResult[];
   /** Sources that failed this call. Empty for single-source providers. */
-  failures: { source: string; reason: string }[];
+  /** `cooling` distinguishes "skipped, no request made" from "tried and failed". */
+  failures: { source: string; reason: string; cooling: boolean }[];
 }
 
 /**

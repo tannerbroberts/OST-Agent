@@ -1048,26 +1048,41 @@ Append to `test/security/web-tools.test.ts`, inside `describe("ost_search_web", 
       name: "federated",
       search: async () => ({
         results: [{ title: "t", url: "https://example.com/a", snippet: "s", host: "example.com" }],
-        failures: [{ source: "wikipedia", reason: "HTTP 500" }],
+        failures: [{ source: "wikipedia", reason: "HTTP 500", cooling: false }],
       }),
     };
     const ctx = baseCtx({ web: { provider, budget: createLookupBudget(5) } });
     const out = JSON.parse(await tool(ctx, "ost_search_web").run({ query: "q" }));
     expect(out.results).toHaveLength(1);
-    expect(out.sourcesUnavailable).toEqual([{ source: "wikipedia", reason: "HTTP 500" }]);
+    expect(out.sourcesUnavailable).toEqual([{ source: "wikipedia", reason: "HTTP 500", cooling: false }]);
   });
 
-  test("refunds the lookup when the provider returned nothing at all", async () => {
+  test("refunds the lookup when an outage meant it bought nothing", async () => {
     const budget = createLookupBudget(5);
     const provider = {
       name: "federated",
       search: async () => {
-        throw new AllSourcesFailedError([{ source: "wikipedia", reason: "HTTP 500" }]);
+        throw new AllSourcesFailedError([{ source: "wikipedia", reason: "HTTP 500", cooling: false }]);
       },
     };
     const out = await tool(baseCtx({ web: { provider, budget } }), "ost_search_web").run({ query: "q" });
     expect(out).toMatch(/every search source failed/i);
     expect(budget.remaining()).toBe(5); // a dead lookup must not cost one
+  });
+
+  // The counterpart: an all-cooling failure is instant and touches no network,
+  // so refunding it would make retrying free and unbounded.
+  test("charges the lookup when every source is merely cooling", async () => {
+    const budget = createLookupBudget(5);
+    const provider = {
+      name: "federated",
+      search: async () => {
+        throw new AllSourcesFailedError([{ source: "wikipedia", reason: "cooling down", cooling: true }]);
+      },
+    };
+    const out = await tool(baseCtx({ web: { provider, budget } }), "ost_search_web").run({ query: "q" });
+    expect(out).toMatch(/retrying immediately will not help/i);
+    expect(budget.remaining()).toBe(4);
   });
 ```
 
@@ -1095,11 +1110,19 @@ In `src/security/tools.ts`, replace the `const { results } = await provider.sear
         try {
           outcome = await provider.search(input.query, count, ctx.web?.fetchFn);
         } catch (err) {
-          // The lookup bought nothing, so it should not have cost anything.
-          lookupBudget.refund();
           if (err instanceof AllSourcesFailedError) {
-            return `${err.message}. Nothing was charged against the lookup budget. Try again later, or use your own web search and call ost_read_web on the URLs you find.`;
+            // An outage cost a lookup that bought nothing — refund it. An
+            // all-cooling failure touched no network and returned instantly, so
+            // refunding it would make retrying free AND instant in exactly the
+            // state where an agent is most likely to spin. The budget is the
+            // only backpressure this system has; do not hand it back here.
+            if (!err.allCooling) lookupBudget.refund();
+            const charged = err.allCooling
+              ? "This attempt was charged: every source is rate-limited, so retrying immediately will not help."
+              : "Nothing was charged against the lookup budget.";
+            return `${err.message}. ${charged} Use your own web search and call ost_read_web on the URLs you find.`;
           }
+          lookupBudget.refund();
           throw err;
         }
         const trust = readHostTrust(dir);
@@ -1135,10 +1158,15 @@ In `src/config/schema.ts`, replace the `WebSchema` from Task 1 with:
 // on, provider resolution would never reach the delegation branch, and an
 // agent in a host that HAS web search would call ost_search_web, get the
 // narrower federated results, and never learn its own search was better.
+// discourseHosts is capped because the merge fills from the front: with more
+// sources than result slots, the tail contributes nothing to a given call while
+// still costing a live request against somebody's free forum. The provider
+// rotates who goes first so starvation is temporary, but a long list is still
+// mostly wasted traffic. Five is generous for a fallback.
 const FederatedSchema = z
   .object({
     enabled: z.boolean().default(false),
-    discourseHosts: z.array(z.string()).default([]),
+    discourseHosts: z.array(z.string()).max(5).default([]),
   })
   .default({ enabled: false, discourseHosts: [] });
 
