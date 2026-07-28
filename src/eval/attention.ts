@@ -8,8 +8,12 @@
  * as fitness input. One instrument, two altitudes.
  *
  * The token weighting lives here rather than in the store on purpose. Summing
- * tiers at write time would bake in a cost model; here it is a parameter, and
- * in Phase 2 it becomes an allele of the genome rather than a constant.
+ * tiers at write time would bake in a cost model; here it is read-time policy,
+ * and as of Phase 2 the numbers themselves are an allele — `tokenWeights` in
+ * `genome.yaml` — rather than a constant this module owns. `DEFAULT_TOKEN_WEIGHTS`
+ * below is a READER of the genome's defaults, not a second copy of them: a vault
+ * with no genome.yaml and a vault carrying the shipped default resolve through
+ * the same parse and therefore cannot disagree.
  *
  * Cost per unknown is the SUM of two independent sources, read from the trace
  * they each actually land in: the attention ledger (`recordAttention`, keyed
@@ -22,30 +26,31 @@
  * field), or neither (an `unknown` field naming a title not on this tree,
  * which is not credited to anything rather than guessed at).
  */
+import { defaultGenome } from "../genome/load.js";
+import type { AttributionGene, ClassifierGene, ResolutionGene, TokenWeightsGene } from "../genome/schema.js";
 import { classifyUnknown, resolutionState, UNKNOWN_CLASSES, type ResolutionState, type UnknownClass } from "../knowledge/unknowns.js";
 import type { OstNode } from "../ost/node.js";
 import { addTiers, emptyTiers, readAttention, type TokenTiers } from "../telemetry/attention.js";
 import { usageLogPath } from "../telemetry/usage.js";
 import fs from "node:fs";
 
-export interface TokenWeights {
-  input: number;
-  output: number;
-  cacheCreate: number;
-  cacheRead: number;
-}
+/**
+ * The cost model, structurally identical to the genome's `tokenWeights` gene
+ * because it IS that gene. The alias is kept exported so every existing
+ * importer compiles unchanged while the numbers move out of TypeScript.
+ */
+export type TokenWeights = TokenWeightsGene;
 
 /**
  * Relative cost per tier, tracking published pricing ratios: output is the
  * dear one, a cache write costs a little more than fresh input, and a cache
  * read is roughly a tenth. These are ratios, not currency.
+ *
+ * Read from the genome schema's defaults rather than restated here. There is
+ * exactly one literal `5` for the cost of an output token in this repo and it
+ * lives in `GenomeSchema`; this const is how the rest of `eval/` reaches it.
  */
-export const DEFAULT_TOKEN_WEIGHTS: TokenWeights = {
-  input: 1,
-  output: 5,
-  cacheCreate: 1.25,
-  cacheRead: 0.1,
-};
+export const DEFAULT_TOKEN_WEIGHTS: TokenWeights = defaultGenome().tokenWeights;
 
 export function weightedTokenCost(tokens: TokenTiers, weights: TokenWeights = DEFAULT_TOKEN_WEIGHTS): number {
   return (
@@ -143,12 +148,34 @@ function emptyByClass(): Record<UnknownClass, ClassRollup> {
   ) as Record<UnknownClass, ClassRollup>;
 }
 
+/**
+ * Which alleles this rollup is computed under. An object rather than more
+ * positionals: the third argument is already load-bearing at nine call sites,
+ * and later genes (the classifier, the resolution machine, correlated token
+ * cost) need to arrive here too without any of them becoming a fourth slot
+ * whose meaning depends on argument order.
+ *
+ * Every field is optional and every omission means "the shipped default",
+ * which is what makes a vault with no genome.yaml behave exactly as it did.
+ */
+export interface AttentionOptions {
+  /** The cost model. Omitted ⇒ {@link DEFAULT_TOKEN_WEIGHTS}, i.e. the genome's default. */
+  weights?: TokenWeightsGene;
+  /** The classification thresholds. Declared here; read from Task 4 onward. */
+  classifier?: ClassifierGene;
+  /** The resolution machine's parameters. Declared here; read from Task 5 onward. */
+  resolution?: ResolutionGene;
+  /** How spend is attributed to unknowns. Declared here; read from Task 7 onward. */
+  attribution?: AttributionGene;
+}
+
 /** Per-unknown and per-class attention across the tree in `vaultDir`. */
 export function computeAttention(
   tree: readonly OstNode[],
   vaultDir: string,
-  weights: TokenWeights = DEFAULT_TOKEN_WEIGHTS,
+  opts: AttentionOptions = {},
 ): AttentionRollup {
+  const weights = opts.weights ?? DEFAULT_TOKEN_WEIGHTS;
   const darkNodes = tree.filter((n) => n.layer === "Unknown");
   const usage = rollUpUsage(vaultDir, new Set(darkNodes.map((n) => n.title)));
 

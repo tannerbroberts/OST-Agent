@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import { computeAttention, DEFAULT_TOKEN_WEIGHTS, weightedTokenCost } from "../../src/eval/attention.js";
+import { defaultGenome, loadGenome } from "../../src/genome/load.js";
 import type { OstNode } from "../../src/ost/node.js";
 import { recordAttention } from "../../src/telemetry/attention.js";
 import { usageLogPath } from "../../src/telemetry/usage.js";
@@ -141,5 +142,58 @@ describe("computeAttention", () => {
     expect(rollup.unknowns[0].calls).toBe(0);
     expect(rollup.unknowns[0].ms).toBe(0);
     expect(rollup.unattributed).toEqual({ calls: 0, ms: 0 });
+  });
+});
+
+describe("the token-weighting gene", () => {
+  test("the exported default IS the genome's default — one literal for the cost model, or none", () => {
+    // A drift guard, not a behavior test: it passes today because two hand-kept
+    // literals happen to agree, and its job is to fail the moment they stop.
+    expect(DEFAULT_TOKEN_WEIGHTS).toEqual(defaultGenome().tokenWeights);
+  });
+
+  test("the shipped default preserves published pricing order — cache reads are cheap, output is dear", () => {
+    const w = defaultGenome().tokenWeights;
+    expect(w.cacheRead).toBeLessThan(w.input);
+    expect(w.input).toBeLessThan(w.cacheCreate);
+    expect(w.cacheCreate).toBeLessThan(w.output);
+  });
+
+  test("a genome that prices output cheaply lowers what the same answer cost", () => {
+    const dir = tmp();
+    recordAttention(dir, { ts: "a", unknown: "U", kind: "spend", calls: 1, ms: 1,
+      tokens: { input: 100, output: 10, cacheCreate: 0, cacheRead: 0 } });
+    fs.writeFileSync(
+      path.join(dir, "genome.yaml"),
+      "tokenWeights:\n  input: 1\n  output: 1\n  cacheCreate: 1.25\n  cacheRead: 0.1\n",
+      "utf8",
+    );
+
+    const shipped = computeAttention([unknown("U")], dir);
+    const cheap = computeAttention([unknown("U")], dir, { weights: loadGenome(dir).tokenWeights });
+
+    expect(shipped.unknowns[0].weightedCost).toBe(150); // 100×1 + 10×5
+    expect(cheap.unknowns[0].weightedCost).toBe(110); // 100×1 + 10×1
+    expect(shipped.unknowns[0].tokens).toEqual(cheap.unknowns[0].tokens); // tiers stay unmixed either way
+  });
+
+  test("a class rollup is weighted by the supplied gene too, not only the per-unknown line", () => {
+    const dir = tmp();
+    recordAttention(dir, { ts: "a", unknown: "U", kind: "spend", calls: 1, ms: 1,
+      tokens: { input: 0, output: 100, cacheCreate: 0, cacheRead: 0 } });
+    const dear = computeAttention([unknown("U")], dir);
+    const flat = computeAttention([unknown("U")], dir, {
+      weights: { ...DEFAULT_TOKEN_WEIGHTS, output: 1 },
+    });
+    expect(dear.byClass.bounded.weightedCost).toBeGreaterThan(flat.byClass.bounded.weightedCost);
+  });
+
+  test("omitting the options object reproduces the default genome exactly — an absent gene is the shipped one", () => {
+    const dir = tmp();
+    recordAttention(dir, { ts: "a", unknown: "U", kind: "spend", calls: 2, ms: 40,
+      tokens: { input: 100, output: 10, cacheCreate: 8, cacheRead: 900 } });
+    const bare = computeAttention([unknown("U")], dir);
+    expect(computeAttention([unknown("U")], dir, {})).toEqual(bare);
+    expect(computeAttention([unknown("U")], dir, { weights: defaultGenome().tokenWeights })).toEqual(bare);
   });
 });
