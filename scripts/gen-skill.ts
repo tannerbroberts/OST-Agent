@@ -47,6 +47,18 @@ ${firstRunSkillSection()}
 
 ${layers}
 
+## The fifth layer — what the tree cannot see
+
+Torres's four layers hold what the team knows. This tree carries a fifth, \`#Unknown\`, for what it does not: a named piece of darkness attached under the node it darkens, at any layer. Create one with \`ost_create_node\`, \`layer: "Unknown"\`, parent = the node it darkens. Darkness is not a defect to be cleared before the real work starts — it is inventory, and naming it is what makes it costable.
+
+An unknown declares a contract in three body sections, and the sections are the whole point:
+
+- \`## Format\` — the shape a valid answer takes. **This is the stopping condition.** An unknown that cannot say what an answer looks like cannot know when it is done, which is exactly why the Format is worth writing *before* you go looking.
+- \`## Methodology\` — how such an answer would be collected. An unknown with a Format and no Methodology is worth commissioning observability for rather than chasing further.
+- \`## Rationale\` — which node this darkens and what would change if it were answered.
+
+\`ost_next_work\` reports every open unknown with the node it \`darkens\`, the contract sections still missing (\`gaps\`), and a derived class. **Read the class off the tool output; never restate the vocabulary from memory.** The classifier is an allele of the vault's genome (an optional \`genome.yaml\` beside \`ost.config.yaml\`; absent means the default), not a constant in this file — a copy here would be a second classifier that silently disagrees with the first.
+
 ## Tree rules
 
 ${bullets(R.treeRules)}
@@ -64,7 +76,7 @@ ${bullets(R.agentMustNot)}
 All are exposed by the \`ost-agent\` MCP server (names may appear as \`mcp__ost-agent__ost_*\`):
 
 - **ost_ingest_inbox** — capture new notes from the vault's local inbox folder as evidence. Idempotent: a note already captured is never captured twice, and inbox files are never modified or deleted. Call this before \`ost_next_work\` when the user says they have added notes.
-- **ost_next_work** — read-only. Reports exactly what's outstanding: unmapped evidence, under-served opportunities, solutions missing assumption tests, and hygiene issues. **Start every pass here.**
+- **ost_next_work** — read-only. Reports exactly what's outstanding: unmapped evidence, under-served opportunities, solutions missing assumption tests, hygiene issues, and \`openUnknowns\` — every declared darkness still unresolved, offered as available work that never blocks \`done\`. **Start every pass here.**
 - **ost_read_tree** — read-only. The whole tree with each node's layer, status, tags, and child links.
 - **ost_create_node** — create a node AND attach it under an existing parent atomically (never an orphan). You cannot create an Outcome. An Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an AssumptionTest under a Solution.
 - **ost_link_nodes** — add a parent→child edge (idempotent).
@@ -90,7 +102,13 @@ ${bullets(R.firstRun)}
 3. **Ideate solutions** (for each \`underservedOpportunity\`). Generate genuinely distinct candidate \`#Solution\` nodes until it has the required minimum, each with \`status: unvalidated\` and an \`unvalidated\` tag. Compare-and-contrast — do not describe implementation steps or code.
 4. **Surface assumptions** (for each \`solutionsMissingAssumptions\` entry). Create \`#AssumptionTest\` nodes (\`unvalidated\`) that each *propose* a small, fast test of one underlying assumption across the risk categories (${R.assumptionCategories.join(", ")}). You propose tests; humans run them.
 5. **Annotate hygiene issues** (for each \`hygieneIssue\`) with \`ost_annotate\`. Never delete — flag for a human.
-6. Writes auto-commit. Re-run \`ost_next_work\` to confirm what remains, and report a short summary of what you created and what a human should review.
+6. **Explore open unknowns** (for each \`openUnknowns\` entry). Discretionary, and taken only after 1–5 are clear. **Exploration never blocks \`done\`**: darkness with no declared Format has no stopping condition, so counting it toward completion would wedge every pass forever. Prefer the ones whose contract is already complete. For each unknown you pick up:
+   - **Pass \`unknown: "<the unknown's exact title>"\` on every tool call you make on its behalf.** That argument is what makes the attention it costs self-attribute; spend that arrives unattributed is spend the tree cannot learn from.
+   - If \`gaps\` is non-empty, the cheapest useful act is to close them — \`ost_append_to_node\` the missing \`## Format\`, \`## Methodology\`, or \`## Rationale\`. An unknown that can newly state what an answer looks like has been advanced even if nothing was looked up.
+   - If you reach an answer, append \`## Answer\` holding it **in its declared Format**, and cite where it came from. Never write \`## Answer\` over a guess — that heading is what marks the unknown resolved.
+   - If you decide not to pursue it, say so: \`ost_set_status\` \`deferred\`. Abandonment recorded is information; abandonment silent is rot.
+   - Looking outward spends the session's shared lookup budget. When it is spent, stop looking, write down what you learned, and leave the rest open.
+7. Writes auto-commit. Re-run \`ost_next_work\` to confirm what remains, and report a short summary of what you created, which unknowns you advanced or deferred, and what a human should review. Unknowns still open are a normal ending, not a failure.
 
 ### Opportunity rules
 
