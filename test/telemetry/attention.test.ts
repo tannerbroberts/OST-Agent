@@ -56,6 +56,10 @@ describe("the attention ledger", () => {
   test("an unwritable vault costs an event, never a throw", () => {
     expect(() => recordAttention("/proc/nonexistent-ost", { ts: "a", unknown: "U", kind: "spend" })).not.toThrow();
   });
+
+  test("a degenerate title that cannot be sanitized yields nothing, not a throw", () => {
+    expect(readAttention(tmp(), "")).toEqual([]);
+  });
 });
 
 describe("token tiers", () => {

@@ -82,17 +82,22 @@ export function recordAttention(vaultDir: string, entry: AttentionEntry): void {
 
 /** Every entry recorded for one unknown, in write order. Corrupt lines are skipped. */
 export function readAttention(vaultDir: string, unknown: string): AttentionEntry[] {
-  const file = attentionLogPath(vaultDir, unknown);
-  if (!fs.existsSync(file)) return [];
-  const out: AttentionEntry[] = [];
-  for (const line of fs.readFileSync(file, "utf8").split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    try {
-      out.push(JSON.parse(trimmed) as AttentionEntry);
-    } catch {
-      // a bad byte must not hide the rest of the ledger
+  try {
+    const file = attentionLogPath(vaultDir, unknown);
+    if (!fs.existsSync(file)) return [];
+    const out: AttentionEntry[] = [];
+    for (const line of fs.readFileSync(file, "utf8").split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      try {
+        out.push(JSON.parse(trimmed) as AttentionEntry);
+      } catch {
+        // a bad byte must not hide the rest of the ledger
+      }
     }
+    return out;
+  } catch {
+    // a degenerate title that cannot be sanitized yields nothing, not a throw
+    return [];
   }
-  return out;
 }
