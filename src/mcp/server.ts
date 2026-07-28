@@ -11,6 +11,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { buildOstTools } from "../security/tools.js";
 import { assertNoDestructiveTool } from "../security/policy.js";
+import { validateToolInput, type ToolSchema } from "../security/validateToolInput.js";
 import type { PassContext } from "../processes/types.js";
 import { buildPassContext } from "../runner/context.js";
 import { enqueueCommit } from "./commit.js";
@@ -32,13 +33,30 @@ export const MCP_TOOL_NAMES = [
   "ost_read_web",
   "ost_read_repo",
   "ost_rank_source",
+  "ost_check",
+  "ost_debt",
+  "ost_status",
+  "ost_gate",
+  "ost_ingest_inbox",
 ] as const;
 
 // The read-only tools carry no commit; every other exposed tool mutates and is
 // auto-committed. Deriving MUTATING as the complement means a tool added to the
 // surface can never silently skip its commit. (`ost_rank_source` is deliberately
 // NOT here: it appends a trust record, and that record must be committed.)
-const READ_ONLY = new Set<string>(["ost_read_tree", "ost_next_work", "ost_search_web", "ost_read_web", "ost_read_repo"]);
+const READ_ONLY = new Set<string>([
+  "ost_read_tree",
+  "ost_next_work",
+  "ost_search_web",
+  "ost_read_web",
+  "ost_read_repo",
+  // Analysis: they read the tree and format it. Nothing they do can produce a
+  // diff, so a commit would always be empty.
+  "ost_check",
+  "ost_debt",
+  "ost_status",
+  "ost_gate",
+]);
 const MUTATING = new Set<string>(MCP_TOOL_NAMES.filter((n) => !READ_ONLY.has(n)));
 
 /**
@@ -78,6 +96,7 @@ function buildDefs(ctx: PassContext): McpToolDef[] {
       surface: "mcp",
       web: ctx.web,
       productRepos: ctx.productRepos,
+      passContext: ctx,
     },
     MCP_TOOL_NAMES,
   );
@@ -127,6 +146,25 @@ async function handleOstCall(ctx: PassContext, byName: Map<string, McpToolDef>, 
   // happens to throw.
   const readiness = vaultReadiness(ctx);
   if (!readiness.ready) return notReadyResult(readiness, name);
+  // The allowlist above says which tool may run; this says with what. Without
+  // it a constructive tool is destructive in an append-only vault: `ost_annotate`
+  // handed `note` instead of the declared `issue` read it as `undefined` and
+  // wrote that string over the annotation, permanently, reporting success.
+  // Wording matches the CLI refusal deliberately — one incident, one sentence.
+  const problems = validateToolInput(tool.inputSchema as ToolSchema, args ?? {});
+  if (problems.length > 0) {
+    return {
+      content: [
+        {
+          type: "text",
+          text:
+            `invalid input for "${name}":\n${problems.map((p) => `  - ${p}`).join("\n")}\n` +
+            "Nothing was written. Fix the call and retry — this vault is append-only, so a bad write cannot be taken back.",
+        },
+      ],
+      isError: true,
+    };
+  }
   try {
     const out = await tool.run(args);
     let text = typeof out === "string" ? out : JSON.stringify(out);

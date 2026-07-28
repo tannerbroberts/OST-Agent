@@ -47,9 +47,9 @@ export function vaultReadiness(ctx: Pick<PassContext, "dir"> & Partial<Pick<Pass
   // Either half missing means "not a vault". Checking the config too keeps the
   // placeholder outcome a defaults-loader borrows out of every reachable path.
   if (!fs.existsSync(path.join(vault, ".git")) || !fs.existsSync(configPath(vault))) {
-    // The npx form: it works whether or not the ost-agent binary is on PATH,
-    // and it is the SAME command `setupGuidance` renders — one wording, both
-    // surfaces (see src/mcp/setup.ts).
+    // The bundle form: there is no `ost-agent` binary on any PATH, so the
+    // command names the plugin's own committed bundle. It is the SAME command
+    // `setupGuidance` renders — one wording, both surfaces (see src/mcp/setup.ts).
     const nextStep = initCommand(vault);
     return {
       ready: false,

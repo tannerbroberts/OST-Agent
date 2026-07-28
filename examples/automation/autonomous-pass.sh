@@ -15,14 +15,18 @@
 # Prereqs:
 #   - Claude Code CLI installed and logged in (`claude` on PATH; `claude setup-token`
 #     for a non-interactive machine).
-#   - `ost-agent` resolvable (published to npm, or set the plugin's mcpServers command
-#     to your local build). The plugin declares the MCP server; --plugin-dir loads it.
+#   - This OST-Agent checkout at OST_AGENT_DIR, with dist/ost-agent.mjs present (it's
+#     committed, so a plain `git clone` is enough — no build, no npm install). The
+#     plugin declares its MCP server as `node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs
+#     mcp`; --plugin-dir loads it straight out of this checkout.
 set -euo pipefail
 
 VAULT_DIR="${1:-.}"
 OST_AGENT_DIR="${OST_AGENT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 
-OST_TOOLS="mcp__ost-agent__ost_next_work,mcp__ost-agent__ost_read_tree,mcp__ost-agent__ost_create_node,mcp__ost-agent__ost_link_nodes,mcp__ost-agent__ost_append_to_node,mcp__ost-agent__ost_set_status,mcp__ost-agent__ost_annotate"
+# Kept in sync with .claude/commands/ost-pass.md's `allowed-tools` frontmatter — that
+# file is the authority on what /ost-pass needs. If it grants a new tool, add it here too.
+OST_TOOLS="mcp__ost-agent__ost_ingest_inbox,mcp__ost-agent__ost_next_work,mcp__ost-agent__ost_read_tree,mcp__ost-agent__ost_create_node,mcp__ost-agent__ost_link_nodes,mcp__ost-agent__ost_append_to_node,mcp__ost-agent__ost_set_status,mcp__ost-agent__ost_annotate"
 
 cd "$VAULT_DIR"
 

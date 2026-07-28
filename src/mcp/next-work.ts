@@ -1,11 +1,10 @@
 /**
  * ost_next_work — surface, read-only, exactly what a maintenance pass still has
- * to do. This exposes the deterministic definition-of-done logic that lives in
- * the discovery processes (registry.ts) to *whatever brain is driving the tree*,
- * so a Claude Code session (or a headless pass) never has to re-derive it.
+ * to do. It holds the deterministic definition-of-done for each stage of tree
+ * maintenance, so the connected session never has to re-derive it.
  *
- * It is the orchestration seam for the MCP path: `anthropicDriver` gets its
- * work-list computed inside each ProcessDef; a session gets it from here.
+ * It is the orchestration seam for the MCP path: this is where a session finds
+ * out what is left, and the only place that answer is computed.
  *
  * Purely a reader — it reads the tree + the `.ost-agent/` sidecar and reports.
  * It never mutates, so it carries no commit.
@@ -116,11 +115,11 @@ export function computeNextWork(vault: Vault, dir: string, min: number): NextWor
   const tree = vault.readTree();
   const index = byTitle(tree);
 
-  // Evidence counts as mapped if the batch P2_map runner recorded it in mapped.json,
-  // OR any node in the tree cites it as its `source`. The MCP-driven path attaches the
-  // evidence id via ost_create_node's `source` but never writes mapped.json, so deriving
-  // "mapped" from the tree too keeps this read-only report self-consistent no matter which
-  // driver did the mapping — otherwise a session-driven /ost-pass can never reach done.
+  // Evidence counts as mapped if any node in the tree cites it as its `source` — that is
+  // how a session records the mapping, via ost_create_node's `source`. `mapped.json` is
+  // read too, because vaults mapped before the batch runner was deleted recorded it there
+  // and nowhere else; deriving "mapped" from the tree as well is what lets /ost-pass reach
+  // done on a vault the session mapped itself.
   const mapped = getMapped(dir);
   const citedSources = new Set(tree.map((n) => n.source).filter((s): s is string => !!s));
   const unmappedEvidence: UnmappedEvidence[] = readEvidence(dir)

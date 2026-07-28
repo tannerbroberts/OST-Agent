@@ -1,18 +1,15 @@
 /**
- * Discovery-process framework.
+ * The context one unit of tree maintenance runs against.
  *
- * A process is one bounded unit of tree maintenance. Deterministic processes
- * (bootstrap, ingest, hygiene) act directly through the append-only Vault;
- * knowledge processes (mapping, ideation, assumptions) delegate to the agent
- * via a PassDriver, which is given ONLY that process's allowlisted tools.
+ * Everything the MCP surface needs to act on a vault — the append-only Vault
+ * handle, the resolved config and ruleset, the enabled read-only sources, and
+ * the outward-sensing budget — gathered once by `buildPassContext`.
  */
 import type { Config } from "../config/schema.js";
 import type { OST_RULESET } from "../knowledge/ruleset.js";
-import type { AllowedToolName } from "../security/policy.js";
 import type { RemoteConfig } from "../security/tools.js";
 import type { Source } from "../adapters/source.js";
 import type { Vault } from "../ost/vault.js";
-import type { PassDriver, ToolSet } from "../runner/driver.js";
 import type { WebFetchFn } from "../web/reader.js";
 import type { LookupBudget } from "../web/budget.js";
 
@@ -29,41 +26,4 @@ export interface PassContext {
   web?: { searchApiKey?: string; fetchFn?: WebFetchFn; budget?: LookupBudget };
   /** Local product repo roots the agent may read (config `product.repos`). */
   productRepos?: readonly string[];
-}
-
-export interface ProcessResult {
-  created: number;
-  linked: number;
-  annotated: number;
-  evidence: number;
-  toolCalls: { name: string; input: unknown }[];
-  notes: string[];
-}
-
-export function emptyResult(): ProcessResult {
-  return { created: 0, linked: 0, annotated: 0, evidence: 0, toolCalls: [], notes: [] };
-}
-
-/**
- * Does this process need a model — and therefore a credential — to run?
- *
- * Derived, not declared. A process delegates to the driver precisely when it has
- * tools to hand it; the deterministic ones (bootstrap, ingest, hygiene) act
- * straight through the Vault and carry an empty allowlist. Deriving it means a
- * new process cannot forget to declare itself, and `test/processes/model-free.test.ts`
- * proves the derivation against the real implementations rather than trusting it.
- */
-export function drivesModel(process: ProcessDef): boolean {
-  return process.allowedTools.length > 0;
-}
-
-export interface ProcessDef {
-  id: string;
-  title: string;
-  /** Tools this process may use (subset of the allowlist). */
-  allowedTools: AllowedToolName[];
-  /** Do the work for one pass. `tools` are pre-built + guarded by the runner. */
-  run(ctx: PassContext, driver: PassDriver, tools: ToolSet): Promise<ProcessResult>;
-  /** Definition-of-done: is there nothing left for this process to do? */
-  isDone(ctx: PassContext): Promise<boolean>;
 }

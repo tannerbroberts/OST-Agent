@@ -18,14 +18,21 @@ export const ASK_HUMAN_RULE =
   "Ask the human what outcome this tree should steer toward — a product outcome, in their words. " +
   "NEVER invent or assume the outcome yourself: the outcome is human-set, always.";
 
-/** The exact command that scaffolds a vault. Needs no AI and no API key. */
+/**
+ * The exact command that scaffolds a vault. Needs no AI and no API key.
+ *
+ * `${CLAUDE_PLUGIN_ROOT}` is the same substitution the plugin manifest uses to
+ * launch the MCP server itself (`.claude-plugin/plugin.json`), so a session
+ * that can start the server can run this too — there is no registry package
+ * and no `ost-agent` binary on any PATH to fall back on.
+ */
 export function initCommand(dir: string): string {
-  return `npx -y ost-agent@latest init "${dir}" --outcome "<the human's outcome, verbatim>"`;
+  return `node \${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init "${dir}" --outcome "<the human's outcome, verbatim>"`;
 }
 
 /** The exact command that sets the Outcome on an existing vault that lacks one. */
 export function setOutcomeCommand(dir: string): string {
-  return `npx -y ost-agent@latest set-outcome "<the human's outcome, verbatim>" --vault "${dir}"`;
+  return `node \${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs set-outcome "<the human's outcome, verbatim>" --vault "${dir}"`;
 }
 
 export const NO_KEY_NOTE = "Setup needs no AI and no API key.";

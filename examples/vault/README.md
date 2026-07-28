@@ -24,8 +24,10 @@ Prefer to do it interactively instead? Run these once and skip the file:
 /plugin install ost-agent@ost-agent
 ```
 
-Either way, the plugin's MCP server runs `npx -y ost-agent@latest mcp` against the vault
-you have open (`${CLAUDE_PROJECT_DIR}`), so make sure the vault was created with
-`ost-agent init` (it needs a human-set Outcome — the server refuses to bootstrap one).
+Either way, the plugin's MCP server runs `node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs mcp`
+against the vault you have open (`${CLAUDE_PROJECT_DIR}`) — a bundle committed in the
+plugin checkout itself, so there is nothing to install or fetch. Run `/ost-setup` once
+in that vault first (it needs a human-set Outcome — the server refuses to bootstrap
+one).
 
 For unattended/scheduled operation, see [`../automation/`](../automation/).

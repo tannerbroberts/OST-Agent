@@ -1,7 +1,14 @@
 node_modules/
-dist/
+# dist/* (not "dist/") is deliberate: git cannot re-include a file whose
+# parent directory is excluded wholesale, so a plain "dist/" would make the
+# negation below a no-op and silently break the ability to commit the bundle.
+dist/*
+!dist/ost-agent.mjs
 .env
 .env.*
 *.log
 .DS_Store
 .worktrees/
+
+# SDD scratch (ledger, briefs, review packages)
+.superpowers/

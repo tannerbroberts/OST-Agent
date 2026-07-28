@@ -1,10 +1,8 @@
 #!/usr/bin/env node
 /**
- * OST-Agent CLI: init / run / schedule / status.
+ * OST-Agent CLI: init / status / analysis / mcp.
  *
  *   ost-agent init [folder] --outcome "..."   create/adopt a vault
- *   ost-agent run <process> [--vault DIR]     one bounded pass
- *   ost-agent schedule [--vault DIR]          supervisor: cron + triggers
  *   ost-agent status [--vault DIR]            read-only tree summary
  *   ost-agent result "<test>" ...             record a human-run test's outcome
  *   ost-agent debt [--vault DIR]              evidence each solution still owes + unbounded results + unfixed thresholds
@@ -14,37 +12,21 @@
  *   ost-agent gate "<solution>" [--vault DIR] block building against untested assumptions
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
  *   ost-agent mcp [--vault DIR]               stdio MCP server (no API key needed)
- *   ost-agent loop start|step|decide|seal     health bookends for one unattended firing
  */
-import fs from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { Command } from "commander";
-import { Cron } from "croner";
 import { buildPassContext } from "../runner/context.js";
 import { initVault } from "../runner/init.js";
-import { runPass } from "../runner/pass.js";
-import { failed, lastFailedRun, lastRunPerProcess, readRunJournals, type RunJournalEntry } from "../runner/journal.js";
-import { runTool } from "../runner/tool.js";
 import { setOutcome } from "../runner/set-outcome.js";
-import { anthropicDriver } from "../runner/driver.js";
-import { anthropicCredentialsPresent, credentialGuidance } from "../runner/credentials.js";
-import { getProcess, PROCESSES } from "../processes/registry.js";
-import { drivesModel } from "../processes/types.js";
-import { checkInvariants } from "../eval/invariants.js";
-import { computeEvidenceDebt, gateSolution } from "../eval/evidence-debt.js";
-import { computeCoverageDebt, computeCoveragePairs, computeUnfixedThresholds } from "../eval/coverage.js";
-import { BELIEVABILITY_LADDER, believabilityRollup, type RungId } from "../knowledge/believability.js";
+import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/render.js";
+import { BELIEVABILITY_LADDER, type RungId } from "../knowledge/believability.js";
 import { recordResult, VERDICTS, type Verdict } from "../ost/results.js";
 import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
 import { laneDef, LANES, type LaneId } from "../knowledge/lanes.js";
 import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapters/friction.js";
-import { ALLOWED_TOOL_NAMES } from "../security/policy.js";
 import { createLazyOstMcpServer, MCP_TOOL_NAMES } from "../mcp/server.js";
 import { vaultReadiness } from "../mcp/bootstrap.js";
-import { withAuthHint } from "../runner/errors.js";
-import { LAYERS } from "../ost/node.js";
-import { registerLoopCommands } from "./loop.js";
 import { VERSION } from "../index.js";
 
 async function prompt(question: string, fallback?: string): Promise<string> {
@@ -78,38 +60,7 @@ program
     console.log(`  git: ${r.gitInitialized ? "initialized" : "already present"}`);
     console.log(`  outcome node: ${r.outcomeCreated ? "created" : "already present"}`);
     const inboxPath = buildPassContext(r.dir).config.adapters.inbox.path;
-    console.log(`\nDrop notes into ${path.join(dir, inboxPath)}/ and run:  ost-agent run P1_ingest --vault ${dir}`);
-  });
-
-program
-  .command("run")
-  .argument("<process>", `process id (${PROCESSES.map((p) => p.id).join(", ")})`)
-  .option("--vault <dir>", "vault directory", ".")
-  .action(async (processId: string, opts: { vault: string }) => {
-    const proc = getProcess(processId);
-    if (!proc) throw new Error(`unknown process "${processId}". Known: ${PROCESSES.map((p) => p.id).join(", ")}`);
-    // Fail before the pass rather than inside it: an unrunnable pass should not
-    // leave a journal entry and a commit behind to explain later. Only the
-    // model-driven processes are gated — ingest and hygiene need no credential
-    // and must keep working without one.
-    // `<id> FAILED:` is the token cron and `status` already key off, so the
-    // pre-flight reports failure in the same shape a dead pass would.
-    if (drivesModel(proc) && !anthropicCredentialsPresent()) {
-      console.error(`${proc.id} FAILED: ${credentialGuidance(`run ${proc.id}`)}`);
-      process.exitCode = 1;
-      return;
-    }
-    const ctx = buildPassContext(opts.vault);
-    const outcome = await runPass(proc, ctx, anthropicDriver());
-    console.log(`${proc.id} ${proc.title}: created=${outcome.result.created} linked=${outcome.result.linked} annotated=${outcome.result.annotated} evidence=${outcome.result.evidence}`);
-    console.log(`  ${outcome.committed ? `committed ${outcome.sha.slice(0, 8)}` : "nothing to commit"}; done=${outcome.done}`);
-    if (outcome.error) {
-      // A partial pass (work committed, then an error) still fails: one exit code
-      // that means "do not trust this run" is the contract cron and CI already speak.
-      // Whatever landed before the error is in the commit above and in the journal.
-      console.error(`${proc.id} FAILED: ${withAuthHint(outcome.error)}`);
-      process.exitCode = 1;
-    }
+    console.log(`\nDrop notes into ${path.join(dir, inboxPath)}/, then run /ost-map in Claude Code to fold them into the tree.`);
   });
 
 program
@@ -122,22 +73,6 @@ program
     const r = await setOutcome(opts.vault, next);
     console.log(`Retuned "${r.title}" — committed ${r.sha.slice(0, 8)}`);
     console.log(`  prior mandate preserved in the root node's ## History`);
-  });
-
-program
-  .command("tool")
-  .description("invoke one allowlisted, append-only tool (for an agent driving the tree directly)")
-  .argument("<name>", `tool name (${ALLOWED_TOOL_NAMES.join(", ")})`)
-  .option("--vault <dir>", "vault directory", ".")
-  .option("--input <json>", "JSON input for the tool", "{}")
-  .action(async (name: string, opts: { vault: string; input: string }) => {
-    let input: unknown;
-    try {
-      input = JSON.parse(opts.input);
-    } catch {
-      throw new Error(`--input is not valid JSON: ${opts.input}`);
-    }
-    console.log(await runTool(opts.vault, name, input));
   });
 
 program
@@ -164,14 +99,9 @@ program
   .option("--vault <dir>", "vault directory", ".")
   .action((opts: { vault: string }) => {
     const ctx = buildPassContext(opts.vault);
-    const violations = checkInvariants(ctx.vault.readTree());
-    if (violations.length === 0) {
-      console.log("invariants: PASS (0 violations)");
-    } else {
-      console.log(`invariants: FAIL (${violations.length} violation(s))`);
-      for (const v of violations) console.log(`  ✗ [${v.rule}] ${v.node ? `"${v.node}": ` : ""}${v.detail}`);
-      process.exitCode = 1;
-    }
+    const { text, violations } = renderCheck(ctx.vault.readTree());
+    console.log(text);
+    if (violations > 0) process.exitCode = 1;
   });
 
 program
@@ -211,83 +141,7 @@ program
   .option("--vault <dir>", "vault directory", ".")
   .action((opts: { vault: string }) => {
     const ctx = buildPassContext(opts.vault);
-    const debt = computeEvidenceDebt(ctx.vault.readTree());
-    const t = debt.totals;
-    console.log(`Solutions: ${t.solutions}  (untested ${t.untested}, proposed-only ${t.proposed}, tested ${t.tested})`);
-    for (const s of debt.solutions) {
-      const detail =
-        s.state === "tested"
-          ? `${s.testsRun}/${s.testsProposed} test(s) with results`
-          : s.state === "proposed"
-            ? `${s.testsProposed} proposed, none run`
-            : "no assumption test";
-      console.log(`  [${s.state}] ${s.title} — ${detail}`);
-    }
-    const coverage = computeCoverageDebt(ctx.vault.readTree());
-    const c = coverage.totals;
-    console.log(
-      `\nCoverage: ${c.withResults} test(s) with results  (bounded ${c.bounded}, unbounded ${c.unbounded})`,
-    );
-    for (const g of coverage.gaps) {
-      const detail =
-        g.stated === 0
-          ? `${g.claimed} result(s), none saying what they fail to cover`
-          : `${g.claimed} result(s) against ${g.stated} uncovered statement(s)`;
-      console.log(`  [unbounded] ${g.title} — ${detail}`);
-    }
-    if (coverage.gaps.length > 0) {
-      console.log("  a result with no stated limit gets read as answering the whole question.");
-    }
-
-    // The bounded tests, read side by side. Counting the pair proves a sentence
-    // exists; only reading it against the threshold the node wrote down before
-    // the run can show whether the run answered the question that was asked.
-    // Printed, never compared — the comparison is the human's.
-    const pairs = computeCoveragePairs(ctx.vault.readTree());
-    if (pairs.length > 0) {
-      console.log(`\nBounded — what each test asked for, and what its runs left out:`);
-      for (const p of pairs) {
-        console.log(`  ${p.title}`);
-        console.log(`      asked:     ${p.asked ?? "(no pre-committed threshold written in this node)"}`);
-        const [first, ...rest] = p.uncovered;
-        console.log(`      uncovered: ${first ?? "(nothing stated)"}`);
-        for (const more of rest) console.log(`                 ${more}`);
-      }
-      const unasked = pairs.filter((p) => p.asked === null).length;
-      if (unasked > 0) {
-        console.log(
-          `  ${unasked} of these stated a limit against no written threshold — there is nothing to read it against.`,
-        );
-      }
-    }
-
-    // Every test's threshold, whether or not it has ever been run. The
-    // side-by-side above only reaches tests with results; this reaches the
-    // backlog, where a threshold that was never fixed is still cheap to fix.
-    const census = computeUnfixedThresholds(ctx.vault.readTree());
-    const u = census.totals;
-    if (u.tests > 0) {
-      console.log(
-        `\nThresholds: ${u.tests} assumption test(s)  (fixed ${u.bound}, ` +
-          `stated in words ${u.prose}, still an instruction ${u.instruction}, none written ${u.absent})`,
-      );
-      for (const r of census.unfixed) {
-        console.log(`  [${r.kind === "absent" ? "no threshold" : "not fixed"}] ${r.title}`);
-        if (r.asked !== null) console.log(`      reads: ${r.asked}`);
-      }
-      if (census.unfixed.length > 0) {
-        console.log("  a test whose threshold was never fixed cannot come out a failure.");
-      }
-    }
-
-    console.log(
-      "\nMechanical only: this counts whether ANY assumption beneath a solution recorded a result,\n" +
-        "and whether each result was paired with a written statement of what it left untested.\n" +
-        "The side-by-side above is printed, not judged: whether the RIGHT (riskiest) assumption was\n" +
-        "tested, and whether the run actually answered the threshold next to it, is a human call.\n" +
-        "The threshold reading is shallower still — it asks whether a bar was written, never whether\n" +
-        "the bar is the right one, and it will be wrong at the edges. It flags; it never refuses.",
-    );
+    console.log(renderDebt(ctx.vault.readTree()));
   });
 
 program
@@ -426,12 +280,12 @@ program
   .option("--vault <dir>", "vault directory", ".")
   .action((solution: string, opts: { vault: string }) => {
     const ctx = buildPassContext(opts.vault);
-    const verdict = gateSolution(ctx.vault.readTree(), solution);
-    if (verdict.cleared) {
-      console.log(`gate: CLEARED — ${verdict.reason}`);
+    const { text, cleared } = renderGate(ctx.vault.readTree(), solution);
+    if (cleared) {
+      console.log(text);
       return;
     }
-    console.error(`gate: BLOCKED — ${verdict.reason}`);
+    console.error(text);
     process.exitCode = 1;
   });
 
@@ -439,45 +293,7 @@ program
   .command("status")
   .option("--vault <dir>", "vault directory", ".")
   .action((opts: { vault: string }) => {
-    const ctx = buildPassContext(opts.vault);
-    const journals = readRunJournals(ctx.dir);
-    printLastFailure(journals);
-    const tree = ctx.vault.readTree();
-    const byLayer = (l: string) => tree.filter((n) => n.layer === l).length;
-    const unvalidated = tree.filter((n) => n.status === "unvalidated").length;
-    console.log(`Vault: ${ctx.dir}`);
-    console.log(`Outcome: ${ctx.config.outcome}`);
-    // Derived from LAYERS rather than hand-listed, so a layer added to the
-    // model shows up here automatically instead of silently dropping out of a
-    // total the parenthesized counts are supposed to sum to.
-    const breakdown = LAYERS.map((l) => `${l} ${byLayer(l)}`).join(", ");
-    console.log(`Nodes: ${tree.length}  (${breakdown})`);
-    console.log(`Unvalidated (agent-ideated, awaiting review): ${unvalidated}`);
-    const rollup = believabilityRollup(tree);
-    const perRung = BELIEVABILITY_LADDER.map((r) => `${r.id} ${rollup.counts[r.id]}`).join(", ");
-    console.log(`Believability: ${perRung}${rollup.unlabelled ? `, unlabelled ${rollup.unlabelled}` : ""}`);
-    console.log(`  the tree as a whole rests on its weakest rung: ${rollup.weakest}`);
-    const coverage = computeCoverageDebt(tree);
-    if (coverage.totals.withResults > 0) {
-      console.log(
-        `Coverage: ${coverage.totals.bounded}/${coverage.totals.withResults} recorded result(s) say what they do not cover`,
-      );
-      for (const g of coverage.gaps) {
-        console.log(`  unbounded: ${g.title} (${g.claimed} result(s), ${g.stated} stated limit(s)) — see \`debt\``);
-      }
-    }
-    // One line, and only when there is something to say. A test whose threshold
-    // is still an instruction to pick one cannot come out a failure, and that is
-    // worth seeing next to the tree's shape rather than only on demand.
-    const thresholds = computeUnfixedThresholds(tree);
-    if (thresholds.unfixed.length > 0) {
-      const { instruction, absent, tests } = thresholds.totals;
-      console.log(
-        `Thresholds: ${instruction + absent}/${tests} assumption test(s) have no fixed bar ` +
-          `(${instruction} still an instruction, ${absent} unwritten) — see \`debt\``,
-      );
-    }
-    printLastRuns(journals);
+    console.log(renderStatus(buildPassContext(opts.vault)));
   });
 
 program
@@ -500,76 +316,6 @@ program
     const readiness = vaultReadiness({ dir });
     if (!readiness.ready) console.error(`ost-agent mcp: ${readiness.message}`);
   });
-
-program
-  .command("schedule")
-  .option("--vault <dir>", "vault directory", ".")
-  .action((opts: { vault: string }) => {
-    const dir = path.resolve(opts.vault);
-    const ctx0 = buildPassContext(dir);
-    console.log(`OST-Agent supervisor watching ${dir}. Ctrl-C to stop.`);
-
-    const fire = async (id: string) => {
-      const proc = getProcess(id);
-      if (!proc) return;
-      // rebuild context each fire so config/state changes are picked up
-      const ctx = buildPassContext(dir);
-      const outcome = await runPass(proc, ctx, anthropicDriver()).catch((e) => {
-        console.error(`${id} failed:`, e instanceof Error ? withAuthHint(e.message) : e);
-        return null;
-      });
-      if (!outcome) return;
-      console.log(`[${new Date().toISOString()}] ${id}: created=${outcome.result.created} committed=${outcome.committed}`);
-      if (outcome.error) {
-        // The supervisor stays up (that is its job), but the failure goes to stderr
-        // where a wrapper, launchd, or a log scraper can see it.
-        console.error(`[${new Date().toISOString()}] ${id} FAILED: ${withAuthHint(outcome.error)}`);
-      }
-      // fire downstream `after:<id>` triggers
-      for (const [depId, cfg] of Object.entries(ctx.config.processes)) {
-        if ((cfg.triggers ?? []).includes(`after:${id}`)) await fire(depId);
-      }
-    };
-
-    for (const [id, cfg] of Object.entries(ctx0.config.processes)) {
-      if (cfg.cron) {
-        new Cron(cfg.cron, () => void fire(id));
-        console.log(`  scheduled ${id} @ "${cfg.cron}"`);
-      }
-    }
-
-    // inbox:new — watch the inbox and fire ingest on change
-    const inboxDir = path.join(dir, ctx0.config.adapters.inbox.path);
-    if (ctx0.config.adapters.inbox.enabled && fs.existsSync(inboxDir)) {
-      let debounce: NodeJS.Timeout | null = null;
-      fs.watch(inboxDir, () => {
-        if (debounce) clearTimeout(debounce);
-        debounce = setTimeout(() => void fire("P1_ingest"), 1500);
-      });
-      console.log(`  watching ${inboxDir} for new notes (fires P1_ingest)`);
-    }
-  });
-
-/**
- * Failure leads. An operator glancing at `status` after a silent overnight no-op
- * should learn in five seconds that something died — before any node counts.
- */
-function printLastFailure(journals: RunJournalEntry[]): void {
-  const failure = lastFailedRun(journals);
-  if (!failure) return;
-  console.log(`⚠ Last run FAILED — ${failure.processId} at ${failure.at}`);
-  console.log(`  ${failure.error}`);
-  console.log(`  journal: .ost-agent/runs/${failure.file}\n`);
-}
-
-function printLastRuns(journals: RunJournalEntry[]): void {
-  const latest = lastRunPerProcess(journals);
-  if (!latest.length) return;
-  console.log("Last runs:");
-  for (const e of latest) console.log(`  ${e.processId}: ${e.at} ${failed(e) ? "FAILED" : "ok"}`);
-}
-
-registerLoopCommands(program);
 
 program.parseAsync().catch((e) => {
   console.error(e instanceof Error ? e.message : e);

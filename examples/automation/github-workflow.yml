@@ -48,11 +48,14 @@ jobs:
       - name: Run a maintenance pass
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        # --allowedTools is kept in sync with .claude/commands/ost-pass.md's
+        # `allowed-tools` frontmatter — that file is the authority on what /ost-pass
+        # needs. If it grants a new tool, add it here too.
         run: |
           claude -p "/ost-pass" \
             --plugin-dir "$GITHUB_WORKSPACE/.ost-agent-src" \
             --permission-mode acceptEdits \
-            --allowedTools "mcp__ost-agent__ost_next_work,mcp__ost-agent__ost_read_tree,mcp__ost-agent__ost_create_node,mcp__ost-agent__ost_link_nodes,mcp__ost-agent__ost_append_to_node,mcp__ost-agent__ost_set_status,mcp__ost-agent__ost_annotate" \
+            --allowedTools "mcp__ost-agent__ost_ingest_inbox,mcp__ost-agent__ost_next_work,mcp__ost-agent__ost_read_tree,mcp__ost-agent__ost_create_node,mcp__ost-agent__ost_link_nodes,mcp__ost-agent__ost_append_to_node,mcp__ost-agent__ost_set_status,mcp__ost-agent__ost_annotate" \
             --output-format text
 
       - name: Push new nodes

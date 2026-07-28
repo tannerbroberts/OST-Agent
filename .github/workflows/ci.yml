@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm test
+
+  bundle-drift:
+    # The plugin launches a committed artifact. If it can drift from source,
+    # what users run is whatever was last remembered to be rebuilt — so this
+    # job is the control that makes committing it safe.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # "bundle" (package.json) invokes esbuild with a --banner:js that installs
+      # a real `require` via node:module's createRequire. Without it, commander's
+      # own `require("node:events")` etc. (called at its module top level) hits
+      # esbuild's CJS-in-ESM shim, which throws under pure ESM output because
+      # there is no ambient `require` for it to find — see test/release/bundle.test.ts
+      # for the full explanation and a test that exercises real tool handlers
+      # against the built bundle, not just its module graph.
+      - run: npm run bundle
+      - name: Fail if the committed bundle is stale
+        run: |
+          if ! git diff --exit-code dist/ost-agent.mjs; then
+            echo "::error::dist/ost-agent.mjs is stale. Run 'npm run bundle' and commit the result."
+            exit 1
+          fi

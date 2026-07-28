@@ -50,7 +50,10 @@ describe("the generated /ost-setup command", () => {
     // `Bash(*)` would hand a shell to the one product whose whole promise is
     // that it has no shell tool.
     for (const grant of bashGrants) {
-      expect(grant).toMatch(/^Bash\((ost-agent|npx -y ost-agent@latest) (init|set-outcome):\*\)$/);
+      // One launch path: the bundle the plugin ships. No PATH binary, no registry.
+      expect(grant).toMatch(
+        /^Bash\(node \$\{CLAUDE_PLUGIN_ROOT\}\/dist\/ost-agent\.mjs (init|set-outcome):\*\)$/,
+      );
     }
   });
 
@@ -61,8 +64,8 @@ describe("the generated /ost-setup command", () => {
   test("it asks the human for the outcome and refuses to invent one", () => {
     expect(cmd).toMatch(/ask the human/i);
     expect(cmd).toMatch(/never invent/i);
-    expect(cmd).toMatch(/ost-agent init/);
-    expect(cmd).toMatch(/ost-agent set-outcome/);
+    expect(cmd).toMatch(/ost-agent\.mjs init/);
+    expect(cmd).toMatch(/ost-agent\.mjs set-outcome/);
   });
 
   test("it says setup needs no API key — the wall a stranger hits first", () => {

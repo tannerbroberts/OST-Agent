@@ -2,10 +2,11 @@
  * The permission policy.
  *
  * `ALLOWED_TOOL_NAMES` is the complete, closed set of tools OST-Agent may ever
- * hold. `assertNoDestructiveTool` is a fail-closed guard the runner calls before
- * starting any pass: it refuses to proceed if the resolved tool set contains
- * anything outside the allowlist or anything whose name smells destructive. This
- * is defense-in-depth on top of the fact that no destructive tool is ever built.
+ * hold. `assertNoDestructiveTool` is a fail-closed guard the MCP server calls
+ * while building its tool set, before a single tool is exposed to a session: it
+ * refuses to proceed if the resolved set contains anything outside the allowlist
+ * or anything whose name smells destructive. This is defense-in-depth on top of
+ * the fact that no destructive tool is ever built.
  */
 
 export const ALLOWED_TOOL_NAMES = [
@@ -28,6 +29,17 @@ export const ALLOWED_TOOL_NAMES = [
   "ost_read_web",
   "ost_read_repo",
   "ost_rank_source",
+  // The deterministic analysis surface: no model, no writes. These were CLI
+  // commands reachable only through a Bash grant on a published binary; with
+  // the binary gone they belong on the tool surface like everything else.
+  "ost_check",
+  "ost_debt",
+  "ost_status",
+  "ost_gate",
+  // The vault's one input path: read the local drop folder and capture each new
+  // note as an evidence record. Append-only and idempotent — the adapter's cursor
+  // and writeEvidence both refuse to re-ingest. No credentials, no network.
+  "ost_ingest_inbox",
   "git_commit",
   "git_push",
 ] as const;

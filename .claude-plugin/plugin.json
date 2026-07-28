@@ -23,12 +23,8 @@
   ],
   "mcpServers": {
     "ost-agent": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "ost-agent@latest",
-        "mcp"
-      ],
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs", "mcp"],
       "env": {
         "OST_VAULT": "${CLAUDE_PROJECT_DIR}"
       }

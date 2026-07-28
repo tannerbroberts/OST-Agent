@@ -2,7 +2,7 @@
 name: opportunity-solution-tree
 description: Maintain a Teresa Torres Opportunity Solution Tree (OST) — distill customer evidence into Opportunity nodes, ideate candidate Solutions, and surface Assumption Tests — as append-only Obsidian Markdown, driven through the ost-agent MCP tools. Use whenever asked to run product discovery, do opportunity mapping / solution ideation / assumption surfacing, or maintain an OST vault.
 when_to_use: The user wants to build or update an Opportunity Solution Tree, run continuous product discovery, map customer opportunities, ideate solutions, surface assumptions, or run an OST maintenance pass. Requires the ost-agent MCP server to be connected (its ost_* tools are present).
-allowed-tools: mcp__ost-agent__ost_next_work, mcp__ost-agent__ost_read_tree, mcp__ost-agent__ost_create_node, mcp__ost-agent__ost_link_nodes, mcp__ost-agent__ost_append_to_node, mcp__ost-agent__ost_set_status, mcp__ost-agent__ost_annotate, mcp__ost-agent__ost_search_web, mcp__ost-agent__ost_read_web, mcp__ost-agent__ost_read_repo, mcp__ost-agent__ost_rank_source
+allowed-tools: mcp__ost-agent__ost_ingest_inbox, mcp__ost-agent__ost_next_work, mcp__ost-agent__ost_read_tree, mcp__ost-agent__ost_create_node, mcp__ost-agent__ost_link_nodes, mcp__ost-agent__ost_append_to_node, mcp__ost-agent__ost_set_status, mcp__ost-agent__ost_annotate, mcp__ost-agent__ost_search_web, mcp__ost-agent__ost_read_web, mcp__ost-agent__ost_read_repo, mcp__ost-agent__ost_rank_source
 ---
 
 # Maintaining an Opportunity Solution Tree
@@ -16,7 +16,7 @@ You are the reasoning brain that keeps a Teresa Torres **Opportunity Solution Tr
 If any `ost_*` tool responds that the vault is **not initialized**, do not stop and do not guess. Setup runs itself, in conversation:
 
 1. Ask the human what outcome this tree should steer toward — a product outcome, in their words. NEVER invent or assume the outcome yourself: the outcome is human-set, always.
-2. Run (via your shell): `npx -y ost-agent@latest init "<project dir>" --outcome "<the human's outcome, verbatim>"` — Setup needs no AI and no API key.
+2. Run (via your shell): `node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init "<project dir>" --outcome "<the human's outcome, verbatim>"` — Setup needs no AI and no API key.
 3. Retry the tool call: the MCP server picks up the new vault immediately, with no reconnect. Then continue with the normal flow below.
 
 ## The four layers
@@ -67,6 +67,7 @@ If any `ost_*` tool responds that the vault is **not initialized**, do not stop 
 
 All are exposed by the `ost-agent` MCP server (names may appear as `mcp__ost-agent__ost_*`):
 
+- **ost_ingest_inbox** — capture new notes from the vault's local inbox folder as evidence. Idempotent: a note already captured is never captured twice, and inbox files are never modified or deleted. Call this before `ost_next_work` when the user says they have added notes.
 - **ost_next_work** — read-only. Reports exactly what's outstanding: unmapped evidence, under-served opportunities, solutions missing assumption tests, and hygiene issues. **Start every pass here.**
 - **ost_read_tree** — read-only. The whole tree with each node's layer, status, tags, and child links.
 - **ost_create_node** — create a node AND attach it under an existing parent atomically (never an orphan). You cannot create an Outcome. An Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an AssumptionTest under a Solution.
@@ -85,17 +86,17 @@ All are exposed by the `ost-agent` MCP server (names may appear as `mcp__ost-age
 ## First run — there may be no vault yet
 
 - A session can be connected to these tools before any vault exists — that is the normal first minute, not a malfunction. `ost_next_work` reports it as `bootstrap: true` with a `reason` and a `nextStep`; treat that as the state of the world and follow the branch below instead of reporting a broken tool.
-- When `reason` is `no-vault`: ask the human what outcome they want this tree to serve, in one sentence, and wait for their answer. Then run their words back to them for confirmation and set up the vault with `ost-agent init <folder> --outcome "<their words>"`.
-- When `reason` is `no-outcome`: the vault exists but its root is missing; ask the human for the outcome and use `ost-agent set-outcome "<their words>" --vault <dir>`.
+- When `reason` is `no-vault`: ask the human what outcome they want this tree to serve, in one sentence, and wait for their answer. Then run their words back to them for confirmation and set up the vault with `node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init <folder> --outcome "<their words>"`.
+- When `reason` is `no-outcome`: the vault exists but its root is missing; ask the human for the outcome and use `node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs set-outcome "<their words>" --vault <dir>`.
 - Never invent, paraphrase into something sharper, or guess the outcome — it is the single human-set mandate the whole tree hangs from, and inventing it would make every node below it ladder up to a goal nobody chose.
 - If the human is not available to answer, stop and say what you are waiting for. Do not scaffold a vault around a placeholder outcome to make progress.
-- Setting up a vault needs no model and no API key. Neither does `status`, `check`, `debt`, `lanes`, or `result` — a credential is only needed by the standalone `ost-agent run` path, because this MCP server holds no model and the connected session supplies the reasoning.
+- Setting up a vault needs no model and no API key, and neither does anything else here — `status`, `check`, `debt`, `lanes`, `result`, and every tool on this surface are deterministic. This project calls no model at all: the server holds none, and the connected session supplies every bit of the reasoning.
 - Once the vault is set up, call `ost_next_work` again and continue into the normal maintenance loop; a fresh tree with only an Outcome is legitimately `done`, and the next thing it needs is evidence, not ideation.
 - `/ost-setup` is the front door onto this same branch, named in the slash-command menu so that someone who has just installed the plugin can find it without already knowing to ask for discovery work. Reporting first run is not the same as being findable: if a human seems to be starting from nothing, say `/ost-setup` out loud rather than waiting to be asked.
 
 ## The maintenance loop
 
-1. **Call `ost_next_work`.** If `done: true`, report that the tree is fully maintained and stop.
+1. **Call `ost_ingest_inbox`, then `ost_next_work`.** If `done: true`, report that the tree is fully maintained and stop.
 2. **Map evidence → opportunities** (for each `unmappedEvidence` item). Distill the *customer need/pain/desire* it reveals, from the customer's perspective — never a solution. Create an `#Opportunity` under the Outcome (or a parent opportunity), with `source` set to the evidence id. Reuse an existing opportunity instead of duplicating. If an item reveals no genuine need, skip it.
 3. **Ideate solutions** (for each `underservedOpportunity`). Generate genuinely distinct candidate `#Solution` nodes until it has the required minimum, each with `status: unvalidated` and an `unvalidated` tag. Compare-and-contrast — do not describe implementation steps or code.
 4. **Surface assumptions** (for each `solutionsMissingAssumptions` entry). Create `#AssumptionTest` nodes (`unvalidated`) that each *propose* a small, fast test of one underlying assumption across the risk categories (desirability, viability, feasibility, usability). You propose tests; humans run them.
