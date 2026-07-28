@@ -89,3 +89,60 @@ describe("computeNextWork — wrapped wikilinks", () => {
     expect(work.hygieneIssues.filter((i) => i.issue.startsWith("wrapped wikilink"))).toEqual([]);
   });
 });
+
+describe("open unknowns", () => {
+  const CONTRACT = "## Format\na count per day\n\n## Rationale\nserves [[Retention]]";
+
+  /** Attach an Unknown under the opportunity `initVault` creates, and return fresh work. */
+  function withUnknown(body: string, status?: "validated" | "deferred") {
+    const ctx = buildPassContext(dir);
+    ctx.vault.createNode({
+      title: "How many users hit the export path",
+      layer: "Unknown",
+      body,
+      tags: [],
+      links: [],
+      evidence: "assertion",
+      ...(status ? { status } : {}),
+    });
+    ctx.vault.linkNodes("Retention", "How many users hit the export path");
+    return computeNextWork(buildPassContext(dir).vault, dir, 1);
+  }
+
+  test("surfaces an open unknown with its class, what it darkens, and its gaps", () => {
+    const work = withUnknown(CONTRACT);
+    expect(work.openUnknowns).toHaveLength(1);
+    expect(work.openUnknowns[0].title).toBe("How many users hit the export path");
+    expect(work.openUnknowns[0].klass).toBe("unreached");
+    expect(work.openUnknowns[0].darkens).toBe("Retention");
+    expect(work.openUnknowns[0].gaps).toEqual(["Methodology"]);
+  });
+
+  test("a satisfied unknown is no longer offered as work", () => {
+    expect(withUnknown(`${CONTRACT}\n\n## Answer\n412 per day`).openUnknowns).toHaveLength(0);
+  });
+
+  test("an abandoned unknown is no longer offered as work", () => {
+    expect(withUnknown(CONTRACT, "deferred").openUnknowns).toHaveLength(0);
+  });
+
+  test("an open unknown does NOT block done — an unbounded one would wedge the loop forever", () => {
+    const work = withUnknown("nothing declared at all");
+    expect(work.openUnknowns).toHaveLength(1);
+    expect(work.openUnknowns[0].klass).toBe("unbounded");
+    // A freshly-initialized vault has no outstanding maintenance at min=1.
+    expect(work.unmappedEvidence).toHaveLength(0);
+    expect(work.hygieneIssues).toHaveLength(0);
+    expect(work.done).toBe(true);
+  });
+
+  test("the summary names outstanding darkness even when maintenance is done", () => {
+    expect(withUnknown(CONTRACT).summary).toContain("unknown");
+  });
+
+  test("an Unknown is never counted as a solution missing assumptions", () => {
+    const work = withUnknown(CONTRACT);
+    expect(work.solutionsMissingAssumptions.map((s) => s.title))
+      .not.toContain("How many users hit the export path");
+  });
+});

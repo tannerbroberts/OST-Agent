@@ -15,6 +15,7 @@ import { findNearDuplicateIssues } from "../ost/dedupe.js";
 import { laneConflicts } from "../ost/lanes.js";
 import { wrappedLinkTargets, type OstNode } from "../ost/node.js";
 import type { Vault } from "../ost/vault.js";
+import { classifyUnknown, contractGaps, resolutionState, type UnknownClass } from "../knowledge/unknowns.js";
 
 export interface UnmappedEvidence {
   id: string;
@@ -36,6 +37,15 @@ export interface HygieneIssue {
   title: string;
   issue: string;
 }
+export interface OpenUnknown {
+  title: string;
+  /** Derived class; `class` is reserved. */
+  klass: UnknownClass;
+  /** The node this darkness attaches under, when it has a parent. */
+  darkens: string | null;
+  /** Contract sections not yet declared — what to write to make it actionable. */
+  gaps: string[];
+}
 
 export interface NextWork {
   done: boolean;
@@ -46,8 +56,16 @@ export interface NextWork {
   underservedOpportunities: UnderservedOpportunity[];
   /** P4 — solutions with no assumption test surfaced yet. */
   solutionsMissingAssumptions: BareSolution[];
-  /** P5 — structural issues that should be annotated (never auto-fixed). */
+  /** Structural issues that should be annotated (never auto-fixed). */
   hygieneIssues: HygieneIssue[];
+  /**
+   * Darkness the tree has declared and not yet resolved. Reported as available
+   * work but deliberately NOT part of `done`: an unbounded unknown has no
+   * stopping condition, so counting it toward completion would wedge every
+   * pass forever. `done` means maintenance is complete; exploration is
+   * discretionary and budget-governed.
+   */
+  openUnknowns: OpenUnknown[];
 }
 
 /** Detect the same structural issues P5_hygiene annotates — dangling links + orphans. */
@@ -127,6 +145,15 @@ export function computeNextWork(vault: Vault, dir: string, min: number): NextWor
 
   const hygieneIssues = detectHygiene(tree);
 
+  const openUnknowns: OpenUnknown[] = tree
+    .filter((n) => n.layer === "Unknown" && resolutionState(n) === "open")
+    .map((u) => ({
+      title: u.title,
+      klass: classifyUnknown(u),
+      darkens: tree.find((p) => p.layer !== "Unknown" && p.links.includes(u.title))?.title ?? null,
+      gaps: contractGaps(u),
+    }));
+
   const done =
     unmappedEvidence.length === 0 &&
     underservedOpportunities.length === 0 &&
@@ -138,7 +165,12 @@ export function computeNextWork(vault: Vault, dir: string, min: number): NextWor
   if (underservedOpportunities.length) parts.push(`${underservedOpportunities.length} opportunity(ies) with < ${min} solutions → ideate #Solution nodes`);
   if (solutionsMissingAssumptions.length) parts.push(`${solutionsMissingAssumptions.length} solution(s) with no assumption test → surface #AssumptionTest nodes`);
   if (hygieneIssues.length) parts.push(`${hygieneIssues.length} hygiene issue(s) → annotate (never delete)`);
-  const summary = done ? "Tree is fully maintained — nothing to do." : `Outstanding: ${parts.join("; ")}.`;
+  if (openUnknowns.length) parts.push(`${openUnknowns.length} open unknown(s) → explore (does not block done)`);
+  const summary = done
+    ? openUnknowns.length
+      ? `Tree is fully maintained — nothing to do. ${openUnknowns.length} open unknown(s) remain to explore (does not block done).`
+      : "Tree is fully maintained — nothing to do."
+    : `Outstanding: ${parts.join("; ")}.`;
 
-  return { done, summary, unmappedEvidence, underservedOpportunities, solutionsMissingAssumptions, hygieneIssues };
+  return { done, summary, unmappedEvidence, underservedOpportunities, solutionsMissingAssumptions, hygieneIssues, openUnknowns };
 }
