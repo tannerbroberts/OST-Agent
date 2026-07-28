@@ -42,8 +42,12 @@ const htmlFetch: WebFetchFn = async () => ({
 });
 
 describe("ost_search_web", () => {
-  test("without a key, answers with the setup hint (and never a stack of vault errors)", async () => {
-    await expect(tool(baseCtx(), "ost_search_web").run({ query: "q" })).rejects.toThrow(/BRAVE_SEARCH_API_KEY/);
+  test("without a provider, instructs the agent to use its own search — and spends no budget", async () => {
+    const budget = createLookupBudget(5);
+    const out = await tool(baseCtx({ web: { budget } }), "ost_search_web").run({ query: "q" });
+    expect(out).toMatch(/your own web search|host's web search/i);
+    expect(out).toMatch(/ost_read_web/);
+    expect(budget.remaining()).toBe(5); // the dead-end branch must not charge for a lookup
   });
 
   test("results carry each host's trust rung", async () => {

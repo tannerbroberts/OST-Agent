@@ -22,7 +22,13 @@ import { flagHumansRequired } from "../ost/lanes.js";
 import { ALLOWED_TOOL_NAMES } from "./policy.js";
 import { withUsageTracing } from "../telemetry/usage.js";
 import { readWebPage, type WebFetchFn } from "../web/reader.js";
-import { braveProvider, DEFAULT_SEARCH_RESULTS, MAX_SEARCH_RESULTS, type SearchProvider } from "../web/search.js";
+import {
+  braveProvider,
+  DEFAULT_SEARCH_RESULTS,
+  MAX_SEARCH_RESULTS,
+  SEARCH_DELEGATION_MESSAGE,
+  type SearchProvider,
+} from "../web/search.js";
 import { budgetSpentMessage, createLookupBudget, type LookupBudget } from "../web/budget.js";
 import { HOST_RUNGS, hostRung, rankHost, readHostTrust } from "../knowledge/web-trust.js";
 import { readProductRepo } from "../product/repo.js";
@@ -437,11 +443,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
       run: async (input: { query: string; count?: number }) => {
         const provider =
           ctx.web?.provider ?? (ctx.web?.searchApiKey ? braveProvider(ctx.web.searchApiKey) : undefined);
-        if (!provider) {
-          throw new Error(
-            "web search is not configured — set BRAVE_SEARCH_API_KEY (free tier at brave.com/search/api) in the environment that starts ost-agent. ost_read_web still works for direct URLs.",
-          );
-        }
+        if (!provider) return SEARCH_DELEGATION_MESSAGE;
         if (!lookupBudget.take(spendClass()))
           return budgetSpentMessage(lookupBudget.limit, genome.budgets.onExhaustion, lookupBudget.msUntilNext());
         const { results } = await provider.search(input.query, input.count ?? DEFAULT_SEARCH_RESULTS, ctx.web?.fetchFn);

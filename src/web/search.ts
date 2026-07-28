@@ -91,3 +91,18 @@ export function braveProvider(apiKey: string): SearchProvider {
     }),
   };
 }
+
+/**
+ * What ost_search_web answers when no provider resolved.
+ *
+ * MCP gives a server no way to call the host's tools, so delegation cannot be
+ * hidden behind this tool — it has to be said to the agent, which is what this
+ * is. Provenance is unaffected: however a URL is found, ost_read_web is what
+ * fetches and records it.
+ */
+export const SEARCH_DELEGATION_MESSAGE =
+  "No server-side search provider is configured, which is the normal setup. " +
+  "Use your own web search tool to find candidate URLs, then call ost_read_web on each one — " +
+  "that is what records provenance as WEB:<host> and puts the claim on the believability ladder. " +
+  "If you have no web search of your own, either enable the keyless federated sources " +
+  "(web.search.federated.enabled in ost.config.yaml) or set BRAVE_SEARCH_API_KEY. Neither is required.";
