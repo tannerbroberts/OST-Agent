@@ -96,13 +96,13 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
     betaTool({
       name: "ost_create_node",
       description:
-        "Create a NEW node AND attach it under an existing parent in one atomic step — so a node can never be an orphan. You CANNOT create an Outcome (there is exactly one, human-set at init). Hierarchy is enforced: an Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an AssumptionTest under a Solution. The type tag (#Opportunity / #Solution / #AssumptionTest) is applied automatically.",
+        "Create a NEW node AND attach it under an existing parent in one atomic step — so a node can never be an orphan. You CANNOT create an Outcome (there is exactly one, human-set at init). Hierarchy is enforced: an Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an AssumptionTest under a Solution; an Unknown (darkness, representing uncertainty) attaches under any layer. The type tag (#Opportunity / #Solution / #AssumptionTest / #Unknown) is applied automatically.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
         properties: {
           title: { type: "string", description: "Node title; also the filename." },
-          layer: { type: "string", enum: ["Opportunity", "Solution", "AssumptionTest"], description: "Opportunity | Solution | AssumptionTest (Outcome cannot be created here)" },
+          layer: { type: "string", enum: ["Opportunity", "Solution", "AssumptionTest", "Unknown"], description: "Opportunity | Solution | AssumptionTest | Unknown (Outcome cannot be created here)" },
           parent: { type: "string", description: "Title of the existing parent node to attach under." },
           body: { type: "string", description: "Prose description of the node." },
           status: { type: "string", enum: STATUS_VALUES },

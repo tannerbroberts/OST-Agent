@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { buildPassContext } from "../../src/runner/context.js";
 import { initVault } from "../../src/runner/init.js";
 import { buildOstTools } from "../../src/security/tools.js";
+import { validateToolInput, type ToolSchema } from "../../src/security/validateToolInput.js";
 
 const OUTCOME = "Reach 10,000 daily active users";
 const OUTCOME_TITLE = "Retention";
@@ -52,5 +53,27 @@ describe("creating an Unknown", () => {
     await expect(
       call("ost_create_node", { title: "Unrunged", layer: "Unknown", parent: OUTCOME_TITLE, body: "## Format\nx" }),
     ).rejects.toThrow(/evidence class/);
+  });
+});
+
+describe("ost_create_node schema validation", () => {
+  test("the tool schema accepts Unknown as a valid layer", () => {
+    const tools = buildOstTools(buildPassContext(dir)) as unknown as {
+      name: string;
+      input_schema?: ToolSchema;
+    }[];
+    const tool = tools.find((t) => t.name === "ost_create_node");
+    if (!tool || !tool.input_schema) throw new Error("ost_create_node tool not found");
+
+    const testInput = {
+      title: "Test Unknown",
+      layer: "Unknown",
+      parent: OUTCOME_TITLE,
+      body: "## Format\ntest",
+      evidence: "assertion",
+    };
+
+    const problems = validateToolInput(tool.input_schema, testInput);
+    expect(problems).toEqual([]);
   });
 });
