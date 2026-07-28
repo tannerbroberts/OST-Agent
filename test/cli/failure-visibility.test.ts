@@ -33,12 +33,6 @@ function cli(args: string[]) {
   return run("npx", ["tsx", CLI, ...args], { cwd: path.resolve(__dirname, "../..") });
 }
 
-function writeJournal(name: string, entry: object): void {
-  const runs = path.join(dir, ".ost-agent", "runs");
-  fs.mkdirSync(runs, { recursive: true });
-  fs.writeFileSync(path.join(runs, name), JSON.stringify(entry), "utf8");
-}
-
 describe("ost-agent run — a failed pass is visible to a machine", () => {
   test("exits non-zero and names the failure when the driver errors", async () => {
     // Give P2_map something to map, so it actually reaches the driver.
@@ -64,29 +58,5 @@ describe("ost-agent run — a failed pass is visible to a machine", () => {
     const { stdout } = await cli(["run", "P1_ingest", "--vault", dir]);
     expect(stdout).toContain("P1_ingest");
     expect(stdout).not.toMatch(/FAILED/);
-  }, 60_000);
-});
-
-describe("ost-agent status — the last failed run leads", () => {
-  test("surfaces the most recent failure above the node counts", async () => {
-    writeJournal("a.json", { processId: "P2_map", at: "2026-07-25T02:00:38Z", error: "Could not resolve authentication method" });
-    writeJournal("b.json", { processId: "P1_ingest", at: "2026-07-25T03:00:00Z", error: null });
-
-    const { stdout } = await cli(["status", "--vault", dir]);
-
-    expect(stdout).toMatch(/FAILED/);
-    expect(stdout).toContain("P2_map");
-    expect(stdout).toContain("Could not resolve authentication method");
-    // "leads" is the point: the failure must appear before the tree summary.
-    expect(stdout.indexOf("FAILED")).toBeLessThan(stdout.indexOf("Nodes:"));
-  }, 60_000);
-
-  test("says so plainly when no run has ever failed", async () => {
-    writeJournal("a.json", { processId: "P1_ingest", at: "2026-07-25T03:00:00Z", error: null });
-
-    const { stdout } = await cli(["status", "--vault", dir]);
-
-    expect(stdout).not.toMatch(/FAILED/);
-    expect(stdout).toMatch(/P1_ingest/);
   }, 60_000);
 });

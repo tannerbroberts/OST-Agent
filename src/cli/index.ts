@@ -24,17 +24,14 @@ import { Cron } from "croner";
 import { buildPassContext } from "../runner/context.js";
 import { initVault } from "../runner/init.js";
 import { runPass } from "../runner/pass.js";
-import { failed, lastFailedRun, lastRunPerProcess, readRunJournals, type RunJournalEntry } from "../runner/journal.js";
 import { runTool } from "../runner/tool.js";
 import { setOutcome } from "../runner/set-outcome.js";
 import { anthropicDriver } from "../runner/driver.js";
 import { anthropicCredentialsPresent, credentialGuidance } from "../runner/credentials.js";
 import { getProcess, PROCESSES } from "../processes/registry.js";
 import { drivesModel } from "../processes/types.js";
-import { checkInvariants } from "../eval/invariants.js";
-import { computeEvidenceDebt, gateSolution } from "../eval/evidence-debt.js";
-import { computeCoverageDebt, computeCoveragePairs, computeUnfixedThresholds } from "../eval/coverage.js";
-import { BELIEVABILITY_LADDER, believabilityRollup, type RungId } from "../knowledge/believability.js";
+import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/render.js";
+import { BELIEVABILITY_LADDER, type RungId } from "../knowledge/believability.js";
 import { recordResult, VERDICTS, type Verdict } from "../ost/results.js";
 import { formatCensus, reconcileWithGit } from "../ost/census.js";
 import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
@@ -164,6 +161,7 @@ program
   .option("--vault <dir>", "vault directory", ".")
   .action(async (opts: { vault: string }) => {
     const ctx = buildPassContext(opts.vault);
+<<<<<<< HEAD
     const census = ctx.vault.readTreeCensus();
     census.independent = await reconcileWithGit(ctx.dir, census);
     const violations = checkInvariants(census.nodes);
@@ -185,6 +183,11 @@ program
           "  above covers the nodes in this denominator and no others.",
       );
     }
+=======
+    const { text, violations } = renderCheck(ctx.vault.readTree());
+    console.log(text);
+    if (violations > 0) process.exitCode = 1;
+>>>>>>> 21a5dc5 (refactor(eval): one source of wording for check, debt, status, gate)
   });
 
 program
@@ -224,83 +227,7 @@ program
   .option("--vault <dir>", "vault directory", ".")
   .action((opts: { vault: string }) => {
     const ctx = buildPassContext(opts.vault);
-    const debt = computeEvidenceDebt(ctx.vault.readTree());
-    const t = debt.totals;
-    console.log(`Solutions: ${t.solutions}  (untested ${t.untested}, proposed-only ${t.proposed}, tested ${t.tested})`);
-    for (const s of debt.solutions) {
-      const detail =
-        s.state === "tested"
-          ? `${s.testsRun}/${s.testsProposed} test(s) with results`
-          : s.state === "proposed"
-            ? `${s.testsProposed} proposed, none run`
-            : "no assumption test";
-      console.log(`  [${s.state}] ${s.title} — ${detail}`);
-    }
-    const coverage = computeCoverageDebt(ctx.vault.readTree());
-    const c = coverage.totals;
-    console.log(
-      `\nCoverage: ${c.withResults} test(s) with results  (bounded ${c.bounded}, unbounded ${c.unbounded})`,
-    );
-    for (const g of coverage.gaps) {
-      const detail =
-        g.stated === 0
-          ? `${g.claimed} result(s), none saying what they fail to cover`
-          : `${g.claimed} result(s) against ${g.stated} uncovered statement(s)`;
-      console.log(`  [unbounded] ${g.title} — ${detail}`);
-    }
-    if (coverage.gaps.length > 0) {
-      console.log("  a result with no stated limit gets read as answering the whole question.");
-    }
-
-    // The bounded tests, read side by side. Counting the pair proves a sentence
-    // exists; only reading it against the threshold the node wrote down before
-    // the run can show whether the run answered the question that was asked.
-    // Printed, never compared — the comparison is the human's.
-    const pairs = computeCoveragePairs(ctx.vault.readTree());
-    if (pairs.length > 0) {
-      console.log(`\nBounded — what each test asked for, and what its runs left out:`);
-      for (const p of pairs) {
-        console.log(`  ${p.title}`);
-        console.log(`      asked:     ${p.asked ?? "(no pre-committed threshold written in this node)"}`);
-        const [first, ...rest] = p.uncovered;
-        console.log(`      uncovered: ${first ?? "(nothing stated)"}`);
-        for (const more of rest) console.log(`                 ${more}`);
-      }
-      const unasked = pairs.filter((p) => p.asked === null).length;
-      if (unasked > 0) {
-        console.log(
-          `  ${unasked} of these stated a limit against no written threshold — there is nothing to read it against.`,
-        );
-      }
-    }
-
-    // Every test's threshold, whether or not it has ever been run. The
-    // side-by-side above only reaches tests with results; this reaches the
-    // backlog, where a threshold that was never fixed is still cheap to fix.
-    const census = computeUnfixedThresholds(ctx.vault.readTree());
-    const u = census.totals;
-    if (u.tests > 0) {
-      console.log(
-        `\nThresholds: ${u.tests} assumption test(s)  (fixed ${u.bound}, ` +
-          `stated in words ${u.prose}, still an instruction ${u.instruction}, none written ${u.absent})`,
-      );
-      for (const r of census.unfixed) {
-        console.log(`  [${r.kind === "absent" ? "no threshold" : "not fixed"}] ${r.title}`);
-        if (r.asked !== null) console.log(`      reads: ${r.asked}`);
-      }
-      if (census.unfixed.length > 0) {
-        console.log("  a test whose threshold was never fixed cannot come out a failure.");
-      }
-    }
-
-    console.log(
-      "\nMechanical only: this counts whether ANY assumption beneath a solution recorded a result,\n" +
-        "and whether each result was paired with a written statement of what it left untested.\n" +
-        "The side-by-side above is printed, not judged: whether the RIGHT (riskiest) assumption was\n" +
-        "tested, and whether the run actually answered the threshold next to it, is a human call.\n" +
-        "The threshold reading is shallower still — it asks whether a bar was written, never whether\n" +
-        "the bar is the right one, and it will be wrong at the edges. It flags; it never refuses.",
-    );
+    console.log(renderDebt(ctx.vault.readTree()));
   });
 
 program
@@ -439,18 +366,19 @@ program
   .option("--vault <dir>", "vault directory", ".")
   .action((solution: string, opts: { vault: string }) => {
     const ctx = buildPassContext(opts.vault);
-    const verdict = gateSolution(ctx.vault.readTree(), solution);
-    if (verdict.cleared) {
-      console.log(`gate: CLEARED — ${verdict.reason}`);
+    const { text, cleared } = renderGate(ctx.vault.readTree(), solution);
+    if (cleared) {
+      console.log(text);
       return;
     }
-    console.error(`gate: BLOCKED — ${verdict.reason}`);
+    console.error(text);
     process.exitCode = 1;
   });
 
 program
   .command("status")
   .option("--vault <dir>", "vault directory", ".")
+<<<<<<< HEAD
   .action(async (opts: { vault: string }) => {
     const ctx = buildPassContext(opts.vault);
     const journals = readRunJournals(ctx.dir);
@@ -492,6 +420,10 @@ program
       );
     }
     printLastRuns(journals);
+=======
+  .action((opts: { vault: string }) => {
+    console.log(renderStatus(buildPassContext(opts.vault)));
+>>>>>>> 21a5dc5 (refactor(eval): one source of wording for check, debt, status, gate)
   });
 
 program
@@ -563,25 +495,6 @@ program
       console.log(`  watching ${inboxDir} for new notes (fires P1_ingest)`);
     }
   });
-
-/**
- * Failure leads. An operator glancing at `status` after a silent overnight no-op
- * should learn in five seconds that something died — before any node counts.
- */
-function printLastFailure(journals: RunJournalEntry[]): void {
-  const failure = lastFailedRun(journals);
-  if (!failure) return;
-  console.log(`⚠ Last run FAILED — ${failure.processId} at ${failure.at}`);
-  console.log(`  ${failure.error}`);
-  console.log(`  journal: .ost-agent/runs/${failure.file}\n`);
-}
-
-function printLastRuns(journals: RunJournalEntry[]): void {
-  const latest = lastRunPerProcess(journals);
-  if (!latest.length) return;
-  console.log("Last runs:");
-  for (const e of latest) console.log(`  ${e.processId}: ${e.at} ${failed(e) ? "FAILED" : "ok"}`);
-}
 
 registerLoopCommands(program);
 
