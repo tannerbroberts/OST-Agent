@@ -23,8 +23,9 @@
  * calls/ms from the trace as well as the ledger is what makes per-unknown cost
  * non-zero in practice. The usage log is read exactly once per rollup and
  * split three ways: attributed (a known unknown), unattributed (no `unknown`
- * field), or neither (an `unknown` field naming a title not on this tree,
- * which is not credited to anything rather than guessed at).
+ * field), or neither — an `unknown` field naming a title not on this tree, whose
+ * fate is the `attribution.staleAttribution` allele: dropped (the default, and
+ * what this always did) or folded into unattributed.
  */
 import { defaultGenome } from "../genome/load.js";
 import type { AttributionGene, ClassifierGene, ResolutionGene, TokenWeightsGene } from "../genome/schema.js";
@@ -103,14 +104,17 @@ interface UsageRollup {
 /**
  * One pass over the usage trace, splitting every event three ways: attributed
  * to a known unknown, unattributed (no `unknown` field), or — an event naming
- * an unknown that is not (or no longer) on the tree — neither, since crediting
- * it to a title that does not exist would be a fabrication and folding it into
- * `unattributed` would conflate "said nothing" with "said something stale".
+ * an unknown that is not (or no longer) on the tree — whatever
+ * `staleAttribution` says, which by default is neither.
  *
  * Read once and shared by every caller in {@link computeAttention} so the log
  * is never parsed twice for the same rollup.
  */
-function rollUpUsage(vaultDir: string, knownTitles: ReadonlySet<string>): UsageRollup {
+function rollUpUsage(
+  vaultDir: string,
+  knownTitles: ReadonlySet<string>,
+  staleAttribution: AttributionGene["staleAttribution"] = "drop",
+): UsageRollup {
   const byUnknown = new Map<string, CallCost>();
   const unattributed: CallCost = { calls: 0, ms: 0 };
   const file = usageLogPath(vaultDir);
@@ -131,7 +135,19 @@ function rollUpUsage(vaultDir: string, knownTitles: ReadonlySet<string>): UsageR
         unattributed.ms += ms;
         continue;
       }
-      if (!knownTitles.has(event.unknown)) continue; // stale/foreign attribution: not counted either way
+      if (!knownTitles.has(event.unknown)) {
+        // A marker naming a title not on this tree. `drop` (the default, and
+        // exactly today) counts it neither way: crediting a title that does not
+        // exist would be a fabrication, and folding it into `unattributed` would
+        // conflate "said nothing" with "said something stale". `unattributed` is
+        // the other honest reading — a renamed or deleted unknown still cost
+        // what it cost, and losing that spend flatters the unattributed share.
+        if (staleAttribution === "unattributed") {
+          unattributed.calls++;
+          unattributed.ms += ms;
+        }
+        continue;
+      }
       const bucket = byUnknown.get(event.unknown) ?? { calls: 0, ms: 0 };
       bucket.calls++;
       bucket.ms += ms;
@@ -188,7 +204,11 @@ export function computeAttention(
   const classifier = opts.classifier ?? DEFAULT_CLASSIFIER;
   const resolution = opts.resolution ?? DEFAULT_RESOLUTION;
   const darkNodes = tree.filter((n) => n.layer === "Unknown");
-  const usage = rollUpUsage(vaultDir, new Set(darkNodes.map((n) => n.title)));
+  const usage = rollUpUsage(
+    vaultDir,
+    new Set(darkNodes.map((n) => n.title)),
+    opts.attribution?.staleAttribution ?? "drop",
+  );
 
   const unknowns: UnknownAttention[] = darkNodes.map((node) => {
     // Ledger spend (`recordAttention`, e.g. explicit harness bookkeeping) and

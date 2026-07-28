@@ -249,3 +249,41 @@ describe("computeAttention — byClass keys off the genome's vocabulary", () => 
     });
   });
 });
+
+describe("computeAttention — the staleAttribution gene", () => {
+  const ghostLog = (dir: string): void => {
+    fs.mkdirSync(path.dirname(usageLogPath(dir)), { recursive: true });
+    fs.writeFileSync(
+      usageLogPath(dir),
+      [
+        JSON.stringify({ ts: "a", tool: "ost_read_web", ok: true, ms: 5, surface: "mcp", argBytes: 0, unknown: "Ghost" }),
+        JSON.stringify({ ts: "b", tool: "ost_read_web", ok: true, ms: 7, surface: "mcp", argBytes: 0, unknown: "U" }),
+      ].join("\n"),
+      "utf8",
+    );
+  };
+
+  test("the default drops a marker naming a title not on the tree — an explicit `drop` and saying nothing agree", () => {
+    const dir = tmp();
+    ghostLog(dir);
+    const byDefault = computeAttention([unknown("U")], dir);
+    const explicit = computeAttention([unknown("U")], dir, { attribution: { staleAttribution: "drop" } });
+
+    expect(byDefault.unattributed.calls).toBe(0);
+    expect(explicit.unattributed.calls).toBe(0);
+    expect(byDefault.unknowns[0].calls).toBe(1);
+    expect(explicit.unknowns[0].calls).toBe(1);
+  });
+
+  test("`unattributed` folds a renamed unknown's spend back in — the attention was still spent on something", () => {
+    const dir = tmp();
+    ghostLog(dir);
+    const rollup = computeAttention([unknown("U")], dir, { attribution: { staleAttribution: "unattributed" } });
+
+    expect(rollup.unattributed.calls).toBe(1);
+    expect(rollup.unattributed.ms).toBe(5);
+    // The live attribution is untouched: only the ghost moves.
+    expect(rollup.unknowns[0].calls).toBe(1);
+    expect(rollup.unknowns[0].ms).toBe(7);
+  });
+});

@@ -139,6 +139,22 @@ function notReadyResult(readiness: VaultNotReady, name: string): ToolCallResult 
   return { content: [{ type: "text", text: setupGuidance(readiness) }], isError: true };
 }
 
+/**
+ * The attribution marker a call declares, if any.
+ *
+ * Reads the optional `unknown` property the attributable tools declare (see
+ * ATTRIBUTABLE_TOOLS in security/tools.ts). Called only after
+ * `validateToolInput` has passed, so a tool that does not declare the property
+ * has already been refused rather than quietly ignored.
+ */
+function declaredUnknown(args: unknown): string | undefined {
+  if (!args || typeof args !== "object") return undefined;
+  const value = (args as { unknown?: unknown }).unknown;
+  if (typeof value !== "string") return undefined;
+  const title = value.trim();
+  return title.length > 0 ? title : undefined;
+}
+
 async function handleOstCall(ctx: PassContext, byName: Map<string, McpToolDef>, name: string, args: unknown): Promise<ToolCallResult> {
   const tool = byName.get(name);
   if (!tool) return unknownTool(name);
@@ -166,7 +182,26 @@ async function handleOstCall(ctx: PassContext, byName: Map<string, McpToolDef>, 
       isError: true,
     };
   }
+  // OST_UNKNOWN is process-global and this server is long-lived, so dispatch
+  // takes ownership of it for exactly the span of one call: SET when the call
+  // declares an unknown, DELETED when it does not — silence must read as
+  // silence even when some earlier value is still lying around — and restored
+  // to whatever it was in a `finally`, including when the tool throws. A leaked
+  // marker bills the next call to the wrong unknown, which is worse than no
+  // attribution: a wrong number reads as a measured one.
+  //
+  // Be plain about the limit. This is correct because MCP dispatch here handles
+  // one call at a time and `withUsageTracing` reads the variable inside the same
+  // call it wraps (src/telemetry/usage.ts:78). It is NOT concurrency-safe in
+  // general: two calls genuinely interleaved in one process would race on one
+  // variable, and the loser would be attributed to the winner's unknown. If this
+  // surface ever dispatches concurrently, the marker must stop being an
+  // environment variable and become an argument threaded into withUsageTracing.
+  const marker = declaredUnknown(args);
+  const priorMarker = process.env.OST_UNKNOWN;
   try {
+    if (marker) process.env.OST_UNKNOWN = marker;
+    else delete process.env.OST_UNKNOWN;
     const out = await tool.run(args);
     let text = typeof out === "string" ? out : JSON.stringify(out);
     if (MUTATING.has(name)) {
@@ -176,6 +211,9 @@ async function handleOstCall(ctx: PassContext, byName: Map<string, McpToolDef>, 
     return { content: [{ type: "text", text }] };
   } catch (e) {
     return { content: [{ type: "text", text: e instanceof Error ? e.message : String(e) }], isError: true };
+  } finally {
+    if (priorMarker === undefined) delete process.env.OST_UNKNOWN;
+    else process.env.OST_UNKNOWN = priorMarker;
   }
 }
 

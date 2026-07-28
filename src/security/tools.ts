@@ -15,6 +15,7 @@ import { tool } from "./tool.js";
 import { gitCommit, gitPush } from "../git/safe-git.js";
 import { type NodeStatus, type OstNode } from "../ost/node.js";
 import { BELIEVABILITY_LADDER, isRung, type RungId } from "../knowledge/believability.js";
+import { classifyUnknown } from "../knowledge/unknowns.js";
 import { Vault } from "../ost/vault.js";
 import { computeNextWork } from "../mcp/next-work.js";
 import { flagHumansRequired } from "../ost/lanes.js";
@@ -66,6 +67,61 @@ const CHILD_HIERARCHY: Record<string, string[]> = {
   Unknown: ["Outcome", "Opportunity", "Solution", "AssumptionTest"],
 };
 
+/**
+ * The tools whose spend can honestly belong to ONE unknown.
+ *
+ * Attribution is declared, not inferred: each of these carries an optional
+ * `unknown` property naming the #Unknown node the call is being spent on, which
+ * the MCP dispatch point turns into the OST_UNKNOWN marker `withUsageTracing`
+ * already reads. The alternative — inferring attribution from whichever node a
+ * call happens to name — would make "unattributed share" a heuristic artifact
+ * rather than the honest metric the design requires it to be.
+ *
+ * The line is: does this call do work on behalf of one unknown — write to the
+ * tree, or reach outside the vault? The whole-tree reports (`ost_read_tree`,
+ * `ost_next_work`, `ost_check`, `ost_debt`, `ost_status`, `ost_gate`) and
+ * `ost_ingest_inbox` are not here: they answer questions about the tree as a
+ * whole, and `ost_next_work` in particular is the call you make BEFORE you know
+ * which unknown you are working.
+ *
+ * `ost_flag_humans_required` is excluded deliberately despite being a write. Its
+ * schema is pinned to exactly two properties by a guard that exists to keep the
+ * permissive lane call inexpressible (test/security/lane-capability.test.ts);
+ * widening it, even with something inert, re-opens a boundary settled elsewhere,
+ * and one rarely-called tool's attribution is not worth that.
+ */
+export const ATTRIBUTABLE_TOOLS: readonly string[] = [
+  "ost_create_node",
+  "ost_append_to_node",
+  "ost_link_nodes",
+  "ost_set_status",
+  "ost_set_evidence",
+  "ost_annotate",
+  "ost_search_web",
+  "ost_read_web",
+  "ost_read_repo",
+  "ost_rank_source",
+] as const;
+
+const ATTRIBUTABLE = new Set<string>(ATTRIBUTABLE_TOOLS);
+
+/**
+ * A fresh schema fragment per tool, so no two schemas share one object.
+ *
+ * Nothing validates the title against the tree here. A name that is not (or is
+ * no longer) on the tree is a bookkeeping disagreement, and refusing an
+ * otherwise-valid write over one would be a worse trade than an honestly stale
+ * record; what to do with it is a read-time decision the genome makes
+ * (`attribution.staleAttribution`).
+ */
+function unknownProperty(): Record<string, unknown> {
+  return {
+    type: "string",
+    description:
+      "Optional: the title of the #Unknown node this call is being spent on, so the attention it costs is attributed to the darkness it was meant to reduce. Omit it when the call serves no particular unknown — spend with no marker is recorded as unattributed, and an unattributed call is better than one billed to the wrong unknown.",
+  };
+}
+
 export interface RemoteConfig {
   enabled: boolean;
   url?: string;
@@ -116,6 +172,24 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
   // default gene (sharedPool: null, perClass: {}) this is the same class-blind
   // counter of ten it has always been.
   const lookupBudget = ctx.web?.budget ?? createLookupBudget(genome.budgets);
+  // The class the budget charges against comes from the marker the caller set:
+  // which unknown this lookup is for, classed by the genome's classifier. A call
+  // with no marker charges the shared pool, exactly as before — and so does a
+  // marker naming a title that is not on the tree, because a class we cannot
+  // derive is not a class we may invent.
+  //
+  // Resolved per call rather than per tool set: the marker changes between
+  // calls (dispatch owns it for exactly one call's span), so a value captured at
+  // build time would bill every lookup to whichever unknown happened to be
+  // current when the tools were built. The tree read is one directory scan
+  // against a network fetch — the wrong thing to optimise here would be
+  // correctness.
+  const spendClass = (): string | undefined => {
+    const title = process.env.OST_UNKNOWN;
+    if (!title) return undefined;
+    const node = vault.readTree().find((n) => n.layer === "Unknown" && n.title === title);
+    return node ? classifyUnknown(node, genome.classifier) : undefined;
+  };
   const rankedBy = `agent${ctx.surface ? `:${ctx.surface}` : ""}`;
 
   const all = [
@@ -367,7 +441,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
             "web search is not configured — set BRAVE_SEARCH_API_KEY (free tier at brave.com/search/api) in the environment that starts ost-agent. ost_read_web still works for direct URLs.",
           );
         }
-        if (!lookupBudget.take()) return budgetSpentMessage(lookupBudget.limit, genome.budgets.onExhaustion);
+        if (!lookupBudget.take(spendClass())) return budgetSpentMessage(lookupBudget.limit, genome.budgets.onExhaustion);
         const results = await searchWeb(input.query, { apiKey, count: input.count, fetchFn: ctx.web?.fetchFn });
         const trust = readHostTrust(dir);
         return JSON.stringify(
@@ -394,7 +468,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         required: ["url"],
       },
       run: async (input: { url: string }) => {
-        if (!lookupBudget.take()) return budgetSpentMessage(lookupBudget.limit, genome.budgets.onExhaustion);
+        if (!lookupBudget.take(spendClass())) return budgetSpentMessage(lookupBudget.limit, genome.budgets.onExhaustion);
         const page = await readWebPage(input.url, { fetchFn: ctx.web?.fetchFn });
         const trust = hostRung(readHostTrust(dir), page.host);
         return [
@@ -559,6 +633,16 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
       },
     }),
   ];
+
+  // Declared, never smuggled: every schema above carries
+  // `additionalProperties: false`, so an undeclared `unknown` would be refused
+  // by validateToolInput before the tool ever ran. Each `all` element is built
+  // fresh on every call, so mutating its schema here is local to this tool set.
+  for (const t of all) {
+    if (!ATTRIBUTABLE.has(t.name)) continue;
+    const schema = t.input_schema as { properties?: Record<string, unknown> };
+    schema.properties = { ...(schema.properties ?? {}), unknown: unknownProperty() };
+  }
 
   const names = allowedNames ? new Set(allowedNames) : null;
   const selected = names ? all.filter((t) => names.has(t.name)) : all;
