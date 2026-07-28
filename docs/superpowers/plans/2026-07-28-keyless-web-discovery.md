@@ -1079,9 +1079,13 @@ Expected: FAIL — `sourcesUnavailable` is undefined, and the second test reject
 In `src/security/tools.ts`, replace the `const { results } = await provider.search(...)` line and the `return JSON.stringify(...)` block that follows it with:
 
 ```ts
+        // Clamp here, not in the provider: `searchWeb` clamps internally for Brave,
+        // but a federated source would otherwise turn `count: 500` into srlimit=500
+        // against a live third-party API. Every provider gets a sane count.
+        const count = Math.min(Math.max(1, input.count ?? DEFAULT_SEARCH_RESULTS), MAX_SEARCH_RESULTS);
         let outcome;
         try {
-          outcome = await provider.search(input.query, input.count ?? DEFAULT_SEARCH_RESULTS, ctx.web?.fetchFn);
+          outcome = await provider.search(input.query, count, ctx.web?.fetchFn);
         } catch (err) {
           // The lookup bought nothing, so it should not have cost anything.
           lookupBudget.refund();
@@ -1102,7 +1106,7 @@ In `src/security/tools.ts`, replace the `const { results } = await provider.sear
         );
 ```
 
-Delete the now-duplicated `const trust = readHostTrust(dir);` line that preceded the old return. Add `AllSourcesFailedError` to the imports from `../web/federated.js`.
+There is exactly one `const trust = readHostTrust(dir);` in the handler, immediately after the `provider.search` call. The replacement block above re-introduces it — delete the original so you do not end up with two. Add `AllSourcesFailedError` to the imports from `../web/federated.js`, and confirm `MAX_SEARCH_RESULTS` is already imported from `../web/search.js` (it is — the tool's `inputSchema` uses it).
 
 - [ ] **Step 4: Run the handler tests**
 

@@ -44,10 +44,19 @@ const htmlFetch: WebFetchFn = async () => ({
 describe("ost_search_web", () => {
   test("without a provider, instructs the agent to use its own search — and spends no budget", async () => {
     const budget = createLookupBudget(5);
-    const out = await tool(baseCtx({ web: { budget } }), "ost_search_web").run({ query: "q" });
+    const out = await tool(baseCtx({ web: { budget } }), "ost_search_web").run({ query: "how do MCP hosts launch servers" });
     expect(out).toMatch(/your own web search|host's web search/i);
     expect(out).toMatch(/ost_read_web/);
+    expect(out).toContain("how do MCP hosts launch servers"); // re-issuing costs the agent nothing
     expect(budget.remaining()).toBe(5); // the dead-end branch must not charge for a lookup
+  });
+
+  // This message is read by an AGENT, mid-task. Naming a credential in it is how
+  // you get an agent that stops and tells the user to go buy an API key — the
+  // exact failure the delegation default exists to remove.
+  test("the delegation message never names a credential or a config knob", async () => {
+    const out = await tool(baseCtx({ web: { budget: createLookupBudget(5) } }), "ost_search_web").run({ query: "q" });
+    expect(out).not.toMatch(/BRAVE|API[_ ]KEY|ost\.config\.yaml/i);
   });
 
   test("results carry each host's trust rung", async () => {

@@ -26,7 +26,7 @@ import {
   braveProvider,
   DEFAULT_SEARCH_RESULTS,
   MAX_SEARCH_RESULTS,
-  SEARCH_DELEGATION_MESSAGE,
+  searchDelegationMessage,
   type SearchProvider,
 } from "../web/search.js";
 import { budgetSpentMessage, createLookupBudget, type LookupBudget } from "../web/budget.js";
@@ -443,7 +443,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
       run: async (input: { query: string; count?: number }) => {
         const provider =
           ctx.web?.provider ?? (ctx.web?.searchApiKey ? braveProvider(ctx.web.searchApiKey) : undefined);
-        if (!provider) return SEARCH_DELEGATION_MESSAGE;
+        if (!provider) return searchDelegationMessage(input.query);
         if (!lookupBudget.take(spendClass()))
           return budgetSpentMessage(lookupBudget.limit, genome.budgets.onExhaustion, lookupBudget.msUntilNext());
         const { results } = await provider.search(input.query, input.count ?? DEFAULT_SEARCH_RESULTS, ctx.web?.fetchFn);

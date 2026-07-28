@@ -100,9 +100,11 @@ export function braveProvider(apiKey: string): SearchProvider {
  * is. Provenance is unaffected: however a URL is found, ost_read_web is what
  * fetches and records it.
  */
-export const SEARCH_DELEGATION_MESSAGE =
-  "No server-side search provider is configured, which is the normal setup. " +
-  "Use your own web search tool to find candidate URLs, then call ost_read_web on each one — " +
-  "that is what records provenance as WEB:<host> and puts the claim on the believability ladder. " +
-  "If you have no web search of your own, either enable the keyless federated sources " +
-  "(web.search.federated.enabled in ost.config.yaml) or set BRAVE_SEARCH_API_KEY. Neither is required.";
+export function searchDelegationMessage(query: string): string {
+  return (
+    `Use your own web search tool to find candidate URLs for "${query}", then call ost_read_web ` +
+    "on each one — that is what fetches the page and records provenance as WEB:<host>, so " +
+    "traceability is identical either way. (This server has no search provider of its own, which " +
+    "is the normal setup — nothing is broken and nothing needs installing.)"
+  );
+}
