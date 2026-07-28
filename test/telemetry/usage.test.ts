@@ -97,3 +97,71 @@ describe("withUsageTracing", () => {
     expect((JSON.parse(raw) as UsageEvent).argBytes).toBeGreaterThan(0);
   });
 });
+
+describe("attribution to an unknown", () => {
+  test("stamps OST_UNKNOWN onto every event so spend says what it was for", async () => {
+    process.env.OST_UNKNOWN = "How many users hit the export path";
+    try {
+      const [tool] = withUsageTracing([{ name: "ost_read_tree", run: async () => "ok" }], dir, "mcp");
+      await tool.run(undefined as never);
+    } finally {
+      delete process.env.OST_UNKNOWN;
+    }
+    const events = readEvents();
+    expect(events[0].unknown).toBe("How many users hit the export path");
+  });
+
+  test("omits the field entirely when no unknown is being worked", async () => {
+    delete process.env.OST_UNKNOWN;
+    const [tool] = withUsageTracing([{ name: "ost_read_tree", run: async () => "ok" }], dir, "mcp");
+    await tool.run(undefined as never);
+    const event = readEvents()[0];
+    expect("unknown" in event).toBe(false);
+  });
+
+  test("attributes a failed call too — a wasted attempt is the point", async () => {
+    process.env.OST_UNKNOWN = "U";
+    try {
+      const [tool] = withUsageTracing([{ name: "ost_read_tree", run: async () => { throw new Error("nope"); } }], dir, "mcp");
+      await expect(tool.run(undefined as never)).rejects.toThrow("nope");
+    } finally {
+      delete process.env.OST_UNKNOWN;
+    }
+    const event = readEvents()[0];
+    expect(event.ok).toBe(false);
+    expect(event.unknown).toBe("U");
+  });
+
+  test("reads OST_UNKNOWN per invocation, not at wrap time — catches env changes between calls", async () => {
+    // Build tool set with NO unknown set
+    const originalUnknown = process.env.OST_UNKNOWN;
+    delete process.env.OST_UNKNOWN;
+    const [tool] = withUsageTracing([{ name: "ost_read_tree", run: async () => "ok" }], dir, "mcp");
+
+    try {
+      // First invocation with first unknown
+      process.env.OST_UNKNOWN = "First unknown";
+      await tool.run(undefined as never);
+
+      // Second invocation with different unknown
+      process.env.OST_UNKNOWN = "Second unknown";
+      await tool.run(undefined as never);
+
+      // Third invocation with no unknown
+      delete process.env.OST_UNKNOWN;
+      await tool.run(undefined as never);
+    } finally {
+      if (originalUnknown !== undefined) {
+        process.env.OST_UNKNOWN = originalUnknown;
+      } else {
+        delete process.env.OST_UNKNOWN;
+      }
+    }
+
+    const events = readEvents();
+    expect(events).toHaveLength(3);
+    expect(events[0].unknown).toBe("First unknown");
+    expect(events[1].unknown).toBe("Second unknown");
+    expect("unknown" in events[2]).toBe(false);
+  });
+});

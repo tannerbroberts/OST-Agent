@@ -35,6 +35,8 @@ export interface UsageEvent {
   err?: string;
   /** Optional session/process marker (OST_SESSION env), for grouping. */
   session?: string;
+  /** Which unknown this call was spent on (OST_UNKNOWN env), when one is being worked. */
+  unknown?: string;
 }
 
 const MAX_ERR_CHARS = 300;
@@ -73,6 +75,7 @@ export function withUsageTracing<T extends RunnableTool>(tools: T[], vaultDir: s
   return tools.map((tool) => ({
     ...tool,
     run: async (input: never) => {
+      const unknown = process.env.OST_UNKNOWN || undefined;
       const started = Date.now();
       let argBytes = 0;
       try {
@@ -90,6 +93,7 @@ export function withUsageTracing<T extends RunnableTool>(tools: T[], vaultDir: s
           surface,
           argBytes,
           ...(session ? { session } : {}),
+          ...(unknown ? { unknown } : {}),
         });
         return result;
       } catch (e) {
@@ -103,6 +107,7 @@ export function withUsageTracing<T extends RunnableTool>(tools: T[], vaultDir: s
           argBytes,
           err: redactSecrets(message).slice(0, MAX_ERR_CHARS),
           ...(session ? { session } : {}),
+          ...(unknown ? { unknown } : {}),
         });
         throw e;
       }
