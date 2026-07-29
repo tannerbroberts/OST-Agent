@@ -97,7 +97,7 @@ export function checkInvariants(tree: OstNode[]): Violation[] {
       rule: "lane-conflict",
       node: c.test,
       detail:
-        `labelled lane: ${c.labelled} but its own prose says "${c.quote}" — ` +
+        `labelled ${c.labelled} but its own prose says "${c.quote}" — ` +
         (c.labelled === "compute-only"
           ? "an unattended pass will run it while the test says a person is needed; reconcile before it does"
           : "one of the two is stale; a human decides which"),

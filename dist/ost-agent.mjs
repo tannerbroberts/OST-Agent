@@ -38321,7 +38321,7 @@ function checkInvariants(tree) {
     v.push({
       rule: "lane-conflict",
       node: c3.test,
-      detail: `labelled lane: ${c3.labelled} but its own prose says "${c3.quote}" \u2014 ` + (c3.labelled === "compute-only" ? "an unattended pass will run it while the test says a person is needed; reconcile before it does" : "one of the two is stale; a human decides which")
+      detail: `labelled ${c3.labelled} but its own prose says "${c3.quote}" \u2014 ` + (c3.labelled === "compute-only" ? "an unattended pass will run it while the test says a person is needed; reconcile before it does" : "one of the two is stale; a human decides which")
     });
   }
   return v;
@@ -40786,33 +40786,30 @@ function findNearDuplicateIssues(nodes, threshold = 0.7) {
 }
 
 // src/mcp/next-work.ts
+var NOT_DONE_BLOCKING = {
+  "single-outcome": "names no node, so there is nothing to annotate \u2014 and no tool on either surface can remove the second Outcome (test/eval/clearability.test.ts pins both halves of that). Blocking `done` on it would wedge every unattended pass forever on a defect the pass cannot touch. It stays a hard `ost_check` violation and a mandatory human interrupt."
+};
+var HYGIENE_LABELS = {
+  "dangling-link": "dangling link",
+  "wrapped-wikilink": "wrapped wikilink",
+  "opportunity-connected": "orphan opportunity",
+  "solution-mapped": "orphan solution",
+  "assumption-mapped": "orphan assumption test",
+  "evidence-class": "unclassed evidence",
+  "no-self-validation": "self-validated",
+  "lane-conflict": "lane conflict"
+};
 function detectHygiene(tree) {
   const index = byTitle(tree);
   const issues = [];
-  const outcomeLinks = new Set(tree.find((n) => n.layer === "Outcome")?.links ?? []);
-  for (const n of tree) {
-    for (const link of n.links) {
-      if (!index.has(link)) issues.push({ title: n.title, issue: `dangling link: [[${link}]] has no node` });
-    }
-    for (const target of wrappedLinkTargets(n.body)) {
-      issues.push({ title: n.title, issue: `wrapped wikilink: [[${target}]] is split across a line break \u2014 it renders as text, not an edge` });
-    }
-    if (n.layer === "Opportunity" && !outcomeLinks.has(n.title)) {
-      const parented = tree.some((p2) => p2.layer === "Opportunity" && p2.links.includes(n.title));
-      if (!parented) issues.push({ title: n.title, issue: "orphan opportunity: not linked under the outcome" });
-    }
-    if (n.layer === "Solution") {
-      const parents = tree.filter((p2) => p2.layer === "Opportunity" && p2.links.includes(n.title));
-      if (parents.length === 0) issues.push({ title: n.title, issue: "orphan solution: not linked under any opportunity" });
-    }
+  const outcome = tree.find((n) => n.layer === "Outcome")?.title;
+  for (const v of checkInvariants(tree)) {
+    if (v.rule in NOT_DONE_BLOCKING) continue;
+    const title = v.node ?? outcome;
+    if (!title) continue;
+    issues.push({ title, issue: `${HYGIENE_LABELS[v.rule] ?? v.rule}: ${v.detail}`, rule: v.rule });
   }
-  for (const c3 of laneConflicts(tree)) {
-    issues.push({
-      title: c3.test,
-      issue: `lane conflict: labelled ${c3.labelled} but its prose says "${c3.quote}" \u2014 a person decides which is stale`
-    });
-  }
-  issues.push(...findNearDuplicateIssues(tree));
+  for (const d of findNearDuplicateIssues(tree)) issues.push({ ...d, rule: "near-duplicate" });
   return issues.filter(({ title, issue: issue2 }) => {
     const node = index.get(title);
     return node ? !annotatedIssues(node.body).has(issue2.trim()) : true;
