@@ -368,12 +368,39 @@ the node's provenance.**
 > [[No Such Test]]'})`; the same with `reason:'looks solid'` (names no node);
 > and the same with `reason:'corroborated by [[Real Test]]'` where Real Test
 > exists but carries no `## Results`. (`host` is required and
-> `additionalProperties: false`, `src/security/tools.ts:546-556` — omitting it
+> `additionalProperties: false`, `src/security/tools.ts:505-518` — omitting it
 > throws for the wrong reason and proves nothing.)
-> *Today:* **not met.** `reason` is validated as non-empty and nothing else
-> (`src/security/tools.ts:541-559`). The check shape already exists twice:
-> `ost_create_node` resolves a parent through `vault.has()` and refuses a
-> wrong-layer one (`:279-285`); `gateSolution` resolves a title through
+> *Today:* **met** (2026-07-29). `checkCorroboration`
+> (`src/eval/corroboration.ts:73-108`) requires the reason to RESOLVE — it names
+> nodes as `[[wikilinks]]`, at least one is on the tree, and that one satisfies
+> `hasRecordedResult` — and `ost_rank_source` calls it before `rankHost`
+> (`src/security/tools.ts:519-527`), so a refused promotion writes nothing to the
+> ledger. All three rows are pinned, through the tool rather than against the
+> function, in `test/security/rank-source-corroboration.test.ts:47-64`; the
+> no-write-on-refusal row is at `:66-71`.
+>
+> Three scope limits, each recorded because each is a place this could have
+> become a wedge instead of a guard:
+> - **Only promotions are held to it** (`corroboration.ts:77`). Demotion to the
+>   floor stays free and is pinned as such (test `:95-98`). A guard that
+>   demanded paperwork before the agent could stop trusting a bad host would
+>   point at the safe direction — B11's failure mode is the expensive one.
+> - **"Has an outcome" is `hasRecordedResult`, reused rather than restated**
+>   (`corroboration.ts:91`). That predicate is forgeable today, which is **B1's**
+>   criterion and not this one's: B4 closes the path where a promotion cites
+>   *nothing at all*, and tightens automatically when B1 lands. **This criterion
+>   is therefore met and still downstream of B1** — it is not a claim that
+>   promotions are unforgeable.
+> - **An unrecognized rung stays `rankHost`'s refusal**, so a `money` promotion
+>   still names the ceiling rather than complaining about wikilinks
+>   (pinned, test `:103-107`). `isHostRung` was exported
+>   (`src/knowledge/web-trust.ts:31-33`) and both sites now call it, so the two
+>   spellings of one membership test cannot drift — R4's lesson, applied at the
+>   moment a second caller appeared.
+>
+> The check shape it followed already existed twice: `ost_create_node` resolves a
+> parent through `vault.has()` and refuses a wrong-layer one
+> (`src/security/tools.ts:242-249`); `gateSolution` resolves a title through
 > `titlesMatch` and reads its result state (`src/eval/evidence-debt.ts:85-92`).
 
 **B5 — A source's rung is a *function* of its recorded track record, not an
@@ -1309,10 +1336,10 @@ afterwards means anything if the subject is dead or if failure is invisible.
 **Tier 2 — the instruments must not be forgeable.** B1, B2, B3, B4, B8, B9. While
 the agent can write `## Results`, flip `validated`, and declare `money`, every
 number the system produces about itself is self-certified, and a health record
-built on a forgeable gate records forgeries faithfully. **Note that B4, B8 and B9
-do not wait on anything** — they are argument-validation and detector checks
-buildable today against a single hand-made vault, and B4 in particular closes the
-self-corroboration path Gate B opens with. Only B5, B6, B11 and P5 wait on Tier 4.
+built on a forgeable gate records forgeries faithfully. **B4 is done** (it closed
+the self-corroboration path Gate B opens with: a promotion cannot cite nothing).
+**B8 and B9 still wait on nothing** — they are detector checks buildable today
+against a single hand-made vault. Only B5, B6, B11 and P5 wait on Tier 4.
 
 **Tier 3 — the writer boundary, which several later gates sit on.** W1 and W11
 precede Gate S: S1's entire failure statement is about write access to the inbox
@@ -1358,14 +1385,26 @@ immediately found a fourth un-computed rule this document had not named
 (`no-self-validation`) and a semantic divergence in the orphan check that no rule
 count would have shown.
 
-**The next single item is Tier 2, and B4 is the head of it** — a promotion must
-name a corroborating result that exists and has an outcome. Tier 1 is closed
-except for G1, which is a product decision (*degrade and keep serving* vs. *tell
-the operator what to repair*) rather than a defect, and which shrank when
-`genome.yaml` was deleted. B4, B8 and B9 wait on nothing: they are
-argument-validation and detector checks buildable today against a single
-hand-made vault, and B4 in particular closes the self-corroboration path Gate B
-opens with.
+**Tier 2 is open and B4, its head, is done** (2026-07-29). A promotion now has to
+name a corroborating result that exists and has an outcome; `reason` resolves
+against the tree instead of being checked for non-emptiness. Tier 1 remains
+closed except for G1, which is a product decision (*degrade and keep serving* vs.
+*tell the operator what to repair*) rather than a defect, and which shrank when
+`genome.yaml` was deleted.
+
+B4 earned the same description R3 and R4 did — building it found something the
+prose had not. The wedge was in the *safe* direction: the obvious reading of
+"a promotion names a result" also blocks **demotion**, and a vault whose agent
+cannot cheaply stop trusting a bad source is a vault pointed at B11's expensive
+failure mode. So the guard fires only above the floor. The second finding is
+narrower and worth stating because it bounds the criterion: B4 reuses
+`hasRecordedResult` rather than restating it, which means **B4 is met and still
+downstream of B1** — it closes the path where a promotion cites nothing, not the
+path where the agent writes the `## Results` it then cites.
+
+**The next single item is B8**, with B9 beside it. Both still wait on nothing —
+they are detector checks buildable against a single hand-made vault — and B8 is
+the one that catches the nodes predating B3's guard.
 
 ---
 

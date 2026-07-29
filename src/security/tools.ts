@@ -35,6 +35,7 @@ import { budgetSpentMessage, createLookupBudget, type LookupBudget } from "../we
 import { HOST_RUNGS, hostRung, rankHost, readHostTrust } from "../knowledge/web-trust.js";
 import { readProductRepo } from "../product/repo.js";
 import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/render.js";
+import { checkCorroboration } from "../eval/corroboration.js";
 import { reconcileWithGit } from "../ost/census.js";
 import { InboxSource } from "../adapters/inbox.js";
 import { loadCursor, saveCursor } from "../adapters/source.js";
@@ -507,11 +508,20 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         properties: {
           host: { type: "string", description: "The publisher's hostname, e.g. example.com" },
           rung: { type: "string", enum: [...HOST_RUNGS], description: "assertion | expert (expert is the ceiling)" },
-          reason: { type: "string", description: "The corroborating (or failed) first-party result, by name." },
+          reason: {
+            type: "string",
+            description:
+              "The corroborating (or failed) first-party result, named as a [[wikilink]]. A promotion to 'expert' is REFUSED unless some node named here is on the tree and has recorded an outcome — prose alone will not do. Demotion back to 'assertion' needs no citation.",
+          },
         },
         required: ["host", "rung", "reason"],
       },
       run: async (input: { host: string; rung: string; reason: string }) => {
+        // B4: `reason` has to RESOLVE, not merely be non-empty. Checked here and
+        // not in `rankHost` because the corroboration lives on the tree and
+        // `web-trust.ts` is storage that must not learn to read one.
+        const verdict = checkCorroboration(vault.readTree(), { rung: input.rung, reason: input.reason });
+        if (!verdict.ok) throw new Error(verdict.refusal);
         const rec = rankHost(dir, { host: input.host, rung: input.rung, reason: input.reason, by: rankedBy });
         return `"${rec.host}" is now ranked ${rec.rung} — ${rec.reason}`;
       },

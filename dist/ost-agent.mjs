@@ -41009,6 +41009,9 @@ function decodeEntities(s) {
 import fs14 from "node:fs";
 import path15 from "node:path";
 var HOST_RUNGS = ["assertion", "expert"];
+function isHostRung(rung) {
+  return HOST_RUNGS.includes(rung);
+}
 function hostTrustPath(dir) {
   return path15.join(dir, ".ost-agent", "trust", "hosts.jsonl");
 }
@@ -41020,7 +41023,7 @@ function normalizeHost(raw) {
   return h2.replace(/^www\./, "");
 }
 function rankHost(dir, rec) {
-  if (!HOST_RUNGS.includes(rec.rung)) {
+  if (!isHostRung(rec.rung)) {
     throw new Error(
       `a publisher can hold only "assertion" or "expert" \u2014 never "${rec.rung}". observed/money are earned by first-party measurement (AssumptionTests + ost_set_evidence), not by a byline.`
     );
@@ -41120,6 +41123,40 @@ function readProductRepo(repos, input) {
     path: rel,
     text: truncated ? redacted.slice(0, MAX_FILE_CHARS) : redacted,
     truncated
+  };
+}
+
+// src/eval/corroboration.ts
+function namedNodes(text) {
+  const out = [];
+  for (const m of text.matchAll(/\[\[([^[\]]*)\]\]/g)) {
+    const t2 = m[1].replace(/\s*\n\s*/g, " ").trim();
+    if (t2) out.push(t2);
+  }
+  return out;
+}
+function checkCorroboration(tree, input) {
+  if (!isHostRung(input.rung) || input.rung === FLOOR_RUNG) return { ok: true };
+  const named = namedNodes(input.reason);
+  if (named.length === 0) {
+    return {
+      ok: false,
+      refusal: `a promotion to "${input.rung}" has to name the first-party result that earned it, as a [[wikilink]] \u2014 "${input.reason.trim()}" names none. Run an assumption test that corroborates the claim, record its result, then cite that test by title.`
+    };
+  }
+  const resolved = named.map((title) => ({ title, node: tree.find((n) => titlesMatch(n.title, title)) }));
+  if (resolved.some((r2) => r2.node && hasRecordedResult(r2.node))) return { ok: true };
+  const quoted = (titles) => titles.map((t2) => `"${t2}"`).join(", ");
+  const missing = resolved.filter((r2) => !r2.node).map((r2) => r2.title);
+  const resultless = resolved.filter((r2) => r2.node && !hasRecordedResult(r2.node)).map((r2) => r2.title);
+  const faults = [];
+  if (missing.length) faults.push(`${quoted(missing)} ${missing.length === 1 ? "is" : "are"} not on the tree`);
+  if (resultless.length) {
+    faults.push(`${quoted(resultless)} recorded no outcome`);
+  }
+  return {
+    ok: false,
+    refusal: `a promotion to "${input.rung}" needs a corroborating result that exists and has an outcome \u2014 ${faults.join("; and ")}. A promotion is earned by a result, not by naming one.`
   };
 }
 
@@ -41474,11 +41511,16 @@ function buildOstTools(ctx, allowedNames) {
         properties: {
           host: { type: "string", description: "The publisher's hostname, e.g. example.com" },
           rung: { type: "string", enum: [...HOST_RUNGS], description: "assertion | expert (expert is the ceiling)" },
-          reason: { type: "string", description: "The corroborating (or failed) first-party result, by name." }
+          reason: {
+            type: "string",
+            description: "The corroborating (or failed) first-party result, named as a [[wikilink]]. A promotion to 'expert' is REFUSED unless some node named here is on the tree and has recorded an outcome \u2014 prose alone will not do. Demotion back to 'assertion' needs no citation."
+          }
         },
         required: ["host", "rung", "reason"]
       },
       run: async (input) => {
+        const verdict = checkCorroboration(vault.readTree(), { rung: input.rung, reason: input.reason });
+        if (!verdict.ok) throw new Error(verdict.refusal);
         const rec = rankHost(dir, { host: input.host, rung: input.rung, reason: input.reason, by: rankedBy });
         return `"${rec.host}" is now ranked ${rec.rung} \u2014 ${rec.reason}`;
       }
