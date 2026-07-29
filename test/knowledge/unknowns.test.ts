@@ -1,5 +1,4 @@
 import { describe, expect, test } from "vitest";
-import type { ClassifierGene, ResolutionGene } from "../../src/genome/schema.js";
 import {
   CONTRACT_SECTIONS,
   DEFAULT_CLASSIFIER,
@@ -9,6 +8,7 @@ import {
   contractGaps,
   resolutionState,
 } from "../../src/knowledge/unknowns.js";
+import type { UnknownClassifier, ResolutionPolicy } from "../../src/knowledge/unknowns.js";
 import type { OstNode } from "../../src/ost/node.js";
 
 const unknown = (body: string, extra: Partial<OstNode> = {}): OstNode => ({
@@ -86,8 +86,8 @@ describe("classifyUnknown — the classifier as an interpreted gene", () => {
     }
   });
 
-  test("a two-class genome dropping `unreached` reclassifies every existing node with no migration", () => {
-    const twoClass: ClassifierGene = {
+  test("a two-class classifier dropping `unreached` reclassifies every existing node with no migration", () => {
+    const twoClass: UnknownClassifier = {
       contractSections: ["Format", "Methodology", "Rationale"],
       classes: ["bounded", "unbounded"],
       fallback: "unbounded",
@@ -105,7 +105,7 @@ describe("classifyUnknown — the classifier as an interpreted gene", () => {
       { class: "shape-first", present: ["Format"], absent: [] },
       { class: "method-first", present: ["Methodology"], absent: [] },
     ];
-    const gene = (ordered: typeof rules): ClassifierGene => ({
+    const gene = (ordered: typeof rules): UnknownClassifier => ({
       contractSections: ["Format", "Methodology"],
       classes: ["shape-first", "method-first"],
       fallback: "method-first",
@@ -116,7 +116,7 @@ describe("classifyUnknown — the classifier as an interpreted gene", () => {
   });
 
   test("an empty rule list classes everything as the fallback — the floor holds with no rules at all", () => {
-    const empty: ClassifierGene = {
+    const empty: UnknownClassifier = {
       contractSections: ["Format"],
       classes: ["dark"],
       fallback: "dark",
@@ -127,7 +127,7 @@ describe("classifyUnknown — the classifier as an interpreted gene", () => {
   });
 
   test("a custom section list keeps the heading anchoring — case-insensitive, and prose is still not a heading", () => {
-    const gene: ClassifierGene = {
+    const gene: UnknownClassifier = {
       contractSections: ["Shape"],
       classes: ["known", "dark"],
       fallback: "dark",
@@ -145,18 +145,18 @@ describe("classifyUnknown — the classifier as an interpreted gene", () => {
   });
 });
 
-describe("contractGaps — the section list is genome data", () => {
+describe("contractGaps — the section list is data", () => {
   test("the supplied order is the reported order, NOT a compiled constant's", () => {
     expect(contractGaps(unknown(""), ["Rationale", "Format"])).toEqual(["Rationale", "Format"]);
   });
 
-  test("a genome that asks for one section only ever reports that one missing", () => {
+  test("a classifier that asks for one section only ever reports that one missing", () => {
     expect(contractGaps(unknown("## Format\nx"), ["Format", "Provenance"])).toEqual(["Provenance"]);
   });
 });
 
 describe("the resolution gene — rule order IS the precedence", () => {
-  const DEFERRED_FIRST: ResolutionGene = {
+  const DEFERRED_FIRST: ResolutionPolicy = {
     answerSection: "Answer",
     fallback: "open",
     rules: [
@@ -165,7 +165,7 @@ describe("the resolution gene — rule order IS the precedence", () => {
     ],
   };
 
-  const ANSWER_FIRST: ResolutionGene = {
+  const ANSWER_FIRST: ResolutionPolicy = {
     answerSection: "Answer",
     fallback: "open",
     rules: [
@@ -188,8 +188,8 @@ describe("the resolution gene — rule order IS the precedence", () => {
     expect(resolutionState(node, ANSWER_FIRST)).toBe("satisfied");
   });
 
-  test("a genome may name its own answer section — the heading is data, never a literal in the kernel", () => {
-    const finding: ResolutionGene = {
+  test("a policy may name its own answer section — the heading is data, never a literal in the kernel", () => {
+    const finding: ResolutionPolicy = {
       answerSection: "Finding",
       fallback: "open",
       rules: [
@@ -206,7 +206,7 @@ describe("the resolution gene — rule order IS the precedence", () => {
   });
 
   test("a node no rule matches takes the fallback, whatever the fallback is named", () => {
-    const gene: ResolutionGene = {
+    const gene: ResolutionPolicy = {
       answerSection: "Answer",
       fallback: "unexamined",
       rules: [{ state: "abandoned", status: ["deferred"] }],
@@ -217,7 +217,7 @@ describe("the resolution gene — rule order IS the precedence", () => {
   });
 
   test("a status-only rule NEVER reads the body — a rule that names no section probes none", () => {
-    const gene: ResolutionGene = {
+    const gene: ResolutionPolicy = {
       answerSection: "Answer",
       fallback: "open",
       rules: [{ state: "satisfied", status: ["validated"] }],
@@ -226,8 +226,8 @@ describe("the resolution gene — rule order IS the precedence", () => {
     expect(resolutionState(unknown(FULL, { status: "validated" }), gene)).toBe("satisfied");
   });
 
-  test("a genome can express superseded with no code change — which is the entire reason the vocabulary left TypeScript", () => {
-    const gene: ResolutionGene = {
+  test("a caller can express superseded with no code change — the vocabulary is data, not a union", () => {
+    const gene: ResolutionPolicy = {
       answerSection: "Answer",
       fallback: "open",
       rules: [

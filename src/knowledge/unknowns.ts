@@ -12,61 +12,118 @@
  * rather than a judgement about how mysterious something feels — the same
  * crudeness as `hasRecordedResult`.
  *
- * As of Phase 2 that replacement no longer requires editing this file. The
- * classifier is an INTERPRETER over a rule list carried in `genome.yaml`:
- * first match wins, a rule matches when every section it names as `present`
- * is declared and every section it names as `absent` is not, and no match at
- * all falls to `fallback`. Rule order is the precedence, the class vocabulary
- * travels with the rules — a genome that could only emit three compiled-in
- * labels could not express the two-class allele the design expects to win —
- * and `contractSections` order is what `contractGaps` reports back, so a
- * session is told what to declare in the order the genome asks for it.
+ * Both the classifier and the resolution rule are INTERPRETERS over a rule
+ * list: first match wins, a classifier rule matches when every section it names
+ * as `present` is declared and every section it names as `absent` is not, and
+ * no match at all falls to `fallback`. Rule order is the precedence, and
+ * `contractSections` order is what `contractGaps` reports back, so a session is
+ * told what to declare in the order this module asks for it.
  *
- * `UnknownClass` is therefore `string`, not a union. Zod cannot hand back a
- * compile-time union from a file read at runtime, and faking one would put the
- * vocabulary back in the compiler — exactly the trait-excluded-from-evolution
- * this phase exists to undo. `UNKNOWN_CLASSES` survives as the DEFAULT
- * vocabulary, which is all it ever really was.
+ * The rule lists were briefly an evolvable `genome.yaml` and are now constants
+ * again. Nothing varied them but a breeding harness that could never promote a
+ * winner, and a policy file at the vault root that no tool could read or repair
+ * was a denial-of-service surface with nothing on the other side of it. The
+ * interpreters stay, because a rule list is a clearer statement of the policy
+ * than the branch it replaced, and because both functions still take the policy
+ * as a parameter — which is what lets a test vary one without a file.
+ *
+ * `UnknownClass` stays `string` rather than a union: the classes are data on
+ * {@link DEFAULT_CLASSIFIER}, callers may pass their own vocabulary, and the
+ * exhaustiveness a union would buy is not worth re-plumbing every reader.
  */
-import { defaultGenome } from "../genome/load.js";
-import type { ClassifierGene, ResolutionGene } from "../genome/schema.js";
 import type { OstNode } from "../ost/node.js";
 
-/** A class name is genome data now — no compile-time union can enumerate them. */
+/** One classifier rule: every `present` section must exist, every `absent` one must not. */
+export interface ClassifierRule {
+  class: string;
+  present: string[];
+  absent: string[];
+}
+
+export interface UnknownClassifier {
+  /** The contract's sections, in the order a session should declare them. Returned by `contractGaps`. */
+  contractSections: string[];
+  /** The class vocabulary. */
+  classes: string[];
+  /** The floor, applied when no rule matches. */
+  fallback: string;
+  /** Evaluated top to bottom; first match wins. */
+  rules: ClassifierRule[];
+}
+
+/** One resolution rule: any listed `status`, or the presence of `section`, matches. */
+export interface ResolutionRule {
+  state: string;
+  status: string[];
+  section?: string;
+}
+
+export interface ResolutionPolicy {
+  answerSection: string;
+  fallback: string;
+  /** Order IS the precedence: abandonment before satisfaction. */
+  rules: ResolutionRule[];
+}
+
+/** A derived class name for an unknown. */
 export type UnknownClass = string;
 
 /**
- * A terminal (or non-terminal) label for an unknown. A `string`, not a union:
- * the vocabulary is genome data now, and zod cannot hand a compile-time union
- * back from a YAML file parsed at runtime. The default gene's three values —
- * `open`, `satisfied`, `abandoned` — are the v1 vocabulary, not the ceiling.
+ * A terminal (or non-terminal) label for an unknown. The three values the
+ * default policy emits — `open`, `satisfied`, `abandoned` — are the vocabulary,
+ * not a ceiling: a caller may supply its own.
  */
 export type ResolutionState = string;
 
 /**
- * The v1 classifier, read from the genome schema's own defaults rather than
- * restated here. One place a default lives, so a hand-kept copy cannot drift
- * out from under the file that governs behaviour.
+ * The classifier: no Format → unbounded (you cannot say what an answer looks
+ * like); Format and Methodology → bounded (open the cabinet); Format alone →
+ * unreached (you know the answer's shape and nothing emits it).
+ *
+ * A rule naming neither `present` nor `absent` would match every node and
+ * swallow the list — that is the fallback's job, not a rule's.
  */
-export const DEFAULT_CLASSIFIER: ClassifierGene = defaultGenome().classifier;
+export const DEFAULT_CLASSIFIER: UnknownClassifier = {
+  contractSections: ["Format", "Methodology", "Rationale"],
+  classes: ["bounded", "unreached", "unbounded"],
+  fallback: "unbounded",
+  rules: [
+    { class: "unbounded", present: [], absent: ["Format"] },
+    { class: "bounded", present: ["Format", "Methodology"], absent: [] },
+    { class: "unreached", present: ["Format"], absent: [] },
+  ],
+};
 
 /**
- * The v1 resolution gene, sourced from the schema so the default lives in
- * exactly one place. Imports run knowledge → genome and never back (the genome
- * module knows nothing about unknowns).
+ * How an unknown terminates. ORDER IS PRECEDENCE: abandonment is checked first,
+ * so a human's `deferred` outranks an agent's drafted `## Answer`, and the spend
+ * that bought nothing stays visible. Swap the two entries and an abandoned
+ * unknown with a stray answer reads as satisfied — no error, no warning. The
+ * tests pin the order for that reason.
+ *
+ * Neither rule may match on absence: a rule with no `status` list and no
+ * `section` probe would fire on an unknown with no answer at all, which is the
+ * one direction the ladder never runs.
  */
-export const DEFAULT_RESOLUTION: ResolutionGene = defaultGenome().resolution;
+export const DEFAULT_RESOLUTION: ResolutionPolicy = {
+  answerSection: "Answer",
+  fallback: "open",
+  rules: [
+    { state: "abandoned", status: ["deferred"] },
+    { state: "satisfied", status: ["validated"], section: "Answer" },
+  ],
+};
 
-/** The DEFAULT class vocabulary. A loaded genome may name a different one. */
+/** The class vocabulary. */
 export const UNKNOWN_CLASSES: readonly string[] = Object.freeze([...DEFAULT_CLASSIFIER.classes]);
 
 /** The contract's sections, in the order a session should declare them. */
 export const CONTRACT_SECTIONS: readonly string[] = Object.freeze([...DEFAULT_CLASSIFIER.contractSections]);
 
 /**
- * Section names arrive from YAML now, so they are escaped before they reach a
- * pattern. For every default name this is a no-op; for a genome that names a
- * section `C++ interop` it is the difference between a probe and a crash.
+ * Section names are escaped before they reach a pattern. For every default name
+ * this is a no-op; for a caller that names a section `C++ interop` it is the
+ * difference between a probe and a crash.
  */
 function escapeForPattern(heading: string): string {
   return heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -77,22 +134,13 @@ function hasSection(body: string, heading: string): boolean {
   return new RegExp(String.raw`^##\s+${escapeForPattern(heading)}\b`, "im").test(body);
 }
 
-/** Which contract sections this unknown has not declared, in the order the genome lists them. */
+/** Which contract sections this unknown has not declared, in the order the classifier lists them. */
 export function contractGaps(node: OstNode, sections: readonly string[] = CONTRACT_SECTIONS): string[] {
   return sections.filter((s) => !hasSection(node.body, s));
 }
 
-/**
- * Class by the genome's rules, top to bottom, first match wins.
- *
- * The v1 default reproduces the branch this replaced: no Format → unbounded
- * (you cannot say what an answer looks like); Format and Methodology →
- * bounded (open the cabinet); Format alone → unreached (you know the answer's
- * shape and nothing emits it). A rule naming neither `present` nor `absent`
- * would match every node and swallow the list, which is why the schema refuses
- * to load one — the interpreter can then stay this small.
- */
-export function classifyUnknown(node: OstNode, classifier: ClassifierGene = DEFAULT_CLASSIFIER): UnknownClass {
+/** Class by the classifier's rules, top to bottom, first match wins. */
+export function classifyUnknown(node: OstNode, classifier: UnknownClassifier = DEFAULT_CLASSIFIER): UnknownClass {
   for (const rule of classifier.rules) {
     const present = rule.present.every((s) => hasSection(node.body, s));
     const absent = rule.absent.every((s) => !hasSection(node.body, s));
@@ -103,36 +151,27 @@ export function classifyUnknown(node: OstNode, classifier: ClassifierGene = DEFA
 
 /**
  * Resolution is recorded, never claimed — an interpreter over the resolution
- * gene's rule list.
+ * policy's rule list.
  *
  * A rule matches when the node's `status` appears in the rule's `status` list,
  * OR — when the rule names a `section` — when the body carries that `## <name>`
  * heading. The first matching rule wins; nothing matches, the `fallback` does.
+ * Rule order is the precedence (see {@link DEFAULT_RESOLUTION}).
  *
- * RULE ORDER IS THE PRECEDENCE, and that sentence is the gene's load-bearing
- * property. The machine this replaced checked abandonment first, in a statement
- * order no reader could reorder by accident, so that a human's `deferred`
- * outranked an agent's drafted `## Answer`. That guarantee now lives in the
- * position of two entries in a YAML list. Swap them and an abandoned unknown
- * with a stray answer reads as satisfied — no error, no warning, a corrupted
- * fitness record that announces nothing. It is the one mutation the schema
- * cannot catch, so it is the one the tests pin.
- *
- * The check remains mechanical, on the same precedent as `hasRecordedResult`
+ * The check is mechanical, on the same precedent as `hasRecordedResult`
  * (`eval/evidence-debt.ts`): satisfaction means a heading exists or a status was
  * set, never that an answer was checked against its declared Format. That is a
- * floor, not a verdict. The fail-closed direction is pinned in the schema, not
- * here: a rule that matched on nothing would fire on every node including one
- * with no answer at all, so satisfaction can never be claimed on absence.
+ * floor, not a verdict — and closing that gap is a named V1 criterion
+ * (`docs/reference/v1-readiness.md`, B9).
  *
- * `answerSection` is the gene's canonical name for the heading that means "an
- * answer exists". The interpreter reads only `rules`, so renaming it there is
- * what changes behaviour — but the default rule set names it, which keeps the
- * rename a one-line edit and is asserted as an invariant by the tests.
+ * `answerSection` is the canonical name for the heading that means "an answer
+ * exists". The interpreter reads only `rules`, so renaming it there is what
+ * changes behaviour — the default rule set names it, which keeps the rename a
+ * one-line edit and is asserted as an invariant by the tests.
  */
 export function resolutionState(
   node: OstNode,
-  resolution: ResolutionGene = DEFAULT_RESOLUTION,
+  resolution: ResolutionPolicy = DEFAULT_RESOLUTION,
 ): ResolutionState {
   for (const rule of resolution.rules) {
     const byStatus = node.status !== undefined && rule.status.includes(node.status);

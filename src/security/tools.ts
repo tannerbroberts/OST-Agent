@@ -41,8 +41,6 @@ import { loadCursor, saveCursor } from "../adapters/source.js";
 import { writeEvidence } from "../processes/tree.js";
 import { loadConfig } from "../config/load.js";
 import { DEFAULT_MIN_SOLUTIONS_PER_OPPORTUNITY } from "../config/schema.js";
-import { defaultGenome } from "../genome/load.js";
-import type { Genome } from "../genome/schema.js";
 import type { PassContext } from "../processes/types.js";
 
 const STATUS_VALUES = ["unvalidated", "validated", "in-discovery", "shipped", "deferred"];
@@ -119,7 +117,7 @@ const ATTRIBUTABLE = new Set<string>(ATTRIBUTABLE_TOOLS);
  * Nothing validates the title against the tree here. A name that is not (or is
  * no longer) on the tree is a bookkeeping disagreement, and refusing an
  * otherwise-valid write over one would be a worse trade than an honestly stale
- * record; what to do with it is a read-time decision the genome makes
+ * record; what to do with it is a read-time decision
  * (`attribution.staleAttribution`).
  */
 function unknownProperty(): Record<string, unknown> {
@@ -142,14 +140,6 @@ export interface ToolContext {
   remote: RemoteConfig;
   /** minSolutionsPerOpportunity — how ost_next_work decides an opportunity is under-served (default 3). */
   minSolutionsPerOpportunity?: number;
-  /**
-   * The pass's genome — the policy this tool set interprets. Optional because a
-   * ToolContext is also assembled by hand (tests, the CLI's narrow surfaces);
-   * absent means the default genome, which is today's behaviour exactly. A
-   * `PassContext` satisfies this structurally, so the MCP and CLI surfaces get
-   * it for free.
-   */
-  genome?: Genome;
   /** Which surface is dispatching ("mcp", "cli-tool", "pass:P2_map"); lands in the usage trace. */
   surface?: string;
   /** Outward web sensing: search key, injectable fetch, and the per-session lookup budget. */
@@ -168,39 +158,12 @@ export interface ToolContext {
 export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]) {
   const { vault, dir, remote } = ctx;
   const minSolutions = ctx.minSolutionsPerOpportunity ?? DEFAULT_MIN_SOLUTIONS_PER_OPPORTUNITY;
-  // Resolved ONCE here, at tool-set construction, and captured by every closure
-  // below — never re-read inside a tool's `run`. `ost_ingest_inbox` further down
-  // this file calls `loadConfig(dir)` per invocation; that is the shape to avoid,
-  // not the shape to copy. The budget gene reads from here; every later gene
-  // takes the same route, so there is exactly one resolution point and it sits
-  // above every closure.
-  const genome: Genome = ctx.genome ?? defaultGenome();
   // One budget for all web lookups this pass/session — created here if the
-  // context didn't bring one, so the bound holds on every surface. Under the
-  // default gene (sharedPool: null, perClass: {}) this is the same class-blind
-  // counter of ten it has always been.
-  const lookupBudget = ctx.web?.budget ?? createLookupBudget(genome.budgets);
-  // The class the budget charges against comes from the marker the caller set:
-  // which unknown this lookup is for, classed by the genome's classifier. A call
-  // with no marker charges the shared pool, exactly as before — and so does a
-  // marker naming a title that is not on the tree, because a class we cannot
-  // derive is not a class we may invent.
-  //
-  // Resolved per call rather than per tool set: the marker changes between
-  // calls (dispatch owns it for exactly one call's span), so a value captured at
-  // build time would bill every lookup to whichever unknown happened to be
-  // current when the tools were built. The tree read is one directory scan
-  // against a network fetch — the wrong thing to optimise here would be
-  // correctness.
-  const spendClass = (): string | undefined => {
-    const title = process.env.OST_UNKNOWN;
-    if (!title) return undefined;
-    // Through the sanitizer: OST_UNKNOWN carries the title the agent created
-    // the node with, the tree carries the title the filesystem allowed. Raw
-    // comparison silently billed every colon-bearing unknown to nothing.
-    const node = vault.readTree().find((n) => n.layer === "Unknown" && titlesMatch(n.title, title));
-    return node ? classifyUnknown(node, genome.classifier) : undefined;
-  };
+  // context didn't bring one, so the bound holds on every surface. Resolved
+  // ONCE, at tool-set construction, and captured by every closure below; never
+  // re-read inside a tool's `run`. (`ost_ingest_inbox` further down this file
+  // calls `loadConfig(dir)` per invocation; that is the shape to avoid.)
+  const lookupBudget = ctx.web?.budget ?? createLookupBudget();
   const rankedBy = `agent${ctx.surface ? `:${ctx.surface}` : ""}`;
 
   const all = [
@@ -226,7 +189,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
       description:
         "Read-only orchestration: report exactly what maintenance the tree still needs, so you know what to do next without re-deriving it. Returns unmapped evidence (→ create #Opportunity nodes), under-served opportunities with < the configured minimum solutions (→ ideate #Solution nodes, status 'unvalidated'), solutions with no assumption test (→ surface #AssumptionTest nodes), structural hygiene issues (→ annotate, never delete), and `openUnknowns` — every #Unknown still unresolved, with its class and contract gaps, offered as darkness worth exploring. `done: true` means nothing is outstanding; open unknowns are reported but never block `done`. Call this at the start of a pass.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
-      run: async () => JSON.stringify(computeNextWork(vault, dir, minSolutions, genome), null, 2),
+      run: async () => JSON.stringify(computeNextWork(vault, dir, minSolutions), null, 2),
     }),
 
     tool({
@@ -449,12 +412,8 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         const provider =
           ctx.web?.provider ?? (ctx.web?.searchApiKey ? braveProvider(ctx.web.searchApiKey) : undefined);
         if (!provider) return searchDelegationMessage(input.query);
-        // Held in a local so the refunds below return the token to the same
-        // class it was taken from — a per-class counter that only ever counts
-        // up would close that class off partway into a long run.
-        const klass = spendClass();
-        if (!lookupBudget.take(klass))
-          return budgetSpentMessage(lookupBudget.limit, genome.budgets.onExhaustion, lookupBudget.msUntilNext());
+        if (!lookupBudget.take())
+          return budgetSpentMessage(lookupBudget.limit, lookupBudget.msUntilNext());
         // Clamp here, not in the provider: `searchWeb` clamps internally for Brave,
         // but a federated source would otherwise turn `count: 500` into srlimit=500
         // against a live third-party API. Every provider gets a sane count.
@@ -469,13 +428,13 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
             // refunding it would make retrying free AND instant in exactly the
             // state where an agent is most likely to spin. The budget is the
             // only backpressure this system has; do not hand it back here.
-            if (!err.allCooling) lookupBudget.refund(klass);
+            if (!err.allCooling) lookupBudget.refund();
             const charged = err.allCooling
               ? "This attempt was charged: every source is rate-limited, so retrying immediately will not help."
               : "Nothing was charged against the lookup budget.";
             return `${err.message}. ${charged} Use your own web search and call ost_read_web on the URLs you find.`;
           }
-          lookupBudget.refund(klass);
+          lookupBudget.refund();
           throw err;
         }
         const trust = readHostTrust(dir);
@@ -504,7 +463,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         required: ["url"],
       },
       run: async (input: { url: string }) => {
-        if (!lookupBudget.take(spendClass())) return budgetSpentMessage(lookupBudget.limit, genome.budgets.onExhaustion);
+        if (!lookupBudget.take()) return budgetSpentMessage(lookupBudget.limit);
         const page = await readWebPage(input.url, { fetchFn: ctx.web?.fetchFn });
         const trust = hostRung(readHostTrust(dir), page.host);
         return [

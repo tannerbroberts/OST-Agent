@@ -115,7 +115,7 @@ const ProductSchema = z
  * ToolContext assembled without a config — and until now the third was an
  * independent literal `3` that could drift from the other two silently.
  *
- * It stays an OPERATOR knob rather than a genome allele: it is the single field
+ * It stays an OPERATOR knob: it is the single field
  * an operator most plausibly tunes per vault, and `test/config/load.test.ts`
  * pins it there. But a policy with two sources of truth cannot be reasoned
  * about at all, evolvable or not.
@@ -131,8 +131,6 @@ export const DEFAULT_MIN_SOLUTIONS_PER_OPPORTUNITY = 3;
 // declared and deliberately NOT rejected: this schema uses Zod's default
 // object behaviour, which strips undeclared keys instead of failing, so an
 // existing vault keeps loading and simply stops being asked about a model.
-// (`genome.yaml` is deliberately the opposite — strict — because a dropped
-// allele would read as "behaviour unchanged".)
 const ProcessSchema = z.object({
   minSolutionsPerOpportunity: z.number().int().positive().default(DEFAULT_MIN_SOLUTIONS_PER_OPPORTUNITY),
 });

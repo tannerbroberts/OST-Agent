@@ -32,7 +32,6 @@
     "bundle": "esbuild src/cli/index.ts --bundle --platform=node --target=node20 --format=esm --banner:js=\"import{createRequire as __ost_createRequire}from'node:module';const require=__ost_createRequire(import.meta.url);\" --outfile=dist/ost-agent.mjs",
     "dev": "tsx src/cli/index.ts",
     "gen:skill": "tsx scripts/gen-skill.ts",
-    "harness": "tsx scripts/harness.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

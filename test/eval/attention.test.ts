@@ -3,8 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import { computeAttention, DEFAULT_WEIGHTED_TOKEN_SPEND, weightedTokenCost } from "../../src/eval/attention.js";
-import { defaultGenome, loadGenome } from "../../src/genome/load.js";
-import type { ResolutionGene } from "../../src/genome/schema.js";
+import type { ResolutionPolicy } from "../../src/knowledge/unknowns.js";
 import type { OstNode } from "../../src/ost/node.js";
 import { recordAttention } from "../../src/telemetry/attention.js";
 import { usageLogPath } from "../../src/telemetry/usage.js";
@@ -150,39 +149,30 @@ describe("computeAttention", () => {
   });
 });
 
-describe("the token-weighting gene", () => {
-  test("the exported default IS the genome's default — one literal for the cost model, or none", () => {
-    // A drift guard, not a behavior test: it passes today because two hand-kept
-    // literals happen to agree, and its job is to fail the moment they stop.
-    expect(DEFAULT_WEIGHTED_TOKEN_SPEND).toEqual(defaultGenome().weightedTokenSpend);
-  });
-
+describe("the token-weighting model", () => {
   test("the shipped default preserves published pricing order — cache reads are cheap, output is dear", () => {
-    const w = defaultGenome().weightedTokenSpend;
+    const w = DEFAULT_WEIGHTED_TOKEN_SPEND;
     expect(w.cacheRead).toBeLessThan(w.input);
     expect(w.input).toBeLessThan(w.cacheCreate);
     expect(w.cacheCreate).toBeLessThan(w.output);
   });
 
-  test("a genome that prices output cheaply lowers what the same answer cost", () => {
+  test("a caller that prices output cheaply lowers what the same answer cost", () => {
     const dir = tmp();
     recordAttention(dir, { ts: "a", unknown: "U", kind: "spend", calls: 1, ms: 1,
       tokens: { input: 100, output: 10, cacheCreate: 0, cacheRead: 0 } });
-    fs.writeFileSync(
-      path.join(dir, "genome.yaml"),
-      "weightedTokenSpend:\n  input: 1\n  output: 1\n  cacheCreate: 1.25\n  cacheRead: 0.1\n",
-      "utf8",
-    );
 
     const shipped = computeAttention([unknown("U")], dir);
-    const cheap = computeAttention([unknown("U")], dir, { weightedTokenSpend: loadGenome(dir).weightedTokenSpend });
+    const cheap = computeAttention([unknown("U")], dir, {
+      weightedTokenSpend: { input: 1, output: 1, cacheCreate: 1.25, cacheRead: 0.1 },
+    });
 
     expect(shipped.unknowns[0].weightedCost).toBe(150); // 100×1 + 10×5
     expect(cheap.unknowns[0].weightedCost).toBe(110); // 100×1 + 10×1
     expect(shipped.unknowns[0].tokens).toEqual(cheap.unknowns[0].tokens); // tiers stay unmixed either way
   });
 
-  test("a class rollup is weighted by the supplied gene too, not only the per-unknown line", () => {
+  test("a class rollup is weighted by the supplied model too, not only the per-unknown line", () => {
     const dir = tmp();
     recordAttention(dir, { ts: "a", unknown: "U", kind: "spend", calls: 1, ms: 1,
       tokens: { input: 0, output: 100, cacheCreate: 0, cacheRead: 0 } });
@@ -193,17 +183,17 @@ describe("the token-weighting gene", () => {
     expect(dear.byClass.bounded.weightedCost).toBeGreaterThan(flat.byClass.bounded.weightedCost);
   });
 
-  test("omitting the options object reproduces the default genome exactly — an absent gene is the shipped one", () => {
+  test("omitting the options object reproduces the shipped default exactly", () => {
     const dir = tmp();
     recordAttention(dir, { ts: "a", unknown: "U", kind: "spend", calls: 2, ms: 40,
       tokens: { input: 100, output: 10, cacheCreate: 8, cacheRead: 900 } });
     const bare = computeAttention([unknown("U")], dir);
     expect(computeAttention([unknown("U")], dir, {})).toEqual(bare);
-    expect(computeAttention([unknown("U")], dir, { weightedTokenSpend: defaultGenome().weightedTokenSpend })).toEqual(bare);
+    expect(computeAttention([unknown("U")], dir, { weightedTokenSpend: DEFAULT_WEIGHTED_TOKEN_SPEND })).toEqual(bare);
   });
 
-  test("a resolution gene reaches the rollup — reversing rule order flips abandoned to satisfied", () => {
-    const ANSWER_FIRST: ResolutionGene = {
+  test("a resolution policy reaches the rollup — reversing rule order flips abandoned to satisfied", () => {
+    const ANSWER_FIRST: ResolutionPolicy = {
       answerSection: "Answer",
       fallback: "open",
       rules: [
@@ -217,7 +207,7 @@ describe("the token-weighting gene", () => {
     expect(computeAttention([node], tmp()).byClass.bounded.abandoned).toBe(1);
 
     // The same node, same tree, one reordered gene — and `ost_status` now agrees
-    // with what `ost_next_work` would say under that genome, which is the point.
+    // with what `ost_next_work` would say under that policy, which is the point.
     const rollup = computeAttention([node], tmp(), { resolution: ANSWER_FIRST });
     expect(rollup.unknowns[0].state).toBe("satisfied");
     expect(rollup.byClass.bounded.satisfied).toBe(1);
@@ -225,7 +215,7 @@ describe("the token-weighting gene", () => {
   });
 });
 
-describe("computeAttention — byClass keys off the genome's vocabulary", () => {
+describe("computeAttention — byClass keys off the classifier's vocabulary", () => {
   const twoClass = {
     contractSections: ["Format", "Methodology", "Rationale"],
     classes: ["bounded", "unbounded"],
@@ -233,7 +223,7 @@ describe("computeAttention — byClass keys off the genome's vocabulary", () => 
     rules: [{ class: "bounded", present: ["Format"], absent: [] }],
   };
 
-  test("a two-class genome produces two buckets and NO ghost `unreached`", () => {
+  test("a two-class classifier produces two buckets and NO ghost `unreached`", () => {
     const rollup = computeAttention(
       [unknown("Bounded"), unknown("Shape only", "## Format\nx"), unknown("Dark", "nothing declared")],
       tmp(),
@@ -244,7 +234,7 @@ describe("computeAttention — byClass keys off the genome's vocabulary", () => 
     expect(rollup.byClass.unbounded.count).toBe(1);
   });
 
-  test("a class the genome declares but no node earns still gets a zero bucket — absent reads as zero, not missing", () => {
+  test("a class the classifier declares but no node earns still gets a zero bucket — absent reads as zero, not missing", () => {
     const rollup = computeAttention([unknown("Bounded")], tmp(), {
       classifier: { ...twoClass, classes: ["bounded", "unbounded", "commissioned"] },
     });

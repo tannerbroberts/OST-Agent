@@ -18,7 +18,6 @@ import { federatedProvider } from "../web/federated.js";
 import { wikipediaSource, hackerNewsSource, discourseSource } from "../web/sources.js";
 import type { Config } from "../config/schema.js";
 import { OST_RULESET } from "../knowledge/ruleset.js";
-import { defaultGenome, loadGenome } from "../genome/load.js";
 import type { PassContext } from "../processes/types.js";
 
 /**
@@ -67,17 +66,6 @@ export interface BuildPassContextOptions {
 export function buildPassContext(vaultDir: string, opts: BuildPassContextOptions = {}): PassContext {
   const dir = path.resolve(vaultDir);
   const config = opts.listingOnly ? defaultConfig() : loadConfig(dir, opts.allowMissingConfig ? { missing: "defaults" } : {});
-  // The genome is loaded exactly ONCE per pass, here, beside the config — and
-  // never inside a tool's `run`. Two functions in this repo re-read config per
-  // invocation (`ost_ingest_inbox` in src/security/tools.ts, `fileFriction` in
-  // src/adapters/friction.ts); the same shape applied to the genome would let a
-  // pass change its own policy while running, which corrupts the fitness record
-  // rather than merely the run. There is no `allowMissingConfig` analogue: an
-  // absent genome.yaml is not a missing vault, it is the default policy, always
-  // and silently. A malformed one throws, exactly as a malformed config does.
-  // `listingOnly` renders a tool listing for a directory that may not be a vault
-  // and must not read vault files, so it takes the defaults without touching disk.
-  const genome = opts.listingOnly ? defaultGenome() : loadGenome(dir);
   const skipSources = opts.skipSources === true || opts.listingOnly === true;
 
   const sources: Source[] = [];
@@ -136,7 +124,6 @@ export function buildPassContext(vaultDir: string, opts: BuildPassContextOptions
     vault: new Vault(dir, { create: !opts.listingOnly }),
     dir,
     config,
-    genome,
     ruleset: OST_RULESET,
     sources,
     remote: { enabled: config.remote.enabled, url: config.remote.url },
@@ -150,7 +137,7 @@ export function buildPassContext(vaultDir: string, opts: BuildPassContextOptions
       // it — one budget, never two that can disagree. The refill rate stays
       // the operator's alone: it is what makes a weeks-long session workable,
       // not a trait worth varying between vaults.
-      budget: createLookupBudget(genome.budgets, config.web.lookupBudget, {
+      budget: createLookupBudget(config.web.lookupBudget, {
         refillPerHour: config.web.lookupRefillPerHour,
       }),
     },

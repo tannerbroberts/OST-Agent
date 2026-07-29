@@ -9,7 +9,6 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { buildOstTools, type ToolContext } from "../../src/security/tools.js";
 import { createLookupBudget } from "../../src/web/budget.js";
-import { defaultGenome } from "../../src/genome/load.js";
 import { AllSourcesFailedError } from "../../src/web/federated.js";
 import { hostTrustPath } from "../../src/knowledge/web-trust.js";
 import { MAX_SEARCH_RESULTS } from "../../src/web/search.js";
@@ -189,62 +188,13 @@ describe("ost_read_repo", () => {
   });
 });
 
-describe("the exhaustion instruction is genome policy, not a constant", () => {
-  test("the default genome answers with today's sentence — extraction changed nothing an operator can see", async () => {
-    const ctx = baseCtx({ genome: defaultGenome(), web: { fetchFn: htmlFetch, budget: createLookupBudget(1) } });
-    const read = tool(ctx, "ost_read_web");
-    await read.run({ url: "https://example.com/a" });
-    const refused = await read.run({ url: "https://example.com/b" });
-    expect(refused).toMatch(/open question|annotate/i);
-    expect(refused).not.toContain("ost_create_node");
-  });
-
-  test("onExhaustion record-unknown tells the session to file the darkness on the tree instead", async () => {
-    const g = defaultGenome();
-    const ctx = baseCtx({
-      genome: { ...g, budgets: { ...g.budgets, onExhaustion: "record-unknown" } },
-      web: { fetchFn: htmlFetch, budget: createLookupBudget(1) },
-    });
+describe("the exhaustion instruction", () => {
+  test("a spent budget answers with an instruction, not a refusal", async () => {
+    const ctx = baseCtx({ web: { fetchFn: htmlFetch, budget: createLookupBudget(1) } });
     const read = tool(ctx, "ost_read_web");
     await read.run({ url: "https://example.com/a" });
     const refused = await read.run({ url: "https://example.com/b" });
     expect(refused).toMatch(/budget spent/i);
-    expect(refused).toContain("ost_create_node");
-    expect(refused).toContain("## Format");
-  });
-});
-
-describe("the per-class cap bites at the spend site — the marker is what charges it", () => {
-  test("a second lookup for a bounded unknown is refused while the shared pool still has room", async () => {
-    const g = defaultGenome();
-    const ctx = baseCtx({
-      genome: { ...g, budgets: { ...g.budgets, sharedPool: 10, perClass: { bounded: 1 } } },
-      web: { fetchFn: htmlFetch },
-    });
-    // A bounded unknown on the tree: the classifier reaches a class only through
-    // a node, so a marker naming nothing real charges nothing in particular.
-    ctx.vault.createNode({
-      title: "How many users hit the export path",
-      layer: "Unknown",
-      tags: [],
-      links: [],
-      evidence: "assertion",
-      body: "## Format\na count\n\n## Methodology\nquery the log\n\n## Rationale\nserves the outcome",
-    });
-    const read = tool(ctx, "ost_read_web");
-
-    process.env.OST_UNKNOWN = "How many users hit the export path";
-    const first = await read.run({ url: "https://example.com/a" });
-    const second = await read.run({ url: "https://example.com/b" });
-
-    expect(first).toContain("hello");
-    expect(second).toMatch(/budget spent/i);
-
-    // …and the shared pool is untouched by that class's exhaustion: an
-    // unmarked lookup still goes through. This is the assertion that fails if
-    // the class never reaches `take()` — with `take()` called blind, the
-    // per-class cap is invisible and BOTH lookups above succeed.
-    delete process.env.OST_UNKNOWN;
-    expect(await read.run({ url: "https://example.com/c" })).toContain("hello");
+    expect(refused).toMatch(/open question|annotate/i);
   });
 });

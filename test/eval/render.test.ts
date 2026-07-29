@@ -126,7 +126,7 @@ describe("renderStatus — the attention section", () => {
   test("a vault with no unknowns renders exactly the status it rendered before attention existed", () => {
     const ctx = buildPassContext(dir);
     // Pinned verbatim, not by prefix: the regression contract for the whole of
-    // Phase 2 is that the default genome changes nothing, and a vault with
+    // The point is that nothing correlates tokens, and a vault with
     // nothing dark in it is where that claim is cheapest to check.
     expect(renderStatus(ctx, ctx.vault.readTreeCensus())).toBe(
       [
@@ -191,7 +191,7 @@ describe("renderStatus — the attention section", () => {
     // `renderStatus` never runs the correlator, so it never supplies
     // `correlated`, and Task 11's `resolveCostBasis` downgrades any declared
     // token basis to calls-and-ms when nothing correlated. That is the honest
-    // state of the world until a non-default genome enables the split.
+    // state of the world until something correlates tokens.
     expect(lineFor(status(), "cost basis:")).toBe(
       "  cost basis: calls-and-ms — no token data; a comparison against a token-based rollup is refused, never normalized",
     );

@@ -1,5 +1,5 @@
 /**
- * The loop has to know darkness exists, or the genome is a policy nothing ever
+ * The loop has to know darkness exists, or the Unknown layer is a policy nothing ever
  * exercises. `ost_next_work` has reported `openUnknowns` since Phase 1 and
  * nothing in `.claude/` mentioned it — a session could not have picked one up.
  *
@@ -39,8 +39,8 @@ describe("the generated skill teaches the fifth bucket", () => {
     expect(skill).toMatch(/never blocks? `done`|does not block `done`/);
   });
 
-  test("the class is read off the tool output and the vocabulary is NEVER restated — the classifier is a genome allele, not a constant in a skill file", () => {
-    expect(skill).toMatch(/genome/i);
+  test("the class is read off the tool output and the vocabulary is NEVER restated — one classifier, and it is not in a prose file", () => {
+    expect(skill).toMatch(/read the class off the tool output/i);
     expect(skill).not.toMatch(/\bunreached\b/i);
   });
 });
@@ -66,7 +66,7 @@ describe("/ost-pass — the unattended sweep knows about darkness", () => {
     expect(frontmatter).not.toContain("ost_read_repo");
   });
 
-  test("it does NOT restate the class vocabulary either — one copy of the classifier, and it lives in the genome", () => {
+  test("it does NOT restate the class vocabulary either — one copy of the classifier, and it lives in the kernel", () => {
     expect(pass).not.toMatch(/\bunreached\b/i);
   });
 });

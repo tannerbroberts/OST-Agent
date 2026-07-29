@@ -36,7 +36,7 @@ An unknown declares a contract in three body sections, and the sections are the 
 - `## Methodology` — how such an answer would be collected. An unknown with a Format and no Methodology is worth commissioning observability for rather than chasing further.
 - `## Rationale` — which node this darkens and what would change if it were answered.
 
-`ost_next_work` reports every open unknown with the node it `darkens`, the contract sections still missing (`gaps`), and a derived class. **Read the class off the tool output; never restate the vocabulary from memory.** The classifier is an allele of the vault's genome (an optional `genome.yaml` beside `ost.config.yaml`; absent means the default), not a constant in this file — a copy here would be a second classifier that silently disagrees with the first.
+`ost_next_work` reports every open unknown with the node it `darkens`, the contract sections still missing (`gaps`), and a derived class. **Read the class off the tool output; never restate the vocabulary from memory.** The classifier lives in `src/knowledge/unknowns.ts`, not in this file — a copy here would be a second classifier that silently disagrees with the first.
 
 ## Tree rules
 
