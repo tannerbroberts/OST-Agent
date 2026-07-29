@@ -2,7 +2,7 @@
  * The clearability table, as a build failure instead of an audit finding.
  *
  * Every rule `checkInvariants` can emit is a claim the tree makes about itself.
- * Under D1 (one writer) the agent is the only actor that touches the vault, so a
+ * Under DEC-1 (one writer) the agent is the only actor that touches the vault, so a
  * violation the agent can *create* but cannot *clear* is not a warning — it is a
  * permanent red that only a human on a shell can retire, and a mandatory human
  * interrupt is exactly the resource an unattended system is trying to spend
