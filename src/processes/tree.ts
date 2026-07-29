@@ -48,7 +48,20 @@ export function readEvidence(dir: string): EvidenceRecord[] {
   const out: EvidenceRecord[] = [];
   for (const name of fs.readdirSync(d)) {
     if (!name.endsWith(".md")) continue;
-    const parsed = matter(fs.readFileSync(path.join(d, name), "utf8"));
+    let parsed: ReturnType<typeof matter>;
+    try {
+      parsed = matter(fs.readFileSync(path.join(d, name), "utf8"));
+    } catch {
+      // One unparseable file costs one record, never the read. Missing frontmatter
+      // already degrades to defaults below; unparseable frontmatter used to throw out
+      // of this loop and take `ost_next_work` — the only tool the unattended sweep
+      // gates on — down with it. The evidence directory is fed by an untrusted builder
+      // by design, so that was a reachable denial of service on the whole sweep.
+      //
+      // The file itself is untouched and still in git: what is dropped is its
+      // appearance in this list, not the record.
+      continue;
+    }
     const data = parsed.data as Record<string, unknown>;
     out.push({
       id: String(data.id ?? name),

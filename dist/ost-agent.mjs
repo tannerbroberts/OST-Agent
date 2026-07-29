@@ -32109,6 +32109,12 @@ function assertWritableContent(what, value) {
       `refusing to write ${what}: content was the literal string "${trimmed2}". This is almost always a stringified unset variable rather than something meant to be recorded; an append-only vault cannot take it back.`
     );
   }
+  const wrapped = wrappedLinkTargets(value);
+  if (wrapped.length > 0) {
+    throw new Error(
+      `refusing to write ${what}: the link [[${wrapped[0]}]] is split across a line break. Only a whole line of the form [[Title]] becomes an edge, so this would render as bracketed text while permanently reddening \`wrapped-wikilink\` \u2014 and an append-only vault has no tool that can take it back. Put the link on one unbroken line.`
+    );
+  }
 }
 function assertWritableNote(what, value) {
   if (value === void 0) return;
@@ -38019,7 +38025,12 @@ function readEvidence(dir) {
   const out = [];
   for (const name of fs10.readdirSync(d)) {
     if (!name.endsWith(".md")) continue;
-    const parsed = (0, import_gray_matter3.default)(fs10.readFileSync(path9.join(d, name), "utf8"));
+    let parsed;
+    try {
+      parsed = (0, import_gray_matter3.default)(fs10.readFileSync(path9.join(d, name), "utf8"));
+    } catch {
+      continue;
+    }
     const data = parsed.data;
     out.push({
       id: String(data.id ?? name),
@@ -40804,8 +40815,21 @@ function detectHygiene(tree) {
   issues.push(...findNearDuplicateIssues(tree));
   return issues.filter(({ title, issue: issue2 }) => {
     const node = index.get(title);
-    return node ? !node.body.includes(issue2) : true;
+    return node ? !annotatedIssues(node.body).has(issue2.trim()) : true;
   });
+}
+function annotatedIssues(body) {
+  const lines = body.split("\n");
+  const start = lines.findIndex((l) => l.trim() === "## Issues");
+  if (start === -1) return /* @__PURE__ */ new Set();
+  const annotated = /* @__PURE__ */ new Set();
+  for (const line of lines.slice(start + 1)) {
+    const trimmed2 = line.trim();
+    if (/^#{1,6}\s/.test(trimmed2)) break;
+    const entry = /^-\s+\d{4}-\d{2}-\d{2}\s+(.+)$/.exec(trimmed2);
+    if (entry) annotated.add(entry[1].trim());
+  }
+  return annotated;
 }
 var MAX_OPEN_UNKNOWNS_SURFACED = 0;
 function computeNextWork(vault, dir, min) {

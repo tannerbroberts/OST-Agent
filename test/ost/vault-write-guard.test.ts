@@ -135,6 +135,89 @@ describe("optional notes: absent is fine, the STRING undefined is not", () => {
   });
 });
 
+describe("a wikilink split across a line break is refused at every write parameter", () => {
+  /**
+   * The other one-way door, and the only one closable here.
+   *
+   * `[[Some\nTitle]]` is not an edge — only a whole line `[[Title]]` becomes one — and
+   * it is not a *dangling* edge either, so every structural check is blind to it except
+   * `wrapped-wikilink`. Nothing on the append-only surface can then clear it, because
+   * clearing it would mean shrinking a body, and no tool shrinks a body. So the node is
+   * red forever, `check` disagrees with `done` forever, and neither is a health signal.
+   *
+   * The write is the last moment the content is still revocable. Below is every
+   * free-text parameter the tool surface exposes, each asserted to refuse.
+   */
+  const WRAPPED = "See [[Some\nTitle]] for context.";
+
+  beforeEach(() => {
+    vault.createNode({
+      title: "T", layer: "AssumptionTest", tags: [], links: [], body: "b",
+    } as OstNode);
+  });
+
+  const PARAMS: Array<[string, () => void]> = [
+    ["ost_create_node.body", () =>
+      vault.createNode({
+        title: "New", layer: "Solution", tags: [], links: [], body: WRAPPED,
+      } as OstNode)],
+    ["ost_append_to_node.section", () => vault.appendToNode("Opp", WRAPPED)],
+    ["ost_annotate.issue", () => vault.annotate("Opp", WRAPPED)],
+    ["ost_set_status.note", () => vault.setStatus("Opp", "deferred", WRAPPED)],
+    ["ost_set_evidence.note", () => vault.setEvidence("Opp", "observed", WRAPPED)],
+    // ost_flag_humans_required.why lands here — flagHumansRequired is setLane with the
+    // lane fixed, and setLane routes `by … — why` through the same note guard.
+    ["ost_flag_humans_required.why", () => vault.setLane("T", "humans-required", WRAPPED)],
+  ];
+
+  for (const [param, attempt] of PARAMS) {
+    test(`${param} refuses it`, () => {
+      expect(attempt).toThrow(/split across a line break/i);
+    });
+  }
+
+  test("the refusal names the title the author meant, flattened", () => {
+    // Not the raw broken text: the caller has to be told what to write instead.
+    expect(() => vault.annotate("Opp", WRAPPED)).toThrow(/\[\[Some Title\]\]/);
+  });
+
+  test("a refused write lands nothing", () => {
+    const before = fs.readFileSync(path.join(dir, "Opp.md"), "utf8");
+    expect(() => vault.appendToNode("Opp", WRAPPED)).toThrow();
+    expect(fs.readFileSync(path.join(dir, "Opp.md"), "utf8")).toBe(before);
+  });
+
+  test("a refused createNode leaves no file behind", () => {
+    expect(() =>
+      vault.createNode({
+        title: "Ghost", layer: "Solution", tags: [], links: [], body: WRAPPED,
+      } as OstNode),
+    ).toThrow();
+    expect(fs.existsSync(path.join(dir, "Ghost.md"))).toBe(false);
+  });
+});
+
+describe("the wrapped-link rule stays a tripwire, not a ban on brackets", () => {
+  test("a link on one unbroken line inside wrapping prose is fine", () => {
+    // The overwhelmingly common shape, and the one the fix must not make unwritable:
+    // a hard-wrapped paragraph whose brackets happen to survive intact.
+    const legit = "Plain prose that mentions [[Retention]] inline and wraps\nafter it.";
+    vault.appendToNode("Opp", legit);
+    expect(fs.readFileSync(path.join(dir, "Opp.md"), "utf8")).toContain("[[Retention]]");
+  });
+
+  test("a multi-line body with no wikilink at all is fine", () => {
+    vault.appendToNode("Opp", "## Notes\nline one\nline two");
+    expect(fs.readFileSync(path.join(dir, "Opp.md"), "utf8")).toContain("line two");
+  });
+
+  test("an unclosed [[ does not swallow the rest of the body into a false positive", () => {
+    // `wrappedLinkTargets` bounds the match on `[^[\]]` precisely so this stays writable.
+    vault.appendToNode("Opp", "an open [[ bracket\nand a later sentence");
+    expect(fs.readFileSync(path.join(dir, "Opp.md"), "utf8")).toContain("later sentence");
+  });
+});
+
 describe("the guard cannot pass vacuously", () => {
   // A guard with nothing to check reports the same clean result as one that checked
   // everything. This asserts the guard is actually reachable on every path claimed

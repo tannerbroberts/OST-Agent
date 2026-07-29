@@ -106,8 +106,35 @@ function detectHygiene(tree: OstNode[]): HygieneIssue[] {
   // suppress ones already annotated into the node body (idempotent, matches P5)
   return issues.filter(({ title, issue }) => {
     const node = index.get(title);
-    return node ? !node.body.includes(issue) : true;
+    return node ? !annotatedIssues(node.body).has(issue.trim()) : true;
   });
+}
+
+/**
+ * The issues a node has actually been annotated with — the dated lines
+ * {@link Vault.annotate} writes under `## Issues`, and nothing else.
+ *
+ * This replaces a whole-body `body.includes(issue)`, which made every free-text write
+ * parameter a `done`-forging primitive: any prose quoting an issue string cleared it,
+ * and `done` is the only gate the unattended loop reads. Reading the structural line
+ * instead means the only thing that clears a hygiene issue is the tool for clearing
+ * hygiene issues — which is what P5 already claims.
+ *
+ * It stays deliberately loose about the date: `ost_annotate` stamps today's, and an
+ * issue re-annotated on a later day must still count as annotated.
+ */
+function annotatedIssues(body: string): Set<string> {
+  const lines = body.split("\n");
+  const start = lines.findIndex((l) => l.trim() === "## Issues");
+  if (start === -1) return new Set();
+  const annotated = new Set<string>();
+  for (const line of lines.slice(start + 1)) {
+    const trimmed = line.trim();
+    if (/^#{1,6}\s/.test(trimmed)) break; // the section ends at the next heading
+    const entry = /^-\s+\d{4}-\d{2}-\d{2}\s+(.+)$/.exec(trimmed);
+    if (entry) annotated.add(entry[1].trim());
+  }
+  return annotated;
 }
 
 /**

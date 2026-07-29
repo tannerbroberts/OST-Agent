@@ -6,6 +6,8 @@ import { initVault } from "../../src/runner/init.js";
 import { buildPassContext } from "../../src/runner/context.js";
 import { writeEvidence } from "../../src/processes/tree.js";
 import { computeNextWork } from "../../src/mcp/next-work.js";
+import { serialize } from "../../src/ost/node.js";
+import { fileNameForTitle } from "../../src/ost/sanitize.js";
 import { recordAttention } from "../../src/telemetry/attention.js";
 
 let dir: string;
@@ -50,6 +52,17 @@ describe("computeNextWork — mapped detection", () => {
 
 describe("computeNextWork — wrapped wikilinks", () => {
   /**
+   * Written straight to disk rather than through `createNode`, which now refuses a
+   * wrapped link at the write boundary (R1). That refusal closes the tool surface, not
+   * the vault: a human editing in Obsidian, an import, or a node that predates the
+   * guard can all still put one on disk — so the detector has to keep finding them, and
+   * the only honest fixture is one the vault did not author.
+   */
+  function writeNodeFile(node: Parameters<typeof serialize>[0]): void {
+    fs.writeFileSync(path.join(dir, fileNameForTitle(node.title)), serialize(node), "utf8");
+  }
+
+  /**
    * The defect this covers is one the agent itself causes: a node title long
    * enough to cross a column boundary in a hard-wrapped paragraph. It is
    * invisible to the dangling-link detector, because a split `[[…]]` never
@@ -57,7 +70,7 @@ describe("computeNextWork — wrapped wikilinks", () => {
    */
   test("surfaces a link a wrapped paragraph split in two, and names the title the author meant", () => {
     const ctx = buildPassContext(dir);
-    ctx.vault.createNode({
+    writeNodeFile({
       title: "I want a reason to come back",
       layer: "Opportunity",
       body: "This leans on [[Retention\nas a whole]] rather than on any one release.",
@@ -145,5 +158,67 @@ describe("open unknowns", () => {
     const work = withUnknown(CONTRACT);
     expect(work.solutionsMissingAssumptions.map((s) => s.title))
       .not.toContain("How many users hit the export path");
+  });
+});
+
+describe("hygiene suppression is structural, not textual", () => {
+  /**
+   * `done` is the only gate the unattended loop reads, and hygiene issues are one of
+   * its four terms. Suppression used to be `node.body.includes(issue)` over the whole
+   * body — which made every free-text write parameter a `done`-forging primitive: an
+   * agent that could not fix an issue could always describe it, and describing it
+   * cleared it. The suppressing text now has to be the structural line `ost_annotate`
+   * writes, so the only thing that clears a hygiene issue is the tool for clearing one.
+   */
+  const ISSUE = "dangling link: [[Ghost]] has no node";
+
+  /** `linkNodes` does not check the child exists, so this is how a dangle appears. */
+  function withDanglingLink() {
+    const ctx = buildPassContext(dir);
+    ctx.vault.linkNodes("Retention", "Ghost");
+    return ctx;
+  }
+  const dangling = () =>
+    computeNextWork(buildPassContext(dir).vault, dir, 1).hygieneIssues.filter(
+      (i) => i.issue === ISSUE,
+    );
+
+  test("the issue is surfaced to begin with", () => {
+    withDanglingLink();
+    expect(dangling()).toHaveLength(1);
+  });
+
+  test("prose quoting the issue verbatim does NOT clear it", () => {
+    const ctx = withDanglingLink();
+    ctx.vault.appendToNode("Retention", `We looked into this: "${ISSUE}", and it is expected.`);
+    expect(dangling()).toHaveLength(1);
+  });
+
+  test("a real annotation DOES clear it — idempotency still holds", () => {
+    const ctx = withDanglingLink();
+    ctx.vault.annotate("Retention", ISSUE);
+    expect(dangling()).toEqual([]);
+  });
+
+  test("an annotation about something else leaves the issue standing", () => {
+    const ctx = withDanglingLink();
+    ctx.vault.annotate("Retention", "orphan opportunity: not linked under the outcome");
+    expect(dangling()).toHaveLength(1);
+  });
+
+  test("undated prose parked under ## Issues does not count as an annotation", () => {
+    // The section heading alone is not the signal — the dated entry is. Otherwise
+    // appending a `## Issues` section of free text would forge `done` just as before.
+    const ctx = withDanglingLink();
+    ctx.vault.appendToNode("Retention", `## Issues\n${ISSUE}`);
+    expect(dangling()).toHaveLength(1);
+  });
+
+  test("an annotation dated on an earlier day still suppresses", () => {
+    // `ost_annotate` stamps today; a tree read tomorrow must not re-raise everything
+    // annotated yesterday, or the sweep never reaches done twice.
+    const ctx = withDanglingLink();
+    ctx.vault.appendToNode("Retention", `## Issues\n- 2026-01-01 ${ISSUE}`);
+    expect(dangling()).toEqual([]);
   });
 });

@@ -5,14 +5,16 @@ unattended, and trusted to make progress on an arbitrarily large, arbitrarily va
 mandate.**
 
 Written 2026-07-29 against `0.23.0` (`8387c08`); revised after `8261a6f`
-deleted the genome and the harness. The suite is green — 700 tests across 73
+deleted the genome and the harness, and again after the first Tier 1 batch closed
+R1, R5, S6 and H2. The suite is green — 726 tests across 75
 files, `tsc --noEmit` clean — and nothing below is about the code being broken.
 It is about the difference between *a tool that works when watched* and *a
 system that can be left alone*.
 
-**67 criteria, 21 of them blockers. 7 met, 2 partial, 58 not met.** Four of the
-seven were met by *deleting* something rather than building it, which is the
-document working as intended.
+**67 criteria, 17 of them blockers. 11 met, 2 partial, 54 not met.** Four of the
+eleven were met by *deleting* something rather than building it, which is the
+document working as intended; four more were the first Tier 1 batch, each of
+which turned a wedge into a refusal at the boundary that could still take it back.
 
 An earlier meta-vault was started and abandoned because it broke in several ways.
 This document is the attempt to name those ways before the second attempt, in a
@@ -560,23 +562,28 @@ created.**
 An append-only store plus an invariant that reads free text is a one-way door.
 Two such doors exist.
 
-**⛔ R1 — No append-only write can create a `wrapped-wikilink` violation.**
+**R1 — No append-only write can create a `wrapped-wikilink` violation.**
 > *Check:* for each of `ost_create_node.body`, `ost_append_to_node.section`,
 > `ost_annotate.issue`, `ost_set_status.note`, `ost_set_evidence.note`,
 > `ost_flag_humans_required.why`, pass a value containing `[[Some\nTitle]]` and
 > assert the call throws.
-> *Today:* **not met** *(verified: after `ost_append_to_node` wrote
-> `See [[Opp\nA]] for context.`, the violation survived `ost_annotate`,
-> `ost_set_status`, `ost_set_evidence`, `ost_append_to_node` and `ost_link_nodes`
-> applied to the same node).* `wrappedLinkTargets` scans the whole body
-> (`src/ost/node.ts:97-103`); content validation covers only emptiness and the
-> literal strings `undefined`/`null` (`src/ost/vault.ts:38-55`); schema validation
-> has no string-content rules at all (`src/security/validateToolInput.ts:46-94`);
-> and no edit, delete or rewrite tool exists. The one body-shrinking method,
-> `setOutcomeBody`, refuses non-Outcome nodes and is human-CLI-only
-> (`src/ost/vault.ts:267-274`). **`assertWritableContent` is the funnel every node
-> write already passes through, and its own comment argues it must hold "for entry
-> points that do not exist yet" — the refusal belongs there.**
+> *Today:* **met** (2026-07-29). `assertWritableContent` — the funnel every node write
+> already passes through, and whose own comment argued it must hold "for entry points
+> that do not exist yet" — now refuses a wrapped link outright
+> (`src/ost/vault.ts:57-79`). All six parameters are pinned in
+> `test/ost/vault-write-guard.test.ts`, including that a refused `createNode` leaves no
+> file and a refused append lands nothing. `ost_flag_humans_required.why` arrives via
+> `setLane`'s note and lands on the same guard, so it is covered by construction rather
+> than by a second check.
+>
+> *What this does and does not close:* the tool surface can no longer author the
+> violation, which is the whole of the criterion — a one-way door needs a doorway. It
+> does **not** claim no such node can exist: a human editing in Obsidian, an import, or
+> a node predating the guard can still put one on disk, and `wrapped-wikilink` stays
+> unclearable for those. That residue is R4's problem (rule-set parity), not R1's, and
+> `test/mcp/next-work.test.ts` deliberately builds its detector fixture by writing the
+> file directly, so the detector keeps being tested against the case the guard cannot
+> reach.
 
 **R2 — `ost_flag_humans_required` cannot manufacture a permanent
 `lane-conflict`.**
@@ -637,24 +644,39 @@ both compute.**
 > can be red while `done` is true even after (b) is fixed. (b) **Property test over
 > the shared rules:** never `done === true && checkInvariants(...).some(v =>
 > SHARED_RULES.has(v.rule))`.
-> *Today:* **not met** *(verified: after a wrapped link plus one `ost_annotate`,
-> `computeNextWork` reported zero hygiene issues while `checkInvariants` still
-> returned `wrapped-wikilink`).* Hygiene suppression filters on the node body
-> (`src/mcp/next-work.ts:115-118`); `checkInvariants` has no suppression
-> (`src/eval/invariants.ts:38-46`). **The unattended pass reads only `done`; a
+> *Today:* **not met**, and now entirely part (a). The original reproduction — after a
+> wrapped link plus one `ost_annotate`, `computeNextWork` reported zero hygiene issues
+> while `checkInvariants` still returned `wrapped-wikilink` — no longer runs that way:
+> R5 tightened suppression to the dated `## Issues` entry, and R1 stopped the tool
+> surface authoring a wrapped link at all. **What survives is the rule-set gap, which
+> was always the larger half:** `detectHygiene` computes six rules and `checkInvariants`
+> emits nine, so `done: true` beside a red `check` stays reachable through
+> `evidence-class` (and `single-outcome`, and `assumption-mapped`) with no forging
+> required — a legacy or human-authored node is enough. This needs the parity decision
+> before it needs code: each of the three is either computed by `detectHygiene` too, or
+> explicitly declared not a `done`-blocker. **The unattended pass reads only `done`; a
 > human reads `check`. Two gates that can disagree permanently mean neither is a
 > health signal, and there is no third thing to break the tie.**
 
-**⛔ R5 — A hygiene issue is suppressed only by a real annotation, not by prose
+**R5 — A hygiene issue is suppressed only by a real annotation, not by prose
 that quotes it.**
 > *Check:* create a dangling link, then `ost_append_to_node` a section quoting the
 > exact issue string inside an ordinary sentence; assert the issue survives.
-> *Today:* **not met** *(verified: `[[Ghost]]` cleared from `hygieneIssues` by
-> quoting).* The filter is a raw `node.body.includes(issue)` with no requirement
-> that the text sit under `## Issues` or have been written by `ost_annotate`
-> (`src/ost/vault.ts:277-282` writes a structurally distinct dated line the filter
-> never checks). **Every free-text write parameter is a `done`-forging primitive**,
-> and `done` is the only gate the unattended loop reads.
+> *Today:* **met** (2026-07-29). Suppression reads the structural line `ost_annotate`
+> writes — a dated entry under `## Issues` — instead of the whole body
+> (`src/mcp/next-work.ts:107-140`). The only thing that clears a hygiene issue is now
+> the tool for clearing hygiene issues, which is what P5 always claimed. Pinned in
+> `test/mcp/next-work.test.ts`: quoting does not clear, annotating does, an annotation
+> about something else does not, and undated prose parked under a hand-written
+> `## Issues` heading does not — the heading alone is not the signal.
+>
+> Deliberately loose on the date, so that a tree read the day after it was annotated
+> does not re-raise everything and stop the sweep from reaching `done` twice.
+>
+> *This closes the forging path into `hygieneIssues`, not the disagreement.* `check` and
+> `next_work` still compute different rule sets, so `done: true` alongside a red `check`
+> remains reachable through `evidence-class` — see R4, which is now the whole of that
+> gap rather than one symptom of it.
 
 **R6 — `ost_link_nodes` validates its child and its hierarchy, as
 `ost_create_node` does.**
@@ -719,16 +741,25 @@ exit codes.**
 > the contract a health record needs ("a lost record costs a data point, never a
 > run"), so recovering it from history is the cheapest way to build H1.
 
-**⛔ H2 — A failed pass cannot exit 0, and no push follows one.**
-> *Check (today):* `grep -n 'ost-agent check\|ost_check'
-> examples/automation/autonomous-pass.sh` is empty while `git push` runs
-> unconditionally after `claude -p` (`:37-46`). **Pass =** the script gates the
-> push on a check exit code.
-> *Today:* **not met.** `claude -p "/ost-pass"`'s exit code reports Claude Code's
-> health, not the pass's. `ost-agent check` exits 1 on violations
-> (`src/cli/index.ts:107`) and the script never calls it. This is the bug 0.5.0
-> fixed for `ost-agent run` — a command since deleted, so the fix covers no live
-> path.
+**H2 — A failed pass cannot exit 0, and no push follows one.**
+> *Check:* the script gates the push on a check exit code.
+> *Today:* **met** (2026-07-29). `autonomous-pass.sh:43-50` runs
+> `ost-agent check --vault .` after the pass and exits 1 without pushing when it
+> reports violations. `claude -p`'s own exit code reports Claude Code's health, not the
+> tree's, which is why the deterministic checker is the thing consulted.
+>
+> Pinned by `test/automation/autonomous-pass.test.ts`, which **runs the real script**
+> with `claude`, `node` and `git` stubbed on `PATH` rather than grepping it for the word
+> "check" — a grep passes on a script that calls the checker and ignores what it said.
+> Four assertions: a red tree exits non-zero and logs no `git push`; a clean tree does
+> push (so the gate is not simply blocking everything); the check runs against the
+> vault; and it runs *after* the pass, never instead of it.
+>
+> *This is a failure detector, not a health record.* It catches a firing that left the
+> tree red. It cannot catch a firing that did nothing at all — a no-op pass over an
+> already-clean tree still exits 0 and pushes nothing, and is indistinguishable from a
+> productive one. That is H1/H4's job, and S1 is why the no-op case is the steady state
+> today.
 
 **H3 — Any recorded proving step could have come out red.**
 > *Check:* `grep -rn 'detectLaunderedExit' src/ --include=*.ts | grep -v
@@ -775,8 +806,10 @@ the environment.**
 > with write access to the inbox. There is no in-process producer, no scheduler,
 > no watcher. The four adapters that could produce evidence without a human —
 > transcript, usage, atlassian, slack — are built, tested, and have **no ingestion
-> caller**. The steady state after one sweep is `done: true` forever, and because
-> of H2 it looks healthy while doing it. The fix is small: a five-line capture
+> caller**. The steady state after one sweep is `done: true` forever, and it still
+> looks healthy while doing it: H2 now stops a firing that leaves the tree *red*, but a
+> no-op over an already-clean tree passes that gate honestly. Distinguishing a dry
+> firing from a productive one is H1/H4's job, not H2's. The fix is small: a five-line capture
 > core (`src/security/tools.ts:623-627`) inside a ~25-line handler, which needs to
 > iterate `ctx.passContext.sources` — and `skipSources: true` is the fact that fix
 > has to address.
@@ -828,16 +861,24 @@ constructed at all.**
 > in prose (`README.md:160`, `:263`); the criterion is that the *code* stop
 > shipping configurable options that record nothing.
 
-**⛔ S6 — A malformed evidence file degrades one record, never the whole read.**
+**S6 — A malformed evidence file degrades one record, never the whole read.**
 > *Check:* write `.ost-agent/evidence/bad.md` containing
 > `---\nfoo: [unclosed\n---\nbody\n` alongside two valid records; assert
 > `readEvidence(dir).length === 2`.
-> *Today:* **not met.** Missing frontmatter is coerced to defaults, but an
-> unparseable gray-matter document throws out of the loop
-> (`src/processes/tree.ts:45-62`) and takes `ost_next_work` — the only tool the
-> unattended sweep gates on — down with it. **This is the same denial-of-service
-> shape as G1, and strictly more reachable: under D1 the evidence directory is fed
-> by an untrusted builder by design.**
+> *Today:* **met** (2026-07-29). The parse is per-file and the failure is per-record
+> (`src/processes/tree.ts:45-77`), so one unparseable document no longer takes
+> `ost_next_work` — the only tool the unattended sweep gates on — down with it. The
+> file itself is untouched and still in git; what is dropped is its appearance in the
+> list. Pinned by `test/processes/evidence-read.test.ts`, which also pins that *missing*
+> frontmatter still degrades to defaults rather than being dropped, so the new
+> `try`/`catch` cannot quietly widen into discarding merely sparse records.
+>
+> *One dependency quirk worth recording, because it will confuse the next reader:*
+> gray-matter memoizes on the content string and populates that cache *before* parsing,
+> so identical malformed bytes throw the first time they are seen in a process and
+> return a junk record every time after. Harmless here — the read survives either way —
+> but it makes any test that reuses one malformed fixture order-dependent, and the test
+> file above uses a distinct fixture per case for exactly that reason.
 
 ---
 
@@ -1000,7 +1041,10 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 878 tests across 86 files, verified 2026-07-29.
+> *Today:* **met** — 726 tests across 75 files, verified 2026-07-29. (The count this
+> line carried before, 878 across 86, predated `8261a6f`'s deletion of the genome and
+> harness and was never updated with it — a reminder that a number in this document is
+> a claim like any other.)
 
 **D2 — Every command's `allowed-tools` names only tools that exist.**
 > *Check:* for each of the nine files in `.claude/commands/`, every entry starting
@@ -1065,6 +1109,18 @@ file that removes the tool the sweep depends on — S6 is the more reachable of 
 two, because under D1 the evidence directory is fed by an untrusted builder by
 design), and H2 (a firing that fails silently and pushes anyway). Nothing measured
 afterwards means anything if the subject is dead or if failure is invisible.
+>
+> **Status (2026-07-29): R1, R5, S6 and H2 are met.** Three remain. **R3** is the
+> clearability table as a committed test, and is still the highest-leverage single item
+> on this list. **R4** is now the entire `check`/`next_work` disagreement rather than
+> one symptom of it — R5 closed the forging path into `hygieneIssues`, but the two
+> gates still compute different rule sets (six rules against nine), so `done: true`
+> beside a red `check` stays reachable through `evidence-class`. It needs the rule-set
+> parity decision before it needs code. **G1** is a decision, not a bug: `acquire()`
+> throws on a broken config deliberately — "both request handlers catch that and answer
+> with the fix" — so the criterion's *degrade to defaults and keep serving* is a
+> different product from today's *tell the operator what to repair*. It matters less
+> now that `genome.yaml` is gone and the only such file is one a human wrote at init.
 
 **Tier 2 — the instruments must not be forgeable.** B1, B2, B3, B4, B8, B9. While
 the agent can write `## Results`, flip `validated`, and declare `money`, every
@@ -1146,10 +1202,10 @@ A mechanical join on the *(verified)* marker in the body.
 | B6 | `rankHost({host:"stripe-webhook-feed", rung:"expert"})` succeeds — no actor namespace | `src/knowledge/web-trust.ts:37-44` |
 | B8 | `checkInvariants` returns `[]` for a Solution declaring `money` with no result | `src/eval/invariants.ts:74-82` |
 | B10 | Coverage gaps drop 2 → 1 after an `ost_append_to_node` of `## Uncovered` | `src/eval/coverage.ts` |
-| R1 | `wrapped-wikilink` survives every clearing attempt on the tool surface | `src/ost/node.ts:97-103` |
+| R1 | `wrapped-wikilink` survives every clearing attempt on the tool surface — *fixed 2026-07-29 at the write boundary; the tool surface can no longer author one* | `src/ost/node.ts:97-103` |
 | R2 | `lane-conflict` created by `ost_flag_humans_required`, unclearable | `src/ost/lanes.ts:124-133` |
 | R4 | `check` red while `next_work` reports zero hygiene issues, permanently | `src/eval/invariants.ts:38-46` |
-| R5 | Hygiene issue suppressed by prose merely quoting it; `[[Ghost]]` cleared | `src/mcp/next-work.ts:115-118` |
+| R5 | Hygiene issue suppressed by prose merely quoting it; `[[Ghost]]` cleared — *fixed 2026-07-29; suppression now reads the dated `## Issues` entry* | `src/mcp/next-work.ts:115-118` |
 | R6 | `ost_link_nodes` accepted an Opportunity under a Solution; parent existence *is* checked | `src/ost/vault.ts:205-214` |
 | W7 | `ost_read_repo` read a 4,311-char evidence body and `state/inbox.json` | `src/product/repo.ts:19` |
 | W9 | Two colliding inbox files → one record, tool reports "captured 1" | `src/processes/tree.ts:24-26` |
