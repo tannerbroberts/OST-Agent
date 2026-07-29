@@ -10,9 +10,9 @@
  * It never mutates, so it carries no commit.
  */
 import { byTitle, childrenOfLayer, getMapped, readEvidence } from "../processes/tree.js";
+import { checkInvariants } from "../eval/invariants.js";
 import { findNearDuplicateIssues } from "../ost/dedupe.js";
-import { laneConflicts } from "../ost/lanes.js";
-import { wrappedLinkTargets, type OstNode } from "../ost/node.js";
+import type { OstNode } from "../ost/node.js";
 import type { Vault } from "../ost/vault.js";
 import { classifyUnknown, contractGaps, resolutionState, type UnknownClass } from "../knowledge/unknowns.js";
 
@@ -35,6 +35,12 @@ export interface BareSolution {
 export interface HygieneIssue {
   title: string;
   issue: string;
+  /**
+   * The `checkInvariants` rule this issue is the `next_work` face of, so the two
+   * gates can be joined by something other than string matching. `near-duplicate`
+   * is the one value with no invariant behind it — see {@link HYGIENE_ONLY_RULES}.
+   */
+  rule: string;
 }
 export interface OpenUnknown {
   title: string;
@@ -70,39 +76,83 @@ export interface NextWork {
   openUnknowns: OpenUnknown[];
 }
 
-/** Detect the same structural issues P5_hygiene annotates — dangling links + orphans. */
+/**
+ * Rules `checkInvariants` can emit that deliberately do **not** block `done`,
+ * each paired with the reason it does not.
+ *
+ * This map and {@link HYGIENE_LABELS} together are R4's parity decision: every
+ * rule literal in `src/eval/invariants.ts` is either computed here as a hygiene
+ * issue or declared here as a non-blocker, and `test/mcp/rule-parity.test.ts`
+ * fails the build if a rule is in neither (or in both). Before this, the two
+ * gates were two hand-written detectors, and four of the nine rules were red in
+ * `ost_check` while `done` stayed true — a legacy or human-authored node was
+ * enough, no forging required. The unattended pass reads only `done`; a human
+ * reads `check`; two gates that can disagree permanently mean neither is a
+ * health signal, and there is no third thing to break the tie.
+ *
+ * **The bar for adding an entry here is high, and it is a property of the tool
+ * surface, not of the rule's importance:** a `done`-blocker the agent has no way
+ * to clear is a permanent wedge, because `done` is the unattended loop's only
+ * stopping condition. That is the whole argument for the one entry below.
+ */
+export const NOT_DONE_BLOCKING: Readonly<Record<string, string>> = {
+  "single-outcome":
+    "names no node, so there is nothing to annotate — and no tool on either surface can " +
+    "remove the second Outcome (test/eval/clearability.test.ts pins both halves of that). " +
+    "Blocking `done` on it would wedge every unattended pass forever on a defect the pass " +
+    "cannot touch. It stays a hard `ost_check` violation and a mandatory human interrupt.",
+};
+
+/**
+ * How each blocking rule is named in a hygiene issue. The reported string is
+ * `${label}: ${violation.detail}`, so the detail is written once, in
+ * `checkInvariants`, and both gates quote it identically.
+ */
+export const HYGIENE_LABELS: Readonly<Record<string, string>> = {
+  "dangling-link": "dangling link",
+  "wrapped-wikilink": "wrapped wikilink",
+  "opportunity-connected": "orphan opportunity",
+  "solution-mapped": "orphan solution",
+  "assumption-mapped": "orphan assumption test",
+  "evidence-class": "unclassed evidence",
+  "no-self-validation": "self-validated",
+  "lane-conflict": "lane conflict",
+};
+
+/**
+ * Issues `next_work` raises that no invariant emits. The asymmetry is safe in
+ * this direction only: `next_work` may be *stricter* than `check` without either
+ * gate lying, because a stricter `done` never reports complete over a red tree.
+ * The reverse — `check` stricter than `done` — is the R4 defect.
+ */
+export const HYGIENE_ONLY_RULES = ["near-duplicate"] as const;
+
+/**
+ * The structural issues P5_hygiene annotates, derived from `checkInvariants`
+ * rather than re-implemented beside it.
+ *
+ * Deriving is the point. The two detectors used to be written twice and drifted
+ * in two ways at once: four rules existed only in `checkInvariants`, and the
+ * orphan-opportunity check here tested *direct* parenting where the invariant
+ * tests reachability from the Outcome — so a chain hanging off an orphan read as
+ * connected on one gate and adrift on the other. Neither gap was hidden; both
+ * were remembered rather than computed.
+ */
 function detectHygiene(tree: OstNode[]): HygieneIssue[] {
   const index = byTitle(tree);
   const issues: HygieneIssue[] = [];
-  const outcomeLinks = new Set(tree.find((n) => n.layer === "Outcome")?.links ?? []);
-  for (const n of tree) {
-    for (const link of n.links) {
-      if (!index.has(link)) issues.push({ title: n.title, issue: `dangling link: [[${link}]] has no node` });
-    }
-    for (const target of wrappedLinkTargets(n.body)) {
-      issues.push({ title: n.title, issue: `wrapped wikilink: [[${target}]] is split across a line break — it renders as text, not an edge` });
-    }
-    if (n.layer === "Opportunity" && !outcomeLinks.has(n.title)) {
-      // only flag as an orphan if no opportunity parents it either (nested opportunities are valid)
-      const parented = tree.some((p) => p.layer === "Opportunity" && p.links.includes(n.title));
-      if (!parented) issues.push({ title: n.title, issue: "orphan opportunity: not linked under the outcome" });
-    }
-    if (n.layer === "Solution") {
-      const parents = tree.filter((p) => p.layer === "Opportunity" && p.links.includes(n.title));
-      if (parents.length === 0) issues.push({ title: n.title, issue: "orphan solution: not linked under any opportunity" });
-    }
-  }
-  // a test that names one lane in its label and another in its prose: the tree
-  // answering "may compute run this?" twice, differently. Annotated, never
-  // resolved — picking the permissive side is a human's call by construction.
-  for (const c of laneConflicts(tree)) {
-    issues.push({
-      title: c.test,
-      issue: `lane conflict: labelled ${c.labelled} but its prose says "${c.quote}" — a person decides which is stale`,
-    });
+  // The mandate is the one node guaranteed to exist, so it is where a violation
+  // that names no node of its own gets attached — an issue with no node is an
+  // issue no one can annotate, and therefore a wedge.
+  const outcome = tree.find((n) => n.layer === "Outcome")?.title;
+  for (const v of checkInvariants(tree)) {
+    if (v.rule in NOT_DONE_BLOCKING) continue;
+    const title = v.node ?? outcome;
+    if (!title) continue; // nothing to hang it on; the parity test is what keeps this unreachable
+    issues.push({ title, issue: `${HYGIENE_LABELS[v.rule] ?? v.rule}: ${v.detail}`, rule: v.rule });
   }
   // likely duplicates (same-layer near-identical titles) — flagged for a human, never merged
-  issues.push(...findNearDuplicateIssues(tree));
+  for (const d of findNearDuplicateIssues(tree)) issues.push({ ...d, rule: "near-duplicate" });
   // suppress ones already annotated into the node body (idempotent, matches P5)
   return issues.filter(({ title, issue }) => {
     const node = index.get(title);

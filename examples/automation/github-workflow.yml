@@ -55,7 +55,7 @@ jobs:
           claude -p "/ost-pass" \
             --plugin-dir "$GITHUB_WORKSPACE/.ost-agent-src" \
             --permission-mode acceptEdits \
-            --allowedTools "mcp__ost-agent__ost_ingest_inbox,mcp__ost-agent__ost_next_work,mcp__ost-agent__ost_read_tree,mcp__ost-agent__ost_create_node,mcp__ost-agent__ost_link_nodes,mcp__ost-agent__ost_append_to_node,mcp__ost-agent__ost_set_status,mcp__ost-agent__ost_annotate" \
+            --allowedTools "mcp__ost-agent__ost_ingest_inbox,mcp__ost-agent__ost_next_work,mcp__ost-agent__ost_read_tree,mcp__ost-agent__ost_create_node,mcp__ost-agent__ost_link_nodes,mcp__ost-agent__ost_append_to_node,mcp__ost-agent__ost_set_status,mcp__ost-agent__ost_set_evidence,mcp__ost-agent__ost_annotate" \
             --output-format text
 
       - name: Push new nodes

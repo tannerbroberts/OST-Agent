@@ -7,7 +7,8 @@ mandate.**
 Written 2026-07-29 against `0.23.0` (`8387c08`); revised after `8261a6f`
 deleted the genome and the harness, again after the first Tier 1 batch closed
 R1, R5, S6 and H2, and again after the second batch turned R3's table, W4 and G3
-into committed tests. The suite is green — 772 tests across 78
+into committed tests, and again after R4 made the two health gates compute one
+rule set. The suite is green — 790 tests across 79
 files, `tsc --noEmit` clean — and nothing below is about the code being broken.
 It is about the difference between *a tool that works when watched* and *a
 system that can be left alone*.
@@ -641,7 +642,7 @@ agent can also clear.**
 > *Check:* a table-driven test, one row per rule, built against
 > `buildOstTools(ctx, MCP_TOOL_NAMES)` — **not** bare `buildOstTools`, which also
 > builds `git_commit`/`git_push` the server never exposes. Give the table a second
-> column for `/ost-pass`'s eight names, since "the agent can clear it" has a
+> column for `/ost-pass`'s nine names, since "the agent can clear it" has a
 > different answer on the unattended surface (R7).
 > *Today:* **partial** (2026-07-29). The table is no longer an audit finding: it
 > runs on every build as `test/eval/clearability.test.ts` (R9), one row per rule,
@@ -657,7 +658,7 @@ agent can also clear.**
 > | `opportunity-connected` | no | yes | no | yes |
 > | `solution-mapped` | no | yes | no | yes |
 > | `assumption-mapped` | no | yes | no | yes |
-> | `evidence-class` | no | yes | no | **no** (R7) |
+> | `evidence-class` | no | yes | no | yes (R7 granted it, 2026-07-29) |
 > | `no-self-validation` | yes | yes | yes | yes |
 > | `lane-conflict` | **yes** | **no** | no | no |
 >
@@ -670,13 +671,16 @@ agent can also clear.**
 > this is now partial rather than a live Tier 1 blocker — but it is a real hole and
 > R2 is the fix.
 >
-> Two cells moved, and neither move is news — which is the point. `wrapped-wikilink`
-> read `yes/no`, the worst shape on the list, until R1 closed the create at the write
-> boundary; the entry recording that fix and the table asserting the old state sat
-> nine hundred lines apart in this file for a day. `evidence-class`'s surface split
-> was carried as a prose aside in the old table and in R7. **Neither was hidden. Both
-> were remembered rather than computed, and a table that runs cannot hold a stale
-> cell for a day.**
+> Two cells moved when the table first ran, and neither move was news — which is the
+> point. `wrapped-wikilink` read `yes/no`, the worst shape on the list, until R1 closed
+> the create at the write boundary; the entry recording that fix and the table asserting
+> the old state sat nine hundred lines apart in this file for a day. `evidence-class`'s
+> surface split was carried as a prose aside in the old table and in R7. **Neither was
+> hidden. Both were remembered rather than computed, and a table that runs cannot hold a
+> stale cell for a day.** A third moved on 2026-07-29: R4 made `evidence-class` a
+> `done`-blocker, which is only safe if the sweep can clear it, so R7's grant and this
+> cell changed together — the table is what made "these two must move in the same
+> commit" a mechanical fact rather than a thing to remember.
 >
 > Under D1, an unclearable violation cannot be cleared by anyone but the sponsor
 > on a shell — so **every one-way invariant is a mandatory human interrupt**,
@@ -690,30 +694,54 @@ agent can also clear.**
 > exists to catch.
 
 **⛔ R4 — `ost_check` and `ost_next_work.done` never disagree about a defect they
-both compute.**
+both compute, except where the disagreement is declared or written down on the
+node.**
 > *Check:* two parts, because the naïve property is unachievable for an unrelated
-> reason. (a) **Rule-set parity, greppable today:** the set of `rule: "…"` literals
-> in `src/eval/invariants.ts` (nine) must either be computed by `detectHygiene`
-> too, or each omission must be explicitly declared "not a `done`-blocker".
-> `detectHygiene` (`src/mcp/next-work.ts:81-119`) computes only dangling-link,
-> wrapped-wikilink, orphan-opportunity, orphan-solution, lane-conflict and
-> near-duplicates — so `single-outcome`, `assumption-mapped` and `evidence-class`
-> can be red while `done` is true even after (b) is fixed. (b) **Property test over
-> the shared rules:** never `done === true && checkInvariants(...).some(v =>
-> SHARED_RULES.has(v.rule))`.
-> *Today:* **not met**, and now entirely part (a). The original reproduction — after a
-> wrapped link plus one `ost_annotate`, `computeNextWork` reported zero hygiene issues
-> while `checkInvariants` still returned `wrapped-wikilink` — no longer runs that way:
-> R5 tightened suppression to the dated `## Issues` entry, and R1 stopped the tool
-> surface authoring a wrapped link at all. **What survives is the rule-set gap, which
-> was always the larger half:** `detectHygiene` computes six rules and `checkInvariants`
-> emits nine, so `done: true` beside a red `check` stays reachable through
-> `evidence-class` (and `single-outcome`, and `assumption-mapped`) with no forging
-> required — a legacy or human-authored node is enough. This needs the parity decision
-> before it needs code: each of the three is either computed by `detectHygiene` too, or
-> explicitly declared not a `done`-blocker. **The unattended pass reads only `done`; a
-> human reads `check`. Two gates that can disagree permanently mean neither is a
-> health signal, and there is no third thing to break the tie.**
+> reason. (a) **Rule-set parity, greppable:** the set of `rule: "…"` literals in
+> `src/eval/invariants.ts` must partition into rules `detectHygiene` computes and
+> rules explicitly declared "not a `done`-blocker" *with the reason stated* — none
+> in neither, none in both. (b) **Property over the blocking rules:** never
+> `done === true` while a blocking-rule violation stands un-annotated on its node.
+> *Today:* **met** (2026-07-29), and pinned by `test/mcp/rule-parity.test.ts` — 18
+> tests: the partition, one planted violation per blocking rule proving the label has
+> a detector behind it, and the property asserted over all nine planted at once.
+>
+> **(a) is now structural rather than maintained.** `detectHygiene`
+> (`src/mcp/next-work.ts:141-161`) no longer re-implements the rules beside
+> `checkInvariants`; it *derives* from it, mapping each violation to a hygiene issue
+> through `HYGIENE_LABELS` and skipping only what `NOT_DONE_BLOCKING` declares. Two
+> hand-written detectors could not stay in agreement, and had not: **the gap was four
+> rules, not the three this entry named.** `no-self-validation` was missing from
+> `detectHygiene` too — an omission this document carried while enumerating the others,
+> which is the exact failure mode R3 was built to end. It surfaced in the first minute
+> of computing the set instead of listing it. The detectors had also drifted in a second
+> way no rule count would show: the old orphan-opportunity check tested *direct*
+> parenting where the invariant tests reachability from the Outcome, so a chain hanging
+> off an orphan read connected on one gate and adrift on the other.
+>
+> `single-outcome` is the one declared non-blocker, and the argument is about the tool
+> surface rather than the rule's importance: it names no node, so there is nothing to
+> annotate, and R3's table pins that nothing on either surface can remove the second
+> Outcome. Blocking `done` on it wedges every unattended pass forever on a defect the
+> pass cannot touch. It stays a hard `ost_check` violation and a mandatory human
+> interrupt. The set being exactly `{single-outcome}` is itself asserted, because a
+> declaration is a decision and no other test in that file can tell a genuine
+> non-blocker from a rule quietly downgraded to one — moving a second rule out of the
+> blocking set fails the build, so it has to be argued in a diff.
+>
+> **`evidence-class` blocking `done` is only safe because R7's grant landed in the same
+> commit.** A `done`-blocker the sweep holds no tool to clear is the same wedge by
+> another route, so `ost_set_evidence` is now on `/ost-pass` and R3's table flipped that
+> cell in the same change.
+>
+> *The residue, stated because it is the criterion's boundary and not a loophole:* an
+> annotation still suppresses a hygiene issue — that is P5 (the agent flags, it never
+> deletes) and R5 pins that only a real dated `ost_annotate` entry counts. So the
+> reachable disagreement is exactly *"a human has been told, in writing, on the node."*
+> The naïve property — never `done` while `check` is red — is not available to an
+> append-only vault whose only clear path for an unrepairable defect is to write it
+> down. What closed here is the disagreement that needed no forging and left no record:
+> a legacy or human-authored node with no evidence class used to read `done: true`.
 
 **R5 — A hygiene issue is suppressed only by a real annotation, not by prose
 that quotes it.**
@@ -730,10 +758,11 @@ that quotes it.**
 > Deliberately loose on the date, so that a tree read the day after it was annotated
 > does not re-raise everything and stop the sweep from reaching `done` twice.
 >
-> *This closes the forging path into `hygieneIssues`, not the disagreement.* `check` and
-> `next_work` still compute different rule sets, so `done: true` alongside a red `check`
-> remains reachable through `evidence-class` — see R4, which is now the whole of that
-> gap rather than one symptom of it.
+> *This closed the forging path into `hygieneIssues`, not the disagreement* — the rule
+> sets stayed different until R4 made `detectHygiene` derive from `checkInvariants`
+> rather than re-implement it. The suppression this criterion pins is now the *only*
+> way the two gates can disagree, which is what makes R4's boundary statable: a
+> disagreement that exists is one a human was told about in writing.
 
 **R6 — `ost_link_nodes` validates its child and its hierarchy, as
 `ost_create_node` does.**
@@ -750,15 +779,19 @@ that quotes it.**
 can be blocked by.**
 > *Check:* assert `/ost-pass`'s `allowed-tools` is a superset of what the R3 table
 > requires on that surface.
-> *Today:* **not met**, and now pinned as a failing-shaped fact rather than a prose
-> one. `ost_set_evidence` is absent from `.claude/commands/ost-pass.md:3`, so an
-> `evidence-class` violation on a legacy or human-authored node is unfixable by the
-> sweep even though the tool exists — R3's table executes exactly that: the same
-> planted node, cleared on the MCP surface and not cleared on `/ost-pass`, with the
-> allowlist read from the command file itself. Granting the tool flips the cell and
-> the expectation in the test has to be updated in the same commit. The stronger
-> fact, worth stating once: **no shipped command grants `ost_set_evidence` or
-> `ost_flag_humans_required` at all.**
+> *Today:* **met** (2026-07-29). `ost_set_evidence` is granted on
+> `.claude/commands/ost-pass.md:3`, and R3's table — which reads that allowlist out of
+> the command file itself — now clears a planted `evidence-class` violation on both
+> surfaces. The grant was not optional: R4 made `evidence-class` block `done`, and a
+> `done`-blocker the sweep cannot clear is a permanent wedge, so the two landed in one
+> commit. `test/release/examples-allowlist.test.ts` carried the same tool into both
+> automation examples' `--allowedTools`, where a missing name is denied rather than
+> prompted.
+>
+> The residue is the other direction and belongs to R2: **no shipped command grants
+> `ost_flag_humans_required`**, which is what keeps `lane-conflict` — the one rule the
+> agent can create and cannot clear — off the unattended surface entirely. That is
+> containment, not a fix.
 
 **R8 — `ost_create_node` leaves no orphan when the attach step fails.**
 > *Check:* inject a failure into `Vault.linkNodes`; assert no node file persists
@@ -785,9 +818,11 @@ can be blocked by.**
 > `Vault` writes (never by the tool surface), the violation is asserted absent
 > before a create attempt and present after a plant, and a call to an ungranted
 > tool is refused the way `-p --permission-mode acceptEdits` refuses it. Three
-> mutations confirm it is not vacuous — flipping the `evidence-class` sweep cell,
+> mutations confirmed it is not vacuous — flipping the `evidence-class` sweep cell,
 > flipping the `wrapped-wikilink` create cell, and swapping one clear path's tool
-> each fail exactly the row they belong to.
+> each fail exactly the row they belong to. The first of those stopped being a
+> mutation on 2026-07-29 and became the state: R7's grant flipped that cell for real,
+> and the row failed until the expectation moved with it.
 
 ---
 
@@ -1134,7 +1169,7 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 772 tests across 78 files, verified 2026-07-29. (The count this
+> *Today:* **met** — 790 tests across 79 files, verified 2026-07-29. (The count this
 > line carried two revisions ago, 878 across 86, predated `8261a6f`'s deletion of the
 > genome and harness and was never updated with it — a reminder that a number in this
 > document is a claim like any other.)
@@ -1203,20 +1238,19 @@ two, because under D1 the evidence directory is fed by an untrusted builder by
 design), and H2 (a firing that fails silently and pushes anyway). Nothing measured
 afterwards means anything if the subject is dead or if failure is invisible.
 >
-> **Status (2026-07-29): R1, R5, S6 and H2 are met; R3 is partial and R9 is met.**
+> **Status (2026-07-29): R1, R4, R5, S6 and H2 are met; R3 is partial and R9 is met.**
 > **R3**'s table now runs on every build, eight of its nine rows satisfy the criterion,
 > and the ninth (`lane-conflict`, R2) is unreachable from the unattended surface — so
 > the property an unattended vault depends on holds today, and the residue is an
-> interactive-surface wedge with a named fix. Two remain in this tier. **R4** is now
-> the entire `check`/`next_work` disagreement rather than
-> one symptom of it — R5 closed the forging path into `hygieneIssues`, but the two
-> gates still compute different rule sets (six rules against nine), so `done: true`
-> beside a red `check` stays reachable through `evidence-class`. It needs the rule-set
-> parity decision before it needs code. **G1** is a decision, not a bug: `acquire()`
-> throws on a broken config deliberately — "both request handlers catch that and answer
-> with the fix" — so the criterion's *degrade to defaults and keep serving* is a
-> different product from today's *tell the operator what to repair*. It matters less
-> now that `genome.yaml` is gone and the only such file is one a human wrote at init.
+> interactive-surface wedge with a named fix. **R4** closed on 2026-07-29: `detectHygiene`
+> derives from `checkInvariants` instead of being written twice beside it, so the rule
+> sets cannot drift, and the one rule that does not block `done` is declared with its
+> reason and pinned as a set of exactly one. It took R7's grant with it. **G1** is the
+> one left, and it is a decision rather than a bug: `acquire()` throws on a broken config
+> deliberately — "both request handlers catch that and answer with the fix" — so the
+> criterion's *degrade to defaults and keep serving* is a different product from today's
+> *tell the operator what to repair*. It matters less now that `genome.yaml` is gone and
+> the only such file is one a human wrote at init.
 
 **Tier 2 — the instruments must not be forgeable.** B1, B2, B3, B4, B8, B9. While
 the agent can write `## Results`, flip `validated`, and declare `money`, every
@@ -1260,9 +1294,21 @@ executed by a builder.
 **R3 was the "if only one thing" item, and it is done.** The table is a build
 failure now rather than an audit finding, which is what stopped this list from
 having to be re-derived by hand — and it earned that description immediately, by
-correcting two cells and by moving G3 off *met*. The next single item is **R4**:
-the rule-set parity decision, which is three sentences of judgement before it is
-any code at all.
+correcting two cells and by moving G3 off *met*. **R4 followed it and is done
+too**, and it earned the same description the same way: the parity decision was
+three sentences of judgement, but computing the set instead of listing it
+immediately found a fourth un-computed rule this document had not named
+(`no-self-validation`) and a semantic divergence in the orphan check that no rule
+count would have shown.
+
+**The next single item is Tier 2, and B4 is the head of it** — a promotion must
+name a corroborating result that exists and has an outcome. Tier 1 is closed
+except for G1, which is a product decision (*degrade and keep serving* vs. *tell
+the operator what to repair*) rather than a defect, and which shrank when
+`genome.yaml` was deleted. B4, B8 and B9 wait on nothing: they are
+argument-validation and detector checks buildable today against a single
+hand-made vault, and B4 in particular closes the self-corroboration path Gate B
+opens with.
 
 ---
 

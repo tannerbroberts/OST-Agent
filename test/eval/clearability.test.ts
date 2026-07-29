@@ -16,10 +16,11 @@
  *    file, how the agent creates it and how the agent gets out of it.
  * 2. **Two surfaces, because "the agent can clear it" has two answers.** The MCP
  *    server exposes eighteen tools; `/ost-pass` — the unattended sweep — grants
- *    eight of them, and under `-p --permission-mode acceptEdits` a call outside
- *    that grant is *denied, not prompted*. `evidence-class` is clearable on one
- *    surface and not the other, and that difference (R7) is invisible to any
- *    check that only looks at the server.
+ *    a subset, and under `-p --permission-mode acceptEdits` a call outside that
+ *    grant is *denied, not prompted*. `evidence-class` was clearable on one
+ *    surface and not the other until R4 made it a `done`-blocker and R7's grant
+ *    landed in the same change; a difference like that is invisible to any check
+ *    that only looks at the server.
  * 3. **The attempts run against `buildOstTools(ctx, MCP_TOOL_NAMES)`**, not bare
  *    `buildOstTools`, which also builds the `git_commit`/`git_push` pair the
  *    server never exposes — and each call goes through `validateToolInput` first,
@@ -290,9 +291,9 @@ const SCENARIOS: Record<string, Scenario> = {
     ],
     // Every node that predates the ladder is one of these.
     plant: (v) => put(v, { title: "A legacy idea", layer: "Solution", evidence: undefined }),
-    clearPath: "ost_set_evidence declaring the rung — a tool /ost-pass is not granted",
+    clearPath: "ost_set_evidence declaring the rung — granted on both surfaces since R4/R7",
     clear: [{ tool: "ost_set_evidence", input: { title: "A legacy idea", evidence: "assertion", note: "rests on founder theory" } }],
-    expected: { mcp: { create: false, clear: true }, "ost-pass": { create: false, clear: false } },
+    expected: { mcp: { create: false, clear: true }, "ost-pass": { create: false, clear: true } },
     createRefusal: /evidence/,
   },
 
