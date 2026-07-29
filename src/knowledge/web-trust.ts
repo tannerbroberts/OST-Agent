@@ -20,6 +20,18 @@ import { type RungId } from "./believability.js";
 export const HOST_RUNGS = ["assertion", "expert"] as const;
 export type HostRung = (typeof HOST_RUNGS)[number];
 
+/**
+ * Is this one of the rungs a publisher can hold?
+ *
+ * Exported rather than inlined at each site because two spellings of one
+ * membership test is how the pair of health gates drifted before R4 — and the
+ * second caller (`checkCorroboration`, B4) has to agree with `rankHost` about
+ * what counts as a rung or it will refuse a call for the wrong reason.
+ */
+export function isHostRung(rung: string): rung is HostRung {
+  return (HOST_RUNGS as readonly string[]).includes(rung);
+}
+
 export interface HostTrustRecord {
   ts: string;
   host: string;
@@ -44,7 +56,7 @@ export function normalizeHost(raw: string): string {
 
 /** Append one trust record. Throws on a rung above the ceiling or an empty reason. */
 export function rankHost(dir: string, rec: { host: string; rung: string; reason: string; by: string }): HostTrustRecord {
-  if (!(HOST_RUNGS as readonly string[]).includes(rec.rung)) {
+  if (!isHostRung(rec.rung)) {
     throw new Error(
       `a publisher can hold only "assertion" or "expert" — never "${rec.rung}". ` +
         `observed/money are earned by first-party measurement (AssumptionTests + ost_set_evidence), not by a byline.`,

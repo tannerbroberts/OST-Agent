@@ -164,8 +164,19 @@ describe("ost_read_web", () => {
 describe("ost_rank_source", () => {
   test("appends a trust record stamped by the surface; ceiling enforced", async () => {
     const ctx = baseCtx();
+    // The corroborating test has to be on the tree with an outcome, or the
+    // promotion is refused before it reaches the ledger (B4 — its own rows are
+    // in rank-source-corroboration.test.ts).
+    ctx.vault.createNode({
+      title: "Invite copy A",
+      layer: "AssumptionTest",
+      body: "## Results\n- supported: their claim replicated\n",
+      tags: [],
+      links: [],
+      evidence: "assertion",
+    });
     const rank = tool(ctx, "ost_rank_source");
-    await rank.run({ host: "https://www.example.com/x", rung: "expert", reason: "funnel test 'Invite copy A' confirmed their claim" });
+    await rank.run({ host: "https://www.example.com/x", rung: "expert", reason: "corroborated by [[Invite copy A]]" });
     const rec = JSON.parse(fs.readFileSync(hostTrustPath(dir), "utf8").trim());
     expect(rec.host).toBe("example.com");
     expect(rec.by).toBe("agent:test");
