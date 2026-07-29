@@ -4,10 +4,15 @@
 unattended, and trusted to make progress on an arbitrarily large, arbitrarily vague
 mandate.**
 
-Written 2026-07-29 against `0.23.0` (`8387c08`). The suite is green — 878 tests
-across 86 files, `tsc --noEmit` clean — and nothing below is about the code being
-broken. It is about the difference between *a tool that works when watched* and
-*a system that can be left alone*.
+Written 2026-07-29 against `0.23.0` (`8387c08`); revised after `8261a6f`
+deleted the genome and the harness. The suite is green — 700 tests across 73
+files, `tsc --noEmit` clean — and nothing below is about the code being broken.
+It is about the difference between *a tool that works when watched* and *a
+system that can be left alone*.
+
+**67 criteria, 21 of them blockers. 7 met, 2 partial, 58 not met.** Four of the
+seven were met by *deleting* something rather than building it, which is the
+document working as intended.
 
 An earlier meta-vault was started and abandoned because it broke in several ways.
 This document is the attempt to name those ways before the second attempt, in a
@@ -159,13 +164,12 @@ unexplained.**
 > *Check:* `grep -rn "import.*\bserialize\b.*ost/node" src/ --include='*.ts'`
 > names only `src/ost/vault.ts`. (An import-level assertion: the same-line form
 > `grep 'serialize(' | grep writeFileSync` is defeated by splitting the call
-> across two statements, and a bare `grep -l serialize` over-matches on comments
-> and on `serializeGenome` in `src/genome/write.ts`.)
-> *Today:* **not met** — it also names `src/harness/generate.ts:32`, which writes node
-> files at `:119`, bypassing `assertWritableContent` and `nodePath` and
-> falsifying the header claim at `src/ost/vault.ts:7-9` that this class is "the
-> ONLY thing that touches node files on disk." Fix the call site or delete the
-> claim.
+> across two statements.)
+> *Today:* **met**, and only incidentally: the one bypass —
+> `src/harness/generate.ts`, which wrote node files directly, skipping
+> `assertWritableContent` and `nodePath` — was deleted with the harness. The
+> header claim at `src/ost/vault.ts:7-9` is now true and **nothing pins it**, so
+> the next bypass ships the same way. Commit the grep as a test.
 
 **W5 — The unattended automation path grants no write capability beyond the MCP
 tool surface.**
@@ -337,12 +341,15 @@ independently settable field.**
 > directly.
 > *Today:* **not met.** `hosts.jsonl` stores a current rung plus free-text prose.
 > No prediction field, no outcome field, no scoring function, no reader that
-> computes anything from history. The only prediction/outcome/score triple in the
-> repo is the harness answer key (`src/harness/spec.ts:142-167`,
-> `src/harness/fitness.ts:99-108`) — which explicitly *refuses* to score
-> `resolutionState` because it is "one allowlisted `ost_append_to_node` away"
-> (`src/harness/fitness.ts:12`). That refusal is the argument for this whole gate,
-> already written down in code.
+> computes anything from history — and now no precedent either: the only
+> prediction/outcome/score triple in the repo was the harness answer key, deleted
+> with the genome (`8261a6f`). Worth recovering from that history is the one
+> sentence it got right — its fitness function *refused* to score
+> `resolutionState`, because that heading is "one allowlisted
+> `ost_append_to_node` away." That refusal is the argument for this whole gate.
+> The storage shape to copy is `web-trust.ts` (append-only jsonl, last-record-wins,
+> ceiling-enforced, `by` stamped by the surface), keyed on an actor rather than a
+> hostname — see B6.
 
 **B6 — The trust ledger is keyed on an actor, with a rung ceiling per actor
 kind.**
@@ -706,10 +713,11 @@ exit codes.**
 > mcp). The design doc states plainly that `src/loop/health.ts` was deleted with
 > the API-key runner and the convention "now survives only as prose"
 > (`docs/superpowers/specs/2026-07-27-epistemic-uncertainty-design.md:59`). The
-> only `runs.jsonl` writer is the harness's, at a different path, called only from
-> an offline benchmark script `tsc` does not check
-> (`src/harness/record.ts:27-45`, `scripts/harness.ts:23`) — and it is a complete,
-> correct, fail-open append-only writer a health record should copy verbatim.
+> repo had exactly one append-only JSONL run-record writer — the harness's, at
+> `.ost-agent/harness/runs.jsonl` — and it was deleted with the genome
+> (`8261a6f`). It was a complete, correct, fail-open implementation of precisely
+> the contract a health record needs ("a lost record costs a data point, never a
+> run"), so recovering it from history is the cheapest way to build H1.
 
 **⛔ H2 — A failed pass cannot exit 0, and no push follows one.**
 > *Check (today):* `grep -n 'ost-agent check\|ost_check'
@@ -895,69 +903,94 @@ at 10,000 nodes.**
 
 ### Gate G — Policy integrity
 
-`genome.yaml` sits at the vault root and is writable by **any actor with a
-filesystem handle on the vault** — which today is every actor, because W1 and W2
-do not hold. Under a working D1 the writers narrow to the cartographer's own
-session (via the `acceptEdits` path W5 leaves open) and the sponsor's shell. G1
-and G2 are therefore *downstream of W5*: closing W5 shrinks the threat, and does
-not close it, because the sponsor's shell is also G1's only recovery path.
+**The genome was deleted rather than fixed.** `genome.yaml`, `src/harness/` and
+`src/eval/correlate.ts` are gone as of `8261a6f`, and with them three of this
+gate's four original criteria: a genome that could outrank the operator's config,
+genes that reached no consumer, and a policy file nobody could pin. The argument
+is in the commit message; the short form is that the genome existed so policy
+could breed, breeding required a harness, and the harness could never promote a
+winner. Infrastructure for a loop with nothing on the other end.
 
-**⛔ G1 — A malformed `genome.yaml` degrades one capability, never the whole tool
-surface.**
-> *Check:* write `pivot:\n  unknownsBlockDone: notabool` to
-> `<vault>/genome.yaml`; call `ost_check` and `ost_read_tree`. **Pass =** both
-> succeed, falling back to the default genome with a named warning.
-> *Today:* **not met** *(verified: `ost_check`, `ost_next_work`, `ost_read_tree`,
-> `ost_create_node` and `ost_ingest_inbox` **all** returned `isError`).*
-> `loadGenome` throws (`src/genome/load.ts:56-60`), the throw escapes
-> `buildPassContext` inside `acquire()` (`src/mcp/server.ts:274`), and `live` is
-> never cached on that path — so **a two-line file is a permanent denial of
-> service against an agent supposed to run forever, and no MCP tool can read,
-> rewrite or reset it** (`src/mcp/server.ts:22-41`). Recovery requires a human
-> shell, which is the interrupt D3 is trying to spend sparingly. The right shape
-> exists one handler away: `ListTools` catches, falls back, and keeps serving
-> (`src/mcp/server.ts:283-295`); `src/runner/context.ts:69` is the
-> `allowMissingConfig` precedent `loadGenome` deliberately has no analogue of.
+What survives is the half that was never about the genome.
 
-**⛔ G2 — The genome cannot outrank the operator's config.**
-> *Check:* `web.lookupBudget: 10` in config, `budgets.sharedPool: 9999` in genome;
-> assert the constructed limit is 10.
-> *Today:* **not met** — it is 9999. `gene.sharedPool ?? operatorLimit`
-> (`src/web/budget.ts:98`) lets the evolvable file override the operator's file. A
-> *valid* rewrite also silently changes whether unknowns block `done`
-> (`src/mcp/next-work.ts:257`) and what counts as a bounded or satisfied unknown
-> (`:238-243`).
-
-**G3 — Every gene has a production consumer.**
-> *Check:* a gene's reference counts if it appears outside `src/genome/` in a
-> module that has at least one non-test importer. Compute the dead set
-> mechanically — modules whose name appears in no `import` outside `test/` —
-> rather than naming it in prose.
-> *Today:* **not met.** That set is `{src/eval/correlate.ts}` — 369 lines with
-> **zero non-comment callers**, whose own header claims "its caller is the Phase 3
-> harness" while `src/harness/run.ts` never calls it. Five of six `tokenSplit`
-> fields are read only inside it. `weightedTokenSpend`'s four ratios multiply
-> against token counts nothing ever writes — the only `recordAttention` callers
-> populate calls/ms and never `tokens` (`src/harness/run.ts:114,120`). And
-> `tokenSplit.costBasis` is silently overridden at every production call site
-> *(verified: the genome asked `tokens`, `computeAttention` reported
-> `calls-and-ms`, `src/eval/attention.ts:263-266`)*.
+**⛔ G1 — A malformed file at the vault root degrades one capability, never the
+whole tool surface.**
+> *Check:* write `web:\n  lookupBudget: notanumber` to `<vault>/ost.config.yaml`;
+> call `ost_check` and `ost_read_tree`. **Pass =** both succeed, falling back to
+> defaults with a named warning.
+> *Today:* **not met.** This was originally written against `genome.yaml`, where
+> it was *verified*: a two-line malformed file returned `isError` from
+> `ost_check`, `ost_next_work`, `ost_read_tree`, `ost_create_node` and
+> `ost_ingest_inbox` alike. **Deleting the genome removed one such file, not the
+> failure class.** `loadConfig` throws on an invalid config
+> (`src/config/load.ts:105-110`), `buildPassContext` calls it *before* anything
+> else (`src/runner/context.ts:69`), the throw escapes `acquire()`
+> (`src/mcp/server.ts:274`), and `live` is never cached on that path.
 >
-> This matters more under D2 than it looks. **The harness is the repo's only
-> prediction/outcome/score triple. A harness that varies a gene reaching no
-> consumer will report a fitness delta and attribute it to a policy nobody
-> applied** — manufacturing corroboration out of noise, which is the pathology D2
-> exists to prevent. `src/genome/schema.ts:11-16` states the contract this
-> violates; `src/harness/run.ts:14-17` asserts it holds, and it does not.
+> The deletion did change the *shape* of the risk, and in the direction that
+> matters: `ost.config.yaml` is created by `init` and expected to exist, so a
+> human wrote it and a human can be pointed at it. `genome.yaml` was created by
+> nothing and reviewed by nobody — its mere *appearance* was the anomaly, and
+> under D1 an untrusted builder with a filesystem handle could have minted one.
+> The remaining exposure is an operator's own typo, which is the ordinary kind.
+>
+> The right shape exists one handler away: `ListTools` already catches, falls
+> back, and keeps serving (`src/mcp/server.ts:283-295`). `allowMissingConfig`
+> (`src/runner/context.ts:69`) is the precedent for tolerating an absent file;
+> what is missing is the analogue for a *broken* one.
 
-**G4 — The genome stays pinned for V1.**
-> *Check:* the meta-vault contains no `genome.yaml` (absent *is* the default,
-> `src/genome/load.ts`), and no loop path writes one.
-> *Today:* **not met** — nothing enforces it. The absence holds by convention
-> only, and G1/G2 are the reason that matters. `docs/reference/harness.md:93-101`
-> is explicit that there is no replay holdout, no variance decomposition and no
-> promotion gate — and that "nothing may be promoted until it does." Self-evolving
-> policy is out of scope for V1 and should be *stated*, not left to restraint.
+**G2 — No file the agent can write may widen a bound the operator set.**
+> *Check:* `grep -rn 'lookupBudget' src/` shows exactly one source for the limit
+> — `config.web.lookupBudget` — with no `??` fallback that another file can win.
+> *Today:* **met**, by deletion. `createLookupBudget(limit, opts)`
+> (`src/web/budget.ts`) takes the operator's number and nothing else;
+> `test/runner/context.test.ts` pins that a `genome.yaml` at the vault root is
+> inert. Kept as a criterion because it is a property worth re-checking every
+> time a new policy file is proposed, not a one-time cleanup.
+
+**G3 — No module ships with zero non-test callers.**
+> *Check:* for each module in `src/`, assert its name appears in at least one
+> `import` outside `test/`. (Computing the dead set mechanically is the point —
+> "excluding dead modules" as a manual carve-out lets whoever runs the check make
+> it pass by declaring more modules dead.)
+> *Today:* **met** for the case that motivated it — `correlate.ts` is deleted —
+> but **unpinned**: nothing in CI runs this, so the next dead module ships the
+> same way. The rule earns its place under D2: the harness was the repo's only
+> prediction/outcome/score triple, and a harness varying a gene that reached no
+> consumer would have reported a fitness delta for a policy nobody applied —
+> manufacturing corroboration out of noise, which is the exact pathology D2
+> exists to prevent.
+
+**G4 — Policy does not evolve unattended.**
+> *Check:* `ls src/harness src/genome` finds nothing, and no code path writes a
+> policy file into a vault.
+> *Today:* **met**, by deletion. Re-introducing an evolvable policy needs the
+> replay holdout, variance decomposition and promotion gate that the removed
+> harness never had — that is the bar, and it should be met before a second
+> attempt, not after.
+
+#### The mechanisms that may never become tunable
+
+Salvaged from the deleted `docs/reference/genome.md`, because it is the clearest
+statement in the repo of what must stay fixed — and the argument is a measurement
+argument, not squeamishness. **A variant able to relax any of these would score
+well by corrupting the instrument rather than by being better**, and no fitness
+number can tell those two apart.
+
+| Mechanism | Where it lives | Why it can never be tunable |
+|---|---|---|
+| **The tool allowlist** | `ALLOWED_TOOL_NAMES`, `assertNoDestructiveTool` (`src/security/policy.ts`) | The closed set of capabilities OST-Agent may ever hold. Anything that could add a name could add `rm`. |
+| **The lane gate** | `LANES`, `computeMayRun`, `CAUTIOUS_LANE` (`src/knowledge/lanes.ts`); `flagHumansRequired` (`src/ost/lanes.ts`) | Exactly one lane carries `computeMayRun: true`, and it fails closed on an unknown, missing or future id. The setter is restrictive-only *by having no lane parameter* — the absence of the parameter is the safety argument. |
+| **The invariant checker** | `checkInvariants` (`src/eval/invariants.ts`) | Structural truths, model-independent. `no-self-validation` is the rule that stops a variant declaring its own work validated. |
+| **The SSRF guard** | `assertAllowedUrl`, `isPrivateIpv4`, `MAX_REDIRECTS` (`src/web/guard.ts`) | Outward sensing crosses a trust boundary exactly once. `TIMEOUT_MS` and `MAX_PAGE_CHARS` are arguably cost parameters, but they sit inside the guard and extracting them risks loosening it by adjacency. |
+| **The believability floor** | `FLOOR_RUNG` (`src/knowledge/believability.ts`); `HOST_RUNGS` (`src/knowledge/web-trust.ts`) | Anything unjustified sinks to `assertion`, and `expert` is the ceiling a byline can earn. Promoting a page to first-party-measurement strength is the same category error as self-validation. |
+| **The promotion gate** | `gateSolution`, `hasRecordedResult` (`src/eval/evidence-debt.ts`) | Extracting the referee into the thing being refereed is the category error the whole design avoids. |
+
+Also fixed, for the same family of reasons: `CHILD_HIERARCHY` (a rewritten tree
+grammar produces trees `checkInvariants` rejects — crashed runs rather than
+measured ones), `SECRET_PATTERNS` (a narrowed table leaks credentials into a
+committed vault), the append-only fail-open ledger writes, and `OST_RULESET`,
+which is distilled Torres canon and safety rules rather than tunable policy.
 
 ---
 
@@ -1053,7 +1086,8 @@ cadence.** B5, B6, B11, P5. H1 belongs at the head of this tier: a self-feeding
 tree that cannot report whether a firing succeeded is a machine for generating
 unattributable work.
 
-**Tier 5 — consequence, scale, release.** P1, P2, P7–P10; Z1–Z5; G3, G4; Gate D.
+**Tier 5 — consequence, scale, release.** P1, P2, P7–P10; Z1–Z5; G3; Gate D.
+(G2 and G4 are met by deletion; G3 needs only a CI grep.)
 P1 and P2 gate the *first real-world action*, not the first firing, so they can
 trail the spine — but they must land before anything the tree proposes gets
 executed by a builder.
@@ -1079,7 +1113,8 @@ next time.
 Stating these keeps the bar honest and keeps the README from over-promising:
 
 - **Not** that the agent determines its own autonomy. The lane gate is
-  fail-closed and permanently non-evolvable (`docs/reference/genome.md:46`); the
+  fail-closed and permanently non-evolvable (see *the mechanisms that may never
+  become tunable*, Gate G); the
   agent may only ever *narrow* what compute runs. D3's "unbounded envelope" is
   what testing the working environment has so far shown to be available — the
   sponsor's stated grant is one claim about that environment, scored like any
@@ -1120,9 +1155,9 @@ A mechanical join on the *(verified)* marker in the body.
 | W9 | Two colliding inbox files → one record, tool reports "captured 1" | `src/processes/tree.ts:24-26` |
 | Z1 | 500 near-duplicates → `RangeError: Maximum call stack size exceeded` | `src/mcp/next-work.ts:113` |
 | Z2 | 400 near-duplicates → 80,200 hygiene issues, 13.1 MB response (returns) | `src/mcp/next-work.ts:113` |
-| G1 | Malformed `genome.yaml` returns `isError` from every tool | `src/genome/load.ts:56-60` |
-| G2 | `budgets.sharedPool: 9999` overrides `web.lookupBudget: 10` | `src/web/budget.ts:98` |
-| G3 | `computeAttention` reported `calls-and-ms` when the genome asked `tokens` | `src/eval/attention.ts:263-266` |
+| G1 | Malformed `genome.yaml` returned `isError` from every tool. The file is gone; `ost.config.yaml` throws the same way | `src/config/load.ts:105-110` |
+| G2 | `budgets.sharedPool: 9999` overrode `web.lookupBudget: 10`. Fixed by deletion | `src/web/budget.ts` |
+| G3 | `computeAttention` reported `calls-and-ms` when the genome asked `tokens` | `src/eval/attention.ts` |
 | D5 | An audit probe file sat untracked in the working tree, awaiting `git add -A` | `src/git/safe-git.ts:49` |
 
 Dedupe timings, distinct titles: 98 / 374 / 1,513 / 6,078 / 24,121 ms at
