@@ -92,7 +92,6 @@ function buildDefs(ctx: PassContext): McpToolDef[] {
       vault: ctx.vault,
       dir: ctx.dir,
       remote: ctx.remote,
-      genome: ctx.genome,
       minSolutionsPerOpportunity: ctx.config.processes["P3_ideate"]?.minSolutionsPerOpportunity,
       surface: "mcp",
       web: ctx.web,

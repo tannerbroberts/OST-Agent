@@ -173,11 +173,6 @@ function appendAttention(lines: string[], ctx: PassContext, tree: readonly OstNo
   if (!tree.some((n) => n.layer === "Unknown")) return;
 
   const rollup = computeAttention(tree, ctx.dir, {
-    weightedTokenSpend: ctx.genome.weightedTokenSpend,
-    classifier: ctx.genome.classifier,
-    resolution: ctx.genome.resolution,
-    attribution: ctx.genome.attribution,
-    costBasis: ctx.genome.tokenSplit.costBasis,
   });
 
   let satisfied = 0;
@@ -206,7 +201,7 @@ function appendAttention(lines: string[], ctx: PassContext, tree: readonly OstNo
   const recorded = attributed + rollup.unattributed.calls;
   if (recorded > 0) {
     const share = Math.round((rollup.unattributed.calls / recorded) * 100);
-    const stray = weightedTokenCost(rollup.unattributed.tokens, ctx.genome.weightedTokenSpend);
+    const stray = weightedTokenCost(rollup.unattributed.tokens);
     lines.push(
       `  unattributed: ${rollup.unattributed.calls}/${recorded} recorded call(s) (${share}%) named no unknown` +
         (stray > 0 ? `, weighted cost ${formatCost(stray)}` : ""),

@@ -9,11 +9,7 @@
  *
  * The token weighting lives here rather than in the store on purpose. Summing
  * tiers at write time would bake in a cost model; here it is read-time policy,
- * and as of Phase 2 the numbers themselves are an allele — `weightedTokenSpend` in
- * `genome.yaml` — rather than a constant this module owns. `DEFAULT_WEIGHTED_TOKEN_SPEND`
- * below is a READER of the genome's defaults, not a second copy of them: a vault
- * with no genome.yaml and a vault carrying the shipped default resolve through
- * the same parse and therefore cannot disagree.
+ * overridable per call.
  *
  * Cost per unknown is the SUM of two independent sources, read from the trace
  * they each actually land in: the attention ledger (`recordAttention`, keyed
@@ -24,52 +20,68 @@
  * non-zero in practice. The usage log is read exactly once per rollup and
  * split three ways: attributed (a known unknown), unattributed (no `unknown`
  * field), or neither — an `unknown` field naming a title not on this tree, whose
- * fate is the `attribution.staleAttribution` allele: dropped (the default, and
- * what this always did) or folded into unattributed.
+ * fate is the `staleAttribution` option: dropped (the default) or folded into
+ * unattributed.
  *
- * Phase 2 adds a token dimension the tool tracer cannot see. Transcript
- * correlation (`eval/correlate.ts`) arrives as a third additive source beside
- * the ledger and the trace, and with it a FOURTH bucket the call-based split
- * has no room for: transcript spend inside no tool window at all — the
- * thinking, the reading, the assistant turn that emits the call. That is not
- * the same ignorance as "a call with no OST_UNKNOWN", and folding the two
- * together would inflate the unattributed share with spend no call ever
- * bracketed, so they are reported apart. Every rollup carries the basis its
- * numbers actually rest on, because a comparison across bases must be refused
- * rather than silently normalized, and a refusal needs something to read.
+ * There is a token dimension the tool tracer cannot see, and nothing fills it.
+ * The `correlated` parameter is the seam a transcript correlator would arrive
+ * through, along with a FOURTH bucket the call-based split has no room for:
+ * transcript spend inside no tool window at all — the thinking, the reading,
+ * the assistant turn that emits the call. That is not the same ignorance as "a
+ * call with no OST_UNKNOWN", and folding the two together would inflate the
+ * unattributed share with spend no call ever bracketed, so they are reported
+ * apart. Every rollup carries the basis its numbers actually rest on, because a
+ * comparison across bases must be refused rather than silently normalized.
  *
- * The basis is a property of what this rollup ACTUALLY RECEIVED, not of what
- * the genome wished for. No `correlated` map reaches `computeAttention` =>
- * `costBasis` is `"calls-and-ms"`, whatever `tokenSplit.costBasis` declares.
- * Under the default genome `tokenSplit.enabled` is false, the correlator never
- * runs, and nothing passes `correlated` — so every production rollup reports
- * `calls-and-ms` until an explicit non-default genome turns the split on.
+ * The basis is a property of what this rollup ACTUALLY RECEIVED, not of what a
+ * caller asked for. No `correlated` map reaches `computeAttention` =>
+ * `costBasis` is `"calls-and-ms"`, whatever the caller declared — and since
+ * nothing in the repo passes `correlated`, that is every rollup today.
  */
-import { defaultGenome } from "../genome/load.js";
-import type { AttributionGene, ClassifierGene, ResolutionGene, WeightedTokenSpendGene } from "../genome/schema.js";
-import { classifyUnknown, resolutionState, DEFAULT_CLASSIFIER, DEFAULT_RESOLUTION, type ResolutionState, type UnknownClass } from "../knowledge/unknowns.js";
+import {
+  classifyUnknown,
+  resolutionState,
+  DEFAULT_CLASSIFIER,
+  DEFAULT_RESOLUTION,
+  type ResolutionPolicy,
+  type ResolutionState,
+  type UnknownClass,
+  type UnknownClassifier,
+} from "../knowledge/unknowns.js";
 import type { OstNode } from "../ost/node.js";
 import { addTiers, emptyTiers, readAttention, type TokenTiers } from "../telemetry/attention.js";
 import { usageLogPath } from "../telemetry/usage.js";
 import fs from "node:fs";
 
-/**
- * The cost model, structurally identical to the genome's `weightedTokenSpend` gene
- * because it IS that gene. The alias is kept exported so every existing
- * importer compiles unchanged while the numbers move out of TypeScript.
- */
-export type WeightedTokenSpend = WeightedTokenSpendGene;
+/** Relative cost per token tier. Ratios, not currency. */
+export interface WeightedTokenSpend {
+  input: number;
+  output: number;
+  cacheCreate: number;
+  cacheRead: number;
+}
+
+/** What to do with a spend marker naming a title no longer on the tree. */
+export type StaleAttribution = "drop" | "unattributed";
 
 /**
  * Relative cost per tier, tracking published pricing ratios: output is the
  * dear one, a cache write costs a little more than fresh input, and a cache
  * read is roughly a tenth. These are ratios, not currency.
  *
- * Read from the genome schema's defaults rather than restated here. There is
- * exactly one literal `5` for the cost of an output token in this repo and it
- * lives in `GenomeSchema`; this const is how the rest of `eval/` reaches it.
+ * Nothing writes token counts today — the tool tracer never sees a token — so
+ * this model prices a quantity that is structurally zero on every live path,
+ * and `resolveCostBasis` downgrades every production rollup to `calls-and-ms`
+ * accordingly. It is kept because the shape of the ledger is right and the
+ * numbers are the published ratios; it is not evidence that anything is being
+ * weighed.
  */
-export const DEFAULT_WEIGHTED_TOKEN_SPEND: WeightedTokenSpend = defaultGenome().weightedTokenSpend;
+export const DEFAULT_WEIGHTED_TOKEN_SPEND: WeightedTokenSpend = {
+  input: 1,
+  output: 5,
+  cacheCreate: 1.25,
+  cacheRead: 0.1,
+};
 
 export function weightedTokenCost(tokens: TokenTiers, weightedTokenSpend: WeightedTokenSpend = DEFAULT_WEIGHTED_TOKEN_SPEND): number {
   return (
@@ -101,7 +113,7 @@ export interface ClassRollup {
 
 export interface AttentionRollup {
   unknowns: UnknownAttention[];
-  /** Keyed by the genome's class vocabulary — every declared class gets a bucket, earned or not. */
+  /** Keyed by the classifier's vocabulary — every declared class gets a bucket, earned or not. */
   byClass: Record<string, ClassRollup>;
   /** Spend the trace could not attribute to any unknown. */
   unattributed: { calls: number; ms: number; tokens: TokenTiers };
@@ -168,7 +180,7 @@ export interface TracedCall {
 function rollUpUsage(
   vaultDir: string,
   knownTitles: ReadonlySet<string>,
-  staleAttribution: AttributionGene["staleAttribution"] = "drop",
+  staleAttribution: StaleAttribution = "drop",
 ): UsageRollup {
   const byUnknown = new Map<string, CallCost>();
   const unattributed = emptyCallCost();
@@ -230,7 +242,7 @@ function mergeCorrelated(
   usage: UsageRollup,
   knownTitles: ReadonlySet<string>,
   correlated: Map<string, TokenTiers> | undefined,
-  stale: AttributionGene["staleAttribution"],
+  stale: StaleAttribution,
 ): void {
   if (!correlated) return;
   for (const [title, tokens] of correlated) {
@@ -246,17 +258,16 @@ function mergeCorrelated(
 
 /**
  * What this rollup's numbers actually rest on — a property of what it
- * RECEIVED, never of what the genome declared.
+ * RECEIVED, never of what a caller declared.
  *
- * The genome may declare `tokens`, but a declaration is not data: with no
- * correlated map supplied every token is zero, and a fitness comparison on
- * that basis would read the silence as "this variant spent nothing". So the
- * rule is unconditional: `opts.correlated === undefined` => `"calls-and-ms"`,
- * regardless of `tokenSplit.costBasis` or of `opts.costBasis`. Under the
- * default genome (`tokenSplit.enabled: false`) the correlator never runs and
- * no caller passes `correlated`, so every production rollup reports
- * `calls-and-ms` until an explicit non-default genome turns the split on.
- * Supplying an EMPTY map is not the same as supplying none — it says the
+ * A caller may ask for `tokens`, but a request is not data: with no correlated
+ * map supplied every token is zero, and a comparison on that basis would read
+ * the silence as "this spent nothing". So the rule is unconditional:
+ * `opts.correlated === undefined` => `"calls-and-ms"`, regardless of
+ * `opts.costBasis`. Nothing in the repo passes `correlated`, so every rollup
+ * today reports `calls-and-ms`.
+ *
+ * Supplying an EMPTY map is not the same as supplying none — it says a
  * correlator ran and found no attributable spend, which is a token measurement
  * of zero rather than the absence of a measurement.
  */
@@ -270,38 +281,35 @@ function emptyClassRollup(): ClassRollup {
 }
 
 /**
- * A bucket per class the genome declares, whether or not any node earned it.
- * A class that appears with zero is a measured zero; a class that is simply
- * absent from the record is indistinguishable from a class that was never
- * declared, and fitness has to be able to tell those apart.
+ * A bucket per declared class, whether or not any node earned it. A class that
+ * appears with zero is a measured zero; a class simply absent from the record
+ * is indistinguishable from one that was never declared, and a reader has to be
+ * able to tell those apart.
  */
 function emptyByClass(classes: readonly string[]): Record<string, ClassRollup> {
   return Object.fromEntries(classes.map((c) => [c, emptyClassRollup()]));
 }
 
 /**
- * Which alleles this rollup is computed under. An object rather than more
+ * Which policy this rollup is computed under. An object rather than more
  * positionals: the third argument is already load-bearing at nine call sites,
- * and later genes (the classifier, the resolution machine, correlated token
- * cost) need to arrive here too without any of them becoming a fourth slot
- * whose meaning depends on argument order.
+ * and each of these needs to arrive without becoming a fourth slot whose
+ * meaning depends on argument order.
  *
- * Every field is optional and every omission means "the shipped default",
- * which is what makes a vault with no genome.yaml behave exactly as it did.
+ * Every field is optional and every omission means the shipped default.
  */
 export interface AttentionOptions {
-  /** The cost model. Omitted ⇒ {@link DEFAULT_WEIGHTED_TOKEN_SPEND}, i.e. the genome's default. */
-  weightedTokenSpend?: WeightedTokenSpendGene;
-  /** The classification thresholds. Declared here; read from Task 4 onward. */
-  classifier?: ClassifierGene;
-  /** The resolution machine's parameters. Declared here; read from Task 5 onward. */
-  resolution?: ResolutionGene;
-  /** How spend is attributed to unknowns. Declared here; read from Task 7 onward. */
-  attribution?: AttributionGene;
+  /** The cost model. Omitted ⇒ {@link DEFAULT_WEIGHTED_TOKEN_SPEND}. */
+  weightedTokenSpend?: WeightedTokenSpend;
+  /** The classification rules. Omitted ⇒ {@link DEFAULT_CLASSIFIER}. */
+  classifier?: UnknownClassifier;
+  /** The resolution rules. Omitted ⇒ {@link DEFAULT_RESOLUTION}. */
+  resolution?: ResolutionPolicy;
+  /** How spend naming an off-tree title is attributed. Omitted ⇒ dropped. */
+  attribution?: { staleAttribution: StaleAttribution };
   /**
-   * Per-unknown token spend from the transcript correlator (`correlateTokens`).
-   * Absent means no correlation was attempted — which is the default genome,
-   * where `tokenSplit.enabled` is false and this argument is never passed.
+   * Per-unknown token spend from a transcript correlator. Absent means no
+   * correlation was attempted, which is every caller in the repo today.
    */
   correlated?: Map<string, TokenTiers>;
   /**
@@ -309,7 +317,7 @@ export interface AttentionOptions {
    * in NO tool window at all. Reported as its own bucket, never merged.
    */
   residual?: TokenTiers;
-  /** The basis the genome declares; downgraded when nothing correlated. */
+  /** The basis the caller asks for; downgraded when nothing correlated. */
   costBasis?: "tokens" | "calls-and-ms";
 }
 
@@ -361,9 +369,9 @@ export function computeAttention(
 
   const byClass = emptyByClass(classifier.classes);
   for (const u of unknowns) {
-    // A class outside the declared vocabulary cannot arrive from a loaded
-    // genome — the schema refuses one — but a hand-built gene may carry one,
-    // and dropping the spend on the floor would be worse than naming it.
+    // A hand-built classifier may emit a class outside its own declared
+    // vocabulary, and dropping the spend on the floor would be worse than
+    // naming it.
     const bucket = (byClass[u.klass] ??= emptyClassRollup());
     bucket.count++;
     bucket.weightedCost += u.weightedCost;
