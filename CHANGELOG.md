@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- **Four ways an unattended vault could wedge itself, closed.** Each was a state the
+  agent could reach and then never leave, and all four are now refusals at the last
+  boundary that could still take the write back.
+  - A wikilink split across a line break is refused at the write. It was never an
+    edge and never a *dangling* edge, so only `wrapped-wikilink` saw it — and nothing
+    on an append-only surface could clear it, because clearing it would mean shrinking
+    a body. `assertWritableContent` is the funnel every node write already passed
+    through; it now says no.
+  - A hygiene issue is cleared only by a real annotation. Suppression compared the
+    whole node body against the issue text, so prose *quoting* an issue cleared it —
+    which made every free-text write parameter a way to forge `done`, the one gate the
+    unattended loop reads. It now reads the dated entry `ost_annotate` writes under
+    `## Issues`.
+  - One malformed evidence file costs one record, not the read. Unparseable
+    frontmatter threw out of `readEvidence` and took `ost_next_work` down with it —
+    a denial of service on the whole sweep, reachable by anything that can drop a file
+    in the inbox.
+  - `autonomous-pass.sh` gates its push on `ost-agent check`. `claude -p` exits 0 for
+    a pass that wedged, so the script pushed unconditionally and a failed firing was
+    indistinguishable from a good one.
+
 - **Web search no longer needs an API key.** `ost_search_web` now tells the agent
   to use its host's own web search and feed URLs to `ost_read_web`, which is what
   records provenance. Keyless federated sources (Wikipedia, Hacker News, Discourse)

@@ -40,6 +40,15 @@ claude -p "/ost-pass" \
   --allowedTools "$OST_TOOLS" \
   --output-format text
 
+# `claude -p`'s exit code reports Claude Code's health, not the tree's — a pass that
+# wedged, skipped a phase, or left the vault red still exits 0. `ost-agent check` runs
+# the deterministic invariants and exits 1 on violations, which is the only mechanical
+# truth available here, so the push is gated on it and a red tree fails the firing.
+if ! node "$OST_AGENT_DIR/dist/ost-agent.mjs" check --vault .; then
+  echo "ost-agent check reported violations — not pushing." >&2
+  exit 1
+fi
+
 # Writes were auto-committed by the MCP server. Push if the vault has a remote.
 if git remote get-url origin >/dev/null 2>&1; then
   git push

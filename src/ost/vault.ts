@@ -11,7 +11,15 @@
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
-import { deserialize, serialize, type Layer, type NodeStatus, type OstNode, LAYERS } from "./node.js";
+import {
+  deserialize,
+  serialize,
+  wrappedLinkTargets,
+  type Layer,
+  type NodeStatus,
+  type OstNode,
+  LAYERS,
+} from "./node.js";
 import { fileNameForTitle, sanitizeTitle } from "./sanitize.js";
 import type { CensusDrop, TreeCensus } from "./census.js";
 import type { RungId } from "../knowledge/believability.js";
@@ -50,6 +58,22 @@ function assertWritableContent(what: string, value: string): void {
       `refusing to write ${what}: content was the literal string "${trimmed}". ` +
         `This is almost always a stringified unset variable rather than something meant ` +
         `to be recorded; an append-only vault cannot take it back.`,
+    );
+  }
+  // A wikilink broken across a line break is a one-way door, and the only one this
+  // guard can close. It is not an edge (only a whole line `[[Title]]` becomes one) and
+  // not a dangling edge either, so it is invisible to every structural check except
+  // `wrapped-wikilink` — which no append-only tool can then clear, because clearing it
+  // would mean shrinking a body. Refusing at the write is the last moment the content
+  // is still revocable.
+  const wrapped = wrappedLinkTargets(value);
+  if (wrapped.length > 0) {
+    throw new Error(
+      `refusing to write ${what}: the link [[${wrapped[0]}]] is split across a line ` +
+        `break. Only a whole line of the form [[Title]] becomes an edge, so this would ` +
+        `render as bracketed text while permanently reddening \`wrapped-wikilink\` — and ` +
+        `an append-only vault has no tool that can take it back. Put the link on one ` +
+        `unbroken line.`,
     );
   }
 }
