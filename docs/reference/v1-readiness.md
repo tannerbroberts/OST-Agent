@@ -8,15 +8,28 @@ Written 2026-07-29 against `0.23.0` (`8387c08`); revised after `8261a6f`
 deleted the genome and the harness, again after the first Tier 1 batch closed
 R1, R5, S6 and H2, and again after the second batch turned R3's table, W4 and G3
 into committed tests, and again after R4 made the two health gates compute one
-rule set. The suite is green — 790 tests across 79
+rule set, and again after B12 stated the ingest-to-rank chain as one criterion
+instead of four cross-references. The suite is green — 790 tests across 79
 files, `tsc --noEmit` clean — and nothing below is about the code being broken.
 It is about the difference between *a tool that works when watched* and *a
 system that can be left alone*.
 
-**67 criteria, 17 of them blockers. 11 met, 3 partial, 53 not met.** Three of the
-eleven were met by *deleting* something rather than building it, which is the
+**68 criteria, 17 of them blockers. 13 met, 3 partial, 52 not met.** Three of the
+thirteen were met by *deleting* something rather than building it, which is the
 document working as intended; four more were the first Tier 1 batch, each of
 which turned a wedge into a refusal at the boundary that could still take it back.
+
+> *These numbers were counted out of this file on 2026-07-29 rather than carried
+> forward, and two of them were wrong.* The line read **11 met, 53 not met**
+> against 67 criteria; the file held 13 `met` statuses and 51 `not met`, because
+> R4 and R7 closed in the last batch and their own entries were updated while
+> this line was not. (The criterion total moved 67 → 68 for a different reason:
+> B12 below is new.) The blocker count survived the count at 17 —
+> a naïve `grep -c '⛔'` returns 18, and the eighteenth is the legend that
+> explains the symbol. **A number in a summary line is a claim carried by memory
+> about claims carried by tests, which is the weakest link in the document and
+> the one nothing pins.** The counts are one `awk` over criterion headings and
+> `*Today:*` lines; the next revision should re-run it rather than adjust it.
 
 **The second batch moved two criteria in opposite directions, and that is the
 point of pinning things.** R9's clearability table now runs (`test/eval/clearability.test.ts`),
@@ -64,27 +77,34 @@ whose statements are true.
 
 ### The three settled decisions
 
-- **D1 — Builder isolation.** The vault is off-limits to the builder. Read
+- **DEC-1 — Builder isolation.** The vault is off-limits to the builder. Read
   access only. It reports commissioned pipelines through the inbox. Who builds
   does not matter; that it cannot write the tree does.
-- **D2 — Earned believability.** A new stream, result, or source arrives
+- **DEC-2 — Earned believability.** A new stream, result, or source arrives
   untested, untrusted and fragile — a new hire whose résumé, references and
   self-description are all unverified. Standing is earned by **testing cause and
   effect**: a source that makes predictions reality corroborates rises; one that
   does not, does not.
-- **D3 — Unbounded envelope, granted in real time.** The agent assumes it has
+- **DEC-3 — Unbounded envelope, granted in real time.** The agent assumes it has
   forever *and* must be maximally efficient. Whether a resource can be acquired
   is itself a question to be answered by **testing the working environment**. The
   sponsor's promises about that environment are exactly as suspect as any other
   claim and enter through the inbox like everything else.
 
+Each decision has one gate that enforces it: **DEC-1 → Gate W**, **DEC-2 → Gate
+B**, **DEC-3 → Gate P**. *(These were numbered `D1`–`D3` until 2026-07-29, which
+collided with Gate D's criteria `D1`–`D5` — a reference like "under D2" resolved
+to two different claims depending on which half of the document the reader had
+open, and by the time it was caught R2's reachability note contained one of
+each. Decisions are `DEC-n`; a bare letter-and-number is always a criterion.)*
+
 ### What follows mechanically — the derived consequences
 
-These are not preferences. They fall out of D1–D3 and they reshape several
+These are not preferences. They fall out of DEC-1–DEC-3 and they reshape several
 things the repo currently does.
 
 1. **A result is not *recorded*, it is *reported*.** `ost-agent result` writes
-   the vault (`src/ost/results.ts:75-83`). Under D1 the builder cannot call it.
+   the vault (`src/ost/results.ts:75-83`). Under DEC-1 the builder cannot call it.
    So a test outcome arrives as an inbox report at the floor rung, and the
    cartographer decides what to believe. This deletes an entire class of
    attribution problem instead of patching it — and it removes the CLI path by
@@ -131,7 +151,7 @@ this repository, not inferred from reading.
 
 ### Gate W — One writer
 
-The boundary D1 describes does not exist in this repository. `builder` appears
+The boundary DEC-1 describes does not exist in this repository. `builder` appears
 exactly once in all of `src/`, in a doc comment (`src/telemetry/usage.ts:4`).
 The vault is a plain directory, it equals `CLAUDE_PROJECT_DIR`
 (`.claude-plugin/plugin.json:28-30`), and any process with a filesystem handle
@@ -147,7 +167,7 @@ inbox" and "may write the tree" are different grants.**
 > (`src/security/tools.ts:623`), and the vault is the git working tree. An escape
 > *does* already exist — `adapters.inbox.path` is joined unconfined, so
 > `../inbox` resolves outside — but it is undocumented, untested and unvalidated.
-> **D1 needs that escape blessed and asserted, not discovered.** Until then a
+> **DEC-1 needs that escape blessed and asserted, not discovered.** Until then a
 > read-only mount denies the builder its only channel and a writable mount denies
 > the isolation.
 
@@ -217,7 +237,7 @@ tool surface.**
 > emitted by `src/mcp/setup.ts:28-35`). `result` is **not** granted by any shipped
 > command — so `README.md:175`'s claim holds for the shipped surface and is
 > fragile only for an operator who broadens the prefix. But `set-outcome:*` **is**
-> granted and **is** a direct tree write (`src/runner/set-outcome.ts`). Under D1's
+> granted and **is** a direct tree write (`src/runner/set-outcome.ts`). Under DEC-1's
 > derived consequence 1, `result`, `set-outcome` and `lane --set` should stop
 > writing the tree and start filing through the inbox, the way `ost-agent
 > friction` already does (`src/adapters/friction.ts:70-103`).
@@ -249,7 +269,7 @@ tool surface.**
 > *Today:* **not met** *(verified: returns 1, the tool reports "captured 1 new
 > note(s): note", and the cursor stores both ids as seen).* Idempotency is keyed
 > on a lossy filename rather than on the id (`src/processes/tree.ts:24-26`). Under
-> D1 the inbox is the builder's **only** channel, and a builder whose report
+> DEC-1 the inbox is the builder's **only** channel, and a builder whose report
 > collides has no way to detect it. `titlesMatch` (`src/ost/sanitize.ts:98-101`)
 > is this repo's own precedent for "lookup must agree with storage", written after
 > exactly this class of bug.
@@ -293,7 +313,7 @@ retry.**
 
 ### Gate B — Earned believability
 
-D2 is the decision with the least existing machinery behind it. There is **no
+DEC-2 is the decision with the least existing machinery behind it. There is **no
 mechanism today by which a prediction is recorded, an outcome observed, and a
 source's standing adjusted as a consequence.** The word "earned" in
 `ost_rank_source`'s description is a word in a tool description.
@@ -385,8 +405,8 @@ kind.**
 > *(verified)*: `normalizeHost` (`:37-44`) is a no-op on a bare string. So a
 > commissioned pipeline and a real hostname collide in one namespace, and
 > `HOST_RUNGS` (`:20`) caps *every* actor at `expert` — including one whose
-> standing D2 says is earned by measurement, which is exactly what `expert` is
-> the ceiling *against*. Under D2 this is the central missing data structure, and
+> standing DEC-2 says is earned by measurement, which is exactly what `expert` is
+> the ceiling *against*. Under DEC-2 this is the central missing data structure, and
 > `web-trust.ts` is the right shape keyed wrongly.
 
 **B7 — `classifyProvenance` has a production caller.**
@@ -396,7 +416,7 @@ kind.**
 > rung from `source` — `TRANSCRIPT:` → observed, `JIRA`/`SLACK`/`INTERVIEW:` →
 > stated, `WEB:<host>` → the host's earned rung clamped to expert, everything else
 > → floor (`src/knowledge/believability.ts:126-137`) — and has **no caller**. The
-> agent's freehand string is accepted instead. Under D1 the inbox is precisely
+> agent's freehand string is accepted instead. Under DEC-1 the inbox is precisely
 > where an unverified builder's self-description arrives. This is B3's missing
 > ceiling, one wire away.
 
@@ -420,7 +440,7 @@ source and results support.**
 > own comment concedes it at `:121-127`: satisfaction means a heading exists or a
 > status was set, "never that an answer was checked against its declared Format."
 > `## Format` is designed as the stopping condition and is a heading nobody
-> grades — which makes it the natural seat of D2's cause-and-effect test.
+> grades — which makes it the natural seat of DEC-2's cause-and-effect test.
 
 **B10 — The coverage-debt signal cannot be silenced by the actor that created
 the debt.**
@@ -439,17 +459,51 @@ as suspect.**
 > (`src/runner/set-outcome.ts:55`, the human-only CLI's mandate history line) and
 > three prose entries in `OST_RULESET` (`src/knowledge/ruleset.ts:57`, `:103`,
 > `:134`) that *tell the model* to re-chart an invalidated branch while providing
-> no tool that does it. No invariant reads `source` at all. Under D2 a source that
+> no tool that does it. No invariant reads `source` at all. Under DEC-2 a source that
 > can earn standing must be able to lose it, and losing it is worthless if the
-> tree cannot mark what it already seeded. **This is the harder half of D2 —
+> tree cannot mark what it already seeded. **This is the harder half of DEC-2 —
 > silence is the failure mode everyone plans for; a channel that keeps delivering
 > plausible, wrong content on cadence is the one that costs money.**
+
+**B12 — A report is ranked at the boundary it arrives on, and the rank is derived
+from the channel rather than from anything the producer wrote.**
+> *Check:* one end-to-end pass against a scratch vault, not four separate greps.
+> Drop `note.md` into the inbox whose own frontmatter declares `source:
+> TRANSCRIPT:session-1` and `evidence: money`; ingest it; create a node citing the
+> stored record; call `ost_set_evidence({evidence:'money'})`. **Pass requires all
+> four links to be wired to each other:** the stored record's actor reads `inbox`,
+> stamped by the surface (W11); the rung derived for it is the floor, derived from
+> the channel and not from the payload's self-description (B7); `ost_set_evidence`
+> refuses above that ceiling and names it (B3); and the ceiling comes from a ledger
+> keyed on the actor rather than on a hostname (B6).
+> *Today:* **not met at every link** — and the reason this is a criterion rather
+> than a summary of four others is that **each of W11, B7, B3 and B6 can pass in
+> isolation while the chain stays broken.** Nothing asserts that the identity W11
+> stamps is the one B7 classifies and B3 enforces; W11 can add an `actor` field no
+> reader consumes, and B7 can acquire a caller on a path `ost_set_evidence` never
+> takes.
+>
+> The chain's current state is worse than unbuilt at the one place it is
+> half-built. `classifyProvenance` is fail-closed everywhere except for a single
+> `INBOX:` pattern, and that pattern is keyed on a substring of the producer's own
+> filename: `classifyProvenance("INBOX:friction-report.md")` returns `stated` while
+> `classifyProvenance("INBOX:note.md")` returns `assertion`
+> (`src/knowledge/believability.ts:129`), and the id is `INBOX:${filename}`
+> verbatim (`src/adapters/inbox.ts:36-38`) *(verified)*. The rule is not a mistake
+> — it exists so the agent's own friction filings, which land in the inbox as
+> `<date>-friction-<slug>.md` (`src/adapters/friction.ts:101`), are classified as
+> first-person reports. But under DEC-1 the inbox is written by the untrusted
+> builder, and **the sole provenance rule that rises above the floor on the
+> builder's only channel reads a string the builder chooses.** That is B6's
+> diagnosis in a second place: the right shape, keyed on something unauthenticated.
+> Not a blocker on its own — it carries B3's status by reference, as P10 carries
+> B1's — but it is the criterion that fails if the tier is built and not connected.
 
 ---
 
 ### Gate P — The sponsor, permission, and consequence
 
-D3 makes the sponsor a managed, fallible resource and admits real money and real
+DEC-3 makes the sponsor a managed, fallible resource and admits real money and real
 legal entities into the picture. The repo has two risk vocabularies — the lane
 (who must be present) and the ladder (how strong the evidence is) — and **both
 describe the input to a decision, never the consequence of acting on it.**
@@ -465,7 +519,7 @@ fail-closed vocabulary with a cautious default.**
 > framing, which no code reads. Nothing distinguishes "append a note" from "wire
 > funds". Every safety property in this repo is currently carried by the fact that
 > **no irreversible verb exists on the tool surface** — which is exactly the
-> property D3 removes. The lane vocabulary is the right shape to copy: closed, one
+> property DEC-3 removes. The lane vocabulary is the right shape to copy: closed, one
 > permissive member, fail-closed on anything unrecognised
 > (`src/knowledge/lanes.ts:84-87`).
 
@@ -495,7 +549,7 @@ surfaced.**
 > (`src/ost/lanes.ts:103`), whose `runnable` list the `lanes` CLI *prints*
 > (`src/cli/index.ts:162-166`). **Nothing anywhere executes a `compute-only`
 > test, and `ost_next_work` has no runnable-test bucket.** The taxonomy that
-> decides "compute may run this" has no runner — so the mechanism D3 needs, that
+> decides "compute may run this" has no runner — so the mechanism DEC-3 needs, that
 > the agent answers feasibility questions by *testing its working environment*,
 > has a vocabulary and no engine.
 
@@ -624,8 +678,8 @@ Two such doors exist.
 >
 > *Reachability, which keeps this off the blocker bar:* `ost_flag_humans_required`
 > appears in **no** shipped command's `allowed-tools` — verified across all nine
-> files in `.claude/commands/` — and is absent from `SKILL.md:5` (see D3). Under
-> D2's own finding that an out-of-allowlist tool is *denied, not prompted*, the
+> files in `.claude/commands/` — and is absent from `SKILL.md:5` (see Gate D's D3).
+> Under Gate D's D2 finding that an out-of-allowlist tool is *denied, not prompted*, the
 > unattended sweep cannot reach the tool at all. The wedge is reachable only from
 > an interactive or custom surface. The same is true of `ost_set_evidence` (R7).
 >
@@ -682,9 +736,9 @@ agent can also clear.**
 > cell changed together — the table is what made "these two must move in the same
 > commit" a mechanical fact rather than a thing to remember.
 >
-> Under D1, an unclearable violation cannot be cleared by anyone but the sponsor
+> Under DEC-1, an unclearable violation cannot be cleared by anyone but the sponsor
 > on a shell — so **every one-way invariant is a mandatory human interrupt**,
-> which is the exact resource D3 is trying to spend sparingly.
+> which is the exact resource DEC-3 is trying to spend sparingly.
 >
 > *What a `no` cell means, precisely:* the declared attempt — the move an agent
 > would actually make — did not produce or did not clear the violation, and where
@@ -932,7 +986,7 @@ detectable.**
 > *Today:* **not met.** Cursors carry no timestamp and nothing reads their age —
 > `saveCursor` writes `{cursor}` only (`src/adapters/source.ts:59-63`). A channel
 > that died is indistinguishable from a channel with nothing to report, which
-> under D2 means the most common failure mode of a pipeline and success are the
+> under DEC-2 means the most common failure mode of a pipeline and success are the
 > same observable.
 
 **S3 — Two commissioned channels are simultaneously expressible, with distinct
@@ -1083,7 +1137,7 @@ whole tool surface.**
 > matters: `ost.config.yaml` is created by `init` and expected to exist, so a
 > human wrote it and a human can be pointed at it. `genome.yaml` was created by
 > nothing and reviewed by nobody — its mere *appearance* was the anomaly, and
-> under D1 an untrusted builder with a filesystem handle could have minted one.
+> under DEC-1 an untrusted builder with a filesystem handle could have minted one.
 > The remaining exposure is an operator's own typo, which is the ordinary kind.
 >
 > The right shape exists one handler away: `ListTools` already catches, falls
@@ -1124,10 +1178,10 @@ whole tool surface.**
 > that has to argue for itself, and deleting or wiring up either module fails the
 > test until its entry comes off. A debt register, not an exemption.
 >
-> The rule earns its place under D2: the harness was the repo's only
+> The rule earns its place under DEC-2: the harness was the repo's only
 > prediction/outcome/score triple, and a harness varying a gene that reached no
 > consumer would have reported a fitness delta for a policy nobody applied —
-> manufacturing corroboration out of noise, which is the exact pathology D2
+> manufacturing corroboration out of noise, which is the exact pathology DEC-2
 > exists to prevent.
 
 **G4 — Policy does not evolve unattended.**
@@ -1234,7 +1288,7 @@ become unmeasurable rather than merely unbuilt.**
 **Tier 1 — the vault must survive being left alone.** R1, R3, R4, R5 (a vault
 that can be permanently reddened by its own prose), G1 and S6 (a single malformed
 file that removes the tool the sweep depends on — S6 is the more reachable of the
-two, because under D1 the evidence directory is fed by an untrusted builder by
+two, because under DEC-1 the evidence directory is fed by an untrusted builder by
 design), and H2 (a firing that fails silently and pushes anyway). Nothing measured
 afterwards means anything if the subject is dead or if failure is invisible.
 >
@@ -1270,7 +1324,10 @@ W1/W11 means rebuilding the ingestion path.
 **Tier 4 — earned belief, once there are distinguishable sources emitting on a
 cadence.** B5, B6, B11, P5. H1 belongs at the head of this tier: a self-feeding
 tree that cannot report whether a firing succeeded is a machine for generating
-unattributable work.
+unattributable work. **B12 is this tier's acceptance test and the reason it spans
+Tiers 2–4 rather than sitting in one:** it is the only criterion that comes out
+false when W11, B7, B3 and B6 are each built and none of them is wired to the
+next, which is the shape a chain assembled across three tiers actually fails in.
 
 **Tier 5 — consequence, scale, release.** P1, P2, P7–P10; Z1–Z5; G3; Gate D.
 (G2 and G4 are met by deletion. G3's grep is now committed, and it moved the
@@ -1319,7 +1376,7 @@ Stating these keeps the bar honest and keeps the README from over-promising:
 - **Not** that the agent determines its own autonomy. The lane gate is
   fail-closed and permanently non-evolvable (see *the mechanisms that may never
   become tunable*, Gate G); the
-  agent may only ever *narrow* what compute runs. D3's "unbounded envelope" is
+  agent may only ever *narrow* what compute runs. DEC-3's "unbounded envelope" is
   what testing the working environment has so far shown to be available — the
   sponsor's stated grant is one claim about that environment, scored like any
   other (P2, P5), not an authority the tree defers to.
@@ -1356,6 +1413,7 @@ a finding the build reproduces.** Moving rows from here to there is the work.
 | B6 | `rankHost({host:"stripe-webhook-feed", rung:"expert"})` succeeds — no actor namespace | `src/knowledge/web-trust.ts:37-44` |
 | B8 | `checkInvariants` returns `[]` for a Solution declaring `money` with no result | `src/eval/invariants.ts:74-82` |
 | B10 | Coverage gaps drop 2 → 1 after an `ost_append_to_node` of `## Uncovered` | `src/eval/coverage.ts` |
+| B12 | `classifyProvenance("INBOX:friction-report.md")` → `stated`, `"INBOX:note.md"` → `assertion`; the id is the producer's filename | `src/knowledge/believability.ts:129` |
 | R1 | `wrapped-wikilink` survives every clearing attempt on the tool surface — *fixed 2026-07-29 at the write boundary; the tool surface can no longer author one* | `src/ost/node.ts:97-103` |
 | R2 | `lane-conflict` created by `ost_flag_humans_required`, unclearable | `src/ost/lanes.ts:124-133` |
 | R4 | `check` red while `next_work` reports zero hygiene issues, permanently | `src/eval/invariants.ts:38-46` |

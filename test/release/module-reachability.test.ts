@@ -6,7 +6,7 @@
  * this repo's one prediction/outcome/score triple, and a harness varying a gene
  * that reached no consumer would have reported a fitness delta for a policy
  * nobody applied — corroboration manufactured out of noise, which is the exact
- * pathology earned believability (D2) exists to prevent. `src/eval/correlate.ts`
+ * pathology earned believability (DEC-2) exists to prevent. `src/eval/correlate.ts`
  * was that module, and it shipped for months because nothing looked.
  *
  * **Reachability, not "is imported once."** A pair of dead modules that import
