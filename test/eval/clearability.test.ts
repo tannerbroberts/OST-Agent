@@ -1,0 +1,456 @@
+/**
+ * The clearability table, as a build failure instead of an audit finding.
+ *
+ * Every rule `checkInvariants` can emit is a claim the tree makes about itself.
+ * Under D1 (one writer) the agent is the only actor that touches the vault, so a
+ * violation the agent can *create* but cannot *clear* is not a warning — it is a
+ * permanent red that only a human on a shell can retire, and a mandatory human
+ * interrupt is exactly the resource an unattended system is trying to spend
+ * sparingly. `docs/reference/v1-readiness.md` (R3, R9) carried that table as
+ * prose, verified by hand, once. This is the table, executed.
+ *
+ * Three things make it a pin rather than a snapshot:
+ *
+ * 1. **The rows are grepped out of `src/eval/invariants.ts`**, never listed here.
+ *    Adding a rule with no row fails the build until someone states, in this
+ *    file, how the agent creates it and how the agent gets out of it.
+ * 2. **Two surfaces, because "the agent can clear it" has two answers.** The MCP
+ *    server exposes eighteen tools; `/ost-pass` — the unattended sweep — grants
+ *    eight of them, and under `-p --permission-mode acceptEdits` a call outside
+ *    that grant is *denied, not prompted*. `evidence-class` is clearable on one
+ *    surface and not the other, and that difference (R7) is invisible to any
+ *    check that only looks at the server.
+ * 3. **The attempts run against `buildOstTools(ctx, MCP_TOOL_NAMES)`**, not bare
+ *    `buildOstTools`, which also builds the `git_commit`/`git_push` pair the
+ *    server never exposes — and each call goes through `validateToolInput` first,
+ *    so a schema-refused call is refused here for the same reason it would be on
+ *    the wire.
+ *
+ * **What a `false` cell means, stated precisely:** the declared attempt — the
+ * move an agent would actually make — did not produce (or did not clear) the
+ * violation. It is not a proof that no sequence of the eighteen tools could. A
+ * negative of that strength is not available from a test, and pretending
+ * otherwise would be the same self-certification this file exists to catch.
+ * Where the `false` rests on a specific guard rather than on absence, the row
+ * pins the refusal text, so the cell fails if the guard is removed and the call
+ * starts quietly succeeding.
+ */
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { checkInvariants } from "../../src/eval/invariants.js";
+import { MCP_TOOL_NAMES } from "../../src/mcp/server.js";
+import { Vault } from "../../src/ost/vault.js";
+import type { OstNode } from "../../src/ost/node.js";
+import { buildOstTools, type ToolContext } from "../../src/security/tools.js";
+import { validateToolInput, type ToolSchema } from "../../src/security/validateToolInput.js";
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+
+/**
+ * Every rule literal `checkInvariants` can emit, read out of the source.
+ *
+ * This is the R9 requirement and the reason the file cannot rot: a hand-written
+ * list would let a new rule ship with no clear path and no failing test, which
+ * is precisely how the nine below accumulated.
+ */
+const RULES: string[] = (() => {
+  const src = fs.readFileSync(path.join(repoRoot, "src/eval/invariants.ts"), "utf8");
+  const found = [...src.matchAll(/rule: "([a-z-]+)"/g)].map((m) => m[1]);
+  return [...new Set(found)].sort();
+})();
+
+/**
+ * The tools `/ost-pass` grants, parsed from the shipped command file — the
+ * authority on what the unattended sweep can reach (`test/release/examples-allowlist.test.ts`
+ * pins that the automation examples copy it faithfully).
+ */
+const PASS_TOOL_NAMES: string[] = (() => {
+  const md = fs.readFileSync(path.join(repoRoot, ".claude/commands/ost-pass.md"), "utf8");
+  const line = md.match(/^allowed-tools:\s*(.+)$/m);
+  if (!line) throw new Error("ost-pass.md has no `allowed-tools` frontmatter line");
+  return line[1]
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((n) => n.replace(/^mcp__ost-agent__/, ""));
+})();
+
+const SURFACES = [
+  { name: "mcp", granted: [...MCP_TOOL_NAMES] as string[] },
+  { name: "ost-pass", granted: PASS_TOOL_NAMES },
+] as const;
+type SurfaceName = (typeof SURFACES)[number]["name"];
+
+/** One tool call, exactly as the model would issue it. */
+interface Attempt {
+  tool: string;
+  input: Record<string, unknown>;
+}
+
+/** What a surface can do to a rule: author it, and get out of it. */
+interface Cell {
+  create: boolean;
+  clear: boolean;
+}
+
+interface Scenario {
+  /** A legal tree, built without the tool surface — the state before anything goes wrong. */
+  setup: (v: Vault) => void;
+  /** How the agent would author the violation. Named in the test title. */
+  createPath: string;
+  create: Attempt[];
+  /** The same violation, put there out of band: a human in Obsidian, an import, a legacy node. */
+  plant: (v: Vault, dir: string) => void;
+  /** How the agent would get out of it. */
+  clearPath: string;
+  clear: Attempt[];
+  expected: Record<SurfaceName, Cell>;
+  /** Pins *why* a create is refused, where a guard rather than absence is the reason. */
+  createRefusal?: RegExp;
+}
+
+const OUTCOME = "Players keep playing";
+const OPPORTUNITY = "Players cannot tell what changed";
+const SOLUTION = "Ship a changelog";
+const ASSUMPTION = "Diff two builds and count the deltas";
+
+/** Direct vault writes — the fixture's way in, deliberately not the agent's. */
+function put(v: Vault, node: Partial<OstNode> & { title: string; layer: OstNode["layer"] }): void {
+  v.createNode({
+    body: `prose for ${node.title}`,
+    tags: [],
+    links: [],
+    evidence: "assertion",
+    ...node,
+  } as OstNode);
+}
+
+function outcomeOnly(v: Vault): void {
+  put(v, { title: OUTCOME, layer: "Outcome" });
+}
+
+function withOpportunity(v: Vault): void {
+  outcomeOnly(v);
+  put(v, { title: OPPORTUNITY, layer: "Opportunity" });
+  v.linkNodes(OUTCOME, OPPORTUNITY);
+}
+
+function withSolution(v: Vault): void {
+  withOpportunity(v);
+  put(v, { title: SOLUTION, layer: "Solution" });
+  v.linkNodes(OPPORTUNITY, SOLUTION);
+}
+
+/**
+ * A tree whose assumption test declares `compute-only` in its own prose and
+ * carries no lane in frontmatter — legal, and one restrictive call away from a
+ * contradiction.
+ */
+function withProseLane(v: Vault): void {
+  withSolution(v);
+  put(v, {
+    title: ASSUMPTION,
+    layer: "AssumptionTest",
+    body: "Compare two build manifests offline. Lane: compute-only.",
+  });
+  v.linkNodes(SOLUTION, ASSUMPTION);
+}
+
+const SCENARIOS: Record<string, Scenario> = {
+  "single-outcome": {
+    setup: outcomeOnly,
+    createPath: "ost_create_node asking for a second Outcome",
+    create: [
+      {
+        tool: "ost_create_node",
+        input: { title: "A rival mandate", layer: "Outcome", parent: OUTCOME, body: "a second root", evidence: "assertion" },
+      },
+    ],
+    // The mandate is human-set at init; a second one arrives by hand or by import.
+    plant: (v) => put(v, { title: "A rival mandate", layer: "Outcome" }),
+    clearPath: "deferring and annotating the duplicate — there is no delete, and no Outcome creation",
+    clear: [
+      { tool: "ost_set_status", input: { title: "A rival mandate", status: "deferred", note: "duplicate root" } },
+      { tool: "ost_annotate", input: { title: "A rival mandate", issue: "duplicate Outcome — the tree must have exactly one" } },
+    ],
+    expected: { mcp: { create: false, clear: false }, "ost-pass": { create: false, clear: false } },
+    createRefusal: /Outcome/,
+  },
+
+  "dangling-link": {
+    setup: withOpportunity,
+    createPath: "ost_link_nodes naming a child that does not exist",
+    create: [{ tool: "ost_link_nodes", input: { parent: OPPORTUNITY, child: "Ghost opportunity" } }],
+    plant: (v) => v.linkNodes(OPPORTUNITY, "Ghost opportunity"),
+    clearPath: "ost_create_node giving the named child a file",
+    clear: [
+      {
+        tool: "ost_create_node",
+        input: {
+          title: "Ghost opportunity",
+          layer: "Opportunity",
+          parent: OPPORTUNITY,
+          body: "the node the link was pointing at",
+          evidence: "assertion",
+        },
+      },
+    ],
+    expected: { mcp: { create: true, clear: true }, "ost-pass": { create: true, clear: true } },
+  },
+
+  "wrapped-wikilink": {
+    setup: withSolution,
+    createPath: "ost_append_to_node writing a link broken across a line break",
+    create: [{ tool: "ost_append_to_node", input: { title: OPPORTUNITY, section: `Related: [[Ship a\nchangelog]]` } }],
+    // R1 closed the tool surface to this; a hand-wrapped paragraph in Obsidian
+    // still writes one, which is why the rule stays worth computing.
+    plant: (_v, dir) =>
+      fs.writeFileSync(
+        path.join(dir, "Hand written note.md"),
+        [
+          "---",
+          "type: Opportunity",
+          "evidence: assertion",
+          "---",
+          "#Opportunity #evidence/assertion",
+          "",
+          "Typed in Obsidian and hard-wrapped by the editor: see [[Ship a",
+          "changelog]] for the shape of it.",
+          "",
+        ].join("\n"),
+        "utf8",
+      ),
+    clearPath: "annotating the node and appending a correction — an append-only vault cannot shrink a body",
+    clear: [
+      { tool: "ost_annotate", input: { title: "Hand written note", issue: "wrapped wikilink: put [[Ship a changelog]] on one line" } },
+      { tool: "ost_append_to_node", input: { title: "Hand written note", section: "Correction: the link above meant [[Ship a changelog]]." } },
+    ],
+    expected: { mcp: { create: false, clear: false }, "ost-pass": { create: false, clear: false } },
+    createRefusal: /split across a line/,
+  },
+
+  "opportunity-connected": {
+    setup: outcomeOnly,
+    // The attempt that would orphan one is the ordinary create — it attaches in
+    // the same call, which is the whole reason the cell is false.
+    createPath: "ost_create_node, which attaches under its parent in the same call",
+    create: [
+      {
+        tool: "ost_create_node",
+        input: { title: "A fresh gap", layer: "Opportunity", parent: OUTCOME, body: "a gap", evidence: "assertion" },
+      },
+    ],
+    plant: (v) => put(v, { title: "Adrift", layer: "Opportunity" }),
+    clearPath: "ost_link_nodes attaching it under the Outcome",
+    clear: [{ tool: "ost_link_nodes", input: { parent: OUTCOME, child: "Adrift" } }],
+    expected: { mcp: { create: false, clear: true }, "ost-pass": { create: false, clear: true } },
+  },
+
+  "solution-mapped": {
+    setup: withOpportunity,
+    createPath: "ost_create_node, which attaches under its parent in the same call",
+    create: [
+      {
+        tool: "ost_create_node",
+        input: { title: "A fresh idea", layer: "Solution", parent: OPPORTUNITY, body: "an idea", evidence: "assertion" },
+      },
+    ],
+    plant: (v) => put(v, { title: "Unmapped idea", layer: "Solution" }),
+    clearPath: "ost_link_nodes attaching it under an Opportunity",
+    clear: [{ tool: "ost_link_nodes", input: { parent: OPPORTUNITY, child: "Unmapped idea" } }],
+    expected: { mcp: { create: false, clear: true }, "ost-pass": { create: false, clear: true } },
+  },
+
+  "assumption-mapped": {
+    setup: withSolution,
+    createPath: "ost_create_node, which attaches under its parent in the same call",
+    create: [
+      {
+        tool: "ost_create_node",
+        input: { title: "A fresh test", layer: "AssumptionTest", parent: SOLUTION, body: "a test", evidence: "assertion" },
+      },
+    ],
+    plant: (v) => put(v, { title: "Unmapped test", layer: "AssumptionTest" }),
+    clearPath: "ost_link_nodes attaching it under a Solution",
+    clear: [{ tool: "ost_link_nodes", input: { parent: SOLUTION, child: "Unmapped test" } }],
+    expected: { mcp: { create: false, clear: true }, "ost-pass": { create: false, clear: true } },
+  },
+
+  "evidence-class": {
+    setup: withOpportunity,
+    createPath: "ost_create_node with no evidence class",
+    create: [
+      {
+        tool: "ost_create_node",
+        input: { title: "An unlabelled idea", layer: "Solution", parent: OPPORTUNITY, body: "an idea" },
+      },
+    ],
+    // Every node that predates the ladder is one of these.
+    plant: (v) => put(v, { title: "A legacy idea", layer: "Solution", evidence: undefined }),
+    clearPath: "ost_set_evidence declaring the rung — a tool /ost-pass is not granted",
+    clear: [{ tool: "ost_set_evidence", input: { title: "A legacy idea", evidence: "assertion", note: "rests on founder theory" } }],
+    expected: { mcp: { create: false, clear: true }, "ost-pass": { create: false, clear: false } },
+    createRefusal: /evidence/,
+  },
+
+  "no-self-validation": {
+    setup: withOpportunity,
+    createPath: "ost_create_node tagged #unvalidated, then ost_set_status validated",
+    create: [
+      {
+        tool: "ost_create_node",
+        input: {
+          title: "A self-declared win",
+          layer: "Solution",
+          parent: OPPORTUNITY,
+          body: "an idea",
+          evidence: "assertion",
+          tags: ["unvalidated"],
+        },
+      },
+      { tool: "ost_set_status", input: { title: "A self-declared win", status: "validated", note: "it went well" } },
+    ],
+    plant: (v) => put(v, { title: "A planted win", layer: "Solution", tags: ["unvalidated"], status: "validated" }),
+    clearPath: "ost_set_status moving it off validated",
+    clear: [{ tool: "ost_set_status", input: { title: "A planted win", status: "in-discovery", note: "no result backs this" } }],
+    expected: { mcp: { create: true, clear: true }, "ost-pass": { create: true, clear: true } },
+  },
+
+  "lane-conflict": {
+    setup: withProseLane,
+    createPath: "ost_flag_humans_required on a test whose own prose says compute-only",
+    create: [
+      {
+        tool: "ost_flag_humans_required",
+        input: { test: ASSUMPTION, why: 'the manifest has to be read by someone: "compare"' },
+      },
+    ],
+    plant: (v) => v.setLane(ASSUMPTION, "humans-required", "by human — a person reads the manifests"),
+    clearPath: "annotating and appending a correction — the agent's only lane tool is the restrictive one",
+    clear: [
+      { tool: "ost_annotate", input: { title: ASSUMPTION, issue: "lane conflict: the prose says compute-only, the label says humans-required" } },
+      { tool: "ost_append_to_node", input: { title: ASSUMPTION, section: "## Correction\nThe lane declaration above is stale; the label is right." } },
+      { tool: "ost_flag_humans_required", input: { test: ASSUMPTION, why: "re-stating the restrictive call changes nothing" } },
+    ],
+    expected: { mcp: { create: true, clear: false }, "ost-pass": { create: false, clear: false } },
+  },
+};
+
+class Denied extends Error {}
+
+type Run = (attempt: Attempt) => Promise<string>;
+
+interface RawTool {
+  name: string;
+  input_schema: ToolSchema;
+  run: (input: unknown) => Promise<string>;
+}
+
+/**
+ * A caller confined to one surface: not-granted is a refusal, not a prompt —
+ * the same thing `-p --permission-mode acceptEdits` does with a tool outside
+ * `--allowedTools`.
+ */
+function runnerFor(ctx: ToolContext, granted: readonly string[]): Run {
+  const tools = buildOstTools(ctx, MCP_TOOL_NAMES) as unknown as RawTool[];
+  return async ({ tool, input }) => {
+    if (!granted.includes(tool)) throw new Denied(`${tool} is not granted on this surface`);
+    const built = tools.find((t) => t.name === tool);
+    if (!built) throw new Denied(`${tool} is not built on the MCP surface`);
+    const problems = validateToolInput(built.input_schema, input);
+    if (problems.length > 0) throw new Denied(`${tool} refused the call: ${problems.join("; ")}`);
+    return built.run(input);
+  };
+}
+
+/** Run every step, keeping going past a refusal, and report what was refused. */
+async function attemptAll(run: Run, steps: readonly Attempt[]): Promise<string[]> {
+  const refusals: string[] = [];
+  for (const step of steps) {
+    try {
+      await run(step);
+    } catch (err) {
+      refusals.push(`${step.tool}: ${(err as Error).message}`);
+    }
+  }
+  return refusals;
+}
+
+let dir: string;
+let ctx: ToolContext;
+
+beforeEach(() => {
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), "ost-clearability-"));
+  fs.writeFileSync(path.join(dir, "ost.config.yaml"), "outcome: x\n", "utf8");
+  ctx = { vault: new Vault(dir), dir, remote: { enabled: false }, surface: "mcp" };
+});
+afterEach(() => {
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+const violates = (rule: string): boolean => checkInvariants(ctx.vault.readTree()).some((v) => v.rule === rule);
+
+describe("the table covers exactly what checkInvariants can emit", () => {
+  test("the rule list is grepped from the source and is not empty", () => {
+    // A regex that stopped matching would make every assertion below vacuous.
+    expect(RULES.length).toBeGreaterThanOrEqual(9);
+    expect(RULES).toContain("no-self-validation");
+  });
+
+  test("every rule has a row — a new rule ships with its clear path or not at all", () => {
+    expect(Object.keys(SCENARIOS).sort()).toEqual(RULES);
+  });
+
+  test("/ost-pass grants a subset of the MCP surface, so the second column is a narrowing", () => {
+    expect(PASS_TOOL_NAMES.length).toBeGreaterThan(0);
+    for (const name of PASS_TOOL_NAMES) expect(MCP_TOOL_NAMES as readonly string[]).toContain(name);
+    expect(PASS_TOOL_NAMES.length).toBeLessThan(MCP_TOOL_NAMES.length);
+  });
+
+  test("no tool on either surface offers removal — the half of single-outcome no attempt can show", () => {
+    // `single-outcome` is unclearable because nothing deletes a node, and an
+    // absence is not demonstrable by calling something. This is the guard that
+    // would have to be edited first.
+    for (const name of [...MCP_TOOL_NAMES, ...PASS_TOOL_NAMES]) {
+      expect(name).not.toMatch(/delete|remove|destroy|archive|prune/i);
+    }
+  });
+});
+
+for (const rule of RULES) {
+  const scenario = SCENARIOS[rule];
+  // The coverage test above is the one that reports a missing row; skip here so
+  // it fails alone rather than behind nine TypeErrors.
+  if (!scenario) continue;
+
+  describe(rule, () => {
+    for (const { name, granted } of SURFACES) {
+      const cell = scenario.expected[name];
+
+      test(`${name}: the agent ${cell.create ? "can" : "cannot"} create it — ${scenario.createPath}`, async () => {
+        scenario.setup(ctx.vault);
+        expect(violates(rule), `fixture already violates ${rule} before the attempt`).toBe(false);
+
+        const refusals = await attemptAll(runnerFor(ctx, granted), scenario.create);
+
+        expect(violates(rule)).toBe(cell.create);
+        if (!cell.create && scenario.createRefusal) {
+          expect(refusals.join("\n")).toMatch(scenario.createRefusal);
+        }
+      });
+
+      test(`${name}: the agent ${cell.clear ? "can" : "cannot"} clear it — ${scenario.clearPath}`, async () => {
+        scenario.setup(ctx.vault);
+        scenario.plant(ctx.vault, dir);
+        expect(violates(rule), `the planted fixture does not violate ${rule}`).toBe(true);
+
+        await attemptAll(runnerFor(ctx, granted), scenario.clear);
+
+        expect(violates(rule)).toBe(!cell.clear);
+      });
+    }
+  });
+}

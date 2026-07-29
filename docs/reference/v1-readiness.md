@@ -5,16 +5,26 @@ unattended, and trusted to make progress on an arbitrarily large, arbitrarily va
 mandate.**
 
 Written 2026-07-29 against `0.23.0` (`8387c08`); revised after `8261a6f`
-deleted the genome and the harness, and again after the first Tier 1 batch closed
-R1, R5, S6 and H2. The suite is green — 726 tests across 75
+deleted the genome and the harness, again after the first Tier 1 batch closed
+R1, R5, S6 and H2, and again after the second batch turned R3's table, W4 and G3
+into committed tests. The suite is green — 772 tests across 78
 files, `tsc --noEmit` clean — and nothing below is about the code being broken.
 It is about the difference between *a tool that works when watched* and *a
 system that can be left alone*.
 
-**67 criteria, 17 of them blockers. 11 met, 2 partial, 54 not met.** Four of the
+**67 criteria, 17 of them blockers. 11 met, 3 partial, 53 not met.** Three of the
 eleven were met by *deleting* something rather than building it, which is the
 document working as intended; four more were the first Tier 1 batch, each of
 which turned a wedge into a refusal at the boundary that could still take it back.
+
+**The second batch moved two criteria in opposite directions, and that is the
+point of pinning things.** R9's clearability table now runs (`test/eval/clearability.test.ts`),
+which promoted R3 from *not met* to *partial* by proving eight of its nine rows
+and naming the ninth. G3 went the other way: it was recorded here as *met but
+unpinned*, and the pin (`test/release/module-reachability.test.ts`) found two
+modules with no live caller. **A criterion whose status was carried by memory was
+wrong, and the only reason anyone knows is that it stopped being carried by
+memory.**
 
 An earlier meta-vault was started and abandoned because it broke in several ways.
 This document is the attempt to name those ways before the second attempt, in a
@@ -163,15 +173,26 @@ unexplained.**
 > for W2 and it is one join away.
 
 **W4 — Only `Vault` serializes a node to disk.**
-> *Check:* `grep -rn "import.*\bserialize\b.*ost/node" src/ --include='*.ts'`
-> names only `src/ost/vault.ts`. (An import-level assertion: the same-line form
-> `grep 'serialize(' | grep writeFileSync` is defeated by splitting the call
-> across two statements.)
-> *Today:* **met**, and only incidentally: the one bypass —
+> *Check:* an import-level assertion that the set of `src/` modules able to reach
+> `serialize` from `ost/node` is exactly `{src/ost/vault.ts}`. (Not the same-line
+> form `grep 'serialize(' | grep writeFileSync`, which is defeated by splitting
+> the call across two statements.)
+> *Today:* **met** (2026-07-29), and now pinned by
+> `test/ost/serialize-single-writer.test.ts`. The one bypass —
 > `src/harness/generate.ts`, which wrote node files directly, skipping
-> `assertWritableContent` and `nodePath` — was deleted with the harness. The
-> header claim at `src/ost/vault.ts:7-9` is now true and **nothing pins it**, so
-> the next bypass ships the same way. Commit the grep as a test.
+> `assertWritableContent` and `nodePath` — was deleted with the harness, so the
+> header claim at `src/ost/vault.ts:7-9` became true by accident; the test is what
+> stops the next bypass shipping the same way. A second assertion covers the
+> complementary hole — no module outside `vault.ts` writes a `.md` path at all —
+> since a bypass could hand-roll the frontmatter instead of importing anything.
+>
+> *The grep this criterion used to specify was vacuous, which is worth recording.*
+> `grep -rn "import.*\bserialize\b.*ost/node" src/ --include='*.ts'` matches
+> **nothing** today: `vault.ts`'s import spans nine lines and names the module
+> `./node.js`, so a line-oriented grep returns an empty set — the same output it
+> would return if the vault stopped importing `serialize` entirely. A check whose
+> passing state and whose broken state are indistinguishable was never checking
+> anything, and the only way that surfaced was writing it down as a test.
 
 **W5 — The unattended automation path grants no write capability beyond the MCP
 tool surface.**
@@ -606,6 +627,14 @@ Two such doors exist.
 > D2's own finding that an out-of-allowlist tool is *denied, not prompted*, the
 > unattended sweep cannot reach the tool at all. The wedge is reachable only from
 > an interactive or custom surface. The same is true of `ost_set_evidence` (R7).
+>
+> Both halves are now a row rather than a paragraph: `test/eval/clearability.test.ts`
+> executes the create (`ost_flag_humans_required` on a test whose own prose says
+> `compute-only`) and three attempted clears (annotate, append a correction, re-flag),
+> and pins that the violation survives all three — while the `/ost-pass` column shows
+> the create refused for want of the tool. **The day the tool reaches a shipped
+> command, that cell flips and the build fails**, which is the reachability argument
+> stated in a form that cannot quietly expire.
 
 **⛔ R3 — Every rule `checkInvariants` can emit that the agent can create, the
 agent can also clear.**
@@ -614,23 +643,51 @@ agent can also clear.**
 > builds `git_commit`/`git_push` the server never exposes. Give the table a second
 > column for `/ost-pass`'s eight names, since "the agent can clear it" has a
 > different answer on the unattended surface (R7).
-> *Today:* **not met.** The verified table, against `MCP_TOOL_NAMES`:
+> *Today:* **partial** (2026-07-29). The table is no longer an audit finding: it
+> runs on every build as `test/eval/clearability.test.ts` (R9), one row per rule,
+> rows grepped from `src/eval/invariants.ts`, each cell an executed tool call
+> through `validateToolInput` against `buildOstTools(ctx, MCP_TOOL_NAMES)`.
+> **Eight of nine rows satisfy the criterion. One does not.**
 >
-> | Rule | Agent can create | Agent can clear |
-> |---|---|---|
-> | `single-outcome` | no | **no** (no delete, no Outcome creation) |
-> | `dangling-link` | yes | yes |
-> | `wrapped-wikilink` | yes | **no** |
-> | `opportunity-connected` | no | yes |
-> | `solution-mapped` | no | yes |
-> | `assumption-mapped` | no | yes |
-> | `evidence-class` | no | yes — but **not** on `/ost-pass` (R7) |
-> | `no-self-validation` | yes | yes |
-> | `lane-conflict` | yes | **no** |
+> | Rule | MCP: create | MCP: clear | `/ost-pass`: create | `/ost-pass`: clear |
+> |---|---|---|---|---|
+> | `single-outcome` | no | **no** (no delete, no Outcome creation) | no | no |
+> | `dangling-link` | yes | yes | yes | yes |
+> | `wrapped-wikilink` | **no** (R1 closed it) | no | no | no |
+> | `opportunity-connected` | no | yes | no | yes |
+> | `solution-mapped` | no | yes | no | yes |
+> | `assumption-mapped` | no | yes | no | yes |
+> | `evidence-class` | no | yes | no | **no** (R7) |
+> | `no-self-validation` | yes | yes | yes | yes |
+> | `lane-conflict` | **yes** | **no** | no | no |
+>
+> **The residue is one cell: `lane-conflict`, created by `ost_flag_humans_required`
+> and clearable by nothing.** That is R2, and it keeps R2's reachability argument —
+> the tool is on no shipped command's `allowed-tools`, so the column that governs
+> unattended operation shows `no` for creating it. **On `/ost-pass`, R3's property
+> holds outright:** every rule the unattended sweep can create, it can also clear.
+> The wedge is reachable only from an interactive or custom surface, which is why
+> this is now partial rather than a live Tier 1 blocker — but it is a real hole and
+> R2 is the fix.
+>
+> Two cells moved, and neither move is news — which is the point. `wrapped-wikilink`
+> read `yes/no`, the worst shape on the list, until R1 closed the create at the write
+> boundary; the entry recording that fix and the table asserting the old state sat
+> nine hundred lines apart in this file for a day. `evidence-class`'s surface split
+> was carried as a prose aside in the old table and in R7. **Neither was hidden. Both
+> were remembered rather than computed, and a table that runs cannot hold a stale
+> cell for a day.**
 >
 > Under D1, an unclearable violation cannot be cleared by anyone but the sponsor
 > on a shell — so **every one-way invariant is a mandatory human interrupt**,
 > which is the exact resource D3 is trying to spend sparingly.
+>
+> *What a `no` cell means, precisely:* the declared attempt — the move an agent
+> would actually make — did not produce or did not clear the violation, and where
+> a guard rather than an absence is the reason, the test pins the refusal text. It
+> is not a proof that no sequence of the eighteen tools could. That negative is not
+> available from a test, and claiming it would be the same self-certification Gate B
+> exists to catch.
 
 **⛔ R4 — `ost_check` and `ost_next_work.done` never disagree about a defect they
 both compute.**
@@ -693,11 +750,15 @@ that quotes it.**
 can be blocked by.**
 > *Check:* assert `/ost-pass`'s `allowed-tools` is a superset of what the R3 table
 > requires on that surface.
-> *Today:* **not met.** `ost_set_evidence` is absent from
-> `.claude/commands/ost-pass.md:3`, so an `evidence-class` violation on a legacy or
-> human-authored node is unfixable by the sweep even though the tool exists. The
-> stronger fact, worth stating once: **no shipped command grants
-> `ost_set_evidence` or `ost_flag_humans_required` at all.**
+> *Today:* **not met**, and now pinned as a failing-shaped fact rather than a prose
+> one. `ost_set_evidence` is absent from `.claude/commands/ost-pass.md:3`, so an
+> `evidence-class` violation on a legacy or human-authored node is unfixable by the
+> sweep even though the tool exists — R3's table executes exactly that: the same
+> planted node, cleared on the MCP surface and not cleared on `/ost-pass`, with the
+> allowlist read from the command file itself. Granting the tool flips the cell and
+> the expectation in the test has to be updated in the same commit. The stronger
+> fact, worth stating once: **no shipped command grants `ost_set_evidence` or
+> `ost_flag_humans_required` at all.**
 
 **R8 — `ost_create_node` leaves no orphan when the attach step fails.**
 > *Check:* inject a failure into `Vault.linkNodes`; assert no node file persists
@@ -712,9 +773,21 @@ can be blocked by.**
 > `grep -o 'rule: "[a-z-]*"' src/eval/invariants.ts` (today nine literals) rather
 > than from a hand-written list, so adding a rule fails the build until its clear
 > path exists.
-> *Today:* **not met** — no such file; `ls test/eval/` contains no clearability
-> test. `test/security/lane-capability.test.ts` is the precedent for pinning a
-> capability boundary as a test rather than as prose.
+> *Today:* **met** (2026-07-29). `test/eval/clearability.test.ts` reads the rule
+> literals out of `src/eval/invariants.ts` and asserts they are exactly the table's
+> keys — verified by adding a tenth rule to the source, which fails the build with
+> nothing else changed. The two surfaces are derived too: the MCP column from
+> `MCP_TOOL_NAMES`, the sweep column parsed from `.claude/commands/ost-pass.md`'s
+> own frontmatter, so a tool added to or dropped from `/ost-pass` re-decides the
+> second column without anyone editing this document.
+>
+> Each cell is an executed call, not a declaration: the fixture is built by direct
+> `Vault` writes (never by the tool surface), the violation is asserted absent
+> before a create attempt and present after a plant, and a call to an ungranted
+> tool is refused the way `-p --permission-mode acceptEdits` refuses it. Three
+> mutations confirm it is not vacuous — flipping the `evidence-class` sweep cell,
+> flipping the `wrapped-wikilink` create cell, and swapping one clear path's tool
+> each fail exactly the row they belong to.
 
 ---
 
@@ -767,7 +840,10 @@ exit codes.**
 > *Today:* **not met.** `detectLaunderedExit` and `launderedExitMessage` are
 > correct, tested, and have zero non-test callers
 > (`src/loop/exitLaundering.ts:137,157`). Their refusal message names
-> `ost-agent loop step` — a command that does not exist.
+> `ost-agent loop step` — a command that does not exist. The module is now one of
+> the two entries on G3's debt register, so "nobody calls it" is asserted rather
+> than remembered, and H3 is met by wiring it up or by deleting it — either way the
+> register changes and says so.
 
 **H4 — Omission is visible: a firing that skipped a phase does not read as
 healthy.**
@@ -994,9 +1070,26 @@ whole tool surface.**
 > `import` outside `test/`. (Computing the dead set mechanically is the point —
 > "excluding dead modules" as a manual carve-out lets whoever runs the check make
 > it pass by declaring more modules dead.)
-> *Today:* **met** for the case that motivated it — `correlate.ts` is deleted —
-> but **unpinned**: nothing in CI runs this, so the next dead module ships the
-> same way. The rule earns its place under D2: the harness was the repo's only
+> *Today:* **not met** — and this entry previously read *met*, which is the finding.
+> `test/release/module-reachability.test.ts` now walks the import graph from entry
+> points **derived** from `package.json` (the esbuild bundle entry and the `tsx` dev
+> entry, both `src/cli/index.ts`) plus whatever `scripts/` imports, and two modules
+> are unreachable:
+>
+> | Module | Why it is still here |
+> |---|---|
+> | `src/loop/exitLaundering.ts` | H3's detector — correct, tested, no caller, and its refusal message names `ost-agent loop step`, a command that does not exist. H3 is met by wiring it up; it is equally met by deleting it. |
+> | `src/adapters/tokens.ts` | Reads token spend from Claude Code's session JSONL, written for the correlator its own header names (`src/eval/attention.ts`), which never came to import it. |
+>
+> The criterion was recorded as met because the module that motivated it
+> (`correlate.ts`) had been deleted, and nobody enumerated the rest. Reachability
+> is the assertion rather than "is imported at least once", because two dead
+> modules that import each other pass the weaker form. The known-unreachable list
+> is asserted by **exact equality**, not as a floor: widening it is a visible commit
+> that has to argue for itself, and deleting or wiring up either module fails the
+> test until its entry comes off. A debt register, not an exemption.
+>
+> The rule earns its place under D2: the harness was the repo's only
 > prediction/outcome/score triple, and a harness varying a gene that reached no
 > consumer would have reported a fitness delta for a policy nobody applied —
 > manufacturing corroboration out of noise, which is the exact pathology D2
@@ -1041,10 +1134,10 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 726 tests across 75 files, verified 2026-07-29. (The count this
-> line carried before, 878 across 86, predated `8261a6f`'s deletion of the genome and
-> harness and was never updated with it — a reminder that a number in this document is
-> a claim like any other.)
+> *Today:* **met** — 772 tests across 78 files, verified 2026-07-29. (The count this
+> line carried two revisions ago, 878 across 86, predated `8261a6f`'s deletion of the
+> genome and harness and was never updated with it — a reminder that a number in this
+> document is a claim like any other.)
 
 **D2 — Every command's `allowed-tools` names only tools that exist.**
 > *Check:* for each of the nine files in `.claude/commands/`, every entry starting
@@ -1110,9 +1203,12 @@ two, because under D1 the evidence directory is fed by an untrusted builder by
 design), and H2 (a firing that fails silently and pushes anyway). Nothing measured
 afterwards means anything if the subject is dead or if failure is invisible.
 >
-> **Status (2026-07-29): R1, R5, S6 and H2 are met.** Three remain. **R3** is the
-> clearability table as a committed test, and is still the highest-leverage single item
-> on this list. **R4** is now the entire `check`/`next_work` disagreement rather than
+> **Status (2026-07-29): R1, R5, S6 and H2 are met; R3 is partial and R9 is met.**
+> **R3**'s table now runs on every build, eight of its nine rows satisfy the criterion,
+> and the ninth (`lane-conflict`, R2) is unreachable from the unattended surface — so
+> the property an unattended vault depends on holds today, and the residue is an
+> interactive-surface wedge with a named fix. Two remain in this tier. **R4** is now
+> the entire `check`/`next_work` disagreement rather than
 > one symptom of it — R5 closed the forging path into `hygieneIssues`, but the two
 > gates still compute different rule sets (six rules against nine), so `done: true`
 > beside a red `check` stays reachable through `evidence-class`. It needs the rule-set
@@ -1143,7 +1239,11 @@ tree that cannot report whether a firing succeeded is a machine for generating
 unattributable work.
 
 **Tier 5 — consequence, scale, release.** P1, P2, P7–P10; Z1–Z5; G3; Gate D.
-(G2 and G4 are met by deletion; G3 needs only a CI grep.)
+(G2 and G4 are met by deletion. G3's grep is now committed, and it moved the
+criterion from *met* to *not met*: two modules have no live caller, one of them
+H3's detector. Retiring either entry is a Tier 5 cleanup, not a blocker — but the
+register is where a module that is dead by neglect and a module that is dead
+because its criterion has not been built yet stop looking alike.)
 P1 and P2 gate the *first real-world action*, not the first firing, so they can
 trail the spine — but they must land before anything the tree proposes gets
 executed by a builder.
@@ -1157,10 +1257,12 @@ executed by a builder.
 > value depends on the gates it records being unforgeable (Tier 2), and a
 > trustworthy-looking record of a forgeable gate is worse than no record.
 
-If only one thing is done first, make it **R3** — the clearability table as a
-committed test. It is small, it converts an audit finding into a build failure,
-and it is the criterion that stops this list from having to be re-derived by hand
-next time.
+**R3 was the "if only one thing" item, and it is done.** The table is a build
+failure now rather than an audit finding, which is what stopped this list from
+having to be re-derived by hand — and it earned that description immediately, by
+correcting two cells and by moving G3 off *met*. The next single item is **R4**:
+the rule-set parity decision, which is three sentences of judgement before it is
+any code at all.
 
 ---
 
@@ -1193,6 +1295,12 @@ Stating these keeps the bar honest and keeps the README from over-promising:
 ## Appendix — findings reproduced against a scratch vault
 
 A mechanical join on the *(verified)* marker in the body.
+
+The R1, R2 and R5 rows have since been overtaken: the clearability table (R3/R9)
+executes the create and the clear attempt for all nine rules on both surfaces, so
+those three findings are now re-run on every build rather than remembered here.
+**A row in this table is a finding someone reproduced once; a row in that table is
+a finding the build reproduces.** Moving rows from here to there is the work.
 
 | Criterion | Finding | Evidence |
 |---|---|---|
