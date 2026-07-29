@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- **Three guarantees that were carried by discipline are now carried by tests.**
+  No behaviour changed; what changed is that breaking any of them fails the build.
+  - Every invariant the agent can create, it can also clear — one row per rule,
+    rows read out of `src/eval/invariants.ts` so a new rule cannot ship without
+    stating its clear path, and each cell an executed tool call on both the MCP
+    surface and the narrower one `/ost-pass` grants. Two cells the hand-written
+    audit had wrong are now right, and one real hole is named: a `lane-conflict`
+    can still be created by `ost_flag_humans_required` and cleared by nothing,
+    on the interactive surface only.
+  - `Vault` is the only thing that serializes a node to disk — the claim its own
+    header has always made, true by accident since the harness was deleted.
+  - No `src/` module ships with zero live callers. Enforcing it found two that do
+    (`src/loop/exitLaundering.ts`, `src/adapters/tokens.ts`); they are recorded as
+    debt, and the list is asserted exactly, so it cannot quietly grow.
+
 - **Four ways an unattended vault could wedge itself, closed.** Each was a state the
   agent could reach and then never leave, and all four are now refusals at the last
   boundary that could still take the write back.
