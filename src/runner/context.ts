@@ -3,7 +3,7 @@
  * instantiate the enabled read-only sources.
  */
 import path from "node:path";
-import { defaultConfig, loadConfig } from "../config/load.js";
+import { defaultConfig, loadConfig, readConfig } from "../config/load.js";
 import { InboxSource } from "../adapters/inbox.js";
 import { AtlassianSource, HttpAtlassianClient } from "../adapters/atlassian.js";
 import { TranscriptSource, defaultTranscriptDir } from "../adapters/transcript.js";
@@ -61,11 +61,28 @@ export interface BuildPassContextOptions {
    * nothing built this way may run a tool.
    */
   listingOnly?: boolean;
+  /**
+   * Survive a present-but-BROKEN `ost.config.yaml` by falling back to schema defaults
+   * and reporting the problem on `configProblem`, instead of throwing (G1).
+   *
+   * Set by the MCP server and not by the CLI, and the split is deliberate. A human at
+   * a shell who runs `ost-agent check` against a broken config wants the error and can
+   * fix it in the next second; the unattended surface has nobody to tell, and taking
+   * every tool down over a file that reading the tree never needed is the failure this
+   * option exists to end.
+   */
+  tolerateInvalidConfig?: boolean;
 }
 
 export function buildPassContext(vaultDir: string, opts: BuildPassContextOptions = {}): PassContext {
   const dir = path.resolve(vaultDir);
-  const config = opts.listingOnly ? defaultConfig() : loadConfig(dir, opts.allowMissingConfig ? { missing: "defaults" } : {});
+  const missing = opts.allowMissingConfig ? ({ missing: "defaults" } as const) : {};
+  const loaded = opts.listingOnly
+    ? { config: defaultConfig(), problem: undefined }
+    : opts.tolerateInvalidConfig
+      ? readConfig(dir, missing)
+      : { config: loadConfig(dir, missing), problem: undefined };
+  const config = loaded.config;
   const skipSources = opts.skipSources === true || opts.listingOnly === true;
 
   const sources: Source[] = [];
@@ -124,6 +141,7 @@ export function buildPassContext(vaultDir: string, opts: BuildPassContextOptions
     vault: new Vault(dir, { create: !opts.listingOnly }),
     dir,
     config,
+    ...(loaded.problem ? { configProblem: loaded.problem } : {}),
     ruleset: OST_RULESET,
     sources,
     remote: { enabled: config.remote.enabled, url: config.remote.url },

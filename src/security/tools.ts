@@ -182,6 +182,11 @@ export interface ToolContext {
   productRepos?: readonly string[];
   /** The full pass context, needed by the tools that report on the whole vault. */
   passContext?: PassContext;
+  /**
+   * Why the vault's `ost.config.yaml` could not be read, when it could not. Set only
+   * by surfaces that chose to survive a broken one; see {@link CONFIG_DEPENDENT}.
+   */
+  configProblem?: string;
 }
 
 /**
@@ -741,7 +746,73 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
   const selected = names ? all.filter((t) => names.has(t.name)) : all;
   // Every invocation lands in the vault's mechanical usage trace — the record
   // with no narrator. Fail-open: tracing can lose an event, never a mutation.
-  return withUsageTracing(selected, dir, ctx.surface ?? "unknown");
+  return withUsageTracing(degradeOnBrokenConfig(selected, ctx.configProblem), dir, ctx.surface ?? "unknown");
+}
+
+/**
+ * Tools whose behaviour is *governed* by `ost.config.yaml` rather than merely
+ * accompanied by it. On a broken config these refuse; everything else runs.
+ *
+ * The split is the point of G1, and the reason it is a split rather than a blanket
+ * fallback is G2: **a default is not a substitute for a bound the operator set.** An
+ * operator who wrote `web.lookupBudget: 5` and then broke the file somewhere else
+ * would, under a blanket fallback, silently get the schema default instead — a broken
+ * file widening a limit, which is precisely the property G2 exists to forbid. Refusing
+ * is the only answer that is neither a lie about the operator's intent nor a quiet
+ * loosening of it.
+ *
+ * The same argument covers the rest of the list: the inbox's folder and enablement,
+ * which repo roots may be read, and whether a remote may be pushed to are all
+ * capability boundaries, and a boundary read from a file that could not be read is not
+ * a boundary.
+ */
+const CONFIG_DEPENDENT: ReadonlySet<string> = new Set([
+  "ost_ingest_inbox",
+  "ost_search_web",
+  "ost_read_web",
+  "ost_read_repo",
+  "git_push",
+]);
+
+/**
+ * Degrade one capability, never the whole surface (G1).
+ *
+ * A malformed config used to throw inside `buildPassContext`, which every tool is
+ * built through, so a typo returned `isError` from `ost_check` and `ost_read_tree`
+ * too — tools that never read the file. Now the tools that need it refuse by name and
+ * the tools that do not carry a warning, so the operator learns what is wrong from
+ * whichever one they happened to call.
+ */
+function degradeOnBrokenConfig<T extends { name: string; run: (input: never) => unknown }>(
+  tools: T[],
+  problem: string | undefined,
+): T[] {
+  if (!problem) return tools;
+  const unavailable = tools.filter((t) => CONFIG_DEPENDENT.has(t.name)).map((t) => t.name);
+  const notice =
+    `\n\n⚠ ${problem}\n` +
+    `Schema defaults are in force. ${unavailable.length} tool(s) that depend on the file ` +
+    `are refusing until it is fixed: ${unavailable.join(", ") || "(none on this surface)"}.`;
+  return tools.map((t) =>
+    CONFIG_DEPENDENT.has(t.name)
+      ? {
+          ...t,
+          run: async () => {
+            throw new Error(
+              `${t.name} is unavailable: ${problem}\n` +
+                "This tool is governed by that file, and the schema defaults are not the " +
+                "operator's settings. Fix ost.config.yaml and call it again.",
+            );
+          },
+        }
+      : {
+          ...t,
+          run: async (input: never) => {
+            const out = await t.run(input);
+            return typeof out === "string" ? out + notice : out;
+          },
+        },
+  );
 }
 
 /** The names of the tools {@link buildOstTools} would produce (for vetting). */

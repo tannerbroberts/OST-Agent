@@ -26,7 +26,7 @@ clean and the suite is green — and nothing below is about the code being broke
 It is about the difference between *a tool that works when watched* and *a system
 that can be left alone*.
 
-**75 criteria, 20 of them blockers. 38 met, 4 partial, 33 not met.** Three of the
+**75 criteria, 20 of them blockers. 39 met, 4 partial, 32 not met.** Three of the
 twenty-eight were met by *deleting* something rather than building it, which is the
 document working as intended; four more were the first Tier 1 batch, each of
 which turned a wedge into a refusal at the boundary that could still take it back.
@@ -68,7 +68,7 @@ vacuous and green.
 > grep -cE '^\*\*⛔ [A-Z][0-9]+ —' docs/reference/v1-readiness.md      # 20 blockers
 > grep -oE '^> \*Today:\*\s+\*\*[a-z, ]+' docs/reference/v1-readiness.md \
 >   | sed 's/.*\*\*//;s/^met.*/met/;s/^partial.*/partial/;s/^not met.*/not met/' \
->   | sort | uniq -c                                                  # 38 / 4 / 33
+>   | sort | uniq -c                                                  # 39 / 4 / 32
 > ```
 >
 > *Those three trailing comments read `68 / 17 / 17-3-48` until 2026-07-29 — the
@@ -2089,26 +2089,40 @@ whole tool surface.**
 > *Check:* write `web:\n  lookupBudget: notanumber` to `<vault>/ost.config.yaml`;
 > call `ost_check` and `ost_read_tree`. **Pass =** both succeed, falling back to
 > defaults with a named warning.
-> *Today:* **not met.** This was originally written against `genome.yaml`, where
-> it was *verified*: a two-line malformed file returned `isError` from
+> *Today:* **met** (2026-07-30), pinned by `test/mcp/broken-config.test.ts`, which
+> runs the check above verbatim. This was originally written against `genome.yaml`,
+> where it was *verified*: a two-line malformed file returned `isError` from
 > `ost_check`, `ost_next_work`, `ost_read_tree`, `ost_create_node` and
 > `ost_ingest_inbox` alike. **Deleting the genome removed one such file, not the
-> failure class.** `loadConfig` throws on an invalid config
-> (`src/config/load.ts:56-59`), `buildPassContext` calls it *before* anything
-> else (`src/runner/context.ts:68`), the throw escapes `acquire()`
-> (`src/mcp/server.ts:274`), and `live` is never cached on that path.
+> failure class** — `loadConfig` threw, `buildPassContext` called it before anything
+> else, and every tool is built through that call, including the ones that never read
+> the config.
 >
-> The deletion did change the *shape* of the risk, and in the direction that
-> matters: `ost.config.yaml` is created by `init` and expected to exist, so a
-> human wrote it and a human can be pointed at it. `genome.yaml` was created by
-> nothing and reviewed by nobody — its mere *appearance* was the anomaly, and
-> under DEC-1 an untrusted builder with a filesystem handle could have minted one.
-> The remaining exposure is an operator's own typo, which is the ordinary kind.
+> `readConfig` (`src/config/load.ts:73-93`) reports a broken file instead of throwing
+> on it, and `loadConfig` is now a throwing wrapper over it, so the two surfaces can
+> differ without two parsers. The MCP server opts into tolerance
+> (`src/mcp/server.ts:274`); the CLI does not, deliberately — **a human at a shell has
+> someone to tell and a fix one edit away, and the unattended surface has neither.**
 >
-> The right shape exists one handler away: `ListTools` already catches, falls
-> back, and keeps serving (`src/mcp/server.ts:283-295`). `allowMissingConfig`
-> (`src/runner/context.ts:47`) is the precedent for tolerating an absent file;
-> what is missing is the analogue for a *broken* one.
+> **The half that makes it a degradation rather than a fallback is the refusal.**
+> Falling back to defaults everywhere would have satisfied the sentence and broken
+> G2: an operator who set `web.lookupBudget: 2` and then mistyped something else would
+> silently get the schema default, which is *a broken file widening a bound*. So the
+> five tools the file governs — `ost_ingest_inbox`, `ost_search_web`, `ost_read_web`,
+> `ost_read_repo`, `git_push` — refuse by name (`CONFIG_DEPENDENT`,
+> `src/security/tools.ts:769-775`), and everything else answers with a warning naming
+> both the problem and what stopped. A default is a fallback, never a substitute for
+> the operator's intent.
+>
+> *One thing this had to give back.* Recovery-on-fix used to be free: the throw meant
+> nothing was cached, so the first call after the human edited the file built the real
+> context. Tolerating the file removed that accident, and caching the degraded context
+> would have traded a session-long outage for a session-long refusal *after* the file
+> was correct. A degraded context is therefore never cached
+> (`src/mcp/server.ts:276-284`), which costs one small file read per call and stops the
+> moment it parses. A YAML *syntax* error now degrades the same way as a schema
+> violation, which it did not before — `parseYaml` throwing was uncaught entirely, so
+> the file that is not YAML failed differently from the file that is YAML but wrong.
 
 **G2 — No file the agent can write may widen a bound the operator set.**
 > *Check:* `grep -rn 'lookupBudget' src/` shows exactly one source for the limit
@@ -2230,8 +2244,8 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1052 tests across 102 files, verified 2026-07-30 (`npx vitest run`,
-> after the W2/W3 provenance join landed). (The count this line
+> *Today:* **met** — 1057 tests across 103 files, verified 2026-07-30 (`npx vitest run`,
+> after G1 stopped one typo taking the whole surface down). (The count this line
 > carried two revisions ago, 878 across 86, predated `8261a6f`'s deletion of the
 > genome and harness and was never updated with it — a reminder that a number in this
 > document is a claim like any other. It has since been wrong twice more, both times

@@ -44,18 +44,55 @@ export function defaultConfig(): Config {
   return ConfigSchema.parse({ outcome: BOOTSTRAP_PLACEHOLDER_OUTCOME });
 }
 
-/** Read + validate the config. Throws a readable error on invalid/missing config. */
-export function loadConfig(vaultDir: string, opts: LoadConfigOptions = {}): Config {
+/** What a read produced, and — when the file could not be used — why. */
+export interface ConfigLoad {
+  /** The operator's config, or the schema defaults when `problem` is set. */
+  config: Config;
+  /**
+   * Present only when a file exists and could not be used. `config` is then the
+   * defaults, which is a *fallback and not a substitute*: a caller that acts on a
+   * bound must refuse rather than act on a default the operator never chose.
+   */
+  problem?: string;
+}
+
+/**
+ * Read the config, reporting a broken file rather than throwing on it.
+ *
+ * The distinction this returns is the whole of G1. A malformed `ost.config.yaml`
+ * used to be a throw at the bottom of `buildPassContext`, which every tool is built
+ * through — so one typo in one file returned `isError` from `ost_check`,
+ * `ost_read_tree` and everything else alike. Reading the tree does not depend on the
+ * config at all, and a surface that cannot answer a question it never needed the file
+ * for is a surface that failed for a reason it does not have.
+ *
+ * A YAML syntax error and a schema violation are both reported the same way, because
+ * they are the same event to whoever has to fix it: the file is there and it cannot be
+ * used. Only `parseYaml` throwing was previously uncaught at all.
+ */
+export function readConfig(vaultDir: string, opts: LoadConfigOptions = {}): ConfigLoad {
   const p = configPath(vaultDir);
   if (!fs.existsSync(p)) {
-    if (opts.missing === "defaults") return defaultConfig();
+    if (opts.missing === "defaults") return { config: defaultConfig() };
     throw new Error(`no ${CONFIG_FILENAME} in ${vaultDir} — run \`ost-agent init\` first`);
   }
-  const raw = parseYaml(fs.readFileSync(p, "utf8")) ?? {};
+  let raw: unknown;
+  try {
+    raw = parseYaml(fs.readFileSync(p, "utf8")) ?? {};
+  } catch (e) {
+    return { config: defaultConfig(), problem: `${CONFIG_FILENAME} is not valid YAML: ${e instanceof Error ? e.message : String(e)}` };
+  }
   const result = ConfigSchema.safeParse(raw);
   if (!result.success) {
     const issues = result.error.issues.map((i) => `  - ${i.path.join(".") || "(root)"}: ${i.message}`).join("\n");
-    throw new Error(`invalid ${CONFIG_FILENAME}:\n${issues}`);
+    return { config: defaultConfig(), problem: `invalid ${CONFIG_FILENAME}:\n${issues}` };
   }
-  return result.data;
+  return { config: result.data };
+}
+
+/** Read + validate the config. Throws a readable error on invalid/missing config. */
+export function loadConfig(vaultDir: string, opts: LoadConfigOptions = {}): Config {
+  const { config, problem } = readConfig(vaultDir, opts);
+  if (problem) throw new Error(problem);
+  return config;
 }

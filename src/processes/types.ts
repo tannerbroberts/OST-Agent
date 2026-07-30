@@ -19,6 +19,13 @@ export interface PassContext {
   /** Vault directory (git working tree + `.ost-agent/`). */
   dir: string;
   config: Config;
+  /**
+   * Why the vault's own `ost.config.yaml` could not be used, when it could not.
+   * `config` is then the schema defaults — a fallback for the capabilities that do
+   * not depend on the file, and NOT a substitute for the operator's intent in the
+   * ones that do. See `CONFIG_DEPENDENT` in `src/security/tools.ts`.
+   */
+  configProblem?: string;
   ruleset: typeof OST_RULESET;
   /** Enabled read-only sources. */
   sources: Source[];

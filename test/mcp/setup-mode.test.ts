@@ -113,18 +113,23 @@ describe("MCP setup mode (uninitialized vault)", () => {
     // tools/list must not become a JSON-RPC internal error
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual([...MCP_TOOL_NAMES].sort());
-    // a call answers with the cause and the fix, in-band
+    // A tool that never reads the config still answers, and says what is wrong (G1).
     const res = await client.callTool({ name: "ost_next_work", arguments: {} });
-    expect(res.isError).toBe(true);
-    const text = textOf(res as never);
-    expect(text).toContain("ost.config.yaml");
-    expect(text).toMatch(/no reconnect/i);
+    expect(res.isError).toBeFalsy();
+    expect(textOf(res as never)).toContain("ost.config.yaml");
+
+    // A tool the file GOVERNS refuses instead of running on defaults the operator
+    // never chose.
+    const governed = await client.callTool({ name: "ost_ingest_inbox", arguments: {} });
+    expect(governed.isError).toBe(true);
+    expect(textOf(governed as never)).toContain("ost.config.yaml");
 
     // fixing the file recovers the same session — no reconnect
     fs.writeFileSync(cfg, good);
     const after = await client.callTool({ name: "ost_read_tree", arguments: {} });
     expect(after.isError).toBeFalsy();
     expect(textOf(after as never)).toContain("Players");
+    expect(textOf(after as never)).not.toContain("ost.config.yaml");
   });
 
   test("an enabled adapter whose env vars are absent does not block the MCP tools", async () => {
