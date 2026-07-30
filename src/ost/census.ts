@@ -30,7 +30,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { simpleGit } from "simple-git";
 import { INIT_TRACE_TOOL, usageLogPath } from "../telemetry/usage.js";
-import type { OstNode } from "./node.js";
+import type { NodeStatus, OstNode } from "./node.js";
 
 /** A markdown file the walk enumerated but did not turn into a node. */
 export interface CensusDrop {
@@ -38,6 +38,86 @@ export interface CensusDrop {
   file: string;
   /** Why it did not become a node, in words an operator can act on. */
   reason: string;
+}
+
+/**
+ * The subdirectory a human moves a node into to take it out of the live tree.
+ *
+ * Nothing in the product can put a file here. `Vault.nodePath` refuses any name
+ * that resolves to more than one path segment, and there is no rename, move or
+ * delete anywhere in the class — so archiving is an act at a shell, by a person,
+ * recorded as a git rename. **That is the whole reason this half of retirement
+ * is allowed to apply to every pass:** an unforgeable retirement cannot become
+ * the agent's way of making a violation go away.
+ *
+ * The walk already never descended, so these files were *invisible* rather than
+ * excluded. The difference this makes is that they are now counted and named
+ * (`TreeCensus.retired`) instead of silently absent, which is the same argument
+ * the census itself is built on.
+ */
+export const ARCHIVE_DIRNAME = "archive";
+
+/**
+ * The statuses that take a node out of the live tree.
+ *
+ * Taken from the `NodeStatus` union in `ost/node.ts` rather than invented here,
+ * and it is deliberately one value. Walking the vocabulary: `unvalidated` is the
+ * marker stamped on *everything* the agent creates, so retiring it would retire
+ * the tree; `validated` and `shipped` are the two outcomes of work that
+ * succeeded, which is the opposite of retirement; `in-discovery` is work in
+ * flight. `deferred` is the only word in the vocabulary that means "we are not
+ * working on this" — `ost_set_status`'s own description offers it as the way to
+ * "record abandonment" — and there is no `abandoned` or `resolved` status to add
+ * beside it, whatever the readiness entry's prose called them.
+ *
+ * **`deferred` IS agent-settable** (`AGENT_SETTABLE_STATUSES`), which is exactly
+ * why {@link withoutRetiredNodes} is not applied to the gates. See its comment.
+ */
+export const RETIRED_STATUSES: readonly NodeStatus[] = ["deferred"];
+
+const RETIRED = new Set<string>(RETIRED_STATUSES);
+
+/** Is this node retired by its declared status? */
+export function isRetiredNode(node: { status?: string }): boolean {
+  return node.status !== undefined && RETIRED.has(node.status);
+}
+
+/**
+ * The census with status-retired nodes withheld from `nodes` and named in
+ * `retired` instead — the status half of Z4's filter, as a pure function over a
+ * census that has already been read, so nothing has to parse the vault twice.
+ *
+ * **Where this may be used, and why the boundary is narrow.** `deferred` is a
+ * status the agent can set on itself, in one call, on any node. If a retirement
+ * removed a node from `checkInvariants` or from `done`, then "retire it" would
+ * be a tool for making a dangling link, an orphan, an unearned rung or a
+ * self-validation contradiction *disappear* — a gate the constrained actor can
+ * clear on its own authority, which is the failure B1 and B2 exist to prevent.
+ * So this filter feeds exactly one consumer: the near-duplicate scan.
+ *
+ * That one is safe, and not by accident. `near-duplicate` is the single hygiene
+ * rule with no invariant behind it (`HYGIENE_ONLY_RULES`), it reports a
+ * *suspicion* rather than a defect, and the honest resolution for a real
+ * duplicate in an append-only vault is precisely to abandon the redundant node —
+ * there is no delete. Marking a duplicate `deferred` is therefore the remedy the
+ * issue is asking for, recorded in the node's History with a date, and it costs
+ * the agent the same one call that annotating the issue would. It buys no
+ * shortcut to `done` that P5's own instruction does not already grant.
+ *
+ * The archive half needs no such argument and is applied unconditionally at the
+ * read (see {@link ARCHIVE_DIRNAME}).
+ */
+export function withoutRetiredNodes(census: TreeCensus): TreeCensus {
+  const kept: OstNode[] = [];
+  const retired = [...census.retired];
+  for (const n of census.nodes) {
+    if (isRetiredNode(n)) {
+      retired.push({ file: `${n.title}.md`, reason: `status: ${n.status} — retired, withheld from the duplicate scan` });
+    } else {
+      kept.push(n);
+    }
+  }
+  return { ...census, nodes: kept, retired };
 }
 
 /** A denominator taken from somewhere other than the walk that produced the count. */
@@ -68,6 +148,17 @@ export interface TreeCensus {
   skipped: CensusDrop[];
   /** Enumerated but could not be read or parsed at all. */
   unreadable: CensusDrop[];
+  /**
+   * Real nodes that were withheld from `nodes` because they have left the live
+   * tree — archived into `archive/`, or (only when the caller asked for the
+   * status filter) carrying a retired status.
+   *
+   * A separate list from `skipped` on purpose. A skipped file is something that
+   * was never a node; a retired one is a node that *was* one, and conflating the
+   * two would report a deliberate retirement as a malformed file. Both are
+   * named rather than counted, for the reason {@link formatCensus} states.
+   */
+  retired: CensusDrop[];
   /** Absent when no independent source was available (e.g. the vault is not a repo). */
   independent?: IndependentDenominator;
   /** Absent when the trace cannot speak for this vault's whole life. See {@link reconcileWithUsage}. */
@@ -209,6 +300,16 @@ export function formatCensus(census: TreeCensus, nodeCount: number): string {
 
   for (const s of census.skipped) lines.push(`  – dropped ${s.file}: ${s.reason}`);
   for (const u of census.unreadable) lines.push(`  – unreadable ${u.file}: ${u.reason}`);
+
+  // A retired node leaves the denominator, and this is the line that stops that
+  // from being the same thing as vanishing. Before the archive directory was
+  // read at all, a node moved out of the root simply stopped existing as far as
+  // every count in the product was concerned — the exact silence this file was
+  // written against, one directory level down.
+  if (census.retired.length > 0) {
+    lines.push(`  – retired: ${census.retired.length} node(s) out of the live tree, excluded from the counts above`);
+    for (const r of census.retired) lines.push(`    · ${r.file}: ${r.reason}`);
+  }
 
   const ind = census.independent;
   if (ind && ind.unseenByWalk.length > 0) {

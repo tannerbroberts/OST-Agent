@@ -5,8 +5,15 @@
  * These print nothing and exit nothing. `check` and `gate` hand back the fact
  * the CLI turns into an exit code, because an MCP tool has no exit code and
  * the text has to carry the verdict either way.
+ *
+ * Every list here is capped (Z2). The rule is the one `openUnknowns` already
+ * used and this file repeats four times: **cap what is displayed, compute every
+ * verdict and every count over the full set, and name the hidden count.** A cap
+ * that moved a verdict, or that shortened a list without saying so, would read
+ * as amnesty — "that is all there is" — and `ost_check` is a hard gate and a
+ * mandatory human interrupt, so that reading is the expensive one.
  */
-import { checkInvariants } from "./invariants.js";
+import { checkInvariants, type Violation } from "./invariants.js";
 import { computeAttention, weightedTokenCost } from "./attention.js";
 import { computeEvidenceDebt, gateSolution } from "./evidence-debt.js";
 import { computeCoverageDebt, computeCoveragePairs, computeUnfixedThresholds } from "./coverage.js";
@@ -16,16 +23,196 @@ import { LAYERS, type OstNode } from "../ost/node.js";
 import { formatCensus, type TreeCensus } from "../ost/census.js";
 
 /**
+ * How many items any one list in a rendered analysis may show.
+ *
+ * Deliberately the same 25 `ost_next_work` uses (`MAX_ITEMS_PER_LIST` in
+ * `src/mcp/next-work.ts`), and deliberately not imported from there: `eval/`
+ * does not depend on `mcp/`, and inverting that to share a small integer would
+ * buy consistency at the price of the layering. The number matching matters
+ * because a reader moving between `ost_next_work` and `ost_check` should not
+ * have to learn two window sizes.
+ */
+export const MAX_ITEMS_PER_LIST = 25;
+
+/**
+ * The stated budget: no analysis render exceeds this, on any vault.
+ *
+ * Measured against the criterion's 200 KB with room to spare, because these
+ * strings do not travel alone — an MCP tool result is JSON, where every newline
+ * and quote in the text costs two bytes rather than one, and `/ost-pass` puts
+ * `ost_status`, `ost_check` and `ost_next_work` into the same context in the
+ * same turn. A third of the ceiling each is the headroom that makes that safe.
+ */
+export const RENDER_BUDGET_BYTES = 48 * 1024;
+
+/**
+ * Of the budget above, how much the *detail* lines may spend.
+ *
+ * A per-list item cap alone does not bound a render, which is why this exists as
+ * well and not instead. Titles run to 200 characters (`ost/sanitize.ts`) and an
+ * invariant's detail several hundred more, so ten rule classes at 25 items each
+ * is already six figures of bytes on a vault built to be awkward. The item cap
+ * keeps any one class from crowding out the others; this keeps their sum honest.
+ *
+ * That is not a hypothetical, and it needed saying with a measurement rather
+ * than with this paragraph: on the 10,000-node fixture the item cap does ALL the
+ * bounding — raising this to Infinity changes not one byte of any of the four
+ * renders — so for a while the whole allowance could have been deleted with the
+ * suite green. `test/eval/render-caps.test.ts` now measures two vaults where it
+ * is the only thing keeping the render under budget: 30 bounded tests with 30
+ * uncovered statements each (25 pairs × 25 statements × a 200-character
+ * sentence is 190 KB), and a walk blind to 10,000 files, whose names
+ * `formatCensus` joins into a single line.
+ *
+ * Headers, totals and the fixed prose are never charged against it. A count is
+ * the thing that makes a short list readable as a window rather than as the
+ * whole, so dropping one to save bytes would be the exact failure this budget
+ * was introduced to prevent. Everything not charged here is O(1) or O(rule
+ * vocabulary) — never O(tree) — which is what makes the remainder headroom.
+ */
+const DETAIL_BUDGET_BYTES = 32 * 1024;
+
+/** A byte allowance shared by every detail list within one render. */
+interface Budget {
+  /** Charge these lines. `false` means the allowance is spent and they must be elided. */
+  take(lines: readonly string[]): boolean;
+}
+
+function newBudget(cap = DETAIL_BUDGET_BYTES): Budget {
+  let spent = 0;
+  return {
+    take(lines) {
+      // Bytes, not `.length`: `✗` and `…` are three UTF-8 bytes each and a title
+      // may be any script at all, so code units would under-count exactly the
+      // vaults this bound exists for. The +1 is the newline `join` will add.
+      let cost = 0;
+      for (const l of lines) cost += Buffer.byteLength(l) + 1;
+      if (spent + cost > cap) return false;
+      spent += cost;
+      return true;
+    },
+  };
+}
+
+/**
+ * Append a bounded sample of `items`, then — only when something was left out —
+ * one line naming exactly how many.
+ *
+ * Returns the number hidden, so a caller can decide whether the render owes the
+ * reader the coda that explains how to reach the rest.
+ */
+function appendSample<T>(
+  out: string[],
+  items: readonly T[],
+  toLines: (item: T) => readonly string[],
+  opts: { budget: Budget; what: string; indent?: string; limit?: number },
+): number {
+  const limit = opts.limit ?? MAX_ITEMS_PER_LIST;
+  let shown = 0;
+  for (const item of items) {
+    if (shown >= limit) break;
+    const rendered = toLines(item);
+    // A line the allowance cannot afford stops the list rather than being
+    // skipped over: showing items 1, 2 and 47 would misrepresent the sample as
+    // a selection when it is a prefix.
+    if (!opts.budget.take(rendered)) break;
+    out.push(...rendered);
+    shown++;
+  }
+  const hidden = items.length - shown;
+  if (hidden > 0) {
+    out.push(`${opts.indent ?? "  "}… ${hidden} more ${opts.what} not listed (showing ${shown} of ${items.length}).`);
+  }
+  return hidden;
+}
+
+/**
+ * The sentence a render owes the reader once it has shortened anything.
+ *
+ * Two jobs, and the second is the one Z2 names. It repeats that the numbers
+ * above are over the full set — a per-list "N more not listed" says what was
+ * hidden but not that the verdict already counted it. And it says how to see the
+ * rest, or says plainly that there is no way to, because an elision note that
+ * leaves the reader guessing is only marginally better than no note.
+ */
+function appendElisionCoda(lines: string[], hidden: number, howToSeeTheRest: string): void {
+  if (hidden === 0) return;
+  lines.push(
+    `  Nothing was cleared by being hidden: every verdict and every count above is\n` +
+      `  computed over the full set, and only the listing was shortened. ${howToSeeTheRest}`,
+  );
+}
+
+/**
  * Append the census whenever the walk declined anything, so a count that shrank
  * silently cannot read as health. Nothing is printed when nothing was dropped —
  * the denominator only needs saying when it differs from what a reader assumes.
+ *
+ * The census block is rendered by `ost/census.ts` and then shortened here, which
+ * is the only place it can be shortened without lying: `formatCensus` derives
+ * "N dropped" from the array lengths, so handing it pre-capped arrays would
+ * corrupt the very number the block exists to carry. Instead its first line —
+ * the one holding the denominator and the dropped count — is emitted
+ * unconditionally, the per-file lines beneath it are sampled, and the counts
+ * those lines would have carried (retired, and files an independent index saw
+ * that the walk did not) are restated on the elision line.
+ *
+ * The block's lines are not equally important and `formatCensus` emits the
+ * severe ones LAST, so they get their own window ahead of the routine ones. A
+ * "dropped stray-note-13.md: not an OST node" line is a file nobody turned into
+ * a node; the independent-denominator lines are the walk reporting that it is
+ * blind — "every count in this vault is short by at least that much", a finding
+ * no invariant can reach. Sampling the block as one list let sixty of the former
+ * push the latter out of the render entirely, which is Z2's amnesty failure
+ * wearing the census's clothes: the reader is shown sixty harmless files and not
+ * the one that says the denominator is wrong.
  */
-function appendCensus(lines: string[], census: TreeCensus, coda?: string): void {
+function appendCensus(lines: string[], census: TreeCensus, budget: Budget, coda?: string): number {
   const dropped = census.skipped.length + census.unreadable.length;
   const unseen = census.independent?.unseenByWalk.length ?? 0;
-  if (dropped === 0 && unseen === 0) return;
-  lines.push(formatCensus(census, census.nodes.length));
+  if (dropped === 0 && unseen === 0) return 0;
+  const [header, ...detail] = formatCensus(census, census.nodes.length).split("\n");
+  lines.push(header);
+
+  // Located by content, not by counting lines off the end: how many lines that
+  // block occupies is `formatCensus`'s business and changes the moment it grows
+  // a sentence. A miss here degrades to the old behaviour rather than to a
+  // wrong number, and the test below measures the alarm's presence on a census
+  // with more drops than the cap, which turns that drift into a red build.
+  const source = census.independent?.source;
+  const alarmAt = unseen > 0 && source ? detail.findIndex((l) => l.includes(`${source} tracks `)) : -1;
+  const alarm = alarmAt >= 0 ? detail.slice(alarmAt) : [];
+  const drops = alarmAt >= 0 ? detail.slice(0, alarmAt) : detail;
+
+  let hidden = 0;
+  if (alarm.length > 0) {
+    // Charged as one block, because half of this sentence is worse than none —
+    // and charged at all because `unseenByWalk` is joined into a single line, so
+    // this is the only thing standing between a walk blind to ten thousand files
+    // and a render that spends its whole allowance naming them. When it will not
+    // fit, the *fact* still ships and only the names are dropped: an alarm that
+    // can be elided by being too alarming is not an alarm.
+    if (budget.take(alarm)) {
+      lines.push(...alarm);
+    } else {
+      hidden += 1;
+      lines.push(
+        `  ✗ ${source} tracks ${unseen} markdown file(s) this walk never enumerated — too many to name here.\n` +
+          `    Every count above is short by at least that much. This is not a tree problem —\n` +
+          `    it is the reader failing to read, and no invariant will catch it.`,
+      );
+    }
+  }
+
+  hidden += appendSample(lines, drops, (l) => [l], {
+    budget,
+    limit: MAX_ITEMS_PER_LIST,
+    what:
+      `census line(s) — the full counts are ${dropped} file(s) dropped, ` +
+      `${census.retired.length} retired, ${unseen} tracked by an independent index but never walked`,
+  });
   if (coda) lines.push(coda);
+  return hidden;
 }
 
 /**
@@ -41,13 +228,19 @@ function appendCensus(lines: string[], census: TreeCensus, coda?: string): void 
  * A node file nobody asked for is exactly the mandatory human interrupt `single-outcome`
  * already is, and for the same reason.
  */
-function appendUnexplained(lines: string[], census: TreeCensus): number {
+function appendUnexplained(lines: string[], census: TreeCensus, budget: Budget): { count: number; hidden: number } {
   const found = census.unexplained;
-  if (!found || found.unexplained.length === 0) return 0;
+  if (!found || found.unexplained.length === 0) return { count: 0, hidden: 0 };
+  // The count comes off the full array and is printed before anything is
+  // sampled, so the FAIL line is the same line whether or not the list below it
+  // was shortened.
   lines.push(`provenance: FAIL (${found.unexplained.length} node file(s) no tool invocation explains)`);
-  for (const file of found.unexplained) {
-    lines.push(`  ✗ [unexplained-node] "${file}": on disk, created by nothing the trace recorded`);
-  }
+  const hidden = appendSample(
+    lines,
+    found.unexplained,
+    (file) => [`  ✗ [unexplained-node] "${file}": on disk, created by nothing the trace recorded`],
+    { budget, what: "unexplained node file(s)" },
+  );
   lines.push(
     `  Basis: ${found.basis} — the record written before each file existed, by the code\n` +
       "  path that asked for it. Every mutating call runs `git add -A`, so the commit\n" +
@@ -55,11 +248,57 @@ function appendUnexplained(lines: string[], census: TreeCensus): number {
       "  naming an allowlisted tool. Open the file, confirm it belongs, and re-create it\n" +
       "  through the tool surface — or delete it. No tool here can do either for you.",
   );
-  return found.unexplained.length;
+  return { count: found.unexplained.length, hidden };
+}
+
+/**
+ * Violations, grouped by rule and capped **within** each rule.
+ *
+ * A flat cap over the whole list is the amnesty failure in a subtler form, and
+ * the measured data shape is what makes that concrete rather than theoretical:
+ * on the 10,000-node fixture in `test/eval/render-caps.test.ts` the 11,939
+ * violations are 8,438 `rung-unearned`, 3,500 `assumption-mapped` and one
+ * `solution-mapped` — and `checkInvariants` emits the last two FIRST. Twenty-five
+ * lines off the front of a flat list are therefore one `solution-mapped` and 24
+ * `assumption-mapped`, and a reader would close a red `ost_check` never having
+ * been shown that the rule broken most often is broken at all: the largest class
+ * in the vault, hidden behind the two that happen to come first. Per rule, every
+ * class that fired gets a header carrying its own full count.
+ *
+ * The header is pushed BEFORE the sample and is never charged to the allowance,
+ * which is what makes "capped" different from "gone" for a class the byte
+ * allowance never reaches: it still prints its own total and an elision saying
+ * `showing 0 of 40`. Emitting it lazily, beside the first item that fits, is the
+ * natural way to write this and loses the class entirely — pinned.
+ *
+ * Rules appear in the order `checkInvariants` first emitted them and each group
+ * keeps its own emission order, so this is a regrouping of the old flat list
+ * rather than a re-sort of it.
+ */
+function appendViolationsByRule(lines: string[], violations: readonly Violation[], budget: Budget): number {
+  const byRule = new Map<string, Violation[]>();
+  for (const v of violations) {
+    const group = byRule.get(v.rule);
+    if (group) group.push(v);
+    else byRule.set(v.rule, [v]);
+  }
+  let hidden = 0;
+  for (const [rule, group] of byRule) {
+    lines.push(`  [${rule}] ${group.length} violation(s):`);
+    hidden += appendSample(
+      lines,
+      group,
+      (v) => [`  ✗ [${v.rule}] ${v.node ? `"${v.node}": ` : ""}${v.detail}`],
+      { budget, what: `[${rule}] violation(s)`, indent: "    " },
+    );
+  }
+  return hidden;
 }
 
 export function renderCheck(census: TreeCensus): { text: string; violations: number } {
   const lines: string[] = [];
+  const budget = newBudget();
+  let hidden = 0;
   const violations = checkInvariants(census.nodes);
   if (violations.length === 0) {
     // "0 violations" over an unstated denominator is the shape of a check that
@@ -67,44 +306,81 @@ export function renderCheck(census: TreeCensus): { text: string; violations: num
     lines.push(`invariants: PASS (0 violations over ${census.nodes.length} node(s))`);
   } else {
     lines.push(`invariants: FAIL (${violations.length} violation(s) over ${census.nodes.length} node(s))`);
-    for (const v of violations) lines.push(`  ✗ [${v.rule}] ${v.node ? `"${v.node}": ` : ""}${v.detail}`);
+    hidden += appendViolationsByRule(lines, violations, budget);
   }
-  const unexplained = appendUnexplained(lines, census);
-  appendCensus(
+  const unexplained = appendUnexplained(lines, census, budget);
+  hidden += unexplained.hidden;
+  hidden += appendCensus(
     lines,
     census,
+    budget,
     "  A node the reader never returned cannot violate an invariant. The verdict\n" +
       "  above covers the nodes in this denominator and no others.",
   );
-  return { text: lines.join("\n"), violations: violations.length + unexplained };
+  // The verdict is taken from the full arrays, above and before any sampling —
+  // which is the whole point. `violations.length` is not `lines.length`, and a
+  // reader (or the CLI's exit code) asking whether this run is red gets the same
+  // answer at 10 nodes and at 10,000.
+  appendElisionCoda(
+    lines,
+    hidden,
+    "There is no offset to page to: fix or annotate what is listed and re-run\n" +
+      "  `ost_check`, which recomputes from scratch and surfaces the next batch. Per-rule\n" +
+      "  counts above are the true sizes; `ost_next_work` names the same issues as work.",
+  );
+  return { text: lines.join("\n"), violations: violations.length + unexplained.count };
 }
+
+/** The order the debt states are worth reading in — worst first, and fixed so a cap cannot reorder it. */
+const DEBT_STATES = ["untested", "proposed", "tested"] as const;
 
 export function renderDebt(tree: OstNode[]): string {
   const lines: string[] = [];
+  const budget = newBudget();
+  let hidden = 0;
   const debt = computeEvidenceDebt(tree);
   const t = debt.totals;
   lines.push(`Solutions: ${t.solutions}  (untested ${t.untested}, proposed-only ${t.proposed}, tested ${t.tested})`);
-  for (const s of debt.solutions) {
-    const detail =
-      s.state === "tested"
-        ? `${s.testsRun}/${s.testsProposed} test(s) with results`
-        : s.state === "proposed"
-          ? `${s.testsProposed} proposed, none run`
-          : "no assumption test";
-    lines.push(`  [${s.state}] ${s.title} — ${detail}`);
+  // Grouped by state and capped within each, for the same reason `ost_check`
+  // groups by rule: on any real vault the `tested` solutions outnumber the
+  // untested ones, and a flat cap would spend the whole window on the solutions
+  // that are fine while never showing one that has no assumption test at all.
+  // The totals line above is unaffected either way — it is computed before this.
+  for (const state of DEBT_STATES) {
+    const group = debt.solutions.filter((s) => s.state === state);
+    if (group.length === 0) continue;
+    hidden += appendSample(
+      lines,
+      group,
+      (s) => {
+        const detail =
+          s.state === "tested"
+            ? `${s.testsRun}/${s.testsProposed} test(s) with results`
+            : s.state === "proposed"
+              ? `${s.testsProposed} proposed, none run`
+              : "no assumption test";
+        return [`  [${s.state}] ${s.title} — ${detail}`];
+      },
+      { budget, what: `[${state}] solution(s)`, indent: "    " },
+    );
   }
   const coverage = computeCoverageDebt(tree);
   const c = coverage.totals;
   lines.push(
     `\nCoverage: ${c.withResults} test(s) with results  (bounded ${c.bounded}, unbounded ${c.unbounded})`,
   );
-  for (const g of coverage.gaps) {
-    const detail =
-      g.stated === 0
-        ? `${g.claimed} result(s), none saying what they fail to cover`
-        : `${g.claimed} result(s) against ${g.stated} uncovered statement(s)`;
-    lines.push(`  [unbounded] ${g.title} — ${detail}`);
-  }
+  hidden += appendSample(
+    lines,
+    coverage.gaps,
+    (g) => {
+      const detail =
+        g.stated === 0
+          ? `${g.claimed} result(s), none saying what they fail to cover`
+          : `${g.claimed} result(s) against ${g.stated} uncovered statement(s)`;
+      return [`  [unbounded] ${g.title} — ${detail}`];
+    },
+    { budget, what: "unbounded test(s)" },
+  );
   if (coverage.gaps.length > 0) {
     lines.push("  a result with no stated limit gets read as answering the whole question.");
   }
@@ -116,13 +392,27 @@ export function renderDebt(tree: OstNode[]): string {
   const pairs = computeCoveragePairs(tree);
   if (pairs.length > 0) {
     lines.push(`\nBounded — what each test asked for, and what its runs left out:`);
-    for (const p of pairs) {
-      lines.push(`  ${p.title}`);
-      lines.push(`      asked:     ${p.asked ?? "(no pre-committed threshold written in this node)"}`);
-      const [first, ...rest] = p.uncovered;
-      lines.push(`      uncovered: ${first ?? "(nothing stated)"}`);
-      for (const more of rest) lines.push(`                 ${more}`);
-    }
+    hidden += appendSample(
+      lines,
+      pairs,
+      (p) => {
+        const block = [`  ${p.title}`, `      asked:     ${p.asked ?? "(no pre-committed threshold written in this node)"}`];
+        // One node's `## Uncovered` list is itself unbounded, so a cap on the
+        // number of pairs would not bound this section on its own — one test
+        // with ten thousand uncovered statements is the same defect one level in.
+        const [first, ...rest] = p.uncovered.slice(0, MAX_ITEMS_PER_LIST);
+        block.push(`      uncovered: ${first ?? "(nothing stated)"}`);
+        for (const more of rest) block.push(`                 ${more}`);
+        const over = p.uncovered.length - Math.min(p.uncovered.length, MAX_ITEMS_PER_LIST);
+        if (over > 0) {
+          block.push(`                 … ${over} more statement(s) not listed (this test states ${p.uncovered.length}).`);
+        }
+        return block;
+      },
+      { budget, what: "bounded test(s)" },
+    );
+    // Taken over every pair, never over the sample: a threshold nobody wrote is
+    // exactly the finding a display cap must not be able to retire.
     const unasked = pairs.filter((p) => p.asked === null).length;
     if (unasked > 0) {
       lines.push(
@@ -141,14 +431,35 @@ export function renderDebt(tree: OstNode[]): string {
       `\nThresholds: ${u.tests} assumption test(s)  (fixed ${u.bound}, ` +
         `stated in words ${u.prose}, still an instruction ${u.instruction}, none written ${u.absent})`,
     );
-    for (const r of census.unfixed) {
-      lines.push(`  [${r.kind === "absent" ? "no threshold" : "not fixed"}] ${r.title}`);
-      if (r.asked !== null) lines.push(`      reads: ${r.asked}`);
+    // Split by kind before capping. "Never written down" and "written, but still
+    // an instruction to pick a number" are different amounts of work, and a flat
+    // cap lets the more numerous kind hide the other one entirely.
+    for (const kind of ["absent", "instruction"] as const) {
+      const group = census.unfixed.filter((r) => r.kind === kind);
+      if (group.length === 0) continue;
+      hidden += appendSample(
+        lines,
+        group,
+        (r) => {
+          const block = [`  [${r.kind === "absent" ? "no threshold" : "not fixed"}] ${r.title}`];
+          if (r.asked !== null) block.push(`      reads: ${r.asked}`);
+          return block;
+        },
+        { budget, what: `${kind === "absent" ? "no threshold" : "not fixed"} test(s)`, indent: "    " },
+      );
     }
     if (census.unfixed.length > 0) {
       lines.push("  a test whose threshold was never fixed cannot come out a failure.");
     }
   }
+
+  appendElisionCoda(
+    lines,
+    hidden,
+    "Every total on the section headers above is over all of them. To see one\n" +
+      "  solution's full detail name it to `ost_gate`; there is no offset to page to for\n" +
+      "  the lists themselves — resolve what is listed and re-run `ost_debt`.",
+  );
 
   lines.push(
     "\nMechanical only: this counts whether ANY assumption beneath a solution recorded a result,\n" +
@@ -165,6 +476,40 @@ export function renderGate(tree: OstNode[], solution: string): { text: string; c
   const verdict = gateSolution(tree, solution);
   if (verdict.cleared) {
     return { text: `gate: CLEARED — ${verdict.reason}`, cleared: true };
+  }
+
+  /*
+   * The one unbounded thing a gate verdict can say: the "proposed, none run"
+   * refusal names every outstanding assumption test under the solution, and a
+   * solution can carry any number of them.
+   *
+   * Shortened by finding the joined list at the end of the reason rather than by
+   * rebuilding the sentence, so the wording stays owned by `gateSolution` and
+   * cannot drift out of sync with a copy kept here. The trade is that this fails
+   * *open*: if that function stops ending the reason with the join, the
+   * `endsWith` misses and the render is unbounded again with nothing to say so.
+   * `test/eval/render-caps.test.ts` measures a gate refusal with more
+   * outstanding tests than the cap and asserts the byte budget, which is what
+   * turns that drift into a red build instead of a silent regression.
+   *
+   * `cleared` is read above and never below. Capping a refusal's prose cannot
+   * reach the verdict, which is the property that matters most here: this gate
+   * is the one that decides whether work may start.
+   */
+  const outstanding = verdict.debt?.outstanding ?? [];
+  const tail = outstanding.join("; ");
+  if (outstanding.length > MAX_ITEMS_PER_LIST && verdict.reason.endsWith(tail)) {
+    const shown = outstanding.slice(0, MAX_ITEMS_PER_LIST);
+    const hidden = outstanding.length - shown.length;
+    const head = verdict.reason.slice(0, verdict.reason.length - tail.length);
+    return {
+      text:
+        `gate: BLOCKED — ${head}${shown.join("; ")} … and ${hidden} more not listed ` +
+        `(showing ${shown.length} of ${outstanding.length}). The refusal counts all ` +
+        `${outstanding.length}; every one of them is linked from this solution's node, so ` +
+        `\`ost_read_tree\` names them.`,
+      cleared: false,
+    };
   }
   return { text: `gate: BLOCKED — ${verdict.reason}`, cleared: false };
 }
@@ -199,6 +544,12 @@ function formatCost(n: number): string {
  * than the rollup so an unknown-free vault does not even open the usage log:
  * silence here is the regression contract, and the cheapest way to keep a
  * contract is to do no work that could break it.
+ *
+ * Nothing here is capped and nothing here needs to be. Every line is a rollup —
+ * one per unknown *class*, from the classifier's declared vocabulary — so this
+ * section is O(classes) and does not grow with the tree. The unknowns
+ * themselves are never listed here; `ost_next_work`'s `openUnknowns` is where
+ * they are named, and that list is capped at its own source.
  */
 function appendAttention(lines: string[], ctx: PassContext, tree: readonly OstNode[]): void {
   if (!tree.some((n) => n.layer === "Unknown")) return;
@@ -250,6 +601,8 @@ function appendAttention(lines: string[], ctx: PassContext, tree: readonly OstNo
 
 export function renderStatus(ctx: PassContext, census: TreeCensus): string {
   const lines: string[] = [];
+  const budget = newBudget();
+  let hidden = 0;
   const tree = census.nodes;
   const byLayer = (l: string) => tree.filter((n) => n.layer === l).length;
   const unvalidated = tree.filter((n) => n.status === "unvalidated").length;
@@ -262,7 +615,7 @@ export function renderStatus(ctx: PassContext, census: TreeCensus): string {
   lines.push(`Nodes: ${tree.length}  (${breakdown})`);
   // Every number above this line is taken over the set the walk returned. This
   // says what that set was, so a count that shrank silently cannot read as health.
-  appendCensus(lines, census);
+  hidden += appendCensus(lines, census, budget);
   lines.push(`Unvalidated (agent-ideated, awaiting review): ${unvalidated}`);
   const rollup = believabilityRollup(tree);
   const perRung = BELIEVABILITY_LADDER.map((r) => `${r.id} ${rollup.counts[r.id]}`).join(", ");
@@ -273,9 +626,16 @@ export function renderStatus(ctx: PassContext, census: TreeCensus): string {
     lines.push(
       `Coverage: ${coverage.totals.bounded}/${coverage.totals.withResults} recorded result(s) say what they do not cover`,
     );
-    for (const g of coverage.gaps) {
-      lines.push(`  unbounded: ${g.title} (${g.claimed} result(s), ${g.stated} stated limit(s)) — see \`debt\``);
-    }
+    // The `bounded/withResults` line above is the summary; this is the naming,
+    // and it is the only part of `ost_status` that grows one line per node. One
+    // list of one kind, so there is nothing to group it by — a flat cap here
+    // cannot hide a class of finding behind another class.
+    hidden += appendSample(
+      lines,
+      coverage.gaps,
+      (g) => [`  unbounded: ${g.title} (${g.claimed} result(s), ${g.stated} stated limit(s)) — see \`debt\``],
+      { budget, what: "unbounded test(s)" },
+    );
   }
   // One line, and only when there is something to say. A test whose threshold
   // is still an instruction to pick one cannot come out a failure, and that is
@@ -288,6 +648,13 @@ export function renderStatus(ctx: PassContext, census: TreeCensus): string {
         `(${instruction} still an instruction, ${absent} unwritten) — see \`debt\``,
     );
   }
+  appendElisionCoda(
+    lines,
+    hidden,
+    "`ost_debt` names the coverage gaps in full (itself capped, and it says so);\n" +
+      "  the census lines that were not shown are files in the vault directory, which no\n" +
+      "  tool on this surface pages through.",
+  );
   // Last, and appended rather than interleaved: every line above keeps the
   // position it had before darkness was priced, so "a vault with no unknowns
   // renders what it always did" is checkable by reading rather than diffing.

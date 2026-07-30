@@ -211,7 +211,7 @@ describe("reconcileWithGit — the denominator comes from a different source tha
 
 describe("formatCensus — the operator reads a ratio, never a bare integer", () => {
   test("states the denominator even when nothing was dropped", () => {
-    const line = formatCensus({ nodes: [], examined: 12, skipped: [], unreadable: [] } as never, 12);
+    const line = formatCensus({ nodes: [], examined: 12, skipped: [], unreadable: [], retired: [] } as never, 12);
     expect(line).toContain("12");
     expect(line).toMatch(/of 12 .*examined/i);
   });
@@ -223,6 +223,7 @@ describe("formatCensus — the operator reads a ratio, never a bare integer", ()
         examined: 3,
         skipped: [{ file: "Stray.md", reason: "unrecognised type \"Opportunties\"" }],
         unreadable: [{ file: "Broken.md", reason: "bad yaml" }],
+        retired: [],
       } as never,
       1,
     );
@@ -238,6 +239,7 @@ describe("formatCensus — the operator reads a ratio, never a bare integer", ()
         examined: 1,
         skipped: [],
         unreadable: [],
+        retired: [],
         independent: { source: "git", tracked: 2, unseenByWalk: ["Ghost.md"] },
       } as never,
       1,
@@ -253,6 +255,7 @@ describe("formatCensus — the operator reads a ratio, never a bare integer", ()
         examined: 2,
         skipped: [],
         unreadable: [],
+        retired: [],
         independent: { source: "git", tracked: 2, unseenByWalk: [] },
       } as never,
       2,
