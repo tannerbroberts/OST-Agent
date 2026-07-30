@@ -18,12 +18,15 @@ stopped being a conjunction of tests written for other reasons, and again after
 three forgeable instruments off the agent's surface, and again after **W9 and W10
 closed together**, because they turned out to be one defect: a `writeEvidence` that
 answered "already stored" when it meant "not stored" is exactly what let the cursor
-mark an unstored report as delivered. `tsc --noEmit` is
+mark an unstored report as delivered — and again after **W2 and W3 closed together**,
+which is the first criterion here whose detector had to be a third instrument: the walk
+and git both go blind on the same file, because the `git add -A` every mutating call
+runs has already reconciled the index the walk would be compared against. `tsc --noEmit` is
 clean and the suite is green — and nothing below is about the code being broken.
 It is about the difference between *a tool that works when watched* and *a system
 that can be left alone*.
 
-**75 criteria, 20 of them blockers. 36 met, 4 partial, 35 not met.** Three of the
+**75 criteria, 20 of them blockers. 38 met, 4 partial, 33 not met.** Three of the
 twenty-eight were met by *deleting* something rather than building it, which is the
 document working as intended; four more were the first Tier 1 batch, each of
 which turned a wedge into a refusal at the boundary that could still take it back.
@@ -65,7 +68,7 @@ vacuous and green.
 > grep -cE '^\*\*⛔ [A-Z][0-9]+ —' docs/reference/v1-readiness.md      # 20 blockers
 > grep -oE '^> \*Today:\*\s+\*\*[a-z, ]+' docs/reference/v1-readiness.md \
 >   | sed 's/.*\*\*//;s/^met.*/met/;s/^partial.*/partial/;s/^not met.*/not met/' \
->   | sort | uniq -c                                                  # 36 / 4 / 35
+>   | sort | uniq -c                                                  # 38 / 4 / 33
 > ```
 >
 > *Those three trailing comments read `68 / 17 / 17-3-48` until 2026-07-29 — the
@@ -273,21 +276,67 @@ unexplained.**
 > <vault>/Injected.md`, then call any mutating `ost_*` tool. **Pass =**
 > `git log -1 --stat` does not list `Injected.md` under an `mcp: <tool>` commit,
 > **or** `ost_check` returns a violation naming it.
-> *Today:* **not met on both halves, and worse than absent.** Every mutating call
-> runs `git add -A` (`src/git/safe-git.ts:49`) and commits with the message
-> `mcp: <tool> — <output>` (`src/mcp/server.ts:207-210`), so an out-of-band write
-> does not merely go unnoticed — it *acquires* a commit message attributing it to
-> an allowlisted append-only tool. And `reconcileWithGit`
-> (`src/ost/census.ts:90-117`) compares the directory walk against a `git
-> ls-files` that the `add -A` has already reconciled.
+> *Today:* **met** (2026-07-30) on the second half, pinned by
+> `test/mcp/unexplained-node.test.ts:56-81`. `ost_check` now reports
+> `[unexplained-node] "Injected.md"` and the check goes red.
+>
+> **The first half is still false, and the test asserts that it is.** Every mutating
+> call runs `git add -A` (`src/git/safe-git.ts:49`) and commits with the message
+> `mcp: <tool> — <output>` (`src/mcp/server.ts:206-208`), so an out-of-band write does
+> not merely go unnoticed — it *acquires* a commit message attributing it to an
+> allowlisted append-only tool, and the test reproduces exactly that before checking the
+> branch that holds. A criterion whose passing branch is recorded while its failing
+> branch is left to memory is how the OR quietly becomes an AND nobody notices breaking.
+>
+> The detector is W3's join, and the reason it has to be the trace rather than git is
+> the sentence above: `reconcileWithGit` (`src/ost/census.ts:103-130`) compares the walk
+> against a `git ls-files` that the `add -A` has already reconciled, so the two sources
+> agree precisely when both are wrong. **The sharpest test is the one where every
+> structural rule passes**: whoever can write the node file can also write the edge that
+> connects it, so a competent injection leaves `invariants: PASS` and a tree that reads
+> healthy, and only the trace disagrees.
 
 **W3 — The usage trace is a denominator the tree can be checked against.**
 > *Check:* write a node out of band, then assert `ost_check` names a violation
 > whose basis is `.ost-agent/usage/events.jsonl`.
-> *Today:* **not met.** Every tool's `run` is wrapped by `withUsageTracing`
-> (`src/telemetry/usage.ts:73-110`), appending to the log at `:44-58`, and
-> nothing compares the trace to the tree. This is the cheapest available detector
-> for W2 and it is one join away.
+> *Today:* **met** (2026-07-30), pinned by `test/mcp/unexplained-node.test.ts:133-166`.
+> The join was built and it was one join away, as this entry said. Three pieces:
+> `UsageEvent.wrote` records the node files a call brought into existence
+> (`src/telemetry/usage.ts:41-55`); the single writer reports each creation to a drain
+> the tracer empties inside the same call (`src/ost/vault.ts:267-273`); and
+> `reconcileWithUsage` (`src/ost/census.ts:161-192`) subtracts what the trace claims
+> from what the walk saw. The violation names `.ost-agent/usage/events.jsonl` as its
+> basis, because a finding an operator cannot go and read is a finding they have to take
+> on faith.
+>
+> **Three decisions here are worth stating, because each could have been made the easy
+> way and been wrong.**
+>
+> *It is not a rule in `checkInvariants`.* That module is model-independent structure
+> over a node list; this is a claim about the world outside the list, read from a file.
+> Putting it there would also have made it a `done`-blocker through `detectHygiene`'s
+> derivation (R4) — and no tool on the surface can delete a node file, so the unattended
+> sweep would wedge forever on a defect it cannot touch. It is a hard `ost_check`
+> violation and a mandatory human interrupt, exactly as `single-outcome` is, and for the
+> same reason.
+>
+> *It refuses to answer without a floor.* The trace can only speak for a vault it has
+> watched since the beginning, so `init` writes a marker event, and without one the
+> reconciliation returns *no basis* rather than reporting every node as unexplained. A
+> wall of noise on every pre-existing vault is how an operator learns to skip the line
+> that matters. An absent basis is not a discrepancy — the same answer `reconcileWithGit`
+> gives a vault that is not a repository.
+>
+> *The floor cannot be re-laid.* `init` is re-runnable and `/ost-setup` grants a
+> `Bash(… init:*)` prefix, so the first init explains everything at the root and every
+> later one explains only what it wrote. Otherwise the laundry is two commands: drop a
+> node file, run `init`, watch the violation disappear.
+>
+> *The honest limit, stated because it is the boundary and not a loophole:* anyone who
+> can write a node file out of band can also delete the trace, and a deleted trace reads
+> as no basis rather than as an alarm. What they cannot do is delete it quietly — the
+> file is tracked, so its removal is a diff. This detects the write nobody was hiding,
+> which is the one W2 is about.
 
 **W4 — Only `Vault` serializes a node to disk.**
 > *Check:* an import-level assertion that the set of `src/` modules able to reach
@@ -2181,8 +2230,8 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1044 tests across 101 files, verified 2026-07-30 (`npx vitest run`,
-> after the inbox-durability batch landed). (The count this line
+> *Today:* **met** — 1052 tests across 102 files, verified 2026-07-30 (`npx vitest run`,
+> after the W2/W3 provenance join landed). (The count this line
 > carried two revisions ago, 878 across 86, predated `8261a6f`'s deletion of the
 > genome and harness and was never updated with it — a reminder that a number in this
 > document is a claim like any other. It has since been wrong twice more, both times

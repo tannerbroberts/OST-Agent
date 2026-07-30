@@ -982,7 +982,7 @@ var require_command = __commonJS({
     var EventEmitter2 = __require("node:events").EventEmitter;
     var childProcess = __require("node:child_process");
     var path27 = __require("node:path");
-    var fs23 = __require("node:fs");
+    var fs24 = __require("node:fs");
     var process3 = __require("node:process");
     var { Argument: Argument2, humanReadableArgName } = require_argument();
     var { CommanderError: CommanderError2 } = require_error();
@@ -1915,10 +1915,10 @@ Expecting one of '${allowedValues.join("', '")}'`);
         const sourceExt = [".js", ".ts", ".tsx", ".mjs", ".cjs"];
         function findFile(baseDir, baseName) {
           const localBin = path27.resolve(baseDir, baseName);
-          if (fs23.existsSync(localBin)) return localBin;
+          if (fs24.existsSync(localBin)) return localBin;
           if (sourceExt.includes(path27.extname(baseName))) return void 0;
           const foundExt = sourceExt.find(
-            (ext) => fs23.existsSync(`${localBin}${ext}`)
+            (ext) => fs24.existsSync(`${localBin}${ext}`)
           );
           if (foundExt) return `${localBin}${foundExt}`;
           return void 0;
@@ -1930,7 +1930,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
         if (this._scriptPath) {
           let resolvedScriptPath;
           try {
-            resolvedScriptPath = fs23.realpathSync(this._scriptPath);
+            resolvedScriptPath = fs24.realpathSync(this._scriptPath);
           } catch (err) {
             resolvedScriptPath = this._scriptPath;
           }
@@ -9919,14 +9919,14 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs23 = this.flowScalar(this.type);
+              const fs24 = this.flowScalar(this.type);
               if (atNextItem || it.value) {
-                map.items.push({ start, key: fs23, sep: [] });
+                map.items.push({ start, key: fs24, sep: [] });
                 this.onKeyLine = true;
               } else if (it.sep) {
-                this.stack.push(fs23);
+                this.stack.push(fs24);
               } else {
-                Object.assign(it, { key: fs23, sep: [] });
+                Object.assign(it, { key: fs24, sep: [] });
                 this.onKeyLine = true;
               }
               return;
@@ -10054,13 +10054,13 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs23 = this.flowScalar(this.type);
+              const fs24 = this.flowScalar(this.type);
               if (!it || it.value)
-                fc.items.push({ start: [], key: fs23, sep: [] });
+                fc.items.push({ start: [], key: fs24, sep: [] });
               else if (it.sep)
-                this.stack.push(fs23);
+                this.stack.push(fs24);
               else
-                Object.assign(it, { key: fs23, sep: [] });
+                Object.assign(it, { key: fs24, sep: [] });
               return;
             }
             case "flow-map-end":
@@ -13744,7 +13744,7 @@ var require_parse = __commonJS({
 var require_gray_matter = __commonJS({
   "node_modules/gray-matter/index.js"(exports2, module2) {
     "use strict";
-    var fs23 = __require("fs");
+    var fs24 = __require("fs");
     var sections = require_section_matter();
     var defaults = require_defaults();
     var stringify = require_stringify2();
@@ -13828,7 +13828,7 @@ var require_gray_matter = __commonJS({
       return stringify(file, data, options2);
     };
     matter4.read = function(filepath, options2) {
-      const str2 = fs23.readFileSync(filepath, "utf8");
+      const str2 = fs24.readFileSync(filepath, "utf8");
       const file = matter4(str2, options2);
       file.path = filepath;
       return file;
@@ -26906,12 +26906,12 @@ var require_dist4 = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs23, exportName) {
+    function addFormats(ajv, list, fs24, exportName) {
       var _a2;
       var _b;
       (_a2 = (_b = ajv.opts.code).formats) !== null && _a2 !== void 0 ? _a2 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs23[f]);
+        ajv.addFormat(f, fs24[f]);
     }
     module2.exports = exports2 = formatsPlugin;
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -31784,6 +31784,14 @@ var UsageSource = class {
 // src/telemetry/usage.ts
 import fs5 from "node:fs";
 import path4 from "node:path";
+var createdNodeFiles = [];
+function noteNodeFileCreated(file) {
+  createdNodeFiles.push(file);
+}
+function drainCreatedNodeFiles() {
+  return createdNodeFiles.splice(0, createdNodeFiles.length);
+}
+var INIT_TRACE_TOOL = "vault_init";
 var MAX_ERR_CHARS = 300;
 function usageLogPath(vaultDir) {
   return path4.join(path4.resolve(vaultDir), ".ost-agent", "usage", "events.jsonl");
@@ -31811,6 +31819,7 @@ function withUsageTracing(tools, vaultDir, surface) {
       }
       try {
         const result = await tool2.run(input);
+        const wrote = drainCreatedNodeFiles();
         recordUsageEvent(vaultDir, {
           ts: new Date(started).toISOString(),
           tool: tool2.name,
@@ -31819,11 +31828,13 @@ function withUsageTracing(tools, vaultDir, surface) {
           surface,
           argBytes,
           ...session ? { session } : {},
-          ...unknown2 ? { unknown: unknown2 } : {}
+          ...unknown2 ? { unknown: unknown2 } : {},
+          ...wrote.length > 0 ? { wrote } : {}
         });
         return result;
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
+        const wrote = drainCreatedNodeFiles();
         recordUsageEvent(vaultDir, {
           ts: new Date(started).toISOString(),
           tool: tool2.name,
@@ -31833,7 +31844,8 @@ function withUsageTracing(tools, vaultDir, surface) {
           argBytes,
           err: redactSecrets(message).slice(0, MAX_ERR_CHARS),
           ...session ? { session } : {},
-          ...unknown2 ? { unknown: unknown2 } : {}
+          ...unknown2 ? { unknown: unknown2 } : {},
+          ...wrote.length > 0 ? { wrote } : {}
         });
         throw e;
       }
@@ -32350,6 +32362,7 @@ var Vault = class {
       throw new Error(`node already exists (create is non-overwriting): ${node.title}`);
     }
     fs6.writeFileSync(p2, serialize(node), "utf8");
+    noteNodeFileCreated(path5.basename(p2));
   }
   /**
    * Append a prose section to an existing node's file. Strictly grows the file —
@@ -38083,6 +38096,28 @@ async function gitPush(dir, remote = "origin") {
 }
 
 // src/runner/init.ts
+function recordInitInTrace(abs) {
+  const created = drainCreatedNodeFiles();
+  const first2 = !traceHasInit(abs);
+  const wrote = first2 ? [.../* @__PURE__ */ new Set([...rootMarkdownFiles(abs), ...created])].sort() : created;
+  recordUsageEvent(abs, {
+    ts: (/* @__PURE__ */ new Date()).toISOString(),
+    tool: INIT_TRACE_TOOL,
+    ok: true,
+    ms: 0,
+    surface: "cli",
+    argBytes: 0,
+    ...wrote.length > 0 ? { wrote } : {}
+  });
+}
+function rootMarkdownFiles(abs) {
+  return fs8.readdirSync(abs, { withFileTypes: true }).filter((e) => e.isFile() && e.name.endsWith(".md")).map((e) => e.name);
+}
+function traceHasInit(abs) {
+  const file = usageLogPath(abs);
+  if (!fs8.existsSync(file)) return false;
+  return fs8.readFileSync(file, "utf8").split("\n").some((line) => line.includes(`"tool":"${INIT_TRACE_TOOL}"`));
+}
 async function initVault(dir, outcome, outcomeTitle) {
   const abs = path8.resolve(dir);
   fs8.mkdirSync(abs, { recursive: true });
@@ -38116,6 +38151,7 @@ async function initVault(dir, outcome, outcomeTitle) {
     });
     outcomeCreated = true;
   }
+  recordInitInTrace(abs);
   const commit = await gitCommit(abs, `init: ${outcomeCreated ? `created Outcome "${rootTitle}"` : "no changes"}`);
   if (ctx.remote.enabled && commit.committed) {
     await gitPush(abs).catch(() => void 0);
@@ -38975,6 +39011,7 @@ function computeCoverageDebt(tree) {
 }
 
 // src/ost/census.ts
+import fs14 from "node:fs";
 import path13 from "node:path";
 async function reconcileWithGit(vaultRoot, census) {
   const root = path13.resolve(vaultRoot);
@@ -38991,6 +39028,36 @@ async function reconcileWithGit(vaultRoot, census) {
   const seen = new Set(census.seenFiles);
   const unseenByWalk = topLevel.filter((f) => !seen.has(f)).sort();
   return { source: "git", tracked: topLevel.length, unseenByWalk };
+}
+function reconcileWithUsage(vaultRoot, census) {
+  const file = usageLogPath(vaultRoot);
+  let raw;
+  try {
+    raw = fs14.readFileSync(file, "utf8");
+  } catch {
+    return void 0;
+  }
+  const claimed = /* @__PURE__ */ new Set();
+  let covered = false;
+  for (const line of raw.split("\n")) {
+    if (!line.trim()) continue;
+    let event;
+    try {
+      event = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (event.tool === INIT_TRACE_TOOL) covered = true;
+    if (Array.isArray(event.wrote)) {
+      for (const f of event.wrote) if (typeof f === "string") claimed.add(f);
+    }
+  }
+  if (!covered) return void 0;
+  return {
+    source: "usage-trace",
+    basis: path13.relative(path13.resolve(vaultRoot), file) || file,
+    unexplained: census.seenFiles.filter((f) => !claimed.has(f)).sort()
+  };
 }
 function formatCensus(census, nodeCount) {
   const lines = [];
@@ -39022,6 +39089,22 @@ function appendCensus(lines, census, coda) {
   lines.push(formatCensus(census, census.nodes.length));
   if (coda) lines.push(coda);
 }
+function appendUnexplained(lines, census) {
+  const found = census.unexplained;
+  if (!found || found.unexplained.length === 0) return 0;
+  lines.push(`provenance: FAIL (${found.unexplained.length} node file(s) no tool invocation explains)`);
+  for (const file of found.unexplained) {
+    lines.push(`  \u2717 [unexplained-node] "${file}": on disk, created by nothing the trace recorded`);
+  }
+  lines.push(
+    `  Basis: ${found.basis} \u2014 the record written before each file existed, by the code
+  path that asked for it. Every mutating call runs \`git add -A\`, so the commit
+  trail cannot tell you this: an out-of-band write acquires a commit message
+  naming an allowlisted tool. Open the file, confirm it belongs, and re-create it
+  through the tool surface \u2014 or delete it. No tool here can do either for you.`
+  );
+  return found.unexplained.length;
+}
 function renderCheck(census) {
   const lines = [];
   const violations = checkInvariants(census.nodes);
@@ -39031,12 +39114,13 @@ function renderCheck(census) {
     lines.push(`invariants: FAIL (${violations.length} violation(s) over ${census.nodes.length} node(s))`);
     for (const v of violations) lines.push(`  \u2717 [${v.rule}] ${v.node ? `"${v.node}": ` : ""}${v.detail}`);
   }
+  const unexplained = appendUnexplained(lines, census);
   appendCensus(
     lines,
     census,
     "  A node the reader never returned cannot violate an invariant. The verdict\n  above covers the nodes in this denominator and no others."
   );
-  return { text: lines.join("\n"), violations: violations.length };
+  return { text: lines.join("\n"), violations: violations.length + unexplained };
 }
 function renderDebt(tree) {
   const lines = [];
@@ -39230,7 +39314,7 @@ function promoteNode(vaultDir, filing) {
 }
 
 // src/adapters/friction.ts
-import fs14 from "node:fs";
+import fs15 from "node:fs";
 import path15 from "node:path";
 var FRICTION_KINDS = ["blocked", "guessed", "unclear-rule", "missing-affordance", "slow"];
 var MAX_NOTE_CHARS = 500;
@@ -39244,7 +39328,7 @@ function slug(note) {
 }
 function uniquePath(dir, base) {
   let candidate = path15.join(dir, `${base}.md`);
-  for (let n = 2; fs14.existsSync(candidate); n++) {
+  for (let n = 2; fs15.existsSync(candidate); n++) {
     candidate = path15.join(dir, `${base}-${n}.md`);
   }
   return candidate;
@@ -39257,7 +39341,7 @@ function fileFriction(vaultDir, filing) {
   if (!note) throw new Error("a friction filing needs a note \u2014 one line describing what went wrong");
   const dir = path15.resolve(vaultDir);
   const inboxDir = path15.join(dir, loadConfig(dir).adapters.inbox.path);
-  fs14.mkdirSync(inboxDir, { recursive: true });
+  fs15.mkdirSync(inboxDir, { recursive: true });
   const at = filing.at ?? (/* @__PURE__ */ new Date()).toISOString();
   const day = at.slice(0, 10);
   const context = filing.context ? clean(filing.context, MAX_CONTEXT_CHARS) : "";
@@ -39277,7 +39361,7 @@ function fileFriction(vaultDir, filing) {
     ""
   ].join("\n");
   const target = uniquePath(inboxDir, `${day}-friction-${slug(note)}`);
-  fs14.writeFileSync(target, body, "utf8");
+  fs15.writeFileSync(target, body, "utf8");
   return target;
 }
 
@@ -41342,7 +41426,7 @@ function decodeEntities(s) {
 }
 
 // src/knowledge/web-trust.ts
-import fs15 from "node:fs";
+import fs16 from "node:fs";
 import path16 from "node:path";
 var HOST_RUNGS = ["assertion", "expert"];
 function isHostRung(rung) {
@@ -41375,15 +41459,15 @@ function rankHost(dir, rec) {
     by: rec.by
   };
   const file = hostTrustPath(dir);
-  fs15.mkdirSync(path16.dirname(file), { recursive: true });
-  fs15.appendFileSync(file, JSON.stringify(record2) + "\n");
+  fs16.mkdirSync(path16.dirname(file), { recursive: true });
+  fs16.appendFileSync(file, JSON.stringify(record2) + "\n");
   return record2;
 }
 function readHostTrust(dir) {
   const file = hostTrustPath(dir);
   const trust = /* @__PURE__ */ new Map();
-  if (!fs15.existsSync(file)) return trust;
-  for (const line of fs15.readFileSync(file, "utf8").split("\n")) {
+  if (!fs16.existsSync(file)) return trust;
+  for (const line of fs16.readFileSync(file, "utf8").split("\n")) {
     if (!line.trim()) continue;
     try {
       const rec = JSON.parse(line);
@@ -41401,7 +41485,7 @@ function hostRung(trust, host) {
 }
 
 // src/product/repo.ts
-import fs16 from "node:fs";
+import fs17 from "node:fs";
 import path17 from "node:path";
 var MAX_FILE_CHARS = 2e4;
 var MAX_LIST_ENTRIES = 500;
@@ -41412,7 +41496,7 @@ function readProductRepo(repos, input) {
       "no product repos configured \u2014 add local repo paths under `product.repos` in ost.config.yaml so the agent can read what the product is"
     );
   }
-  const roots = repos.map((r2) => fs16.realpathSync(path17.resolve(r2)));
+  const roots = repos.map((r2) => fs17.realpathSync(path17.resolve(r2)));
   let root;
   if (input.repo) {
     const found = roots.find((r2) => path17.basename(r2) === input.repo || r2 === path17.resolve(input.repo));
@@ -41434,7 +41518,7 @@ function readProductRepo(repos, input) {
   }
   let real;
   try {
-    real = fs16.realpathSync(joined);
+    real = fs17.realpathSync(joined);
   } catch {
     throw new Error(`"${rel}" does not exist in ${path17.basename(root)}`);
   }
@@ -41442,12 +41526,12 @@ function readProductRepo(repos, input) {
     throw new Error(`"${rel}" is a symlink escaping the repo \u2014 reads are confined to ${path17.basename(root)}`);
   }
   const repoName = path17.basename(root);
-  const stat = fs16.statSync(real);
+  const stat = fs17.statSync(real);
   if (stat.isDirectory()) {
-    const entries = fs16.readdirSync(real, { withFileTypes: true }).filter((e) => !SKIP_DIRS.has(e.name)).sort((a, b2) => a.name.localeCompare(b2.name)).slice(0, MAX_LIST_ENTRIES).map((e) => ({ name: e.name, type: e.isDirectory() ? "dir" : "file" }));
+    const entries = fs17.readdirSync(real, { withFileTypes: true }).filter((e) => !SKIP_DIRS.has(e.name)).sort((a, b2) => a.name.localeCompare(b2.name)).slice(0, MAX_LIST_ENTRIES).map((e) => ({ name: e.name, type: e.isDirectory() ? "dir" : "file" }));
     return { kind: "listing", repo: repoName, path: rel, entries };
   }
-  const buf = fs16.readFileSync(real);
+  const buf = fs17.readFileSync(real);
   if (buf.subarray(0, 8192).includes(0)) {
     throw new Error(`"${rel}" looks binary \u2014 only text files can be read`);
   }
@@ -41864,6 +41948,7 @@ function buildOstTools(ctx, allowedNames) {
       run: async () => {
         const census = vault.readTreeCensus();
         census.independent = await reconcileWithGit(dir, census);
+        census.unexplained = reconcileWithUsage(dir, census);
         return renderCheck(census).text;
       }
     }),
@@ -42046,7 +42131,7 @@ function enqueueCommit(dir, message) {
 }
 
 // src/mcp/bootstrap.ts
-import fs17 from "node:fs";
+import fs18 from "node:fs";
 import path19 from "node:path";
 
 // src/mcp/setup.ts
@@ -42077,7 +42162,7 @@ function configProblemGuidance(dir, cause) {
 // src/mcp/bootstrap.ts
 function vaultReadiness(ctx) {
   const vault = ctx.dir;
-  if (!fs17.existsSync(path19.join(vault, ".git")) || !fs17.existsSync(configPath(vault))) {
+  if (!fs18.existsSync(path19.join(vault, ".git")) || !fs18.existsSync(configPath(vault))) {
     const nextStep = initCommand(vault);
     return {
       ready: false,
@@ -42405,12 +42490,12 @@ function launderedExitMessage(d) {
 }
 
 // src/loop/health.ts
-import fs19 from "node:fs";
+import fs20 from "node:fs";
 import path22 from "node:path";
 
 // src/loop/state.ts
 import { spawnSync } from "node:child_process";
-import fs18 from "node:fs";
+import fs19 from "node:fs";
 import path21 from "node:path";
 var STATE_DIRNAME = "ost-agent";
 function gitDir(vaultDir) {
@@ -42418,13 +42503,13 @@ function gitDir(vaultDir) {
   const dotGit = path21.join(abs, ".git");
   let stat;
   try {
-    stat = fs18.statSync(dotGit);
+    stat = fs19.statSync(dotGit);
   } catch {
     return null;
   }
   if (stat.isDirectory()) return dotGit;
   if (!stat.isFile()) return null;
-  const pointer = fs18.readFileSync(dotGit, "utf8").trim();
+  const pointer = fs19.readFileSync(dotGit, "utf8").trim();
   const match = pointer.match(/^gitdir:\s*(.+)$/);
   if (!match) return null;
   return path21.resolve(abs, match[1].trim());
@@ -42440,7 +42525,7 @@ function requireLoopStateDir(vaultDir) {
       `${path21.resolve(vaultDir)} is not a git checkout \u2014 the loop records every firing under .git/ost-agent/ and refuses to fire where it cannot record. Run \`ost-agent init\` or \`git init\` there first.`
     );
   }
-  fs18.mkdirSync(dir, { recursive: true });
+  fs19.mkdirSync(dir, { recursive: true });
   return dir;
 }
 function gitHead(vaultDir) {
@@ -42465,22 +42550,22 @@ function runsPath(dir) {
   return path22.join(healthDir(dir), "runs.jsonl");
 }
 function appendRun(dir, run) {
-  fs19.appendFileSync(runsPath(dir), JSON.stringify(run) + "\n");
+  fs20.appendFileSync(runsPath(dir), JSON.stringify(run) + "\n");
 }
 function readOpenRun(dir) {
   const state = loopStateDir(dir);
   if (state === null) return null;
   const p2 = path22.join(state, "open-run.json");
-  if (!fs19.existsSync(p2)) return null;
+  if (!fs20.existsSync(p2)) return null;
   try {
-    return JSON.parse(fs19.readFileSync(p2, "utf8"));
+    return JSON.parse(fs20.readFileSync(p2, "utf8"));
   } catch {
     return null;
   }
 }
 function sweepCrashed(dir) {
   const p2 = openRunPath(dir);
-  if (!fs19.existsSync(p2)) return null;
+  if (!fs20.existsSync(p2)) return null;
   const open = readOpenRun(dir);
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const crashed = open ? { ...open, endedAt: now, verdict: "crashed" } : {
@@ -42493,7 +42578,7 @@ function sweepCrashed(dir) {
     verdict: "crashed"
   };
   appendRun(dir, crashed);
-  fs19.rmSync(p2, { force: true });
+  fs20.rmSync(p2, { force: true });
   return crashed;
 }
 var idsIssuedThisMillisecond = 0;
@@ -42515,7 +42600,7 @@ function startRun(dir, meta) {
     ...meta.headBefore ? { headBefore: meta.headBefore } : {},
     steps: []
   };
-  fs19.writeFileSync(openRunPath(dir), JSON.stringify(run, null, 2));
+  fs20.writeFileSync(openRunPath(dir), JSON.stringify(run, null, 2));
   return run;
 }
 function requireOpenRun(dir) {
@@ -42526,7 +42611,7 @@ function requireOpenRun(dir) {
 function appendStep(dir, step) {
   const open = requireOpenRun(dir);
   open.steps.push({ ...step, at: (/* @__PURE__ */ new Date()).toISOString() });
-  fs19.writeFileSync(openRunPath(dir), JSON.stringify(open, null, 2));
+  fs20.writeFileSync(openRunPath(dir), JSON.stringify(open, null, 2));
   return open;
 }
 function computeVerdict(run) {
@@ -42545,7 +42630,7 @@ function sealRun(dir, meta = {}) {
     verdict: computeVerdict(withHead)
   };
   appendRun(dir, sealed);
-  fs19.rmSync(openRunPath(dir), { force: true });
+  fs20.rmSync(openRunPath(dir), { force: true });
   return sealed;
 }
 var VERDICTS2 = /* @__PURE__ */ new Set(["healthy", "unhealthy", "no-op", "crashed"]);
@@ -42553,9 +42638,9 @@ function readRuns(dir) {
   const state = loopStateDir(dir);
   if (state === null) return [];
   const p2 = path22.join(state, "runs.jsonl");
-  if (!fs19.existsSync(p2)) return [];
+  if (!fs20.existsSync(p2)) return [];
   const runs = [];
-  for (const line of fs19.readFileSync(p2, "utf8").split("\n")) {
+  for (const line of fs20.readFileSync(p2, "utf8").split("\n")) {
     if (!line.trim()) continue;
     try {
       const parsed = JSON.parse(line);
@@ -42571,7 +42656,7 @@ function readRuns(dir) {
 }
 
 // src/loop/lock.ts
-import fs20 from "node:fs";
+import fs21 from "node:fs";
 import os2 from "node:os";
 import path23 from "node:path";
 function firingLockPath(vaultDir) {
@@ -42580,9 +42665,9 @@ function firingLockPath(vaultDir) {
 }
 function readFiringLock(vaultDir) {
   const p2 = firingLockPath(vaultDir);
-  if (p2 === null || !fs20.existsSync(p2)) return null;
+  if (p2 === null || !fs21.existsSync(p2)) return null;
   try {
-    const parsed = JSON.parse(fs20.readFileSync(p2, "utf8"));
+    const parsed = JSON.parse(fs21.readFileSync(p2, "utf8"));
     return typeof parsed?.pid === "number" && typeof parsed?.acquiredAt === "string" ? parsed : null;
   } catch {
     return null;
@@ -42612,15 +42697,15 @@ function staleness(held, opts) {
 var tmpCounter = 0;
 function linkInPlace(stateDir2, lockFile, record2) {
   const tmp = path23.join(stateDir2, `.firing.lock.${record2.pid}.${tmpCounter++}`);
-  fs20.writeFileSync(tmp, JSON.stringify(record2) + "\n");
+  fs21.writeFileSync(tmp, JSON.stringify(record2) + "\n");
   try {
-    fs20.linkSync(tmp, lockFile);
+    fs21.linkSync(tmp, lockFile);
     return true;
   } catch (e) {
     if (e.code !== "EEXIST") throw e;
     return false;
   } finally {
-    fs20.rmSync(tmp, { force: true });
+    fs21.rmSync(tmp, { force: true });
   }
 }
 function acquireFiringLock(vaultDir, opts) {
@@ -42640,8 +42725,8 @@ function acquireFiringLock(vaultDir, opts) {
   if (!stale) return { ok: false, held, reason: `another firing holds the lock \u2014 ${why}` };
   try {
     const sidelined = `${lockFile}.stale-${now}-${record2.pid}`;
-    fs20.renameSync(lockFile, sidelined);
-    fs20.rmSync(sidelined, { force: true });
+    fs21.renameSync(lockFile, sidelined);
+    fs21.rmSync(sidelined, { force: true });
   } catch (e) {
     if (e.code !== "ENOENT") throw e;
   }
@@ -42653,8 +42738,8 @@ function stampFiringLock(vaultDir, record2, runId) {
   const lockFile = path23.join(stateDir2, "firing.lock");
   const next = { ...record2, runId };
   const tmp = path23.join(stateDir2, `.firing.lock.${record2.pid}.${tmpCounter++}`);
-  fs20.writeFileSync(tmp, JSON.stringify(next) + "\n");
-  fs20.renameSync(tmp, lockFile);
+  fs21.writeFileSync(tmp, JSON.stringify(next) + "\n");
+  fs21.renameSync(tmp, lockFile);
   return next;
 }
 function releaseFiringLock(vaultDir, match) {
@@ -42665,16 +42750,16 @@ function releaseFiringLock(vaultDir, match) {
   if (match.pid !== void 0 && held.pid !== match.pid) return false;
   if (match.acquiredAt !== void 0 && held.acquiredAt !== match.acquiredAt) return false;
   if (match.runId !== void 0 && held.runId !== match.runId) return false;
-  fs20.rmSync(p2, { force: true });
+  fs21.rmSync(p2, { force: true });
   return true;
 }
 
 // src/loop/spend.ts
-import fs22 from "node:fs";
+import fs23 from "node:fs";
 import path24 from "node:path";
 
 // src/adapters/tokens.ts
-import fs21 from "node:fs";
+import fs22 from "node:fs";
 function count(value) {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
 }
@@ -42684,7 +42769,7 @@ function text(value) {
 function* readEntries(file) {
   let raw;
   try {
-    raw = fs21.readFileSync(file, "utf8");
+    raw = fs22.readFileSync(file, "utf8");
   } catch {
     return;
   }
@@ -42741,7 +42826,7 @@ function sessionCwd(file) {
 // src/loop/spend.ts
 function canonical(p2) {
   try {
-    return fs22.realpathSync(path24.resolve(p2));
+    return fs23.realpathSync(path24.resolve(p2));
   } catch {
     return path24.resolve(p2);
   }
@@ -42750,7 +42835,7 @@ function measureFiring(sessionsDir, opts) {
   const dir = path24.resolve(sessionsDir);
   let names;
   try {
-    names = fs22.readdirSync(dir);
+    names = fs23.readdirSync(dir);
   } catch (e) {
     return {
       measurable: false,
@@ -42983,6 +43068,7 @@ program2.command("check").description("run the deterministic tree invariants (no
   const ctx = buildPassContext(opts.vault);
   const census = ctx.vault.readTreeCensus();
   census.independent = await reconcileWithGit(ctx.dir, census);
+  census.unexplained = reconcileWithUsage(ctx.dir, census);
   const { text: text2, violations } = renderCheck(census);
   console.log(text2);
   if (violations > 0) process.exitCode = 1;

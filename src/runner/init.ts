@@ -14,6 +14,57 @@ import { configPath } from "../config/load.js";
 import { gitCommit, gitInitIfAbsent, gitPush } from "../git/safe-git.js";
 import { FLOOR_RUNG } from "../knowledge/believability.js";
 import { buildPassContext } from "./context.js";
+import { INIT_TRACE_TOOL, drainCreatedNodeFiles, recordUsageEvent, usageLogPath } from "../telemetry/usage.js";
+
+/**
+ * Write the event that lets the trace be read as a denominator (W2, W3).
+ *
+ * `ost_check` reports a node file that no recorded invocation created — which only
+ * means anything if the trace covers the vault's whole life. That is what this event
+ * establishes, and the distinction it draws is between the *first* init and every
+ * later one:
+ *
+ *   - **First init, no prior marker.** Everything at the root right now is explained,
+ *     because this is the moment the trace takes over. That covers the Outcome node
+ *     just written and, when a directory of existing Markdown is adopted, whatever was
+ *     already there. Adoption is an honest explanation: those files predate the record
+ *     and no record can speak for them.
+ *   - **Any later init.** Only what this run created, drained from the writer like any
+ *     other call. `init` is re-runnable and `/ost-setup` grants a `Bash(… init:*)`
+ *     prefix, so an init that re-blessed the whole root would be a laundry: drop a node
+ *     file beside the vault, run init, watch the violation disappear. It explains
+ *     nothing it did not write.
+ */
+function recordInitInTrace(abs: string): void {
+  const created = drainCreatedNodeFiles();
+  const first = !traceHasInit(abs);
+  const wrote = first ? [...new Set([...rootMarkdownFiles(abs), ...created])].sort() : created;
+  recordUsageEvent(abs, {
+    ts: new Date().toISOString(),
+    tool: INIT_TRACE_TOOL,
+    ok: true,
+    ms: 0,
+    surface: "cli",
+    argBytes: 0,
+    ...(wrote.length > 0 ? { wrote } : {}),
+  });
+}
+
+function rootMarkdownFiles(abs: string): string[] {
+  return fs
+    .readdirSync(abs, { withFileTypes: true })
+    .filter((e) => e.isFile() && e.name.endsWith(".md"))
+    .map((e) => e.name);
+}
+
+function traceHasInit(abs: string): boolean {
+  const file = usageLogPath(abs);
+  if (!fs.existsSync(file)) return false;
+  return fs
+    .readFileSync(file, "utf8")
+    .split("\n")
+    .some((line) => line.includes(`"tool":"${INIT_TRACE_TOOL}"`));
+}
 
 export interface InitResult {
   dir: string;
@@ -64,6 +115,8 @@ export async function initVault(dir: string, outcome: string, outcomeTitle?: str
     });
     outcomeCreated = true;
   }
+
+  recordInitInTrace(abs);
 
   const commit = await gitCommit(abs, `init: ${outcomeCreated ? `created Outcome "${rootTitle}"` : "no changes"}`);
   if (ctx.remote.enabled && commit.committed) {
