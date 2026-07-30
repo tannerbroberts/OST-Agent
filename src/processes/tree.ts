@@ -5,6 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
+import { redactSecrets } from "../adapters/transcript.js";
 import type { Layer, OstNode } from "../ost/node.js";
 
 export interface EvidenceRecord {
@@ -25,16 +26,37 @@ function safeName(id: string): string {
   return id.replace(/\.(md|txt|markdown)$/i, "").replace(/[^a-zA-Z0-9._-]+/g, "_");
 }
 
-/** Persist an evidence item as a provenance-tagged Markdown file (idempotent). */
+/**
+ * Persist an evidence item as a provenance-tagged Markdown file (idempotent).
+ *
+ * Redaction happens HERE rather than in each adapter, because this is the single
+ * funnel every evidence record passes through on its way to a file `git add -A`
+ * will stage and the unattended script will push — the same argument
+ * `assertWritableContent` won at the node-write boundary. Per-adapter redaction is
+ * fail-open by construction and had already failed that way: four body-carrying
+ * paths called `redactSecrets` and `InboxSource` did not, so the untrusted
+ * builder's *only* channel (DEC-1) was the one that wrote credentials to disk
+ * verbatim. Slack message text and Jira descriptions — both plain adapter bodies,
+ * both places people paste tokens — are the next two to arrive, and neither should
+ * have to remember.
+ *
+ * A first-party channel gets redacted too, and that is correct rather than
+ * collateral: trust decides which believability rung a body earns, never whether a
+ * live credential belongs in a pushed repository.
+ *
+ * `id` and `source` are deliberately left alone. They are keys — the cursor, the
+ * on-disk filename and `classifyProvenance` all match them verbatim — and
+ * rewriting a key to fix a display problem is how one record becomes two.
+ */
 export function writeEvidence(dir: string, rec: EvidenceRecord): boolean {
   const d = evidenceDir(dir);
   fs.mkdirSync(d, { recursive: true });
   const p = path.join(d, `${safeName(rec.id)}.md`);
   if (fs.existsSync(p)) return false;
-  const content = matter.stringify(rec.body.trim() + "\n", {
+  const content = matter.stringify(redactSecrets(rec.body).trim() + "\n", {
     id: rec.id,
     source: rec.source,
-    title: rec.title,
+    title: redactSecrets(rec.title),
     timestamp: rec.timestamp,
   });
   fs.writeFileSync(p, content, "utf8");
