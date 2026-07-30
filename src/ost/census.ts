@@ -26,8 +26,10 @@
  *
  * Only the second one costs anything, and it is the one that does the work.
  */
+import fs from "node:fs";
 import path from "node:path";
 import { simpleGit } from "simple-git";
+import { INIT_TRACE_TOOL, usageLogPath } from "../telemetry/usage.js";
 import type { OstNode } from "./node.js";
 
 /** A markdown file the walk enumerated but did not turn into a node. */
@@ -68,6 +70,17 @@ export interface TreeCensus {
   unreadable: CensusDrop[];
   /** Absent when no independent source was available (e.g. the vault is not a repo). */
   independent?: IndependentDenominator;
+  /** Absent when the trace cannot speak for this vault's whole life. See {@link reconcileWithUsage}. */
+  unexplained?: UsageAccounting;
+}
+
+/** What the usage trace says about where the tree's files came from. */
+export interface UsageAccounting {
+  source: "usage-trace";
+  /** The file the finding was computed from, named so an operator can open it. */
+  basis: string;
+  /** Node files on disk that no recorded invocation claims to have created. */
+  unexplained: string[];
 }
 
 /**
@@ -114,6 +127,68 @@ export async function reconcileWithGit(
   const unseenByWalk = topLevel.filter((f) => !seen.has(f)).sort();
 
   return { source: "git", tracked: topLevel.length, unseenByWalk };
+}
+
+/**
+ * Ask the usage trace — not git, and not the walk — which node files something asked
+ * for.
+ *
+ * This is the third instrument, for the blindness the other two share. The walk cannot
+ * tell a node the tree grew from a node that appeared beside it: both are files with
+ * valid frontmatter. Neither can git, and git is worse than silent here — every
+ * mutating tool call runs `git add -A` and commits as `mcp: <tool> — …`, so a file
+ * written out of band does not merely go unnoticed, it *acquires* a commit message
+ * attributing it to an allowlisted append-only tool (W2). `reconcileWithGit` compares
+ * the walk against an index that the same `add -A` has already reconciled, so the two
+ * agree precisely when they are both wrong.
+ *
+ * The trace is the one record written *before* the file exists, by the code path that
+ * asked for it. A node file no event claims is a node file no tool invocation explains.
+ *
+ * **Returns undefined unless the trace can speak for the vault's whole life**, which
+ * it can only do from an `init` marker onwards (see `recordInitInTrace`). A vault older
+ * than this mechanism has nodes no event could ever claim, and reporting all of them as
+ * unexplained would be a wall of noise that trains an operator to ignore the one line
+ * that matters. An absent basis is not a discrepancy — the same answer
+ * `reconcileWithGit` gives a vault that is not a repository.
+ *
+ * *The honest limit, stated because it is the boundary and not a loophole:* anyone who
+ * can write a node file out of band can also delete this trace, and a deleted trace
+ * reads as "no basis" rather than as an alarm. What it cannot do is delete the trace
+ * quietly — the file is tracked, so its removal is a diff. This detects the write
+ * nobody was hiding, which is the one the criterion is about.
+ */
+export function reconcileWithUsage(vaultRoot: string, census: TreeCensus): UsageAccounting | undefined {
+  const file = usageLogPath(vaultRoot);
+  let raw: string;
+  try {
+    raw = fs.readFileSync(file, "utf8");
+  } catch {
+    return undefined;
+  }
+
+  const claimed = new Set<string>();
+  let covered = false;
+  for (const line of raw.split("\n")) {
+    if (!line.trim()) continue;
+    let event: { tool?: unknown; wrote?: unknown };
+    try {
+      event = JSON.parse(line) as { tool?: unknown; wrote?: unknown };
+    } catch {
+      // A torn final line loses itself, never the reconciliation — the same rule the
+      // usage rollup reads this file under. It can only cost coverage, never invent it.
+      continue;
+    }
+    if (event.tool === INIT_TRACE_TOOL) covered = true;
+    if (Array.isArray(event.wrote)) for (const f of event.wrote) if (typeof f === "string") claimed.add(f);
+  }
+  if (!covered) return undefined;
+
+  return {
+    source: "usage-trace",
+    basis: path.relative(path.resolve(vaultRoot), file) || file,
+    unexplained: census.seenFiles.filter((f) => !claimed.has(f)).sort(),
+  };
 }
 
 /**

@@ -21,6 +21,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
+import { noteNodeFileCreated } from "../telemetry/usage.js";
 import {
   AGENT_IDEATED_TAG,
   deserialize,
@@ -265,6 +266,11 @@ export class Vault {
       throw new Error(`node already exists (create is non-overwriting): ${node.title}`);
     }
     fs.writeFileSync(p, serialize(node), "utf8");
+    // The single writer reports the one thing only it can know: that this file now
+    // exists because something asked for it. Nothing else in the process can
+    // distinguish a node the tree grew from a node that appeared beside it, and a
+    // detector that cannot make that distinction is the gap W2 names.
+    noteNodeFileCreated(path.basename(p));
   }
 
   /**

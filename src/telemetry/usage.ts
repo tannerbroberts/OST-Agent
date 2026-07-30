@@ -12,7 +12,8 @@
  * Recording is fail-open by design: telemetry must never break a tool call, so
  * an unwritable log means a lost event, not a failed mutation. Events carry
  * tool name, outcome, duration, surface, and input SIZE — never input content,
- * so nothing sensitive can leak into the trace.
+ * so nothing sensitive can leak into the trace. The one exception is `wrote`, the
+ * names of the node files a call created, and it is not really one: see the field.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -37,7 +38,55 @@ export interface UsageEvent {
   session?: string;
   /** Which unknown this call was spent on (OST_UNKNOWN env), when one is being worked. */
   unknown?: string;
+  /**
+   * Node files this call brought into existence, as basenames.
+   *
+   * The trace's other fields describe the call; this one describes its effect on the
+   * tree, and it is what turns the trace from a record into a *denominator*. A node
+   * file the tree has and no event here claims is a file no tool invocation explains
+   * (W2) — the only detector available, because the commit trail cannot supply one:
+   * every mutating call runs `git add -A`, so an out-of-band write does not merely go
+   * unnoticed, it acquires a commit message attributing it to an allowlisted tool.
+   *
+   * A filename is not "input content" in the sense the header above refuses. It is
+   * already in the vault root, in git, and in that commit message; withholding it here
+   * would hide nothing and cost the join.
+   */
+  wrote?: string[];
 }
+
+/**
+ * Node files created since the last drain — the bridge from the single writer to the
+ * trace.
+ *
+ * Module-level and mutable, with the same limit `handleOstCall`'s OST_UNKNOWN marker
+ * states plainly: it is correct because a surface dispatches one call at a time and
+ * the drain happens inside the same call that filled it. Two genuinely interleaved
+ * calls would attribute one call's creation to the other's event. It lives here rather
+ * than in `vault.ts` so that nothing in `src/ost/` has to import telemetry, and the
+ * one writer (W4 pins that it is `Vault`) reports its effects to the one recorder.
+ */
+const createdNodeFiles: string[] = [];
+
+/** Called by the single writer immediately after a node file appears on disk. */
+export function noteNodeFileCreated(file: string): void {
+  createdNodeFiles.push(file);
+}
+
+/** Take and clear what the writer has reported since the last drain. */
+export function drainCreatedNodeFiles(): string[] {
+  return createdNodeFiles.splice(0, createdNodeFiles.length);
+}
+
+/**
+ * The tool name the trace uses for the vault's own beginning.
+ *
+ * Declared here rather than beside `initVault` because the reader (`reconcileWithUsage`)
+ * and the writer live in different halves of the tree, and a shared literal is the only
+ * form of agreement that cannot drift. Importing it from the runner would also close a
+ * cycle: the census is reachable from init, not the other way round.
+ */
+export const INIT_TRACE_TOOL = "vault_init";
 
 const MAX_ERR_CHARS = 300;
 
@@ -85,6 +134,7 @@ export function withUsageTracing<T extends RunnableTool>(tools: T[], vaultDir: s
       }
       try {
         const result = await tool.run(input);
+        const wrote = drainCreatedNodeFiles();
         recordUsageEvent(vaultDir, {
           ts: new Date(started).toISOString(),
           tool: tool.name,
@@ -94,10 +144,16 @@ export function withUsageTracing<T extends RunnableTool>(tools: T[], vaultDir: s
           argBytes,
           ...(session ? { session } : {}),
           ...(unknown ? { unknown } : {}),
+          ...(wrote.length > 0 ? { wrote } : {}),
         });
         return result;
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
+        // Drained on the failure path too, and recorded. A call that created a node
+        // file and then threw still created it (R8's orphan is exactly this shape), and
+        // an undrained entry would be stamped onto whatever call came next — attributing
+        // a real write to an innocent tool, which is worse than not recording it.
+        const wrote = drainCreatedNodeFiles();
         recordUsageEvent(vaultDir, {
           ts: new Date(started).toISOString(),
           tool: tool.name,
@@ -108,6 +164,7 @@ export function withUsageTracing<T extends RunnableTool>(tools: T[], vaultDir: s
           err: redactSecrets(message).slice(0, MAX_ERR_CHARS),
           ...(session ? { session } : {}),
           ...(unknown ? { unknown } : {}),
+          ...(wrote.length > 0 ? { wrote } : {}),
         });
         throw e;
       }

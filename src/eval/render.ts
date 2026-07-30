@@ -28,6 +28,36 @@ function appendCensus(lines: string[], census: TreeCensus, coda?: string): void 
   if (coda) lines.push(coda);
 }
 
+/**
+ * The trace's finding, rendered in the same shape as an invariant's and counted with
+ * them — a red `ost_check` and a non-zero CLI exit.
+ *
+ * It is deliberately NOT a rule in `src/eval/invariants.ts`, and that placement is the
+ * whole design rather than an accident of where the data lives. `checkInvariants` is
+ * model-independent structure over a node list; this is a claim about the world outside
+ * the list, computed from a file. Putting it there would also make it a `done`-blocker
+ * through `detectHygiene`'s derivation (R4), and no tool on the surface can delete a
+ * node file — so the unattended sweep would wedge forever on a defect it cannot touch.
+ * A node file nobody asked for is exactly the mandatory human interrupt `single-outcome`
+ * already is, and for the same reason.
+ */
+function appendUnexplained(lines: string[], census: TreeCensus): number {
+  const found = census.unexplained;
+  if (!found || found.unexplained.length === 0) return 0;
+  lines.push(`provenance: FAIL (${found.unexplained.length} node file(s) no tool invocation explains)`);
+  for (const file of found.unexplained) {
+    lines.push(`  ✗ [unexplained-node] "${file}": on disk, created by nothing the trace recorded`);
+  }
+  lines.push(
+    `  Basis: ${found.basis} — the record written before each file existed, by the code\n` +
+      "  path that asked for it. Every mutating call runs `git add -A`, so the commit\n" +
+      "  trail cannot tell you this: an out-of-band write acquires a commit message\n" +
+      "  naming an allowlisted tool. Open the file, confirm it belongs, and re-create it\n" +
+      "  through the tool surface — or delete it. No tool here can do either for you.",
+  );
+  return found.unexplained.length;
+}
+
 export function renderCheck(census: TreeCensus): { text: string; violations: number } {
   const lines: string[] = [];
   const violations = checkInvariants(census.nodes);
@@ -39,13 +69,14 @@ export function renderCheck(census: TreeCensus): { text: string; violations: num
     lines.push(`invariants: FAIL (${violations.length} violation(s) over ${census.nodes.length} node(s))`);
     for (const v of violations) lines.push(`  ✗ [${v.rule}] ${v.node ? `"${v.node}": ` : ""}${v.detail}`);
   }
+  const unexplained = appendUnexplained(lines, census);
   appendCensus(
     lines,
     census,
     "  A node the reader never returned cannot violate an invariant. The verdict\n" +
       "  above covers the nodes in this denominator and no others.",
   );
-  return { text: lines.join("\n"), violations: violations.length };
+  return { text: lines.join("\n"), violations: violations.length + unexplained };
 }
 
 export function renderDebt(tree: OstNode[]): string {

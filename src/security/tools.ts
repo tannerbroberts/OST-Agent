@@ -37,7 +37,7 @@ import { readProductRepo } from "../product/repo.js";
 import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/render.js";
 import { checkCorroboration } from "../eval/corroboration.js";
 import { rungRefusal, unearnedRung } from "../eval/rungs.js";
-import { reconcileWithGit } from "../ost/census.js";
+import { reconcileWithGit, reconcileWithUsage } from "../ost/census.js";
 import { InboxSource } from "../adapters/inbox.js";
 import { loadCursor, saveCursor, type EvidenceItem } from "../adapters/source.js";
 import { writeEvidence } from "../processes/tree.js";
@@ -593,6 +593,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
       run: async () => {
         const census = vault.readTreeCensus();
         census.independent = await reconcileWithGit(dir, census);
+        census.unexplained = reconcileWithUsage(dir, census);
         return renderCheck(census).text;
       },
     }),
