@@ -11,7 +11,7 @@
  * logic runs offline against a fake client, and the real HTTP client is exercised
  * with an injected `fetch` (verifying GET-only + Bearer auth shape).
  */
-import type { Cursor, EvidenceItem, FetchResult, Source } from "./source.js";
+import type { Actor, Cursor, EvidenceItem, FetchResult, Source } from "./source.js";
 
 export interface SlackMessage {
   /** Channel id (e.g. "C01234"). */
@@ -49,6 +49,7 @@ function tsGt(a: string, b: string): boolean {
 
 export class SlackSource implements Source {
   readonly name = "slack";
+  readonly actor: Actor = "slack";
 
   constructor(
     private readonly client: SlackClient,

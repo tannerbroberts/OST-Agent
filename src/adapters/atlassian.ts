@@ -11,7 +11,7 @@
  * cursor logic is exercised offline with a fake client, and the real HTTP client
  * is exercised with an injected `fetch` (verifying GET-only + auth shape).
  */
-import type { Cursor, EvidenceItem, FetchResult, Source } from "./source.js";
+import type { Actor, Cursor, EvidenceItem, FetchResult, Source } from "./source.js";
 
 export interface JiraIssue {
   key: string;
@@ -48,6 +48,7 @@ export interface AtlassianOptions {
 
 export class AtlassianSource implements Source {
   readonly name = "atlassian";
+  readonly actor: Actor = "atlassian";
 
   constructor(
     private readonly client: AtlassianClient,

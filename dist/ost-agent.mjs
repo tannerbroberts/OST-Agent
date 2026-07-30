@@ -31265,6 +31265,14 @@ import path2 from "node:path";
 var TEXT_EXT = /* @__PURE__ */ new Set([".md", ".txt", ".markdown"]);
 var InboxSource = class {
   name = "inbox";
+  /**
+   * Everything read out of the drop folder is `inbox` — including the agent's own
+   * friction filings, which land here as ordinary files (`src/adapters/friction.ts`).
+   * That is the honest answer rather than a lost distinction: the folder is writable
+   * by anyone who can write the vault, so any finer-grained claim about *which*
+   * producer wrote a given file would be read off a name the producer chose.
+   */
+  actor = "inbox";
   dir;
   constructor(inboxDir) {
     this.dir = path2.resolve(inboxDir);
@@ -31315,6 +31323,7 @@ var AtlassianSource = class {
   client;
   opts;
   name = "atlassian";
+  actor = "atlassian";
   async fetchSince(cursor) {
     const state = decode(cursor);
     const [issues, pages] = await Promise.all([
@@ -31585,6 +31594,7 @@ function renderBody(sessionId, events, shown) {
 }
 var TranscriptSource = class {
   name = "transcript";
+  actor = "transcript";
   dir;
   quietMinutes;
   maxEvents;
@@ -31658,6 +31668,7 @@ function table(counts) {
 }
 var UsageSource = class {
   name = "usage";
+  actor = "usage";
   file;
   minEvents;
   today;
@@ -31811,6 +31822,7 @@ var SlackSource = class {
   client;
   opts;
   name = "slack";
+  actor = "slack";
   async fetchSince(cursor) {
     const state = decode2(cursor);
     if (this.opts.channels.length === 0) return { items: [], cursor: encode2(state) };
@@ -38107,40 +38119,73 @@ ${historyBlock}`;
 
 // src/processes/tree.ts
 var import_gray_matter3 = __toESM(require_gray_matter(), 1);
+import fs11 from "node:fs";
+import path10 from "node:path";
+
+// src/adapters/source.ts
 import fs10 from "node:fs";
 import path9 from "node:path";
+var ACTORS = ["inbox", "slack", "atlassian", "usage", "transcript", "unknown"];
+var UNKNOWN_ACTOR = "unknown";
+function isActor(value) {
+  return typeof value === "string" && ACTORS.includes(value);
+}
+function stateDir(vaultDir) {
+  return path9.join(path9.resolve(vaultDir), ".ost-agent", "state");
+}
+function cursorFile(vaultDir, name) {
+  return path9.join(stateDir(vaultDir), `${name}.json`);
+}
+function loadCursor(vaultDir, name) {
+  const p2 = cursorFile(vaultDir, name);
+  if (!fs10.existsSync(p2)) return null;
+  try {
+    const parsed = JSON.parse(fs10.readFileSync(p2, "utf8"));
+    return parsed.cursor ?? null;
+  } catch {
+    return null;
+  }
+}
+function saveCursor(vaultDir, name, cursor) {
+  const dir = stateDir(vaultDir);
+  fs10.mkdirSync(dir, { recursive: true });
+  fs10.writeFileSync(cursorFile(vaultDir, name), JSON.stringify({ cursor }, null, 2), "utf8");
+}
+
+// src/processes/tree.ts
 function evidenceDir(dir) {
-  return path9.join(dir, ".ost-agent", "evidence");
+  return path10.join(dir, ".ost-agent", "evidence");
 }
 function stateFile(dir, name) {
-  return path9.join(dir, ".ost-agent", "state", name);
+  return path10.join(dir, ".ost-agent", "state", name);
 }
 function safeName(id) {
   return id.replace(/\.(md|txt|markdown)$/i, "").replace(/[^a-zA-Z0-9._-]+/g, "_");
 }
-function writeEvidence(dir, rec) {
+function writeEvidence(dir, rec, actor) {
   const d = evidenceDir(dir);
-  fs10.mkdirSync(d, { recursive: true });
-  const p2 = path9.join(d, `${safeName(rec.id)}.md`);
-  if (fs10.existsSync(p2)) return false;
-  const content = import_gray_matter3.default.stringify(redactSecrets(rec.body).trim() + "\n", {
+  fs11.mkdirSync(d, { recursive: true });
+  const p2 = path10.join(d, `${safeName(rec.id)}.md`);
+  if (fs11.existsSync(p2)) return false;
+  const content = import_gray_matter3.default.stringify({ content: redactSecrets(rec.body).trim() + "\n" }, {
     id: rec.id,
     source: rec.source,
     title: redactSecrets(rec.title),
-    timestamp: rec.timestamp
+    timestamp: rec.timestamp,
+    actor
   });
-  fs10.writeFileSync(p2, content, "utf8");
+  fs11.writeFileSync(p2, content, "utf8");
   return true;
 }
 function readEvidence(dir) {
   const d = evidenceDir(dir);
-  if (!fs10.existsSync(d)) return [];
+  if (!fs11.existsSync(d)) return [];
   const out = [];
-  for (const name of fs10.readdirSync(d)) {
+  for (const name of fs11.readdirSync(d)) {
     if (!name.endsWith(".md")) continue;
     let parsed;
     try {
-      parsed = (0, import_gray_matter3.default)(fs10.readFileSync(path9.join(d, name), "utf8"));
+      parsed = (0, import_gray_matter3.default)(fs11.readFileSync(path10.join(d, name), "utf8"));
     } catch {
       continue;
     }
@@ -38150,16 +38195,21 @@ function readEvidence(dir) {
       source: String(data.source ?? ""),
       title: String(data.title ?? name.replace(/\.md$/, "")),
       timestamp: String(data.timestamp ?? ""),
-      body: parsed.content.trim()
+      body: parsed.content.trim(),
+      // Fail closed, where every other field above fails open. A record written before
+      // the stamp existed, or one whose `actor` was hand-edited to something outside
+      // the vocabulary, reads as `unknown` — the least-trusted answer — rather than as
+      // whichever producer the file claims to be.
+      actor: isActor(data.actor) ? data.actor : UNKNOWN_ACTOR
     });
   }
   return out;
 }
 function getMapped(dir) {
   const p2 = stateFile(dir, "mapped.json");
-  if (!fs10.existsSync(p2)) return /* @__PURE__ */ new Set();
+  if (!fs11.existsSync(p2)) return /* @__PURE__ */ new Set();
   try {
-    const parsed = JSON.parse(fs10.readFileSync(p2, "utf8"));
+    const parsed = JSON.parse(fs11.readFileSync(p2, "utf8"));
     return new Set(parsed.mapped ?? []);
   } catch {
     return /* @__PURE__ */ new Set();
@@ -38173,7 +38223,7 @@ function childrenOfLayer(node, index, layer) {
 }
 
 // src/ost/lanes.ts
-import path10 from "node:path";
+import path11 from "node:path";
 
 // src/eval/evidence-debt.ts
 function hasRecordedResult(test) {
@@ -38368,7 +38418,7 @@ function setLane(vaultDir, filing) {
   if (!why) {
     throw new Error("a lane classification needs a why \u2014 an unauditable label is worse than no label");
   }
-  const vault = new Vault(path10.resolve(vaultDir));
+  const vault = new Vault(path11.resolve(vaultDir));
   const node = vault.read(filing.test);
   if (node.layer !== "AssumptionTest") {
     throw new Error(`"${filing.test}" is a ${node.layer} \u2014 lanes classify an AssumptionTest`);
@@ -38599,8 +38649,8 @@ function resolutionState(node, resolution = DEFAULT_RESOLUTION) {
 }
 
 // src/telemetry/attention.ts
-import fs11 from "node:fs";
-import path11 from "node:path";
+import fs12 from "node:fs";
+import path12 from "node:path";
 function emptyTiers() {
   return { input: 0, output: 0, cacheCreate: 0, cacheRead: 0 };
 }
@@ -38613,14 +38663,14 @@ function addTiers(a, b2) {
   };
 }
 function attentionLogPath(vaultDir, unknown2) {
-  return path11.join(path11.resolve(vaultDir), ".ost-agent", "attention", `${sanitizeTitle(unknown2)}.jsonl`);
+  return path12.join(path12.resolve(vaultDir), ".ost-agent", "attention", `${sanitizeTitle(unknown2)}.jsonl`);
 }
 function readAttention(vaultDir, unknown2) {
   try {
     const file = attentionLogPath(vaultDir, unknown2);
-    if (!fs11.existsSync(file)) return [];
+    if (!fs12.existsSync(file)) return [];
     const out = [];
-    for (const line of fs11.readFileSync(file, "utf8").split("\n")) {
+    for (const line of fs12.readFileSync(file, "utf8").split("\n")) {
       const trimmed2 = line.trim();
       if (!trimmed2) continue;
       try {
@@ -38635,7 +38685,7 @@ function readAttention(vaultDir, unknown2) {
 }
 
 // src/eval/attention.ts
-import fs12 from "node:fs";
+import fs13 from "node:fs";
 var DEFAULT_WEIGHTED_TOKEN_SPEND = {
   input: 1,
   output: 5,
@@ -38654,7 +38704,7 @@ function rollUpUsage(vaultDir, knownTitles, staleAttribution = "drop") {
   const file = usageLogPath(vaultDir);
   let raw;
   try {
-    raw = fs12.readFileSync(file, "utf8");
+    raw = fs13.readFileSync(file, "utf8");
   } catch {
     return { byUnknown, unattributed };
   }
@@ -38863,9 +38913,9 @@ function computeCoverageDebt(tree) {
 }
 
 // src/ost/census.ts
-import path12 from "node:path";
+import path13 from "node:path";
 async function reconcileWithGit(vaultRoot, census) {
-  const root = path12.resolve(vaultRoot);
+  const root = path13.resolve(vaultRoot);
   let raw;
   try {
     const g = simpleGit(root);
@@ -39066,7 +39116,7 @@ function renderStatus(ctx, census) {
 }
 
 // src/ost/results.ts
-import path13 from "node:path";
+import path14 from "node:path";
 var VERDICTS = ["supported", "refuted", "inconclusive"];
 function recordResult(vaultDir, filing) {
   if (!VERDICTS.includes(filing.verdict)) {
@@ -39086,7 +39136,7 @@ function recordResult(vaultDir, filing) {
       "a result needs a statement of what it does NOT cover \u2014 the part of the threshold this run left untested. A result with no stated limit gets read as answering the whole question."
     );
   }
-  const dir = path13.resolve(vaultDir);
+  const dir = path14.resolve(vaultDir);
   const vault = new Vault(dir);
   const node = vault.read(filing.test);
   if (node.layer !== "AssumptionTest") {
@@ -39113,13 +39163,13 @@ function promoteNode(vaultDir, filing) {
   if (!why) {
     throw new Error("a promotion needs a reason \u2014 what evidence earned it. 'validated' with no stated basis is a byline.");
   }
-  const vault = new Vault(path13.resolve(vaultDir));
+  const vault = new Vault(path14.resolve(vaultDir));
   return vault.promoteToValidated(filing.node, by, why);
 }
 
 // src/adapters/friction.ts
-import fs13 from "node:fs";
-import path14 from "node:path";
+import fs14 from "node:fs";
+import path15 from "node:path";
 var FRICTION_KINDS = ["blocked", "guessed", "unclear-rule", "missing-affordance", "slow"];
 var MAX_NOTE_CHARS = 500;
 var MAX_CONTEXT_CHARS = 1e3;
@@ -39131,9 +39181,9 @@ function slug(note) {
   return note.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "friction";
 }
 function uniquePath(dir, base) {
-  let candidate = path14.join(dir, `${base}.md`);
-  for (let n = 2; fs13.existsSync(candidate); n++) {
-    candidate = path14.join(dir, `${base}-${n}.md`);
+  let candidate = path15.join(dir, `${base}.md`);
+  for (let n = 2; fs14.existsSync(candidate); n++) {
+    candidate = path15.join(dir, `${base}-${n}.md`);
   }
   return candidate;
 }
@@ -39143,9 +39193,9 @@ function fileFriction(vaultDir, filing) {
   }
   const note = clean(filing.note ?? "", MAX_NOTE_CHARS);
   if (!note) throw new Error("a friction filing needs a note \u2014 one line describing what went wrong");
-  const dir = path14.resolve(vaultDir);
-  const inboxDir = path14.join(dir, loadConfig(dir).adapters.inbox.path);
-  fs13.mkdirSync(inboxDir, { recursive: true });
+  const dir = path15.resolve(vaultDir);
+  const inboxDir = path15.join(dir, loadConfig(dir).adapters.inbox.path);
+  fs14.mkdirSync(inboxDir, { recursive: true });
   const at = filing.at ?? (/* @__PURE__ */ new Date()).toISOString();
   const day = at.slice(0, 10);
   const context = filing.context ? clean(filing.context, MAX_CONTEXT_CHARS) : "";
@@ -39165,7 +39215,7 @@ function fileFriction(vaultDir, filing) {
     ""
   ].join("\n");
   const target = uniquePath(inboxDir, `${day}-friction-${slug(note)}`);
-  fs13.writeFileSync(target, body, "utf8");
+  fs14.writeFileSync(target, body, "utf8");
   return target;
 }
 
@@ -41058,7 +41108,7 @@ function computeNextWork(vault, dir, min) {
   const index = byTitle(tree);
   const mapped = getMapped(dir);
   const citedSources = new Set(tree.map((n) => n.source).filter((s) => !!s));
-  const unmappedEvidence = readEvidence(dir).filter((e) => !mapped.has(e.id) && !citedSources.has(e.id)).map((e) => ({ id: e.id, source: e.source, title: e.title, excerpt: e.body.slice(0, 280) }));
+  const unmappedEvidence = readEvidence(dir).filter((e) => !mapped.has(e.id) && !citedSources.has(e.id)).map((e) => ({ id: e.id, source: e.source, title: e.title, excerpt: e.body.slice(0, 280), actor: e.actor }));
   const underservedOpportunities = tree.filter((n) => n.layer === "Opportunity").map((o2) => {
     const existing = childrenOfLayer(o2, index, "Solution");
     return { title: o2.title, solutions: existing.length, needed: min, existingSolutions: existing };
@@ -41230,14 +41280,14 @@ function decodeEntities(s) {
 }
 
 // src/knowledge/web-trust.ts
-import fs14 from "node:fs";
-import path15 from "node:path";
+import fs15 from "node:fs";
+import path16 from "node:path";
 var HOST_RUNGS = ["assertion", "expert"];
 function isHostRung(rung) {
   return HOST_RUNGS.includes(rung);
 }
 function hostTrustPath(dir) {
-  return path15.join(dir, ".ost-agent", "trust", "hosts.jsonl");
+  return path16.join(dir, ".ost-agent", "trust", "hosts.jsonl");
 }
 function normalizeHost(raw) {
   let h2 = raw.trim().toLowerCase();
@@ -41263,15 +41313,15 @@ function rankHost(dir, rec) {
     by: rec.by
   };
   const file = hostTrustPath(dir);
-  fs14.mkdirSync(path15.dirname(file), { recursive: true });
-  fs14.appendFileSync(file, JSON.stringify(record2) + "\n");
+  fs15.mkdirSync(path16.dirname(file), { recursive: true });
+  fs15.appendFileSync(file, JSON.stringify(record2) + "\n");
   return record2;
 }
 function readHostTrust(dir) {
   const file = hostTrustPath(dir);
   const trust = /* @__PURE__ */ new Map();
-  if (!fs14.existsSync(file)) return trust;
-  for (const line of fs14.readFileSync(file, "utf8").split("\n")) {
+  if (!fs15.existsSync(file)) return trust;
+  for (const line of fs15.readFileSync(file, "utf8").split("\n")) {
     if (!line.trim()) continue;
     try {
       const rec = JSON.parse(line);
@@ -41289,8 +41339,8 @@ function hostRung(trust, host) {
 }
 
 // src/product/repo.ts
-import fs15 from "node:fs";
-import path16 from "node:path";
+import fs16 from "node:fs";
+import path17 from "node:path";
 var MAX_FILE_CHARS = 2e4;
 var MAX_LIST_ENTRIES = 500;
 var SKIP_DIRS = /* @__PURE__ */ new Set([".git", "node_modules", "dist", "build", ".next", "__pycache__", ".venv"]);
@@ -41300,42 +41350,42 @@ function readProductRepo(repos, input) {
       "no product repos configured \u2014 add local repo paths under `product.repos` in ost.config.yaml so the agent can read what the product is"
     );
   }
-  const roots = repos.map((r2) => fs15.realpathSync(path16.resolve(r2)));
+  const roots = repos.map((r2) => fs16.realpathSync(path17.resolve(r2)));
   let root;
   if (input.repo) {
-    const found = roots.find((r2) => path16.basename(r2) === input.repo || r2 === path16.resolve(input.repo));
+    const found = roots.find((r2) => path17.basename(r2) === input.repo || r2 === path17.resolve(input.repo));
     if (!found) {
-      throw new Error(`unknown repo "${input.repo}" \u2014 configured repos: ${roots.map((r2) => path16.basename(r2)).join(", ")}`);
+      throw new Error(`unknown repo "${input.repo}" \u2014 configured repos: ${roots.map((r2) => path17.basename(r2)).join(", ")}`);
     }
     root = found;
   } else if (roots.length === 1) {
     root = roots[0];
   } else if (!input.path) {
-    return { kind: "repos", entries: roots.map((r2) => ({ name: path16.basename(r2), type: "dir" })) };
+    return { kind: "repos", entries: roots.map((r2) => ({ name: path17.basename(r2), type: "dir" })) };
   } else {
-    throw new Error(`several repos are configured \u2014 pass \`repo\`: ${roots.map((r2) => path16.basename(r2)).join(", ")}`);
+    throw new Error(`several repos are configured \u2014 pass \`repo\`: ${roots.map((r2) => path17.basename(r2)).join(", ")}`);
   }
   const rel = input.path ?? ".";
-  const joined = path16.resolve(root, rel);
-  if (joined !== root && !joined.startsWith(root + path16.sep)) {
-    throw new Error(`"${rel}" resolves outside the repo \u2014 reads are confined to ${path16.basename(root)}`);
+  const joined = path17.resolve(root, rel);
+  if (joined !== root && !joined.startsWith(root + path17.sep)) {
+    throw new Error(`"${rel}" resolves outside the repo \u2014 reads are confined to ${path17.basename(root)}`);
   }
   let real;
   try {
-    real = fs15.realpathSync(joined);
+    real = fs16.realpathSync(joined);
   } catch {
-    throw new Error(`"${rel}" does not exist in ${path16.basename(root)}`);
+    throw new Error(`"${rel}" does not exist in ${path17.basename(root)}`);
   }
-  if (real !== root && !real.startsWith(root + path16.sep)) {
-    throw new Error(`"${rel}" is a symlink escaping the repo \u2014 reads are confined to ${path16.basename(root)}`);
+  if (real !== root && !real.startsWith(root + path17.sep)) {
+    throw new Error(`"${rel}" is a symlink escaping the repo \u2014 reads are confined to ${path17.basename(root)}`);
   }
-  const repoName = path16.basename(root);
-  const stat = fs15.statSync(real);
+  const repoName = path17.basename(root);
+  const stat = fs16.statSync(real);
   if (stat.isDirectory()) {
-    const entries = fs15.readdirSync(real, { withFileTypes: true }).filter((e) => !SKIP_DIRS.has(e.name)).sort((a, b2) => a.name.localeCompare(b2.name)).slice(0, MAX_LIST_ENTRIES).map((e) => ({ name: e.name, type: e.isDirectory() ? "dir" : "file" }));
+    const entries = fs16.readdirSync(real, { withFileTypes: true }).filter((e) => !SKIP_DIRS.has(e.name)).sort((a, b2) => a.name.localeCompare(b2.name)).slice(0, MAX_LIST_ENTRIES).map((e) => ({ name: e.name, type: e.isDirectory() ? "dir" : "file" }));
     return { kind: "listing", repo: repoName, path: rel, entries };
   }
-  const buf = fs15.readFileSync(real);
+  const buf = fs16.readFileSync(real);
   if (buf.subarray(0, 8192).includes(0)) {
     throw new Error(`"${rel}" looks binary \u2014 only text files can be read`);
   }
@@ -41382,31 +41432,6 @@ function checkCorroboration(tree, input) {
     ok: false,
     refusal: `a promotion to "${input.rung}" needs a corroborating result that exists and has an outcome \u2014 ${faults.join("; and ")}. A promotion is earned by a result, not by naming one.`
   };
-}
-
-// src/adapters/source.ts
-import fs16 from "node:fs";
-import path17 from "node:path";
-function stateDir(vaultDir) {
-  return path17.join(path17.resolve(vaultDir), ".ost-agent", "state");
-}
-function cursorFile(vaultDir, name) {
-  return path17.join(stateDir(vaultDir), `${name}.json`);
-}
-function loadCursor(vaultDir, name) {
-  const p2 = cursorFile(vaultDir, name);
-  if (!fs16.existsSync(p2)) return null;
-  try {
-    const parsed = JSON.parse(fs16.readFileSync(p2, "utf8"));
-    return parsed.cursor ?? null;
-  } catch {
-    return null;
-  }
-}
-function saveCursor(vaultDir, name, cursor) {
-  const dir = stateDir(vaultDir);
-  fs16.mkdirSync(dir, { recursive: true });
-  fs16.writeFileSync(cursorFile(vaultDir, name), JSON.stringify({ cursor }, null, 2), "utf8");
 }
 
 // src/security/tools.ts
@@ -41822,7 +41847,7 @@ function buildOstTools(ctx, allowedNames) {
         const source = new InboxSource(path18.join(dir, inboxConfig.path));
         const { items, cursor } = await source.fetchSince(loadCursor(dir, source.name));
         const capturedTitles = [];
-        for (const item of items) if (writeEvidence(dir, item)) capturedTitles.push(item.title);
+        for (const item of items) if (writeEvidence(dir, item, source.actor)) capturedTitles.push(item.title);
         saveCursor(dir, source.name, cursor);
         if (capturedTitles.length === 0) {
           return "0 new notes \u2014 the inbox holds nothing that has not already been captured.";

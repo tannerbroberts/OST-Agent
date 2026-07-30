@@ -6,6 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
 import { redactSecrets } from "../adapters/transcript.js";
+import { isActor, UNKNOWN_ACTOR, type Actor } from "../adapters/source.js";
 import type { Layer, OstNode } from "../ost/node.js";
 
 export interface EvidenceRecord {
@@ -14,7 +15,17 @@ export interface EvidenceRecord {
   title: string;
   timestamp: string;
   body: string;
+  /**
+   * Which channel produced this record, stamped by the surface that fetched it and
+   * never read from the payload. Without it a builder's report, a sponsor's promise,
+   * the agent's own friction filing and a poisoned note are byte-identical once
+   * captured.
+   */
+  actor: Actor;
 }
+
+/** An item as a source hands it over: every field but the identity of the channel. */
+export type UnstampedEvidence = Omit<EvidenceRecord, "actor">;
 
 function evidenceDir(dir: string): string {
   return path.join(dir, ".ost-agent", "evidence");
@@ -47,17 +58,32 @@ function safeName(id: string): string {
  * `id` and `source` are deliberately left alone. They are keys — the cursor, the
  * on-disk filename and `classifyProvenance` all match them verbatim — and
  * rewriting a key to fix a display problem is how one record becomes two.
+ *
+ * `actor` is a SEPARATE ARGUMENT rather than a field on the item, because it is the
+ * one thing on the record whose producer must have no say in it. It comes off the
+ * `Source` that did the fetching, and a new adapter cannot forget to supply one
+ * without failing to compile.
  */
-export function writeEvidence(dir: string, rec: EvidenceRecord): boolean {
+export function writeEvidence(dir: string, rec: UnstampedEvidence, actor: Actor): boolean {
   const d = evidenceDir(dir);
   fs.mkdirSync(d, { recursive: true });
   const p = path.join(d, `${safeName(rec.id)}.md`);
   if (fs.existsSync(p)) return false;
-  const content = matter.stringify(redactSecrets(rec.body).trim() + "\n", {
+  // The body goes in as `{ content }`, NOT as a bare string. `matter.stringify` PARSES
+  // a string argument first and merges any frontmatter it finds *under* the fields
+  // passed here — `matter.stringify(str, data)` runs `matter(str)` first — so a note
+  // opening with
+  // `---\nactor: sponsor\nrung: money\n---` had those keys hoisted onto the record
+  // verbatim, and its own frontmatter silently stripped out of the stored body
+  // (verified before this change). Colliding keys were overridden, which kept the
+  // hole invisible for exactly as long as no reader consumed a field this write did
+  // not already set — i.e. until the line below.
+  const content = matter.stringify({ content: redactSecrets(rec.body).trim() + "\n" }, {
     id: rec.id,
     source: rec.source,
     title: redactSecrets(rec.title),
     timestamp: rec.timestamp,
+    actor,
   });
   fs.writeFileSync(p, content, "utf8");
   return true;
@@ -91,6 +117,11 @@ export function readEvidence(dir: string): EvidenceRecord[] {
       title: String(data.title ?? name.replace(/\.md$/, "")),
       timestamp: String(data.timestamp ?? ""),
       body: parsed.content.trim(),
+      // Fail closed, where every other field above fails open. A record written before
+      // the stamp existed, or one whose `actor` was hand-edited to something outside
+      // the vocabulary, reads as `unknown` — the least-trusted answer — rather than as
+      // whichever producer the file claims to be.
+      actor: isActor(data.actor) ? data.actor : UNKNOWN_ACTOR,
     });
   }
   return out;

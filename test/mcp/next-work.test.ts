@@ -20,13 +20,17 @@ afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 describe("computeNextWork — mapped detection", () => {
   test("evidence cited as a node's source counts as mapped even without mapped.json (the MCP-driven path)", () => {
     const ctx = buildPassContext(dir);
-    writeEvidence(dir, {
-      id: "INBOX:note.md",
-      source: "INBOX:note.md",
-      title: "note",
-      timestamp: "2026-07-22T00:00:00Z",
-      body: "Players want a daily reason to return.",
-    });
+    writeEvidence(
+      dir,
+      {
+        id: "INBOX:note.md",
+        source: "INBOX:note.md",
+        title: "note",
+        timestamp: "2026-07-22T00:00:00Z",
+        body: "Players want a daily reason to return.",
+      },
+      "inbox",
+    );
 
     // Before mapping: the evidence is outstanding, and no state file was ever written.
     expect(fs.existsSync(path.join(dir, ".ost-agent", "state", "mapped.json"))).toBe(false);

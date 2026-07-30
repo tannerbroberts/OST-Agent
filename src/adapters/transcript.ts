@@ -21,7 +21,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { Cursor, EvidenceItem, FetchResult, Source } from "./source.js";
+import type { Actor, Cursor, EvidenceItem, FetchResult, Source } from "./source.js";
 
 /**
  * Where Claude Code keeps a project's session transcripts: `~/.claude/projects/`
@@ -260,6 +260,7 @@ function renderBody(sessionId: string, events: FrictionEvent[], shown: FrictionE
 
 export class TranscriptSource implements Source {
   readonly name = "transcript";
+  readonly actor: Actor = "transcript";
   private readonly dir: string;
   private readonly quietMinutes: number;
   private readonly maxEvents: number;

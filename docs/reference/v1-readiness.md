@@ -20,7 +20,7 @@ clean and the suite is green — and nothing below is about the code being broke
 It is about the difference between *a tool that works when watched* and *a system
 that can be left alone*.
 
-**75 criteria, 20 of them blockers. 33 met, 4 partial, 38 not met.** Three of the
+**75 criteria, 20 of them blockers. 34 met, 4 partial, 37 not met.** Three of the
 twenty-eight were met by *deleting* something rather than building it, which is the
 document working as intended; four more were the first Tier 1 batch, each of
 which turned a wedge into a refusal at the boundary that could still take it back.
@@ -62,7 +62,7 @@ vacuous and green.
 > grep -cE '^\*\*⛔ [A-Z][0-9]+ —' docs/reference/v1-readiness.md      # 20 blockers
 > grep -oE '^> \*Today:\*\s+\*\*[a-z, ]+' docs/reference/v1-readiness.md \
 >   | sed 's/.*\*\*//;s/^met.*/met/;s/^partial.*/partial/;s/^not met.*/not met/' \
->   | sort | uniq -c                                                  # 33 / 4 / 38
+>   | sort | uniq -c                                                  # 34 / 4 / 37
 > ```
 >
 > *Those three trailing comments read `68 / 17 / 17-3-48` until 2026-07-29 — the
@@ -396,16 +396,52 @@ retry.**
 > channel corrupts week one as surely as any wedge on this list.
 
 **W11 — An evidence record names who produced it, stamped by the surface.**
-> *Check:* (a) `EvidenceRecord` (`src/processes/tree.ts:10-16`) declares an
+> *Check:* (a) `EvidenceRecord` (`src/processes/tree.ts:12-25`) declares an
 > `actor` field. (b) Drop an inbox file whose own frontmatter says
 > `actor: sponsor`; assert the stored record's actor is `inbox` — stamped by
 > `InboxSource`, not read from the payload.
-> *Today:* **not met.** The record is `{id, source, title, timestamp, body}`;
-> `source` is the filename. A builder's report, a sponsor's promise, the agent's
-> own friction filing, and a poisoned note are byte-identical once captured. The
-> correct pattern exists twice already — `by` stamped by the surface, not
-> self-reported (`src/security/tools.ts:168`, `:343-350`;
-> `src/knowledge/web-trust.ts:40-41`).
+> *Today:* **met** (2026-07-30). The record carries `actor`
+> (`src/processes/tree.ts:24`) from a closed vocabulary
+> (`src/adapters/source.ts:27`), and the shape is what makes it a stamp rather
+> than a field: `EvidenceItem` deliberately has none, `writeEvidence` takes it as a
+> third argument (`:67`), and it comes off the `Source` that did the fetching
+> (`src/security/tools.ts:655`). An adapter that forgets does not compile, and an
+> adapter that invents a producer name does not either. The read fails closed —
+> a record written before the stamp, or one hand-edited outside the vocabulary,
+> reads `unknown` rather than what it claims (`src/processes/tree.ts:123`), and
+> never `inbox` by inference from an `INBOX:` id, which is the string the producer
+> chooses. `test/processes/evidence-actor.test.ts` holds all of it.
+>
+> **Checking (b) found the payload already writing the record's frontmatter, which
+> is the half of this criterion worth the entry.** `matter.stringify` PARSES a
+> string body before writing and merges the frontmatter it finds *under* the
+> fields passed to it — `matter.stringify(str, data)` runs `matter(str)` first — so
+> a note opening with
+> `---\nactor: sponsor\nrung: money\n---` had both keys hoisted onto the stored
+> record verbatim — and its own frontmatter stripped out of the body it wrote
+> *(verified against a scratch vault before the fix: the record came back
+> `actor: sponsor, rung: money` with the body reduced to one line)*. Keys the write
+> already set were overridden, so the hole was invisible for exactly as long as no
+> reader consulted a field the write did not set. Adding `actor` without closing it
+> would have shipped a stamp the builder sets, and `rung` is not hypothetical: B3
+> refuses a rung the provenance has not earned, and this was the untrusted builder
+> pre-loading the answer. The body now goes in as `{ content }`, and the record's
+> field set is asserted exactly rather than by absence.
+>
+> `inbox` covers the agent's own friction filings too, since they land in that
+> folder as ordinary files. That is the honest answer rather than a lost
+> distinction — the folder is writable by anyone who can write the vault, so a
+> finer-grained claim would be read off a name the producer picked. Distinguishing
+> *within* a channel is S1's problem (relocate the path) and B6's (a ledger keyed
+> on the actor), not something a stamp can do from inside the vault.
+>
+> One reader consumes it today — `ost_next_work` reports the actor alongside each
+> unmapped record (`src/mcp/next-work.ts:31`), pinned end-to-end through the live
+> MCP surface in `test/mcp/ingest-inbox.test.ts`. That is deliberate: **B12 names
+> "an `actor` field no reader consumes" as this criterion's way of passing while
+> the chain stays broken.** It is not the whole join. Nothing yet derives a
+> provenance floor from the actor — `classifyProvenance` still keys on the id
+> string — so B12 stays not met, and its first link is now the one that holds.
 
 **W12 — "Mapped" has one writer and one reader, and a citation must resolve.**
 > *Check:* (a) `grep -rn 'setMapped\|getMapped' src/` shows a writer with a
@@ -872,12 +908,14 @@ from the channel rather than from anything the producer wrote.**
 > the channel and not from the payload's self-description (B7); `ost_set_evidence`
 > refuses above that ceiling and names it (B3); and the ceiling comes from a ledger
 > keyed on the actor rather than on a hostname (B6).
-> *Today:* **not met at every link** — and the reason this is a criterion rather
-> than a summary of four others is that **each of W11, B7, B3 and B6 can pass in
-> isolation while the chain stays broken.** Nothing asserts that the identity W11
-> stamps is the one B7 classifies and B3 enforces; W11 can add an `actor` field no
-> reader consumes, and B7 can acquire a caller on a path `ost_set_evidence` never
-> takes.
+> *Today:* **not met, with the first link now built** — and the reason this is a
+> criterion rather than a summary of four others is that **each of W11, B7, B3 and
+> B6 can pass in isolation while the chain stays broken.** Nothing asserts that the
+> identity W11 stamps is the one B7 classifies and B3 enforces; B7 can acquire a
+> caller on a path `ost_set_evidence` never takes. W11 closed on 2026-07-30, so a
+> stored record's actor now reads `inbox` and one reader consumes it — that is this
+> check's first assertion and nothing more. The rung is still derived from the id
+> string rather than from that identity, which is the next link and is B7's.
 >
 > The chain's current state is worse than unbuilt at the one place it is
 > half-built. `classifyProvenance` is fail-closed everywhere except for a single
@@ -2110,8 +2148,8 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1031 tests across 99 files, verified 2026-07-30 (`npx vitest run`,
-> after F6's join test and the readiness-count pin landed). (The count this line
+> *Today:* **met** — 1039 tests across 100 files, verified 2026-07-30 (`npx vitest run`,
+> after W11's stamp landed). (The count this line
 > carried two revisions ago, 878 across 86, predated `8261a6f`'s deletion of the
 > genome and harness and was never updated with it — a reminder that a number in this
 > document is a claim like any other. It has since been wrong twice more, both times
@@ -2235,9 +2273,11 @@ write side. Only B5, B6, B11 and P5 wait on Tier 4.
 **Tier 3 — the writer boundary, which several later gates sit on.** W1 and W11
 precede Gate S: S1's entire failure statement is about write access to the inbox
 path W1 must relocate, and S2/S3 build cursors, cadence and provenance on that
-same ingestion path, while B6 and P5 are unbuildable until W11 stamps a producer
+same ingestion path, while B6 and P5 were unbuildable until W11 stamped a producer
 identity on the record. W2, W9, W10, W12 and W13 belong here too. Building S before
-W1/W11 means rebuilding the ingestion path. *(W5 was here until 2026-07-29 and is
+W1/W11 means rebuilding the ingestion path. *(**W11 closed 2026-07-30**, which
+hands B6 the key it is meant to be keyed on and leaves W1 as the tier's remaining
+precondition for Gate S.)* *(W5 was here until 2026-07-29 and is
 now Tier 1 — see the note under that tier.)*
 
 **Tier 3½ — the engine, which nothing above needs and nothing below works

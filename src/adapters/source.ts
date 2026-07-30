@@ -10,6 +10,39 @@
 import fs from "node:fs";
 import path from "node:path";
 
+/**
+ * Who produced an evidence record — a closed vocabulary, one entry per channel.
+ *
+ * Closed, and not a free string, because the next thing to be keyed on this identity
+ * is a trust ledger with a ceiling per actor kind, and `web-trust.ts` is already the
+ * cautionary tale: `rankHost` accepts any string, so a commissioned pipeline and a
+ * real hostname share one namespace and one ceiling (B6). A union means a new adapter
+ * cannot quietly mint a producer identity by typing a new word — it has to be added
+ * here, where the ceiling will eventually be written next to it.
+ *
+ * {@link UNKNOWN_ACTOR} is a member because a record can predate the stamp or carry a
+ * hand-edited value, and the read has to land somewhere; it lands on the least-trusted
+ * answer, never on a channel's name.
+ */
+export const ACTORS = ["inbox", "slack", "atlassian", "usage", "transcript", "unknown"] as const;
+export type Actor = (typeof ACTORS)[number];
+
+/** The fail-closed answer: a record whose producer is not established. */
+export const UNKNOWN_ACTOR: Actor = "unknown";
+
+export function isActor(value: unknown): value is Actor {
+  return typeof value === "string" && (ACTORS as readonly string[]).includes(value);
+}
+
+/**
+ * One fetched item, before it is stored.
+ *
+ * **There is deliberately no `actor` field here.** The producer identity is not part
+ * of the payload — it is stamped at the ingest site from the {@link Source} that did
+ * the fetching (`writeEvidence`'s third argument). An item that can carry an actor is
+ * an item whose author can choose one, and the author of an inbox body is the
+ * untrusted builder.
+ */
 export interface EvidenceItem {
   /** Stable id within the source. */
   id: string;
@@ -33,6 +66,13 @@ export interface FetchResult {
 
 export interface Source {
   readonly name: string;
+  /**
+   * The producer identity this channel stamps on everything it captures. Separate
+   * from `name` — which keys the cursor file — so that what a record says about its
+   * origin is a declared member of {@link ACTORS} rather than whatever string an
+   * adapter happened to name itself.
+   */
+  readonly actor: Actor;
   /** Return items new since `cursor`, plus the advanced cursor. Read-only. */
   fetchSince(cursor: Cursor): Promise<FetchResult>;
 }

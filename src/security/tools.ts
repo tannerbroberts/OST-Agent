@@ -650,7 +650,9 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         const source = new InboxSource(path.join(dir, inboxConfig.path));
         const { items, cursor } = await source.fetchSince(loadCursor(dir, source.name));
         const capturedTitles: string[] = [];
-        for (const item of items) if (writeEvidence(dir, item)) capturedTitles.push(item.title);
+        // The actor comes off the source object, never off the item: this is the
+        // surface stamping who produced the record (W11).
+        for (const item of items) if (writeEvidence(dir, item, source.actor)) capturedTitles.push(item.title);
         saveCursor(dir, source.name, cursor);
         if (capturedTitles.length === 0) {
           return "0 new notes — the inbox holds nothing that has not already been captured.";
