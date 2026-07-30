@@ -26,7 +26,7 @@ clean and the suite is green — and nothing below is about the code being broke
 It is about the difference between *a tool that works when watched* and *a system
 that can be left alone*.
 
-**75 criteria, 20 of them blockers. 39 met, 4 partial, 32 not met.** Three of the
+**75 criteria, 20 of them blockers. 46 met, 3 partial, 26 not met.** Three of the
 twenty-eight were met by *deleting* something rather than building it, which is the
 document working as intended; four more were the first Tier 1 batch, each of
 which turned a wedge into a refusal at the boundary that could still take it back.
@@ -68,7 +68,7 @@ vacuous and green.
 > grep -cE '^\*\*⛔ [A-Z][0-9]+ —' docs/reference/v1-readiness.md      # 20 blockers
 > grep -oE '^> \*Today:\*\s+\*\*[a-z, ]+' docs/reference/v1-readiness.md \
 >   | sed 's/.*\*\*//;s/^met.*/met/;s/^partial.*/partial/;s/^not met.*/not met/' \
->   | sort | uniq -c                                                  # 39 / 4 / 32
+>   | sort | uniq -c                                                  # 46 / 3 / 26
 > ```
 >
 > *Those three trailing comments read `68 / 17 / 17-3-48` until 2026-07-29 — the
@@ -1090,22 +1090,53 @@ not.**
 > empty. (b) a committed test asserts `ALLOWED_TOOL_NAMES \ MCP_TOOL_NAMES ===
 > {git_commit, git_push}` and that `buildOstTools(ctx, MCP_TOOL_NAMES)` produces
 > no tool whose `run` reaches `gitPush`.
-> *Today:* **partial.** (a) holds — all five HTTP call sites literally read
-> `method: "GET"`. (Do not use the looser `grep -rn 'method:' src/`, which returns
-> seven type signatures and decides nothing.) (b) does not: `buildOstTools`
-> **does** build a `git_push` tool calling `gitPush(dir)`
-> (`src/security/tools.ts:629-639`), and `git_commit`/`git_push` are in
-> `ALLOWED_TOOL_NAMES` (`src/security/policy.ts:43-44`). Only the server's
-> `MCP_TOOL_NAMES` filter excludes them — a source edit, which is precisely the
-> weakness P7 objects to. Worth pinning **now**, so the day this changes is a
-> visible, deliberate commit.
+> *Today:* **met** (2026-07-30), both halves, in
+> `test/release/outward-mutation.test.ts`. (a) was already true and is now
+> asserted rather than grepped, and converting it tightened it three ways: the
+> verdict runs over **all** of `src/` rather than the two directories the check
+> named, the fact that every match *lands* in `src/web` and `src/adapters` is
+> itself asserted so the scope is falsifiable, and the five call sites are pinned
+> as a set — a move does not fail it, a sixth does. The document's warning about
+> the looser `grep -rn 'method:'` is now a check too: it matches strictly more,
+> and every extra is a `method: string` type declaration that forbids nothing.
+> (b) held in fact and was pinned by nothing, which is the configuration G3 and
+> G4 were both in when they turned out to be wrong. `ALLOWED_TOOL_NAMES \
+> MCP_TOOL_NAMES` is asserted as exactly `{git_commit, git_push}`, and the
+> no-push property is **behavioural rather than static**: the git layer is stubbed
+> and every built tool is driven, so a read-only tool that grew a push would fail
+> too — verified by planting one in `ost_status` and watching the row go red.
+>
+> *One hardening beyond the criterion, recorded because it bounds what the check
+> can see.* Half (a) reasons about the literal string `method: "…"`, which is blind
+> to `fetchFn(url, {...init})`, `{"method": "POST"}` and `req.method = "POST"`.
+> Rather than chase spellings, the transport itself is pinned: the outward path is
+> driven with an injected fetch and the recorded method asserted. A grep over
+> source text was never going to decide this, and saying so is cheaper than a
+> regex that looks like it does.
 
 **P7 — The name-level guard would flag a real-world-action tool.**
 > *Check:* `isDestructiveToolName` on `ost_send_email`, `ost_sign_document`,
 > `ost_pay_invoice`, `ost_publish_post` — all four return true.
-> *Today:* **not met** — all four return false (`src/security/policy.ts:54-60`).
-> Only allowlist *membership* stops them. The token set is tuned for destruction,
-> not for consequence.
+> *Today:* **met** (2026-07-30). `CONSEQUENCE_TOKENS` sits beside the destruction
+> tokens and is OR'd into the one guard, so `isDestructiveToolName` now decides
+> *acting on the world* as well as *destroying things*: reaching a person, reaching
+> the public, committing the operator, spending money, taking a slot, and making
+> other software act. All four names from the check return true, camelCase
+> spellings included. Pinned in `test/security/policy.test.ts`.
+>
+> **The constraint that decides whether this is a guard or a wedge is the one
+> asserted next to it:** no name in `ALLOWED_TOOL_NAMES` may trip it. That is why
+> `push` and `commit` are deliberately *not* tokens — pushing is an outward act,
+> but `git_push`/`git_commit` are allowlisted and fixed-argument by construction,
+> and the existing `force`/`branch`/`checkout` tokens already catch git's dangerous
+> shapes. A token that flagged an allowlisted tool would be a token someone deletes.
+>
+> *What this is worth, stated so it is not over-read:* defence in depth, not the
+> gate. Allowlist membership is what stops those four today, membership is a source
+> edit, and a source edit is precisely the weakness this criterion objects to — the
+> same complaint P6 makes about `MCP_TOOL_NAMES`. A determined author can still
+> name a tool something bland. What the guard buys is that the *obvious* spelling
+> of a consequential tool cannot ship by accident.
 
 **P8 — The system can state a total bound on outward reach, not just a burst
 rate.**
@@ -1116,12 +1147,27 @@ rate.**
 > (One day cannot distinguish the hypotheses: with `DEFAULT_LOOKUP_BUDGET = 10`
 > and `DEFAULT_REFILL_PER_HOUR = 10`, `src/web/budget.ts:39-40`, one day sums to
 > ~240 whether the cap is lifetime or daily.)
-> *Today:* **not met** — day two sums to ~240 again, because `refill` restores
-> `used` at `refillPerHour` on every `take` (`:77-83`, `:87-92`). Comments call
-> the budget "the only backpressure this system has"; under "forever" it is a rate
-> limit described as a cap. `refillPerHour: 0` already supports a hard cap
-> (`:79`, and `msUntilNext` returns `Infinity` at `:104`) — a lifetime counter is
-> the same bookkeeping.
+> *Today:* **met** (2026-07-30). The budget now keeps **two** counters, not one: a
+> refillable burst allowance, which is what paces a single pass, and a lifetime
+> total that nothing refills. The criterion's two-day simulation is committed
+> verbatim in `test/web/budget.test.ts` and day two sums to zero, with the control
+> the criterion's own parenthesis demands — the same harness against a burst-only
+> budget observes ~240, so the zero is a bound rather than a dead harness.
+>
+> **Building it found a hole that the mechanism as first written did not close, and
+> it is the more interesting half of this entry.** `refund()` credited the lifetime
+> counter without limit. Take → the source fails → refund → retry is not
+> hypothetical: it is the loop `ost_search_web` runs against a failing provider.
+> Measured against the first implementation: **10,000 real outward attempts under a
+> stated total of 10**, with `lifetimeRemaining()` still reading 10. *A bound that
+> any failure removes is a bound on success, not a total bound on outward reach* —
+> which is the sentence this criterion makes. The lifetime pool now funds at most
+> `lifetimeLimit` refunds ever; the burst is still refunded every time, because an
+> outage should not cost pacing. Worst case is `2 × lifetimeLimit` outward
+> attempts, and the doubling is stated in the header rather than left to be
+> discovered. Pinned with its own control: the identical spin loop against an
+> infinite lifetime runs to completion, so the small number cannot be a loop that
+> never ran.
 >
 > *The check on this entry named a function that does not exist.* It read
 > `makeLookupBudget(policy, operatorLimit, {…})` — three parameters, including a
@@ -1161,6 +1207,33 @@ created.**
 > surface that no conjunction of them makes. **A property proved door by door is
 > not proved** — F6 is the same shape one gate over, and it is the criterion that
 > found the hole its own first draft left.
+>
+> **The table was written on 2026-07-30 and it found a fourth door, which is the
+> whole reason this criterion is not a summary of B1, B2 and B3.**
+> `test/security/no-single-call-flips-a-gate.test.ts` enumerates
+> `buildOstTools(ctx, MCP_TOOL_NAMES)` and drives every mutating tool against both
+> properties. Eighteen rows pass. One does not: **`ost_link_nodes` flips
+> `renderGate(...).cleared` from false to true in a single call**, by attaching an
+> AssumptionTest that already carries a recorded result to a Solution that did not
+> commission it. B1 stops the agent *writing* `## Results`; nothing stopped it
+> *adopting someone else's*. That is a genuine gate flip by an agent-reachable
+> call, so this stays **not met** — and the fix is R6, which is the criterion about
+> `ost_link_nodes` validating what it attaches. The row is committed with its
+> expectation set to the hole, so the day R6 lands the build goes red and tells the
+> fixer to move it.
+>
+> *Writing the table was worth it for the four defects the adversarial pass then
+> found in the table itself*, every one of which would have left it green and
+> hollow: an assertion of `not.toEqual([])` where the criterion says *"for a rule
+> the same caller created"* — a call that erased its target while raising some
+> other rule passed, and substituting the rule label left **all eighteen rows
+> green**; a `CONSTRUCTIVE` exception that `return`ed and so skipped an entire
+> tool's sweep rather than one call; a known-open exemption that suspended the
+> property for every shape of `ost_link_nodes` rather than the one named hole; and
+> `expect(reached).toBeGreaterThanOrEqual(0)` — an always-true assertion, carrying
+> a comment claiming it proved non-vacuity, **in the file whose subject is
+> always-true assertions**. F6's first draft was vacuous and green; so was this
+> one, in four separate places, and only mutation found them.
 >
 > **The second branch of this criterion's fork was taken on 2026-07-29.** It read
 > *"Either those two land, or `README.md` and `docs/consuming-from-claude-code.md`
@@ -2019,38 +2092,124 @@ named.**
 > *Check:* assert `JSON.stringify(computeNextWork(...))` and the `ost_read_tree`
 > response each stay **under 200 KB** on a 5,000-node vault, and that each capped
 > list names its hidden count.
-> *Today:* **not met**, and worse than this entry recorded *(verified 2026-07-29:
-> 500 near-duplicate Opportunities → 125,750 hygiene issues and a **21.4 MB**
-> response, up from the 400-node / 80,200-issue / 13.1 MB figure measured before).*
-> **The defect Z1 used to name did not go away when Z1 closed — it moved into this
-> column.** A `RangeError` is at least a stop; what R4's rewrite bought is that the
-> same O(n²) issue set now marshals successfully into the model's context, which is
-> why Z1 and Z2 must be read together and why closing Z1 is not progress on scale.
-> Only `openUnknowns` is capped — and it is capped
-> *correctly*: cap the display, compute `done` over the full set, name the hidden
-> count so a cap can never read as amnesty (`src/mcp/next-work.ts:252-256`). That
-> is the pattern every other list needs, including the full-body retrieval W7
-> asks for. `ost_read_tree` has no cap at all (`src/security/tools.ts:171-186`)
-> and is on `/ost-pass`'s allowlist.
+> *Today:* **met** (2026-07-30). The pattern is `openUnknowns`', which this entry
+> already called correct and which is now applied everywhere: **cap the display,
+> compute every verdict over the full set, name the hidden count so a cap can never
+> read as amnesty.** Measured on a 10,000-node vault, before → after:
+> `ost_check` 3,795,008 → 14,659 B, `ost_debt` 500,043 → 15,995 B, `ost_gate`
+> 72,979 → 3,924 B; `ost_read_tree` 137 KB and `ost_next_work` 14.6 KB on the
+> criterion's 5,000-node fixture. Pinned by `test/mcp/response-size.test.ts` and
+> `test/eval/render-caps.test.ts`, each with a control asserting the *uncapped*
+> shape blows the same budget on the same fixture.
+>
+> **It took two rounds, because the criterion's sentence is wider than its check.**
+> The first round capped the two tool responses the check names and left the four
+> renderers — `ost_check` was still emitting 3.8 MB, which is the criterion's own
+> worst case. That gap was reported rather than papered over, and closing it is
+> what makes the sentence true.
+>
+> **Capping per rule rather than flat is the decision worth recording.** On the
+> fixture the violations are 8,438 `rung-unearned` + 3,500 `assumption-mapped` + 1
+> `solution-mapped`; a flat `slice(0, 25)` prints **zero** `rung-unearned` lines —
+> the largest class disappears entirely behind the two that sort first. So each
+> rule class carries its own window and its own full count, and the same argument
+> put `renderDebt`'s solutions into per-state groups. A flat cap does not hide
+> items, it hides *kinds*, which is amnesty in a subtler form.
+>
+> Two things are deliberately never charged against the byte allowance: headers and
+> totals. Dropping a count to save bytes is precisely the failure this criterion
+> names. And `done`, every summary count and every red/green verdict read the full
+> set — `hygieneIssues`' total comes from a counter rather than an array length, so
+> the near-duplicate scan counts all 125,750 while materializing at most 25, which
+> also removes the 12.5M-object memory bomb Z1 used to trip over.
+>
+> **The adversarial pass found a regression the caps themselves introduced, and it
+> is the best argument for the whole exercise.** `formatCensus` emits the
+> independent-denominator alarm *last* — `git tracks 122 markdown file(s); the walk
+> enumerated 121 … every count in this vault is short by at least that much` — and
+> the new cap sampled that block as one 25-item list. Sixty harmless stray files
+> crowded the alarm out of `ost_check` and `ost_status` entirely, and nothing on the
+> surface pages to it. **An alarm that can be elided by being too alarming is not an
+> alarm.** It now takes its own window first, with a degraded one-line form when
+> even that will not fit.
+>
+> *Two smaller findings from the same pass, both about the tests rather than the
+> code:* the byte allowance was **decoration** — setting it to infinity left all
+> four renders byte-identical and the suite green, so the item cap was doing all
+> the bounding and the paragraph defending the allowance defended nothing; and
+> `appendUnexplained`'s cap had never been exercised above one item, despite being
+> the one list that can make `ost_check` red on a structurally perfect tree, which
+> is exactly this criterion's case. Both now have fixtures that discriminate.
+>
+> *One list stays uncapped on purpose:* `appendAttention`'s per-class rollup is one
+> line per declared unknown class — O(vocabulary), not O(tree).
 
 **Z3 — `ost_next_work` and `ost_check` complete within a fixed wall-clock budget
 at 10,000 nodes.**
 > *Check:* benchmark test, under 2,000 ms each.
-> *Today:* **not met.** Measured: `findNearDuplicateIssues` is 98 / 374 / 1,513 /
-> 6,078 / **24,121 ms** at 500 / 1k / 2k / 4k / 8k distinct titles — a clean 4×
-> per doubling, because `similarity` re-tokenizes both titles and builds two fresh
-> Sets on every one of ~n²/2 comparisons (`src/ost/dedupe.ts:25-33`, `:62-72`),
-> called unconditionally on every `computeNextWork`. `checkInvariants` is 303 ms at
-> 8k (`src/eval/invariants.ts:59,67`).
+> *Today:* **met** (2026-07-30). Measured at the **tool** surface, so `ost_check`'s
+> git reconciliation is inside the number: `ost_next_work` 620–750 ms and
+> `ost_check` 600–770 ms on a 10,000-node vault, against the criterion's 2,000 ms.
+> The near-duplicate scan went from 2,150 ms to ~10 ms at 2,000 titles. Pinned by
+> `test/mcp/wall-clock-budget.test.ts`, which asserts the budget *and* that both
+> tools actually found work — a wall-clock assertion over a tool that returned
+> early is the vacuity this document keeps re-learning.
+>
+> `src/ost/dedupe.ts` tokenizes once per title and blocks candidates through an
+> inverted index over a prefix of each title's rarest tokens, plus a length filter.
+> **The filter is exact, not heuristic**, and that mattered enough to prove twice:
+> `test/ost/dedupe-scale.test.ts` carries the pre-change implementation verbatim as
+> a reference and asserts identical output element-for-element at four thresholds,
+> and the adversarial pass fuzzed the two against each other over **24,000
+> randomized trials** — mixed layers, stopword-only, punctuation-only and unicode
+> titles, 9,213 of them with non-empty answers — with zero mismatches. Two further
+> quadratic passes in `computeNextWork` (a `find` inside a `map`, twice) became
+> single-pass maps, and the annotation-suppression check is memoized per node.
+>
+> *The boundary, stated because the number flatters the change:* this is a ~200×
+> constant, **not a change of asymptote**. With a finite vocabulary the candidate
+> set still grows superlinearly, and on a vault of near-identical titles the
+> *answer* is quadratic — no search strategy shortens it. What bounds that case is
+> Z2's generator and materialization cap, not this index.
 
 **Z4 — Retired nodes leave the denominator.**
 > *Check:* assert `readTreeCensus` supports a status/archive filter and that the
 > quadratic passes use it.
-> *Today:* **not met.** No archive directory, no status filter, no subdirectory
-> descent (`src/ost/vault.ts:110-161`). `deferred`, abandoned and resolved nodes
-> stay in every quadratic pass forever. `formatCensus`
-> (`src/ost/census.ts:126-151`) is the existing precedent for reporting what a
-> denominator excluded.
+> *Today:* **met** (2026-07-30), in two halves that are deliberately kept apart
+> because one is forgeable by the agent and the other is not. Pinned by
+> `test/ost/retired-nodes.test.ts`.
+>
+> **Archive is human-only, so it applies everywhere.** An `archive/` directory under
+> the vault cannot be expressed by any tool — `nodePath` rejects any title
+> resolving to more than one path segment — so a node a human archives is retired
+> on every read. Those files were previously *invisible* to the walk; they are now
+> counted and named, following `formatCensus`'s precedent that a denominator must
+> report what it excluded.
+>
+> **Status is agent-settable, so it applies in exactly one place.** The vocabulary
+> is `NodeStatus`, and `RETIRED_STATUSES` is `["deferred"]` — the only member that
+> means *not working on this* (`unvalidated` is the stamp on everything the agent
+> creates; `validated`, `shipped` and `in-discovery` are live). Because the agent
+> can set `deferred`, `readTreeCensus({excludeRetired: true})` feeds **one**
+> consumer, the near-duplicate scan. `readTree()`, `checkInvariants` and every term
+> of `done` still see retired nodes, and the test asserts the attack directly:
+> a dangling link, an evidence-class gap, and retiring the entire tree each still
+> block `done`.
+>
+> *The residue, stated because it is a real capability and not an oversight:*
+> retiring a node **does** clear a near-duplicate suspicion naming it. That rule is
+> the one hygiene signal with no invariant behind it — it reports a suspicion, and
+> in an append-only vault abandoning the redundant node *is* the remedy, at the
+> same cost of one recorded call that annotating would take. Every invariant-backed
+> rule is untouched, which is the line that keeps this from being B10 by another
+> route.
+>
+> *Two of the three attack tests were near-vacuous when first written*, and the
+> adversarial pass caught it: they asserted only that *some* `dangling-link` rule
+> survived, and under the exact mutation they exist to catch — feeding
+> `detectHygiene` the retired-filtered tree — removing a node makes its *parent's*
+> link dangle, so a fresh violation appeared and both stayed green while the attack
+> succeeded. They now name the surviving violation's owner.
 
 **Z5 — A web lookup does not cost a full vault parse.**
 > *Check:* spy on `Vault.readTree`, inject a stub fetch, set `OST_UNKNOWN`, call
@@ -2244,8 +2403,8 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1057 tests across 103 files, verified 2026-07-30 (`npx vitest run`,
-> after G1 stopped one typo taking the whole surface down). (The count this line
+> *Today:* **met** — 1198 tests across 111 files, verified 2026-07-30 (`npx vitest run`,
+> after the Gate Z and P-bounds batch). (The count this line
 > carried two revisions ago, 878 across 86, predated `8261a6f`'s deletion of the
 > genome and harness and was never updated with it — a reminder that a number in this
 > document is a claim like any other. It has since been wrong twice more, both times
@@ -2296,11 +2455,35 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > files that were proposed or have since been deleted (the unscoped grep returns
 > 31 such paths, which is the archive doing its job). This document is excluded
 > for the same reason: naming absent machinery is its subject.
-> *Today:* **not met.** The scoped check fails on exactly three, all from one
-> file: `npm run eval`, `src/eval/judge.ts` and `src/eval/scorecard.ts`, named at
-> `docs/reference/evaluating-ost-agent.md:18`, `:22`, `:64-68`. The README flags the removal in passing; the
-> reference doc reads as live. An unattended operator must not be handed a command
-> that isn't there.
+> *Today:* **met** (2026-07-30), pinned by `test/release/doc-references.test.ts`,
+> which computes the criterion's scope rather than maintaining a list of allowed
+> exceptions — an exception list is where the next `judge.ts` would go.
+>
+> `docs/reference/evaluating-ost-agent.md` was **repaired, not gutted**. Its
+> three-layer argument is what this document cites it for and it is intact; what
+> changed is that each layer now carries its own status — layer 1 shipped and the
+> only one that is, layer 2 designed, built and removed, layer 3 never automated
+> and not automatable — and the block that handed the reader `npm run eval` now
+> lists only the two commands that exist. One wording choice is flagged inside the
+> file itself: the removed script is described as *an `eval` npm script* rather
+> than written in its runnable form, because the guard cannot tell "here is what to
+> run" from "here is what no longer exists", and a doc explaining a deleted command
+> must not be the reason the guard against deleted commands goes red.
+>
+> **Two holes in the guard were found by attacking it, and both are the shape this
+> document keeps naming.** It used `script in definedScripts` — and `JSON.parse`
+> returns an object with `Object.prototype`, so `npm run constructor` was reported
+> as *defined* by a guard whose entire purpose is to fail closed. And it walked
+> only `*.md`, an unstated narrowing of a criterion whose check is `grep -r` with no
+> extension filter: invisible today, because `docs/reference/` is all Markdown, and
+> it would have stayed invisible until someone landed a `runbook.sh` there — the
+> file most likely to hold a copy-pasteable command, and the one the guard would
+> have silently stopped reading.
+>
+> *Scope, stated:* only `src/**/*.ts` paths and `npm run <script>` — verbatim the
+> two forms the criterion defines. `test/`, `scripts/` and bare CLI verbs are not
+> verified, and existence is all that is checked: a path that exists but no longer
+> contains what the prose claims still passes.
 
 **D5 — The vault working tree is clean before any auto-committing tool runs.**
 > *Check:* `git status --porcelain` in the vault is empty at the start of a

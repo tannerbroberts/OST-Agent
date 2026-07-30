@@ -34,7 +34,7 @@ import {
 } from "./node.js";
 import { fileNameForTitle, sanitizeTitle } from "./sanitize.js";
 import { isHeadingLine, reservedHeadingIn } from "./headings.js";
-import type { CensusDrop, TreeCensus } from "./census.js";
+import { ARCHIVE_DIRNAME, withoutRetiredNodes, type CensusDrop, type TreeCensus } from "./census.js";
 import type { RungId } from "../knowledge/believability.js";
 import type { LaneId } from "../knowledge/lanes.js";
 
@@ -186,6 +186,19 @@ export class Vault {
   }
 
   /**
+   * The live tree — `readTree` with retired nodes withheld.
+   *
+   * Deliberately NOT what `readTree` returns. Every gate in the product reads
+   * `readTree`, and a retired-by-status node must stay inside every gate, or
+   * `ost_set_status(node, "deferred")` becomes a way to clear an invariant.
+   * The argument for the one pass that may use this is on
+   * {@link withoutRetiredNodes}.
+   */
+  readLiveTree(): OstNode[] {
+    return this.readTreeCensus({ excludeRetired: true }).nodes;
+  }
+
+  /**
    * `readTree`, plus an account of everything it declined to return.
    *
    * This is the SAME traversal that produces the node list rather than a second one
@@ -197,13 +210,26 @@ export class Vault {
    * That covers files the walk saw. Files the walk never enumerated at all are
    * invisible from in here by construction — `reconcileWithGit` exists for those,
    * and takes its denominator from outside this function on purpose.
+   *
+   * `opts.excludeRetired` additionally withholds nodes whose *status* retires
+   * them. It is off by default and must stay that way for every gate: the read
+   * that feeds `checkInvariants` and `done` has to see a `deferred` node, or
+   * setting that status becomes a way to clear a violation. The one caller that
+   * turns it on, and the argument for it, are on `withoutRetiredNodes`. Files
+   * under `archive/` are withheld either way — nothing the agent can call puts
+   * a file there.
    */
-  readTreeCensus(): TreeCensus {
+  readTreeCensus(opts: { excludeRetired?: boolean } = {}): TreeCensus {
     const entries = fs.readdirSync(this.root, { withFileTypes: true });
     const nodes: OstNode[] = [];
     const seenFiles: string[] = [];
     const skipped: CensusDrop[] = [];
     const unreadable: CensusDrop[] = [];
+    // Node files a human moved out of the live tree. Read only to be named:
+    // they never enter `nodes`, and they are not counted in `examined` either,
+    // because `examined` is the denominator the ROOT walk was taken over and
+    // `reconcileWithGit` compares it against git's top-level listing.
+    const retired: CensusDrop[] = this.archivedFiles();
 
     for (const e of entries) {
       // Not a markdown file at the vault root, so it was never a candidate to be a
@@ -248,7 +274,30 @@ export class Vault {
       }
     }
 
-    return { nodes, examined: seenFiles.length, seenFiles, skipped, unreadable };
+    const census: TreeCensus = { nodes, examined: seenFiles.length, seenFiles, skipped, unreadable, retired };
+    return opts.excludeRetired ? withoutRetiredNodes(census) : census;
+  }
+
+  /**
+   * The `archive/` directory's markdown files, as census entries.
+   *
+   * One level, no recursion, and nothing is parsed: an archived file is out of
+   * the tree, so the only fact worth recovering from it is that it exists. It is
+   * listed rather than counted for the reason the census exists at all — "3
+   * retired" tells an operator a number moved, `Old idea.md` tells them what.
+   */
+  private archivedFiles(): CensusDrop[] {
+    const dir = path.join(this.root, ARCHIVE_DIRNAME);
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return []; // no archive directory is the normal case, not a discrepancy
+    }
+    return entries
+      .filter((e) => e.isFile() && e.name.endsWith(".md"))
+      .map((e) => ({ file: `${ARCHIVE_DIRNAME}/${e.name}`, reason: "archived — moved out of the live tree by a human" }))
+      .sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : 0));
   }
 
   read(title: string): OstNode {

@@ -948,8 +948,8 @@ var require_suggestSimilar = __commonJS({
         if (candidate.length <= 1) return;
         const distance = editDistance(word, candidate);
         const length = Math.max(word.length, candidate.length);
-        const similarity2 = (length - distance) / length;
-        if (similarity2 > minSimilarity) {
+        const similarity = (length - distance) / length;
+        if (similarity > minSimilarity) {
           if (distance < bestDistance) {
             bestDistance = distance;
             similar = [candidate];
@@ -6777,7 +6777,7 @@ ${pointer}
 var require_resolve_props = __commonJS({
   "node_modules/yaml/dist/compose/resolve-props.js"(exports2) {
     "use strict";
-    function resolveProps(tokens2, { flow, indicator, next, offset, onError: onError2, parentIndent, startOnNewline }) {
+    function resolveProps(tokens, { flow, indicator, next, offset, onError: onError2, parentIndent, startOnNewline }) {
       let spaceBefore = false;
       let atNewline = startOnNewline;
       let hasSpace = startOnNewline;
@@ -6792,7 +6792,7 @@ var require_resolve_props = __commonJS({
       let comma = null;
       let found = null;
       let start = null;
-      for (const token of tokens2) {
+      for (const token of tokens) {
         if (reqSpace) {
           if (token.type !== "space" && token.type !== "newline" && token.type !== "comma")
             onError2(token.offset, "MISSING_CHAR", "Tags and anchors must be separated from the next token by white space");
@@ -6883,7 +6883,7 @@ var require_resolve_props = __commonJS({
             hasSpace = false;
         }
       }
-      const last2 = tokens2[tokens2.length - 1];
+      const last2 = tokens[tokens.length - 1];
       const end = last2 ? last2.offset + last2.source.length : offset;
       if (reqSpace && next && next.type !== "space" && next.type !== "newline" && next.type !== "comma" && (next.type !== "scalar" || next.source !== "")) {
         onError2(next.offset, "MISSING_CHAR", "Tags and anchors must be separated from the next token by white space");
@@ -8222,8 +8222,8 @@ ${cb}` : comment;
        * @param forceDoc - If the stream contains no document, still emit a final document including any comments and directives that would be applied to a subsequent document.
        * @param endOffset - Should be set if `forceDoc` is also set, to set the document range end and to indicate errors correctly.
        */
-      *compose(tokens2, forceDoc = false, endOffset = -1) {
-        for (const token of tokens2)
+      *compose(tokens, forceDoc = false, endOffset = -1) {
+        for (const token of tokens)
           yield* this.next(token);
         yield* this.end(forceDoc, endOffset);
       }
@@ -27047,7 +27047,7 @@ var {
 } = import_index.default;
 
 // src/runner/context.ts
-import path6 from "node:path";
+import path7 from "node:path";
 
 // src/config/load.ts
 var import_yaml = __toESM(require_dist(), 1);
@@ -31988,8 +31988,8 @@ var HttpSlackClient = class {
 
 // src/ost/vault.ts
 var import_gray_matter2 = __toESM(require_gray_matter(), 1);
-import fs6 from "node:fs";
-import path5 from "node:path";
+import fs7 from "node:fs";
+import path6 from "node:path";
 
 // src/ost/node.ts
 var import_gray_matter = __toESM(require_gray_matter(), 1);
@@ -32240,877 +32240,9 @@ function reservedHeadingIn(content) {
   return null;
 }
 
-// src/ost/vault.ts
-function isoToday() {
-  return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-}
-var VOID_CONTENT = /* @__PURE__ */ new Set(["undefined", "null"]);
-function assertWritableContent(what, value) {
-  const trimmed2 = value.trim();
-  if (trimmed2 === "") {
-    throw new Error(
-      `refusing to write empty ${what}: content was empty or whitespace only. An append-only vault cannot take this back \u2014 pass real content or make no call.`
-    );
-  }
-  if (VOID_CONTENT.has(trimmed2.toLowerCase())) {
-    throw new Error(
-      `refusing to write ${what}: content was the literal string "${trimmed2}". This is almost always a stringified unset variable rather than something meant to be recorded; an append-only vault cannot take it back.`
-    );
-  }
-  const wrapped = wrappedLinkTargets(value);
-  if (wrapped.length > 0) {
-    throw new Error(
-      `refusing to write ${what}: the link [[${wrapped[0]}]] is split across a line break. Only a whole line of the form [[Title]] becomes an edge, so this would render as bracketed text while permanently reddening \`wrapped-wikilink\` \u2014 and an append-only vault has no tool that can take it back. Put the link on one unbroken line.`
-    );
-  }
-  const reserved = reservedHeadingIn(value);
-  if (reserved) {
-    throw new Error(
-      `refusing to write ${what}: "${reserved}" is a reserved heading. The tree's gates read it as evidence that a test was RUN outside the tree, and the agent may never run a test or record a result \u2014 a heading it can author is a gate it can clear on its own authority. A human records one on the CLI: ost-agent result "<test>" -v <verdict> -n "<what happened>" -b "<who ran it>" -u "<what it did not cover>". Put your note under a different heading (## Notes, ## Method, ## Plan).`
-    );
-  }
-}
-function assertWritableNote(what, value) {
-  if (value === void 0) return;
-  assertWritableContent(what, value);
-}
-function assertWritableTag(title, tag) {
-  if (/\s/.test(tag)) {
-    throw new Error(
-      `refusing to write a tag on "${title}": tags cannot contain whitespace, and this one does (${JSON.stringify(tag)}). A tag is rendered as a single #word on one shared line, so whitespace in one either silently splits it in two or, with a newline, writes body content that no reader can tell from prose the author wrote. Use one word, or hyphens.`
-    );
-  }
-  if (tag.includes("#")) {
-    throw new Error(`refusing to write a tag on "${title}": tags are rendered with their own "#" \u2014 drop it from ${JSON.stringify(tag)}.`);
-  }
-  assertWritableContent(`a tag on "${title}"`, tag);
-}
-var Vault = class {
-  root;
-  constructor(rootDir, opts = {}) {
-    this.root = path5.resolve(rootDir);
-    if (opts.create !== false) fs6.mkdirSync(this.root, { recursive: true });
-  }
-  /** Absolute path for a node title, asserted to stay within the vault root. */
-  nodePath(title) {
-    const p2 = path5.resolve(this.root, fileNameForTitle(title));
-    const rel = path5.relative(this.root, p2);
-    if (rel.startsWith("..") || path5.isAbsolute(rel) || rel.includes(path5.sep)) {
-      throw new Error(`refusing to write outside the vault: ${title}`);
-    }
-    return p2;
-  }
-  has(title) {
-    return fs6.existsSync(this.nodePath(title));
-  }
-  /** Read all node files at the vault root (skips non-node files and subdirs). */
-  readTree() {
-    return this.readTreeCensus().nodes;
-  }
-  /**
-   * `readTree`, plus an account of everything it declined to return.
-   *
-   * This is the SAME traversal that produces the node list rather than a second one
-   * run alongside it, and that is deliberate: a census taken by a different walk
-   * would be measuring a different walk, and could agree with itself while the real
-   * counter quietly dropped files. The only thing that knows the counter skipped
-   * something is the counter.
-   *
-   * That covers files the walk saw. Files the walk never enumerated at all are
-   * invisible from in here by construction — `reconcileWithGit` exists for those,
-   * and takes its denominator from outside this function on purpose.
-   */
-  readTreeCensus() {
-    const entries = fs6.readdirSync(this.root, { withFileTypes: true });
-    const nodes = [];
-    const seenFiles = [];
-    const skipped = [];
-    const unreadable = [];
-    for (const e of entries) {
-      if (!e.isFile() || !e.name.endsWith(".md")) continue;
-      seenFiles.push(e.name);
-      let raw;
-      try {
-        raw = fs6.readFileSync(path5.join(this.root, e.name), "utf8");
-      } catch (err) {
-        unreadable.push({ file: e.name, reason: `could not be read: ${err.message}` });
-        continue;
-      }
-      let type;
-      try {
-        type = (0, import_gray_matter2.default)(raw).data.type;
-      } catch (err) {
-        unreadable.push({ file: e.name, reason: `frontmatter did not parse: ${err.message}` });
-        continue;
-      }
-      if (typeof type !== "string" || !LAYERS.includes(type)) {
-        skipped.push({
-          file: e.name,
-          reason: type === void 0 ? "no frontmatter `type` \u2014 not an OST node" : `unrecognised type ${JSON.stringify(String(type))}`
-        });
-        continue;
-      }
-      try {
-        nodes.push(deserialize(e.name.replace(/\.md$/, ""), raw));
-      } catch (err) {
-        unreadable.push({ file: e.name, reason: err.message });
-      }
-    }
-    return { nodes, examined: seenFiles.length, seenFiles, skipped, unreadable };
-  }
-  read(title) {
-    const p2 = this.nodePath(title);
-    if (!fs6.existsSync(p2)) throw new Error(`no such node: ${title}`);
-    return deserialize(title, fs6.readFileSync(p2, "utf8"));
-  }
-  /** Create a new node file. Throws if a file for this title already exists. */
-  createNode(node) {
-    assertWritableContent(`the body of "${node.title}"`, node.body);
-    for (const tag of node.tags) assertWritableTag(node.title, tag);
-    const p2 = this.nodePath(node.title);
-    if (fs6.existsSync(p2)) {
-      throw new Error(`node already exists (create is non-overwriting): ${node.title}`);
-    }
-    fs6.writeFileSync(p2, serialize(node), "utf8");
-    noteNodeFileCreated(path5.basename(p2));
-  }
-  /**
-   * Append a prose section to an existing node's file. Strictly grows the file —
-   * the prior bytes remain an exact prefix of the new content.
-   */
-  appendToNode(title, section) {
-    assertWritableContent(`a section of "${title}"`, section);
-    const p2 = this.nodePath(title);
-    if (!fs6.existsSync(p2)) throw new Error(`no such node: ${title}`);
-    const prev = fs6.readFileSync(p2, "utf8");
-    const sep = prev.endsWith("\n") ? "\n" : "\n\n";
-    fs6.writeFileSync(p2, prev + sep + section.trim() + "\n", "utf8");
-  }
-  /**
-   * Append one line under a `## Heading` in a node's body, creating the heading
-   * only if it is absent. Grows the file like every other write here — nothing
-   * already recorded under that heading is touched.
-   */
-  appendUnderSection(title, heading, line) {
-    assertWritableContent(`a line under ${heading} of "${title}"`, line);
-    const node = this.read(title);
-    node.body = appendUnderHeading(node.body, heading, line);
-    fs6.writeFileSync(this.nodePath(title), serialize(node), "utf8");
-  }
-  /** Add a parent→child wikilink edge. Idempotent; adds the link at most once. */
-  linkNodes(parent, child) {
-    const node = this.read(parent);
-    const target = sanitizeTitle(child);
-    if (node.links.includes(target)) return;
-    node.links.push(target);
-    fs6.writeFileSync(this.nodePath(parent), serialize(node), "utf8");
-  }
-  /**
-   * Set a node's status and append the transition to a `## History` section so
-   * the prior value stays visible in the note (and always in git).
-   */
-  setStatus(title, status, note) {
-    assertWritableNote(`the status note on "${title}"`, note);
-    const node = this.read(title);
-    const prev = node.status ?? "(none)";
-    node.status = status;
-    const line = `- ${isoToday()} status: ${prev} \u2192 ${status}${note ? ` \u2014 ${note}` : ""}`;
-    node.body = appendUnderHeading(node.body, "## History", line);
-    fs6.writeFileSync(this.nodePath(title), serialize(node), "utf8");
-  }
-  /**
-   * Declare which rung of the believability ladder a node rests on, recording the
-   * change in History. Existing nodes predate the ladder, so this is how a tree
-   * becomes labelled without rewriting or losing anything.
-   */
-  setEvidence(title, evidence, note) {
-    assertWritableNote(`the evidence note on "${title}"`, note);
-    const node = this.read(title);
-    const prev = node.evidence ?? "(none)";
-    node.evidence = evidence;
-    const line = `- ${isoToday()} evidence: ${prev} \u2192 ${evidence}${note ? ` \u2014 ${note}` : ""}`;
-    node.body = appendUnderHeading(node.body, "## History", line);
-    fs6.writeFileSync(this.nodePath(title), serialize(node), "utf8");
-  }
-  /**
-   * Classify an assumption test into a lane, recording the call in History.
-   * Returns the history line that was written. Validation of the lane itself,
-   * and of who/why, lives in `ost/lanes.ts` — this is the write.
-   */
-  setLane(title, lane, note) {
-    assertWritableNote(`the lane note on "${title}"`, note);
-    const node = this.read(title);
-    const prev = node.lane ?? "(none)";
-    node.lane = lane;
-    const line = `- ${isoToday()} lane: ${prev} \u2192 ${lane}${note ? ` \u2014 ${note}` : ""}`;
-    node.body = appendUnderHeading(node.body, "## History", line);
-    fs6.writeFileSync(this.nodePath(title), serialize(node), "utf8");
-    return line;
-  }
-  /**
-   * Revise the root Outcome node's body in place (human-set mandate tuning).
-   * Refuses any non-Outcome node, so the append-only guarantee for regular nodes
-   * is untouched; prior mandate text is expected to be carried in `newBody`'s
-   * History section (and is always preserved in git).
-   */
-  setOutcomeBody(title, newBody) {
-    const node = this.read(title);
-    if (node.layer !== "Outcome") {
-      throw new Error(`setOutcomeBody only applies to the Outcome node, not a ${node.layer}`);
-    }
-    node.body = newBody;
-    fs6.writeFileSync(this.nodePath(title), serialize(node), "utf8");
-  }
-  /**
-   * Human promotion: set `validated` AND drop the agent-ideated marker.
-   *
-   * The second bounded exception in this class, alongside `setOutcomeBody`, and
-   * for the same reason: it is a human-only write with no tool wrapping it. It is
-   * also the only method here that REMOVES anything, so the removal is pinned to
-   * one literal — `AGENT_IDEATED_TAG`, never a caller-supplied tag — and every
-   * other tag survives.
-   *
-   * It has to drop the marker as well as set the status, or promotion would
-   * manufacture the `no-self-validation` contradiction it exists to resolve.
-   * Idempotent by construction, which is how a vault written before B2 gets
-   * repaired: promoting an already-validated node still clears the marker.
-   */
-  promoteToValidated(title, by, why) {
-    const node = this.read(title);
-    const prev = node.status ?? "(none)";
-    node.tags = node.tags.filter((t2) => t2 !== AGENT_IDEATED_TAG);
-    node.status = "validated";
-    const line = `- ${isoToday()} status: ${prev} \u2192 validated (promoted by ${by}) \u2014 ${why}`;
-    node.body = appendUnderHeading(node.body, "## History", line);
-    fs6.writeFileSync(this.nodePath(title), serialize(node), "utf8");
-    return line;
-  }
-  /** Attach a hygiene/issue annotation under a `## Issues` section. Add-only. */
-  annotate(title, issue2) {
-    assertWritableContent(`an annotation on "${title}"`, issue2);
-    const node = this.read(title);
-    node.body = appendUnderHeading(node.body, "## Issues", `- ${isoToday()} ${issue2}`);
-    fs6.writeFileSync(this.nodePath(title), serialize(node), "utf8");
-  }
-};
-function appendUnderHeading(body, heading, line) {
-  const trimmed2 = body.trimEnd();
-  const lines = trimmed2.split("\n");
-  const start = lines.findIndex((l) => isHeadingLine(l, heading));
-  if (start === -1) {
-    return `${trimmed2}
-
-${heading}
-${line}`;
-  }
-  let end = lines.length;
-  for (let i2 = start + 1; i2 < lines.length; i2++) {
-    if (/^#{1,6}\s/.test(lines[i2].trim())) {
-      end = i2;
-      break;
-    }
-  }
-  while (end > start + 1 && lines[end - 1].trim() === "") end--;
-  return [...lines.slice(0, end), line, ...lines.slice(end)].join("\n");
-}
-
-// src/web/budget.ts
-var DEFAULT_LOOKUP_BUDGET = 10;
-var DEFAULT_REFILL_PER_HOUR = 10;
-var MS_PER_HOUR = 60 * 60 * 1e3;
-function createLookupBudget(limit = DEFAULT_LOOKUP_BUDGET, opts = {}) {
-  const refillPerHour = opts.refillPerHour ?? DEFAULT_REFILL_PER_HOUR;
-  const now = opts.now ?? (() => Date.now());
-  let used = 0;
-  let last2 = now();
-  function refill() {
-    const t2 = now();
-    if (refillPerHour > 0 && t2 > last2) {
-      used = Math.max(0, used - (t2 - last2) / MS_PER_HOUR * refillPerHour);
-    }
-    last2 = t2;
-  }
-  return {
-    limit,
-    take: () => {
-      refill();
-      if (used > limit - 1) return false;
-      used++;
-      return true;
-    },
-    refund: () => {
-      refill();
-      used = Math.max(0, used - 1);
-    },
-    remaining: () => {
-      refill();
-      return Math.floor(limit - used);
-    },
-    msUntilNext: () => {
-      refill();
-      if (used <= limit - 1) return 0;
-      if (refillPerHour <= 0) return Infinity;
-      return Math.ceil((used - (limit - 1)) / refillPerHour * MS_PER_HOUR);
-    }
-  };
-}
-function budgetSpentMessage(limit, msUntilNext = Infinity) {
-  const wait = Number.isFinite(msUntilNext) && msUntilNext > 0 ? ` Another lookup becomes available in about ${Math.max(1, Math.round(msUntilNext / 6e4))} minutes.` : "";
-  return `Lookup budget spent (${limit} web lookups in this burst).${wait} Work from what you have already read and cite it. If something essential is still unknown, record it as an open question on the relevant node (ost_annotate or a note in the body) so the next session can pick it up with a fresh budget.`;
-}
-
-// src/web/search.ts
-var DEFAULT_SEARCH_RESULTS = 5;
-var MAX_SEARCH_RESULTS = 10;
-var BRAVE_ENDPOINT = "https://api.search.brave.com/res/v1/web/search";
-async function searchWeb(query, opts) {
-  const fetchFn = opts.fetchFn ?? globalThis.fetch;
-  const count2 = Math.min(Math.max(1, opts.count ?? DEFAULT_SEARCH_RESULTS), MAX_SEARCH_RESULTS);
-  const params = new URLSearchParams({ q: query, count: String(count2) });
-  const res = await fetchFn(`${BRAVE_ENDPOINT}?${params}`, {
-    method: "GET",
-    headers: { accept: "application/json", "X-Subscription-Token": opts.apiKey },
-    redirect: "manual"
-  });
-  if (!res.ok) {
-    throw new Error(`web search failed with HTTP ${res.status}`);
-  }
-  const body = await res.text() || "{}";
-  let parsed;
-  try {
-    parsed = JSON.parse(body);
-  } catch {
-    throw new Error("web search returned unparseable JSON");
-  }
-  const results = parsed.web?.results ?? [];
-  return results.filter((r2) => Boolean(r2.title && r2.url)).slice(0, count2).map((r2) => ({
-    title: r2.title,
-    url: r2.url,
-    snippet: r2.description ?? "",
-    host: safeHost(r2.url)
-  }));
-}
-function safeHost(url) {
-  try {
-    return new URL(url).hostname.toLowerCase();
-  } catch {
-    return "";
-  }
-}
-function braveProvider(apiKey) {
-  return {
-    name: "brave",
-    search: async (query, count2, fetchFn) => ({
-      results: await searchWeb(query, { apiKey, count: count2, fetchFn }),
-      failures: []
-    })
-  };
-}
-function searchDelegationMessage(query) {
-  return `Use your own web search tool to find candidate URLs for "${query}", then call ost_read_web on each one \u2014 that is what fetches the page and records provenance as WEB:<host>, so traceability is identical either way. (This server has no search provider of its own, which is the normal setup \u2014 nothing is broken and nothing needs installing.)`;
-}
-
-// src/web/guard.ts
-var MAX_REDIRECTS = 3;
-var TIMEOUT_MS = 1e4;
-var MAX_PAGE_CHARS = 2e4;
-var PRIVATE_NAME = /(^|\.)(localhost|local|internal)$/i;
-function assertAllowedUrl(raw) {
-  let url;
-  try {
-    url = new URL(raw);
-  } catch {
-    throw new Error(`"${raw}" is not a valid URL`);
-  }
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error(`scheme "${url.protocol}" is not allowed \u2014 only http/https can be read`);
-  }
-  const host = url.hostname.toLowerCase();
-  if (host.startsWith("[") || host.includes(":")) {
-    throw new Error(`IPv6 literal hosts are not allowed (refusing "${host}")`);
-  }
-  if (PRIVATE_NAME.test(host)) {
-    throw new Error(`"${host}" is a loopback/internal name \u2014 only public hosts can be read`);
-  }
-  if (isPrivateIpv4(host)) {
-    throw new Error(`"${host}" is a private or link-local address \u2014 only public hosts can be read`);
-  }
-  return url;
-}
-function isPrivateIpv4(host) {
-  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
-  if (!m) return false;
-  const [a, b2] = [Number(m[1]), Number(m[2])];
-  if (a === 0 || a === 10 || a === 127) return true;
-  if (a === 169 && b2 === 254) return true;
-  if (a === 172 && b2 >= 16 && b2 <= 31) return true;
-  if (a === 192 && b2 === 168) return true;
-  return false;
-}
-
-// src/web/federated.ts
-var AllSourcesFailedError = class extends Error {
-  failures;
-  /** Every source was skipped for cooldown, so this call touched no network. */
-  allCooling;
-  constructor(failures) {
-    super(`every search source failed: ${failures.map((f) => `${f.source} (${f.reason})`).join(", ")}`);
-    this.name = "AllSourcesFailedError";
-    this.failures = failures;
-    this.allCooling = failures.length > 0 && failures.every((f) => f.cooling);
-  }
-};
-var SourceCoolingError = class extends Error {
-  secondsRemaining;
-  constructor(secondsRemaining) {
-    super(`cooling down after a rate limit for another ${secondsRemaining}s`);
-    this.name = "SourceCoolingError";
-    this.secondsRemaining = secondsRemaining;
-  }
-};
-var DEFAULT_COOLDOWN_MS = 15 * 60 * 1e3;
-var FEDERATED_USER_AGENT = "ost-agent (+https://github.com/tannerbroberts/OST-Agent)";
-function federatedProvider(sources, opts = {}) {
-  const now = opts.now ?? (() => Date.now());
-  const cooldownMs = opts.cooldownMs ?? DEFAULT_COOLDOWN_MS;
-  const cooling = /* @__PURE__ */ new Map();
-  let turn = 0;
-  async function one(src, query, count2, fetchFn) {
-    const until = cooling.get(src.name);
-    if (until !== void 0 && now() < until) {
-      throw new SourceCoolingError(Math.ceil((until - now()) / 1e3));
-    }
-    const url = assertAllowedUrl(src.url(query, count2));
-    const res = await fetchFn(url.toString(), {
-      method: "GET",
-      headers: { accept: "application/json", "user-agent": FEDERATED_USER_AGENT },
-      redirect: "manual",
-      signal: AbortSignal.timeout(TIMEOUT_MS)
-    });
-    if (res.status === 429) {
-      cooling.set(src.name, now() + cooldownMs);
-      throw new Error("HTTP 429 (rate limited) \u2014 cooling this source down");
-    }
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return src.parse(await res.text());
-  }
-  return {
-    name: "federated",
-    search: async (query, count2, fetchFn) => {
-      const fetcher = fetchFn ?? globalThis.fetch;
-      const ordered = sources.map((_2, i2) => sources[(i2 + turn) % sources.length]);
-      turn = sources.length === 0 ? 0 : (turn + 1) % sources.length;
-      const settled = await Promise.all(
-        ordered.map(async (src) => {
-          try {
-            return { src, results: await one(src, query, count2, fetcher) };
-          } catch (err) {
-            const cooling2 = err instanceof SourceCoolingError;
-            return { src, reason: err instanceof Error ? err.message : String(err), cooling: cooling2 };
-          }
-        })
-      );
-      const failures = settled.filter((s) => "reason" in s).map((s) => ({ source: s.src.name, reason: s.reason, cooling: s.cooling }));
-      const answered = settled.filter((s) => "results" in s);
-      if (answered.length === 0) throw new AllSourcesFailedError(failures);
-      return { results: interleave(answered.map((a) => a.results), count2), failures };
-    }
-  };
-}
-function interleave(lists, count2) {
-  const out = [];
-  const seen = /* @__PURE__ */ new Set();
-  const depth = Math.max(0, ...lists.map((l) => l.length));
-  for (let i2 = 0; i2 < depth && out.length < count2; i2++) {
-    for (const list of lists) {
-      if (out.length >= count2) break;
-      const r2 = list[i2];
-      if (!r2) continue;
-      const key = r2.url.replace(/\/+$/, "").toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push(r2);
-    }
-  }
-  return out;
-}
-
-// src/web/sources.ts
-var ENTITIES = {
-  "&amp;": "&",
-  "&lt;": "<",
-  "&gt;": ">",
-  "&quot;": '"',
-  "&#39;": "'",
-  "&nbsp;": " "
-};
-function stripHtml(s) {
-  return s.replace(/<[^>]*>/g, "").replace(/&#x([0-9a-f]+);/gi, (_2, hex) => String.fromCodePoint(parseInt(hex, 16))).replace(/&#(\d+);/g, (_2, dec) => String.fromCodePoint(Number(dec))).replace(/&amp;|&lt;|&gt;|&quot;|&nbsp;/g, (m) => ENTITIES[m] ?? m).replace(/\s+/g, " ").trim();
-}
-function parseJson(body, source) {
-  try {
-    return JSON.parse(body);
-  } catch {
-    throw new Error(`${source} returned unparseable JSON`);
-  }
-}
-function hostOf(url) {
-  try {
-    return new URL(url).hostname.toLowerCase();
-  } catch {
-    return "";
-  }
-}
-function wikipediaSource() {
-  const HOST = "en.wikipedia.org";
-  return {
-    name: "wikipedia",
-    url: (query, count2) => {
-      const p2 = new URLSearchParams({
-        action: "query",
-        list: "search",
-        format: "json",
-        srsearch: query,
-        srlimit: String(count2)
-      });
-      return `https://${HOST}/w/api.php?${p2}`;
-    },
-    parse: (body) => {
-      const data = parseJson(body, "wikipedia");
-      const hits = data.query?.search ?? [];
-      return hits.filter((h2) => typeof h2.title === "string" && h2.title.length > 0).map((h2) => ({
-        title: h2.title,
-        url: `https://${HOST}/wiki/${encodeURIComponent(h2.title)}`,
-        snippet: stripHtml(h2.snippet ?? ""),
-        host: HOST
-      }));
-    }
-  };
-}
-function hackerNewsSource() {
-  return {
-    name: "hackernews",
-    url: (query, count2) => {
-      const p2 = new URLSearchParams({ query, tags: "story", hitsPerPage: String(count2) });
-      return `https://hn.algolia.com/api/v1/search?${p2}`;
-    },
-    parse: (body) => {
-      const data = parseJson(body, "hackernews");
-      const hits = data.hits ?? [];
-      return hits.filter(
-        (h2) => typeof h2.title === "string" && h2.title.length > 0
-      ).map((h2) => {
-        const url = h2.url || `https://news.ycombinator.com/item?id=${h2.objectID ?? ""}`;
-        return { title: h2.title, url, snippet: stripHtml(h2.story_text ?? ""), host: hostOf(url) };
-      });
-    }
-  };
-}
-function discourseSource(host) {
-  const clean2 = host.replace(/^https?:\/\//, "").replace(/\/+$/, "").toLowerCase();
-  const hostname2 = hostOf(`https://${clean2}`) || clean2;
-  return {
-    name: `discourse:${clean2}`,
-    url: (query) => {
-      const p2 = new URLSearchParams({ q: query });
-      return `https://${clean2}/search.json?${p2}`;
-    },
-    parse: (body) => {
-      const data = parseJson(body, `discourse:${clean2}`);
-      const topics = data.topics ?? [];
-      return topics.filter(
-        (t2) => typeof t2.id === "number" && typeof t2.slug === "string" && typeof t2.title === "string"
-      ).map((t2) => ({
-        title: t2.title,
-        url: `https://${clean2}/t/${t2.slug}/${t2.id}`,
-        snippet: "",
-        host: hostname2
-      }));
-    }
-  };
-}
-
-// src/knowledge/ruleset.ts
-var OST_RULESET = {
-  "layers": [
-    {
-      "tag": "#Outcome",
-      "name": "Outcome",
-      "definition": "The single desired outcome at the root that scopes all discovery; should be a product outcome (a customer behavior in the product or sentiment about it, within the team's control), not a business/financial metric or an output like 'ship feature X'.",
-      "role": "Root; one per tree; assigned by leadership, never invented or changed by the agent."
-    },
-    {
-      "tag": "#Opportunity",
-      "name": "Opportunity",
-      "definition": "An unmet customer need, pain point, or desire, phrased from the customer's perspective and sourced from customer interviews; never a solution or feature. Opportunities nest into a multi-level sub-tree (an opportunity can parent other opportunities).",
-      "role": "Customer-value layer connecting the outcome to solutions; siblings are distinct alternatives, parent-child pairs are subset relationships."
-    },
-    {
-      "tag": "#Solution",
-      "name": "Solution",
-      "definition": "A product, feature, service, workflow, process, documentation, or anything else offered to address a known opportunity. Attaches to the single target opportunity it addresses.",
-      "role": "Candidate to be compared and de-risked; generate multiple per target opportunity; enters the tree unvalidated."
-    },
-    {
-      "tag": "#AssumptionTest",
-      "name": "Assumption test",
-      "definition": "A small, fast test of a single underlying assumption a solution depends on (desirability, viability, feasibility, or usability), used to choose among solutions rather than validate one whole idea.",
-      "role": "Bottom layer; attaches beneath the specific solution whose assumption it probes; proposed by the agent, run only by humans."
-    }
-  ],
-  "firstRun": [
-    "A session can be connected to these tools before any vault exists \u2014 that is the normal first minute, not a malfunction. `ost_next_work` reports it as `bootstrap: true` with a `reason` and a `nextStep`; treat that as the state of the world and follow the branch below instead of reporting a broken tool.",
-    'When `reason` is `no-vault`: ask the human what outcome they want this tree to serve, in one sentence, and wait for their answer. Then run their words back to them for confirmation and set up the vault with `node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init <folder> --outcome "<their words>"`.',
-    'When `reason` is `no-outcome`: the vault exists but its root is missing; ask the human for the outcome and use `node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs set-outcome "<their words>" --vault <dir>`.',
-    "Never invent, paraphrase into something sharper, or guess the outcome \u2014 it is the single human-set mandate the whole tree hangs from, and inventing it would make every node below it ladder up to a goal nobody chose.",
-    "If the human is not available to answer, stop and say what you are waiting for. Do not scaffold a vault around a placeholder outcome to make progress.",
-    "Setting up a vault needs no model and no API key, and neither does anything else here \u2014 `status`, `check`, `debt`, `lanes`, `result`, and every tool on this surface are deterministic. This project calls no model at all: the server holds none, and the connected session supplies every bit of the reasoning.",
-    "Once the vault is set up, call `ost_next_work` again and continue into the normal maintenance loop; a fresh tree with only an Outcome is legitimately `done`, and the next thing it needs is evidence, not ideation.",
-    "`/ost-setup` is the front door onto this same branch, named in the slash-command menu so that someone who has just installed the plugin can find it without already knowing to ask for discovery work. Reporting first run is not the same as being findable: if a human seems to be starting from nothing, say `/ost-setup` out loud rather than waiting to be asked."
-  ],
-  "treeRules": [
-    "Exactly one desired outcome sits at the root; multiple outcomes mean multiple trees.",
-    "The tree flows strictly downward: Outcome -> Opportunities (nested) -> Solutions -> Assumption Tests, with each node mapping to its parent.",
-    "Place each node under its single best-fit parent; if an opportunity plausibly fits two parents, flag for human review rather than duplicating or double-linking.",
-    "Opportunities form a multi-level sub-tree: an opportunity node may be the parent of other opportunity nodes; the tree is not four flat levels.",
-    "Parent-child opportunity relationships represent subsets; sibling relationships represent distinct alternatives at the same level.",
-    "Every solution must address at least one opportunity in the tree; no orphan solutions.",
-    "Every assumption test must map to exactly one specific solution.",
-    "Sibling opportunities should be distinct from one another; the tree is deliberately incomplete and evolving, and siblings need not be collectively exhaustive.",
-    "The tree is a living artifact: when evidence invalidates a branch, re-chart it (evolve the solution, pick a different opportunity, or flag the outcome) rather than discarding the rest of the tree."
-  ],
-  "opportunityRules": [
-    "State every opportunity as an unmet customer need, pain point, or desire from the customer's perspective, never as a solution, feature, or business ask.",
-    "Apply the litmus test 'Is there more than one way to address this opportunity?': if only one implementation fits, it is a solution in disguise and belongs one layer down or must be reframed upward into the underlying need.",
-    "Source opportunities from story-based, past-behavior customer interviews rather than internal brainstorming.",
-    "Derive top-level opportunities from key moments in a customer experience map, then nest sub-opportunities under the relevant parent.",
-    "Reframe solution-shaped or business-shaped inputs into need-shaped opportunities, or hold them for human review; never assert them as validated needs.",
-    "Attach every opportunity so it ladders up to the desired outcome."
-  ],
-  "solutionRules": [
-    "Attach each solution to the single target opportunity it addresses.",
-    "Generate multiple competing solutions per target opportunity (aim for at least three) and narrow to a consideration set.",
-    "Compare and contrast solutions against each other rather than validating a single idea in isolation ('good' is judgeable only relative to alternatives).",
-    "Prefer generating more solutions especially when there is risk, when the opportunity is a differentiator, or when innovation is needed.",
-    "Target one opportunity at a time (a work-in-progress limit) and go deep before moving on.",
-    "Every agent-originated solution enters the tree unvalidated \u2014 the marker is stamped by the server, not chosen by the author \u2014 and `validated` is not a status the agent can set at all; promotion is a human's call on the CLI."
-  ],
-  "assumptionCategories": [
-    "desirability",
-    "viability",
-    "feasibility",
-    "usability"
-  ],
-  "assumptionRules": [
-    "Surface the underlying assumptions a solution depends on and test the riskiest ones, rather than testing the whole solution.",
-    "Classify each assumption into one of the four risk categories: desirability, viability, feasibility, or usability (also consider potential-harm/ethical assumptions as an additional check).",
-    "Keep each test small and fast, with a success threshold pre-committed before running.",
-    "Use assumption-test results as comparative evidence to choose among solutions, not as a yes/no verdict on one idea.",
-    "The agent may propose test designs but must never run tests or record test results as evidence; humans run tests with real customers/data."
-  ],
-  "prioritization": [
-    "Prioritize opportunities, not solutions; the strategic decision is which customer need to target.",
-    "Prioritize row by row: assess top-level opportunities, pick the top branch, then drill into that branch's children.",
-    "Assess opportunity sizing qualitatively (how many customers are impacted, and how often), not with a multiplicative reach x frequency formula.",
-    "Weigh customer factors (importance to customers), market factors (effect on market position), and company factors (fit with vision, mission, and strategy).",
-    "Estimate how much impact addressing each opportunity would have on the desired outcome.",
-    "Do not use quantified scoring formulas (e.g. RICE); treat prioritization as messy, subjective, reversible two-way-door decisions where speed beats false precision.",
-    "Opportunity and solution selection are human decisions; the agent may surface sizing information but must not auto-select a target opportunity or a winning solution."
-  ],
-  "cadence": [
-    "Continuous discovery means at a minimum weekly touchpoints with customers by the team building the product, where they conduct small research activities toward a desired outcome.",
-    "Work one outcome (one tree) at a time.",
-    "Conduct weekly story-based customer interviews to source and refine opportunities from real unmet needs.",
-    "Map and structure the opportunity space, then prioritize opportunities row by row and select a single target opportunity at a time.",
-    "Generate multiple solutions for the target opportunity, then run small, fast assumption tests continuously instead of one big up-front validation.",
-    "Update the tree as interviews and tests land, and revisit or re-chart a branch when evidence invalidates it."
-  ],
-  "agentMust": [
-    "Treat itself as a cartographer of the team's knowledge: organize, represent, and question, but never generate or validate knowledge.",
-    "Distill candidate opportunities from ingested artifacts, each with a provenance link and marked unvalidated.",
-    "Reframe solution-shaped or business-shaped inputs into customer-need-shaped opportunities, or hold them for human review.",
-    "Keep opportunities laddered up to the outcome and propose (not silently impose) opportunity-space structure.",
-    "Append multiple unvalidated candidate solutions under a target opportunity for compare-and-contrast.",
-    "Make each solution's underlying assumptions explicit and propose (never run) assumption tests.",
-    "Flag tree-hygiene issues: staleness, orphan solutions, duplicates, mislabeled nodes, and unbacked validity claims.",
-    "Preserve full provenance and append-only history for every node it touches.",
-    "Keep every wikilink on one line. A hard-wrapped paragraph that breaks a [[Node title]] across two lines produces bracketed text and no edge: it reads correctly in the source, and the graph \u2014 the artifact this whole thing produces \u2014 simply lacks the line. Let the line run long rather than wrap inside the brackets. `check` fails on it (rule wrapped-wikilink) and the hygiene pass reports it, because discipline alone has repeatedly not been enough.",
-    "State a test's lane once, in one sentence, and let it name exactly one lane. `**Lane: compute-only.**` is a declaration a tool can read back; `**Lane: compute-only for the census, humans-required for the fixing.**` is two tests wearing one node, and the reader refuses it rather than picking a half. If a test really does split, split the test. A lane written in prose is still only a suggestion: `check` fails when it contradicts the `lane:` field (rule lane-conflict), and nothing ever promotes prose to a label \u2014 only a human's `ost-agent lane --set` moves what compute may run.",
-    "Raise a flag or proposal for a human whenever an action is ambiguous or would generate/validate knowledge."
-  ],
-  "agentMustNot": [
-    "Run interviews, experiments, or assumption tests, or record synthetic results as evidence.",
-    "Write implementation code or build solutions.",
-    "Invent, edit, or change the desired outcome (may only flag a mis-formed outcome as a question for humans).",
-    "Delete or overwrite existing nodes or history; append, annotate, mark-stale, or propose-for-archive instead.",
-    "Mark any opportunity, solution, or assumption as validated or confirmed.",
-    "Auto-select a target opportunity or declare a winning solution.",
-    "Phrase an opportunity as a solution, feature, or business metric.",
-    "Silently re-architect the tree without proposing the change for human confirmation."
-  ],
-  "obsidianFormat": {
-    "nodeFile": "One Markdown file per node; the filename minus .md is the node title. Filenames must be filesystem-safe (no / \\ : * ? etc.) and unique across the vault so wikilinks resolve by name.",
-    "tagLine": "The first body line carries the layer tag: #Outcome, #Opportunity, #Solution, or #AssumptionTest. Graph view Groups bind one color per layer via a tag:#... query.",
-    "wikilinks": "A parent->child edge is a [[Child Title]] wikilink written in the parent note (outgoing link); the child sees its parent via the Backlinks pane. The built-in Graph view's Display 'Arrows' toggle renders link direction natively, no plugin required. Keep every wikilink on a single line: a hard-wrapped paragraph that breaks one across two lines produces bracketed text and no edge, which reads correctly in the source and is missing from the graph. Let the line run long instead of wrapping inside the brackets. `check` fails on it (rule wrapped-wikilink) and the hygiene pass reports it, because discipline alone has not been enough.",
-    "frontmatter": "YAML frontmatter carries type (outcome|opportunity|solution|assumption_test), status, source/provenance, created (ISO date), and confidence (high|medium|low). Frontmatter is the machine-readable source of truth for state; inline tags drive graph coloring. Keep type in frontmatter in sync with the body tag.",
-    "unvalidatedMarking": "Agent-ideated, not-yet-validated nodes carry a companion #unvalidated tag on the same first body line (e.g. '#Solution #unvalidated') plus status: unvalidated in frontmatter; a dedicated Graph group query tag:#unvalidated colors them in a warning color. Status vocabulary (unvalidated -> in-discovery -> validated -> shipped -> deferred) is a vault/tooling convention, not Torres canon.",
-    "provenance": "Every note ends with an append-only '## History' section of dated entries; existing lines are never edited or deleted. Corrections append a new entry and update frontmatter while leaving original provenance intact. Abandoned nodes are set status: deferred (or superseded via a wikilink), never deleted; renames are done inside Obsidian so inbound wikilinks auto-update."
-  },
-  "glossary": [
-    {
-      "term": "Opportunity Solution Tree (OST)",
-      "definition": "A visual representation of the paths a team might take to reach a desired outcome, with four layers (outcome, opportunities, solutions, assumption tests) that keeps a team aligned and outcome-focused during continuous discovery."
-    },
-    {
-      "term": "Outcome",
-      "definition": "The single desired result at the root of the tree; ideally a product outcome (a customer behavior or sentiment in the product the team can influence), distinct from a business metric or an output."
-    },
-    {
-      "term": "Product outcome",
-      "definition": "A measure of a customer behavior in the product or a customer's sentiment about it, directly within the team's control and a leading indicator of business value; Torres's recommended scope for discovery."
-    },
-    {
-      "term": "Business outcome",
-      "definition": "A financial or lagging health metric (revenue, market share, churn) only indirectly influenced by a team's actions."
-    },
-    {
-      "term": "Traction metric",
-      "definition": "Adoption of a single feature; too narrow a scope to anchor discovery on its own."
-    },
-    {
-      "term": "Opportunity",
-      "definition": "An unmet customer need, pain point, or desire, phrased from the customer's perspective and sourced from interviews; addressable in more than one way (the litmus test that distinguishes it from a solution)."
-    },
-    {
-      "term": "Solution",
-      "definition": "A product, feature, service, workflow, process, documentation, or anything else offered to customers to address a known opportunity."
-    },
-    {
-      "term": "Assumption test",
-      "definition": "A small, fast test of a single underlying assumption a solution depends on, used to choose among solutions rather than validate a whole idea."
-    },
-    {
-      "term": "Compare-and-contrast",
-      "definition": "Evaluating multiple competing solutions against one another (which makes 'good' judgeable) instead of assessing a single idea in isolation."
-    },
-    {
-      "term": "Opportunity sizing",
-      "definition": "A qualitative estimate of how many customers an opportunity impacts and how often, used in prioritization; not a numeric scoring formula."
-    },
-    {
-      "term": "Two-way-door decision",
-      "definition": "Torres's framing for opportunity prioritization: a reversible, low-cost decision where moving fast beats waiting for perfect data."
-    },
-    {
-      "term": "Continuous discovery",
-      "definition": "At a minimum weekly touchpoints with customers by the team building the product, where they conduct small research activities in pursuit of a desired outcome."
-    },
-    {
-      "term": "Generative vs. evaluative research",
-      "definition": "Interviewing is generative (it discovers opportunities); assumption testing is evaluative (it evaluates solutions). Both require evidence from real people, which an automated maintainer cannot produce."
-    }
-  ]
-};
-
-// src/runner/context.ts
-function resolveSearchProvider(config2) {
-  const key = process.env.BRAVE_SEARCH_API_KEY;
-  if (key) return braveProvider(key);
-  if (!config2.web.search.federated.enabled) return void 0;
-  const sources = [
-    wikipediaSource(),
-    hackerNewsSource(),
-    ...config2.web.search.federated.discourseHosts.map((h2) => discourseSource(h2))
-  ];
-  return federatedProvider(sources);
-}
-function buildPassContext(vaultDir, opts = {}) {
-  const dir = path6.resolve(vaultDir);
-  const missing = opts.allowMissingConfig ? { missing: "defaults" } : {};
-  const loaded = opts.listingOnly ? { config: defaultConfig(), problem: void 0 } : opts.tolerateInvalidConfig ? readConfig(dir, missing) : { config: loadConfig(dir, missing), problem: void 0 };
-  const config2 = loaded.config;
-  const skipSources = opts.skipSources === true || opts.listingOnly === true;
-  const sources = [];
-  if (!skipSources && config2.adapters.inbox.enabled) {
-    sources.push(new InboxSource(path6.join(dir, config2.adapters.inbox.path)));
-  }
-  if (!skipSources && config2.adapters.transcript.enabled) {
-    const t2 = config2.adapters.transcript;
-    if (!t2.path && !t2.projectDir) {
-      throw new Error(
-        "adapters.transcript is enabled but neither `path` nor `projectDir` is set \u2014 set projectDir to the repo whose sessions to harvest, or path to a directory of *.jsonl transcripts."
-      );
-    }
-    sources.push(
-      new TranscriptSource({
-        dir: t2.path ? path6.resolve(dir, t2.path) : defaultTranscriptDir(t2.projectDir),
-        quietMinutes: t2.quietMinutes,
-        maxEventsPerSession: t2.maxEventsPerSession
-      })
-    );
-  }
-  if (!skipSources && config2.adapters.usage.enabled) {
-    sources.push(new UsageSource({ file: usageLogPath(dir), minEvents: config2.adapters.usage.minEvents }));
-  }
-  if (!skipSources && config2.adapters.atlassian.enabled) {
-    const baseUrl = process.env.ATLASSIAN_BASE_URL;
-    const email2 = process.env.ATLASSIAN_EMAIL;
-    const apiToken = process.env.ATLASSIAN_API_TOKEN;
-    if (!baseUrl || !email2 || !apiToken) {
-      throw new Error(
-        "adapters.atlassian is enabled but ATLASSIAN_BASE_URL / ATLASSIAN_EMAIL / ATLASSIAN_API_TOKEN are not all set. Use a read-only API token (id.atlassian.com \u2192 API tokens)."
-      );
-    }
-    const client = new HttpAtlassianClient({ baseUrl, email: email2, apiToken });
-    sources.push(
-      new AtlassianSource(client, {
-        projects: config2.adapters.atlassian.projects,
-        spaces: config2.adapters.atlassian.spaces
-      })
-    );
-  }
-  if (!skipSources && config2.adapters.slack.enabled) {
-    const token = process.env.SLACK_BOT_TOKEN;
-    if (!token) {
-      throw new Error(
-        "adapters.slack is enabled but SLACK_BOT_TOKEN is not set. Use a least-privilege bot token (scopes: channels:history, channels:read); it is never written into the vault."
-      );
-    }
-    sources.push(new SlackSource(new HttpSlackClient({ token }), { channels: config2.adapters.slack.channels }));
-  }
-  return {
-    vault: new Vault(dir, { create: !opts.listingOnly }),
-    dir,
-    config: config2,
-    ...loaded.problem ? { configProblem: loaded.problem } : {},
-    ruleset: OST_RULESET,
-    sources,
-    remote: { enabled: config2.remote.enabled, url: config2.remote.url },
-    // The key is optional: ost_read_web works without it, and ost_search_web
-    // answers at call time — with results if a provider resolved, otherwise
-    // with the delegation instruction.
-    web: {
-      searchApiKey: process.env.BRAVE_SEARCH_API_KEY,
-      provider: resolveSearchProvider(config2),
-      // The operator's number governs unless the genome explicitly overrides
-      // it — one budget, never two that can disagree. The refill rate stays
-      // the operator's alone: it is what makes a weeks-long session workable,
-      // not a trait worth varying between vaults.
-      budget: createLookupBudget(config2.web.lookupBudget, {
-        refillPerHour: config2.web.lookupRefillPerHour
-      })
-    },
-    productRepos: config2.product.repos
-  };
-}
-
-// src/runner/init.ts
-import fs8 from "node:fs";
-import path8 from "node:path";
-
-// src/git/safe-git.ts
-import fs7 from "node:fs";
-import path7 from "node:path";
+// src/ost/census.ts
+import fs6 from "node:fs";
+import path5 from "node:path";
 
 // node_modules/simple-git/dist/esm/index.js
 var import_file_exists = __toESM(require_dist2(), 1);
@@ -35317,11 +34449,11 @@ function parseInit(bare, path27, text2) {
     return new InitSummary(bare, path27, true, result[1]);
   }
   let gitDir2 = "";
-  const tokens2 = response.split(" ");
-  while (tokens2.length) {
-    const token = tokens2.shift();
+  const tokens = response.split(" ");
+  while (tokens.length) {
+    const token = tokens.shift();
     if (token === "in") {
-      gitDir2 = tokens2.join(" ");
+      gitDir2 = tokens.join(" ");
       break;
     }
   }
@@ -35496,7 +34628,7 @@ var init_parse_diff_summary = __esm2({
     nameStatusParser = [
       new LineParser(
         /([ACDMRTUXB])([0-9]{0,3})\t(.[^\t]*)(\t(.[^\t]*))?$/,
-        (result, [status, similarity2, from, _to, to]) => {
+        (result, [status, similarity, from, _to, to]) => {
           result.changed++;
           result.files.push({
             file: to ?? from,
@@ -35506,7 +34638,7 @@ var init_parse_diff_summary = __esm2({
             binary: false,
             status: orVoid(isDiffNameStatus(status) && status),
             from: orVoid(!!to && from !== to && from),
-            similarity: asNumber(similarity2)
+            similarity: asNumber(similarity)
           });
         }
       )
@@ -35535,10 +34667,10 @@ var init_parse_diff_summary = __esm2({
     };
   }
 });
-function lineBuilder(tokens2, fields) {
+function lineBuilder(tokens, fields) {
   return fields.reduce(
     (line, field, index) => {
-      line[field] = tokens2[index] || "";
+      line[field] = tokens[index] || "";
       return line;
     },
     /* @__PURE__ */ Object.create({ diff: null })
@@ -38073,14 +37205,1027 @@ function gitInstanceFactory(baseDir, options2) {
 init_git_response_error();
 var simpleGit = gitInstanceFactory;
 
+// src/ost/census.ts
+var ARCHIVE_DIRNAME = "archive";
+var RETIRED_STATUSES = ["deferred"];
+var RETIRED = new Set(RETIRED_STATUSES);
+function isRetiredNode(node) {
+  return node.status !== void 0 && RETIRED.has(node.status);
+}
+function withoutRetiredNodes(census) {
+  const kept = [];
+  const retired = [...census.retired];
+  for (const n of census.nodes) {
+    if (isRetiredNode(n)) {
+      retired.push({ file: `${n.title}.md`, reason: `status: ${n.status} \u2014 retired, withheld from the duplicate scan` });
+    } else {
+      kept.push(n);
+    }
+  }
+  return { ...census, nodes: kept, retired };
+}
+async function reconcileWithGit(vaultRoot, census) {
+  const root = path5.resolve(vaultRoot);
+  let raw;
+  try {
+    const g = simpleGit(root);
+    if (!await g.checkIsRepo()) return void 0;
+    raw = await g.raw(["ls-files", "-z", "--", "*.md"]);
+  } catch {
+    return void 0;
+  }
+  const tracked = raw.split("\0").filter((f) => f.length > 0);
+  const topLevel = tracked.filter((f) => !f.includes("/"));
+  const seen = new Set(census.seenFiles);
+  const unseenByWalk = topLevel.filter((f) => !seen.has(f)).sort();
+  return { source: "git", tracked: topLevel.length, unseenByWalk };
+}
+function reconcileWithUsage(vaultRoot, census) {
+  const file = usageLogPath(vaultRoot);
+  let raw;
+  try {
+    raw = fs6.readFileSync(file, "utf8");
+  } catch {
+    return void 0;
+  }
+  const claimed = /* @__PURE__ */ new Set();
+  let covered = false;
+  for (const line of raw.split("\n")) {
+    if (!line.trim()) continue;
+    let event;
+    try {
+      event = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (event.tool === INIT_TRACE_TOOL) covered = true;
+    if (Array.isArray(event.wrote)) {
+      for (const f of event.wrote) if (typeof f === "string") claimed.add(f);
+    }
+  }
+  if (!covered) return void 0;
+  return {
+    source: "usage-trace",
+    basis: path5.relative(path5.resolve(vaultRoot), file) || file,
+    unexplained: census.seenFiles.filter((f) => !claimed.has(f)).sort()
+  };
+}
+function formatCensus(census, nodeCount) {
+  const lines = [];
+  const dropped = census.skipped.length + census.unreadable.length;
+  lines.push(
+    `Counted over: ${nodeCount} node(s) of ${census.examined} markdown file(s) examined` + (dropped > 0 ? `, ${dropped} dropped` : "")
+  );
+  for (const s of census.skipped) lines.push(`  \u2013 dropped ${s.file}: ${s.reason}`);
+  for (const u of census.unreadable) lines.push(`  \u2013 unreadable ${u.file}: ${u.reason}`);
+  if (census.retired.length > 0) {
+    lines.push(`  \u2013 retired: ${census.retired.length} node(s) out of the live tree, excluded from the counts above`);
+    for (const r2 of census.retired) lines.push(`    \xB7 ${r2.file}: ${r2.reason}`);
+  }
+  const ind = census.independent;
+  if (ind && ind.unseenByWalk.length > 0) {
+    lines.push(
+      `  \u2717 ${ind.source} tracks ${ind.tracked} markdown file(s); the walk enumerated ${census.examined}.`
+    );
+    lines.push(
+      `    The walk never saw: ${ind.unseenByWalk.join(", ")}
+    Every count in this vault is short by at least that much. This is not a
+    tree problem \u2014 it is the reader failing to read, and no invariant will catch it.`
+    );
+  }
+  return lines.join("\n");
+}
+
+// src/ost/vault.ts
+function isoToday() {
+  return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+}
+var VOID_CONTENT = /* @__PURE__ */ new Set(["undefined", "null"]);
+function assertWritableContent(what, value) {
+  const trimmed2 = value.trim();
+  if (trimmed2 === "") {
+    throw new Error(
+      `refusing to write empty ${what}: content was empty or whitespace only. An append-only vault cannot take this back \u2014 pass real content or make no call.`
+    );
+  }
+  if (VOID_CONTENT.has(trimmed2.toLowerCase())) {
+    throw new Error(
+      `refusing to write ${what}: content was the literal string "${trimmed2}". This is almost always a stringified unset variable rather than something meant to be recorded; an append-only vault cannot take it back.`
+    );
+  }
+  const wrapped = wrappedLinkTargets(value);
+  if (wrapped.length > 0) {
+    throw new Error(
+      `refusing to write ${what}: the link [[${wrapped[0]}]] is split across a line break. Only a whole line of the form [[Title]] becomes an edge, so this would render as bracketed text while permanently reddening \`wrapped-wikilink\` \u2014 and an append-only vault has no tool that can take it back. Put the link on one unbroken line.`
+    );
+  }
+  const reserved = reservedHeadingIn(value);
+  if (reserved) {
+    throw new Error(
+      `refusing to write ${what}: "${reserved}" is a reserved heading. The tree's gates read it as evidence that a test was RUN outside the tree, and the agent may never run a test or record a result \u2014 a heading it can author is a gate it can clear on its own authority. A human records one on the CLI: ost-agent result "<test>" -v <verdict> -n "<what happened>" -b "<who ran it>" -u "<what it did not cover>". Put your note under a different heading (## Notes, ## Method, ## Plan).`
+    );
+  }
+}
+function assertWritableNote(what, value) {
+  if (value === void 0) return;
+  assertWritableContent(what, value);
+}
+function assertWritableTag(title, tag) {
+  if (/\s/.test(tag)) {
+    throw new Error(
+      `refusing to write a tag on "${title}": tags cannot contain whitespace, and this one does (${JSON.stringify(tag)}). A tag is rendered as a single #word on one shared line, so whitespace in one either silently splits it in two or, with a newline, writes body content that no reader can tell from prose the author wrote. Use one word, or hyphens.`
+    );
+  }
+  if (tag.includes("#")) {
+    throw new Error(`refusing to write a tag on "${title}": tags are rendered with their own "#" \u2014 drop it from ${JSON.stringify(tag)}.`);
+  }
+  assertWritableContent(`a tag on "${title}"`, tag);
+}
+var Vault = class {
+  root;
+  constructor(rootDir, opts = {}) {
+    this.root = path6.resolve(rootDir);
+    if (opts.create !== false) fs7.mkdirSync(this.root, { recursive: true });
+  }
+  /** Absolute path for a node title, asserted to stay within the vault root. */
+  nodePath(title) {
+    const p2 = path6.resolve(this.root, fileNameForTitle(title));
+    const rel = path6.relative(this.root, p2);
+    if (rel.startsWith("..") || path6.isAbsolute(rel) || rel.includes(path6.sep)) {
+      throw new Error(`refusing to write outside the vault: ${title}`);
+    }
+    return p2;
+  }
+  has(title) {
+    return fs7.existsSync(this.nodePath(title));
+  }
+  /** Read all node files at the vault root (skips non-node files and subdirs). */
+  readTree() {
+    return this.readTreeCensus().nodes;
+  }
+  /**
+   * The live tree — `readTree` with retired nodes withheld.
+   *
+   * Deliberately NOT what `readTree` returns. Every gate in the product reads
+   * `readTree`, and a retired-by-status node must stay inside every gate, or
+   * `ost_set_status(node, "deferred")` becomes a way to clear an invariant.
+   * The argument for the one pass that may use this is on
+   * {@link withoutRetiredNodes}.
+   */
+  readLiveTree() {
+    return this.readTreeCensus({ excludeRetired: true }).nodes;
+  }
+  /**
+   * `readTree`, plus an account of everything it declined to return.
+   *
+   * This is the SAME traversal that produces the node list rather than a second one
+   * run alongside it, and that is deliberate: a census taken by a different walk
+   * would be measuring a different walk, and could agree with itself while the real
+   * counter quietly dropped files. The only thing that knows the counter skipped
+   * something is the counter.
+   *
+   * That covers files the walk saw. Files the walk never enumerated at all are
+   * invisible from in here by construction — `reconcileWithGit` exists for those,
+   * and takes its denominator from outside this function on purpose.
+   *
+   * `opts.excludeRetired` additionally withholds nodes whose *status* retires
+   * them. It is off by default and must stay that way for every gate: the read
+   * that feeds `checkInvariants` and `done` has to see a `deferred` node, or
+   * setting that status becomes a way to clear a violation. The one caller that
+   * turns it on, and the argument for it, are on `withoutRetiredNodes`. Files
+   * under `archive/` are withheld either way — nothing the agent can call puts
+   * a file there.
+   */
+  readTreeCensus(opts = {}) {
+    const entries = fs7.readdirSync(this.root, { withFileTypes: true });
+    const nodes = [];
+    const seenFiles = [];
+    const skipped = [];
+    const unreadable = [];
+    const retired = this.archivedFiles();
+    for (const e of entries) {
+      if (!e.isFile() || !e.name.endsWith(".md")) continue;
+      seenFiles.push(e.name);
+      let raw;
+      try {
+        raw = fs7.readFileSync(path6.join(this.root, e.name), "utf8");
+      } catch (err) {
+        unreadable.push({ file: e.name, reason: `could not be read: ${err.message}` });
+        continue;
+      }
+      let type;
+      try {
+        type = (0, import_gray_matter2.default)(raw).data.type;
+      } catch (err) {
+        unreadable.push({ file: e.name, reason: `frontmatter did not parse: ${err.message}` });
+        continue;
+      }
+      if (typeof type !== "string" || !LAYERS.includes(type)) {
+        skipped.push({
+          file: e.name,
+          reason: type === void 0 ? "no frontmatter `type` \u2014 not an OST node" : `unrecognised type ${JSON.stringify(String(type))}`
+        });
+        continue;
+      }
+      try {
+        nodes.push(deserialize(e.name.replace(/\.md$/, ""), raw));
+      } catch (err) {
+        unreadable.push({ file: e.name, reason: err.message });
+      }
+    }
+    const census = { nodes, examined: seenFiles.length, seenFiles, skipped, unreadable, retired };
+    return opts.excludeRetired ? withoutRetiredNodes(census) : census;
+  }
+  /**
+   * The `archive/` directory's markdown files, as census entries.
+   *
+   * One level, no recursion, and nothing is parsed: an archived file is out of
+   * the tree, so the only fact worth recovering from it is that it exists. It is
+   * listed rather than counted for the reason the census exists at all — "3
+   * retired" tells an operator a number moved, `Old idea.md` tells them what.
+   */
+  archivedFiles() {
+    const dir = path6.join(this.root, ARCHIVE_DIRNAME);
+    let entries;
+    try {
+      entries = fs7.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return [];
+    }
+    return entries.filter((e) => e.isFile() && e.name.endsWith(".md")).map((e) => ({ file: `${ARCHIVE_DIRNAME}/${e.name}`, reason: "archived \u2014 moved out of the live tree by a human" })).sort((a, b2) => a.file < b2.file ? -1 : a.file > b2.file ? 1 : 0);
+  }
+  read(title) {
+    const p2 = this.nodePath(title);
+    if (!fs7.existsSync(p2)) throw new Error(`no such node: ${title}`);
+    return deserialize(title, fs7.readFileSync(p2, "utf8"));
+  }
+  /** Create a new node file. Throws if a file for this title already exists. */
+  createNode(node) {
+    assertWritableContent(`the body of "${node.title}"`, node.body);
+    for (const tag of node.tags) assertWritableTag(node.title, tag);
+    const p2 = this.nodePath(node.title);
+    if (fs7.existsSync(p2)) {
+      throw new Error(`node already exists (create is non-overwriting): ${node.title}`);
+    }
+    fs7.writeFileSync(p2, serialize(node), "utf8");
+    noteNodeFileCreated(path6.basename(p2));
+  }
+  /**
+   * Append a prose section to an existing node's file. Strictly grows the file —
+   * the prior bytes remain an exact prefix of the new content.
+   */
+  appendToNode(title, section) {
+    assertWritableContent(`a section of "${title}"`, section);
+    const p2 = this.nodePath(title);
+    if (!fs7.existsSync(p2)) throw new Error(`no such node: ${title}`);
+    const prev = fs7.readFileSync(p2, "utf8");
+    const sep = prev.endsWith("\n") ? "\n" : "\n\n";
+    fs7.writeFileSync(p2, prev + sep + section.trim() + "\n", "utf8");
+  }
+  /**
+   * Append one line under a `## Heading` in a node's body, creating the heading
+   * only if it is absent. Grows the file like every other write here — nothing
+   * already recorded under that heading is touched.
+   */
+  appendUnderSection(title, heading, line) {
+    assertWritableContent(`a line under ${heading} of "${title}"`, line);
+    const node = this.read(title);
+    node.body = appendUnderHeading(node.body, heading, line);
+    fs7.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+  }
+  /** Add a parent→child wikilink edge. Idempotent; adds the link at most once. */
+  linkNodes(parent, child) {
+    const node = this.read(parent);
+    const target = sanitizeTitle(child);
+    if (node.links.includes(target)) return;
+    node.links.push(target);
+    fs7.writeFileSync(this.nodePath(parent), serialize(node), "utf8");
+  }
+  /**
+   * Set a node's status and append the transition to a `## History` section so
+   * the prior value stays visible in the note (and always in git).
+   */
+  setStatus(title, status, note) {
+    assertWritableNote(`the status note on "${title}"`, note);
+    const node = this.read(title);
+    const prev = node.status ?? "(none)";
+    node.status = status;
+    const line = `- ${isoToday()} status: ${prev} \u2192 ${status}${note ? ` \u2014 ${note}` : ""}`;
+    node.body = appendUnderHeading(node.body, "## History", line);
+    fs7.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+  }
+  /**
+   * Declare which rung of the believability ladder a node rests on, recording the
+   * change in History. Existing nodes predate the ladder, so this is how a tree
+   * becomes labelled without rewriting or losing anything.
+   */
+  setEvidence(title, evidence, note) {
+    assertWritableNote(`the evidence note on "${title}"`, note);
+    const node = this.read(title);
+    const prev = node.evidence ?? "(none)";
+    node.evidence = evidence;
+    const line = `- ${isoToday()} evidence: ${prev} \u2192 ${evidence}${note ? ` \u2014 ${note}` : ""}`;
+    node.body = appendUnderHeading(node.body, "## History", line);
+    fs7.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+  }
+  /**
+   * Classify an assumption test into a lane, recording the call in History.
+   * Returns the history line that was written. Validation of the lane itself,
+   * and of who/why, lives in `ost/lanes.ts` — this is the write.
+   */
+  setLane(title, lane, note) {
+    assertWritableNote(`the lane note on "${title}"`, note);
+    const node = this.read(title);
+    const prev = node.lane ?? "(none)";
+    node.lane = lane;
+    const line = `- ${isoToday()} lane: ${prev} \u2192 ${lane}${note ? ` \u2014 ${note}` : ""}`;
+    node.body = appendUnderHeading(node.body, "## History", line);
+    fs7.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+    return line;
+  }
+  /**
+   * Revise the root Outcome node's body in place (human-set mandate tuning).
+   * Refuses any non-Outcome node, so the append-only guarantee for regular nodes
+   * is untouched; prior mandate text is expected to be carried in `newBody`'s
+   * History section (and is always preserved in git).
+   */
+  setOutcomeBody(title, newBody) {
+    const node = this.read(title);
+    if (node.layer !== "Outcome") {
+      throw new Error(`setOutcomeBody only applies to the Outcome node, not a ${node.layer}`);
+    }
+    node.body = newBody;
+    fs7.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+  }
+  /**
+   * Human promotion: set `validated` AND drop the agent-ideated marker.
+   *
+   * The second bounded exception in this class, alongside `setOutcomeBody`, and
+   * for the same reason: it is a human-only write with no tool wrapping it. It is
+   * also the only method here that REMOVES anything, so the removal is pinned to
+   * one literal — `AGENT_IDEATED_TAG`, never a caller-supplied tag — and every
+   * other tag survives.
+   *
+   * It has to drop the marker as well as set the status, or promotion would
+   * manufacture the `no-self-validation` contradiction it exists to resolve.
+   * Idempotent by construction, which is how a vault written before B2 gets
+   * repaired: promoting an already-validated node still clears the marker.
+   */
+  promoteToValidated(title, by, why) {
+    const node = this.read(title);
+    const prev = node.status ?? "(none)";
+    node.tags = node.tags.filter((t2) => t2 !== AGENT_IDEATED_TAG);
+    node.status = "validated";
+    const line = `- ${isoToday()} status: ${prev} \u2192 validated (promoted by ${by}) \u2014 ${why}`;
+    node.body = appendUnderHeading(node.body, "## History", line);
+    fs7.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+    return line;
+  }
+  /** Attach a hygiene/issue annotation under a `## Issues` section. Add-only. */
+  annotate(title, issue2) {
+    assertWritableContent(`an annotation on "${title}"`, issue2);
+    const node = this.read(title);
+    node.body = appendUnderHeading(node.body, "## Issues", `- ${isoToday()} ${issue2}`);
+    fs7.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+  }
+};
+function appendUnderHeading(body, heading, line) {
+  const trimmed2 = body.trimEnd();
+  const lines = trimmed2.split("\n");
+  const start = lines.findIndex((l) => isHeadingLine(l, heading));
+  if (start === -1) {
+    return `${trimmed2}
+
+${heading}
+${line}`;
+  }
+  let end = lines.length;
+  for (let i2 = start + 1; i2 < lines.length; i2++) {
+    if (/^#{1,6}\s/.test(lines[i2].trim())) {
+      end = i2;
+      break;
+    }
+  }
+  while (end > start + 1 && lines[end - 1].trim() === "") end--;
+  return [...lines.slice(0, end), line, ...lines.slice(end)].join("\n");
+}
+
+// src/web/budget.ts
+var DEFAULT_LOOKUP_BUDGET = 10;
+var DEFAULT_REFILL_PER_HOUR = 10;
+var MS_PER_HOUR = 60 * 60 * 1e3;
+function createLookupBudget(limit = DEFAULT_LOOKUP_BUDGET, opts = {}) {
+  const refillPerHour = opts.refillPerHour ?? DEFAULT_REFILL_PER_HOUR;
+  const lifetimeLimit = opts.lifetimeLimit ?? limit;
+  const now = opts.now ?? (() => Date.now());
+  let used = 0;
+  let spentEver = 0;
+  let lifetimeRefunds = 0;
+  let last2 = now();
+  function refill() {
+    const t2 = now();
+    if (refillPerHour > 0 && t2 > last2) {
+      used = Math.max(0, used - (t2 - last2) / MS_PER_HOUR * refillPerHour);
+    }
+    last2 = t2;
+  }
+  return {
+    limit,
+    lifetimeLimit,
+    take: () => {
+      if (spentEver >= lifetimeLimit) return false;
+      refill();
+      if (used > limit - 1) return false;
+      used++;
+      spentEver++;
+      return true;
+    },
+    refund: () => {
+      refill();
+      used = Math.max(0, used - 1);
+      if (lifetimeRefunds < lifetimeLimit) {
+        lifetimeRefunds++;
+        spentEver = Math.max(0, spentEver - 1);
+      }
+    },
+    remaining: () => {
+      refill();
+      return Math.min(Math.floor(limit - used), Math.max(0, lifetimeLimit - spentEver));
+    },
+    lifetimeRemaining: () => Math.max(0, lifetimeLimit - spentEver),
+    msUntilNext: () => {
+      if (spentEver >= lifetimeLimit) return Infinity;
+      refill();
+      if (used <= limit - 1) return 0;
+      if (refillPerHour <= 0) return Infinity;
+      return Math.ceil((used - (limit - 1)) / refillPerHour * MS_PER_HOUR);
+    }
+  };
+}
+function budgetSpentMessage(limit, msUntilNext = Infinity) {
+  const wait = Number.isFinite(msUntilNext) && msUntilNext > 0 ? ` Another lookup becomes available in about ${Math.max(1, Math.round(msUntilNext / 6e4))} minutes.` : "";
+  return `Lookup budget spent (${limit} web lookups).${wait} Work from what you have already read and cite it. If something essential is still unknown, record it as an open question on the relevant node (ost_annotate or a note in the body) so the next session can pick it up with a fresh budget.`;
+}
+
+// src/web/search.ts
+var DEFAULT_SEARCH_RESULTS = 5;
+var MAX_SEARCH_RESULTS = 10;
+var BRAVE_ENDPOINT = "https://api.search.brave.com/res/v1/web/search";
+async function searchWeb(query, opts) {
+  const fetchFn = opts.fetchFn ?? globalThis.fetch;
+  const count2 = Math.min(Math.max(1, opts.count ?? DEFAULT_SEARCH_RESULTS), MAX_SEARCH_RESULTS);
+  const params = new URLSearchParams({ q: query, count: String(count2) });
+  const res = await fetchFn(`${BRAVE_ENDPOINT}?${params}`, {
+    method: "GET",
+    headers: { accept: "application/json", "X-Subscription-Token": opts.apiKey },
+    redirect: "manual"
+  });
+  if (!res.ok) {
+    throw new Error(`web search failed with HTTP ${res.status}`);
+  }
+  const body = await res.text() || "{}";
+  let parsed;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    throw new Error("web search returned unparseable JSON");
+  }
+  const results = parsed.web?.results ?? [];
+  return results.filter((r2) => Boolean(r2.title && r2.url)).slice(0, count2).map((r2) => ({
+    title: r2.title,
+    url: r2.url,
+    snippet: r2.description ?? "",
+    host: safeHost(r2.url)
+  }));
+}
+function safeHost(url) {
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+function braveProvider(apiKey) {
+  return {
+    name: "brave",
+    search: async (query, count2, fetchFn) => ({
+      results: await searchWeb(query, { apiKey, count: count2, fetchFn }),
+      failures: []
+    })
+  };
+}
+function searchDelegationMessage(query) {
+  return `Use your own web search tool to find candidate URLs for "${query}", then call ost_read_web on each one \u2014 that is what fetches the page and records provenance as WEB:<host>, so traceability is identical either way. (This server has no search provider of its own, which is the normal setup \u2014 nothing is broken and nothing needs installing.)`;
+}
+
+// src/web/guard.ts
+var MAX_REDIRECTS = 3;
+var TIMEOUT_MS = 1e4;
+var MAX_PAGE_CHARS = 2e4;
+var PRIVATE_NAME = /(^|\.)(localhost|local|internal)$/i;
+function assertAllowedUrl(raw) {
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error(`"${raw}" is not a valid URL`);
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error(`scheme "${url.protocol}" is not allowed \u2014 only http/https can be read`);
+  }
+  const host = url.hostname.toLowerCase();
+  if (host.startsWith("[") || host.includes(":")) {
+    throw new Error(`IPv6 literal hosts are not allowed (refusing "${host}")`);
+  }
+  if (PRIVATE_NAME.test(host)) {
+    throw new Error(`"${host}" is a loopback/internal name \u2014 only public hosts can be read`);
+  }
+  if (isPrivateIpv4(host)) {
+    throw new Error(`"${host}" is a private or link-local address \u2014 only public hosts can be read`);
+  }
+  return url;
+}
+function isPrivateIpv4(host) {
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (!m) return false;
+  const [a, b2] = [Number(m[1]), Number(m[2])];
+  if (a === 0 || a === 10 || a === 127) return true;
+  if (a === 169 && b2 === 254) return true;
+  if (a === 172 && b2 >= 16 && b2 <= 31) return true;
+  if (a === 192 && b2 === 168) return true;
+  return false;
+}
+
+// src/web/federated.ts
+var AllSourcesFailedError = class extends Error {
+  failures;
+  /** Every source was skipped for cooldown, so this call touched no network. */
+  allCooling;
+  constructor(failures) {
+    super(`every search source failed: ${failures.map((f) => `${f.source} (${f.reason})`).join(", ")}`);
+    this.name = "AllSourcesFailedError";
+    this.failures = failures;
+    this.allCooling = failures.length > 0 && failures.every((f) => f.cooling);
+  }
+};
+var SourceCoolingError = class extends Error {
+  secondsRemaining;
+  constructor(secondsRemaining) {
+    super(`cooling down after a rate limit for another ${secondsRemaining}s`);
+    this.name = "SourceCoolingError";
+    this.secondsRemaining = secondsRemaining;
+  }
+};
+var DEFAULT_COOLDOWN_MS = 15 * 60 * 1e3;
+var FEDERATED_USER_AGENT = "ost-agent (+https://github.com/tannerbroberts/OST-Agent)";
+function federatedProvider(sources, opts = {}) {
+  const now = opts.now ?? (() => Date.now());
+  const cooldownMs = opts.cooldownMs ?? DEFAULT_COOLDOWN_MS;
+  const cooling = /* @__PURE__ */ new Map();
+  let turn = 0;
+  async function one(src, query, count2, fetchFn) {
+    const until = cooling.get(src.name);
+    if (until !== void 0 && now() < until) {
+      throw new SourceCoolingError(Math.ceil((until - now()) / 1e3));
+    }
+    const url = assertAllowedUrl(src.url(query, count2));
+    const res = await fetchFn(url.toString(), {
+      method: "GET",
+      headers: { accept: "application/json", "user-agent": FEDERATED_USER_AGENT },
+      redirect: "manual",
+      signal: AbortSignal.timeout(TIMEOUT_MS)
+    });
+    if (res.status === 429) {
+      cooling.set(src.name, now() + cooldownMs);
+      throw new Error("HTTP 429 (rate limited) \u2014 cooling this source down");
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return src.parse(await res.text());
+  }
+  return {
+    name: "federated",
+    search: async (query, count2, fetchFn) => {
+      const fetcher = fetchFn ?? globalThis.fetch;
+      const ordered = sources.map((_2, i2) => sources[(i2 + turn) % sources.length]);
+      turn = sources.length === 0 ? 0 : (turn + 1) % sources.length;
+      const settled = await Promise.all(
+        ordered.map(async (src) => {
+          try {
+            return { src, results: await one(src, query, count2, fetcher) };
+          } catch (err) {
+            const cooling2 = err instanceof SourceCoolingError;
+            return { src, reason: err instanceof Error ? err.message : String(err), cooling: cooling2 };
+          }
+        })
+      );
+      const failures = settled.filter((s) => "reason" in s).map((s) => ({ source: s.src.name, reason: s.reason, cooling: s.cooling }));
+      const answered = settled.filter((s) => "results" in s);
+      if (answered.length === 0) throw new AllSourcesFailedError(failures);
+      return { results: interleave(answered.map((a) => a.results), count2), failures };
+    }
+  };
+}
+function interleave(lists, count2) {
+  const out = [];
+  const seen = /* @__PURE__ */ new Set();
+  const depth = Math.max(0, ...lists.map((l) => l.length));
+  for (let i2 = 0; i2 < depth && out.length < count2; i2++) {
+    for (const list of lists) {
+      if (out.length >= count2) break;
+      const r2 = list[i2];
+      if (!r2) continue;
+      const key = r2.url.replace(/\/+$/, "").toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(r2);
+    }
+  }
+  return out;
+}
+
+// src/web/sources.ts
+var ENTITIES = {
+  "&amp;": "&",
+  "&lt;": "<",
+  "&gt;": ">",
+  "&quot;": '"',
+  "&#39;": "'",
+  "&nbsp;": " "
+};
+function stripHtml(s) {
+  return s.replace(/<[^>]*>/g, "").replace(/&#x([0-9a-f]+);/gi, (_2, hex) => String.fromCodePoint(parseInt(hex, 16))).replace(/&#(\d+);/g, (_2, dec) => String.fromCodePoint(Number(dec))).replace(/&amp;|&lt;|&gt;|&quot;|&nbsp;/g, (m) => ENTITIES[m] ?? m).replace(/\s+/g, " ").trim();
+}
+function parseJson(body, source) {
+  try {
+    return JSON.parse(body);
+  } catch {
+    throw new Error(`${source} returned unparseable JSON`);
+  }
+}
+function hostOf(url) {
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+function wikipediaSource() {
+  const HOST = "en.wikipedia.org";
+  return {
+    name: "wikipedia",
+    url: (query, count2) => {
+      const p2 = new URLSearchParams({
+        action: "query",
+        list: "search",
+        format: "json",
+        srsearch: query,
+        srlimit: String(count2)
+      });
+      return `https://${HOST}/w/api.php?${p2}`;
+    },
+    parse: (body) => {
+      const data = parseJson(body, "wikipedia");
+      const hits = data.query?.search ?? [];
+      return hits.filter((h2) => typeof h2.title === "string" && h2.title.length > 0).map((h2) => ({
+        title: h2.title,
+        url: `https://${HOST}/wiki/${encodeURIComponent(h2.title)}`,
+        snippet: stripHtml(h2.snippet ?? ""),
+        host: HOST
+      }));
+    }
+  };
+}
+function hackerNewsSource() {
+  return {
+    name: "hackernews",
+    url: (query, count2) => {
+      const p2 = new URLSearchParams({ query, tags: "story", hitsPerPage: String(count2) });
+      return `https://hn.algolia.com/api/v1/search?${p2}`;
+    },
+    parse: (body) => {
+      const data = parseJson(body, "hackernews");
+      const hits = data.hits ?? [];
+      return hits.filter(
+        (h2) => typeof h2.title === "string" && h2.title.length > 0
+      ).map((h2) => {
+        const url = h2.url || `https://news.ycombinator.com/item?id=${h2.objectID ?? ""}`;
+        return { title: h2.title, url, snippet: stripHtml(h2.story_text ?? ""), host: hostOf(url) };
+      });
+    }
+  };
+}
+function discourseSource(host) {
+  const clean2 = host.replace(/^https?:\/\//, "").replace(/\/+$/, "").toLowerCase();
+  const hostname2 = hostOf(`https://${clean2}`) || clean2;
+  return {
+    name: `discourse:${clean2}`,
+    url: (query) => {
+      const p2 = new URLSearchParams({ q: query });
+      return `https://${clean2}/search.json?${p2}`;
+    },
+    parse: (body) => {
+      const data = parseJson(body, `discourse:${clean2}`);
+      const topics = data.topics ?? [];
+      return topics.filter(
+        (t2) => typeof t2.id === "number" && typeof t2.slug === "string" && typeof t2.title === "string"
+      ).map((t2) => ({
+        title: t2.title,
+        url: `https://${clean2}/t/${t2.slug}/${t2.id}`,
+        snippet: "",
+        host: hostname2
+      }));
+    }
+  };
+}
+
+// src/knowledge/ruleset.ts
+var OST_RULESET = {
+  "layers": [
+    {
+      "tag": "#Outcome",
+      "name": "Outcome",
+      "definition": "The single desired outcome at the root that scopes all discovery; should be a product outcome (a customer behavior in the product or sentiment about it, within the team's control), not a business/financial metric or an output like 'ship feature X'.",
+      "role": "Root; one per tree; assigned by leadership, never invented or changed by the agent."
+    },
+    {
+      "tag": "#Opportunity",
+      "name": "Opportunity",
+      "definition": "An unmet customer need, pain point, or desire, phrased from the customer's perspective and sourced from customer interviews; never a solution or feature. Opportunities nest into a multi-level sub-tree (an opportunity can parent other opportunities).",
+      "role": "Customer-value layer connecting the outcome to solutions; siblings are distinct alternatives, parent-child pairs are subset relationships."
+    },
+    {
+      "tag": "#Solution",
+      "name": "Solution",
+      "definition": "A product, feature, service, workflow, process, documentation, or anything else offered to address a known opportunity. Attaches to the single target opportunity it addresses.",
+      "role": "Candidate to be compared and de-risked; generate multiple per target opportunity; enters the tree unvalidated."
+    },
+    {
+      "tag": "#AssumptionTest",
+      "name": "Assumption test",
+      "definition": "A small, fast test of a single underlying assumption a solution depends on (desirability, viability, feasibility, or usability), used to choose among solutions rather than validate one whole idea.",
+      "role": "Bottom layer; attaches beneath the specific solution whose assumption it probes; proposed by the agent, run only by humans."
+    }
+  ],
+  "firstRun": [
+    "A session can be connected to these tools before any vault exists \u2014 that is the normal first minute, not a malfunction. `ost_next_work` reports it as `bootstrap: true` with a `reason` and a `nextStep`; treat that as the state of the world and follow the branch below instead of reporting a broken tool.",
+    'When `reason` is `no-vault`: ask the human what outcome they want this tree to serve, in one sentence, and wait for their answer. Then run their words back to them for confirmation and set up the vault with `node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init <folder> --outcome "<their words>"`.',
+    'When `reason` is `no-outcome`: the vault exists but its root is missing; ask the human for the outcome and use `node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs set-outcome "<their words>" --vault <dir>`.',
+    "Never invent, paraphrase into something sharper, or guess the outcome \u2014 it is the single human-set mandate the whole tree hangs from, and inventing it would make every node below it ladder up to a goal nobody chose.",
+    "If the human is not available to answer, stop and say what you are waiting for. Do not scaffold a vault around a placeholder outcome to make progress.",
+    "Setting up a vault needs no model and no API key, and neither does anything else here \u2014 `status`, `check`, `debt`, `lanes`, `result`, and every tool on this surface are deterministic. This project calls no model at all: the server holds none, and the connected session supplies every bit of the reasoning.",
+    "Once the vault is set up, call `ost_next_work` again and continue into the normal maintenance loop; a fresh tree with only an Outcome is legitimately `done`, and the next thing it needs is evidence, not ideation.",
+    "`/ost-setup` is the front door onto this same branch, named in the slash-command menu so that someone who has just installed the plugin can find it without already knowing to ask for discovery work. Reporting first run is not the same as being findable: if a human seems to be starting from nothing, say `/ost-setup` out loud rather than waiting to be asked."
+  ],
+  "treeRules": [
+    "Exactly one desired outcome sits at the root; multiple outcomes mean multiple trees.",
+    "The tree flows strictly downward: Outcome -> Opportunities (nested) -> Solutions -> Assumption Tests, with each node mapping to its parent.",
+    "Place each node under its single best-fit parent; if an opportunity plausibly fits two parents, flag for human review rather than duplicating or double-linking.",
+    "Opportunities form a multi-level sub-tree: an opportunity node may be the parent of other opportunity nodes; the tree is not four flat levels.",
+    "Parent-child opportunity relationships represent subsets; sibling relationships represent distinct alternatives at the same level.",
+    "Every solution must address at least one opportunity in the tree; no orphan solutions.",
+    "Every assumption test must map to exactly one specific solution.",
+    "Sibling opportunities should be distinct from one another; the tree is deliberately incomplete and evolving, and siblings need not be collectively exhaustive.",
+    "The tree is a living artifact: when evidence invalidates a branch, re-chart it (evolve the solution, pick a different opportunity, or flag the outcome) rather than discarding the rest of the tree."
+  ],
+  "opportunityRules": [
+    "State every opportunity as an unmet customer need, pain point, or desire from the customer's perspective, never as a solution, feature, or business ask.",
+    "Apply the litmus test 'Is there more than one way to address this opportunity?': if only one implementation fits, it is a solution in disguise and belongs one layer down or must be reframed upward into the underlying need.",
+    "Source opportunities from story-based, past-behavior customer interviews rather than internal brainstorming.",
+    "Derive top-level opportunities from key moments in a customer experience map, then nest sub-opportunities under the relevant parent.",
+    "Reframe solution-shaped or business-shaped inputs into need-shaped opportunities, or hold them for human review; never assert them as validated needs.",
+    "Attach every opportunity so it ladders up to the desired outcome."
+  ],
+  "solutionRules": [
+    "Attach each solution to the single target opportunity it addresses.",
+    "Generate multiple competing solutions per target opportunity (aim for at least three) and narrow to a consideration set.",
+    "Compare and contrast solutions against each other rather than validating a single idea in isolation ('good' is judgeable only relative to alternatives).",
+    "Prefer generating more solutions especially when there is risk, when the opportunity is a differentiator, or when innovation is needed.",
+    "Target one opportunity at a time (a work-in-progress limit) and go deep before moving on.",
+    "Every agent-originated solution enters the tree unvalidated \u2014 the marker is stamped by the server, not chosen by the author \u2014 and `validated` is not a status the agent can set at all; promotion is a human's call on the CLI."
+  ],
+  "assumptionCategories": [
+    "desirability",
+    "viability",
+    "feasibility",
+    "usability"
+  ],
+  "assumptionRules": [
+    "Surface the underlying assumptions a solution depends on and test the riskiest ones, rather than testing the whole solution.",
+    "Classify each assumption into one of the four risk categories: desirability, viability, feasibility, or usability (also consider potential-harm/ethical assumptions as an additional check).",
+    "Keep each test small and fast, with a success threshold pre-committed before running.",
+    "Use assumption-test results as comparative evidence to choose among solutions, not as a yes/no verdict on one idea.",
+    "The agent may propose test designs but must never run tests or record test results as evidence; humans run tests with real customers/data."
+  ],
+  "prioritization": [
+    "Prioritize opportunities, not solutions; the strategic decision is which customer need to target.",
+    "Prioritize row by row: assess top-level opportunities, pick the top branch, then drill into that branch's children.",
+    "Assess opportunity sizing qualitatively (how many customers are impacted, and how often), not with a multiplicative reach x frequency formula.",
+    "Weigh customer factors (importance to customers), market factors (effect on market position), and company factors (fit with vision, mission, and strategy).",
+    "Estimate how much impact addressing each opportunity would have on the desired outcome.",
+    "Do not use quantified scoring formulas (e.g. RICE); treat prioritization as messy, subjective, reversible two-way-door decisions where speed beats false precision.",
+    "Opportunity and solution selection are human decisions; the agent may surface sizing information but must not auto-select a target opportunity or a winning solution."
+  ],
+  "cadence": [
+    "Continuous discovery means at a minimum weekly touchpoints with customers by the team building the product, where they conduct small research activities toward a desired outcome.",
+    "Work one outcome (one tree) at a time.",
+    "Conduct weekly story-based customer interviews to source and refine opportunities from real unmet needs.",
+    "Map and structure the opportunity space, then prioritize opportunities row by row and select a single target opportunity at a time.",
+    "Generate multiple solutions for the target opportunity, then run small, fast assumption tests continuously instead of one big up-front validation.",
+    "Update the tree as interviews and tests land, and revisit or re-chart a branch when evidence invalidates it."
+  ],
+  "agentMust": [
+    "Treat itself as a cartographer of the team's knowledge: organize, represent, and question, but never generate or validate knowledge.",
+    "Distill candidate opportunities from ingested artifacts, each with a provenance link and marked unvalidated.",
+    "Reframe solution-shaped or business-shaped inputs into customer-need-shaped opportunities, or hold them for human review.",
+    "Keep opportunities laddered up to the outcome and propose (not silently impose) opportunity-space structure.",
+    "Append multiple unvalidated candidate solutions under a target opportunity for compare-and-contrast.",
+    "Make each solution's underlying assumptions explicit and propose (never run) assumption tests.",
+    "Flag tree-hygiene issues: staleness, orphan solutions, duplicates, mislabeled nodes, and unbacked validity claims.",
+    "Preserve full provenance and append-only history for every node it touches.",
+    "Keep every wikilink on one line. A hard-wrapped paragraph that breaks a [[Node title]] across two lines produces bracketed text and no edge: it reads correctly in the source, and the graph \u2014 the artifact this whole thing produces \u2014 simply lacks the line. Let the line run long rather than wrap inside the brackets. `check` fails on it (rule wrapped-wikilink) and the hygiene pass reports it, because discipline alone has repeatedly not been enough.",
+    "State a test's lane once, in one sentence, and let it name exactly one lane. `**Lane: compute-only.**` is a declaration a tool can read back; `**Lane: compute-only for the census, humans-required for the fixing.**` is two tests wearing one node, and the reader refuses it rather than picking a half. If a test really does split, split the test. A lane written in prose is still only a suggestion: `check` fails when it contradicts the `lane:` field (rule lane-conflict), and nothing ever promotes prose to a label \u2014 only a human's `ost-agent lane --set` moves what compute may run.",
+    "Raise a flag or proposal for a human whenever an action is ambiguous or would generate/validate knowledge."
+  ],
+  "agentMustNot": [
+    "Run interviews, experiments, or assumption tests, or record synthetic results as evidence.",
+    "Write implementation code or build solutions.",
+    "Invent, edit, or change the desired outcome (may only flag a mis-formed outcome as a question for humans).",
+    "Delete or overwrite existing nodes or history; append, annotate, mark-stale, or propose-for-archive instead.",
+    "Mark any opportunity, solution, or assumption as validated or confirmed.",
+    "Auto-select a target opportunity or declare a winning solution.",
+    "Phrase an opportunity as a solution, feature, or business metric.",
+    "Silently re-architect the tree without proposing the change for human confirmation."
+  ],
+  "obsidianFormat": {
+    "nodeFile": "One Markdown file per node; the filename minus .md is the node title. Filenames must be filesystem-safe (no / \\ : * ? etc.) and unique across the vault so wikilinks resolve by name.",
+    "tagLine": "The first body line carries the layer tag: #Outcome, #Opportunity, #Solution, or #AssumptionTest. Graph view Groups bind one color per layer via a tag:#... query.",
+    "wikilinks": "A parent->child edge is a [[Child Title]] wikilink written in the parent note (outgoing link); the child sees its parent via the Backlinks pane. The built-in Graph view's Display 'Arrows' toggle renders link direction natively, no plugin required. Keep every wikilink on a single line: a hard-wrapped paragraph that breaks one across two lines produces bracketed text and no edge, which reads correctly in the source and is missing from the graph. Let the line run long instead of wrapping inside the brackets. `check` fails on it (rule wrapped-wikilink) and the hygiene pass reports it, because discipline alone has not been enough.",
+    "frontmatter": "YAML frontmatter carries type (outcome|opportunity|solution|assumption_test), status, source/provenance, created (ISO date), and confidence (high|medium|low). Frontmatter is the machine-readable source of truth for state; inline tags drive graph coloring. Keep type in frontmatter in sync with the body tag.",
+    "unvalidatedMarking": "Agent-ideated, not-yet-validated nodes carry a companion #unvalidated tag on the same first body line (e.g. '#Solution #unvalidated') plus status: unvalidated in frontmatter; a dedicated Graph group query tag:#unvalidated colors them in a warning color. Status vocabulary (unvalidated -> in-discovery -> validated -> shipped -> deferred) is a vault/tooling convention, not Torres canon.",
+    "provenance": "Every note ends with an append-only '## History' section of dated entries; existing lines are never edited or deleted. Corrections append a new entry and update frontmatter while leaving original provenance intact. Abandoned nodes are set status: deferred (or superseded via a wikilink), never deleted; renames are done inside Obsidian so inbound wikilinks auto-update."
+  },
+  "glossary": [
+    {
+      "term": "Opportunity Solution Tree (OST)",
+      "definition": "A visual representation of the paths a team might take to reach a desired outcome, with four layers (outcome, opportunities, solutions, assumption tests) that keeps a team aligned and outcome-focused during continuous discovery."
+    },
+    {
+      "term": "Outcome",
+      "definition": "The single desired result at the root of the tree; ideally a product outcome (a customer behavior or sentiment in the product the team can influence), distinct from a business metric or an output."
+    },
+    {
+      "term": "Product outcome",
+      "definition": "A measure of a customer behavior in the product or a customer's sentiment about it, directly within the team's control and a leading indicator of business value; Torres's recommended scope for discovery."
+    },
+    {
+      "term": "Business outcome",
+      "definition": "A financial or lagging health metric (revenue, market share, churn) only indirectly influenced by a team's actions."
+    },
+    {
+      "term": "Traction metric",
+      "definition": "Adoption of a single feature; too narrow a scope to anchor discovery on its own."
+    },
+    {
+      "term": "Opportunity",
+      "definition": "An unmet customer need, pain point, or desire, phrased from the customer's perspective and sourced from interviews; addressable in more than one way (the litmus test that distinguishes it from a solution)."
+    },
+    {
+      "term": "Solution",
+      "definition": "A product, feature, service, workflow, process, documentation, or anything else offered to customers to address a known opportunity."
+    },
+    {
+      "term": "Assumption test",
+      "definition": "A small, fast test of a single underlying assumption a solution depends on, used to choose among solutions rather than validate a whole idea."
+    },
+    {
+      "term": "Compare-and-contrast",
+      "definition": "Evaluating multiple competing solutions against one another (which makes 'good' judgeable) instead of assessing a single idea in isolation."
+    },
+    {
+      "term": "Opportunity sizing",
+      "definition": "A qualitative estimate of how many customers an opportunity impacts and how often, used in prioritization; not a numeric scoring formula."
+    },
+    {
+      "term": "Two-way-door decision",
+      "definition": "Torres's framing for opportunity prioritization: a reversible, low-cost decision where moving fast beats waiting for perfect data."
+    },
+    {
+      "term": "Continuous discovery",
+      "definition": "At a minimum weekly touchpoints with customers by the team building the product, where they conduct small research activities in pursuit of a desired outcome."
+    },
+    {
+      "term": "Generative vs. evaluative research",
+      "definition": "Interviewing is generative (it discovers opportunities); assumption testing is evaluative (it evaluates solutions). Both require evidence from real people, which an automated maintainer cannot produce."
+    }
+  ]
+};
+
+// src/runner/context.ts
+function resolveSearchProvider(config2) {
+  const key = process.env.BRAVE_SEARCH_API_KEY;
+  if (key) return braveProvider(key);
+  if (!config2.web.search.federated.enabled) return void 0;
+  const sources = [
+    wikipediaSource(),
+    hackerNewsSource(),
+    ...config2.web.search.federated.discourseHosts.map((h2) => discourseSource(h2))
+  ];
+  return federatedProvider(sources);
+}
+function buildPassContext(vaultDir, opts = {}) {
+  const dir = path7.resolve(vaultDir);
+  const missing = opts.allowMissingConfig ? { missing: "defaults" } : {};
+  const loaded = opts.listingOnly ? { config: defaultConfig(), problem: void 0 } : opts.tolerateInvalidConfig ? readConfig(dir, missing) : { config: loadConfig(dir, missing), problem: void 0 };
+  const config2 = loaded.config;
+  const skipSources = opts.skipSources === true || opts.listingOnly === true;
+  const sources = [];
+  if (!skipSources && config2.adapters.inbox.enabled) {
+    sources.push(new InboxSource(path7.join(dir, config2.adapters.inbox.path)));
+  }
+  if (!skipSources && config2.adapters.transcript.enabled) {
+    const t2 = config2.adapters.transcript;
+    if (!t2.path && !t2.projectDir) {
+      throw new Error(
+        "adapters.transcript is enabled but neither `path` nor `projectDir` is set \u2014 set projectDir to the repo whose sessions to harvest, or path to a directory of *.jsonl transcripts."
+      );
+    }
+    sources.push(
+      new TranscriptSource({
+        dir: t2.path ? path7.resolve(dir, t2.path) : defaultTranscriptDir(t2.projectDir),
+        quietMinutes: t2.quietMinutes,
+        maxEventsPerSession: t2.maxEventsPerSession
+      })
+    );
+  }
+  if (!skipSources && config2.adapters.usage.enabled) {
+    sources.push(new UsageSource({ file: usageLogPath(dir), minEvents: config2.adapters.usage.minEvents }));
+  }
+  if (!skipSources && config2.adapters.atlassian.enabled) {
+    const baseUrl = process.env.ATLASSIAN_BASE_URL;
+    const email2 = process.env.ATLASSIAN_EMAIL;
+    const apiToken = process.env.ATLASSIAN_API_TOKEN;
+    if (!baseUrl || !email2 || !apiToken) {
+      throw new Error(
+        "adapters.atlassian is enabled but ATLASSIAN_BASE_URL / ATLASSIAN_EMAIL / ATLASSIAN_API_TOKEN are not all set. Use a read-only API token (id.atlassian.com \u2192 API tokens)."
+      );
+    }
+    const client = new HttpAtlassianClient({ baseUrl, email: email2, apiToken });
+    sources.push(
+      new AtlassianSource(client, {
+        projects: config2.adapters.atlassian.projects,
+        spaces: config2.adapters.atlassian.spaces
+      })
+    );
+  }
+  if (!skipSources && config2.adapters.slack.enabled) {
+    const token = process.env.SLACK_BOT_TOKEN;
+    if (!token) {
+      throw new Error(
+        "adapters.slack is enabled but SLACK_BOT_TOKEN is not set. Use a least-privilege bot token (scopes: channels:history, channels:read); it is never written into the vault."
+      );
+    }
+    sources.push(new SlackSource(new HttpSlackClient({ token }), { channels: config2.adapters.slack.channels }));
+  }
+  return {
+    vault: new Vault(dir, { create: !opts.listingOnly }),
+    dir,
+    config: config2,
+    ...loaded.problem ? { configProblem: loaded.problem } : {},
+    ruleset: OST_RULESET,
+    sources,
+    remote: { enabled: config2.remote.enabled, url: config2.remote.url },
+    // The key is optional: ost_read_web works without it, and ost_search_web
+    // answers at call time — with results if a provider resolved, otherwise
+    // with the delegation instruction.
+    web: {
+      searchApiKey: process.env.BRAVE_SEARCH_API_KEY,
+      provider: resolveSearchProvider(config2),
+      // The operator's number governs unless the genome explicitly overrides
+      // it — one budget, never two that can disagree. The refill rate stays
+      // the operator's alone: it is what makes a weeks-long session workable,
+      // not a trait worth varying between vaults.
+      budget: createLookupBudget(config2.web.lookupBudget, {
+        refillPerHour: config2.web.lookupRefillPerHour
+      })
+    },
+    productRepos: config2.product.repos
+  };
+}
+
+// src/runner/init.ts
+import fs9 from "node:fs";
+import path9 from "node:path";
+
 // src/git/safe-git.ts
+import fs8 from "node:fs";
+import path8 from "node:path";
 function git(dir) {
-  return simpleGit(path7.resolve(dir));
+  return simpleGit(path8.resolve(dir));
 }
 async function gitInitIfAbsent(dir) {
-  const abs = path7.resolve(dir);
-  fs7.mkdirSync(abs, { recursive: true });
-  if (fs7.existsSync(path7.join(abs, ".git"))) return false;
+  const abs = path8.resolve(dir);
+  fs8.mkdirSync(abs, { recursive: true });
+  if (fs8.existsSync(path8.join(abs, ".git"))) return false;
   const g = git(abs);
   await g.init();
   const hasIdentity = (await g.raw(["config", "user.email"]).catch(() => "")).trim().length > 0;
@@ -38124,28 +38269,28 @@ function recordInitInTrace(abs) {
   });
 }
 function rootMarkdownFiles(abs) {
-  return fs8.readdirSync(abs, { withFileTypes: true }).filter((e) => e.isFile() && e.name.endsWith(".md")).map((e) => e.name);
+  return fs9.readdirSync(abs, { withFileTypes: true }).filter((e) => e.isFile() && e.name.endsWith(".md")).map((e) => e.name);
 }
 function traceHasInit(abs) {
   const file = usageLogPath(abs);
-  if (!fs8.existsSync(file)) return false;
-  return fs8.readFileSync(file, "utf8").split("\n").some((line) => line.includes(`"tool":"${INIT_TRACE_TOOL}"`));
+  if (!fs9.existsSync(file)) return false;
+  return fs9.readFileSync(file, "utf8").split("\n").some((line) => line.includes(`"tool":"${INIT_TRACE_TOOL}"`));
 }
 async function initVault(dir, outcome, outcomeTitle) {
-  const abs = path8.resolve(dir);
-  fs8.mkdirSync(abs, { recursive: true });
-  const title = outcomeTitle ?? path8.basename(abs);
+  const abs = path9.resolve(dir);
+  fs9.mkdirSync(abs, { recursive: true });
+  const title = outcomeTitle ?? path9.basename(abs);
   const gitInitialized = await gitInitIfAbsent(abs);
   const cfg = configPath(abs);
-  if (!fs8.existsSync(cfg)) {
-    fs8.writeFileSync(cfg, defaultConfigYaml(outcome, title), "utf8");
+  if (!fs9.existsSync(cfg)) {
+    fs9.writeFileSync(cfg, defaultConfigYaml(outcome, title), "utf8");
   }
-  fs8.mkdirSync(path8.join(abs, ".ost-agent", "inbox"), { recursive: true });
-  fs8.mkdirSync(path8.join(abs, ".ost-agent", "state"), { recursive: true });
-  fs8.mkdirSync(path8.join(abs, ".ost-agent", "evidence"), { recursive: true });
-  fs8.mkdirSync(path8.join(abs, ".ost-agent", "runs"), { recursive: true });
+  fs9.mkdirSync(path9.join(abs, ".ost-agent", "inbox"), { recursive: true });
+  fs9.mkdirSync(path9.join(abs, ".ost-agent", "state"), { recursive: true });
+  fs9.mkdirSync(path9.join(abs, ".ost-agent", "evidence"), { recursive: true });
+  fs9.mkdirSync(path9.join(abs, ".ost-agent", "runs"), { recursive: true });
   const ctx = buildPassContext(abs);
-  const rootTitle = ctx.config.outcomeTitle ?? path8.basename(abs);
+  const rootTitle = ctx.config.outcomeTitle ?? path9.basename(abs);
   let outcomeCreated = false;
   if (!ctx.vault.has(rootTitle)) {
     ctx.vault.createNode({
@@ -38173,7 +38318,7 @@ async function initVault(dir, outcome, outcomeTitle) {
 }
 
 // src/runner/set-outcome.ts
-import fs9 from "node:fs";
+import fs10 from "node:fs";
 function isoToday2() {
   return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 }
@@ -38191,10 +38336,10 @@ async function setOutcome(vaultDir, next) {
   const { mandate: previous, history } = splitBody(root.body);
   if (previous === trimmed2) throw new Error("the new outcome is identical to the current one");
   const cfg = configPath(vaultDir);
-  const raw = fs9.readFileSync(cfg, "utf8");
+  const raw = fs10.readFileSync(cfg, "utf8");
   const updated = raw.replace(/^outcome:.*$/m, `outcome: ${JSON.stringify(trimmed2)}`);
   if (updated === raw) throw new Error(`could not find an 'outcome:' line in ${cfg}`);
-  fs9.writeFileSync(cfg, updated, "utf8");
+  fs10.writeFileSync(cfg, updated, "utf8");
   const historyEntry = `- ${isoToday2()} superseded mandate:
   > ${previous.replace(/\n/g, "\n  > ")}`;
   const historyBlock = history ? `${history}
@@ -38212,28 +38357,28 @@ ${historyBlock}`;
 // src/processes/tree.ts
 var import_gray_matter3 = __toESM(require_gray_matter(), 1);
 import { createHash } from "node:crypto";
-import fs11 from "node:fs";
-import path10 from "node:path";
+import fs12 from "node:fs";
+import path11 from "node:path";
 
 // src/adapters/source.ts
-import fs10 from "node:fs";
-import path9 from "node:path";
+import fs11 from "node:fs";
+import path10 from "node:path";
 var ACTORS = ["inbox", "slack", "atlassian", "usage", "transcript", "unknown"];
 var UNKNOWN_ACTOR = "unknown";
 function isActor(value) {
   return typeof value === "string" && ACTORS.includes(value);
 }
 function stateDir(vaultDir) {
-  return path9.join(path9.resolve(vaultDir), ".ost-agent", "state");
+  return path10.join(path10.resolve(vaultDir), ".ost-agent", "state");
 }
 function cursorFile(vaultDir, name) {
-  return path9.join(stateDir(vaultDir), `${name}.json`);
+  return path10.join(stateDir(vaultDir), `${name}.json`);
 }
 function loadCursor(vaultDir, name) {
   const p2 = cursorFile(vaultDir, name);
-  if (!fs10.existsSync(p2)) return null;
+  if (!fs11.existsSync(p2)) return null;
   try {
-    const parsed = JSON.parse(fs10.readFileSync(p2, "utf8"));
+    const parsed = JSON.parse(fs11.readFileSync(p2, "utf8"));
     return parsed.cursor ?? null;
   } catch {
     return null;
@@ -38241,40 +38386,40 @@ function loadCursor(vaultDir, name) {
 }
 function saveCursor(vaultDir, name, cursor) {
   const dir = stateDir(vaultDir);
-  fs10.mkdirSync(dir, { recursive: true });
-  fs10.writeFileSync(cursorFile(vaultDir, name), JSON.stringify({ cursor }, null, 2), "utf8");
+  fs11.mkdirSync(dir, { recursive: true });
+  fs11.writeFileSync(cursorFile(vaultDir, name), JSON.stringify({ cursor }, null, 2), "utf8");
 }
 
 // src/processes/tree.ts
 function evidenceDir(dir) {
-  return path10.join(dir, ".ost-agent", "evidence");
+  return path11.join(dir, ".ost-agent", "evidence");
 }
 function stateFile(dir, name) {
-  return path10.join(dir, ".ost-agent", "state", name);
+  return path11.join(dir, ".ost-agent", "state", name);
 }
 function safeName(id) {
   return id.replace(/\.(md|txt|markdown)$/i, "").replace(/[^a-zA-Z0-9._-]+/g, "_");
 }
 function storedId(file) {
   try {
-    const value = (0, import_gray_matter3.default)(fs11.readFileSync(file, "utf8")).data.id;
+    const value = (0, import_gray_matter3.default)(fs12.readFileSync(file, "utf8")).data.id;
     return typeof value === "string" ? value : null;
   } catch {
     return null;
   }
 }
 function evidenceFile(dir, id) {
-  const base = path10.join(dir, `${safeName(id)}.md`);
-  if (!fs11.existsSync(base) || storedId(base) === id) return base;
-  return path10.join(dir, `${safeName(id)}-${createHash("sha256").update(id).digest("hex").slice(0, 8)}.md`);
+  const base = path11.join(dir, `${safeName(id)}.md`);
+  if (!fs12.existsSync(base) || storedId(base) === id) return base;
+  return path11.join(dir, `${safeName(id)}-${createHash("sha256").update(id).digest("hex").slice(0, 8)}.md`);
 }
 function writeEvidence(dir, rec, actor) {
   const d = evidenceDir(dir);
-  fs11.mkdirSync(d, { recursive: true });
+  fs12.mkdirSync(d, { recursive: true });
   const p2 = evidenceFile(d, rec.id);
-  if (fs11.existsSync(p2)) {
+  if (fs12.existsSync(p2)) {
     if (storedId(p2) !== rec.id) {
-      throw new Error(`evidence id "${rec.id}" cannot be stored: ${path10.basename(p2)} belongs to another record`);
+      throw new Error(`evidence id "${rec.id}" cannot be stored: ${path11.basename(p2)} belongs to another record`);
     }
     return false;
   }
@@ -38285,18 +38430,18 @@ function writeEvidence(dir, rec, actor) {
     timestamp: rec.timestamp,
     actor
   });
-  fs11.writeFileSync(p2, content, "utf8");
+  fs12.writeFileSync(p2, content, "utf8");
   return true;
 }
 function readEvidence(dir) {
   const d = evidenceDir(dir);
-  if (!fs11.existsSync(d)) return [];
+  if (!fs12.existsSync(d)) return [];
   const out = [];
-  for (const name of fs11.readdirSync(d)) {
+  for (const name of fs12.readdirSync(d)) {
     if (!name.endsWith(".md")) continue;
     let parsed;
     try {
-      parsed = (0, import_gray_matter3.default)(fs11.readFileSync(path10.join(d, name), "utf8"));
+      parsed = (0, import_gray_matter3.default)(fs12.readFileSync(path11.join(d, name), "utf8"));
     } catch {
       continue;
     }
@@ -38318,9 +38463,9 @@ function readEvidence(dir) {
 }
 function getMapped(dir) {
   const p2 = stateFile(dir, "mapped.json");
-  if (!fs11.existsSync(p2)) return /* @__PURE__ */ new Set();
+  if (!fs12.existsSync(p2)) return /* @__PURE__ */ new Set();
   try {
-    const parsed = JSON.parse(fs11.readFileSync(p2, "utf8"));
+    const parsed = JSON.parse(fs12.readFileSync(p2, "utf8"));
     return new Set(parsed.mapped ?? []);
   } catch {
     return /* @__PURE__ */ new Set();
@@ -38334,7 +38479,7 @@ function childrenOfLayer(node, index, layer) {
 }
 
 // src/ost/lanes.ts
-import path11 from "node:path";
+import path12 from "node:path";
 
 // src/eval/evidence-debt.ts
 function hasRecordedResult(test) {
@@ -38529,7 +38674,7 @@ function setLane(vaultDir, filing) {
   if (!why) {
     throw new Error("a lane classification needs a why \u2014 an unauditable label is worse than no label");
   }
-  const vault = new Vault(path11.resolve(vaultDir));
+  const vault = new Vault(path12.resolve(vaultDir));
   const node = vault.read(filing.test);
   if (node.layer !== "AssumptionTest") {
     throw new Error(`"${filing.test}" is a ${node.layer} \u2014 lanes classify an AssumptionTest`);
@@ -38760,8 +38905,8 @@ function resolutionState(node, resolution = DEFAULT_RESOLUTION) {
 }
 
 // src/telemetry/attention.ts
-import fs12 from "node:fs";
-import path12 from "node:path";
+import fs13 from "node:fs";
+import path13 from "node:path";
 function emptyTiers() {
   return { input: 0, output: 0, cacheCreate: 0, cacheRead: 0 };
 }
@@ -38774,14 +38919,14 @@ function addTiers(a, b2) {
   };
 }
 function attentionLogPath(vaultDir, unknown2) {
-  return path12.join(path12.resolve(vaultDir), ".ost-agent", "attention", `${sanitizeTitle(unknown2)}.jsonl`);
+  return path13.join(path13.resolve(vaultDir), ".ost-agent", "attention", `${sanitizeTitle(unknown2)}.jsonl`);
 }
 function readAttention(vaultDir, unknown2) {
   try {
     const file = attentionLogPath(vaultDir, unknown2);
-    if (!fs12.existsSync(file)) return [];
+    if (!fs13.existsSync(file)) return [];
     const out = [];
-    for (const line of fs12.readFileSync(file, "utf8").split("\n")) {
+    for (const line of fs13.readFileSync(file, "utf8").split("\n")) {
       const trimmed2 = line.trim();
       if (!trimmed2) continue;
       try {
@@ -38796,15 +38941,15 @@ function readAttention(vaultDir, unknown2) {
 }
 
 // src/eval/attention.ts
-import fs13 from "node:fs";
+import fs14 from "node:fs";
 var DEFAULT_WEIGHTED_TOKEN_SPEND = {
   input: 1,
   output: 5,
   cacheCreate: 1.25,
   cacheRead: 0.1
 };
-function weightedTokenCost(tokens2, weightedTokenSpend = DEFAULT_WEIGHTED_TOKEN_SPEND) {
-  return tokens2.input * weightedTokenSpend.input + tokens2.output * weightedTokenSpend.output + tokens2.cacheCreate * weightedTokenSpend.cacheCreate + tokens2.cacheRead * weightedTokenSpend.cacheRead;
+function weightedTokenCost(tokens, weightedTokenSpend = DEFAULT_WEIGHTED_TOKEN_SPEND) {
+  return tokens.input * weightedTokenSpend.input + tokens.output * weightedTokenSpend.output + tokens.cacheCreate * weightedTokenSpend.cacheCreate + tokens.cacheRead * weightedTokenSpend.cacheRead;
 }
 function emptyCallCost() {
   return { calls: 0, ms: 0, tokens: emptyTiers() };
@@ -38815,7 +38960,7 @@ function rollUpUsage(vaultDir, knownTitles, staleAttribution = "drop") {
   const file = usageLogPath(vaultDir);
   let raw;
   try {
-    raw = fs13.readFileSync(file, "utf8");
+    raw = fs14.readFileSync(file, "utf8");
   } catch {
     return { byUnknown, unattributed };
   }
@@ -38848,13 +38993,13 @@ function rollUpUsage(vaultDir, knownTitles, staleAttribution = "drop") {
 }
 function mergeCorrelated(usage, knownTitles, correlated, stale) {
   if (!correlated) return;
-  for (const [title, tokens2] of correlated) {
+  for (const [title, tokens] of correlated) {
     if (!knownTitles.has(title)) {
-      if (stale === "unattributed") usage.unattributed.tokens = addTiers(usage.unattributed.tokens, tokens2);
+      if (stale === "unattributed") usage.unattributed.tokens = addTiers(usage.unattributed.tokens, tokens);
       continue;
     }
     const bucket = usage.byUnknown.get(title) ?? emptyCallCost();
-    bucket.tokens = addTiers(bucket.tokens, tokens2);
+    bucket.tokens = addTiers(bucket.tokens, tokens);
     usage.byUnknown.set(title, bucket);
   }
 }
@@ -38880,18 +39025,18 @@ function computeAttention(tree, vaultDir, opts = {}) {
   const unknowns = darkNodes.map((node) => {
     let calls = 0;
     let ms = 0;
-    let tokens2 = emptyTiers();
+    let tokens = emptyTiers();
     for (const entry of readAttention(vaultDir, node.title)) {
       if (entry.kind !== "spend") continue;
       calls += entry.calls ?? 0;
       ms += entry.ms ?? 0;
-      if (entry.tokens) tokens2 = addTiers(tokens2, entry.tokens);
+      if (entry.tokens) tokens = addTiers(tokens, entry.tokens);
     }
     const traced = usage.byUnknown.get(node.title);
     if (traced) {
       calls += traced.calls;
       ms += traced.ms;
-      tokens2 = addTiers(tokens2, traced.tokens);
+      tokens = addTiers(tokens, traced.tokens);
     }
     return {
       title: node.title,
@@ -38899,8 +39044,8 @@ function computeAttention(tree, vaultDir, opts = {}) {
       state: resolutionState(node, resolution),
       calls,
       ms,
-      tokens: tokens2,
-      weightedCost: weightedTokenCost(tokens2, weightedTokenSpend)
+      tokens,
+      weightedCost: weightedTokenCost(tokens, weightedTokenSpend)
     };
   });
   const byClass = emptyByClass(classifier.classes);
@@ -39023,92 +39168,86 @@ function computeCoverageDebt(tree) {
   };
 }
 
-// src/ost/census.ts
-import fs14 from "node:fs";
-import path13 from "node:path";
-async function reconcileWithGit(vaultRoot, census) {
-  const root = path13.resolve(vaultRoot);
-  let raw;
-  try {
-    const g = simpleGit(root);
-    if (!await g.checkIsRepo()) return void 0;
-    raw = await g.raw(["ls-files", "-z", "--", "*.md"]);
-  } catch {
-    return void 0;
-  }
-  const tracked = raw.split("\0").filter((f) => f.length > 0);
-  const topLevel = tracked.filter((f) => !f.includes("/"));
-  const seen = new Set(census.seenFiles);
-  const unseenByWalk = topLevel.filter((f) => !seen.has(f)).sort();
-  return { source: "git", tracked: topLevel.length, unseenByWalk };
-}
-function reconcileWithUsage(vaultRoot, census) {
-  const file = usageLogPath(vaultRoot);
-  let raw;
-  try {
-    raw = fs14.readFileSync(file, "utf8");
-  } catch {
-    return void 0;
-  }
-  const claimed = /* @__PURE__ */ new Set();
-  let covered = false;
-  for (const line of raw.split("\n")) {
-    if (!line.trim()) continue;
-    let event;
-    try {
-      event = JSON.parse(line);
-    } catch {
-      continue;
-    }
-    if (event.tool === INIT_TRACE_TOOL) covered = true;
-    if (Array.isArray(event.wrote)) {
-      for (const f of event.wrote) if (typeof f === "string") claimed.add(f);
-    }
-  }
-  if (!covered) return void 0;
+// src/eval/render.ts
+var MAX_ITEMS_PER_LIST = 25;
+var RENDER_BUDGET_BYTES = 48 * 1024;
+var DETAIL_BUDGET_BYTES = 32 * 1024;
+function newBudget(cap = DETAIL_BUDGET_BYTES) {
+  let spent = 0;
   return {
-    source: "usage-trace",
-    basis: path13.relative(path13.resolve(vaultRoot), file) || file,
-    unexplained: census.seenFiles.filter((f) => !claimed.has(f)).sort()
+    take(lines) {
+      let cost = 0;
+      for (const l of lines) cost += Buffer.byteLength(l) + 1;
+      if (spent + cost > cap) return false;
+      spent += cost;
+      return true;
+    }
   };
 }
-function formatCensus(census, nodeCount) {
-  const lines = [];
-  const dropped = census.skipped.length + census.unreadable.length;
-  lines.push(
-    `Counted over: ${nodeCount} node(s) of ${census.examined} markdown file(s) examined` + (dropped > 0 ? `, ${dropped} dropped` : "")
-  );
-  for (const s of census.skipped) lines.push(`  \u2013 dropped ${s.file}: ${s.reason}`);
-  for (const u of census.unreadable) lines.push(`  \u2013 unreadable ${u.file}: ${u.reason}`);
-  const ind = census.independent;
-  if (ind && ind.unseenByWalk.length > 0) {
-    lines.push(
-      `  \u2717 ${ind.source} tracks ${ind.tracked} markdown file(s); the walk enumerated ${census.examined}.`
-    );
-    lines.push(
-      `    The walk never saw: ${ind.unseenByWalk.join(", ")}
-    Every count in this vault is short by at least that much. This is not a
-    tree problem \u2014 it is the reader failing to read, and no invariant will catch it.`
-    );
+function appendSample(out, items, toLines, opts) {
+  const limit = opts.limit ?? MAX_ITEMS_PER_LIST;
+  let shown = 0;
+  for (const item of items) {
+    if (shown >= limit) break;
+    const rendered = toLines(item);
+    if (!opts.budget.take(rendered)) break;
+    out.push(...rendered);
+    shown++;
   }
-  return lines.join("\n");
+  const hidden = items.length - shown;
+  if (hidden > 0) {
+    out.push(`${opts.indent ?? "  "}\u2026 ${hidden} more ${opts.what} not listed (showing ${shown} of ${items.length}).`);
+  }
+  return hidden;
 }
-
-// src/eval/render.ts
-function appendCensus(lines, census, coda) {
+function appendElisionCoda(lines, hidden, howToSeeTheRest) {
+  if (hidden === 0) return;
+  lines.push(
+    `  Nothing was cleared by being hidden: every verdict and every count above is
+  computed over the full set, and only the listing was shortened. ${howToSeeTheRest}`
+  );
+}
+function appendCensus(lines, census, budget, coda) {
   const dropped = census.skipped.length + census.unreadable.length;
   const unseen = census.independent?.unseenByWalk.length ?? 0;
-  if (dropped === 0 && unseen === 0) return;
-  lines.push(formatCensus(census, census.nodes.length));
-  if (coda) lines.push(coda);
-}
-function appendUnexplained(lines, census) {
-  const found = census.unexplained;
-  if (!found || found.unexplained.length === 0) return 0;
-  lines.push(`provenance: FAIL (${found.unexplained.length} node file(s) no tool invocation explains)`);
-  for (const file of found.unexplained) {
-    lines.push(`  \u2717 [unexplained-node] "${file}": on disk, created by nothing the trace recorded`);
+  if (dropped === 0 && unseen === 0) return 0;
+  const [header, ...detail2] = formatCensus(census, census.nodes.length).split("\n");
+  lines.push(header);
+  const source = census.independent?.source;
+  const alarmAt = unseen > 0 && source ? detail2.findIndex((l) => l.includes(`${source} tracks `)) : -1;
+  const alarm = alarmAt >= 0 ? detail2.slice(alarmAt) : [];
+  const drops = alarmAt >= 0 ? detail2.slice(0, alarmAt) : detail2;
+  let hidden = 0;
+  if (alarm.length > 0) {
+    if (budget.take(alarm)) {
+      lines.push(...alarm);
+    } else {
+      hidden += 1;
+      lines.push(
+        `  \u2717 ${source} tracks ${unseen} markdown file(s) this walk never enumerated \u2014 too many to name here.
+    Every count above is short by at least that much. This is not a tree problem \u2014
+    it is the reader failing to read, and no invariant will catch it.`
+      );
+    }
   }
+  hidden += appendSample(lines, drops, (l) => [l], {
+    budget,
+    limit: MAX_ITEMS_PER_LIST,
+    what: `census line(s) \u2014 the full counts are ${dropped} file(s) dropped, ${census.retired.length} retired, ${unseen} tracked by an independent index but never walked`
+  });
+  if (coda) lines.push(coda);
+  return hidden;
+}
+function appendUnexplained(lines, census, budget) {
+  const found = census.unexplained;
+  if (!found || found.unexplained.length === 0) return { count: 0, hidden: 0 };
+  lines.push(`provenance: FAIL (${found.unexplained.length} node file(s) no tool invocation explains)`);
+  const hidden = appendSample(
+    lines,
+    found.unexplained,
+    (file) => [`  \u2717 [unexplained-node] "${file}": on disk, created by nothing the trace recorded`],
+    { budget, what: "unexplained node file(s)" }
+  );
   lines.push(
     `  Basis: ${found.basis} \u2014 the record written before each file existed, by the code
   path that asked for it. Every mutating call runs \`git add -A\`, so the commit
@@ -39116,33 +39255,73 @@ function appendUnexplained(lines, census) {
   naming an allowlisted tool. Open the file, confirm it belongs, and re-create it
   through the tool surface \u2014 or delete it. No tool here can do either for you.`
   );
-  return found.unexplained.length;
+  return { count: found.unexplained.length, hidden };
+}
+function appendViolationsByRule(lines, violations, budget) {
+  const byRule = /* @__PURE__ */ new Map();
+  for (const v of violations) {
+    const group = byRule.get(v.rule);
+    if (group) group.push(v);
+    else byRule.set(v.rule, [v]);
+  }
+  let hidden = 0;
+  for (const [rule, group] of byRule) {
+    lines.push(`  [${rule}] ${group.length} violation(s):`);
+    hidden += appendSample(
+      lines,
+      group,
+      (v) => [`  \u2717 [${v.rule}] ${v.node ? `"${v.node}": ` : ""}${v.detail}`],
+      { budget, what: `[${rule}] violation(s)`, indent: "    " }
+    );
+  }
+  return hidden;
 }
 function renderCheck(census) {
   const lines = [];
+  const budget = newBudget();
+  let hidden = 0;
   const violations = checkInvariants(census.nodes);
   if (violations.length === 0) {
     lines.push(`invariants: PASS (0 violations over ${census.nodes.length} node(s))`);
   } else {
     lines.push(`invariants: FAIL (${violations.length} violation(s) over ${census.nodes.length} node(s))`);
-    for (const v of violations) lines.push(`  \u2717 [${v.rule}] ${v.node ? `"${v.node}": ` : ""}${v.detail}`);
+    hidden += appendViolationsByRule(lines, violations, budget);
   }
-  const unexplained = appendUnexplained(lines, census);
-  appendCensus(
+  const unexplained = appendUnexplained(lines, census, budget);
+  hidden += unexplained.hidden;
+  hidden += appendCensus(
     lines,
     census,
+    budget,
     "  A node the reader never returned cannot violate an invariant. The verdict\n  above covers the nodes in this denominator and no others."
   );
-  return { text: lines.join("\n"), violations: violations.length + unexplained };
+  appendElisionCoda(
+    lines,
+    hidden,
+    "There is no offset to page to: fix or annotate what is listed and re-run\n  `ost_check`, which recomputes from scratch and surfaces the next batch. Per-rule\n  counts above are the true sizes; `ost_next_work` names the same issues as work."
+  );
+  return { text: lines.join("\n"), violations: violations.length + unexplained.count };
 }
+var DEBT_STATES = ["untested", "proposed", "tested"];
 function renderDebt(tree) {
   const lines = [];
+  const budget = newBudget();
+  let hidden = 0;
   const debt = computeEvidenceDebt(tree);
   const t2 = debt.totals;
   lines.push(`Solutions: ${t2.solutions}  (untested ${t2.untested}, proposed-only ${t2.proposed}, tested ${t2.tested})`);
-  for (const s of debt.solutions) {
-    const detail2 = s.state === "tested" ? `${s.testsRun}/${s.testsProposed} test(s) with results` : s.state === "proposed" ? `${s.testsProposed} proposed, none run` : "no assumption test";
-    lines.push(`  [${s.state}] ${s.title} \u2014 ${detail2}`);
+  for (const state of DEBT_STATES) {
+    const group = debt.solutions.filter((s) => s.state === state);
+    if (group.length === 0) continue;
+    hidden += appendSample(
+      lines,
+      group,
+      (s) => {
+        const detail2 = s.state === "tested" ? `${s.testsRun}/${s.testsProposed} test(s) with results` : s.state === "proposed" ? `${s.testsProposed} proposed, none run` : "no assumption test";
+        return [`  [${s.state}] ${s.title} \u2014 ${detail2}`];
+      },
+      { budget, what: `[${state}] solution(s)`, indent: "    " }
+    );
   }
   const coverage = computeCoverageDebt(tree);
   const c3 = coverage.totals;
@@ -39150,10 +39329,15 @@ function renderDebt(tree) {
     `
 Coverage: ${c3.withResults} test(s) with results  (bounded ${c3.bounded}, unbounded ${c3.unbounded})`
   );
-  for (const g of coverage.gaps) {
-    const detail2 = g.stated === 0 ? `${g.claimed} result(s), none saying what they fail to cover` : `${g.claimed} result(s) against ${g.stated} uncovered statement(s)`;
-    lines.push(`  [unbounded] ${g.title} \u2014 ${detail2}`);
-  }
+  hidden += appendSample(
+    lines,
+    coverage.gaps,
+    (g) => {
+      const detail2 = g.stated === 0 ? `${g.claimed} result(s), none saying what they fail to cover` : `${g.claimed} result(s) against ${g.stated} uncovered statement(s)`;
+      return [`  [unbounded] ${g.title} \u2014 ${detail2}`];
+    },
+    { budget, what: "unbounded test(s)" }
+  );
   if (coverage.gaps.length > 0) {
     lines.push("  a result with no stated limit gets read as answering the whole question.");
   }
@@ -39161,13 +39345,22 @@ Coverage: ${c3.withResults} test(s) with results  (bounded ${c3.bounded}, unboun
   if (pairs.length > 0) {
     lines.push(`
 Bounded \u2014 what each test asked for, and what its runs left out:`);
-    for (const p2 of pairs) {
-      lines.push(`  ${p2.title}`);
-      lines.push(`      asked:     ${p2.asked ?? "(no pre-committed threshold written in this node)"}`);
-      const [first2, ...rest] = p2.uncovered;
-      lines.push(`      uncovered: ${first2 ?? "(nothing stated)"}`);
-      for (const more of rest) lines.push(`                 ${more}`);
-    }
+    hidden += appendSample(
+      lines,
+      pairs,
+      (p2) => {
+        const block = [`  ${p2.title}`, `      asked:     ${p2.asked ?? "(no pre-committed threshold written in this node)"}`];
+        const [first2, ...rest] = p2.uncovered.slice(0, MAX_ITEMS_PER_LIST);
+        block.push(`      uncovered: ${first2 ?? "(nothing stated)"}`);
+        for (const more of rest) block.push(`                 ${more}`);
+        const over = p2.uncovered.length - Math.min(p2.uncovered.length, MAX_ITEMS_PER_LIST);
+        if (over > 0) {
+          block.push(`                 \u2026 ${over} more statement(s) not listed (this test states ${p2.uncovered.length}).`);
+        }
+        return block;
+      },
+      { budget, what: "bounded test(s)" }
+    );
     const unasked = pairs.filter((p2) => p2.asked === null).length;
     if (unasked > 0) {
       lines.push(
@@ -39182,14 +39375,29 @@ Bounded \u2014 what each test asked for, and what its runs left out:`);
       `
 Thresholds: ${u.tests} assumption test(s)  (fixed ${u.bound}, stated in words ${u.prose}, still an instruction ${u.instruction}, none written ${u.absent})`
     );
-    for (const r2 of census.unfixed) {
-      lines.push(`  [${r2.kind === "absent" ? "no threshold" : "not fixed"}] ${r2.title}`);
-      if (r2.asked !== null) lines.push(`      reads: ${r2.asked}`);
+    for (const kind of ["absent", "instruction"]) {
+      const group = census.unfixed.filter((r2) => r2.kind === kind);
+      if (group.length === 0) continue;
+      hidden += appendSample(
+        lines,
+        group,
+        (r2) => {
+          const block = [`  [${r2.kind === "absent" ? "no threshold" : "not fixed"}] ${r2.title}`];
+          if (r2.asked !== null) block.push(`      reads: ${r2.asked}`);
+          return block;
+        },
+        { budget, what: `${kind === "absent" ? "no threshold" : "not fixed"} test(s)`, indent: "    " }
+      );
     }
     if (census.unfixed.length > 0) {
       lines.push("  a test whose threshold was never fixed cannot come out a failure.");
     }
   }
+  appendElisionCoda(
+    lines,
+    hidden,
+    "Every total on the section headers above is over all of them. To see one\n  solution's full detail name it to `ost_gate`; there is no offset to page to for\n  the lists themselves \u2014 resolve what is listed and re-run `ost_debt`."
+  );
   lines.push(
     "\nMechanical only: this counts whether ANY assumption beneath a solution recorded a result,\nand whether each result was paired with a written statement of what it left untested.\nThe side-by-side above is printed, not judged: whether the RIGHT (riskiest) assumption was\ntested, and whether the run actually answered the threshold next to it, is a human call.\nThe threshold reading is shallower still \u2014 it asks whether a bar was written, never whether\nthe bar is the right one, and it will be wrong at the edges. It flags; it never refuses."
   );
@@ -39199,6 +39407,17 @@ function renderGate(tree, solution) {
   const verdict = gateSolution(tree, solution);
   if (verdict.cleared) {
     return { text: `gate: CLEARED \u2014 ${verdict.reason}`, cleared: true };
+  }
+  const outstanding = verdict.debt?.outstanding ?? [];
+  const tail = outstanding.join("; ");
+  if (outstanding.length > MAX_ITEMS_PER_LIST && verdict.reason.endsWith(tail)) {
+    const shown = outstanding.slice(0, MAX_ITEMS_PER_LIST);
+    const hidden = outstanding.length - shown.length;
+    const head = verdict.reason.slice(0, verdict.reason.length - tail.length);
+    return {
+      text: `gate: BLOCKED \u2014 ${head}${shown.join("; ")} \u2026 and ${hidden} more not listed (showing ${shown.length} of ${outstanding.length}). The refusal counts all ${outstanding.length}; every one of them is linked from this solution's node, so \`ost_read_tree\` names them.`,
+      cleared: false
+    };
   }
   return { text: `gate: BLOCKED \u2014 ${verdict.reason}`, cleared: false };
 }
@@ -39241,6 +39460,8 @@ function appendAttention(lines, ctx, tree) {
 }
 function renderStatus(ctx, census) {
   const lines = [];
+  const budget = newBudget();
+  let hidden = 0;
   const tree = census.nodes;
   const byLayer = (l) => tree.filter((n) => n.layer === l).length;
   const unvalidated = tree.filter((n) => n.status === "unvalidated").length;
@@ -39248,7 +39469,7 @@ function renderStatus(ctx, census) {
   lines.push(`Outcome: ${ctx.config.outcome}`);
   const breakdown = LAYERS.map((l) => `${l} ${byLayer(l)}`).join(", ");
   lines.push(`Nodes: ${tree.length}  (${breakdown})`);
-  appendCensus(lines, census);
+  hidden += appendCensus(lines, census, budget);
   lines.push(`Unvalidated (agent-ideated, awaiting review): ${unvalidated}`);
   const rollup = believabilityRollup(tree);
   const perRung = BELIEVABILITY_LADDER.map((r2) => `${r2.id} ${rollup.counts[r2.id]}`).join(", ");
@@ -39259,9 +39480,12 @@ function renderStatus(ctx, census) {
     lines.push(
       `Coverage: ${coverage.totals.bounded}/${coverage.totals.withResults} recorded result(s) say what they do not cover`
     );
-    for (const g of coverage.gaps) {
-      lines.push(`  unbounded: ${g.title} (${g.claimed} result(s), ${g.stated} stated limit(s)) \u2014 see \`debt\``);
-    }
+    hidden += appendSample(
+      lines,
+      coverage.gaps,
+      (g) => [`  unbounded: ${g.title} (${g.claimed} result(s), ${g.stated} stated limit(s)) \u2014 see \`debt\``],
+      { budget, what: "unbounded test(s)" }
+    );
   }
   const thresholds = computeUnfixedThresholds(tree);
   if (thresholds.unfixed.length > 0) {
@@ -39270,6 +39494,11 @@ function renderStatus(ctx, census) {
       `Thresholds: ${instruction + absent}/${tests} assumption test(s) have no fixed bar (${instruction} still an instruction, ${absent} unwritten) \u2014 see \`debt\``
     );
   }
+  appendElisionCoda(
+    lines,
+    hidden,
+    "`ost_debt` names the coverage gaps in full (itself capped, and it says so);\n  the census lines that were not shown are files in the vault directory, which no\n  tool on this surface pages through."
+  );
   appendAttention(lines, ctx, tree);
   return lines.join("\n");
 }
@@ -41180,21 +41409,19 @@ var STOPWORDS = /* @__PURE__ */ new Set([
   "that",
   "this"
 ]);
-function tokens(s) {
+function tokensOf(s) {
   return new Set(
     s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter((t2) => t2.length > 0 && !STOPWORDS.has(t2))
   );
 }
-function similarity(a, b2) {
-  const ta = tokens(a);
-  const tb = tokens(b2);
+function jaccard(ta, tb, a, b2) {
   if (ta.size === 0 || tb.size === 0) return a.trim().toLowerCase() === b2.trim().toLowerCase() ? 1 : 0;
+  const [small, large] = ta.size <= tb.size ? [ta, tb] : [tb, ta];
   let inter = 0;
-  for (const t2 of ta) if (tb.has(t2)) inter++;
-  const union2 = ta.size + tb.size - inter;
-  return inter / union2;
+  for (const t2 of small) if (large.has(t2)) inter++;
+  return inter / (ta.size + tb.size - inter);
 }
-function findNearDuplicateIssues(nodes, threshold = 0.7) {
+function* scanNearDuplicates(nodes, threshold = 0.7) {
   const byLayer = /* @__PURE__ */ new Map();
   for (const n of nodes) {
     if (n.layer === "Outcome") continue;
@@ -41202,19 +41429,84 @@ function findNearDuplicateIssues(nodes, threshold = 0.7) {
     list.push(n.title);
     byLayer.set(n.layer, list);
   }
-  const issues = [];
-  for (const titles of byLayer.values()) {
-    const sorted2 = [...titles].sort();
-    for (let i2 = 0; i2 < sorted2.length; i2++) {
-      for (let j2 = i2 + 1; j2 < sorted2.length; j2++) {
-        const score = similarity(sorted2[i2], sorted2[j2]);
-        if (score >= threshold) {
-          issues.push({ title: sorted2[j2], issue: `possible duplicate of [[${sorted2[i2]}]] (similarity ${score.toFixed(2)})` });
-        }
+  for (const titles of byLayer.values()) yield* scanLayer(titles, threshold);
+}
+function* scanLayer(titles, threshold) {
+  const sorted2 = [...titles].sort();
+  const n = sorted2.length;
+  if (n < 2) return;
+  const sets = sorted2.map(tokensOf);
+  const norms = sorted2.map((t2) => t2.trim().toLowerCase());
+  const flag = (i2, j2) => {
+    const score = jaccard(sets[i2], sets[j2], sorted2[i2], sorted2[j2]);
+    if (score < threshold) return null;
+    return { title: sorted2[j2], issue: `possible duplicate of [[${sorted2[i2]}]] (similarity ${score.toFixed(2)})` };
+  };
+  if (!(threshold > 0)) {
+    for (let i2 = 0; i2 < n; i2++) {
+      for (let j2 = i2 + 1; j2 < n; j2++) {
+        const issue2 = flag(i2, j2);
+        if (issue2) yield issue2;
       }
     }
+    return;
   }
-  return issues;
+  const df = /* @__PURE__ */ new Map();
+  for (const s of sets) for (const t2 of s) df.set(t2, (df.get(t2) ?? 0) + 1);
+  const byRarity = (x2, y2) => df.get(x2) - df.get(y2) || (x2 < y2 ? -1 : x2 > y2 ? 1 : 0);
+  const index = /* @__PURE__ */ new Map();
+  const prefixes = new Array(n);
+  for (let p2 = 0; p2 < n; p2++) {
+    const size = sets[p2].size;
+    if (size === 0) {
+      prefixes[p2] = [];
+      continue;
+    }
+    const len = Math.max(size - Math.ceil(threshold * size) + 1, 0);
+    prefixes[p2] = [...sets[p2]].sort(byRarity).slice(0, len);
+    for (const token of prefixes[p2]) {
+      const list = index.get(token);
+      if (list) list.push(p2);
+      else index.set(token, [p2]);
+    }
+  }
+  const emptyIndex = /* @__PURE__ */ new Map();
+  for (let p2 = 0; p2 < n; p2++) {
+    if (sets[p2].size > 0) continue;
+    const list = emptyIndex.get(norms[p2]);
+    if (list) list.push(p2);
+    else emptyIndex.set(norms[p2], [p2]);
+  }
+  const candidates = /* @__PURE__ */ new Set();
+  for (let i2 = 0; i2 < n; i2++) {
+    candidates.clear();
+    const a = sets[i2].size;
+    const postings = a === 0 ? [emptyIndex.get(norms[i2])] : prefixes[i2].map((t2) => index.get(t2));
+    for (const list of postings) {
+      if (!list) continue;
+      for (let k2 = lowerBound(list, i2 + 1); k2 < list.length; k2++) {
+        const j2 = list[k2];
+        const b2 = sets[j2].size;
+        if (a > 0 && b2 > 0 && Math.min(a, b2) < threshold * Math.max(a, b2)) continue;
+        candidates.add(j2);
+      }
+    }
+    if (candidates.size === 0) continue;
+    for (const j2 of [...candidates].sort((x2, y2) => x2 - y2)) {
+      const issue2 = flag(i2, j2);
+      if (issue2) yield issue2;
+    }
+  }
+}
+function lowerBound(list, value) {
+  let lo = 0;
+  let hi = list.length;
+  while (lo < hi) {
+    const mid = lo + hi >> 1;
+    if (list[mid] < value) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
 }
 
 // src/mcp/next-work.ts
@@ -41232,21 +41524,34 @@ var HYGIENE_LABELS = {
   "lane-conflict": "lane conflict",
   "rung-unearned": "unearned rung"
 };
-function detectHygiene(tree) {
+function detectHygiene(tree, live, limit) {
   const index = byTitle(tree);
+  const annotatedCache = /* @__PURE__ */ new Map();
+  const alreadyAnnotated = (title, issue2) => {
+    let set = annotatedCache.get(title);
+    if (set === void 0) {
+      const node = index.get(title);
+      set = node ? annotatedIssues(node.body) : /* @__PURE__ */ new Set();
+      annotatedCache.set(title, set);
+    }
+    return set.has(issue2.trim());
+  };
   const issues = [];
+  let total = 0;
+  const take = (issue2) => {
+    if (alreadyAnnotated(issue2.title, issue2.issue)) return;
+    total++;
+    if (issues.length < limit) issues.push(issue2);
+  };
   const outcome = tree.find((n) => n.layer === "Outcome")?.title;
   for (const v of checkInvariants(tree)) {
     if (v.rule in NOT_DONE_BLOCKING) continue;
     const title = v.node ?? outcome;
     if (!title) continue;
-    issues.push({ title, issue: `${HYGIENE_LABELS[v.rule] ?? v.rule}: ${v.detail}`, rule: v.rule });
+    take({ title, issue: `${HYGIENE_LABELS[v.rule] ?? v.rule}: ${v.detail}`, rule: v.rule });
   }
-  for (const d of findNearDuplicateIssues(tree)) issues.push({ ...d, rule: "near-duplicate" });
-  return issues.filter(({ title, issue: issue2 }) => {
-    const node = index.get(title);
-    return node ? !annotatedIssues(node.body).has(issue2.trim()) : true;
-  });
+  for (const d of scanNearDuplicates(live)) take({ ...d, rule: "near-duplicate" });
+  return { issues, total };
 }
 function annotatedIssues(body) {
   const lines = body.split("\n");
@@ -41261,42 +41566,82 @@ function annotatedIssues(body) {
   }
   return annotated;
 }
-var MAX_OPEN_UNKNOWNS_SURFACED = 0;
+var MAX_ITEMS_PER_LIST2 = 25;
+var MAX_LISTED_CHILDREN = 5;
+function capList(list, name, into, limit = MAX_ITEMS_PER_LIST2, total = list.length) {
+  const shown = list.slice(0, limit);
+  if (total > shown.length) into.push({ list: name, shown: shown.length, total, hidden: total - shown.length });
+  return shown;
+}
 function computeNextWork(vault, dir, min) {
-  const tree = vault.readTree();
+  const census = vault.readTreeCensus();
+  const tree = census.nodes;
   const index = byTitle(tree);
+  const liveCensus = withoutRetiredNodes(census);
+  const allRetired = liveCensus.retired.map((r2) => ({
+    node: r2.file.replace(/\.md$/, ""),
+    reason: r2.reason
+  }));
+  const firstOpportunityParent = /* @__PURE__ */ new Map();
+  const firstNonUnknownParent = /* @__PURE__ */ new Map();
+  for (const p2 of tree) {
+    const isOpportunity = p2.layer === "Opportunity";
+    const isNonUnknown = p2.layer !== "Unknown";
+    if (!isOpportunity && !isNonUnknown) continue;
+    for (const l of p2.links) {
+      if (isOpportunity && !firstOpportunityParent.has(l)) firstOpportunityParent.set(l, p2.title);
+      if (isNonUnknown && !firstNonUnknownParent.has(l)) firstNonUnknownParent.set(l, p2.title);
+    }
+  }
   const mapped = getMapped(dir);
   const citedSources = new Set(tree.map((n) => n.source).filter((s) => !!s));
-  const unmappedEvidence = readEvidence(dir).filter((e) => !mapped.has(e.id) && !citedSources.has(e.id)).map((e) => ({ id: e.id, source: e.source, title: e.title, excerpt: e.body.slice(0, 280), actor: e.actor }));
-  const underservedOpportunities = tree.filter((n) => n.layer === "Opportunity").map((o2) => {
+  const allUnmappedEvidence = readEvidence(dir).filter((e) => !mapped.has(e.id) && !citedSources.has(e.id)).map((e) => ({ id: e.id, source: e.source, title: e.title, excerpt: e.body.slice(0, 280), actor: e.actor }));
+  const allUnderservedOpportunities = tree.filter((n) => n.layer === "Opportunity").map((o2) => {
     const existing = childrenOfLayer(o2, index, "Solution");
-    return { title: o2.title, solutions: existing.length, needed: min, existingSolutions: existing };
+    return {
+      title: o2.title,
+      solutions: existing.length,
+      needed: min,
+      existingSolutions: existing.slice(0, MAX_LISTED_CHILDREN)
+    };
   }).filter((o2) => o2.solutions < min);
-  const solutionsMissingAssumptions = tree.filter((n) => n.layer === "Solution").filter((s) => childrenOfLayer(s, index, "AssumptionTest").length === 0).map((s) => ({
-    title: s.title,
-    opportunity: tree.find((p2) => p2.layer === "Opportunity" && p2.links.includes(s.title))?.title ?? null
-  }));
-  const hygieneIssues = detectHygiene(tree);
+  const allSolutionsMissingAssumptions = tree.filter((n) => n.layer === "Solution").filter((s) => childrenOfLayer(s, index, "AssumptionTest").length === 0).map((s) => ({ title: s.title, opportunity: firstOpportunityParent.get(s.title) ?? null }));
+  const hygiene = detectHygiene(tree, liveCensus.nodes, MAX_ITEMS_PER_LIST2);
   const allOpenUnknowns = tree.filter((n) => n.layer === "Unknown" && resolutionState(n) === "open").map((u) => ({
     title: u.title,
     klass: classifyUnknown(u),
-    darkens: tree.find((p2) => p2.layer !== "Unknown" && p2.links.includes(u.title))?.title ?? null,
+    darkens: firstNonUnknownParent.get(u.title) ?? null,
     gaps: contractGaps(u)
   }));
-  const cap = MAX_OPEN_UNKNOWNS_SURFACED;
-  const openUnknowns = cap > 0 ? allOpenUnknowns.slice(0, cap) : allOpenUnknowns;
-  const hidden = allOpenUnknowns.length - openUnknowns.length;
-  const done = unmappedEvidence.length === 0 && underservedOpportunities.length === 0 && solutionsMissingAssumptions.length === 0 && hygieneIssues.length === 0;
+  const truncated = [];
+  const unmappedEvidence = capList(allUnmappedEvidence, "unmappedEvidence", truncated);
+  const underservedOpportunities = capList(allUnderservedOpportunities, "underservedOpportunities", truncated);
+  const solutionsMissingAssumptions = capList(allSolutionsMissingAssumptions, "solutionsMissingAssumptions", truncated);
+  const hygieneIssues = capList(hygiene.issues, "hygieneIssues", truncated, MAX_ITEMS_PER_LIST2, hygiene.total);
+  const openUnknowns = capList(allOpenUnknowns, "openUnknowns", truncated);
+  const retiredFromDuplicateScan = capList(allRetired, "retiredFromDuplicateScan", truncated);
+  const done = allUnmappedEvidence.length === 0 && allUnderservedOpportunities.length === 0 && allSolutionsMissingAssumptions.length === 0 && hygiene.total === 0;
   const parts = [];
-  if (unmappedEvidence.length) parts.push(`${unmappedEvidence.length} unmapped evidence item(s) \u2192 map into #Opportunity nodes`);
-  if (underservedOpportunities.length) parts.push(`${underservedOpportunities.length} opportunity(ies) with < ${min} solutions \u2192 ideate #Solution nodes`);
-  if (solutionsMissingAssumptions.length) parts.push(`${solutionsMissingAssumptions.length} solution(s) with no assumption test \u2192 surface #AssumptionTest nodes`);
-  if (hygieneIssues.length) parts.push(`${hygieneIssues.length} hygiene issue(s) \u2192 annotate (never delete)`);
+  if (allUnmappedEvidence.length) parts.push(`${allUnmappedEvidence.length} unmapped evidence item(s) \u2192 map into #Opportunity nodes`);
+  if (allUnderservedOpportunities.length) parts.push(`${allUnderservedOpportunities.length} opportunity(ies) with < ${min} solutions \u2192 ideate #Solution nodes`);
+  if (allSolutionsMissingAssumptions.length) parts.push(`${allSolutionsMissingAssumptions.length} solution(s) with no assumption test \u2192 surface #AssumptionTest nodes`);
+  if (hygiene.total) parts.push(`${hygiene.total} hygiene issue(s) \u2192 annotate (never delete)`);
   if (allOpenUnknowns.length)
     parts.push(`${allOpenUnknowns.length} open unknown(s) \u2192 explore (does not block done)`);
-  const truncationNote = hidden ? ` Showing ${openUnknowns.length} of ${allOpenUnknowns.length} \u2014 ${hidden} more open unknown(s) not listed (cap=${cap}).` : "";
-  const summary = done ? allOpenUnknowns.length ? `Tree is fully maintained \u2014 nothing to do. ${allOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${truncationNote}` : "Tree is fully maintained \u2014 nothing to do." : `Outstanding: ${parts.join("; ")}.${truncationNote}`;
-  return { done, summary, unmappedEvidence, underservedOpportunities, solutionsMissingAssumptions, hygieneIssues, openUnknowns };
+  const truncationNote = truncated.length ? ` Lists are capped at ${MAX_ITEMS_PER_LIST2}: ` + truncated.map((t2) => `${t2.list} showing ${t2.shown} of ${t2.total} (${t2.hidden} not listed)`).join("; ") + `. Every count above is over the full set.` : "";
+  const retirementNote = allRetired.length ? ` ${allRetired.length} retired node(s) were withheld from the duplicate scan only (every gate still counts them): ${retiredFromDuplicateScan.map((r2) => r2.node).join(", ")}${allRetired.length > retiredFromDuplicateScan.length ? ", \u2026" : ""}.` : "";
+  const summary = done ? allOpenUnknowns.length ? `Tree is fully maintained \u2014 nothing to do. ${allOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${truncationNote}${retirementNote}` : `Tree is fully maintained \u2014 nothing to do.${retirementNote}` : `Outstanding: ${parts.join("; ")}.${truncationNote}${retirementNote}`;
+  return {
+    done,
+    summary,
+    unmappedEvidence,
+    underservedOpportunities,
+    solutionsMissingAssumptions,
+    hygieneIssues,
+    openUnknowns,
+    retiredFromDuplicateScan,
+    truncated
+  };
 }
 
 // src/security/policy.ts
@@ -41373,6 +41718,72 @@ var DESTRUCTIVE_TOKENS = /* @__PURE__ */ new Set([
   "rebase",
   "filter"
 ]);
+var CONSEQUENCE_TOKENS = /* @__PURE__ */ new Set([
+  // reaching a person
+  "send",
+  "email",
+  "mail",
+  "sms",
+  "notify",
+  "notification",
+  "message",
+  "dm",
+  "contact",
+  "call",
+  "dial",
+  "escalate",
+  "reply",
+  "respond",
+  // reaching the public
+  "publish",
+  "post",
+  "tweet",
+  "broadcast",
+  "announce",
+  "share",
+  "upload",
+  "submit",
+  "comment",
+  // committing the operator to something
+  "sign",
+  "signature",
+  "approve",
+  "reject",
+  "authorize",
+  "grant",
+  "revoke",
+  "apply",
+  "accept",
+  "confirm",
+  // spending money
+  "pay",
+  "payment",
+  "purchase",
+  "buy",
+  "order",
+  "charge",
+  "refund",
+  "transfer",
+  "invoice",
+  "bill",
+  "subscribe",
+  "unsubscribe",
+  // "checkout" is already above
+  // taking a booking or a slot in the world
+  "book",
+  "reserve",
+  "schedule",
+  "cancel",
+  // making software act
+  "deploy",
+  "provision",
+  "release",
+  "trigger",
+  "invoke",
+  "dispatch",
+  "webhook",
+  "emit"
+]);
 function tokenize(name) {
   return name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").split(/[^a-zA-Z0-9]+/).filter(Boolean).map((t2) => t2.toLowerCase());
 }
@@ -41389,7 +41800,7 @@ function assertNoDestructiveTool(names) {
   }
 }
 function isDestructiveToolName(name) {
-  return tokenize(name).some((t2) => DESTRUCTIVE_TOKENS.has(t2));
+  return tokenize(name).some((t2) => DESTRUCTIVE_TOKENS.has(t2) || CONSEQUENCE_TOKENS.has(t2));
 }
 
 // src/web/reader.ts
@@ -41635,6 +42046,33 @@ function unknownProperty() {
     description: "Optional: the title of the #Unknown node this call is being spent on, so the attention it costs is attributed to the darkness it was meant to reduce. Omit it when the call serves no particular unknown \u2014 spend with no marker is recorded as unattributed, and an unattributed call is better than one billed to the wrong unknown."
   };
 }
+var READ_TREE_BUDGET_BYTES = 1e5;
+var MAX_EDGES_LISTED_PER_NODE = 25;
+function readTreeResponse(tree) {
+  const nodes = [];
+  let bytes = 0;
+  for (const n of tree) {
+    const entry = {
+      title: n.title,
+      layer: n.layer,
+      status: n.status ?? null,
+      tags: n.tags.slice(0, MAX_EDGES_LISTED_PER_NODE),
+      links: n.links.slice(0, MAX_EDGES_LISTED_PER_NODE)
+    };
+    if (n.tags.length > entry.tags.length) entry.tagCount = n.tags.length;
+    if (n.links.length > entry.links.length) entry.linkCount = n.links.length;
+    const size = JSON.stringify(entry).length;
+    if (nodes.length > 0 && bytes + size > READ_TREE_BUDGET_BYTES) break;
+    bytes += size;
+    nodes.push(entry);
+  }
+  const hidden = tree.length - nodes.length;
+  const response = { count: tree.length, shown: nodes.length, hidden, nodes };
+  if (hidden > 0) {
+    response.note = `Showing ${nodes.length} of ${tree.length} node(s) \u2014 ${hidden} not listed (response size limit). This is a display cap, not a smaller tree: ost_check and ost_next_work are computed over all ${tree.length}. Use ost_next_work to find what to work on rather than reading the whole tree.`;
+  }
+  return response;
+}
 function buildOstTools(ctx, allowedNames) {
   const { vault, dir, remote } = ctx;
   const minSolutions = ctx.minSolutionsPerOpportunity ?? DEFAULT_MIN_SOLUTIONS_PER_OPPORTUNITY;
@@ -41643,18 +42081,9 @@ function buildOstTools(ctx, allowedNames) {
   const all = [
     tool({
       name: "ost_read_tree",
-      description: "Read the current Opportunity Solution Tree: returns every node with its title, layer, status, tags, and child links. Read-only.",
+      description: "Read the current Opportunity Solution Tree: returns each node with its title, layer, status, tags, and child links. Read-only. On a large tree the listing is capped to keep the response readable \u2014 `count` is always the whole tree, `shown`/`hidden` say how much of it you are looking at, and a node's `linkCount`/`tagCount` appear when its arrays are a sample. Nothing is judged from this response: ost_check and ost_next_work are computed over every node.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
-      run: async () => {
-        const nodes = vault.readTree().map((n) => ({
-          title: n.title,
-          layer: n.layer,
-          status: n.status ?? null,
-          tags: n.tags,
-          links: n.links
-        }));
-        return JSON.stringify({ count: nodes.length, nodes }, null, 2);
-      }
+      run: async () => JSON.stringify(readTreeResponse(vault.readTree()), null, 2)
     }),
     tool({
       name: "ost_next_work",

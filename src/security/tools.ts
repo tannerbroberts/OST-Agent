@@ -162,6 +162,101 @@ function unknownProperty(): Record<string, unknown> {
   };
 }
 
+/**
+ * How many bytes of node listing `ost_read_tree` may return.
+ *
+ * The criterion is 200 KB for the whole response; the budget is set well below
+ * it because it is measured on each entry's *compact* JSON while the response is
+ * pretty-printed two levels deeper — measured at ~37% larger on a 10,000-node
+ * vault, not the sixth a first estimate suggested. The gap is the margin, and
+ * `test/mcp/response-size.test.ts` measures the real serialized string rather
+ * than trusting this arithmetic.
+ *
+ * A byte budget rather than a node count on purpose. Titles run to 200
+ * characters (`ost/sanitize.ts`) and link lists grow with the tree, so any fixed
+ * node count is only a bound if you also assume an average entry size — and the
+ * vault that breaks the assumption is exactly the one this exists for.
+ */
+export const READ_TREE_BUDGET_BYTES = 100_000;
+
+/** How many links/tags one listed node may name before the count stands in for the rest. */
+export const MAX_EDGES_LISTED_PER_NODE = 25;
+
+/** One node as `ost_read_tree` renders it. */
+interface ListedNode {
+  title: string;
+  layer: string;
+  status: string | null;
+  tags: string[];
+  /** Present only when `tags` is a sample. */
+  tagCount?: number;
+  links: string[];
+  /** Present only when `links` is a sample. */
+  linkCount?: number;
+}
+
+export interface ReadTreeResponse {
+  /** The whole tree's size. Never capped — this is the number that says what was left out. */
+  count: number;
+  /** How many nodes this response actually lists. */
+  shown: number;
+  /** `count - shown`. Zero on an ordinary tree. */
+  hidden: number;
+  /** Present only when something was withheld, so a reader cannot mistake a window for the whole. */
+  note?: string;
+  nodes: ListedNode[];
+}
+
+/**
+ * Shape the tree into a response that is bounded in size and honest about it.
+ *
+ * `ost_read_tree` is on `/ost-pass`'s allowlist and had no cap at all: a
+ * 5,000-node vault marshalled megabytes into the model's context, where the
+ * failure is not an error but an unreadable answer. The rule this follows is the
+ * one `openUnknowns` already used — cap the display, name the hidden count — so
+ * that a short list can never be read as a complete one.
+ *
+ * Nothing here is a gate, which is why capping is safe: `ost_read_tree` reports,
+ * and every verdict in the product is computed by `ost_check` / `ost_next_work`
+ * over the full tree.
+ */
+export function readTreeResponse(tree: readonly OstNode[]): ReadTreeResponse {
+  const nodes: ListedNode[] = [];
+  let bytes = 0;
+  for (const n of tree) {
+    const entry: ListedNode = {
+      title: n.title,
+      layer: n.layer,
+      status: n.status ?? null,
+      tags: n.tags.slice(0, MAX_EDGES_LISTED_PER_NODE),
+      links: n.links.slice(0, MAX_EDGES_LISTED_PER_NODE),
+    };
+    // The counts appear only when they say something the array does not. A
+    // hub node with 4,000 children would otherwise put 4,000 titles into one
+    // entry and spend the whole budget before the second node.
+    if (n.tags.length > entry.tags.length) entry.tagCount = n.tags.length;
+    if (n.links.length > entry.links.length) entry.linkCount = n.links.length;
+
+    const size = JSON.stringify(entry).length;
+    // Always emit the first node: a response listing nothing would be a worse
+    // answer than an over-budget one, and the budget cannot bound a single
+    // entry anyway.
+    if (nodes.length > 0 && bytes + size > READ_TREE_BUDGET_BYTES) break;
+    bytes += size;
+    nodes.push(entry);
+  }
+
+  const hidden = tree.length - nodes.length;
+  const response: ReadTreeResponse = { count: tree.length, shown: nodes.length, hidden, nodes };
+  if (hidden > 0) {
+    response.note =
+      `Showing ${nodes.length} of ${tree.length} node(s) — ${hidden} not listed (response size limit). ` +
+      `This is a display cap, not a smaller tree: ost_check and ost_next_work are computed over all ${tree.length}. ` +
+      `Use ost_next_work to find what to work on rather than reading the whole tree.`;
+  }
+  return response;
+}
+
 export interface RemoteConfig {
   enabled: boolean;
   url?: string;
@@ -209,18 +304,9 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
     tool({
       name: "ost_read_tree",
       description:
-        "Read the current Opportunity Solution Tree: returns every node with its title, layer, status, tags, and child links. Read-only.",
+        "Read the current Opportunity Solution Tree: returns each node with its title, layer, status, tags, and child links. Read-only. On a large tree the listing is capped to keep the response readable — `count` is always the whole tree, `shown`/`hidden` say how much of it you are looking at, and a node's `linkCount`/`tagCount` appear when its arrays are a sample. Nothing is judged from this response: ost_check and ost_next_work are computed over every node.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
-      run: async () => {
-        const nodes = vault.readTree().map((n) => ({
-          title: n.title,
-          layer: n.layer,
-          status: n.status ?? null,
-          tags: n.tags,
-          links: n.links,
-        }));
-        return JSON.stringify({ count: nodes.length, nodes }, null, 2);
-      },
+      run: async () => JSON.stringify(readTreeResponse(vault.readTree()), null, 2),
     }),
 
     tool({

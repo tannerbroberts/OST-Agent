@@ -66,6 +66,74 @@ describe("policy", () => {
   });
 });
 
+/**
+ * v1-readiness **P7 — the name-level guard would flag a real-world-action tool.**
+ *
+ * Destruction was the only harm the token set knew about, so a tool that sends an
+ * email, signs a document, pays an invoice or publishes a post walked straight past
+ * it. None of those destroy anything; each is irreversible in the way that actually
+ * matters, because the effect lands outside the vault and no commit takes it back.
+ *
+ * What this guard is and is not. It is **not** what stops those four tools today —
+ * allowlist *membership* does. But membership is decided by a source edit, and "a
+ * source edit" is exactly the weakness P7 objects to (P6 makes the same complaint
+ * about `MCP_TOOL_NAMES` hiding `git_push`). A name check cannot stop an author who
+ * names the thing `ost_dispatch_correspondence` either. What it buys is that the
+ * cheap path — an accidental addition, or a model writing a plausible tool — fails
+ * closed at startup instead of shipping. Defence in depth, priced accordingly.
+ *
+ * **Non-vacuity.** Two independent controls, because a guard that flags everything
+ * is as useless as one that flags nothing: the innocuous-names test below asserts
+ * `false` for names built only from tokens the guard must never own, and the
+ * allowlist test asserts `false` for all 20 shipped tools. Both fail immediately if
+ * anyone "fixes" the guard by returning `true`. Proved by inversion while writing:
+ * with `CONSEQUENCE_TOKENS` emptied, the four-name test fails 4/4 and the two
+ * controls stay green; with the guard hardcoded to `true`, the controls fail. So
+ * neither state is indistinguishable from the other.
+ */
+describe("policy — P7: the guard flags consequence, not only destruction", () => {
+  const REAL_WORLD_ACTIONS = ["ost_send_email", "ost_sign_document", "ost_pay_invoice", "ost_publish_post"];
+
+  test("flags a tool that acts on the world, not just one that destroys", () => {
+    for (const name of REAL_WORLD_ACTIONS) {
+      expect(isDestructiveToolName(name), `${name} should be flagged`).toBe(true);
+      // and the fail-closed guard refuses it for the off-allowlist reason too
+      expect(() => assertNoDestructiveTool([name])).toThrow();
+    }
+  });
+
+  test("camelCase spellings do not slip past", () => {
+    // tokenize() splits camelCase, so a tool named the JS way is caught identically
+    expect(isDestructiveToolName("sendEmail")).toBe(true);
+    expect(isDestructiveToolName("signDocument")).toBe(true);
+    expect(isDestructiveToolName("payInvoice")).toBe(true);
+    expect(isDestructiveToolName("publishPost")).toBe(true);
+  });
+
+  test("SAFETY: no name on the allowlist is flagged", () => {
+    // The constraint that decides whether P7 is a fix or a wedge. Widening the token
+    // set is only correct if the widened guard still admits every tool this project
+    // actually ships — including git_commit and git_push, which are outward acts but
+    // are safe by construction, which is why "push"/"commit" are not tokens.
+    for (const name of ALLOWED_TOOL_NAMES) {
+      expect(isDestructiveToolName(name), `${name} must not be flagged`).toBe(false);
+    }
+    expect(() => assertNoDestructiveTool([...ALLOWED_TOOL_NAMES])).not.toThrow();
+  });
+
+  test("NON-VACUITY CONTROL: innocuous names are still not flagged", () => {
+    for (const name of [
+      "ost_read_tree",
+      "ost_rank_source",
+      "list_open_questions",
+      "summarize_evidence",
+      "count_nodes",
+    ]) {
+      expect(isDestructiveToolName(name), `${name} must not be flagged`).toBe(false);
+    }
+  });
+});
+
 describe("buildOstTools", () => {
   test("registers EXACTLY the allowlisted tools and nothing else", () => {
     const tools = buildOstTools(ctx);

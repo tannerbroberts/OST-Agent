@@ -12,7 +12,8 @@
 import { byTitle, childrenOfLayer, getMapped, readEvidence } from "../processes/tree.js";
 import type { Actor } from "../adapters/source.js";
 import { checkInvariants } from "../eval/invariants.js";
-import { findNearDuplicateIssues } from "../ost/dedupe.js";
+import { scanNearDuplicates } from "../ost/dedupe.js";
+import { withoutRetiredNodes } from "../ost/census.js";
 import type { OstNode } from "../ost/node.js";
 import type { Vault } from "../ost/vault.js";
 import { classifyUnknown, contractGaps, resolutionState, type UnknownClass } from "../knowledge/unknowns.js";
@@ -32,8 +33,16 @@ export interface UnmappedEvidence {
 }
 export interface UnderservedOpportunity {
   title: string;
+  /** How many solutions it actually has. Never capped — this is the count `needed` is compared against. */
   solutions: number;
   needed: number;
+  /**
+   * A SAMPLE of the existing solution titles, at most
+   * {@link MAX_LISTED_CHILDREN}. `solutions` above is the true number, so this
+   * list can be short without hiding anything: an opportunity with 4,000
+   * children would otherwise put 4,000 titles into one response entry, and one
+   * entry is enough to blow a whole response budget on its own (Z2).
+   */
   existingSolutions: string[];
 }
 export interface BareSolution {
@@ -60,16 +69,43 @@ export interface OpenUnknown {
   gaps: string[];
 }
 
+/** A node the duplicate scan did not see, because it has left the live tree. */
+export interface RetiredNode {
+  /** The node's title (the archive's file basename, when it was archived). */
+  node: string;
+  /** What retired it — a status, or the archive directory. */
+  reason: string;
+}
+
+/**
+ * One list that was shortened for display, and by how much.
+ *
+ * The point of the shape is that the *total* travels with the sample. A capped
+ * list that reported only what it showed would read as the whole truth — "that
+ * is all the darkness there is" — which turns a display limit into an amnesty.
+ * Every number here is taken over the full set, before any cap.
+ */
+export interface Truncation {
+  /** The `NextWork` field this describes. */
+  list: string;
+  shown: number;
+  total: number;
+  hidden: number;
+}
+
 export interface NextWork {
   done: boolean;
   summary: string;
-  /** P2 — evidence captured but not yet distilled into opportunities. */
+  /**
+   * P2 — evidence captured but not yet distilled into opportunities.
+   * May be capped; see {@link NextWork.truncated}.
+   */
   unmappedEvidence: UnmappedEvidence[];
-  /** P3 — opportunities with fewer than `min` candidate solutions. */
+  /** P3 — opportunities with fewer than `min` candidate solutions. May be capped. */
   underservedOpportunities: UnderservedOpportunity[];
-  /** P4 — solutions with no assumption test surfaced yet. */
+  /** P4 — solutions with no assumption test surfaced yet. May be capped. */
   solutionsMissingAssumptions: BareSolution[];
-  /** Structural issues that should be annotated (never auto-fixed). */
+  /** Structural issues that should be annotated (never auto-fixed). May be capped. */
   hygieneIssues: HygieneIssue[];
   /**
    * Darkness the tree has declared and not yet resolved. Reported as available
@@ -78,10 +114,24 @@ export interface NextWork {
    * forever. `done` means maintenance is complete; exploration is discretionary
    * and budget-governed.
    *
-   * This list may be TRUNCATED by {@link MAX_OPEN_UNKNOWNS_SURFACED}. `done`
-   * never is: it is computed over every open unknown, before the cap applies.
+   * May be capped. `done` never is: it is computed over every open unknown,
+   * before the cap applies.
    */
   openUnknowns: OpenUnknown[];
+  /**
+   * Nodes withheld from the near-duplicate scan because they are retired (Z4).
+   * Named rather than counted, and named here rather than nowhere: a node that
+   * leaves a denominator silently is how a count starts lying. May be capped.
+   */
+  retiredFromDuplicateScan: RetiredNode[];
+  /**
+   * Every list above that was shortened, with the count it was shortened from.
+   *
+   * Empty on an ordinary tree. Non-empty means the response is a window onto a
+   * larger set — and the numbers here, not the array lengths, are what `done`
+   * and the summary were computed from.
+   */
+  truncated: Truncation[];
 }
 
 /**
@@ -147,9 +197,42 @@ export const HYGIENE_ONLY_RULES = ["near-duplicate"] as const;
  * connected on one gate and adrift on the other. Neither gap was hidden; both
  * were remembered rather than computed.
  */
-function detectHygiene(tree: OstNode[]): HygieneIssue[] {
+function detectHygiene(tree: OstNode[], live: OstNode[], limit: number): { issues: HygieneIssue[]; total: number } {
   const index = byTitle(tree);
+
+  // Parsed once per node rather than once per issue. On a duplicated tree one
+  // node carries thousands of issues, and re-splitting its body for each of them
+  // made the suppression step quadratic in the size of the thing it was
+  // suppressing — the same shape of defect as the dedupe scan itself (Z3).
+  const annotatedCache = new Map<string, Set<string>>();
+  const alreadyAnnotated = (title: string, issue: string): boolean => {
+    let set = annotatedCache.get(title);
+    if (set === undefined) {
+      const node = index.get(title);
+      set = node ? annotatedIssues(node.body) : new Set<string>();
+      annotatedCache.set(title, set);
+    }
+    return set.has(issue.trim());
+  };
+
   const issues: HygieneIssue[] = [];
+  let total = 0;
+  /*
+   * Count everything, materialize a bounded prefix.
+   *
+   * `total` is what `done` reads, so suppression has to happen HERE and not
+   * after the cap: an issue the node has already been annotated with is not
+   * outstanding, and counting it would mean a swept tree could never reach
+   * `done`. Equally, the cap must not touch `total`, or annotating the visible
+   * 25 of 125,750 duplicates would report the tree clean. Cap the display,
+   * count the full set — the pattern `openUnknowns` already used.
+   */
+  const take = (issue: HygieneIssue): void => {
+    if (alreadyAnnotated(issue.title, issue.issue)) return;
+    total++;
+    if (issues.length < limit) issues.push(issue);
+  };
+
   // The mandate is the one node guaranteed to exist, so it is where a violation
   // that names no node of its own gets attached — an issue with no node is an
   // issue no one can annotate, and therefore a wedge.
@@ -158,15 +241,17 @@ function detectHygiene(tree: OstNode[]): HygieneIssue[] {
     if (v.rule in NOT_DONE_BLOCKING) continue;
     const title = v.node ?? outcome;
     if (!title) continue; // nothing to hang it on; the parity test is what keeps this unreachable
-    issues.push({ title, issue: `${HYGIENE_LABELS[v.rule] ?? v.rule}: ${v.detail}`, rule: v.rule });
+    take({ title, issue: `${HYGIENE_LABELS[v.rule] ?? v.rule}: ${v.detail}`, rule: v.rule });
   }
-  // likely duplicates (same-layer near-identical titles) — flagged for a human, never merged
-  for (const d of findNearDuplicateIssues(tree)) issues.push({ ...d, rule: "near-duplicate" });
-  // suppress ones already annotated into the node body (idempotent, matches P5)
-  return issues.filter(({ title, issue }) => {
-    const node = index.get(title);
-    return node ? !annotatedIssues(node.body).has(issue.trim()) : true;
-  });
+  // Likely duplicates (same-layer near-identical titles) — flagged for a human,
+  // never merged. Taken over `live`, the tree with retired nodes withheld (Z4);
+  // every rule above is taken over the whole tree, because those are the ones a
+  // retirement must never be able to clear.
+  //
+  // Pulled from a generator so a 5,000-node duplicated vault costs the ~25
+  // objects it displays instead of the 12.5M pairs it contains.
+  for (const d of scanNearDuplicates(live)) take({ ...d, rule: "near-duplicate" });
+  return { issues, total };
 }
 
 /**
@@ -197,14 +282,42 @@ function annotatedIssues(body: string): Set<string> {
 }
 
 /**
- * How many open unknowns one response may list. `0` is unlimited, which is what
- * ships — and what makes this response one of the two uncapped surfaces a large
- * tree can blow up (`docs/reference/v1-readiness.md`, Z2). The cap mechanism
- * below is the correct shape and is deliberately left switched off rather than
- * turned on inside an unrelated change: cap the display, compute `done` over the
- * full set, and name the hidden count so a cap can never read as amnesty.
+ * How many items any one list in this response may show.
+ *
+ * A single number rather than a knob per list, because the property being bought
+ * is a bound on the WHOLE response and one generous list is enough to lose it.
+ * Sized against the worst case rather than the typical one: node titles are
+ * clamped to 200 characters (`ost/sanitize.ts`), evidence excerpts to 280, and
+ * an invariant detail can run several hundred more, so 25 items across six lists
+ * is a few tens of KB even when every string is at its maximum — comfortably
+ * inside the 200 KB the criterion names, with the pretty-printing
+ * `ost_next_work` applies included.
+ *
+ * This is a DISPLAY limit and nothing else. `done`, every count in `summary` and
+ * every number in `truncated` are computed over the full set. A cap that changed
+ * a verdict would be a cap that reads as amnesty, which is precisely the failure
+ * the criterion is about.
+ *
+ * The throughput cost is real and is the intended trade: `/ost-pass` clears 25
+ * items, re-reads, and clears 25 more. It already loops.
  */
-export const MAX_OPEN_UNKNOWNS_SURFACED = 0;
+export const MAX_ITEMS_PER_LIST = 25;
+
+/** How many child titles one entry may name. See {@link UnderservedOpportunity.existingSolutions}. */
+export const MAX_LISTED_CHILDREN = 5;
+
+/**
+ * Cap one list, recording what was hidden.
+ *
+ * Returns the sample and pushes a {@link Truncation} onto `into` only when
+ * something was actually hidden — an empty `truncated` array is a response that
+ * shows everything, which is a fact worth being able to read off directly.
+ */
+function capList<T>(list: T[], name: string, into: Truncation[], limit = MAX_ITEMS_PER_LIST, total = list.length): T[] {
+  const shown = list.slice(0, limit);
+  if (total > shown.length) into.push({ list: name, shown: shown.length, total, hidden: total - shown.length });
+  return shown;
+}
 
 /**
  * Compute the outstanding maintenance work for the tree in `vault` (dir holds the
@@ -212,8 +325,40 @@ export const MAX_OPEN_UNKNOWNS_SURFACED = 0;
  * an operator knob from `ost.config.yaml`.
  */
 export function computeNextWork(vault: Vault, dir: string, min: number): NextWork {
-  const tree = vault.readTree();
+  // ONE parse. The census is read rather than `readTree()` so the retired
+  // accounting Z4 needs comes from the same walk that produced the nodes —
+  // a second read would be a second walk, and a second walk can disagree.
+  const census = vault.readTreeCensus();
+  const tree = census.nodes;
   const index = byTitle(tree);
+
+  // The duplicate scan, and only the duplicate scan, is taken over the live set.
+  // Everything below — including every term of `done` — reads `tree`.
+  const liveCensus = withoutRetiredNodes(census);
+  const allRetired: RetiredNode[] = liveCensus.retired.map((r) => ({
+    node: r.file.replace(/\.md$/, ""),
+    reason: r.reason,
+  }));
+
+  /*
+   * Parent lookups, indexed.
+   *
+   * These two were `tree.find(...)` inside a `.map(...)` — a scan of the whole
+   * tree per solution and per unknown, i.e. two more quadratic passes sitting
+   * beside the one Z3 names. Built by walking the tree ONCE in order and keeping
+   * the FIRST parent seen, which is exactly what `find` returned.
+   */
+  const firstOpportunityParent = new Map<string, string>();
+  const firstNonUnknownParent = new Map<string, string>();
+  for (const p of tree) {
+    const isOpportunity = p.layer === "Opportunity";
+    const isNonUnknown = p.layer !== "Unknown";
+    if (!isOpportunity && !isNonUnknown) continue;
+    for (const l of p.links) {
+      if (isOpportunity && !firstOpportunityParent.has(l)) firstOpportunityParent.set(l, p.title);
+      if (isNonUnknown && !firstNonUnknownParent.has(l)) firstNonUnknownParent.set(l, p.title);
+    }
+  }
 
   // Evidence counts as mapped if any node in the tree cites it as its `source` — that is
   // how a session records the mapping, via ost_create_node's `source`. `mapped.json` is
@@ -222,27 +367,31 @@ export function computeNextWork(vault: Vault, dir: string, min: number): NextWor
   // done on a vault the session mapped itself.
   const mapped = getMapped(dir);
   const citedSources = new Set(tree.map((n) => n.source).filter((s): s is string => !!s));
-  const unmappedEvidence: UnmappedEvidence[] = readEvidence(dir)
+  const allUnmappedEvidence: UnmappedEvidence[] = readEvidence(dir)
     .filter((e) => !mapped.has(e.id) && !citedSources.has(e.id))
     .map((e) => ({ id: e.id, source: e.source, title: e.title, excerpt: e.body.slice(0, 280), actor: e.actor }));
 
-  const underservedOpportunities: UnderservedOpportunity[] = tree
+  const allUnderservedOpportunities: UnderservedOpportunity[] = tree
     .filter((n) => n.layer === "Opportunity")
     .map((o) => {
       const existing = childrenOfLayer(o, index, "Solution");
-      return { title: o.title, solutions: existing.length, needed: min, existingSolutions: existing };
+      // `solutions` is the real count and `existingSolutions` a sample of it —
+      // the one comparison that matters (`solutions < min`) is made on the count.
+      return {
+        title: o.title,
+        solutions: existing.length,
+        needed: min,
+        existingSolutions: existing.slice(0, MAX_LISTED_CHILDREN),
+      };
     })
     .filter((o) => o.solutions < min);
 
-  const solutionsMissingAssumptions: BareSolution[] = tree
+  const allSolutionsMissingAssumptions: BareSolution[] = tree
     .filter((n) => n.layer === "Solution")
     .filter((s) => childrenOfLayer(s, index, "AssumptionTest").length === 0)
-    .map((s) => ({
-      title: s.title,
-      opportunity: tree.find((p) => p.layer === "Opportunity" && p.links.includes(s.title))?.title ?? null,
-    }));
+    .map((s) => ({ title: s.title, opportunity: firstOpportunityParent.get(s.title) ?? null }));
 
-  const hygieneIssues = detectHygiene(tree);
+  const hygiene = detectHygiene(tree, liveCensus.nodes, MAX_ITEMS_PER_LIST);
 
   // Tree order — the order the walk produced.
   const allOpenUnknowns: OpenUnknown[] = tree
@@ -250,39 +399,66 @@ export function computeNextWork(vault: Vault, dir: string, min: number): NextWor
     .map((u) => ({
       title: u.title,
       klass: classifyUnknown(u),
-      darkens: tree.find((p) => p.layer !== "Unknown" && p.links.includes(u.title))?.title ?? null,
+      darkens: firstNonUnknownParent.get(u.title) ?? null,
       gaps: contractGaps(u),
     }));
 
-  // The cap is a display limit, never an amnesty: `done` is computed over every
-  // open unknown, and the hidden count is named in the summary. A cap that
-  // silently shortened the list would read as "that is all the darkness there is".
-  const cap = MAX_OPEN_UNKNOWNS_SURFACED;
-  const openUnknowns = cap > 0 ? allOpenUnknowns.slice(0, cap) : allOpenUnknowns;
-  const hidden = allOpenUnknowns.length - openUnknowns.length;
+  // Every cap is a display limit, never an amnesty: `done` and every count below
+  // are taken over the full sets, and each hidden count is named — both in
+  // `truncated` and in the summary a human reads. A cap that silently shortened
+  // a list would read as "that is all there is".
+  const truncated: Truncation[] = [];
+  const unmappedEvidence = capList(allUnmappedEvidence, "unmappedEvidence", truncated);
+  const underservedOpportunities = capList(allUnderservedOpportunities, "underservedOpportunities", truncated);
+  const solutionsMissingAssumptions = capList(allSolutionsMissingAssumptions, "solutionsMissingAssumptions", truncated);
+  // `hygiene.issues` is already bounded at the source (it is never fully
+  // materialized), so the total has to come from the scan rather than from the
+  // array's length — the one list here whose full set is never in memory.
+  const hygieneIssues = capList(hygiene.issues, "hygieneIssues", truncated, MAX_ITEMS_PER_LIST, hygiene.total);
+  const openUnknowns = capList(allOpenUnknowns, "openUnknowns", truncated);
+  const retiredFromDuplicateScan = capList(allRetired, "retiredFromDuplicateScan", truncated);
 
   const done =
-    unmappedEvidence.length === 0 &&
-    underservedOpportunities.length === 0 &&
-    solutionsMissingAssumptions.length === 0 &&
-    hygieneIssues.length === 0;
+    allUnmappedEvidence.length === 0 &&
+    allUnderservedOpportunities.length === 0 &&
+    allSolutionsMissingAssumptions.length === 0 &&
+    hygiene.total === 0;
 
   const parts: string[] = [];
-  if (unmappedEvidence.length) parts.push(`${unmappedEvidence.length} unmapped evidence item(s) → map into #Opportunity nodes`);
-  if (underservedOpportunities.length) parts.push(`${underservedOpportunities.length} opportunity(ies) with < ${min} solutions → ideate #Solution nodes`);
-  if (solutionsMissingAssumptions.length) parts.push(`${solutionsMissingAssumptions.length} solution(s) with no assumption test → surface #AssumptionTest nodes`);
-  if (hygieneIssues.length) parts.push(`${hygieneIssues.length} hygiene issue(s) → annotate (never delete)`);
+  if (allUnmappedEvidence.length) parts.push(`${allUnmappedEvidence.length} unmapped evidence item(s) → map into #Opportunity nodes`);
+  if (allUnderservedOpportunities.length) parts.push(`${allUnderservedOpportunities.length} opportunity(ies) with < ${min} solutions → ideate #Solution nodes`);
+  if (allSolutionsMissingAssumptions.length) parts.push(`${allSolutionsMissingAssumptions.length} solution(s) with no assumption test → surface #AssumptionTest nodes`);
+  if (hygiene.total) parts.push(`${hygiene.total} hygiene issue(s) → annotate (never delete)`);
   if (allOpenUnknowns.length)
     parts.push(`${allOpenUnknowns.length} open unknown(s) → explore (does not block done)`);
 
-  const truncationNote = hidden
-    ? ` Showing ${openUnknowns.length} of ${allOpenUnknowns.length} — ${hidden} more open unknown(s) not listed (cap=${cap}).`
+  const truncationNote = truncated.length
+    ? ` Lists are capped at ${MAX_ITEMS_PER_LIST}: ` +
+      truncated.map((t) => `${t.list} showing ${t.shown} of ${t.total} (${t.hidden} not listed)`).join("; ") +
+      `. Every count above is over the full set.`
+    : "";
+  // Retirement is reported whether or not it truncated anything, because the
+  // thing worth saying is that the duplicate scan had a smaller denominator than
+  // the gates did — a silent exclusion is the defect, not a long list.
+  const retirementNote = allRetired.length
+    ? ` ${allRetired.length} retired node(s) were withheld from the duplicate scan only (every gate still counts them): ` +
+      `${retiredFromDuplicateScan.map((r) => r.node).join(", ")}${allRetired.length > retiredFromDuplicateScan.length ? ", …" : ""}.`
     : "";
   const summary = done
     ? allOpenUnknowns.length
-      ? `Tree is fully maintained — nothing to do. ${allOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${truncationNote}`
-      : "Tree is fully maintained — nothing to do."
-    : `Outstanding: ${parts.join("; ")}.${truncationNote}`;
+      ? `Tree is fully maintained — nothing to do. ${allOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${truncationNote}${retirementNote}`
+      : `Tree is fully maintained — nothing to do.${retirementNote}`
+    : `Outstanding: ${parts.join("; ")}.${truncationNote}${retirementNote}`;
 
-  return { done, summary, unmappedEvidence, underservedOpportunities, solutionsMissingAssumptions, hygieneIssues, openUnknowns };
+  return {
+    done,
+    summary,
+    unmappedEvidence,
+    underservedOpportunities,
+    solutionsMissingAssumptions,
+    hygieneIssues,
+    openUnknowns,
+    retiredFromDuplicateScan,
+    truncated,
+  };
 }

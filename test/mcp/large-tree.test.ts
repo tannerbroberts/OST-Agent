@@ -13,11 +13,12 @@
  * rewrite of the dedupe path cannot silently reopen the hole the way the last one
  * silently closed it.
  *
- * Deliberately NOT asserted here: that the response is a reasonable *size*. It is
- * not — the same fixture marshals ~21 MB, which is Z2, still open. A `RangeError`
- * is at least a stop; what closing Z1 bought is that an unreadable response now
- * reaches the model successfully. The two criteria have to be read together, and
- * splitting them across two files is what lets Z1 stay green while Z2 stays red.
+ * Deliberately NOT asserted here: that the response is a reasonable *size*. That
+ * is Z2, and it is pinned in `test/mcp/response-size.test.ts` — this file's job
+ * is only that the work still gets *done* on a large tree. Keeping them in two
+ * files is what let Z1 stay green while Z2 was red, and is why capping the
+ * response could not quietly satisfy this one: the assertion below reads the
+ * count taken over the FULL issue set, not the length of the displayed list.
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -58,6 +59,14 @@ test("computeNextWork returns rather than throwing on 500 near-identical Opportu
   // error's identity, so the result is captured and inspected instead: a run that
   // returned an empty issue set would pass a bare no-throw check while proving the
   // quadratic pass had been skipped rather than fixed.
+  //
+  // Read off `truncated`, not off `hygieneIssues.length`. Since Z2 the displayed
+  // list is capped at 25, so its length is a property of the cap and would stay
+  // 25 whether the scan found 125,750 duplicates or 25 of them — an assertion
+  // that could no longer fail, which is the vacuity this file exists to avoid.
+  // `total` is the count `done` is computed from, over every pair.
   const work = computeNextWork(ctx.vault, dir, 3);
-  expect(work.hygieneIssues.length).toBeGreaterThan(NEAR_DUPLICATES);
+  const hygiene = work.truncated.find((t) => t.list === "hygieneIssues");
+  expect(hygiene?.total ?? work.hygieneIssues.length).toBeGreaterThan(NEAR_DUPLICATES);
+  expect(work.done).toBe(false);
 });
