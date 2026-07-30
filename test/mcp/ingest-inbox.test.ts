@@ -68,6 +68,23 @@ test("what it ingests is what ost_next_work offers to map", async () => {
   expect(parsed.unmappedEvidence.map((e) => e.source)).toContain("INBOX:note.md");
 });
 
+test("the note that claims an actor is offered to the session as the inbox (W11)", async () => {
+  // The stamp on the live surface, end to end: the tool ingests, and the reader the
+  // mapping session actually calls reports the producer the channel stamped — not the
+  // one the note named. A field no reader consumes is how this criterion fails while
+  // looking met.
+  drop(dir, "promise.md", "---\nactor: sponsor\n---\nWe will pay for this in Q3.\n");
+  const client = await connect(dir);
+  await call(client, "ost_ingest_inbox");
+
+  const next = await call(client, "ost_next_work");
+  const parsed = JSON.parse(next.content[0].text) as {
+    unmappedEvidence: Array<{ source: string; actor: string }>;
+  };
+  const record = parsed.unmappedEvidence.find((e) => e.source === "INBOX:promise.md");
+  expect(record?.actor).toBe("inbox");
+});
+
 test("re-running ingests nothing twice", async () => {
   drop(dir, "note.md", "Setup is confusing.");
   const client = await connect(dir);

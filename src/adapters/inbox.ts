@@ -8,12 +8,20 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import type { Cursor, FetchResult, Source } from "./source.js";
+import type { Actor, Cursor, FetchResult, Source } from "./source.js";
 
 const TEXT_EXT = new Set([".md", ".txt", ".markdown"]);
 
 export class InboxSource implements Source {
   readonly name = "inbox";
+  /**
+   * Everything read out of the drop folder is `inbox` — including the agent's own
+   * friction filings, which land here as ordinary files (`src/adapters/friction.ts`).
+   * That is the honest answer rather than a lost distinction: the folder is writable
+   * by anyone who can write the vault, so any finer-grained claim about *which*
+   * producer wrote a given file would be read off a name the producer chose.
+   */
+  readonly actor: Actor = "inbox";
   private readonly dir: string;
 
   constructor(inboxDir: string) {

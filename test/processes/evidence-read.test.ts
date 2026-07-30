@@ -17,13 +17,17 @@ let dir: string;
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "ost-evidence-"));
   for (const n of [1, 2]) {
-    writeEvidence(dir, {
-      id: `INBOX:note-${n}.md`,
-      source: `INBOX:note-${n}.md`,
-      title: `note ${n}`,
-      timestamp: "2026-07-29T00:00:00Z",
-      body: `Body ${n}.`,
-    });
+    writeEvidence(
+      dir,
+      {
+        id: `INBOX:note-${n}.md`,
+        source: `INBOX:note-${n}.md`,
+        title: `note ${n}`,
+        timestamp: "2026-07-29T00:00:00Z",
+        body: `Body ${n}.`,
+      },
+      "inbox",
+    );
   }
 });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));

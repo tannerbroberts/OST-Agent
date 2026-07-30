@@ -10,6 +10,7 @@
  * It never mutates, so it carries no commit.
  */
 import { byTitle, childrenOfLayer, getMapped, readEvidence } from "../processes/tree.js";
+import type { Actor } from "../adapters/source.js";
 import { checkInvariants } from "../eval/invariants.js";
 import { findNearDuplicateIssues } from "../ost/dedupe.js";
 import type { OstNode } from "../ost/node.js";
@@ -21,6 +22,13 @@ export interface UnmappedEvidence {
   source: string;
   title: string;
   excerpt: string;
+  /**
+   * Which channel produced it, stamped at capture. Surfaced because a mapping session
+   * weighs a first-party transcript rollup and an anonymous drop-folder note
+   * differently, and `source` cannot carry that: for the inbox it is a filename the
+   * producer chose. `unknown` means the record predates the stamp.
+   */
+  actor: Actor;
 }
 export interface UnderservedOpportunity {
   title: string;
@@ -216,7 +224,7 @@ export function computeNextWork(vault: Vault, dir: string, min: number): NextWor
   const citedSources = new Set(tree.map((n) => n.source).filter((s): s is string => !!s));
   const unmappedEvidence: UnmappedEvidence[] = readEvidence(dir)
     .filter((e) => !mapped.has(e.id) && !citedSources.has(e.id))
-    .map((e) => ({ id: e.id, source: e.source, title: e.title, excerpt: e.body.slice(0, 280) }));
+    .map((e) => ({ id: e.id, source: e.source, title: e.title, excerpt: e.body.slice(0, 280), actor: e.actor }));
 
   const underservedOpportunities: UnderservedOpportunity[] = tree
     .filter((n) => n.layer === "Opportunity")

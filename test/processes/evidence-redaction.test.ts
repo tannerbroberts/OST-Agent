@@ -32,8 +32,9 @@ afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 /** Drop a note and run it through the real ingest path (source → writeEvidence). */
 async function ingest(name: string, body: string): Promise<void> {
   fs.writeFileSync(path.join(inbox, name), body, "utf8");
-  const { items } = await new InboxSource(inbox).fetchSince(null);
-  for (const item of items) writeEvidence(dir, item);
+  const source = new InboxSource(inbox);
+  const { items } = await source.fetchSince(null);
+  for (const item of items) writeEvidence(dir, item, source.actor);
 }
 
 /** The bytes actually on disk, not the parsed record — frontmatter counts too. */
@@ -92,13 +93,17 @@ describe("the choke point covers channels no adapter redacts", () => {
     // SlackSource emits `m.text.trim()` verbatim (src/adapters/slack.ts:95), as
     // AtlassianSource emits a Jira description. Both are one wiring change from
     // reaching this funnel, and neither has to remember.
-    writeEvidence(dir, {
-      id: "SLACK:C1/1700000000.1",
-      source: "SLACK:C1/1700000000.1",
-      title: "#support",
-      timestamp: "2026-07-29T00:00:00Z",
-      body: `here you go: ${GH_TOKEN}`,
-    });
+    writeEvidence(
+      dir,
+      {
+        id: "SLACK:C1/1700000000.1",
+        source: "SLACK:C1/1700000000.1",
+        title: "#support",
+        timestamp: "2026-07-29T00:00:00Z",
+        body: `here you go: ${GH_TOKEN}`,
+      },
+      "slack",
+    );
 
     expect(onDisk()).not.toContain(GH_TOKEN);
   });
@@ -109,13 +114,17 @@ describe("the choke point covers channels no adapter redacts", () => {
     await ingest("first.md", `token=abcdef1234567890\n`);
     const first = readEvidence(dir)[0].body;
 
-    writeEvidence(dir, {
-      id: "INBOX:second.md",
-      source: "INBOX:second.md",
-      title: "second",
-      timestamp: "2026-07-29T00:00:00Z",
-      body: first,
-    });
+    writeEvidence(
+      dir,
+      {
+        id: "INBOX:second.md",
+        source: "INBOX:second.md",
+        title: "second",
+        timestamp: "2026-07-29T00:00:00Z",
+        body: first,
+      },
+      "inbox",
+    );
 
     const second = readEvidence(dir).find((r) => r.id === "INBOX:second.md");
     expect(second?.body).toBe(first);

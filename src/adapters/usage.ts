@@ -13,7 +13,7 @@
  * about external demand, and its items say so out loud.
  */
 import fs from "node:fs";
-import type { Cursor, EvidenceItem, FetchResult, Source } from "./source.js";
+import type { Actor, Cursor, EvidenceItem, FetchResult, Source } from "./source.js";
 import type { UsageEvent } from "../telemetry/usage.js";
 
 export interface UsageSourceOptions {
@@ -55,6 +55,7 @@ function table(counts: Map<string, number>): string {
 
 export class UsageSource implements Source {
   readonly name = "usage";
+  readonly actor: Actor = "usage";
   private readonly file: string;
   private readonly minEvents: number;
   private readonly today: () => string;
