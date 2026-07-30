@@ -34,19 +34,29 @@ const srcRoot = path.join(repoRoot, "src");
 /**
  * Modules with no live caller today, each with the reason it is still here.
  *
- * Both are *deletions someone declined to make*, not oversights — which is why
- * the list carries the criterion that would retire each one rather than a
- * shrug.
+ * **The register is empty, and an empty register is the strongest form of this
+ * test** — `toEqual` below now asserts that nothing in `src/` is unreachable at
+ * all, so the next dead module fails CI on the commit that strands it rather
+ * than on the audit that eventually notices.
+ *
+ * The two entries it used to carry were both retired by the `loop` command:
+ *
+ *   - `src/loop/exitLaundering.ts` (H3). Its refusal message named
+ *     `ost-agent loop step`, a command that did not exist. It exists now, and
+ *     `loop step` calls the detector before it runs or records anything.
+ *   - `src/adapters/tokens.ts`. It reads token spend out of Claude Code's
+ *     session JSONL, which is the only place that number exists. `loop/spend.ts`
+ *     reads it to enforce the ceiling, so `loop due` calls it before every
+ *     firing.
+ *
+ * Note what "reachable" does and does not prove. Registering a `commander`
+ * subcommand makes a module import-reachable, so this walk would let a module
+ * off the register on the strength of a command nobody runs — the carve-out G3
+ * warns about. Both of these are on the path
+ * `examples/automation/autonomous-pass.sh` takes on every firing, which is why
+ * they came off.
  */
-const KNOWN_UNREACHABLE: Record<string, string> = {
-  // H3: `detectLaunderedExit` is correct and tested, and its refusal message
-  // names `ost-agent loop step` — a command that does not exist. H3 is met by
-  // wiring it to a caller; it is also met by deleting it. Neither has happened.
-  "src/loop/exitLaundering.ts": "H3 — the laundered-exit detector has no caller and names a command that does not exist",
-  // Reads token spend out of Claude Code's session JSONL. Written for a
-  // correlator (`eval/attention.ts`) that never came to import it.
-  "src/adapters/tokens.ts": "the token reader for attention accounting; eval/attention.ts computes without it",
-};
+const KNOWN_UNREACHABLE: Record<string, string> = {};
 
 function tsFiles(dir: string): string[] {
   const out: string[] = [];

@@ -11,6 +11,7 @@
  *   ost-agent lane "<test>" --set <lane> ...  classify one test into a lane
  *   ost-agent gate "<solution>" [--vault DIR] block building against untested assumptions
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
+ *   ost-agent loop due|start|step|seal        unattended firing: cadence, lock, ceiling, health
  *   ost-agent mcp [--vault DIR]               stdio MCP server (no API key needed)
  */
 import path from "node:path";
@@ -28,6 +29,7 @@ import { laneDef, LANES, type LaneId } from "../knowledge/lanes.js";
 import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapters/friction.js";
 import { createLazyOstMcpServer, MCP_TOOL_NAMES } from "../mcp/server.js";
 import { vaultReadiness } from "../mcp/bootstrap.js";
+import { registerLoopCommands } from "./loop.js";
 import { VERSION } from "../index.js";
 
 async function prompt(question: string, fallback?: string): Promise<string> {
@@ -301,6 +303,8 @@ program
     census.independent = await reconcileWithGit(ctx.dir, census);
     console.log(renderStatus(ctx, census));
   });
+
+registerLoopCommands(program);
 
 program
   .command("mcp")

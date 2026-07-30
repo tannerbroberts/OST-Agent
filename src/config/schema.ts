@@ -135,6 +135,35 @@ const ProcessSchema = z.object({
   minSolutionsPerOpportunity: z.number().int().positive().default(DEFAULT_MIN_SOLUTIONS_PER_OPPORTUNITY),
 });
 
+// The unattended firing loop. Everything here is opt-in and nothing here has a
+// permissive default: no cadence means the vault never fires, and no spend
+// ceiling means it refuses to. A tool that picked either number would be
+// choosing a spend rate on somebody else's account.
+//
+// `.nullish()` on every wrapper is load-bearing, not style. YAML gives `null`
+// for a bare key, and `z.object({…}).optional()` REJECTS null — so an operator
+// who typed `loop:` and went to look up the syntax would throw out of
+// `loadConfig`, which every tool calls, and take the entire surface down over a
+// key none of them read. That is G1's failure mode exactly.
+const LoopSpendSchema = z.object({
+  /** Weighted tokens, on eval/attention.ts's published ratios. Required. */
+  ceilingWeightedTokens: z.number().positive().nullish(),
+  /** The rolling window the ceiling applies to. Required. */
+  windowHours: z.number().positive().nullish(),
+  /** Where Claude Code writes this vault's session transcripts. Declared, never derived. */
+  sessionsDir: z.string().min(1).nullish(),
+});
+
+const LoopSchema = z
+  .object({
+    /** How often this vault may fire: `"30m"`, `"6h"`, `"1d"`. Absent ⇒ never. */
+    cadence: z.string().nullish(),
+    /** How long a firing lock may be held before it is assumed dead and broken. */
+    lockTtlMinutes: z.number().int().positive().default(60),
+    spend: LoopSpendSchema.nullish(),
+  })
+  .nullish();
+
 export const ConfigSchema = z.object({
   // The steering mandate the agentic system optimizes toward (tuned often via
   // `ost-agent set-outcome`). Stored as the root node's body.
@@ -155,9 +184,11 @@ export const ConfigSchema = z.object({
   processes: z.record(z.string(), ProcessSchema).default({}),
   web: WebSchema,
   product: ProductSchema,
+  loop: LoopSchema,
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
+export type LoopConfig = NonNullable<Config["loop"]>;
 export type ProcessConfig = Config["processes"][string];
 
 /** The scaffolded default config written at `init`, given a human-set outcome. */

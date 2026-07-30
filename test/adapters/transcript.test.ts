@@ -144,6 +144,56 @@ describe("redactSecrets", () => {
     expect(redactSecrets("Authorization: Bearer abcDEF123456ghijkl")).toContain("[redacted]");
     expect(redactSecrets("the build failed on line 12")).toBe("the build failed on line 12");
   });
+
+  /**
+   * The keyword rule (`secret: <8+ chars>`) is the only pattern here that can fire on
+   * English, and the inbox carries customer verbatims into append-only records the
+   * model then reasons from — a mangled sentence is permanent and load-bearing. The
+   * value's terminator is what separates an assignment from a sentence: an assignment
+   * runs to the end of the line or to a structural delimiter, a sentence's next word
+   * is followed by more words.
+   */
+  describe("the keyword rule does not eat customer prose", () => {
+    test.each([
+      "secret: customers do not trust us",
+      "Their password = something memorable",
+      "api_key: documentation is the thing they cannot find",
+      "One admin told us the secret = onboarding is broken",
+      "The secret: patience.", // a sentence-final period is not a value terminator
+      "Password: Requirements are the top support ticket",
+    ])("leaves %j exactly as written", (prose) => {
+      expect(redactSecrets(prose)).toBe(prose);
+    });
+  });
+
+  describe("the keyword rule still masks assignments", () => {
+    test.each([
+      ["a dictionary-word password at end of line", "password: swordfish", "swordfish"],
+      ["a hex value", "api_key: 8f3a9c2b1d4e5f6a", "8f3a9c2b1d4e5f6a"],
+      ["a quoted value", 'password: "hunter22"', "hunter22"],
+      ["an inline JSON field", '{"password": "hunter22", "user": "bob"}', "hunter22"],
+      ["a base64 value with padding", "secret: aGVsbG8gd29ybGQxMjM0NQ==", "aGVsbG8"],
+      ["one line of many", "user: bob\nPASSWORD=Tr0ub4dor3xy\nhost: db", "Tr0ub4dor3xy"],
+    ])("masks %s", (_label, input, leaked) => {
+      const masked = redactSecrets(input);
+      expect(masked).not.toContain(leaked);
+      expect(masked).toContain("[redacted]");
+    });
+
+    test("keeps the key and its quotes so a masked JSON field stays parseable", () => {
+      expect(redactSecrets('{"password": "hunter22", "user": "bob"}')).toBe(
+        '{"password": "[redacted]", "user": "bob"}',
+      );
+    });
+  });
+
+  test("masking twice is a no-op", () => {
+    // Every adapter that already redacts hands its body to writeEvidence, which
+    // redacts again. A second pass that re-matched its own output would mangle all
+    // of them.
+    const once = redactSecrets(`export KEY=sk-ant-api03-${"A".repeat(36)}\npassword: swordfish\n`);
+    expect(redactSecrets(once)).toBe(once);
+  });
 });
 
 describe("defaultTranscriptDir", () => {
