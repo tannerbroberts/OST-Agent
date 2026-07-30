@@ -31243,20 +31243,30 @@ function configPath(vaultDir) {
 function defaultConfig() {
   return ConfigSchema.parse({ outcome: BOOTSTRAP_PLACEHOLDER_OUTCOME });
 }
-function loadConfig(vaultDir, opts = {}) {
+function readConfig(vaultDir, opts = {}) {
   const p2 = configPath(vaultDir);
   if (!fs.existsSync(p2)) {
-    if (opts.missing === "defaults") return defaultConfig();
+    if (opts.missing === "defaults") return { config: defaultConfig() };
     throw new Error(`no ${CONFIG_FILENAME} in ${vaultDir} \u2014 run \`ost-agent init\` first`);
   }
-  const raw = (0, import_yaml.parse)(fs.readFileSync(p2, "utf8")) ?? {};
+  let raw;
+  try {
+    raw = (0, import_yaml.parse)(fs.readFileSync(p2, "utf8")) ?? {};
+  } catch (e) {
+    return { config: defaultConfig(), problem: `${CONFIG_FILENAME} is not valid YAML: ${e instanceof Error ? e.message : String(e)}` };
+  }
   const result = ConfigSchema.safeParse(raw);
   if (!result.success) {
     const issues = result.error.issues.map((i2) => `  - ${i2.path.join(".") || "(root)"}: ${i2.message}`).join("\n");
-    throw new Error(`invalid ${CONFIG_FILENAME}:
-${issues}`);
+    return { config: defaultConfig(), problem: `invalid ${CONFIG_FILENAME}:
+${issues}` };
   }
-  return result.data;
+  return { config: result.data };
+}
+function loadConfig(vaultDir, opts = {}) {
+  const { config: config2, problem } = readConfig(vaultDir, opts);
+  if (problem) throw new Error(problem);
+  return config2;
 }
 
 // src/adapters/inbox.ts
@@ -33016,7 +33026,9 @@ function resolveSearchProvider(config2) {
 }
 function buildPassContext(vaultDir, opts = {}) {
   const dir = path6.resolve(vaultDir);
-  const config2 = opts.listingOnly ? defaultConfig() : loadConfig(dir, opts.allowMissingConfig ? { missing: "defaults" } : {});
+  const missing = opts.allowMissingConfig ? { missing: "defaults" } : {};
+  const loaded = opts.listingOnly ? { config: defaultConfig(), problem: void 0 } : opts.tolerateInvalidConfig ? readConfig(dir, missing) : { config: loadConfig(dir, missing), problem: void 0 };
+  const config2 = loaded.config;
   const skipSources = opts.skipSources === true || opts.listingOnly === true;
   const sources = [];
   if (!skipSources && config2.adapters.inbox.enabled) {
@@ -33070,6 +33082,7 @@ function buildPassContext(vaultDir, opts = {}) {
     vault: new Vault(dir, { create: !opts.listingOnly }),
     dir,
     config: config2,
+    ...loaded.problem ? { configProblem: loaded.problem } : {},
     ruleset: OST_RULESET,
     sources,
     remote: { enabled: config2.remote.enabled, url: config2.remote.url },
@@ -42055,7 +42068,39 @@ function buildOstTools(ctx, allowedNames) {
   }
   const names = allowedNames ? new Set(allowedNames) : null;
   const selected = names ? all.filter((t2) => names.has(t2.name)) : all;
-  return withUsageTracing(selected, dir, ctx.surface ?? "unknown");
+  return withUsageTracing(degradeOnBrokenConfig(selected, ctx.configProblem), dir, ctx.surface ?? "unknown");
+}
+var CONFIG_DEPENDENT = /* @__PURE__ */ new Set([
+  "ost_ingest_inbox",
+  "ost_search_web",
+  "ost_read_web",
+  "ost_read_repo",
+  "git_push"
+]);
+function degradeOnBrokenConfig(tools, problem) {
+  if (!problem) return tools;
+  const unavailable = tools.filter((t2) => CONFIG_DEPENDENT.has(t2.name)).map((t2) => t2.name);
+  const notice = `
+
+\u26A0 ${problem}
+Schema defaults are in force. ${unavailable.length} tool(s) that depend on the file are refusing until it is fixed: ${unavailable.join(", ") || "(none on this surface)"}.`;
+  return tools.map(
+    (t2) => CONFIG_DEPENDENT.has(t2.name) ? {
+      ...t2,
+      run: async () => {
+        throw new Error(
+          `${t2.name} is unavailable: ${problem}
+This tool is governed by that file, and the schema defaults are not the operator's settings. Fix ost.config.yaml and call it again.`
+        );
+      }
+    } : {
+      ...t2,
+      run: async (input) => {
+        const out = await t2.run(input);
+        return typeof out === "string" ? out + notice : out;
+      }
+    }
+  );
 }
 
 // src/security/validateToolInput.ts
@@ -42243,7 +42288,8 @@ function buildDefs(ctx) {
       surface: "mcp",
       web: ctx.web,
       productRepos: ctx.productRepos,
-      passContext: ctx
+      passContext: ctx,
+      configProblem: ctx.configProblem
     },
     MCP_TOOL_NAMES
   );
@@ -42323,9 +42369,11 @@ function createLazyOstMcpServer(vaultDir) {
     if (!live) {
       const readiness = vaultReadiness({ dir });
       if (!readiness.ready) return { setup: readiness };
-      const ctx = buildPassContext(dir, { skipSources: true });
+      const ctx = buildPassContext(dir, { skipSources: true, tolerateInvalidConfig: true });
       const defs = buildDefs(ctx);
-      live = { ctx, defs, byName: new Map(defs.map((d) => [d.name, d])) };
+      const built = { ctx, defs, byName: new Map(defs.map((d) => [d.name, d])) };
+      if (ctx.configProblem) return { live: built };
+      live = built;
     }
     return { live };
   };

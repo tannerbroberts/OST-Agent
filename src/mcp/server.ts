@@ -97,6 +97,7 @@ function buildDefs(ctx: PassContext): McpToolDef[] {
       web: ctx.web,
       productRepos: ctx.productRepos,
       passContext: ctx,
+      configProblem: ctx.configProblem,
     },
     MCP_TOOL_NAMES,
   );
@@ -270,9 +271,18 @@ export function createLazyOstMcpServer(vaultDir: string): Server {
       // plugin launches this server without the operator's shell env) must not
       // take unrelated tools down. May still throw on a broken config; both
       // request handlers catch that and answer with the fix.
-      const ctx = buildPassContext(dir, { skipSources: true });
+      const ctx = buildPassContext(dir, { skipSources: true, tolerateInvalidConfig: true });
       const defs = buildDefs(ctx);
-      live = { ctx, defs, byName: new Map(defs.map((d) => [d.name, d])) };
+      const built = { ctx, defs, byName: new Map(defs.map((d) => [d.name, d])) };
+      // A degraded context is never cached. Recovery-on-fix used to be free — a
+      // broken config threw, so nothing was there to cache and the first call after
+      // the human edited the file built the real thing. Tolerating the broken file
+      // (G1) removed that accident, and caching the degradation would trade one
+      // session-long outage for another: the tools would keep refusing after the file
+      // was correct. Re-reading one small file per call until it parses is the price,
+      // and it stops the moment it succeeds.
+      if (ctx.configProblem) return { live: built };
+      live = built;
     }
     return { live };
   };
