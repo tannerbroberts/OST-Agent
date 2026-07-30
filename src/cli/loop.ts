@@ -57,7 +57,7 @@ const HOUR_MS = 60 * 60 * 1000;
  * refused to fire, forever, on the one configuration the documentation hands out.
  * A refusal nobody can clear by following the instructions is R2's shape.
  */
-function resolveSessionsDir(vaultDir: string, declared: string): string {
+export function resolveSessionsDir(vaultDir: string, declared: string): string {
   if (declared === "~") return os.homedir();
   if (declared.startsWith("~/")) return path.join(os.homedir(), declared.slice(2));
   return path.resolve(vaultDir, declared);
