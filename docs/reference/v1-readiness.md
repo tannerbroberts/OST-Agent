@@ -12,19 +12,25 @@ rule set, and again after B12 stated the ingest-to-rank chain as one criterion
 instead of four cross-references, and again after B8 made a declared rung a claim
 the tree checks, and again after **Gate F** was added because everything above it
 specifies a system that cannot hurt you and none of it specifies a system that
-does anything. `tsc --noEmit` is clean and the suite is green — and nothing below
-is about the code being broken. It is about the difference between *a tool that
-works when watched* and *a system that can be left alone*.
+does anything, and again after **F6's join landed** and Tier 3½'s acceptance test
+stopped being a conjunction of tests written for other reasons. `tsc --noEmit` is
+clean and the suite is green — and nothing below is about the code being broken.
+It is about the difference between *a tool that works when watched* and *a system
+that can be left alone*.
 
-**75 criteria, 20 of them blockers. 27 met, 5 partial, 43 not met.** Three of the
-twenty-seven were met by *deleting* something rather than building it, which is the
+**75 criteria, 20 of them blockers. 28 met, 4 partial, 43 not met.** Three of the
+twenty-eight were met by *deleting* something rather than building it, which is the
 document working as intended; four more were the first Tier 1 batch, each of
 which turned a wedge into a refusal at the boundary that could still take it back.
 The Gate F batch closed nine — W5, W13, F1, F2, F3, H1, H3, H4 and G3, with F4 and
 F6 partial — and **six of those nine were not Gate F criteria.** H1, H3 and H4 had
 been waiting on a firing to record; G3's two dead modules were both dead because
 the criterion that needed them had not been built. That is the ordering constraint
-paying out rather than being obeyed.
+paying out rather than being obeyed. **F6 closed next**, on its own, and it is the
+one criterion here whose subject is the other criteria: it asserts that the files
+Gate F's verdicts are computed from cannot be written by either surface the
+unattended path grants. Its entry records that the test's own first draft was
+vacuous and green.
 
 > **What the Gate F revision changed, beyond adding six criteria.** Three existing
 > entries were wrong and one check could not be run at all. **Z1 — a blocker — was
@@ -50,12 +56,20 @@ paying out rather than being obeyed.
 > what to re-run:
 >
 > ```bash
-> grep -cE '^\*\*(⛔ )?[A-Z][0-9]+ —' docs/reference/v1-readiness.md   # 68 criteria
-> grep -cE '^\*\*⛔ [A-Z][0-9]+ —' docs/reference/v1-readiness.md      # 17 blockers
+> grep -cE '^\*\*(⛔ )?[A-Z][0-9]+ —' docs/reference/v1-readiness.md   # 75 criteria
+> grep -cE '^\*\*⛔ [A-Z][0-9]+ —' docs/reference/v1-readiness.md      # 20 blockers
 > grep -oE '^> \*Today:\*\s+\*\*[a-z, ]+' docs/reference/v1-readiness.md \
 >   | sed 's/.*\*\*//;s/^met.*/met/;s/^partial.*/partial/;s/^not met.*/not met/' \
->   | sort | uniq -c                                                  # 17 / 3 / 48
+>   | sort | uniq -c                                                  # 28 / 4 / 43
 > ```
+>
+> *Those three trailing comments read `68 / 17 / 17-3-48` until 2026-07-29 — the
+> counts from the revision that introduced the commands, left behind by the two
+> revisions after it. **A command that reports the right number beside a comment
+> stating the wrong one is the same failure one layer down**, which is why the
+> numbers are now pinned rather than commented: `test/release/readiness-counts.test.ts`
+> re-runs all four counts against this file and fails when the summary line
+> disagrees.*
 >
 > The `sed` collapse is load-bearing: eight entries qualify the verdict in the
 > same bold span (*"not met, and nothing exists to build on"*), and a count that
@@ -64,10 +78,13 @@ paying out rather than being obeyed.
 > explains the symbol, and three occurrences inside this blockquote's own prose
 > and commands. *That sentence used to read "returns 18 blockers; the eighteenth
 > is the legend" — a claim this blockquote falsified in the same commit that added
-> it, by mentioning the symbol three more times.* **A number in a summary line is
-> still a claim carried by memory about claims carried by tests, and it remains
-> the one thing here nothing pins** — the three commands above are the cheapest
-> available substitute, not a fix.
+> it, by mentioning the symbol three more times.* **A number in a summary line was
+> a claim carried by memory about claims carried by tests, and it was the one thing
+> here nothing pinned.** It is pinned now. The commands above are what the test
+> runs, so the summary line, the comments beside the commands, and the file itself
+> can no longer drift apart in silence — the failure that produced `11 met, 53 not
+> met` against a file holding 13 and 51, and then produced the stale comments
+> above.
 
 **The second batch moved two criteria in opposite directions, and that is the
 point of pinning things.** R9's clearability table now runs (`test/eval/clearability.test.ts`),
@@ -1373,26 +1390,61 @@ write.**
 > *Decided by:* a committed test over both surfaces, run by CI. This is the
 > criterion that makes the other five mean anything, and the only one whose subject
 > is the other five.
-> *Today:* **partial** (2026-07-29). **Both halves hold for the files that exist,
-> and nothing yet asserts the join.** The MCP half was always clean: `nodePath`
-> refuses any path containing a separator (`src/ost/vault.ts:103-110`), so no
-> `ost_*` call can reach a sidecar. The harness half closed with W5 — Edit, Write,
-> Bash and the rest are explicitly denied on both automation entry points, pinned by
-> `test/release/examples-allowlist.test.ts`. And the loop's records live under
-> `<vault>/.git/ost-agent/`, which is outside the tree the agent can address at all.
+> *Today:* **met** (2026-07-29). The join is asserted, in one file, by
+> `test/release/gate-f-deciders.test.ts` — 19 tests in four parts. **Enumeration:**
+> every module under `src/loop/` is classified as a reader (attributed to the
+> decider whose file list already names what it opens) or as pure (asserted to
+> contain no read syscall at all), and a seventh module fails the build until
+> someone classifies it. That is the part that answers *"a fourth decider added
+> reading somewhere new"*; the previous entry named it as the hole and it is now
+> the first test in the file. **The MCP surface, behaviourally:** every mutating
+> tool is built from the real `buildOstTools` and invoked against every decider
+> path — the path filled into *every* string argument its own schema declares,
+> in three spellings, relative, absolute and dot-relative — after which all six
+> decider files are compared byte for byte, the loop's state directory is compared
+> for files planted *beside* a decider, and `git add -A` is run to confirm the
+> sweep still cannot see any of them. **The harness surface:** each entry point's
+> grant is checked to contain only names on `MCP_TOOL_NAMES` (the surface the
+> previous part just exercised) and to deny every built-in that can write a path
+> of its own choosing.
 >
-> What is missing is the criterion's actual subject: **a single test that enumerates
-> the files each Gate F decider reads and checks them against both surfaces.** Today
-> that property is the conjunction of three tests written for three other reasons,
-> which is precisely the shape B12 exists to warn about — *each link passing in
-> isolation while nothing asserts they are the same chain.* W5 could be tightened,
-> the ledger path could move, and a fourth decider could be added reading somewhere
-> new, and every existing test would stay green.
+> **The fourth part is the join proper, and it is a classification rather than a
+> list.** Each decider path lands in exactly one of three shelters —
+> *outside-the-vault* (the transcript directory F3 measures spend from),
+> *inside-dot-git* (the ledger, the open-run marker, the lock, `HEAD`), or
+> *operator-owned-config* (`ost.config.yaml`) — and a path fitting none comes out
+> `unclassified` and fails. All three are asserted to be in use, so none of them is
+> prose that has quietly stopped applying.
+>
+> **What the classification exposed is worth more than the green.** Two of the
+> three shelters are properties of *location* and survive any change to the grant.
+> The config's is not: it is a property of the **writer** — every MCP write
+> resolves to `<vault>/<sanitized title>.md`, and neither the separator nor the
+> extension is the caller's to choose — plus the harness deny list. So
+> `ost.config.yaml` holds three of the six Gate F inputs (`loop.cadence`,
+> `loop.spend`, `loop.lockTtlMinutes`) inside the working tree, sheltered by
+> exactly one thing: **W5's deny list, and W6's `set-outcome` grant staying off the
+> unattended path.** One added `Bash(…)` prefix and the cadence, the ceiling and
+> the lock TTL are all editable by the actor they bound. The gate's precondition
+> note already said W5 was load-bearing; this says which decider falls first.
+>
+> **And the test's own first draft was vacuous and green, which is the failure this
+> criterion is about, committed by the file asserting it.** The driver read
+> `inputSchema` off each tool definition; the shipped definitions carry
+> `input_schema` (`src/security/tool.ts:37`). So every generated input was
+> `undefined`, every call threw *inside the `catch` written for the tools'
+> refusals*, and the byte comparison passed against a surface nothing had ever
+> touched. It surfaced only because a second test built its input outside the try
+> and crashed. The fix is structural rather than a corrected key: inputs are built
+> outside the `try`, a missing schema throws, and the run counts the argument
+> fields the attack actually reached and asserts that count exceeds the number of
+> calls — *the number that would have been zero while everything stayed green*.
+> **A check that cannot distinguish its passing state from its broken state is not
+> a check**, and this document has now watched that sentence come true on a
+> citation, on a criterion status, and on a test's own driver.
 >
 > **F6 is what turns "the tree must never validate itself" from a principle into
-> something with a failure mode**, and it is why W5 moved to Tier 1. It stays a
-> blocker until the join is asserted, because the whole gate is worth exactly what
-> this criterion is worth.
+> something with a failure mode**, and it is why W5 moved to Tier 1.
 
 ---
 
@@ -1844,10 +1896,21 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 942 tests across 94 files, verified 2026-07-29. (The count this
-> line carried two revisions ago, 878 across 86, predated `8261a6f`'s deletion of the
+> *Today:* **met** — 968 tests across 96 files, verified 2026-07-29 (`npx vitest run`,
+> after F6's join test and the readiness-count pin landed). (The count this line
+> carried two revisions ago, 878 across 86, predated `8261a6f`'s deletion of the
 > genome and harness and was never updated with it — a reminder that a number in this
-> document is a claim like any other.)
+> document is a claim like any other. It has since been wrong twice more, both times
+> because a batch of tests landed and this line did not move with them, which is why
+> each revision now re-runs the suite rather than reasoning about the delta.)
+>
+> *The **file** half of that count is pinned — `test/release/readiness-counts.test.ts`
+> counts `test/**/*.test.ts` on disk and fails when this line disagrees. The **test**
+> half is not, and cannot be from inside the suite: the number is only knowable by
+> running the run, and a test that ran the suite to count it would run the suite
+> inside the suite. Stated rather than left as an apparent oversight — this is a
+> number carried by the command in the check line, and the file count is there so a
+> whole batch of tests can never land with this line untouched.*
 
 **D2 — Every command's `allowed-tools` names only tools that exist.**
 > *Check:* for each of the nine files in `.claude/commands/`, every entry starting
@@ -1969,8 +2032,8 @@ false when the other four are each built and W5 is not.
 
 The tier is numbered 3½ rather than 6 because it does not come after Tier 5; it
 sits on W5 (now Tier 1) and on nothing else in Tiers 2–5. It could be built
-tomorrow — and on 2026-07-29 it was: **F1, F2 and F3 are met, F4 and F6 are
-partial, and W5 closed in the same change.** The reason it is placed after the
+tomorrow — and on 2026-07-29 it was: **F1, F2, F3 and F6 are met, F4 is partial,
+and W5 closed in the same change.** The reason it is placed after the
 writer boundary rather than before the forgeable instruments is the counter-case
 below, and F4 is where that argument actually bites: a firing that seals `healthy`
 has passed `checkInvariants`, and B1 and B2 are the standing finding that
@@ -1979,14 +2042,17 @@ has passed `checkInvariants`, and B1 and B2 are the standing finding that
 engine on Tier 2. A machine that cannot tell you it stopped working is a worse
 problem than a machine whose success report is only as good as Gate B.
 
-> **What is left in this tier is the join, and it is the part that matters.** F6
-> is partial because both of its halves hold and *nothing asserts they are the same
-> chain* — the property is currently the conjunction of three tests written for
-> three other reasons. That is B12's shape exactly, one tier over: W5 could be
-> loosened, the ledger could move out of `.git/`, or a fourth decider could be
-> added reading somewhere new, and every existing test would stay green while the
-> gate quietly stopped meaning anything. **A tier whose acceptance test is partial
-> is a tier that is built, not a tier that is done.**
+> **The join landed on 2026-07-29 and it closed the tier's acceptance test.** F6
+> had been partial because both halves held and *nothing asserted they were the
+> same chain* — the property was the conjunction of three tests written for three
+> other reasons, B12's shape one tier over. `test/release/gate-f-deciders.test.ts`
+> now enumerates every decider input, classifies each by the mechanism that
+> shelters it, and refuses a fourth category; a new module under `src/loop/` fails
+> the build until someone says what it reads. **What remains open in this tier is
+> F4's escalation half, which is downstream of S1, not of anything here** — the
+> tier's acceptance test passes, and the tier is done in the sense this document
+> means: the mechanisms exist and their verdicts are decided by something the
+> cartographer cannot write.
 
 **F5 is deliberately not in this tier, or any tier.** It is not sequenced because
 it is not designed; see its entry. Sequencing an undesigned criterion is how a
@@ -2105,13 +2171,22 @@ as a human interrupt because spending real money is where DEC-3 says the sponsor
 *should* be interrupted — recorded as a decision so it cannot later read as an
 oversight.
 
-**The next single item is still B9,** and Gate F does not displace it. B9 waits on
-nothing — a detector check buildable against a single hand-made vault — and it is
-where DEC-2's cause-and-effect test gets a seat: `## Format` is designed as the
-stopping condition and is a heading nobody grades. **But W5 is now cheaper than B9
-and unblocks more**, so it goes first: it is two `--disallowedTools` arguments, it
-moves a Tier 1 criterion, and until it lands every Gate F mechanism is a mechanism
-whose verdict the agent can write.
+**The next single item is B9.** W5 went first — it was cheaper, it moved a Tier 1
+criterion, and until it landed every Gate F mechanism was a mechanism whose verdict
+the agent could write — and F6 followed it, which is what closed Tier 3½'s
+acceptance test. Neither displaces B9, which has been the next item across three
+revisions and is now actually next: it waits on nothing, it is a detector check
+buildable against a single hand-made vault, and it is where DEC-2's cause-and-effect
+test gets a seat — `## Format` is designed as the stopping condition and is a
+heading nobody grades.
+
+> **What is *not* next, and why, because the ordering keeps being the thing this
+> document gets right.** F4's escalation half looks closable and is not: it is
+> downstream of S1 (a blocker), because a no-op streak counter latches red in a repo
+> whose steady state is the condition it detects. F5 is undesigned rather than
+> unbuilt. And **B1 still sits under B4, B8 and F4** — the forgeable-heading path is
+> now the named dependency of three met-or-partial criteria, which is a lot of
+> weight on one open blocker. B9 is next; B1 is the one that is accumulating debt.
 
 ---
 
@@ -2146,7 +2221,11 @@ Stating these keeps the bar honest and keeps the README from over-promising:
   because a heading, a status field and an annotation are all writable by the actor
   being judged (B1, B2, B10). **Where a Gate F decider is not yet outside the
   agent's reach, the criterion says so rather than reporting a number** — F6 is the
-  criterion that comes out false while that is true, and it is false today.
+  criterion that comes out false while that is true, and as of 2026-07-29 it comes
+  out true, asserted by `test/release/gate-f-deciders.test.ts`. Read its entry for
+  the one shelter that is conditional rather than structural: three of the six
+  decider inputs sit in `ost.config.yaml`, inside the working tree, held there by
+  W5's deny list rather than by where the file lives.
 - **Not** that "progress" is a measured quantity. F5 states the acceptance
   condition a mandate should carry and **does not ship a mechanism**, because the
   two obvious ones are both disqualified: an automated judge is what
