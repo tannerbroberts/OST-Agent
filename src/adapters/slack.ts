@@ -80,6 +80,16 @@ export class SlackSource implements Source {
 
     return { items, cursor: encode({ since: newSince, seen: newSeen }) };
   }
+
+  /**
+   * Refuses to advance partially: `since` is a high-water mark, and no watermark can
+   * express "the first three messages of this batch stored, the fourth did not".
+   * Keeping the previous cursor re-fetches the batch, and `writeEvidence`'s
+   * id-keyed idempotency drops the ones already on disk.
+   */
+  advanceCursor(previous: Cursor): Cursor {
+    return previous;
+  }
 }
 
 /** Slack ts ("epoch.micros") → ISO timestamp. */

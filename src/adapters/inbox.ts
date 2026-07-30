@@ -8,7 +8,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import type { Actor, Cursor, FetchResult, Source } from "./source.js";
+import type { Actor, Cursor, EvidenceItem, FetchResult, Source } from "./source.js";
 
 const TEXT_EXT = new Set([".md", ".txt", ".markdown"]);
 
@@ -57,6 +57,15 @@ export class InboxSource implements Source {
     }
 
     return { items, cursor: encodeSeen([...seen]) };
+  }
+
+  /**
+   * Exact, because this cursor is a set of ids rather than a watermark: the ids that
+   * were already seen, plus the ids that were actually stored. An item that failed to
+   * store is absent, so the next `fetchSince` offers it again.
+   */
+  advanceCursor(previous: Cursor, stored: EvidenceItem[]): Cursor {
+    return encodeSeen([...new Set([...decodeSeen(previous), ...stored.map((i) => i.id)])]);
   }
 }
 

@@ -15,12 +15,15 @@ specifies a system that cannot hurt you and none of it specifies a system that
 does anything, and again after **F6's join landed** and Tier 3½'s acceptance test
 stopped being a conjunction of tests written for other reasons, and again after
 **Tier 2 closed** — B1, B2, B3, B9 and B10 in one batch, which took the tree's
-three forgeable instruments off the agent's surface. `tsc --noEmit` is
+three forgeable instruments off the agent's surface, and again after **W9 and W10
+closed together**, because they turned out to be one defect: a `writeEvidence` that
+answered "already stored" when it meant "not stored" is exactly what let the cursor
+mark an unstored report as delivered. `tsc --noEmit` is
 clean and the suite is green — and nothing below is about the code being broken.
 It is about the difference between *a tool that works when watched* and *a system
 that can be left alone*.
 
-**75 criteria, 20 of them blockers. 34 met, 4 partial, 37 not met.** Three of the
+**75 criteria, 20 of them blockers. 36 met, 4 partial, 35 not met.** Three of the
 twenty-eight were met by *deleting* something rather than building it, which is the
 document working as intended; four more were the first Tier 1 batch, each of
 which turned a wedge into a refusal at the boundary that could still take it back.
@@ -62,7 +65,7 @@ vacuous and green.
 > grep -cE '^\*\*⛔ [A-Z][0-9]+ —' docs/reference/v1-readiness.md      # 20 blockers
 > grep -oE '^> \*Today:\*\s+\*\*[a-z, ]+' docs/reference/v1-readiness.md \
 >   | sed 's/.*\*\*//;s/^met.*/met/;s/^partial.*/partial/;s/^not met.*/not met/' \
->   | sort | uniq -c                                                  # 34 / 4 / 37
+>   | sort | uniq -c                                                  # 36 / 4 / 35
 > ```
 >
 > *Those three trailing comments read `68 / 17 / 17-3-48` until 2026-07-29 — the
@@ -376,13 +379,24 @@ tool surface.**
 **⛔ W9 — No delivered report is ever accepted and then silently dropped.**
 > *Check:* drop two files colliding under `safeName` (`note.md`, `note.txt`);
 > assert `readEvidence(dir).length === 2`.
-> *Today:* **not met** *(verified: returns 1, the tool reports "captured 1 new
-> note(s): note", and the cursor stores both ids as seen).* Idempotency is keyed
-> on a lossy filename rather than on the id (`src/processes/tree.ts:24-26`). Under
-> DEC-1 the inbox is the builder's **only** channel, and a builder whose report
-> collides has no way to detect it. `titlesMatch` (`src/ost/sanitize.ts:98-101`)
-> is this repo's own precedent for "lookup must agree with storage", written after
-> exactly this class of bug.
+> *Today:* **met** (2026-07-30), pinned by `test/mcp/inbox-durability.test.ts:79-95`.
+> The filename is now a hint and the frontmatter `id` is the key: `evidenceFile`
+> (`src/processes/tree.ts:69-73`) keeps the plain `safeName` path when the file there
+> is absent or already carries this id, and moves to a name suffixed with a digest of
+> the whole id when some other record owns it. Keeping the uncollided case
+> byte-identical is what lets W8's second guard — the `existsSync` that survives a
+> deleted cursor — keep recognising records written before this change, and a test
+> asserts that the digest path is reached only on a real collision.
+>
+> **Two smaller things came out of building it.** The first is that `writeEvidence`'s
+> `false` had been carrying two meanings — "already stored" and "not stored, and I am
+> not going to tell you" — and only the first is safe to key a cursor on. Its return
+> is now a stated contract of exactly three answers, with the residual case (a digest
+> path owned by a third id) throwing rather than returning `false`, which hands it to
+> W10's machinery instead of dropping it. The second is that this criterion and W10
+> are one defect seen from two sides: a silent `false` is precisely what let the
+> cursor advance past an unstored item, which is why W10's check has to forbid stubbing
+> `false` to reproduce it.
 
 **⛔ W10 — An unstored item leaves the cursor un-advanced, so a producer can
 retry.**
@@ -391,9 +405,28 @@ retry.**
 > `ost_ingest_inbox` re-offers items two and three. (Do *not* stub it to return
 > `false` — that is the ordinary already-stored path W8 depends on, and forcing it
 > would re-capture every stored note.)
-> *Today:* **not met.** `src/security/tools.ts:596` calls `saveCursor` with the
-> fully advanced cursor, outside any try/catch. Silent loss of the sole input
-> channel corrupts week one as surely as any wedge on this list.
+> *Today:* **met** (2026-07-30), pinned by `test/mcp/inbox-durability.test.ts:124-157`.
+> The ingest loop stores one item at a time and keeps the list of items that actually
+> reached disk; on a failure it stops there and saves a cursor covering that prefix,
+> then returns a `STOPPED at "…"` report naming the item, the cause, and the fact that
+> calling the tool again re-offers it (`src/security/tools.ts:651-683`).
+>
+> **The cursor is opaque to the framework by design, so the framework cannot narrow one
+> — the adapter has to.** `Source` now requires `advanceCursor(previous, stored)`
+> (`src/adapters/source.ts:78-95`), and *returning `previous` unchanged is a correct
+> implementation*: a high-water mark cannot name a subset of its own batch, so Slack,
+> Atlassian and the usage rollup return it and re-fetch, while the inbox — whose cursor
+> is a set of ids — narrows exactly. The transcript source is the interesting one: its
+> seen-set is deliberately **wider** than the items it emits, because a harvested
+> session with no friction is marked seen and never becomes an item, so rebuilding from
+> `stored` would re-harvest those sessions forever. The method is required rather than
+> optional so a new adapter has to answer the question in the file where its cursor
+> scheme is written, and the safe answer is always available.
+>
+> **The failure is reported, not thrown.** A throw skips the dispatcher's `git add -A`
+> commit (`src/mcp/server.ts:206-208`), which would leave the records that *did* store
+> sitting untracked in the working tree — trading a lost report for an unattributed
+> file, which is D5's failure mode. The returned text is where the alarm lives.
 
 **W11 — An evidence record names who produced it, stamped by the surface.**
 > *Check:* (a) `EvidenceRecord` (`src/processes/tree.ts:12-25`) declares an
@@ -2148,8 +2181,8 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1039 tests across 100 files, verified 2026-07-30 (`npx vitest run`,
-> after W11's stamp landed). (The count this line
+> *Today:* **met** — 1044 tests across 101 files, verified 2026-07-30 (`npx vitest run`,
+> after the inbox-durability batch landed). (The count this line
 > carried two revisions ago, 878 across 86, predated `8261a6f`'s deletion of the
 > genome and harness and was never updated with it — a reminder that a number in this
 > document is a claim like any other. It has since been wrong twice more, both times
@@ -2525,7 +2558,7 @@ a finding the build reproduces.** Moving rows from here to there is the work.
 | R5 | Hygiene issue suppressed by prose merely quoting it; `[[Ghost]]` cleared — *fixed 2026-07-29; suppression now reads the dated `## Issues` entry* | `src/mcp/next-work.ts:158-161` |
 | R6 | `ost_link_nodes` accepted an Opportunity under a Solution; parent existence *is* checked | `src/ost/vault.ts:229-238` |
 | W7 | `ost_read_repo` read a 4,311-char evidence body and `state/inbox.json` | `src/product/repo.ts:19` |
-| W9 | Two colliding inbox files → one record, tool reports "captured 1" | `src/processes/tree.ts:24-26` |
+| W9 | Two colliding inbox files → one record, tool reports "captured 1" — *fixed 2026-07-30; the storage name is now a hint and the frontmatter `id` is the key, and both halves are rows the build re-runs* | `test/mcp/inbox-durability.test.ts:79-95` |
 | F6 | Every drafted Gate F decider reads a file the unattended path can `Write`: `acceptEdits` with no `--disallowedTools`, vault as cwd | `examples/automation/autonomous-pass.sh` |
 | W5 | Same finding, from the other side — the MCP surface cannot reach a sidecar ledger (`nodePath` refuses a separator), the harness surface can | `src/ost/vault.ts:103-110` |
 | Z1 | 500 near-duplicates → `RangeError` — *withdrawn 2026-07-29: re-running it returns in 186 ms. R4's commit deleted the spread that caused it and nobody re-ran the check. Now a row the build re-runs* | `test/mcp/large-tree.test.ts` |
