@@ -31941,6 +31941,18 @@ function believabilityRollup(nodes) {
   }
   return { counts, unlabelled, weakest: weakestRung(present) };
 }
+function classifyProvenance(source, opts) {
+  const s = source.trim();
+  if (!s) return FLOOR_RUNG;
+  if (/^TRANSCRIPT:/i.test(s)) return "observed";
+  if (/^INBOX:.*friction/i.test(s)) return "stated";
+  if (/^(JIRA|CONFLUENCE|SLACK|INTERVIEW):/i.test(s)) return "stated";
+  const web = /^WEB:([^\s/]+)/i.exec(s);
+  if (web) {
+    return opts?.hostTrust?.get(web[1].toLowerCase().replace(/^www\./, "")) === "expert" ? "expert" : FLOOR_RUNG;
+  }
+  return FLOOR_RUNG;
+}
 
 // src/knowledge/lanes.ts
 var LANES = [
@@ -38263,6 +38275,42 @@ function setLane(vaultDir, filing) {
   return vault.setLane(filing.test, filing.lane, `by ${by} \u2014 ${why}`);
 }
 
+// src/eval/rungs.ts
+var MEASUREMENT_RUNGS = ["money", "observed"];
+function isMeasurementRung(rung) {
+  return !!rung && MEASUREMENT_RUNGS.includes(rung);
+}
+function unearnedRungs(tree) {
+  const index = byTitle([...tree]);
+  const found = [];
+  for (const n of tree) {
+    if (!isMeasurementRung(n.evidence)) continue;
+    const ownResult = hasRecordedResult(n);
+    const childResult = n.links.map((t2) => index.get(t2)).find((c3) => c3 && hasRecordedResult(c3));
+    const resultBacked = ownResult || !!childResult;
+    const sourceRung = classifyProvenance(n.source ?? "");
+    const sourceObserved = rungRank(sourceRung) <= rungRank("observed");
+    if (n.evidence === "money" && !resultBacked) {
+      found.push({
+        node: n.title,
+        declared: "money",
+        supported: sourceObserved ? "observed" : sourceRung,
+        missing: "'money' means behavior with a cost attached, which only a result can show \u2014 record one (a `## Results` section on this node or on a test beneath it), or declare the rung its sources have earned"
+      });
+      continue;
+    }
+    if (n.evidence === "observed" && !resultBacked && !sourceObserved) {
+      found.push({
+        node: n.title,
+        declared: "observed",
+        supported: sourceRung,
+        missing: `'observed' means a recording of what happened \u2014 cite provenance that is one (source: TRANSCRIPT:\u2026; this node's source is ${n.source ? `"${n.source}"` : "unset"}, which classifies as ${sourceRung}), record a result, or declare the weaker rung`
+      });
+    }
+  }
+  return found;
+}
+
 // src/eval/invariants.ts
 function checkInvariants(tree) {
   const v = [];
@@ -38316,6 +38364,13 @@ function checkInvariants(tree) {
     if (n.tags.includes("unvalidated") && n.status === "validated") {
       v.push({ rule: "no-self-validation", node: n.title, detail: "carries the 'unvalidated' tag but status is 'validated' \u2014 contradiction" });
     }
+  }
+  for (const u of unearnedRungs(tree)) {
+    v.push({
+      rule: "rung-unearned",
+      node: u.node,
+      detail: `declares '${u.declared}' but what it points at supports '${u.supported}' \u2014 ${u.missing}`
+    });
   }
   for (const c3 of laneConflicts(tree)) {
     v.push({
@@ -40797,7 +40852,8 @@ var HYGIENE_LABELS = {
   "assumption-mapped": "orphan assumption test",
   "evidence-class": "unclassed evidence",
   "no-self-validation": "self-validated",
-  "lane-conflict": "lane conflict"
+  "lane-conflict": "lane conflict",
+  "rung-unearned": "unearned rung"
 };
 function detectHygiene(tree) {
   const index = byTitle(tree);

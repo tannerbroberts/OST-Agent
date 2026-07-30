@@ -117,6 +117,7 @@ export const HYGIENE_LABELS: Readonly<Record<string, string>> = {
   "evidence-class": "unclassed evidence",
   "no-self-validation": "self-validated",
   "lane-conflict": "lane conflict",
+  "rung-unearned": "unearned rung",
 };
 
 /**

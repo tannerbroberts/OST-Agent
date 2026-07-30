@@ -9,6 +9,7 @@ import { BELIEVABILITY_LADDER } from "../knowledge/believability.js";
 import { byTitle } from "../processes/tree.js";
 import { laneConflicts } from "../ost/lanes.js";
 import { wrappedLinkTargets, type OstNode } from "../ost/node.js";
+import { unearnedRungs } from "./rungs.js";
 
 export interface Violation {
   rule: string;
@@ -92,6 +93,19 @@ export function checkInvariants(tree: OstNode[]): Violation[] {
   // Same shape as no-self-validation above — one node, two fields, opposite
   // claims — and a hard failure for the same reason: the fail-closed direction
   // of a lane is the safety argument, and a contradiction has no direction.
+  // a node may not declare a measurement it cannot point at. The two rungs that
+  // assert a recording happened — observed, money — are the ones no amount of
+  // authorship confers, and the ladder's own comment says so; this is that
+  // sentence computed rather than addressed to the model. Nodes predating B3's
+  // guard land here too, which is the point of keeping it a detector.
+  for (const u of unearnedRungs(tree)) {
+    v.push({
+      rule: "rung-unearned",
+      node: u.node,
+      detail: `declares '${u.declared}' but what it points at supports '${u.supported}' — ${u.missing}`,
+    });
+  }
+
   for (const c of laneConflicts(tree)) {
     v.push({
       rule: "lane-conflict",

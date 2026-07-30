@@ -134,6 +134,11 @@ const PLANT: Record<string, () => void> = {
     vault.linkNodes(SOLUTION, "Diff two builds");
     vault.setLane("Diff two builds", "humans-required", "by human — a person reads the manifests");
   },
+  // Relabelling a node that is already in the tree, rather than adding one: a new
+  // Solution would arrive with no assumption test beneath it and turn `done`
+  // false through evidence debt, which is a different term and would let this
+  // test pass without the hygiene one working at all.
+  "rung-unearned": () => vault.setEvidence(OPPORTUNITY, "money", "typed in by hand — no result anywhere behind it"),
 };
 
 /** `min: 0`, so the *other* three `done` terms cannot mask the hygiene one. */

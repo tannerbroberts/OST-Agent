@@ -338,6 +338,40 @@ const SCENARIOS: Record<string, Scenario> = {
     ],
     expected: { mcp: { create: true, clear: false }, "ost-pass": { create: false, clear: false } },
   },
+
+  "rung-unearned": {
+    setup: withSolution,
+    createPath: "ost_create_node declaring 'money' with no result anywhere beneath it",
+    create: [
+      {
+        tool: "ost_create_node",
+        input: {
+          title: "Charge for the changelog",
+          layer: "Solution",
+          parent: OPPORTUNITY,
+          body: "people will pay for this",
+          evidence: "money",
+        },
+      },
+    ],
+    // Every node that predates B3's guard is one of these, which is the reason
+    // this stays a detector and not only a write-time refusal.
+    plant: (v) => {
+      put(v, { title: "A legacy money claim", layer: "Solution", evidence: "money" });
+      v.linkNodes(OPPORTUNITY, "A legacy money claim");
+    },
+    // There is a second route out — append a `## Results` section and the claim
+    // is backed — and it is exactly B1's forgeable path, so it is not what this
+    // row records. Demotion is the honest clear, and it needs no result at all.
+    clearPath: "ost_set_evidence declaring the rung the sources actually earned — demotion is never gated",
+    clear: [
+      {
+        tool: "ost_set_evidence",
+        input: { title: "A legacy money claim", evidence: "assertion", note: "no result backs this; it is founder theory" },
+      },
+    ],
+    expected: { mcp: { create: true, clear: true }, "ost-pass": { create: true, clear: true } },
+  },
 };
 
 class Denied extends Error {}
