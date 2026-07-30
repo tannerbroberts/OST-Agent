@@ -347,6 +347,35 @@ export class Vault {
     fs.writeFileSync(this.nodePath(title), serialize(node), "utf8");
   }
 
+  /**
+   * Everything {@link linkNodes} can refuse, asked BEFORE anything is written.
+   *
+   * This exists for `ost_create_node`, which writes twice — the new node's file,
+   * then the parent's file carrying the edge — and holds no delete with which to
+   * undo the first if the second throws. R8's answer is not a rollback (there is
+   * none, by design: the vault has no destructive operation) but the other
+   * direction — move every failure the attach can have to a moment when nothing
+   * has been written yet, so the second write's only remaining failure mode is
+   * the filesystem itself.
+   *
+   * Three checks, each one a real way the attach could have thrown after the
+   * node existed: the parent must exist and deserialize (`read`), the child's
+   * title must reduce to a name inside the vault root (`nodePath`, which throws
+   * on a title that sanitizes empty or escapes), and the parent's file must be
+   * writable — the one the caller cannot see coming, since a read-only file is
+   * fine for every check up to the moment of the write.
+   *
+   * What it deliberately does NOT check is the hierarchy or the child's
+   * existence: those are the tool surface's judgements (R6), and the fixtures
+   * that plant violations for the invariant tests write through this class on
+   * purpose. This method answers only "can the edge be written at all".
+   */
+  assertLinkable(parent: string, child: string): void {
+    this.read(parent);
+    this.nodePath(child);
+    fs.accessSync(this.nodePath(parent), fs.constants.W_OK);
+  }
+
   /** Add a parent→child wikilink edge. Idempotent; adds the link at most once. */
   linkNodes(parent: string, child: string): void {
     const node = this.read(parent);

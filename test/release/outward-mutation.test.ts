@@ -265,6 +265,7 @@ const OUTCOME = "Ship the thing";
 const OPPORTUNITY = "Users cannot tell what changed";
 const SOLUTION = "Ship a changelog";
 const TEST = "Diff two builds and count the deltas";
+const SECOND_OPPORTUNITY = "Nobody reads the release notes";
 
 function put(v: Vault, title: string, layer: OstNode["layer"]): void {
   v.createNode({ title, layer, tags: [], links: [], evidence: "assertion", body: `prose for ${title}` } as OstNode);
@@ -281,6 +282,11 @@ function makeVault(): { dir: string; vault: Vault } {
   vault.linkNodes(OPPORTUNITY, SOLUTION);
   put(vault, TEST, "AssumptionTest");
   vault.linkNodes(SOLUTION, TEST);
+  // Unattached on purpose, and the only node in this fixture that is. R6's guard
+  // refuses a wrong-layer edge and an already-run test adopted by a new Solution,
+  // so `ost_link_nodes` needs a target that is a LEGAL new edge or its row stops
+  // exercising the push path at all — which is what this file is for.
+  put(vault, SECOND_OPPORTUNITY, "Opportunity");
   fs.mkdirSync(path.join(dir, "product"), { recursive: true });
   fs.writeFileSync(path.join(dir, "product", "README.md"), "the product\n", "utf8");
   return { dir, vault };
@@ -346,9 +352,12 @@ const AIM: Record<string, (n: number) => Record<string, unknown>> = {
   ost_gate: () => ({ solution: SOLUTION }),
   ost_create_node: (n) => ({ title: `A new test ${n}`, parent: SOLUTION, layer: "AssumptionTest", evidence: "assertion" }),
   ost_append_to_node: () => ({ title: TEST, section: "## Notes\nsomething true" }),
-  // A NEW edge: `linkNodes` no-ops on a duplicate, so aiming at the edge the
-  // fixture already has would be a call that writes nothing.
-  ost_link_nodes: () => ({ parent: OPPORTUNITY, child: TEST }),
+  // A NEW edge, and a LEGAL one: `linkNodes` no-ops on a duplicate, so aiming at
+  // the edge the fixture already has would be a call that writes nothing — and
+  // since R6 the old aim here (an AssumptionTest under an Opportunity) is refused
+  // outright, which writes nothing for a different reason. An Opportunity under
+  // the Outcome is the shape that still lands.
+  ost_link_nodes: () => ({ parent: OUTCOME, child: SECOND_OPPORTUNITY }),
   ost_set_status: () => ({ title: TEST, status: "in-discovery" }),
   ost_set_evidence: () => ({ title: TEST, evidence: "assertion" }),
   ost_annotate: () => ({ title: TEST, issue: "worth a second look" }),

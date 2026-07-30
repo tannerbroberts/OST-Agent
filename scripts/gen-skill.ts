@@ -8,7 +8,9 @@
  * is stale — so a rule change forces the skill to be regenerated in the same PR.
  *
  * Deterministic: no dates, no randomness, stable ordering — the output is a pure
- * function of OST_RULESET, so the drift guard is a byte-for-byte comparison.
+ * function of OST_RULESET and of one other committed file, `.claude-plugin/plugin.json`,
+ * whose `mcpServers` key supplies the tool-name prefix (see {@link MCP_PREFIX}).
+ * Both are in the tree, so the drift guard is still a byte-for-byte comparison.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -24,6 +26,85 @@ export const SETUP_COMMAND_PATH = path.join(COMMANDS_DIR, "ost-setup.md");
 
 const bullets = (items: readonly string[]) => items.map((s) => `- ${s}`).join("\n");
 
+/**
+ * The tool-name prefix a Claude Code session mints for this plugin's MCP server,
+ * **read off the manifest** rather than typed here.
+ *
+ * It was a literal until 2026-07-30, above a comment claiming that
+ * `test/release/command-allowlists.test.ts` would fail if the two disagreed.
+ * That test audits the *command* files against the manifest; nothing compared
+ * this constant to anything. So renaming the `mcpServers` key would have left
+ * the generated skill granting eighteen names that no longer resolve — and
+ * under `-p --permission-mode acceptEdits` an unresolvable grant is denied, not
+ * prompted, so the model would have lost its entire surface and the pass would
+ * have reported done. Deriving it means the rename either propagates or the
+ * manifest read throws, and either way nobody has to remember.
+ *
+ * The generator stays deterministic: the manifest is a committed file, so the
+ * output remains a pure function of files in the tree and the drift guard
+ * remains a byte-for-byte comparison.
+ */
+const MCP_PREFIX: string = (() => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(REPO, ".claude-plugin", "plugin.json"), "utf8")) as {
+    mcpServers?: Record<string, unknown>;
+  };
+  const names = Object.keys(manifest.mcpServers ?? {});
+  if (names.length !== 1) {
+    throw new Error(`.claude-plugin/plugin.json must declare exactly one mcpServers entry, found ${names.length}`);
+  }
+  return `mcp__${names[0]}__`;
+})();
+
+/**
+ * The skill's `allowed-tools` frontmatter, rendered from `OST_RULESET.skillTools`
+ * rather than typed out here.
+ *
+ * Why generated: a hand-kept list in this template is a second copy of the
+ * server's surface, and the copy is the thing that drifts — under
+ * `-p --permission-mode acceptEdits` a name outside the grant is *denied, not
+ * prompted*, so the drift shows up as a pass that quietly does less rather than
+ * as an error anyone sees. `test/skill/surface-parity.test.ts` compares the
+ * rendered line against `MCP_TOOL_NAMES` itself (criterion **D3**).
+ */
+const grantedTools = (): string =>
+  R.skillTools
+    .filter((t) => t.grant)
+    .map((t) => `${MCP_PREFIX}${t.name}`)
+    .join(", ");
+
+/**
+ * Every tool deliberately withheld, rendered as an HTML comment carrying its
+ * reason.
+ *
+ * The comment is the whole mechanism: D3 permits an omission only when the skill
+ * states why, so a future absence has to be argued in `OST_RULESET.skillTools`
+ * before it can ship. Rendered into the body rather than the frontmatter because
+ * a comment is not YAML, and because the person who notices a tool is missing is
+ * reading the tool list, not the header.
+ *
+ * **Nothing is withheld today, and this stays.** The list is read through a
+ * widened type rather than the `as const` literal's, so the code compiles
+ * whether or not any entry currently carries a `reason` — an `as const` array in
+ * which every member happens to be `grant: true` would otherwise make
+ * `t.reason` a type error, and the tempting fix is to delete the branch that
+ * makes the next withholding argue itself. The empty case renders nothing at
+ * all rather than a blank block, so the skill does not carry a hole where a
+ * reason would go.
+ */
+type SkillTool = { readonly name: string; readonly grant: boolean; readonly reason?: string };
+
+const omissions = (): string =>
+  (R.skillTools as readonly SkillTool[])
+    .filter((t) => !t.grant)
+    .map((t) => `<!-- omitted: ${t.name} — ${t.reason ?? "no reason given"} -->`)
+    .join("\n");
+
+/** The omissions block plus its trailing blank line, or nothing when there are none. */
+const omissionBlock = (): string => {
+  const rendered = omissions();
+  return rendered ? `${rendered}\n\n` : "";
+};
+
 /** Render the SKILL.md body from the ruleset. Exported so the drift test reuses it. */
 export function renderSkill(): string {
   const layers = R.layers.map((l) => `- **${l.tag} — ${l.name}**: ${l.definition}`).join("\n");
@@ -32,7 +113,7 @@ export function renderSkill(): string {
 name: opportunity-solution-tree
 description: Maintain a Teresa Torres Opportunity Solution Tree (OST) — distill customer evidence into Opportunity nodes, ideate candidate Solutions, and surface Assumption Tests — as append-only Obsidian Markdown, driven through the ost-agent MCP tools. Use whenever asked to run product discovery, do opportunity mapping / solution ideation / assumption surfacing, or maintain an OST vault.
 when_to_use: The user wants to build or update an Opportunity Solution Tree, run continuous product discovery, map customer opportunities, ideate solutions, surface assumptions, or run an OST maintenance pass. Requires the ost-agent MCP server to be connected (its ost_* tools are present).
-allowed-tools: mcp__ost-agent__ost_ingest_inbox, mcp__ost-agent__ost_next_work, mcp__ost-agent__ost_read_tree, mcp__ost-agent__ost_create_node, mcp__ost-agent__ost_link_nodes, mcp__ost-agent__ost_append_to_node, mcp__ost-agent__ost_set_status, mcp__ost-agent__ost_annotate, mcp__ost-agent__ost_search_web, mcp__ost-agent__ost_read_web, mcp__ost-agent__ost_read_repo, mcp__ost-agent__ost_rank_source
+allowed-tools: ${grantedTools()}
 ---
 
 # Maintaining an Opportunity Solution Tree
@@ -78,11 +159,13 @@ All are exposed by the \`ost-agent\` MCP server (names may appear as \`mcp__ost-
 - **ost_ingest_inbox** — capture new notes from the vault's local inbox folder as evidence. Idempotent: a note already captured is never captured twice, and inbox files are never modified or deleted. Call this before \`ost_next_work\` when the user says they have added notes.
 - **ost_next_work** — read-only. Reports exactly what's outstanding: unmapped evidence, under-served opportunities, solutions missing assumption tests, hygiene issues, and \`openUnknowns\` — every declared darkness still unresolved, offered as available work that never blocks \`done\`. **Start every pass here.**
 - **ost_read_tree** — read-only. The whole tree with each node's layer, status, tags, and child links.
-- **ost_create_node** — create a node AND attach it under an existing parent atomically (never an orphan). You cannot create an Outcome. An Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an AssumptionTest under a Solution.
+- **ost_create_node** — create a node AND attach it under an existing parent in one call. Everything that can be refused is checked BEFORE anything is written, so a refused call leaves no file; if the write itself fails after the node exists, the error says ORPHAN and names the \`ost_link_nodes\` call that finishes the job — do that, do not create a second node. You cannot create an Outcome. An Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an AssumptionTest under a Solution.
 - **ost_link_nodes** — add a parent→child edge (idempotent).
 - **ost_append_to_node** — append a Markdown section to a node (grows only, never rewrites).
 - **ost_set_status** — set a node's status. \`validated\` is NOT a value you can pass and never will be: a node that declares itself validated clears its own evidence gate. Promotion is a human's call, made with \`ost-agent promote\` on the CLI. Use \`in-discovery\` while a test is running, or \`deferred\` to record abandonment.
+- **ost_set_evidence** — declare which rung of the believability ladder a node rests on, recorded in its History. Use the WEAKEST rung that honestly covers the node's sources; \`assertion\` is the floor, and demotion is never gated. The two measurement rungs are capped by what the node points at and the call is REFUSED above that ceiling, so you cannot talk a node up the ladder — say the honest rung and let the refusal correct you if you were generous.
 - **ost_annotate** — attach a hygiene/issue note (add-only). Used to flag orphans, dangling links, likely duplicates — never to delete.
+- **ost_flag_humans_required** — put one AssumptionTest beyond an unattended pass's reach. There is no lane argument and never will be: the permissive call — declaring that compute may run a test on its own authority — is a human's, made with \`ost-agent lane … --set\` on the CLI. This one only ever *removes* work from compute's reach, which is why you hold it. It REFUSES when the test's own prose already declares a different lane, because labelling it anyway would leave the node answering the run-me-unattended question twice; when that happens, \`ost_annotate\` what you found and leave the label to the human who can also fix the sentence.
 
 ### Outward sensing (bounded, read-only)
 
@@ -91,7 +174,16 @@ All are exposed by the \`ost-agent\` MCP server (names may appear as \`mcp__ost-
 - **ost_read_repo** — read the product's own codebase (read-only, confined to \`product.repos\`). Ground opportunities and solutions in what the product actually is.
 - **ost_rank_source** — record earned trust for a web publisher, append-only. 'expert' is the CEILING for a byline: promote a host only after a first-party test corroborated its claim, and name that result in the reason. 'observed'/'money' are earned by measurement (AssumptionTests + \`ost_set_evidence\`), never by who published.
 
-## First run — there may be no vault yet
+### Reading the tree's own health (read-only)
+
+These four run the same deterministic analyses the CI gate and the CLI run. None of them writes anything, so none can move a gate — they only tell you where the tree stands. Read one before you argue that it is fine.
+
+- **ost_check** — run the tree invariants and report every violation. The same check the gate runs.
+- **ost_debt** — what each Solution owes in evidence before anyone builds it: which have no assumption test, which tests have run, and which recorded results never said what they failed to cover. It counts; it never judges whether the RIGHT assumption was tested.
+- **ost_status** — the tree's shape and health: counts by layer, how many nodes are agent-ideated and awaiting review, the believability rollup and the weakest rung the tree rests on.
+- **ost_gate** — ask whether a named Solution has a tested assumption behind it. CLEARED or BLOCKED, with the reason. Advisory: it reports, it does not prevent.
+
+${omissionBlock()}## First run — there may be no vault yet
 
 ${bullets(R.firstRun)}
 
@@ -153,7 +245,7 @@ export function renderSetupCommand(): string {
   // There is no `ost-agent` binary on any PATH — the plugin ships one committed
   // bundle, launched with `node`, and that is the only launch path there is.
   const allowed = [
-    "mcp__ost-agent__ost_next_work",
+    `${MCP_PREFIX}ost_next_work`,
     "Bash(node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init:*)",
     "Bash(node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs set-outcome:*)",
   ].join(", ");

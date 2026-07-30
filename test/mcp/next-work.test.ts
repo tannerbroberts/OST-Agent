@@ -32,13 +32,15 @@ describe("computeNextWork — mapped detection", () => {
       "inbox",
     );
 
-    // Before mapping: the evidence is outstanding, and no state file was ever written.
+    // Before mapping: the evidence is outstanding, and no state file was ever written —
+    // there is no longer any code that could write one (W12 deleted the persisted half).
     expect(fs.existsSync(path.join(dir, ".ost-agent", "state", "mapped.json"))).toBe(false);
     const before = computeNextWork(ctx.vault, dir, 3);
     expect(before.unmappedEvidence.map((e) => e.id)).toContain("INBOX:note.md");
 
     // Map it the way the MCP path does: create an Opportunity whose source is the evidence id.
-    // (No mapped.json update — that only happens in the batch P2_map runner.)
+    // (No sidecar state to update: the node's `source` is the only writer, and this
+    // derivation the only reader. See test/mcp/w12-citation-resolution.test.ts.)
     ctx.vault.createNode({
       title: "I want a reason to come back",
       layer: "Opportunity",

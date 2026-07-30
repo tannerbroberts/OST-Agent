@@ -11,7 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { defaultConfigYaml } from "../config/schema.js";
 import { configPath } from "../config/load.js";
-import { gitCommit, gitInitIfAbsent, gitPush } from "../git/safe-git.js";
+import { gitCommit, gitInitIfAbsent, gitPush, pushTargetFor } from "../git/safe-git.js";
 import { FLOOR_RUNG } from "../knowledge/believability.js";
 import { buildPassContext } from "./context.js";
 import { INIT_TRACE_TOOL, drainCreatedNodeFiles, recordUsageEvent, usageLogPath } from "../telemetry/usage.js";
@@ -119,8 +119,16 @@ export async function initVault(dir: string, outcome: string, outcomeTitle?: str
   recordInitInTrace(abs);
 
   const commit = await gitCommit(abs, `init: ${outcomeCreated ? `created Outcome "${rootTitle}"` : "no changes"}`);
-  if (ctx.remote.enabled && commit.committed) {
-    await gitPush(abs).catch(() => undefined);
+  // P9: where this goes is `remote.url` in the vault's own config, not the
+  // ambient `origin` of the directory init happened to be run in. A vault whose
+  // config asks for publication without naming a destination is not pushed —
+  // `pushTargetFor` refuses, and init's push has always been best-effort, so it
+  // stays a no-op here rather than failing the initialization of a vault that is
+  // otherwise fine. The operator's loud copy of that refusal is `git_push`,
+  // which throws it.
+  const target = pushTargetFor(ctx.remote);
+  if (target.push && commit.committed) {
+    await gitPush(abs, target.remote).catch(() => undefined);
   }
 
   return { dir: abs, gitInitialized, outcomeCreated };

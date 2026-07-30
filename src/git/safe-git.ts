@@ -58,8 +58,62 @@ export async function gitCommit(dir: string, message: string): Promise<CommitRes
 }
 
 /**
+ * Where a push may go, decided by the vault's config and by nothing else (P9).
+ *
+ * `gitPush` defaults its remote to `origin` and both call sites used to take the
+ * default, so what left the machine was whatever `git remote add` had been run
+ * in that directory — ambient state, set by anyone, invisible to the operator
+ * reading `ost.config.yaml`, and never the thing they wrote down. The config
+ * carried `remote.url` and *nothing read it*: the one field that says where the
+ * vault publishes was decoration.
+ *
+ * So the target is resolved from the config here, and the two `enabled` cases
+ * are kept apart because they are different facts:
+ *
+ *  - **disabled** — the operator said don't publish. Not an error; the caller
+ *    reports the no-op.
+ *  - **enabled with no `url`** — the operator asked for publication and did not
+ *    say where. **Refused, fail-closed**, and this is the decision worth
+ *    stating: falling back to `origin` would be guessing a destination for data
+ *    the operator has already declared they care about the destination of, and a
+ *    guess that happens to be right most of the time is exactly the shape of
+ *    thing that is catastrophic the once it is wrong. A vault that today relies
+ *    on an ambient `origin` will stop pushing and be told why, which is a
+ *    louder and cheaper failure than a vault that quietly pushed somewhere else.
+ *
+ * The URL is passed to git as the remote argument. `git push <url> <branch>` is
+ * a fast-forward push to that exact URL — no named remote is consulted, so a
+ * local `origin` pointing elsewhere cannot redirect it.
+ */
+export type PushDecision =
+  | { push: true; remote: string }
+  | { push: false; reason: "disabled" | "no-url"; why: string };
+
+export function pushTargetFor(remote: { enabled: boolean; url?: string }): PushDecision {
+  if (!remote.enabled) {
+    return { push: false, reason: "disabled", why: "remote push is disabled — no-op" };
+  }
+  const url = remote.url?.trim();
+  if (!url) {
+    return {
+      push: false,
+      reason: "no-url",
+      why:
+        "remote.enabled is true but remote.url is unset in ost.config.yaml — refusing to push. What leaves this " +
+        "machine is decided by the vault's config, not by whatever `origin` happens to point at here. Set " +
+        "remote.url, or set remote.enabled: false.",
+    };
+  }
+  return { push: true, remote: url };
+}
+
+/**
  * Fast-forward push the current branch to `remote`. Never force-pushes and never
  * deletes refs — the arguments are fixed to `push <remote> <branch>`.
+ *
+ * The `remote` argument is unchanged and still defaults to `origin`: callers
+ * resolve it through {@link pushTargetFor}, so the default is what a direct
+ * in-process caller (a test) gets, never what the product ships with.
  */
 export async function gitPush(dir: string, remote = "origin"): Promise<void> {
   const g = git(dir);

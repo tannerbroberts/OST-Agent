@@ -186,6 +186,115 @@ export const OST_RULESET = {
       "term": "Generative vs. evaluative research",
       "definition": "Interviewing is generative (it discovers opportunities); assumption testing is evaluative (it evaluates solutions). Both require evidence from real people, which an automated maintainer cannot produce."
     }
+  ],
+
+  /**
+   * Which of the server's tools the skill hands the model — and, for anything
+   * held back, the reason, in the file the skill is generated from.
+   *
+   * This lives here rather than as a literal in `scripts/gen-skill.ts` because
+   * a grant is a decision about what the agent may do, and decisions in this
+   * repo live next to their argument. `test/skill/surface-parity.test.ts` reads
+   * the rendered `SKILL.md` against `MCP_TOOL_NAMES` — never against this list —
+   * so a tool added to the server surface and forgotten here fails the build
+   * rather than becoming an invisible omission (readiness criterion **D3**).
+   *
+   * The bar for `grant: false` is deliberately high: the skill is what tells the
+   * model to keep a tree honest, and a tool it does not name is a tool the model
+   * will not reach for. An omission has to say what would go wrong if it were
+   * granted, and that sentence is rendered into the skill as an HTML comment, so
+   * the next reader finds it where they notice the absence.
+   *
+   * Notes on the six that were held back until 2026-07-30 and are now granted:
+   *
+   * - The four reporters (`ost_check`, `ost_debt`, `ost_status`, `ost_gate`) are
+   *   read-only analyses that produce no diff at all. Withholding them left the
+   *   skill instructing the model to keep the tree honest while denying it every
+   *   tool that reports whether it is — the model could create a violation and
+   *   had no way to look at the list of them.
+   * - `ost_set_evidence` is already granted on `/ost-pass` (R7), and the write
+   *   boundary refuses any rung above what the node's own sources earn (B3), so
+   *   the skill grant reaches nothing the unattended surface does not already.
+   * - `ost_flag_humans_required` is the sixth, and its argument is long enough to
+   *   live at the entry itself.
+   *
+   * **Nothing is withheld today, and the machinery that would demand a reason is
+   * still here on purpose.** `scripts/gen-skill.ts` renders an
+   * `<!-- omitted: … -->` comment for every `grant: false`, and
+   * `test/skill/surface-parity.test.ts` exercises that branch against
+   * constructed skill text rather than against the real file — so the next
+   * withholding has to argue itself in this list before it can ship, and cannot
+   * arrive as a name that quietly is not there.
+   *
+   * **A skill grant is not a command grant, and the difference is load-bearing.**
+   * `.claude/commands/*.md` are commands; this list renders `SKILL.md`, which is
+   * a skill. `test/eval/clearability.test.ts` builds its `/ost-pass` column by
+   * parsing `.claude/commands/ost-pass.md`'s frontmatter and nothing else, so
+   * adding a tool here does not move a single cell of that table — and R7's
+   * argument about what the unattended sweep can reach is untouched by anything
+   * in this list. The next reader will assume otherwise; that is why this
+   * paragraph is here.
+   *
+   * The comments below are the merits, per tool. `grant: true` entries that need
+   * no argument beyond "the loop uses it" carry none.
+   */
+  "skillTools": [
+    // The maintenance loop, in the order the loop runs them.
+    { "name": "ost_ingest_inbox", "grant": true },
+    { "name": "ost_next_work", "grant": true },
+    { "name": "ost_read_tree", "grant": true },
+    { "name": "ost_create_node", "grant": true },
+    { "name": "ost_link_nodes", "grant": true },
+    { "name": "ost_append_to_node", "grant": true },
+    { "name": "ost_set_status", "grant": true },
+    // Granted: `/ost-pass` already grants it (R7) and the write boundary refuses
+    // a rung above what the node's sources earn (B3), so this adds no reach.
+    // Labelling a pre-ladder node's believability is ordinary maintenance, and a
+    // model that cannot say "assertion" leaves the rung silently wrong instead.
+    { "name": "ost_set_evidence", "grant": true },
+    { "name": "ost_annotate", "grant": true },
+    // Outward sensing: read-only, metered against one shared per-pass budget.
+    { "name": "ost_search_web", "grant": true },
+    { "name": "ost_read_web", "grant": true },
+    { "name": "ost_read_repo", "grant": true },
+    { "name": "ost_rank_source", "grant": true },
+    // The reporters. Read-only, no diff, no rung they can move. They exist so a
+    // maintainer can read the tree's own health back; a skill that omits them
+    // asks the model to keep the tree honest with its eyes shut.
+    { "name": "ost_check", "grant": true },
+    { "name": "ost_debt", "grant": true },
+    { "name": "ost_status", "grant": true },
+    { "name": "ost_gate", "grant": true },
+    // Granted 2026-07-30, on a condition that was checked rather than assumed.
+    //
+    // It was withheld for one day, and the withholding named its own expiry:
+    // `flagHumansRequired` used to write the label unconditionally, so filing
+    // the flag against a test whose own prose already claimed a different lane
+    // left a `lane-conflict` nothing on this surface could clear — a safety tool
+    // whose correct use turns permanently red is a safety tool that gets routed
+    // around, and the way a model routes around this one is by never flagging.
+    // R2 closed that at the boundary (`src/ost/lanes.ts`: the flag refuses when
+    // the node's own prose names another lane), and the condition written into
+    // the withholding was that `test/eval/clearability.test.ts` pin the refusal
+    // green. It does: the `lane-conflict` row now reads `create: false` on the
+    // **mcp** surface — which is `MCP_TOOL_NAMES` entire, this tool included —
+    // and pins the refusal's text, so removing the guard fails that row rather
+    // than quietly re-opening this one.
+    //
+    // Two-call authorship was probed before flipping, because that table is
+    // explicit that a `false` cell means "the declared single attempt failed",
+    // not "no sequence could". Flag first, then append a contradicting
+    // declaration: the flag's own History entry introduces a `## ` heading, and
+    // `ownProse` stops at the first one, so nothing appended afterwards can ever
+    // become the node's own claim. Prose first, then flag: refused. Both
+    // orderings are covered by `test/skill/surface-parity.test.ts`'s note and by
+    // R2's row; neither leaves a wedge behind.
+    //
+    // What is NOT changed by this line: `/ost-pass`'s grant. R7's containment
+    // argument reads `.claude/commands/ost-pass.md`, the tool is still absent
+    // from it, and `test/skill/surface-parity.test.ts` pins that absence so this
+    // grant cannot drift into the unattended sweep by association.
+    { "name": "ost_flag_humans_required", "grant": true }
   ]
 } as const;
 

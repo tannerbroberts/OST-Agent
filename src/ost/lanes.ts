@@ -120,6 +120,17 @@ export function triageLanes(tree: readonly OstNode[]): LaneTriage {
  *
  * Reported, never resolved. Picking a side is exactly the permissive call that
  * {@link flagHumansRequired}'s asymmetry exists to keep with a human.
+ *
+ * **Who can still author one, stated because a guard's reach is worth more
+ * written down than assumed (R2).** The flag refuses to make one, so the
+ * ordinary route is closed. Two remain, and neither is the unattended agent
+ * doing what it was told: a human's `ost-agent lane … --set`, which is the
+ * actor this contradiction is reserved for; and an append that lands in a
+ * node's own prose — `ost_append_to_node` writing `Lane: compute-only.` onto a
+ * test that already carries a *different* frontmatter lane AND has no `## `
+ * section, since {@link ownProse} stops at the first heading and every
+ * lane-setting write files a `## History` line. So the append route needs a
+ * label written by hand into frontmatter, which is a human editing markdown.
  */
 export function laneConflicts(tree: readonly OstNode[]): LaneConflict[] {
   const out: LaneConflict[] = [];
@@ -382,8 +393,41 @@ export interface FlagFiling {
  *
  * Erring this way costs an operator some time. Erring the other way costs the
  * tree its credibility, which is the one failure this product cannot survive.
+ *
+ * **It refuses when the test's own prose already names a different lane (R2),
+ * and the refusal is the point of this paragraph.** Writing the label anyway
+ * would leave the node answering the run-me-unattended question twice,
+ * differently — `lane-conflict` — and that violation is clearable by nothing on
+ * the agent's surface: the label is one-way by construction and the prose
+ * cannot be removed from an append-only vault. A safety mechanism whose correct
+ * use produces a permanent red gets routed around, and the way an agent routes
+ * around this one is by never flagging. So the wedge is refused at the boundary
+ * instead of written and regretted, and the message names the two moves that
+ * are still open: say what you found in an annotation, and leave the label to
+ * the human who can also fix the sentence.
+ *
+ * The asymmetry survives: {@link setLane} — the human's CLI path — is not
+ * guarded, because a human who decides the prose is stale is exactly the actor
+ * this contradiction is being reserved for.
  */
 export function flagHumansRequired(vaultDir: string, filing: FlagFiling): string {
+  const node = new Vault(path.resolve(vaultDir)).read(filing.test);
+  // Read the node's OWN prose, not `proseDeclaredLane`: that helper stays silent
+  // when the frontmatter already agrees with the sentence, and "already labelled
+  // compute-only, prose says compute-only" is precisely a node one flag away
+  // from contradicting itself. The question here is what the SENTENCE claims,
+  // regardless of what the label currently says.
+  const claim = readProseLane(node);
+  if (claim && claim.names.length === 1 && claim.names[0] !== CAUTIOUS_LANE) {
+    throw new Error(
+      `refusing to flag "${filing.test}": its own prose already declares a lane — "${claim.fragment}". ` +
+        `Labelling it ${CAUTIOUS_LANE} would make the node answer the run-me-unattended question twice, ` +
+        `differently, and that is a lane-conflict no tool you hold can clear: the label only moves one way ` +
+        `and an append-only vault cannot take the sentence back. Record what you found instead — ` +
+        `ost_annotate the test with the phrase that convinced you — and leave the label to a human, who ` +
+        `can correct the declaration in the note and then run: ost-agent lane "${filing.test}" --set ${CAUTIOUS_LANE}.`,
+    );
+  }
   return setLane(vaultDir, { ...filing, lane: CAUTIOUS_LANE });
 }
 

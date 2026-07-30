@@ -31,6 +31,11 @@ interface Ran {
   out: string;
 }
 
+/** Any git command against the fixture vault, output captured. */
+function git(...args: string[]): string {
+  return execFileSync("git", args, { cwd: vault, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+}
+
 /** `--vault` goes before any `--`, or commander hands it to the child command. */
 function loop(subcommand: string, ...args: string[]): Ran {
   try {
@@ -68,18 +73,39 @@ const FULL_LOOP = [
   "  spend:",
   "    ceilingWeightedTokens: 1000",
   "    windowHours: 24",
-  '    sessionsDir: "sessions"',
+  '    sessionsDir: "../sessions"',
   "",
 ].join("\n");
 
+/**
+ * The fixture is a REAL repository with a committed baseline, and both halves of
+ * that matter now that `loop start` refuses a dirty working tree (criterion D5).
+ *
+ * It used to be `mkdir .git` — enough for the loop to record into, not enough to
+ * answer a status query — which meant every test in this file exercised the
+ * firing bracket against a vault git could not describe. That is not a state a
+ * real vault is ever in, and it hid the entire question D5 asks.
+ *
+ * The transcripts live OUTSIDE the vault (`../sessions`), which is also what a
+ * real vault looks like: Claude Code writes them under `~/.claude/projects/…`.
+ * Keeping them inside would have made every `spend()` call dirty the tree and
+ * turned this fixture into a demonstration of the bug instead of a control.
+ */
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "ost-cli-loop-"));
   vault = path.join(dir, "vault");
-  sessions = path.join(vault, "sessions");
+  sessions = path.join(dir, "sessions");
   fs.mkdirSync(vault);
   fs.mkdirSync(sessions);
-  fs.mkdirSync(path.join(vault, ".git"));
+  git("init", "--quiet");
+  git("config", "user.email", "t@example.com");
+  git("config", "user.name", "t");
+  // Signing is a global setting on plenty of workstations and would fail every
+  // commit below with a message about gpg rather than about this repo.
+  git("config", "commit.gpgsign", "false");
   config(FULL_LOOP);
+  git("add", "-A");
+  git("commit", "--quiet", "-m", "baseline");
 });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
@@ -137,8 +163,8 @@ describe("the firing bracket", () => {
     loop("step", "--phase", "pass", "--", "true");
     loop("step", "--phase", "check", "--", "true");
     const sealed = loop("seal");
-    // No commit moved (this .git is a stub), so a green firing that changed
-    // nothing is `no-op` rather than `healthy`.
+    // HEAD is the baseline commit before and after — nothing moved — so a green
+    // firing that changed nothing is `no-op` rather than `healthy`.
     expect(sealed.out).toMatch(/sealed: no-op/);
     const ledger = fs.readFileSync(path.join(vault, ".git", "ost-agent", "runs.jsonl"), "utf8").trim().split("\n");
     expect(ledger).toHaveLength(1);
@@ -227,19 +253,9 @@ describe("nothing the loop writes lands in the working tree", () => {
   test("git sees a clean working tree across the whole bracket", () => {
     // The listing check above cannot see a *modified* tracked file, and criterion
     // D5 is stated in terms of `git status --porcelain` being empty at the start of
-    // a firing. Assert the thing the criterion actually says, against a real
-    // repository — the shared fixture's `.git` is a bare directory, which is enough
-    // for the loop to record into but cannot answer a status query.
-    const git = (...args: string[]) =>
-      execFileSync("git", args, { cwd: vault, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-
-    fs.rmSync(path.join(vault, ".git"), { recursive: true, force: true });
-    git("init", "--quiet");
-    git("config", "user.email", "t@example.com");
-    git("config", "user.name", "t");
+    // a firing. Assert the thing the criterion actually says, against the real
+    // repository the fixture now builds.
     spend(1);
-    git("add", "-A");
-    git("commit", "--quiet", "-m", "baseline");
     expect(git("status", "--porcelain").trim()).toBe("");
 
     loop("start");
@@ -250,5 +266,179 @@ describe("nothing the loop writes lands in the working tree", () => {
     // The bracket really recorded — otherwise a no-op would satisfy this trivially.
     expect(fs.existsSync(path.join(vault, ".git", "ost-agent", "runs.jsonl"))).toBe(true);
     expect(git("status", "--porcelain").trim()).toBe("");
+  });
+});
+
+/**
+ * Criterion D5 — a firing does not begin against a dirty vault (`loop start`).
+ *
+ * The failure this prevents is not untidiness. Every mutating tool commits with
+ * `git add -A` (`src/git/safe-git.ts:49`), so a file somebody left behind is
+ * committed by the *next* tool to run, under that tool's name — W2's "a node file
+ * no tool invocation explains", manufactured on schedule rather than by accident.
+ * It was demonstrated live: an audit for `docs/reference/v1-readiness.md` left
+ * `?? test/zz-probe.test.ts` in a working tree, one `git add -A` from being
+ * attributed to an allowlisted append-only tool.
+ *
+ * It is also what F4's verdict rests on. `computeVerdict` calls a firing
+ * `healthy` only when HEAD moved; the leftover is what moves HEAD next time, so
+ * verdicts shift by one and one stale untracked file keeps a dead vault reading
+ * healthy forever.
+ *
+ * **Non-vacuity, proved rather than asserted.** The branch in `loop start` was
+ * disabled (`if (false && tree.kind !== "clean")`) and this block re-run: six of
+ * the eight rows failed, every one of them because the CLI returned exit 0 where
+ * a refusal was expected. The two that stayed green are the two that expect a
+ * firing to *proceed* — the clean vault and the ignored file — which is the
+ * control this needs: the check is not simply refusing everything. The wedge test
+ * carries its own control inline, in the same fixture and the same state.
+ *
+ * **One exemption, and it is stated rather than folded in.** Paths under
+ * `.ost-agent/usage/` do not refuse a firing: the vault's own call trace is
+ * appended by read-only tools that never commit, so a literal gate would refuse
+ * the second firing of every vault that ever fired a first one. The argument is
+ * at `FIRING_TRACE_PREFIX` in `src/cli/loop.ts`; the pin — including the control
+ * that a stray file is still refused with the trace present — is in
+ * `test/loop/firing-residue.test.ts`. Every row in this block uses ordinary
+ * vault paths, so none of them is touched by that exemption.
+ */
+describe("D5 — a firing refuses to begin against a dirty vault", () => {
+  test("an untracked leftover refuses with its own exit code, and names the file", () => {
+    spend(1);
+    // The audit probe, reproduced: a file nobody's firing created, sitting in
+    // the tree in front of the next `git add -A`.
+    fs.writeFileSync(path.join(vault, "zz-probe.md"), "left behind by an audit\n", "utf8");
+
+    const r = loop("start");
+    expect(r.code).toBe(14);
+    expect(r.out).toMatch(/\?\? zz-probe\.md/);
+    // 14 is not 15 (locked) and not 0: a wrapper can tell this apart from every
+    // other reason a firing did not happen, which is the whole point of the codes.
+    expect(r.code).not.toBe(15);
+
+    // "Nothing was recorded and no lock was taken" is a claim the message makes,
+    // so it is asserted rather than trusted. A refusal that left a lock behind
+    // would wedge the next firing on a second, unrelated mechanism.
+    expect(fs.existsSync(path.join(vault, ".git", "ost-agent", "open-run.json"))).toBe(false);
+    expect(fs.existsSync(path.join(vault, ".git", "ost-agent", "firing.lock"))).toBe(false);
+    expect(fs.existsSync(path.join(vault, ".git", "ost-agent", "runs.jsonl"))).toBe(false);
+  });
+
+  test("a modified tracked file refuses too — dirty is not only about untracked files", () => {
+    spend(1);
+    // The listing-based check in the block above is blind to this case; only a
+    // real `git status` sees it, which is why the criterion is stated in those terms.
+    fs.appendFileSync(path.join(vault, "ost.config.yaml"), "# edited by hand\n", "utf8");
+    const r = loop("start");
+    expect(r.code).toBe(14);
+    expect(r.out).toMatch(/ost\.config\.yaml/);
+  });
+
+  test("the refusal names the way out concretely, in commands", () => {
+    // The wedge rule at the head of Gate F: a stopping state must name its way
+    // out. Here the way out is deliberately a human — only the person who left
+    // the file knows what it is — so the message has to carry the whole remedy.
+    spend(1);
+    fs.writeFileSync(path.join(vault, "zz-probe.md"), "x\n", "utf8");
+    const out = loop("start").out;
+    expect(out).toMatch(/git -C .* status/);
+    // `add -A && commit -m`, not `commit -am`: the untracked case is the one
+    // that actually happens, and `-am` does not stage it — an operator following
+    // that advice would commit nothing and be refused again by the same file.
+    expect(out).toMatch(/git -C .* add -A && git -C .* commit -m/);
+    expect(out).toMatch(/git -C .* restore/);
+    expect(out).toMatch(/\.gitignore/);
+    // And it says WHY, not just what — this is the sentence that stops an
+    // operator from deleting the check when it fires at 3am.
+    expect(out).toMatch(/git add -A/);
+  });
+
+  test("a long dirty list is truncated but the count stays exact", () => {
+    spend(1);
+    for (let i = 0; i < 25; i += 1) fs.writeFileSync(path.join(vault, `zz-${i}.md`), "x\n", "utf8");
+    const r = loop("start");
+    expect(r.code).toBe(14);
+    expect(r.out).toMatch(/^not firing: 25 path\(s\) are already dirty/m);
+    expect(r.out).toMatch(/… and 15 more/);
+    // Truncated, not merely long: the listing itself must be bounded, or a vault
+    // mid-conflict mails a cron operator thousands of lines.
+    expect(r.out.split("\n").filter((l) => /^ {4}\?\? zz-/.test(l))).toHaveLength(10);
+  });
+
+  test("an ignored file is not dirty — the way out the message offers actually works", () => {
+    // One of the three remedies the refusal names is `.gitignore`. If git's own
+    // ignore rules did not clear this gate, that advice would be a lie and the
+    // operator following it would be wedged with no route left.
+    spend(1);
+    fs.writeFileSync(path.join(vault, ".gitignore"), "scratch/\n", "utf8");
+    git("add", "-A");
+    git("commit", "--quiet", "-m", "ignore scratch");
+    fs.mkdirSync(path.join(vault, "scratch"));
+    fs.writeFileSync(path.join(vault, "scratch", "notes.md"), "x\n", "utf8");
+
+    expect(loop("start").code).toBe(0);
+  });
+
+  test("a clean vault fires — the check is not simply refusing everything", () => {
+    spend(1);
+    const r = loop("start");
+    expect(r.code).toBe(0);
+    expect(r.out).toMatch(/loop run .* open/);
+  });
+
+  test("a vault git cannot describe refuses with a DIFFERENT code", () => {
+    // Not folded into 14. "Deal with your files" and "this is not a usable
+    // checkout" are different mistakes with different fixes, and an operator
+    // sent hunting for stray files on a machine that has no repository is the
+    // kind of refusal that gets a cron deleted.
+    spend(1);
+    fs.rmSync(path.join(vault, ".git"), { recursive: true, force: true });
+    fs.mkdirSync(path.join(vault, ".git")); // a stub: the loop could record here, git cannot answer
+    const r = loop("start");
+    expect(r.code).toBe(16);
+    expect(r.code).not.toBe(14);
+    expect(r.out).toMatch(/cannot tell whether/);
+    expect(r.out).toMatch(/ost-agent init/);
+  });
+
+  test("THE WEDGE TEST: the LOOP's own leavings do not refuse the firing after it", () => {
+    // The reason this check is safe to make fail-closed with a human-only way
+    // out. If anything the loop wrote — the run ledger, the open marker, the
+    // lock — landed in the working tree, the FIRST firing would refuse every
+    // firing after it, permanently, and the only way out would be a human
+    // deleting files inside `.git`. That is R2 exactly, on the mechanism meant
+    // to protect the record. It does not happen because the loop's records live
+    // under `<vault>/.git/ost-agent/`, which git refuses to track by
+    // construction — but "by construction" is an argument, and this is the test.
+    //
+    // **Scope, because the title used to claim more than the body proves.** The
+    // steps here are `true`: no MCP tool runs, so this says nothing about what a
+    // *pass* leaves behind. It leaves behind an uncommitted line in
+    // `.ost-agent/usage/events.jsonl` — every conforming pass ends on a read-only
+    // call, which traces and never commits — and that DID wedge the next firing
+    // until an explicit exemption landed. The version of this test that stopped
+    // at `true` was green throughout. `test/loop/firing-residue.test.ts` drives
+    // the real MCP server and is where that half is pinned.
+    spend(1);
+    expect(loop("start").code).toBe(0);
+    expect(loop("step", "--phase", "pass", "--", "true").code).toBe(0);
+    expect(loop("step", "--phase", "check", "--", "true").code).toBe(0);
+    expect(loop("seal").code).toBe(0);
+    // The firing really happened — otherwise this test proves only that doing
+    // nothing dirties nothing.
+    expect(fs.existsSync(path.join(vault, ".git", "ost-agent", "runs.jsonl"))).toBe(true);
+
+    const second = loop("start");
+    expect(second.code).toBe(0);
+    expect(second.out).toMatch(/loop run .* open/);
+    expect(git("status", "--porcelain").trim()).toBe("");
+
+    // Control, in the same fixture and the same state: the assertion above CAN
+    // fail. Drop one stray file into the tree the second firing just accepted
+    // and the third is refused — so "not refused" above is a fact about the
+    // loop's leavings, not about the check being asleep.
+    loop("seal");
+    fs.writeFileSync(path.join(vault, "zz-probe.md"), "x\n", "utf8");
+    expect(loop("start").code).toBe(14);
   });
 });

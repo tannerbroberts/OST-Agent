@@ -31794,6 +31794,7 @@ var UsageSource = class {
 // src/telemetry/usage.ts
 import fs5 from "node:fs";
 import path4 from "node:path";
+import { AsyncLocalStorage } from "node:async_hooks";
 var createdNodeFiles = [];
 function noteNodeFileCreated(file) {
   createdNodeFiles.push(file);
@@ -31815,12 +31816,28 @@ function recordUsageEvent(vaultDir, event) {
   } catch {
   }
 }
-function withUsageTracing(tools, vaultDir, surface) {
-  const session = process.env.OST_SESSION || void 0;
+var attributionScope = new AsyncLocalStorage();
+function withAttribution(attribution, fn) {
+  return attributionScope.run(attribution, fn);
+}
+function stamp(value) {
+  const trimmed2 = value?.trim();
+  return trimmed2 ? trimmed2 : void 0;
+}
+function resolveAttribution(source) {
+  const declared = typeof source === "function" ? source() : source;
+  const effective = declared ?? attributionScope.getStore();
+  if (!effective) return {};
+  return {
+    ...stamp(effective.session) ? { session: stamp(effective.session) } : {},
+    ...stamp(effective.unknown) ? { unknown: stamp(effective.unknown) } : {}
+  };
+}
+function withUsageTracing(tools, vaultDir, surface, attribution) {
   return tools.map((tool2) => ({
     ...tool2,
     run: async (input) => {
-      const unknown2 = process.env.OST_UNKNOWN || void 0;
+      const { session, unknown: unknown2 } = resolveAttribution(attribution);
       const started = Date.now();
       let argBytes = 0;
       try {
@@ -37493,6 +37510,34 @@ var Vault = class {
     node.body = appendUnderHeading(node.body, heading, line);
     fs7.writeFileSync(this.nodePath(title), serialize(node), "utf8");
   }
+  /**
+   * Everything {@link linkNodes} can refuse, asked BEFORE anything is written.
+   *
+   * This exists for `ost_create_node`, which writes twice — the new node's file,
+   * then the parent's file carrying the edge — and holds no delete with which to
+   * undo the first if the second throws. R8's answer is not a rollback (there is
+   * none, by design: the vault has no destructive operation) but the other
+   * direction — move every failure the attach can have to a moment when nothing
+   * has been written yet, so the second write's only remaining failure mode is
+   * the filesystem itself.
+   *
+   * Three checks, each one a real way the attach could have thrown after the
+   * node existed: the parent must exist and deserialize (`read`), the child's
+   * title must reduce to a name inside the vault root (`nodePath`, which throws
+   * on a title that sanitizes empty or escapes), and the parent's file must be
+   * writable — the one the caller cannot see coming, since a read-only file is
+   * fine for every check up to the moment of the write.
+   *
+   * What it deliberately does NOT check is the hierarchy or the child's
+   * existence: those are the tool surface's judgements (R6), and the fixtures
+   * that plant violations for the invariant tests write through this class on
+   * purpose. This method answers only "can the edge be written at all".
+   */
+  assertLinkable(parent, child) {
+    this.read(parent);
+    this.nodePath(child);
+    fs7.accessSync(this.nodePath(parent), fs7.constants.W_OK);
+  }
   /** Add a parent→child wikilink edge. Idempotent; adds the link at most once. */
   linkNodes(parent, child) {
     const node = this.read(parent);
@@ -38117,6 +38162,114 @@ var OST_RULESET = {
       "term": "Generative vs. evaluative research",
       "definition": "Interviewing is generative (it discovers opportunities); assumption testing is evaluative (it evaluates solutions). Both require evidence from real people, which an automated maintainer cannot produce."
     }
+  ],
+  /**
+   * Which of the server's tools the skill hands the model — and, for anything
+   * held back, the reason, in the file the skill is generated from.
+   *
+   * This lives here rather than as a literal in `scripts/gen-skill.ts` because
+   * a grant is a decision about what the agent may do, and decisions in this
+   * repo live next to their argument. `test/skill/surface-parity.test.ts` reads
+   * the rendered `SKILL.md` against `MCP_TOOL_NAMES` — never against this list —
+   * so a tool added to the server surface and forgotten here fails the build
+   * rather than becoming an invisible omission (readiness criterion **D3**).
+   *
+   * The bar for `grant: false` is deliberately high: the skill is what tells the
+   * model to keep a tree honest, and a tool it does not name is a tool the model
+   * will not reach for. An omission has to say what would go wrong if it were
+   * granted, and that sentence is rendered into the skill as an HTML comment, so
+   * the next reader finds it where they notice the absence.
+   *
+   * Notes on the six that were held back until 2026-07-30 and are now granted:
+   *
+   * - The four reporters (`ost_check`, `ost_debt`, `ost_status`, `ost_gate`) are
+   *   read-only analyses that produce no diff at all. Withholding them left the
+   *   skill instructing the model to keep the tree honest while denying it every
+   *   tool that reports whether it is — the model could create a violation and
+   *   had no way to look at the list of them.
+   * - `ost_set_evidence` is already granted on `/ost-pass` (R7), and the write
+   *   boundary refuses any rung above what the node's own sources earn (B3), so
+   *   the skill grant reaches nothing the unattended surface does not already.
+   * - `ost_flag_humans_required` is the sixth, and its argument is long enough to
+   *   live at the entry itself.
+   *
+   * **Nothing is withheld today, and the machinery that would demand a reason is
+   * still here on purpose.** `scripts/gen-skill.ts` renders an
+   * `<!-- omitted: … -->` comment for every `grant: false`, and
+   * `test/skill/surface-parity.test.ts` exercises that branch against
+   * constructed skill text rather than against the real file — so the next
+   * withholding has to argue itself in this list before it can ship, and cannot
+   * arrive as a name that quietly is not there.
+   *
+   * **A skill grant is not a command grant, and the difference is load-bearing.**
+   * `.claude/commands/*.md` are commands; this list renders `SKILL.md`, which is
+   * a skill. `test/eval/clearability.test.ts` builds its `/ost-pass` column by
+   * parsing `.claude/commands/ost-pass.md`'s frontmatter and nothing else, so
+   * adding a tool here does not move a single cell of that table — and R7's
+   * argument about what the unattended sweep can reach is untouched by anything
+   * in this list. The next reader will assume otherwise; that is why this
+   * paragraph is here.
+   *
+   * The comments below are the merits, per tool. `grant: true` entries that need
+   * no argument beyond "the loop uses it" carry none.
+   */
+  "skillTools": [
+    // The maintenance loop, in the order the loop runs them.
+    { "name": "ost_ingest_inbox", "grant": true },
+    { "name": "ost_next_work", "grant": true },
+    { "name": "ost_read_tree", "grant": true },
+    { "name": "ost_create_node", "grant": true },
+    { "name": "ost_link_nodes", "grant": true },
+    { "name": "ost_append_to_node", "grant": true },
+    { "name": "ost_set_status", "grant": true },
+    // Granted: `/ost-pass` already grants it (R7) and the write boundary refuses
+    // a rung above what the node's sources earn (B3), so this adds no reach.
+    // Labelling a pre-ladder node's believability is ordinary maintenance, and a
+    // model that cannot say "assertion" leaves the rung silently wrong instead.
+    { "name": "ost_set_evidence", "grant": true },
+    { "name": "ost_annotate", "grant": true },
+    // Outward sensing: read-only, metered against one shared per-pass budget.
+    { "name": "ost_search_web", "grant": true },
+    { "name": "ost_read_web", "grant": true },
+    { "name": "ost_read_repo", "grant": true },
+    { "name": "ost_rank_source", "grant": true },
+    // The reporters. Read-only, no diff, no rung they can move. They exist so a
+    // maintainer can read the tree's own health back; a skill that omits them
+    // asks the model to keep the tree honest with its eyes shut.
+    { "name": "ost_check", "grant": true },
+    { "name": "ost_debt", "grant": true },
+    { "name": "ost_status", "grant": true },
+    { "name": "ost_gate", "grant": true },
+    // Granted 2026-07-30, on a condition that was checked rather than assumed.
+    //
+    // It was withheld for one day, and the withholding named its own expiry:
+    // `flagHumansRequired` used to write the label unconditionally, so filing
+    // the flag against a test whose own prose already claimed a different lane
+    // left a `lane-conflict` nothing on this surface could clear — a safety tool
+    // whose correct use turns permanently red is a safety tool that gets routed
+    // around, and the way a model routes around this one is by never flagging.
+    // R2 closed that at the boundary (`src/ost/lanes.ts`: the flag refuses when
+    // the node's own prose names another lane), and the condition written into
+    // the withholding was that `test/eval/clearability.test.ts` pin the refusal
+    // green. It does: the `lane-conflict` row now reads `create: false` on the
+    // **mcp** surface — which is `MCP_TOOL_NAMES` entire, this tool included —
+    // and pins the refusal's text, so removing the guard fails that row rather
+    // than quietly re-opening this one.
+    //
+    // Two-call authorship was probed before flipping, because that table is
+    // explicit that a `false` cell means "the declared single attempt failed",
+    // not "no sequence could". Flag first, then append a contradicting
+    // declaration: the flag's own History entry introduces a `## ` heading, and
+    // `ownProse` stops at the first one, so nothing appended afterwards can ever
+    // become the node's own claim. Prose first, then flag: refused. Both
+    // orderings are covered by `test/skill/surface-parity.test.ts`'s note and by
+    // R2's row; neither leaves a wedge behind.
+    //
+    // What is NOT changed by this line: `/ost-pass`'s grant. R7's containment
+    // argument reads `.claude/commands/ost-pass.md`, the tool is still absent
+    // from it, and `test/skill/surface-parity.test.ts` pins that absence so this
+    // grant cannot drift into the unattended sweep by association.
+    { "name": "ost_flag_humans_required", "grant": true }
   ]
 };
 
@@ -38247,6 +38400,20 @@ async function gitCommit(dir, message) {
   const sha = await g.revparse(["HEAD"]);
   return { sha, committed: true };
 }
+function pushTargetFor(remote) {
+  if (!remote.enabled) {
+    return { push: false, reason: "disabled", why: "remote push is disabled \u2014 no-op" };
+  }
+  const url = remote.url?.trim();
+  if (!url) {
+    return {
+      push: false,
+      reason: "no-url",
+      why: "remote.enabled is true but remote.url is unset in ost.config.yaml \u2014 refusing to push. What leaves this machine is decided by the vault's config, not by whatever `origin` happens to point at here. Set remote.url, or set remote.enabled: false."
+    };
+  }
+  return { push: true, remote: url };
+}
 async function gitPush(dir, remote = "origin") {
   const g = git(dir);
   const branch = (await g.revparse(["--abbrev-ref", "HEAD"])).trim();
@@ -38311,8 +38478,9 @@ async function initVault(dir, outcome, outcomeTitle) {
   }
   recordInitInTrace(abs);
   const commit = await gitCommit(abs, `init: ${outcomeCreated ? `created Outcome "${rootTitle}"` : "no changes"}`);
-  if (ctx.remote.enabled && commit.committed) {
-    await gitPush(abs).catch(() => void 0);
+  const target = pushTargetFor(ctx.remote);
+  if (target.push && commit.committed) {
+    await gitPush(abs, target.remote).catch(() => void 0);
   }
   return { dir: abs, gitInitialized, outcomeCreated };
 }
@@ -38394,9 +38562,6 @@ function saveCursor(vaultDir, name, cursor) {
 function evidenceDir(dir) {
   return path11.join(dir, ".ost-agent", "evidence");
 }
-function stateFile(dir, name) {
-  return path11.join(dir, ".ost-agent", "state", name);
-}
 function safeName(id) {
   return id.replace(/\.(md|txt|markdown)$/i, "").replace(/[^a-zA-Z0-9._-]+/g, "_");
 }
@@ -38461,15 +38626,10 @@ function readEvidence(dir) {
   }
   return out;
 }
-function getMapped(dir) {
-  const p2 = stateFile(dir, "mapped.json");
-  if (!fs12.existsSync(p2)) return /* @__PURE__ */ new Set();
-  try {
-    const parsed = JSON.parse(fs12.readFileSync(p2, "utf8"));
-    return new Set(parsed.mapped ?? []);
-  } catch {
-    return /* @__PURE__ */ new Set();
-  }
+var EVIDENCE_ID_PREFIXES = ["INBOX", "TRANSCRIPT", "SLACK", "JIRA", "CONFLUENCE", "USAGE"];
+var EVIDENCE_ID_SHAPE = new RegExp(`^(?:${EVIDENCE_ID_PREFIXES.join("|")}):`, "i");
+function claimsStoredEvidence(source) {
+  return !!source && EVIDENCE_ID_SHAPE.test(source.trim());
 }
 function byTitle(nodes) {
   return new Map(nodes.map((n) => [n.title, n]));
@@ -38660,6 +38820,13 @@ function cautionBacklog(tree) {
   return out;
 }
 function flagHumansRequired(vaultDir, filing) {
+  const node = new Vault(path12.resolve(vaultDir)).read(filing.test);
+  const claim = readProseLane(node);
+  if (claim && claim.names.length === 1 && claim.names[0] !== CAUTIOUS_LANE) {
+    throw new Error(
+      `refusing to flag "${filing.test}": its own prose already declares a lane \u2014 "${claim.fragment}". Labelling it ${CAUTIOUS_LANE} would make the node answer the run-me-unattended question twice, differently, and that is a lane-conflict no tool you hold can clear: the label only moves one way and an append-only vault cannot take the sentence back. Record what you found instead \u2014 ost_annotate the test with the phrase that convinced you \u2014 and leave the label to a human, who can correct the declaration in the note and then run: ost-agent lane "${filing.test}" --set ${CAUTIOUS_LANE}.`
+    );
+  }
   return setLane(vaultDir, { ...filing, lane: CAUTIOUS_LANE });
 }
 function setLane(vaultDir, filing) {
@@ -39609,6 +39776,7 @@ function fileFriction(vaultDir, filing) {
 
 // src/mcp/server.ts
 import path20 from "node:path";
+import { randomUUID } from "node:crypto";
 
 // node_modules/zod/v4/mini/parse.js
 init_core2();
@@ -41524,7 +41692,14 @@ var HYGIENE_LABELS = {
   "lane-conflict": "lane conflict",
   "rung-unearned": "unearned rung"
 };
-function detectHygiene(tree, live, limit) {
+var UNRESOLVED_CITATION_RULE = "unresolved-citation";
+var QUOTED_SOURCE_CONTROL_CHARS = new RegExp("[\\u0000-\\u001F\\u007F]+", "g");
+var MAX_QUOTED_SOURCE_LENGTH = 200;
+function quotableSource(source) {
+  const flat = source.replace(QUOTED_SOURCE_CONTROL_CHARS, " ").replace(/\s+/g, " ").trim();
+  return flat.length > MAX_QUOTED_SOURCE_LENGTH ? `${flat.slice(0, MAX_QUOTED_SOURCE_LENGTH)}\u2026` : flat;
+}
+function detectHygiene(tree, live, limit, storedEvidenceIds) {
   const index = byTitle(tree);
   const annotatedCache = /* @__PURE__ */ new Map();
   const alreadyAnnotated = (title, issue2) => {
@@ -41549,6 +41724,14 @@ function detectHygiene(tree, live, limit) {
     const title = v.node ?? outcome;
     if (!title) continue;
     take({ title, issue: `${HYGIENE_LABELS[v.rule] ?? v.rule}: ${v.detail}`, rule: v.rule });
+  }
+  for (const n of tree) {
+    if (!claimsStoredEvidence(n.source) || storedEvidenceIds.has(n.source)) continue;
+    take({
+      title: n.title,
+      issue: `unresolvable citation: source "${quotableSource(n.source)}" claims a stored evidence record, but no record under .ost-agent/evidence/ carries that id (ids are matched exactly, so case and extension count)`,
+      rule: UNRESOLVED_CITATION_RULE
+    });
   }
   for (const d of scanNearDuplicates(live)) take({ ...d, rule: "near-duplicate" });
   return { issues, total };
@@ -41593,9 +41776,10 @@ function computeNextWork(vault, dir, min) {
       if (isNonUnknown && !firstNonUnknownParent.has(l)) firstNonUnknownParent.set(l, p2.title);
     }
   }
-  const mapped = getMapped(dir);
+  const evidence = readEvidence(dir);
+  const storedEvidenceIds = new Set(evidence.map((e) => e.id));
   const citedSources = new Set(tree.map((n) => n.source).filter((s) => !!s));
-  const allUnmappedEvidence = readEvidence(dir).filter((e) => !mapped.has(e.id) && !citedSources.has(e.id)).map((e) => ({ id: e.id, source: e.source, title: e.title, excerpt: e.body.slice(0, 280), actor: e.actor }));
+  const allUnmappedEvidence = evidence.filter((e) => !citedSources.has(e.id)).map((e) => ({ id: e.id, source: e.source, title: e.title, excerpt: e.body.slice(0, 280), actor: e.actor }));
   const allUnderservedOpportunities = tree.filter((n) => n.layer === "Opportunity").map((o2) => {
     const existing = childrenOfLayer(o2, index, "Solution");
     return {
@@ -41606,7 +41790,7 @@ function computeNextWork(vault, dir, min) {
     };
   }).filter((o2) => o2.solutions < min);
   const allSolutionsMissingAssumptions = tree.filter((n) => n.layer === "Solution").filter((s) => childrenOfLayer(s, index, "AssumptionTest").length === 0).map((s) => ({ title: s.title, opportunity: firstOpportunityParent.get(s.title) ?? null }));
-  const hygiene = detectHygiene(tree, liveCensus.nodes, MAX_ITEMS_PER_LIST2);
+  const hygiene = detectHygiene(tree, liveCensus.nodes, MAX_ITEMS_PER_LIST2, storedEvidenceIds);
   const allOpenUnknowns = tree.filter((n) => n.layer === "Unknown" && resolutionState(n) === "open").map((u) => ({
     title: u.title,
     klass: classifyUnknown(u),
@@ -42020,6 +42204,32 @@ var CHILD_HIERARCHY = {
   AssumptionTest: ["Solution"],
   Unknown: ["Outcome", "Opportunity", "Solution", "AssumptionTest"]
 };
+function assertLinkAllowed(vault, parentTitle, childTitle) {
+  const parent = vault.read(parentTitle);
+  if (!vault.has(childTitle)) {
+    throw new Error(
+      `child "${displaySafeTitle(childTitle)}" does not exist \u2014 an edge to a node that is not on disk is a dangling link, which ost_check reports and which nothing but creating the node clears. Create it with ost_create_node (which attaches it under its parent in the same call), then link if you need a second edge.`
+    );
+  }
+  const child = vault.read(childTitle);
+  const allowedParents = CHILD_HIERARCHY[child.layer];
+  if (!allowedParents) {
+    throw new Error(
+      `"${displaySafeTitle(childTitle)}" is an ${child.layer} \u2014 the Outcome is the root of the tree and attaches under nothing.`
+    );
+  }
+  if (!allowedParents.includes(parent.layer)) {
+    throw new Error(
+      `a ${child.layer} must attach under ${allowedParents.join(" or ")}, but "${displaySafeTitle(parentTitle)}" is a ${parent.layer}`
+    );
+  }
+  const alreadyLinked = parent.links.some((l) => titlesMatch(l, childTitle));
+  if (!alreadyLinked && parent.layer === "Solution" && child.layer === "AssumptionTest" && hasRecordedResult(child)) {
+    throw new Error(
+      `refusing to attach "${displaySafeTitle(childTitle)}" under "${displaySafeTitle(parentTitle)}": that test already records a result, and hanging it under a solution that did not commission it would clear that solution's evidence gate on a run that was about something else \u2014 in one call, with nothing in the tree to show for it. Surface an assumption test FOR this solution (ost_create_node, which attaches it in the same call) and let a human run it. If the two solutions genuinely rest on the same tested assumption, a human says so \u2014 in the note, or by linking it themselves.`
+    );
+  }
+}
 var ATTRIBUTABLE_TOOLS = [
   "ost_create_node",
   "ost_append_to_node",
@@ -42093,7 +42303,7 @@ function buildOstTools(ctx, allowedNames) {
     }),
     tool({
       name: "ost_create_node",
-      description: "Create a NEW node AND attach it under an existing parent in one atomic step \u2014 so a node can never be an orphan. You CANNOT create an Outcome (there is exactly one, human-set at init). Hierarchy is enforced: an Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an AssumptionTest under a Solution; an Unknown (darkness, representing uncertainty) attaches under any layer. The type tag (#Opportunity / #Solution / #AssumptionTest / #Unknown) is applied automatically, and so is the #unvalidated marker: everything you create enters the tree unvalidated, and only a human can take that marker off (`ost-agent promote`). For an Unknown, write its body with three `## ` sections \u2014 `## Format` (the shape a valid answer would take), `## Methodology` (how it would be collected), and `## Rationale` (which node this darkens and what metric it serves) \u2014 because Format is the stopping condition: an unknown that cannot say what an answer looks like cannot know when it is done, and one lacking Methodology is worth commissioning observability for rather than chasing further.",
+      description: "Create a NEW node AND attach it under an existing parent in one call. Everything that can be refused \u2014 the parent, the hierarchy, the evidence class, the title, the body \u2014 is checked BEFORE anything is written, so a refused call leaves nothing on disk; if the attach still fails after the file exists (a filesystem error, the one failure that cannot be checked in advance), the error names the node it created and tells you to link it, and ost_check reports it as unattached until you do. You CANNOT create an Outcome (there is exactly one, human-set at init). Hierarchy is enforced: an Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an AssumptionTest under a Solution; an Unknown (darkness, representing uncertainty) attaches under any layer. The type tag (#Opportunity / #Solution / #AssumptionTest / #Unknown) is applied automatically, and so is the #unvalidated marker: everything you create enters the tree unvalidated, and only a human can take that marker off (`ost-agent promote`). For an Unknown, write its body with three `## ` sections \u2014 `## Format` (the shape a valid answer would take), `## Methodology` (how it would be collected), and `## Rationale` (which node this darkens and what metric it serves) \u2014 because Format is the stopping condition: an unknown that cannot say what an answer looks like cannot know when it is done, and one lacking Methodology is worth commissioning observability for rather than chasing further.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -42152,8 +42362,15 @@ function buildOstTools(ctx, allowedNames) {
         };
         const born = unearnedRung(node, /* @__PURE__ */ new Map());
         if (born) throw new Error(rungRefusal(born));
+        vault.assertLinkable(input.parent, input.title);
         vault.createNode(node);
-        vault.linkNodes(input.parent, input.title);
+        try {
+          vault.linkNodes(input.parent, input.title);
+        } catch (err) {
+          throw new Error(
+            `created ${node.layer} "${node.title}" but could not attach it under "${input.parent}": ${err.message}. The node is on disk and is currently an ORPHAN \u2014 this vault has no delete, so it cannot be taken back. Finish the attach with ost_link_nodes({ parent: "${input.parent}", child: "${node.title}" }); until you do, ost_check reports it as unattached.`
+          );
+        }
         return `created ${node.layer} "${node.title}" under "${input.parent}"`;
       }
     }),
@@ -42176,7 +42393,7 @@ function buildOstTools(ctx, allowedNames) {
     }),
     tool({
       name: "ost_link_nodes",
-      description: "Add a parent->child edge (a [[wikilink]] in the parent). Idempotent. Use to connect an Opportunity under the Outcome, a Solution under an Opportunity, or an AssumptionTest under a Solution.",
+      description: "Add a parent->child edge (a [[wikilink]] in the parent). Idempotent. Use to connect an Opportunity under the Outcome, a Solution under an Opportunity, or an AssumptionTest under a Solution \u2014 the same hierarchy ost_create_node enforces, and it is enforced here too: the child must already exist and the layers must fit, so this tool cannot author a dangling or nonsensical edge. One further refusal: an AssumptionTest that already records a result cannot be attached to a new Solution, because that would clear that solution's evidence gate on a test it never commissioned.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -42187,6 +42404,7 @@ function buildOstTools(ctx, allowedNames) {
         required: ["parent", "child"]
       },
       run: async (input) => {
+        assertLinkAllowed(vault, input.parent, input.child);
         vault.linkNodes(input.parent, input.child);
         return `linked "${input.parent}" -> "${input.child}"`;
       }
@@ -42481,12 +42699,16 @@ function buildOstTools(ctx, allowedNames) {
     }),
     tool({
       name: "git_push",
-      description: "Fast-forward push the vault to its configured remote. No-op when no remote is configured. Never force-pushes.",
+      description: "Fast-forward push the vault to the remote URL its ost.config.yaml names. No-op when remote push is disabled; refused when it is enabled and no remote.url is configured \u2014 the destination is the operator's written decision, never the ambient `origin` of whatever working tree this is. Never force-pushes.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       run: async () => {
-        if (!remote.enabled) return "remote push is disabled \u2014 no-op";
-        await gitPush(dir);
-        return "pushed to remote";
+        const target = pushTargetFor(remote);
+        if (!target.push) {
+          if (target.reason === "no-url") throw new Error(target.why);
+          return target.why;
+        }
+        await gitPush(dir, target.remote);
+        return `pushed to ${target.remote}`;
       }
     })
   ];
@@ -42747,7 +42969,10 @@ function declaredUnknown(args) {
   const title = value.trim();
   return title.length > 0 ? title : void 0;
 }
-async function handleOstCall(ctx, byName, name, args) {
+function mintSessionId() {
+  return `mcp-${randomUUID()}`;
+}
+async function handleOstCall(ctx, byName, name, args, session) {
   const tool2 = byName.get(name);
   if (!tool2) return unknownTool(name);
   const readiness = vaultReadiness(ctx);
@@ -42767,11 +42992,8 @@ Nothing was written. Fix the call and retry \u2014 this vault is append-only, so
     };
   }
   const marker = declaredUnknown(args);
-  const priorMarker = process.env.OST_UNKNOWN;
   try {
-    if (marker) process.env.OST_UNKNOWN = marker;
-    else delete process.env.OST_UNKNOWN;
-    const out = await tool2.run(args);
+    const out = await withAttribution({ session, ...marker ? { unknown: marker } : {} }, () => tool2.run(args));
     let text2 = typeof out === "string" ? out : JSON.stringify(out);
     if (MUTATING.has(name)) {
       const commit = await enqueueCommit(ctx.dir, `mcp: ${name} \u2014 ${text2}`);
@@ -42782,9 +43004,6 @@ committed ${commit.sha.slice(0, 8)}` : `
     return { content: [{ type: "text", text: text2 }] };
   } catch (e) {
     return { content: [{ type: "text", text: e instanceof Error ? e.message : String(e) }], isError: true };
-  } finally {
-    if (priorMarker === void 0) delete process.env.OST_UNKNOWN;
-    else process.env.OST_UNKNOWN = priorMarker;
   }
 }
 function newServer() {
@@ -42792,6 +43011,7 @@ function newServer() {
 }
 function createLazyOstMcpServer(vaultDir) {
   const dir = path20.resolve(vaultDir);
+  const session = mintSessionId();
   let live;
   let listingDefs;
   const acquire = () => {
@@ -42828,7 +43048,7 @@ function createLazyOstMcpServer(vaultDir) {
       return { content: [{ type: "text", text: configProblemGuidance(dir, cause) }], isError: true };
     }
     if ("setup" in got) return notReadyResult(got.setup, name);
-    return handleOstCall(got.live.ctx, got.live.byName, name, req.params.arguments ?? {});
+    return handleOstCall(got.live.ctx, got.live.byName, name, req.params.arguments ?? {}, session);
   });
   return server;
 }
@@ -42852,7 +43072,7 @@ function parseCadence(spec) {
   if (!Number.isFinite(value) || value <= 0) return null;
   return value * UNITS[match[2]];
 }
-function stamp(ms) {
+function stamp2(ms) {
   return new Date(ms).toISOString();
 }
 function evaluateCadence(input) {
@@ -42878,10 +43098,10 @@ function evaluateCadence(input) {
   const common = {
     lastFiredAt: last2.startedAt,
     ...last2.verdict ? { lastVerdict: last2.verdict } : {},
-    nextDueAt: stamp(nextDueMs),
+    nextDueAt: stamp2(nextDueMs),
     ignoredFuture
   };
-  return now >= nextDueMs ? { status: "due", reason: `last fired ${last2.startedAt} (${last2.verdict ?? "unsealed"})`, ...common } : { status: "not-elapsed", reason: `next due ${stamp(nextDueMs)}`, ...common };
+  return now >= nextDueMs ? { status: "due", reason: `last fired ${last2.startedAt} (${last2.verdict ?? "unsealed"})`, ...common } : { status: "not-elapsed", reason: `next due ${stamp2(nextDueMs)}`, ...common };
 }
 
 // src/loop/exitLaundering.ts
@@ -43014,6 +43234,23 @@ function gitHead(vaultDir) {
   const sha = r2.status === 0 ? (r2.stdout ?? "").trim() : "";
   return sha.length > 0 ? sha : void 0;
 }
+function workingTreeStatus(vaultDir) {
+  const r2 = spawnSync("git", ["status", "--porcelain"], {
+    cwd: path21.resolve(vaultDir),
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  if (r2.error) {
+    return { kind: "unknown", reason: `git could not be run (${r2.error.code ?? r2.error.message})` };
+  }
+  if (r2.status !== 0) {
+    const firstLine = (r2.stderr ?? "").trim().split("\n")[0] ?? "";
+    const how = r2.status === null ? "was killed by a signal" : `exited ${r2.status}`;
+    return { kind: "unknown", reason: `\`git status\` ${how}${firstLine ? ` \u2014 ${firstLine}` : ""}` };
+  }
+  const entries = (r2.stdout ?? "").split("\n").map((line) => line.replace(/\s+$/, "")).filter((line) => line.length > 0);
+  return entries.length === 0 ? { kind: "clean" } : { kind: "dirty", entries };
+}
 
 // src/loop/health.ts
 var REQUIRED_PHASES = ["pass", "check"];
@@ -43061,10 +43298,10 @@ function sweepCrashed(dir) {
 var idsIssuedThisMillisecond = 0;
 var lastIdStamp = "";
 function nextRunId(startedAt) {
-  const stamp2 = startedAt.replaceAll(":", "-");
-  idsIssuedThisMillisecond = stamp2 === lastIdStamp ? idsIssuedThisMillisecond + 1 : 0;
-  lastIdStamp = stamp2;
-  return idsIssuedThisMillisecond === 0 ? `${stamp2}-loop` : `${stamp2}-loop-${idsIssuedThisMillisecond}`;
+  const stamp3 = startedAt.replaceAll(":", "-");
+  idsIssuedThisMillisecond = stamp3 === lastIdStamp ? idsIssuedThisMillisecond + 1 : 0;
+  lastIdStamp = stamp3;
+  return idsIssuedThisMillisecond === 0 ? `${stamp3}-loop` : `${stamp3}-loop-${idsIssuedThisMillisecond}`;
 }
 function startRun(dir, meta) {
   sweepCrashed(dir);
@@ -43371,7 +43608,9 @@ var LOOP_EXIT = {
   cadenceUndeclared: 11,
   ceilingUndeclared: 12,
   ceilingBlocked: 13,
-  locked: 15
+  dirtyTree: 14,
+  locked: 15,
+  treeUnreadable: 16
 };
 var HOUR_MS = 60 * 60 * 1e3;
 function resolveSessionsDir(vaultDir, declared) {
@@ -43388,6 +43627,49 @@ function ceilingOf(vaultDir, spend) {
     windowHours,
     sessionsDir: resolveSessionsDir(vaultDir, sessionsDir)
   };
+}
+var DIRTY_PATHS_SHOWN = 10;
+var FIRING_TRACE_PREFIX = ".ost-agent/usage/";
+function porcelainPath(entry) {
+  const raw = entry.slice(3);
+  const arrow = raw.indexOf(" -> ");
+  return arrow === -1 ? raw : raw.slice(arrow + 4);
+}
+function entriesRequiringAHuman(entries) {
+  return entries.filter((e) => !porcelainPath(e).startsWith(FIRING_TRACE_PREFIX));
+}
+function dirtyTreeMessage(vaultDir, tree) {
+  const abs = path25.resolve(vaultDir);
+  if (tree.kind === "unknown") {
+    return [
+      `not firing: cannot tell whether ${abs} is clean \u2014 ${tree.reason}.`,
+      "  A firing whose starting state is unknown cannot have its verdict trusted afterwards, so this refuses",
+      "  rather than assuming the tree is clean.",
+      `  The way out: run \`git -C ${abs} status\` and fix what it reports. If it says this is not a repository,`,
+      "  the vault has no history to record into \u2014 `ost-agent init` (or `git init`) there first. If git is not on",
+      "  PATH, install it: this loop records, commits and pushes with git and cannot run without it.",
+      "  Nothing was recorded and no lock was taken."
+    ].join("\n");
+  }
+  if (tree.kind === "clean") return "";
+  const shown = tree.entries.slice(0, DIRTY_PATHS_SHOWN);
+  const rest = tree.entries.length - shown.length;
+  return [
+    `not firing: ${tree.entries.length} path(s) are already dirty in ${abs}, and this firing did not put them there:`,
+    ...shown.map((e) => `    ${e}`),
+    ...rest > 0 ? [`    \u2026 and ${rest} more`] : [],
+    "  Every mutating tool in this vault commits with `git add -A`, so these get committed by whatever tool runs",
+    "  next, under that tool's name \u2014 and this firing's verdict would then be earned by somebody else's change.",
+    "  The way out is yours to choose, because only you know what these are:",
+    `    git -C ${abs} status                              # see them in full`,
+    // `commit -am` is deliberately NOT offered: it stages modifications only, so
+    // an operator following it against the untracked case above would run it,
+    // see a clean-looking commit, and be refused again by the same file.
+    `    git -C ${abs} add -A && git -C ${abs} commit -m "\u2026"   # keep them, attributed to you`,
+    `    git -C ${abs} restore <path>                      # discard an unwanted edit`,
+    "    \u2026or add the path to .gitignore if it should never have been tracked.",
+    "  Nothing was recorded and no lock was taken."
+  ].join("\n");
 }
 function missingSpendKeys(spend) {
   if (!spend) return [];
@@ -43439,10 +43721,24 @@ function registerLoopCommands(program3) {
     console.log(`due: ${cadence.reason}`);
     console.log(`  ${spend.reason}`);
   });
-  loop.command("start").description("take the overlap lock and open a health record (sweeps any crashed prior run first)").option("--vault <dir>", "vault directory", ".").option(
+  loop.command("start").description(
+    "refuse a dirty working tree, take the overlap lock, open a health record (sweeps any crashed prior run first)"
+  ).option("--vault <dir>", "vault directory", ".").option(
     "--holder-pid <pid>",
     "pid of the process that owns the whole firing (defaults to this command's parent)"
   ).action((opts) => {
+    const tree = workingTreeStatus(opts.vault);
+    const foreign = tree.kind === "dirty" ? entriesRequiringAHuman(tree.entries) : [];
+    if (tree.kind === "unknown" || foreign.length > 0) {
+      console.error(dirtyTreeMessage(opts.vault, tree.kind === "dirty" ? { kind: "dirty", entries: foreign } : tree));
+      process.exitCode = tree.kind === "dirty" ? LOOP_EXIT.dirtyTree : LOOP_EXIT.treeUnreadable;
+      return;
+    }
+    if (tree.kind === "dirty") {
+      console.error(
+        `carrying ${tree.entries.length} uncommitted usage-trace path(s) \u2014 the vault's own call record, swept into the next commit.`
+      );
+    }
     const config2 = loadConfig(opts.vault);
     const ttlMs = (config2.loop?.lockTtlMinutes ?? 60) * 6e4;
     const holderPid = opts.holderPid === void 0 ? NaN : Number(opts.holderPid);

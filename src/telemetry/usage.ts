@@ -14,9 +14,23 @@
  * tool name, outcome, duration, surface, and input SIZE — never input content,
  * so nothing sensitive can leak into the trace. The one exception is `wrote`, the
  * names of the node files a call created, and it is not really one: see the field.
+ *
+ * ATTRIBUTION IS STAMPED, NEVER SNIFFED (H5). `session` and `unknown` are the two
+ * fields any later analysis groups by — cost-per-unknown, calls-per-run — and for
+ * a while they were the two fields this module read out of `process.env`. That
+ * made the claim three lines up false exactly where it mattered: a trace that
+ * reads its own attribution from the ambient environment is a trace an unrelated
+ * shell can author, and `export OST_UNKNOWN=...` in some terminal hours earlier
+ * would silently bill every later call to an unknown nobody was working. A wrong
+ * number reads as a measured one, so this module now reads NOTHING from the
+ * environment. Attribution arrives from the surface that dispatched the call,
+ * either as the `attribution` argument to `withUsageTracing` or via the
+ * `withAttribution` scope a surface enters around one call. A surface that does
+ * not honestly know leaves the field ABSENT — absent is honest, guessed is not.
  */
 import fs from "node:fs";
 import path from "node:path";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { redactSecrets } from "../adapters/transcript.js";
 
 export interface UsageEvent {
@@ -34,9 +48,21 @@ export interface UsageEvent {
   argBytes: number;
   /** Redacted, truncated error message when ok=false. */
   err?: string;
-  /** Optional session/process marker (OST_SESSION env), for grouping. */
+  /**
+   * Which run dispatched this call — minted by the surface, never handed to it.
+   *
+   * Present only when the surface has an identity worth grouping by (the MCP
+   * server mints one per server instance at start-up). Absent otherwise, which
+   * is the honest answer for a one-shot CLI invocation.
+   */
   session?: string;
-  /** Which unknown this call was spent on (OST_UNKNOWN env), when one is being worked. */
+  /**
+   * Which unknown this call was spent on, when the caller DECLARED one.
+   *
+   * Never inferred from the node a call happens to name, and never read from the
+   * environment: the whole value of "unattributed share" is that it is a real
+   * measurement rather than a heuristic artifact.
+   */
   unknown?: string;
   /**
    * Node files this call brought into existence, as basenames.
@@ -59,10 +85,13 @@ export interface UsageEvent {
  * Node files created since the last drain — the bridge from the single writer to the
  * trace.
  *
- * Module-level and mutable, with the same limit `handleOstCall`'s OST_UNKNOWN marker
- * states plainly: it is correct because a surface dispatches one call at a time and
- * the drain happens inside the same call that filled it. Two genuinely interleaved
- * calls would attribute one call's creation to the other's event. It lives here rather
+ * Module-level and mutable, and honest about the limit that entails: it is correct
+ * because a surface dispatches one call at a time and the drain happens inside the
+ * same call that filled it. Two genuinely interleaved calls would attribute one
+ * call's creation to the other's event. (Attribution used to share this limit for
+ * the same reason — one process-global variable — and no longer does: see
+ * `withAttribution`, whose store is per async context. This array is now the only
+ * piece of the trace that a concurrent surface would have to fix.) It lives here rather
  * than in `vault.ts` so that nothing in `src/ost/` has to import telemetry, and the
  * one writer (W4 pins that it is `Vault`) reports its effects to the one recorder.
  */
@@ -116,15 +145,97 @@ interface RunnableTool {
 }
 
 /**
+ * What a surface asserts about the calls it dispatches.
+ *
+ * Both fields are optional and both mean "the surface knows this", not "somebody
+ * once set this". Omit rather than guess.
+ */
+export interface UsageAttribution {
+  /** The dispatching run's own identity. Minted by the surface, not accepted from outside it. */
+  session?: string;
+  /** The unknown the current call is being spent on, as the caller declared it. */
+  unknown?: string;
+}
+
+/**
+ * The scope a surface enters around one dispatched call.
+ *
+ * Two shapes of surface need attribution and they need it differently. A surface
+ * that builds its own tools and works one unknown for their whole lifetime can
+ * pass an object to `withUsageTracing` and be done. The MCP server cannot: it
+ * builds its tools once, through `buildOstTools`, and then learns the unknown per
+ * call from that call's arguments — so it needs a way to declare attribution
+ * *around* an invocation of an already-wrapped tool.
+ *
+ * `AsyncLocalStorage` rather than a module-level variable, and this is the whole
+ * point of the choice: the store is per async context, so two calls genuinely
+ * interleaved in one process each see their own attribution. The `process.env`
+ * dance this replaces (set on entry, restore in a `finally`) was correct only for
+ * a strictly serial dispatcher and said so in a comment; the failure it warned
+ * about — the loser of a race billed to the winner's unknown — is now
+ * unrepresentable rather than merely documented.
+ */
+const attributionScope = new AsyncLocalStorage<UsageAttribution>();
+
+/**
+ * Run `fn` with `attribution` stamped onto every traced tool call it makes.
+ *
+ * The surface owns this. Nothing outside the process can enter the scope, which
+ * is exactly what an environment variable could not promise.
+ */
+export function withAttribution<T>(attribution: UsageAttribution, fn: () => T): T {
+  return attributionScope.run(attribution, fn);
+}
+
+/** A blank string is a surface that does not know; it must not become a group of its own. */
+function stamp(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+/**
+ * Attribution declared for one call, resolved the moment that call starts.
+ *
+ * An explicit argument to `withUsageTracing` wins outright over the ambient
+ * scope — not merged with it. Merging would let a surface end up half-stamped
+ * from two authorities, and a record whose `session` and `unknown` came from
+ * different places is precisely the kind of plausible-looking wrong number this
+ * criterion exists to prevent.
+ */
+type AttributionSource = UsageAttribution | (() => UsageAttribution | undefined);
+
+function resolveAttribution(source: AttributionSource | undefined): UsageAttribution {
+  const declared = typeof source === "function" ? source() : source;
+  const effective = declared ?? attributionScope.getStore();
+  if (!effective) return {};
+  return {
+    ...(stamp(effective.session) ? { session: stamp(effective.session) } : {}),
+    ...(stamp(effective.unknown) ? { unknown: stamp(effective.unknown) } : {}),
+  };
+}
+
+/**
  * Wrap every tool's `run` so each invocation lands in the vault's usage log.
  * Results and thrown errors pass through untouched; only observation is added.
+ *
+ * `attribution` is the surface's declaration (H5) and is the ONLY way `session`
+ * or `unknown` can reach an event — pass an object when the surface knows both up
+ * front, a function when it re-reads them per call, or nothing at all when it
+ * honestly does not know, in which case the fields are absent.
  */
-export function withUsageTracing<T extends RunnableTool>(tools: T[], vaultDir: string, surface: string): T[] {
-  const session = process.env.OST_SESSION || undefined;
+export function withUsageTracing<T extends RunnableTool>(
+  tools: T[],
+  vaultDir: string,
+  surface: string,
+  attribution?: AttributionSource,
+): T[] {
   return tools.map((tool) => ({
     ...tool,
     run: async (input: never) => {
-      const unknown = process.env.OST_UNKNOWN || undefined;
+      // Resolved before the tool runs, so the record describes what the surface
+      // declared when it dispatched — not whatever the scope happens to hold by
+      // the time a long call returns.
+      const { session, unknown } = resolveAttribution(attribution);
       const started = Date.now();
       let argBytes = 0;
       try {
