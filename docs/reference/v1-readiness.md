@@ -26,7 +26,7 @@ clean and the suite is green — and nothing below is about the code being broke
 It is about the difference between *a tool that works when watched* and *a system
 that can be left alone*.
 
-**75 criteria, 20 of them blockers. 46 met, 3 partial, 26 not met.** Three of the
+**75 criteria, 20 of them blockers. 57 met, 1 partial, 17 not met.** Three of the
 twenty-eight were met by *deleting* something rather than building it, which is the
 document working as intended; four more were the first Tier 1 batch, each of
 which turned a wedge into a refusal at the boundary that could still take it back.
@@ -68,7 +68,7 @@ vacuous and green.
 > grep -cE '^\*\*⛔ [A-Z][0-9]+ —' docs/reference/v1-readiness.md      # 20 blockers
 > grep -oE '^> \*Today:\*\s+\*\*[a-z, ]+' docs/reference/v1-readiness.md \
 >   | sed 's/.*\*\*//;s/^met.*/met/;s/^partial.*/partial/;s/^not met.*/not met/' \
->   | sort | uniq -c                                                  # 46 / 3 / 26
+>   | sort | uniq -c                                                  # 57 / 1 / 17
 > ```
 >
 > *Those three trailing comments read `68 / 17 / 17-3-48` until 2026-07-29 — the
@@ -530,12 +530,44 @@ retry.**
 > caller, or `mapped.json` leaves the read path. (b) `ost_create_node({…, source:
 > "INBOX:does-not-exist.md"})` is refused, or `computeNextWork` reports the
 > citation as unresolvable.
-> *Today:* **not met on both.** `setMapped` (`src/processes/tree.ts:88`) has zero
-> callers and `mapped.json` is never created. The one live mechanism is exact
-> string equality between an evidence id and a free-form `source` the model types
-> (`src/mcp/next-work.ts:209-212`), with no validation that the id exists. So a
-> report can be retired from the work list without being read, and a typo'd
-> `source` strands an item forever while the sweep stops on "nothing changed."
+> *Today:* **met** (2026-07-30), on both halves, pinned by
+> `test/mcp/w12-citation-resolution.test.ts`.
+>
+> **(a) The dead half was deleted rather than given a caller.** `getMapped`,
+> `setMapped` and `mapped.json` are gone. The reader with no writer was not merely
+> dead code: it was a *second* answer to "has this been read?", settable only by an
+> actor outside the tool surface — which is a way to retire a builder's report from
+> the work list with nobody having read it. One writer is `ost_create_node`'s
+> `source`, landing in node frontmatter; one reader is the `citedSources`
+> derivation in `computeNextWork`. Pinned both ways: a source scan, and
+> behaviourally — a hand-planted `mapped.json` does not clear the list, citing the
+> id does.
+>
+> **(b) A citation that claims a stored record must name one.** The criterion's
+> second branch: `computeNextWork` reports a dangling citation as a hygiene issue
+> (`unresolved-citation`) naming the node and quoting the id. The rule is
+> deliberately narrower than "the source must resolve" — only prefixes an adapter
+> actually **mints** as an evidence id are held to it, so `WEB:` and a citation to
+> a page the agent genuinely read are left alone. A node citing a page is making a
+> true statement; it is not claiming a file exists.
+>
+> One detail decides whether this is a detector or a sieve: the predicate matches
+> the *claim* case-insensitively while resolution stays byte-exact, so
+> `inbox:note.md` against a stored `INBOX:note.md` becomes a loud report instead of
+> the silent stranding this criterion is about.
+>
+> *On the wedge hazard, which is R2's lesson applied before the fact:* the issue
+> goes through `detectHygiene`'s ordinary path, so `ost_annotate` clears it — a
+> tool `/ost-pass` already grants. And annotation clears the **issue** without
+> clearing the **mapping**: the uncited evidence stays outstanding, so the escape
+> hatch is not an amnesty.
+>
+> *Two limits left open, both stated in the test file.* A node may legitimately cite
+> a ticket read in a browser and never ingested; this reports it, judged correct
+> because the tree is then claiming a provenance nobody can go read, and the clear
+> path makes that a written record rather than a silent one. And the refusal at the
+> **write** boundary is still missing — the predicate is exported for it — so this
+> is the reporting branch of the criterion's own "or", not the refusing one.
 
 **W13 — No evidence record reaches disk with a credential still in it.**
 > *Check:* drop an inbox note containing `sk-ant-api03-…`, ingest it, and assert
@@ -1182,10 +1214,19 @@ git state.**
 > *Check:* assert statically that `remote.url` has a reader —
 > `grep -rn 'remote\.url' src/ --include=*.ts | grep -v src/config/` is
 > non-empty — and that `gitPush`'s remote comes from it.
-> *Today:* **not met.** `gitPush` defaults its remote to `origin`
-> (`src/git/safe-git.ts:64`) and neither call site ever passes one
-> (`src/security/tools.ts:636`, `src/runner/init.ts:70`), while `config.remote.url`
-> is carried into the context (`src/runner/context.ts:129`) and read by nothing.
+> *Today:* **met** (2026-07-30), and fail-closed. `pushTargetFor` resolves the
+> destination from `remote.url`; both call sites — the `git_push` tool and
+> `initVault` — go through it, and `gitPush`'s arguments are still fixed and still
+> non-forcing. **Enabled with no `url` refuses**, deliberately: a disabled remote
+> is a decision and returns a no-op, but a missing address is an unanswered
+> question, and pushing to whatever `origin` happens to be is precisely the ambient
+> git state this criterion exists to stop mattering.
+>
+> Pinned in `test/git/safe-git.test.ts`, including the criterion's static half (the
+> `remote.url` reader outside `src/config/`) and — the assertion that makes it real
+> rather than structural — a **decoy**: a vault whose configured URL differs from
+> its `origin`, asserting the push lands at the configured one and `origin` stays
+> empty.
 
 **P10 — No single agent-reachable call can flip a gate or empty a violation it
 created.**
@@ -1193,16 +1234,32 @@ created.**
 > single call flips `renderGate(tree, solution).cleared` from false to true, and
 > (b) no single call takes `checkInvariants` from non-empty to empty for a rule
 > the same caller created.
-> *Today:* **not met — and for a different reason than yesterday, which is the
-> point of keeping the check separate from the mechanism.** The two rows that
-> failed, `ost_append_to_node` and `ost_set_status`, were failing *by B1 and B2*,
-> and **both closed on 2026-07-30**: the heading is refused at the vault's write
+> *Today:* **met** (2026-07-30). The table exists, every row passes, and **the row
+> that did not pass when it was first written is the reason this criterion was
+> worth keeping separate from the six that "cover" it.** See the two paragraphs
+> below for what it found; R6 closed it the following day, `KNOWN_OPEN` is now
+> empty, and the closed hole moved to `CLOSED_HOLES` — which still fires the exact
+> call every build, asserts the refusal, *and* asserts a legal edge still lands, so
+> the door is re-tried rather than assumed shut.
+>
+> *One consequence to state, because it makes clause (b) read stranger than it is.*
+> R6 also closed `dangling-link`'s only single-call create path, so **no invariant
+> is agent-authorable in one call at all** — clause (b)'s generated sweep now
+> iterates over an empty set. Satisfied by absence is stronger than the criterion
+> asks and weaker as a *test*, so absence is not what is asserted: `CLOSED_CREATES`
+> fires both former create calls on every build and asserts refusal plus an empty
+> `checkInvariants`. R3's table is the same discipline one gate over.
+>
+> *The history below is kept because it is the argument for the criterion.* The two
+> rows that failed before, `ost_append_to_node` and `ost_set_status`, were failing
+> *by B1 and B2*,
+> and both closed on 2026-07-30: the heading is refused at the vault's write
 > funnel and `validated` is off both status enums. A third route, `ost_create_node`
-> declaring a measurement rung, closed with B3. So this criterion no longer
-> carries anyone's blocker status by reference — **what is missing is now the
-> table itself.** Its check is a committed enumeration over
-> `buildOstTools(ctx, MCP_TOOL_NAMES)`, and nothing enumerates. That distinction
-> matters here more than anywhere: three separate criteria each pinned the door
+> declaring a measurement rung, closed with B3. At that point this criterion
+> stopped carrying anyone's blocker status by reference, and what was missing was
+> **the table itself** — its check is a committed enumeration over
+> `buildOstTools(ctx, MCP_TOOL_NAMES)`, and nothing enumerated. That distinction
+> mattered here more than anywhere: three separate criteria each pinned the door
 > they were about, and *"no single call flips a gate"* is a claim over the whole
 > surface that no conjunction of them makes. **A property proved door by door is
 > not proved** — F6 is the same shape one gate over, and it is the criterion that
@@ -1216,11 +1273,11 @@ created.**
 > `renderGate(...).cleared` from false to true in a single call**, by attaching an
 > AssumptionTest that already carries a recorded result to a Solution that did not
 > commission it. B1 stops the agent *writing* `## Results`; nothing stopped it
-> *adopting someone else's*. That is a genuine gate flip by an agent-reachable
-> call, so this stays **not met** — and the fix is R6, which is the criterion about
-> `ost_link_nodes` validating what it attaches. The row is committed with its
-> expectation set to the hole, so the day R6 lands the build goes red and tells the
-> fixer to move it.
+> *adopting someone else's*. **That is a door none of B1, B2 or B3 is about, and no
+> conjunction of them would ever have named it** — the enumeration found it because
+> the enumeration asks the question over the whole surface. The row was committed
+> with its expectation set to the hole, so that closing it would fail the build and
+> tell the fixer to move it, and the next day R6 did exactly that.
 >
 > *Writing the table was worth it for the four defects the adversarial pass then
 > found in the table itself*, every one of which would have left it green and
@@ -1260,10 +1317,11 @@ created.**
 > has since arrived.* B1 and B2 landed on 2026-07-30, so the operator-facing text
 > was re-stated rather than merely withdrawn: `README.md` now says which two
 > writes are closed and names the one that is not (a human with a text editor).
-> This criterion stays **not met** because its subject is the enumeration, not the
-> doors — see above. Writing the table is the next thing that would move it, and
-> it is cheap now in a way it was not before, because the rows that would have
-> failed no longer do.
+> **That text is now understated rather than overstated, which is the safe
+> direction but is still a claim carried by memory** — the surface has since gained
+> R6's guard and the enumeration that pins it, and the operator-facing wording has
+> not moved with them. Restating it belongs in the same pass that re-reads
+> `README.md` against Gate D.
 
 ---
 
@@ -1302,30 +1360,46 @@ Two such doors exist.
 > *Check:* create an AssumptionTest whose body says `Lane: compute-only.` above
 > any `##` heading, call `ost_flag_humans_required`, assert `laneConflicts` is
 > empty.
-> *Today:* **not met** *(verified: red forever; re-flagging, appending a
-> correction, annotating and `set_status` all failed to clear it).* The agent's
-> only lane tool is the restrictive one — deliberately, and it is the product's
-> central safety argument — so reversing the label needs the human CLI, and the
-> prose can never be removed. **A safety mechanism that turns into a permanent red
-> when used as intended will be routed around, and the way an agent routes around
-> it is by not flagging.** `ownProse` already knows which region counts as the node
-> speaking (`src/ost/lanes.ts:250-253`); the flag should refuse when the prose
-> already names a different lane.
+> *Today:* **met** (2026-07-30), by refusing at the boundary rather than by adding
+> a way back — R1's shape, and for R1's reason. `flagHumansRequired` now reads the
+> node's *own* prose and refuses when it names a lane other than
+> `humans-required`, so the conflict cannot be authored in the first place. **No
+> permissive setter was added**: the agent's only lane tool is still the
+> restrictive one, which is the product's central safety argument, and the human's
+> `setLane` stays deliberately unguarded — a test pins that asymmetry so the day
+> someone "fixes" it symmetrically is a red build.
 >
-> *Reachability, which keeps this off the blocker bar:* `ost_flag_humans_required`
-> appears in **no** shipped command's `allowed-tools` — verified across all nine
-> files in `.claude/commands/` — and is absent from `.claude/skills/opportunity-solution-tree/SKILL.md:5` (see Gate D's D3).
-> Under Gate D's D2 finding that an out-of-allowlist tool is *denied, not prompted*, the
-> unattended sweep cannot reach the tool at all. The wedge is reachable only from
-> an interactive or custom surface. The same is true of `ost_set_evidence` (R7).
+> One implementation detail is load-bearing and would have been easy to get wrong:
+> the guard reads `readProseLane`, not `proseDeclaredLane`. The latter goes silent
+> exactly when the label already agrees with the sentence — which is the state one
+> flag away from a conflict, i.e. every case this criterion is about. Pinned in
+> `test/ost/flag-humans-required.test.ts`, including an executed proof that the
+> pre-R2 path really did author the conflict, so the refusal is measured against a
+> reproduction rather than against a description.
 >
-> Both halves are now a row rather than a paragraph: `test/eval/clearability.test.ts`
+> *The residue, stated because it is a real route and not a rounding error:*
+> `ost_append_to_node` can still land `Lane: …` in own prose — but only on a test
+> that already carries a *different* frontmatter lane **and** has no `##` section.
+> Since every lane write files a `## History` line, reaching that state needs a
+> human hand-editing frontmatter. It is written into `laneConflicts`' doc comment
+> rather than left for the next reader to rediscover.
+>
+> *The reachability argument this entry used to rest on is now retired, and how it
+> retired is the point.* Containment was the whole defence: the tool appeared in no
+> shipped command's `allowed-tools`, so under D2's finding that an out-of-allowlist
+> tool is *denied, not prompted*, the unattended sweep could not reach the wedge at
+> all. That is containment, not a fix, and this entry said so. With the guard in
+> place the containment stopped being load-bearing — **and the first thing that
+> happened is that D3 granted the tool on the skill surface in the same batch.** A
+> criterion held closed by nobody having the key is a criterion that reopens the
+> day someone is handed one, which is exactly why the fix had to be the refusal.
+>
+> Both halves are a row rather than a paragraph: `test/eval/clearability.test.ts`
 > executes the create (`ost_flag_humans_required` on a test whose own prose says
-> `compute-only`) and three attempted clears (annotate, append a correction, re-flag),
-> and pins that the violation survives all three — while the `/ost-pass` column shows
-> the create refused for want of the tool. **The day the tool reaches a shipped
-> command, that cell flips and the build fails**, which is the reachability argument
-> stated in a form that cannot quietly expire.
+> `compute-only`) and pins that it is now **refused**, with the refusal *text*
+> pinned on both surfaces as an alternation — `/ost-pass` refuses by non-grant and
+> MCP by the guard — so deleting the guard fails the MCP row rather than quietly
+> passing on the other one's reason.
 
 **⛔ R3 — Every rule `checkInvariants` can emit that the agent can create, the
 agent can also clear.**
@@ -1334,32 +1408,45 @@ agent can also clear.**
 > builds `git_commit`/`git_push` the server never exposes. Give the table a second
 > column for `/ost-pass`'s nine names, since "the agent can clear it" has a
 > different answer on the unattended surface (R7).
-> *Today:* **partial** (2026-07-29). The table is no longer an audit finding: it
-> runs on every build as `test/eval/clearability.test.ts` (R9), one row per rule,
-> rows grepped from `src/eval/invariants.ts`, each cell an executed tool call
-> through `validateToolInput` against `buildOstTools(ctx, MCP_TOOL_NAMES)`.
-> **Eight of nine rows satisfy the criterion. One does not.**
+> *Today:* **met** (2026-07-30) — **and it is met in the strongest way available,
+> which is worth stating precisely because it can be mistaken for vacuity.** The
+> table runs on every build as `test/eval/clearability.test.ts` (R9), one row per
+> rule, rows grepped from `src/eval/invariants.ts`, each cell an executed tool call
+> through `validateToolInput` against `buildOstTools(ctx, MCP_TOOL_NAMES)`. Every
+> `create` cell now reads **no**, on both surfaces:
 >
 > | Rule | MCP: create | MCP: clear | `/ost-pass`: create | `/ost-pass`: clear |
 > |---|---|---|---|---|
 > | `single-outcome` | no | **no** (no delete, no Outcome creation) | no | no |
-> | `dangling-link` | yes | yes | yes | yes |
+> | `dangling-link` | **no** (R6 closed it, 2026-07-30) | yes | no | yes |
 > | `wrapped-wikilink` | **no** (R1 closed it) | no | no | no |
 > | `opportunity-connected` | no | yes | no | yes |
 > | `solution-mapped` | no | yes | no | yes |
 > | `assumption-mapped` | no | yes | no | yes |
 > | `evidence-class` | no | yes | no | yes (R7 granted it, 2026-07-29) |
-> | `no-self-validation` | yes | yes | yes | yes |
-> | `lane-conflict` | **yes** | **no** | no | no |
+> | `no-self-validation` | no | yes | no | yes |
+> | `lane-conflict` | **no** (R2 closed it, 2026-07-30) | no | no | no |
 >
-> **The residue is one cell: `lane-conflict`, created by `ost_flag_humans_required`
-> and clearable by nothing.** That is R2, and it keeps R2's reachability argument —
-> the tool is on no shipped command's `allowed-tools`, so the column that governs
-> unattended operation shows `no` for creating it. **On `/ost-pass`, R3's property
-> holds outright:** every rule the unattended sweep can create, it can also clear.
-> The wedge is reachable only from an interactive or custom surface, which is why
-> this is now partial rather than a live Tier 1 blocker — but it is a real hole and
-> R2 is the fix.
+> The criterion reads *"every rule the agent can create, the agent can also clear"*,
+> and the antecedent is now empty: **on the tool surface, the agent can author no
+> invariant violation in a single call at all.** An empty antecedent makes the
+> implication true, and a criterion that passes because its precondition vanished is
+> exactly the shape this document distrusts — so the table does not stop at
+> asserting nothing. Each closed create path is still **fired every build** and
+> asserted to be refused, with the refusal text pinned, so the doors are re-tried
+> rather than assumed shut. R3's property is also stated once over the verified
+> table (`test/eval/clearability.test.ts`), as a claim about the cells rather than a
+> claim repeated per row: any `create` cell that is true must have `clear` true.
+> If a future change reopens a create path, the row goes red before the property
+> does.
+>
+> `lane-conflict` was the last cell and it was the one that mattered — created by
+> `ost_flag_humans_required` and clearable by nothing, held off the blocker bar only
+> by the tool being reachable from no shipped command. That is containment, and R2
+> replaced it with a refusal. `dangling-link` went the same way one day later, from
+> the other direction: R6 gave `ost_link_nodes` the child-and-hierarchy check
+> `ost_create_node` already had, and the tool that could author a dangling edge
+> stopped being able to.
 >
 > Two cells moved when the table first ran, and neither move was news — which is the
 > point. `wrapped-wikilink` read `yes/no`, the worst shape on the list, until R1 closed
@@ -1458,12 +1545,35 @@ that quotes it.**
 `ost_create_node` does.**
 > *Check:* assert `ost_link_nodes({parent: <a Solution>, child: <an
 > Opportunity>})` throws, and that a non-existent *child* throws.
-> *Today:* **partial** *(verified).* `linkNodes` checks the **parent** exists —
-> `this.read(parent)` throws `no such node` (`src/ost/vault.ts:189`) — but does
-> not check the child exists and performs no hierarchy check at all, unlike
-> `src/security/tools.ts:238-249`. An Opportunity was accepted as a child of a
-> Solution. It remains an unguarded edge-forging primitive on the child/hierarchy
-> half — and, ironically, the reason three invariants in R3 are clearable.
+> *Today:* **met** (2026-07-30), both halves, plus a third the criterion did not
+> know it needed. `assertLinkAllowed` reuses the *same* `CHILD_HIERARCHY` table
+> `ost_create_node` reads — reused rather than restated, which is the idiom that
+> collected B4 and B8 for free — requires the child to exist, and refuses the
+> wrong-layer edge. Pinned in `test/security/link-nodes-guard.test.ts`.
+>
+> **The third half is P10's finding, and it is the one worth the entry.** P10's new
+> enumeration table found that `ost_link_nodes` flipped a Solution's gate from
+> BLOCKED to CLEARED in one call, by attaching an AssumptionTest that *already
+> carried a recorded result* to a Solution that never commissioned it. B1 stopped
+> the agent **writing** `## Results`; nothing stopped it **adopting someone
+> else's**. The guard now refuses that adoption — and the reason it costs no
+> legitimate workflow was checked against the code rather than assumed:
+> `ost_create_node` writes the edge at creation, before any result can exist, so
+> the ordinary flow never presents the case.
+>
+> Three narrowings, each pinned, each a place this could have become a wedge:
+> - **An already-existing edge is exempt** — `linkNodes` no-ops on it, and
+>   `test/release/no-evolvable-policy.test.ts` drives exactly that re-issue.
+> - **Linking an *unrun* test to a second Solution stays open**, so a shared
+>   assumption still works; it is the human's result write that then moves both
+>   gates, which is the correct owner.
+> - **`gateSolution` is advisory** — `done` has no gate term — so a refusal here
+>   cannot wedge an unattended pass. That was verified behaviourally *and*
+>   structurally rather than taken on the tool description's word.
+>
+> *And the consequence for R3, stated because it changed another criterion's
+> table:* closing this also closed `dangling-link`'s only single-call create path,
+> which is what left every `create` cell in R3's table reading `no`.
 
 **R7 — The unattended sweep holds every tool needed to clear every invariant it
 can be blocked by.**
@@ -1486,10 +1596,29 @@ can be blocked by.**
 **R8 — `ost_create_node` leaves no orphan when the attach step fails.**
 > *Check:* inject a failure into `Vault.linkNodes`; assert no node file persists
 > unattached.
-> *Today:* **not met.** Create and link are two separate `writeFileSync` calls
-> (`src/security/tools.ts:262-263`), there is no rollback, and no delete with which
-> to roll back — contradicting the tool's own description, which promises "one
-> atomic step — so a node can never be an orphan" (`src/security/tools.ts:199`).
+> *Today:* **met** (2026-07-30), with a residue that is stated rather than
+> claimed away. **No delete was added** — that is the repository's load-bearing
+> safety invariant and rolling back is not available, so atomicity had to come from
+> the other end: `Vault.assertLinkable` moves every attach-time failure *ahead of
+> the first write* (the parent resolves, the child title reduces to a name inside
+> the root, the parent file is writable), and `ost_create_node` calls it before
+> anything reaches disk. A refused call now leaves nothing behind, pinned by an
+> injected pre-validation failure plus ten argument-reachable refusals that each
+> assert the vault is byte-identical afterwards.
+>
+> *The residue:* a filesystem failure on the **second** write cannot be
+> pre-validated and cannot be rolled back. It is made loud instead of silent — the
+> error names the node it created, says ORPHAN, and gives the finishing
+> `ost_link_nodes` call — and `ost_check`'s orphan invariants catch it, which is
+> pinned too.
+>
+> **The tool description was the other half of this criterion and it was corrected,
+> not defended.** It promised "one atomic step — so a node can never be an orphan",
+> which was false when written and would have been *nearly* true afterwards; nearly
+> true is the worse failure, because it is the version a reader believes. The
+> shipped description now says what actually holds, and so does the generated
+> `SKILL.md`, whose copy of the claim no criterion had been reading — the same blind
+> spot P10 records for the withdrawn "worst it can do is a nonsensical commit".
 
 **R9 — The clearability table is a committed test, not an audit finding.**
 > *Check:* a test file exists that derives its rows from
@@ -1954,10 +2083,42 @@ healthy.**
 the environment.**
 > *Check:* run a tool call with `OST_SESSION`/`OST_UNKNOWN` set from an unrelated
 > shell; assert the event does not carry them verbatim.
-> *Today:* **not met.** Both are copied straight from `process.env`
-> (`src/telemetry/usage.ts:74,78`) into a record whose header claims a trace
-> "cannot flatter itself" (`:8-10`) — true of `tool`/`ok`/`ms`, false of the two
-> fields any later analysis would group by.
+> *Today:* **met** (2026-07-30). `withUsageTracing` no longer touches
+> `process.env` at all. Attribution is a parameter the surface supplies, plus an
+> `AsyncLocalStorage` scope for surfaces that wrap once and learn attribution per
+> call; an explicit argument wins outright over the ambient scope rather than
+> merging, because a record whose `session` and `unknown` came from two different
+> authorities is the exact failure this criterion is about.
+>
+> The MCP server **mints** `mcp-<uuid>` at construction and declares it on every
+> dispatch — a value the server generates, which no unrelated shell can
+> impersonate. Every other surface supplies nothing, and both fields are then
+> *absent* rather than guessed: an absent field is honest and a wrong one is not.
+> That costs nothing real, and checking why is what makes it a net gain rather than
+> a removal — **`OST_SESSION` had no writer anywhere in the repository**, so every
+> event in every real vault was already unattributed. `session` now has a writer
+> for the first time.
+>
+> A side effect worth recording: the old code set `process.env.OST_UNKNOWN` and
+> restored it in a `finally`, carrying a "NOT concurrency-safe" caveat. The scope
+> makes that race unrepresentable, and two genuinely interleaved calls keeping
+> separate attribution is now a test.
+>
+> **The adversarial pass refuted two of the lane's own non-vacuity claims and found
+> the defect that mattered.** The stated falsification — reinstating the env read
+> reddens the MCP suite — was false: MCP always enters the scope, so the store
+> satisfies the lookup before any env fallback is reached, and only the unit test
+> caught it. Worse, **every H5 test drove `createOstMcpServer`, and `ost-agent mcp`
+> — what the plugin actually starts — builds `createLazyOstMcpServer`**, which
+> mints its session on a different line. Replacing that line with `""` left all 133
+> tests under `test/mcp` green: the criterion could have been marked met on a
+> surface where `session` was empty in every real vault. The check now runs
+> verbatim through the shipped factory. *A test that pins the criterion on a code
+> path nobody executes is a green test asserting nothing* — the same sentence as
+> F6's vacuous first draft, arriving through a door nobody was watching.
+>
+> *One limit left open:* no pass runner declares an unknown yet. The API accepts
+> one; wiring it needs `ToolContext`, which is Gate S's territory.
 
 ---
 
@@ -2403,8 +2564,8 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1198 tests across 111 files, verified 2026-07-30 (`npx vitest run`,
-> after the Gate Z and P-bounds batch). (The count this line
+> *Today:* **met** — 1287 tests across 118 files, verified 2026-07-30 (`npx vitest run`,
+> after the writer-boundary batch). (The count this line
 > carried two revisions ago, 878 across 86, predated `8261a6f`'s deletion of the
 > genome and harness and was never updated with it — a reminder that a number in this
 > document is a claim like any other. It has since been wrong twice more, both times
@@ -2427,23 +2588,68 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > `<subcommand>` is in `src/cli/index.ts`'s `.command(` set. (A naïve "every entry
 > must be in `MCP_TOOL_NAMES`" misfires on `ost-setup.md`, which legitimately
 > grants two Bash forms.)
-> *Today:* **not met.** `gen-skill` generates exactly one command file
-> (`ost-setup.md`), leaving **eight** hand-written with no generator; only
-> `ost-pass.md` has any test at all, and that test
-> (`test/release/examples-allowlist.test.ts:6,39`) treats its frontmatter as "the
-> actual authority" and compares it to a shell script rather than to the server's
-> surface. **Under `-p --permission-mode acceptEdits` an out-of-allowlist or
-> misspelled tool is *denied, not prompted*, so the unattended pass runs, does
-> less than it claims, and reports done.** The repo already learned this once
-> (`ost_ingest_inbox` falling out of the examples) and fixed only the downstream
-> half.
+> *Today:* **met** (2026-07-30), pinned by
+> `test/release/command-allowlists.test.ts`, which globs `.claude/commands/*.md`
+> rather than listing them and audits every frontmatter entry against three
+> authorities it **derives**: `MCP_TOOL_NAMES` from the server, the `.command("…")`
+> set grepped from `src/cli/index.ts`, and the tool-name prefix read off
+> `.claude-plugin/plugin.json`'s `mcpServers` key. A non-`mcp__` entry must match
+> the single permitted shape, so `/ost-setup`'s two legitimate Bash grants pass
+> while a bare `Bash` does not.
+>
+> **No command file needed fixing — all nine were already correct.** What was
+> missing was anything that would notice if one stopped being, which is the
+> configuration this document has now watched be wrong three times (G3, G4, Z1).
+> The consequence it guards is not cosmetic: under `-p --permission-mode
+> acceptEdits` an out-of-allowlist or misspelled tool is *denied, not prompted*, so
+> the unattended pass runs, does less than it claims, and reports done. The repo
+> learned that once when `ost_ingest_inbox` fell out of the examples, and fixed
+> only the downstream half.
+>
+> *Non-vacuity here had to be proved on fixtures rather than on the real files,
+> and the reason is worth recording:* the nine shipped files are correct, so no
+> mutation of the checker can be caught by them — **correct files cannot carry the
+> proof**. Neutering the MCP-name branch reddens exactly the two MCP fixtures;
+> neutering the Bash-shape match reddens exactly the two shell fixtures; neither
+> disturbs a real file.
 
 **D3 — The skill's tool list and the server's surface agree.**
 > *Check:* parse tool names from `.claude/skills/opportunity-solution-tree/SKILL.md:5`; assert `MCP_TOOL_NAMES \ SKILL` is
 > empty, or that each omission carries an explicit `<!-- omitted: <reason> -->`.
-> *Today:* **not met.** The difference is `{ost_set_evidence,
-> ost_flag_humans_required, ost_check, ost_debt, ost_status, ost_gate}`, with no
-> reasons and nothing pinning it. R2 and R7 both turn on this fact.
+> *Today:* **met** (2026-07-30), and the difference is now **empty** rather than
+> excused. The grant lives in `OST_RULESET.skillTools` with the merits written
+> beside each entry, and `scripts/gen-skill.ts` renders both the `allowed-tools:`
+> line and an `<!-- omitted: … -->` comment for anything withheld — so the
+> criterion's escape hatch exists and is currently unused.
+>
+> Five of the six were a plain omission. The four read-only reporters —
+> `ost_check`, `ost_debt`, `ost_status`, `ost_gate` — were withheld from a skill
+> whose whole job is keeping a tree honest, which asked the model to do that with
+> its eyes shut; and `ost_set_evidence` was already granted on `/ost-pass` (R7) and
+> refused above its earned ceiling at the write boundary (B3), so granting it adds
+> no reach. Each granted tool also gained a body bullet, so the grant is usable
+> rather than merely present.
+>
+> **The sixth is the one worth reading, because the ground moved under it inside a
+> single batch.** `ost_flag_humans_required` was withheld first, with the sanctioned
+> `<!-- omitted: … -->` reason naming R2: the flag wrote its label unconditionally,
+> so filing it against a test whose own prose claimed another lane left a
+> `lane-conflict` nothing on that surface could clear, and *a safety tool whose
+> correct use turns permanently red is a safety tool that gets routed around*. The
+> withholding named its own expiry — that `test/eval/clearability.test.ts` pin the
+> refusal green — R2 landed hours later, the condition was **checked rather than
+> assumed**, and the tool was granted. Note what that sequence demonstrates about
+> R2: its containment argument (nobody holds the key) expired the same day the
+> guard replaced it.
+>
+> Pinned by `test/skill/surface-parity.test.ts`, against `MCP_TOOL_NAMES` itself
+> and never against the ruleset that generates the skill — **a mirror would pass
+> through any drift**. Six mutation cases run the same function over a mutated
+> skill: dropped grant, invented grant, deleted omission comment, a reason reduced
+> to a shrug, a tool both granted and omitted, and a surface carrying a tool the
+> skill has never heard of. A test also pins that a skill grant is **not** a command
+> grant, because R3's clearability table reads `ost-pass.md`'s frontmatter and the
+> next reader will assume otherwise.
 
 **D4 — No document names a command, path, or module that does not exist.**
 > *Check:* over the **operator-facing** docs only — `README.md`,
@@ -2488,10 +2694,45 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 **D5 — The vault working tree is clean before any auto-committing tool runs.**
 > *Check:* `git status --porcelain` in the vault is empty at the start of a
 > firing, or the commit path refuses to stage paths the firing tool did not touch.
-> *Today:* **not met**, and demonstrated live: an audit conducted for this document
-> left `?? test/zz-probe.test.ts` in the working tree, which the next mutating
-> tool's `git add -A` would have committed under that tool's name (W2). It was
-> removed by hand.
+> *Today:* **met** (2026-07-30), on the criterion's **first** branch: a firing
+> refuses to begin against a dirty vault, at `loop start`, before the lock is taken
+> and before any record is opened. `workingTreeStatus` answers `clean`, `dirty` or
+> `unknown` — and the third shape is deliberate, because a `catch { return clean }`
+> is exactly the false-clean this criterion exists to prevent. Two distinct exit
+> codes, `dirtyTree` and `treeUnreadable`, on F3's precedent that different mistakes
+> deserve different codes.
+>
+> The refusal carries the argument rather than just the verdict: `git add -A` stages
+> the whole vault, so a leftover is committed under the *next* tool's name — W2's
+> failure manufactured deterministically on every firing — and because F4's verdict
+> is a HEAD delta, verdicts shift by one and **one stale untracked file keeps a dead
+> vault reading `healthy` indefinitely**. That is why D5 is F4's precondition.
+>
+> **The wedge decision, made deliberately rather than by default.** The way out is a
+> human, which Gate F's wedge rule allows only when a human interrupt is the actual
+> point — and here it is: only the person who left the file knows what it is, and
+> every automatic exit is worse (committing it *is* the misattribution; deleting it
+> is a destructive act this codebase takes nowhere; ignoring it is how the file
+> stops being visible). So the refusal names the paths and names the commands, and
+> the commit hint is `add -A && commit -m` rather than `commit -am`, because `-am`
+> does not stage the untracked case and an operator following it would be refused
+> again by the same file.
+>
+> *The self-wedge question was verified, not assumed:* the loop's own records under
+> `<vault>/.git/ost-agent/` are invisible to `git status` — asserted directly, with
+> a control proving the same two files one directory up *are* seen — and `init`
+> commits everything it writes. Pinned by a full firing followed by a second
+> `loop start` that is accepted, in `test/cli/loop.test.ts`.
+>
+> **The shared CLI fixture was `mkdir .git`** — a "repository" git could not
+> describe, a state no real vault is ever in, and the thing that had hidden this
+> question. It is now a real repository with a committed baseline.
+>
+> *Scope, stated:* only `loop start` is gated, so a wrapper calling only `loop due`
+> gets no protection (the shipped `autonomous-pass.sh` calls both, in that order);
+> the criterion's **second** branch is untouched — `gitCommit` still stages
+> everything, because W2 and W3's detector currently depends on it; and a file
+> dropped into the vault *during* a firing is still swept by that firing.
 
 ---
 
@@ -2519,11 +2760,14 @@ invisible.
 > belongs in Tier 1: it satisfies this tier's own test, "nothing measured afterwards
 > means anything." That is precisely what an open W5 does to Gate F.
 >
-> **Status (2026-07-29): R1, R4, R5, S6 and H2 are met; R3 is partial and R9 is met.**
-> **R3**'s table now runs on every build, eight of its nine rows satisfy the criterion,
-> and the ninth (`lane-conflict`, R2) is unreachable from the unattended surface — so
-> the property an unattended vault depends on holds today, and the residue is an
-> interactive-surface wedge with a named fix. **R4** closed on 2026-07-29: `detectHygiene`
+> **Status (2026-07-30): Tier 1 is closed.** R1, R4, R5, S6, H2, W5, G1 and R9 were
+> met by 2026-07-30, and **R3 — the tier's blocker and the "if only one thing"
+> item — closed with R2 and R6.** Its table now reads `create: no` in every cell on
+> both surfaces: the agent can author no invariant violation in a single call at
+> all. R2 replaced `lane-conflict`'s containment argument with a refusal, and R6
+> closed `dangling-link`'s last create path from the other direction. The tier's own
+> test — *"nothing measured afterwards means anything if the subject is dead or if
+> failure is invisible"* — is satisfied. **R4** closed on 2026-07-29: `detectHygiene`
 > derives from `checkInvariants` instead of being written twice beside it, so the rule
 > sets cannot drift, and the one rule that does not block `done` is declared with its
 > reason and pinned as a set of exactly one. It took R7's grant with it. **G1** is the
@@ -2708,19 +2952,30 @@ as a human interrupt because spending real money is where DEC-3 says the sponsor
 *should* be interrupted — recorded as a decision so it cannot later read as an
 oversight.
 
-**The next single item is P10, and it is a different kind of item than the last
-six.** B9 was next across four revisions and closed on 2026-07-30, in the same
-batch as B1, B2, B3 and B10 — which is Tier 2 shut. Every criterion this document
-has closed so far was *build the mechanism*. P10 is not: its three failing rows
-were failing by B1, B2 and B3, all three of which now hold, so **what is missing
-is the enumeration, not the mechanism.** Its check is a table over
-`buildOstTools(ctx, MCP_TOOL_NAMES)` asserting that no single call flips a gate
-or empties a violation the same caller created, and nothing enumerates. That is
-worth doing precisely because it cannot be assembled out of the six criteria that
-just closed: each pinned the door it was about, and a property proved door by
-door is not proved. B12 and F6 are the two precedents for what a criterion like
-that finds, and F6's own first draft is the standing warning — it was vacuous and
-green.
+**P10 was the next single item, it was a different kind of item, and it paid out
+exactly as this paragraph predicted.** Every criterion closed before it was *build
+the mechanism*. P10 was not: its three failing rows were failing by B1, B2 and B3,
+all three of which held, so what was missing was **the enumeration, not the
+mechanism** — a table over `buildOstTools(ctx, MCP_TOOL_NAMES)` asserting that no
+single call flips a gate or empties a violation the same caller created. It was
+worth doing precisely because it could not be assembled out of the six criteria
+that had just closed: each pinned the door it was about, and *a property proved
+door by door is not proved*.
+
+**Written on 2026-07-30, it found a fourth door on its first run** —
+`ost_link_nodes` clearing a Solution's gate by adopting an AssumptionTest that
+already carried a recorded result — which no conjunction of B1, B2 and B3 would
+ever have named, because none of them is about that tool. R6 closed it, and the
+two criteria are now each other's evidence: R6's guard is what makes P10's table
+green, and P10's table is what found the case R6 had to guard. B12 and F6 were the
+precedents for what a criterion like that finds. F6's own first draft is the
+standing warning — it was vacuous and green — **and so was this one, in four
+separate places**, every one found by mutating the source rather than by reading it.
+
+**The next single item is S1, and with it Gate S.** It is a blocker; it is what
+stands between this repository and the sentence on line 3; and it is the only
+remaining criterion F4's open half waits on. Everything Tier 1 through Tier 3½ was
+holding back is now behind it.
 
 > **What is *not* next, and why, because the ordering keeps being the thing this
 > document gets right.** F4's escalation half looks closable and is not: it is

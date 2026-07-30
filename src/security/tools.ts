@@ -12,7 +12,7 @@
  */
 import path from "node:path";
 import { tool } from "./tool.js";
-import { gitCommit, gitPush } from "../git/safe-git.js";
+import { gitCommit, gitPush, pushTargetFor } from "../git/safe-git.js";
 import { AGENT_IDEATED_TAG, type NodeStatus, type OstNode } from "../ost/node.js";
 import { BELIEVABILITY_LADDER, isRung, type RungId } from "../knowledge/believability.js";
 import { classifyUnknown } from "../knowledge/unknowns.js";
@@ -35,6 +35,7 @@ import { budgetSpentMessage, createLookupBudget, type LookupBudget } from "../we
 import { HOST_RUNGS, hostRung, rankHost, readHostTrust } from "../knowledge/web-trust.js";
 import { readProductRepo } from "../product/repo.js";
 import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/render.js";
+import { hasRecordedResult } from "../eval/evidence-debt.js";
 import { checkCorroboration } from "../eval/corroboration.js";
 import { rungRefusal, unearnedRung } from "../eval/rungs.js";
 import { reconcileWithGit, reconcileWithUsage } from "../ost/census.js";
@@ -91,6 +92,99 @@ const CHILD_HIERARCHY: Record<string, string[]> = {
   AssumptionTest: ["Solution"],
   Unknown: ["Outcome", "Opportunity", "Solution", "AssumptionTest"],
 };
+
+/**
+ * The edge `ost_link_nodes` is about to write, checked the way
+ * `ost_create_node` checks the one it writes (R6).
+ *
+ * `ost_link_nodes` used to check only that the PARENT existed. An Opportunity
+ * was accepted as a child of a Solution, and a child that was not on disk at all
+ * was accepted too — so the one tool whose entire job is to state a structural
+ * fact was the one tool that checked no structure. Both halves are the same
+ * defect from the tree's point of view: an edge that says something the layers
+ * do not support, or that points at nothing.
+ *
+ * The guard is deliberately the SAME table `ost_create_node` reads, not a second
+ * one beside it — two hierarchy checks would eventually disagree, and the one
+ * that disagreed silently would be this one.
+ *
+ * **It must not close a clear path**, which is why nothing here refuses an edge
+ * that repairs the tree: `opportunity-connected`, `solution-mapped` and
+ * `assumption-mapped` are each cleared by linking an existing, correctly-layered
+ * node under the right parent, and that call is exactly what stays open. R3's
+ * table is what holds this to it — a guard broad enough to touch those rows
+ * fails `test/eval/clearability.test.ts` rather than passing review.
+ *
+ * **One shape of that repair IS narrowed, and saying so is the point of this
+ * paragraph.** The adoption clause below refuses an unattached AssumptionTest
+ * that already records a result, so the `assumption-mapped` repair is open for
+ * every orphan except that one. R3's table cannot see it — its plant is an
+ * orphan with no result — so the boundary is pinned by hand in
+ * `test/security/link-nodes-guard.test.ts` instead. It is the right call (the
+ * guard cannot tell "this test really was about that solution" from "adopt the
+ * neighbour's run", and the second reading is the forgery it exists to refuse),
+ * and it is not a wedge: the agent cannot author that state, annotating still
+ * reaches `done`, and `ost_check` keeps reporting the orphan for the human who
+ * can attach it. An interrupt, not a dead end — but a real cost, not none.
+ */
+function assertLinkAllowed(vault: Vault, parentTitle: string, childTitle: string): void {
+  const parent = vault.read(parentTitle); // "no such node: …" — the check that was already here
+  if (!vault.has(childTitle)) {
+    throw new Error(
+      `child "${displaySafeTitle(childTitle)}" does not exist — an edge to a node that is not on disk is a ` +
+        `dangling link, which ost_check reports and which nothing but creating the node clears. Create it ` +
+        `with ost_create_node (which attaches it under its parent in the same call), then link if you need a ` +
+        `second edge.`,
+    );
+  }
+  const child = vault.read(childTitle);
+  const allowedParents = CHILD_HIERARCHY[child.layer];
+  if (!allowedParents) {
+    throw new Error(
+      `"${displaySafeTitle(childTitle)}" is an ${child.layer} — the Outcome is the root of the tree and attaches under nothing.`,
+    );
+  }
+  if (!allowedParents.includes(parent.layer)) {
+    throw new Error(
+      `a ${child.layer} must attach under ${allowedParents.join(" or ")}, but "${displaySafeTitle(parentTitle)}" is a ${parent.layer}`,
+    );
+  }
+
+  // The hole P10's enumeration table found on 2026-07-30, closed here.
+  //
+  // B1 stopped the agent WRITING `## Results`; nothing stopped it ADOPTING
+  // someone else's. Hanging an assumption test that already carries a recorded
+  // result under a second Solution flips that Solution's gate from blocked to
+  // cleared in ONE call — the edge is added, not moved, so both Solutions now
+  // claim the same run, no invariant notices, and the tree afterwards says a
+  // solution was tested by a test that was about something else.
+  //
+  // The refusal is narrow on purpose, and the ordinary flow is why it costs
+  // nothing: a Solution is created, an assumption test is created beneath it
+  // (`ost_create_node` attaches in the same call, before any result exists), and
+  // only then does a human run it and record the result on the CLI. The link
+  // always precedes the result. What is refused is only the retroactive
+  // direction — a NEW edge onto an already-run test — which is the forging path
+  // and has no other use.
+  //
+  // Two boundaries, stated rather than implied. (1) Re-issuing an edge that
+  // already exists is exempt: `linkNodes` no-ops on it, so refusing would break
+  // an idempotent call that changes nothing and clears no gate. (2) Linking an
+  // UNRUN test under a second Solution stays open, so two solutions can still
+  // share an assumption a human later runs — the human's write is what moves
+  // both gates, which is a human in the loop rather than a single agent call.
+  const alreadyLinked = parent.links.some((l) => titlesMatch(l, childTitle));
+  if (!alreadyLinked && parent.layer === "Solution" && child.layer === "AssumptionTest" && hasRecordedResult(child)) {
+    throw new Error(
+      `refusing to attach "${displaySafeTitle(childTitle)}" under "${displaySafeTitle(parentTitle)}": that test already ` +
+        `records a result, and hanging it under a solution that did not commission it would clear that solution's ` +
+        `evidence gate on a run that was about something else — in one call, with nothing in the tree to show for it. ` +
+        `Surface an assumption test FOR this solution (ost_create_node, which attaches it in the same call) and let a ` +
+        `human run it. If the two solutions genuinely rest on the same tested assumption, a human says so — in the ` +
+        `note, or by linking it themselves.`,
+    );
+  }
+}
 
 /**
  * The tools whose spend can honestly belong to ONE unknown.
@@ -320,7 +414,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
     tool({
       name: "ost_create_node",
       description:
-        "Create a NEW node AND attach it under an existing parent in one atomic step — so a node can never be an orphan. You CANNOT create an Outcome (there is exactly one, human-set at init). Hierarchy is enforced: an Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an AssumptionTest under a Solution; an Unknown (darkness, representing uncertainty) attaches under any layer. The type tag (#Opportunity / #Solution / #AssumptionTest / #Unknown) is applied automatically, and so is the #unvalidated marker: everything you create enters the tree unvalidated, and only a human can take that marker off (`ost-agent promote`). For an Unknown, write its body with three `## ` sections — `## Format` (the shape a valid answer would take), `## Methodology` (how it would be collected), and `## Rationale` (which node this darkens and what metric it serves) — because Format is the stopping condition: an unknown that cannot say what an answer looks like cannot know when it is done, and one lacking Methodology is worth commissioning observability for rather than chasing further.",
+        "Create a NEW node AND attach it under an existing parent in one call. Everything that can be refused — the parent, the hierarchy, the evidence class, the title, the body — is checked BEFORE anything is written, so a refused call leaves nothing on disk; if the attach still fails after the file exists (a filesystem error, the one failure that cannot be checked in advance), the error names the node it created and tells you to link it, and ost_check reports it as unattached until you do. You CANNOT create an Outcome (there is exactly one, human-set at init). Hierarchy is enforced: an Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an AssumptionTest under a Solution; an Unknown (darkness, representing uncertainty) attaches under any layer. The type tag (#Opportunity / #Solution / #AssumptionTest / #Unknown) is applied automatically, and so is the #unvalidated marker: everything you create enters the tree unvalidated, and only a human can take that marker off (`ost-agent promote`). For an Unknown, write its body with three `## ` sections — `## Format` (the shape a valid answer would take), `## Methodology` (how it would be collected), and `## Rationale` (which node this darkens and what metric it serves) — because Format is the stopping condition: an unknown that cannot say what an answer looks like cannot know when it is done, and one lacking Methodology is worth commissioning observability for rather than chasing further.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -397,8 +491,33 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         // so no child can back a claim made at birth.
         const born = unearnedRung(node, new Map());
         if (born) throw new Error(rungRefusal(born));
+        // R8. This tool writes TWICE — the node's file, then the parent's file
+        // carrying the edge — and the vault holds no delete, so a failure
+        // between them leaves an orphan that nothing can take back. There is no
+        // rollback to add; the fix is to have nothing left to fail. Everything
+        // the ATTACH can refuse is asked here, before the first byte is written:
+        // the parent resolves and deserializes, the title reduces to a name
+        // inside the vault, and the parent's file is writable.
+        vault.assertLinkable(input.parent, input.title);
         vault.createNode(node); // gets its #<layer> tag from serialize
-        vault.linkNodes(input.parent, input.title); // attach to the tree atomically
+        try {
+          vault.linkNodes(input.parent, input.title); // attach to the tree
+        } catch (err) {
+          // The residue, stated plainly rather than claimed away: a filesystem
+          // error on the second write cannot be pre-validated (the disk can fill
+          // between the two calls) and cannot be rolled back (no delete, by
+          // design). So it is made LOUD instead of silent — the error names the
+          // node that now exists and the call that finishes the job, and
+          // `ost_check`'s orphan invariants (`opportunity-connected`,
+          // `solution-mapped`, `assumption-mapped`) report it until someone does.
+          throw new Error(
+            `created ${node.layer} "${node.title}" but could not attach it under "${input.parent}": ` +
+              `${(err as Error).message}. The node is on disk and is currently an ORPHAN — this vault has no ` +
+              `delete, so it cannot be taken back. Finish the attach with ` +
+              `ost_link_nodes({ parent: "${input.parent}", child: "${node.title}" }); until you do, ost_check ` +
+              `reports it as unattached.`,
+          );
+        }
         return `created ${node.layer} "${node.title}" under "${input.parent}"`;
       },
     }),
@@ -425,7 +544,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
     tool({
       name: "ost_link_nodes",
       description:
-        "Add a parent->child edge (a [[wikilink]] in the parent). Idempotent. Use to connect an Opportunity under the Outcome, a Solution under an Opportunity, or an AssumptionTest under a Solution.",
+        "Add a parent->child edge (a [[wikilink]] in the parent). Idempotent. Use to connect an Opportunity under the Outcome, a Solution under an Opportunity, or an AssumptionTest under a Solution — the same hierarchy ost_create_node enforces, and it is enforced here too: the child must already exist and the layers must fit, so this tool cannot author a dangling or nonsensical edge. One further refusal: an AssumptionTest that already records a result cannot be attached to a new Solution, because that would clear that solution's evidence gate on a test it never commissioned.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -436,6 +555,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         required: ["parent", "child"],
       },
       run: async (input: { parent: string; child: string }) => {
+        assertLinkAllowed(vault, input.parent, input.child);
         vault.linkNodes(input.parent, input.child);
         return `linked "${input.parent}" -> "${input.child}"`;
       },
@@ -808,12 +928,22 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
     tool({
       name: "git_push",
       description:
-        "Fast-forward push the vault to its configured remote. No-op when no remote is configured. Never force-pushes.",
+        "Fast-forward push the vault to the remote URL its ost.config.yaml names. No-op when remote push is disabled; refused when it is enabled and no remote.url is configured — the destination is the operator's written decision, never the ambient `origin` of whatever working tree this is. Never force-pushes.",
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       run: async () => {
-        if (!remote.enabled) return "remote push is disabled — no-op";
-        await gitPush(dir);
-        return "pushed to remote";
+        // P9: the destination comes from the vault's config, never from whatever
+        // `origin` this working tree happens to have. A misconfiguration —
+        // publication asked for, no address given — THROWS rather than returning
+        // a message: the disabled case is the operator's decision and reads as a
+        // no-op, this one is a question they have not answered, and a refusal a
+        // caller can skim past is how a vault ends up believing it is published.
+        const target = pushTargetFor(remote);
+        if (!target.push) {
+          if (target.reason === "no-url") throw new Error(target.why);
+          return target.why;
+        }
+        await gitPush(dir, target.remote);
+        return `pushed to ${target.remote}`;
       },
     }),
   ];

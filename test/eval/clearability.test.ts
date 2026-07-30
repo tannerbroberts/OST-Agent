@@ -183,8 +183,11 @@ const SCENARIOS: Record<string, Scenario> = {
 
   "dangling-link": {
     setup: withOpportunity,
-    createPath: "ost_link_nodes naming a child that does not exist",
+    createPath: "ost_link_nodes naming a child that does not exist — refused at the boundary since R6 (2026-07-30)",
     create: [{ tool: "ost_link_nodes", input: { parent: OPPORTUNITY, child: "Ghost opportunity" } }],
+    // The rule stays worth computing: a human's `[[wikilink]]` typed in Obsidian,
+    // an import, or a node predating the guard still writes one — which is why
+    // the plant goes through the vault rather than the surface.
     plant: (v) => v.linkNodes(OPPORTUNITY, "Ghost opportunity"),
     clearPath: "ost_create_node giving the named child a file",
     clear: [
@@ -199,7 +202,8 @@ const SCENARIOS: Record<string, Scenario> = {
         },
       },
     ],
-    expected: { mcp: { create: true, clear: true }, "ost-pass": { create: true, clear: true } },
+    expected: { mcp: { create: false, clear: true }, "ost-pass": { create: false, clear: true } },
+    createRefusal: /does not exist/,
   },
 
   "wrapped-wikilink": {
@@ -326,9 +330,19 @@ const SCENARIOS: Record<string, Scenario> = {
     createRefusal: /ost-agent promote|not one of/,
   },
 
+  // R2, 2026-07-30: this was the table's last open cell — the one rule the agent
+  // could author and nothing could clear, which under DEC-1 is a permanent red
+  // only a human on a shell can retire. It did NOT close by giving the agent a
+  // permissive lane setter; that would hand it the call that decides what compute
+  // may run on its own authority. It closed by refusing the flag when the node's
+  // own prose already names a different lane, which is R1's shape: the wedge is
+  // refused at the boundary instead of written and regretted. The clear column
+  // stays `false` and that is now harmless — a violation the agent cannot author
+  // is not a violation it can be wedged by. What remains unclearable is the
+  // planted one, which arrives from a human's CLI or a hand-edited note.
   "lane-conflict": {
     setup: withProseLane,
-    createPath: "ost_flag_humans_required on a test whose own prose says compute-only",
+    createPath: "ost_flag_humans_required on a test whose own prose says compute-only — refused since R2",
     create: [
       {
         tool: "ost_flag_humans_required",
@@ -342,7 +356,13 @@ const SCENARIOS: Record<string, Scenario> = {
       { tool: "ost_append_to_node", input: { title: ASSUMPTION, section: "## Correction\nThe lane declaration above is stale; the label is right." } },
       { tool: "ost_flag_humans_required", input: { test: ASSUMPTION, why: "re-stating the restrictive call changes nothing" } },
     ],
-    expected: { mcp: { create: true, clear: false }, "ost-pass": { create: false, clear: false } },
+    expected: { mcp: { create: false, clear: false }, "ost-pass": { create: false, clear: false } },
+    // Two surfaces, two reasons for the same `false`, and the alternation says
+    // so rather than hiding it: on MCP the guard refuses the call, on `/ost-pass`
+    // the tool is not granted at all (R7's containment, which was the whole of
+    // the answer before R2 and is now the belt to its braces). Pinning both means
+    // removing the guard fails the MCP row instead of passing on the grant.
+    createRefusal: /already declares a lane|is not granted on this surface/,
   },
 
   "rung-unearned": {
@@ -454,6 +474,30 @@ describe("the table covers exactly what checkInvariants can emit", () => {
     expect(PASS_TOOL_NAMES.length).toBeGreaterThan(0);
     for (const name of PASS_TOOL_NAMES) expect(MCP_TOOL_NAMES as readonly string[]).toContain(name);
     expect(PASS_TOOL_NAMES.length).toBeLessThan(MCP_TOOL_NAMES.length);
+  });
+
+  test("R3's property, stated over the table: what a surface can create, that surface can clear", () => {
+    // The criterion itself, in one place. Every cell below is an executed call,
+    // so this reads the verified table rather than a declaration — and a future
+    // rule that ships creatable-and-unclearable fails here, with the criterion's
+    // own words, in addition to failing its own row.
+    //
+    // As of 2026-07-30 it holds by the strongest available route: R2 refused the
+    // last `create: true` cell (`lane-conflict`) and R6 refused the other
+    // (`dangling-link`), so no rule on either surface is authorable in a single
+    // call at all. That is more than R3 asks for, and it is why this reads as a
+    // conditional rather than as a count — a new rule may legitimately be
+    // creatable, provided it ships with the tool that gets the agent back out.
+    for (const rule of RULES) {
+      const scenario = SCENARIOS[rule];
+      if (!scenario) continue;
+      for (const { name } of SURFACES) {
+        const cell = scenario.expected[name];
+        if (cell.create) {
+          expect(cell.clear, `${rule} on ${name}: the agent can author it and cannot clear it — a permanent wedge`).toBe(true);
+        }
+      }
+    }
   });
 
   test("no tool on either surface offers removal — the half of single-outcome no attempt can show", () => {

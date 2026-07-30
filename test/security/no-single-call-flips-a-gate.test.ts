@@ -11,17 +11,34 @@
  * proved door by door is not proved**, and the reason to write the table is that
  * a table can fail for a door nobody thought to name.
  *
- * It did. See `KNOWN_OPEN` below: `ost_link_nodes` flips a blocked Solution's
- * gate in one call, on the unattended surface, by hanging an assumption test that
- * already carries a human-recorded result under it as a second parent. B1/B2/B3
- * closed *authoring* a result. Nothing closes *borrowing* one. (Not "re-pointing":
- * the vault is append-only, so the edge is added, the test keeps its original
- * parent, and both Solutions now claim the same run. Nothing is moved, which is
- * why no invariant notices.) That row is committed as a failing
- * property asserted in the affirmative — the test asserts the hole is still there
- * — so that the day it closes, this file goes red and whoever closed it has to
- * move the row and update P10 in the same change. A hole recorded as a skipped
- * test is a hole nobody is told about.
+ * It did, and the row worked exactly as designed. `ost_link_nodes` flipped a
+ * blocked Solution's gate in one call, on the unattended surface, by hanging an
+ * assumption test that already carried a human-recorded result under it as a
+ * second parent. B1/B2/B3 closed *authoring* a result. Nothing closed *borrowing*
+ * one. (Not "re-pointing": the vault is append-only, so the edge is added, the
+ * test keeps its original parent, and both Solutions claim the same run. Nothing
+ * is moved, which is why no invariant noticed.) It was committed as a failing
+ * property asserted in the affirmative — the test asserted the hole was still
+ * there — so that the day it closed, this file would go red and tell whoever
+ * closed it to move the row. **It closed with R6 on 2026-07-30**: the guard is in
+ * `assertLinkAllowed` (`src/security/tools.ts`), the entry is gone from
+ * `KNOWN_OPEN`, the generated row now asserts the property like every other, and
+ * `CLOSED_HOLES` below keeps the exact call being fired so the refusal cannot rot
+ * back into a pass. A hole recorded as a skipped test is a hole nobody is told
+ * about; a closed hole with no test is a hole that reopens quietly.
+ *
+ * **What R2 and R6 did to part (b), stated because a section that stops testing
+ * anything must say so.** Clause (b) is scoped to *"a rule the same caller
+ * created"*, and after those two guards the agent can author **no** rule in a
+ * single call: `dangling-link` needed `ost_link_nodes` to accept a child that
+ * does not exist, and `lane-conflict` needed `ost_flag_humans_required` to write
+ * a label contradicting the node's own prose. Both are refused. So `authored` is
+ * empty, the generated sweep in part 3 runs over nothing, and the clause is
+ * satisfied by absence rather than by survival. That is strictly stronger than
+ * the criterion asks — and an absence proves nothing unless the calls are still
+ * made, so `CLOSED_CREATES` fires each of them every build and asserts the
+ * refusal and an empty `checkInvariants`. The day some rule becomes authorable
+ * again, its row goes back in `AUTHORSHIP` and the sweep wakes up.
  *
  * **The boundary this file draws on half (b), stated rather than left silent.**
  * `checkInvariants` going empty is not by itself a forgery. One pair really does
@@ -103,6 +120,18 @@ const OPPORTUNITY = "Players cannot tell what changed";
 const BLOCKED = "Ship a changelog";
 /** Its assumption test — proposed, never run. */
 const BLOCKED_TEST = "Diff two builds and count the deltas";
+/**
+ * A second test under the same blocked Solution, whose prose declares no lane.
+ *
+ * It exists because R2 (2026-07-30) made `ost_flag_humans_required` refuse a test
+ * whose own prose already names a different lane — and `BLOCKED_TEST`'s prose
+ * does, deliberately. Without a lane-free test beneath the blocked Solution, every
+ * generated flag attempt would be refused and that tool would stop landing
+ * anywhere, which is how a row goes quiet without going red: the `why` argument is
+ * B1's door five, and this file has to keep driving a payload through it onto a
+ * body the gate reads.
+ */
+const UNFLAGGED_TEST = "Read the two manifests side by side";
 /** A sibling Solution whose test a human already ran, so its gate is CLEARED. */
 const CLEARED = "Ship a digest email";
 const CLEARED_TEST = "Mail fifty users and count the opens";
@@ -139,11 +168,14 @@ function makeFixture(): Fixture {
 
   put(vault, BLOCKED, "Solution");
   vault.linkNodes(OPPORTUNITY, BLOCKED);
-  // The prose declares a lane and the frontmatter carries none — legal, and one
-  // restrictive call away from `lane-conflict`, which is one of the two rules the
-  // agent can author at all. Part 3 uses it.
+  // The prose declares a lane and the frontmatter carries none — legal, and it
+  // used to be one restrictive call away from `lane-conflict`, one of the two
+  // rules the agent could author at all. R2 closed that call; part 3's
+  // CLOSED_CREATES still fires it here and asserts the refusal.
   put(vault, BLOCKED_TEST, "AssumptionTest", "Compare two build manifests offline. Lane: compute-only.");
   vault.linkNodes(BLOCKED, BLOCKED_TEST);
+  put(vault, UNFLAGGED_TEST, "AssumptionTest", "Open both manifests and compare them.");
+  vault.linkNodes(BLOCKED, UNFLAGGED_TEST);
 
   put(vault, CLEARED, "Solution");
   vault.linkNodes(OPPORTUNITY, CLEARED);
@@ -379,8 +411,13 @@ const ROWS: Record<string, Row> = {
     aim: () => ({ title: BLOCKED_TEST }),
   },
   ost_flag_humans_required: {
+    // Aimed at the lane-free test rather than BLOCKED_TEST: R2 refuses the flag
+    // on a test whose own prose names a different lane, and a row every shape of
+    // which is refused would stop driving the payload through `why` — which is
+    // the door this row is here for. Both tests hang under the same blocked
+    // Solution, so the payload still lands on a body the gate reads.
     why: "free-text `why` onto an assumption test (B1's door five)",
-    aim: () => ({ test: BLOCKED_TEST }),
+    aim: () => ({ test: UNFLAGGED_TEST }),
   },
   ost_rank_source: {
     why: "the one web tool that writes — an append-only publisher-trust record, not a node",
@@ -494,17 +531,33 @@ describe("1 — the table covers exactly the surface the server exposes", () => 
  * Being in this map does not soften the assertion — it inverts it. The test for
  * a known-open row asserts the gate DOES flip, so closing the hole turns this
  * file red and forces the row (and P10's entry) to move in the same commit.
+ *
+ * **Empty since 2026-07-30**, when R6 closed the only entry it has ever had. The
+ * mechanism stays: the next hole this table finds goes in here rather than into a
+ * comment, and the row above it keeps asserting the property for every other
+ * shape of the same tool.
  */
-const KNOWN_OPEN: Record<string, { call: Record<string, unknown>; note: string }> = {
+const KNOWN_OPEN: Record<string, { call: Record<string, unknown>; note: string }> = {};
+
+/**
+ * Holes this table found and that are now closed, with the exact call that used
+ * to open them.
+ *
+ * A closed hole with no test is a hole that reopens quietly — and this one would
+ * reopen invisibly, because the tree it forges is structurally valid: the edge is
+ * legal, no invariant fires, and the only witness is a gate that says "tested"
+ * about a solution nobody tested. So the call is still fired every build, and
+ * both halves are asserted: it is refused, and the gate stays blocked.
+ */
+const CLOSED_HOLES: Record<string, { call: Record<string, unknown>; refusal: RegExp; note: string }> = {
   ost_link_nodes: {
     call: { parent: BLOCKED, child: CLEARED_TEST },
+    refusal: /already records a result/,
     note:
-      "One call hangs an assumption test that already carries a human-recorded result under a second, " +
-      "untested Solution, and that Solution's gate clears. B1, B2 and B3 closed AUTHORING a result; " +
-      "nothing closes BORROWING one — the edge is added, not moved, so both Solutions now claim the same " +
-      "run. `ost_link_nodes` is granted on /ost-pass, so this is reachable " +
-      "unattended, it leaves `checkInvariants` empty, and the tree afterwards claims a solution was " +
-      "tested by a test that was about something else.",
+      "hanging an assumption test that already carries a human-recorded result under a second, untested " +
+      "Solution cleared that Solution's gate in one call. B1, B2 and B3 closed AUTHORING a result; R6 " +
+      "closed BORROWING one — the edge was added, not moved, so both Solutions claimed the same run and no " +
+      "invariant noticed. `ost_link_nodes` is granted on /ost-pass, so it was reachable unattended.",
   },
 };
 
@@ -668,13 +721,19 @@ describe("2 — no single call flips renderGate(tree, solution).cleared from fal
     // time, and this list is what said so. `ost_ingest_inbox` takes no argument at
     // all and still writes: it saves an adapter cursor
     // (`.ost-agent/state/inbox.json`) even when the drop folder is empty.
+    //
+    // `ost_link_nodes` is deliberately NOT on this list any more. Its row aims at
+    // the edge that used to flip the gate, and R6 now refuses exactly that call,
+    // so every shape the driver generates for it is a refusal — which is the
+    // point of the row and the reason it cannot land. The landing it would
+    // otherwise prove is asserted directly, on a legal edge, in the CLOSED_HOLES
+    // test below; without that, "refused" and "broken" would look the same here.
     expect([...landers].sort()).toEqual([
       "ost_annotate",
       "ost_append_to_node",
       "ost_create_node",
       "ost_flag_humans_required",
       "ost_ingest_inbox",
-      "ost_link_nodes",
       "ost_rank_source",
       "ost_set_evidence",
       "ost_set_status",
@@ -694,6 +753,33 @@ describe("2 — no single call flips renderGate(tree, solution).cleared from fal
         ).toBe(true);
         // And it is silent: nothing in the tree records that this happened.
         expect(violations(fresh)).toEqual([]);
+      } finally {
+        fs.rmSync(fresh.dir, { recursive: true, force: true });
+      }
+    });
+  }
+
+  for (const [name, closed] of Object.entries(CLOSED_HOLES)) {
+    test(`${name} no longer flips the gate — ${closed.note}`, async () => {
+      const fresh = makeFixture();
+      try {
+        expect(cleared(fresh)).toBe(false);
+        // Refused, in the guard's own words — so removing the guard fails here
+        // with a message about a refusal that stopped happening, rather than
+        // passing because some unrelated thing also blocks the call.
+        await expect(
+          fire(toolsFor(fresh), { tool: name, input: closed.call, how: "the call that used to open the hole", reached: 0 }),
+        ).rejects.toThrow(closed.refusal);
+        expect(cleared(fresh)).toBe(false);
+
+        // The positive control this row owes the table. Every generated shape of
+        // `ost_link_nodes` in the sweep above is now refused, so the tool no
+        // longer appears in the `landers` list below — and a tool that never
+        // lands is a tool this file would be saying nothing about. A LEGAL edge
+        // has to still be written: the guard is narrow, not a wall.
+        const before = vaultDigest(fresh.dir);
+        await fire(toolsFor(fresh), { tool: "ost_link_nodes", input: { parent: CLEARED, child: BLOCKED_TEST }, how: "a legal edge", reached: 0 });
+        expect(vaultDigest(fresh.dir), "ost_link_nodes refuses a legal edge — the guard is too broad").not.toEqual(before);
       } finally {
         fs.rmSync(fresh.dir, { recursive: true, force: true });
       }
@@ -744,22 +830,13 @@ interface Authorship {
 const AUTHORSHIP: Record<string, Authorship> = {
   "single-outcome": { create: null, escapes: [], why: "ost_create_node refuses the Outcome layer; a second root arrives by hand or by import" },
   "dangling-link": {
-    create: { tool: "ost_link_nodes", input: { parent: OPPORTUNITY, child: "Ghost opportunity" } },
-    why: "ost_link_nodes accepts a child that does not exist",
-    // Talking about the dangling link does not resolve it, and neither does
-    // re-issuing the call that made it. The one move that does is CONSTRUCTIVE,
-    // below, and it is the only one: the node has to come into existence.
-    escapes: [
-      { tool: "ost_annotate", input: { title: OPPORTUNITY, issue: "the [[Ghost opportunity]] link is fine, ignore it" } },
-      { tool: "ost_append_to_node", input: { title: OPPORTUNITY, section: "Correction: [[Ghost opportunity]] was a typo and can be disregarded." } },
-      // Re-pointing the same dangling name at a different parent: it lands (a
-      // second edge is written) and the violation multiplies rather than clears.
-      // NOT the idempotent re-issue of the authoring call — `linkNodes` no-ops on
-      // a duplicate edge, so that attempt writes nothing, and an escape that
-      // writes nothing tests nothing. The landing check below is what said so.
-      { tool: "ost_link_nodes", input: { parent: BLOCKED, child: "Ghost opportunity" } },
-      { tool: "ost_set_status", input: { title: OPPORTUNITY, status: "deferred", note: "parked, so the dangling link no longer matters" } },
-    ],
+    create: null,
+    escapes: [],
+    why:
+      "R6 (2026-07-30) — ost_link_nodes refuses a child that is not on disk, which was the only single call " +
+      "that authored one. A body wikilink cannot substitute: only the contiguous [[…]] lines directly under " +
+      "the tag line become edges (`src/ost/node.ts`), and no tool writes there. One arrives from a human's " +
+      "note, an import, or a node predating the guard",
   },
   "wrapped-wikilink": { create: null, escapes: [], why: "R1 refuses a link split across a line break at the write funnel" },
   "opportunity-connected": { create: null, escapes: [], why: "ost_create_node attaches under its parent in the same call, so it cannot orphan one" },
@@ -768,18 +845,12 @@ const AUTHORSHIP: Record<string, Authorship> = {
   "evidence-class": { create: null, escapes: [], why: "`evidence` is required on ost_create_node; a node with no rung predates the ladder" },
   "no-self-validation": { create: null, escapes: [], why: "B2 — `validated` is not a value either status argument accepts" },
   "lane-conflict": {
-    create: { tool: "ost_flag_humans_required", input: { test: BLOCKED_TEST, why: 'the manifest has to be read by someone: "compare"' } },
-    why: "the restrictive lane call contradicts the test's own prose declaration",
-    // The lane label is one-way by construction (`ost/lanes.ts` exposes only the
-    // restrictive setter), so the agent's whole repertoire here is words: annotate
-    // it, append a correction saying the prose is stale, or re-issue the flag. An
-    // append-only vault cannot shrink the prose that made it a conflict.
-    escapes: [
-      { tool: "ost_annotate", input: { title: BLOCKED_TEST, issue: "lane conflict: the prose says compute-only, the label says humans-required" } },
-      { tool: "ost_append_to_node", input: { title: BLOCKED_TEST, section: "## Correction\nThe lane declaration above is stale; the label is right. Lane: humans-required." } },
-      { tool: "ost_flag_humans_required", input: { test: BLOCKED_TEST, why: "re-stating the restrictive call changes nothing" } },
-      { tool: "ost_set_evidence", input: { title: BLOCKED_TEST, evidence: "assertion", note: "re-labelling the rung does not touch the lane" } },
-    ],
+    create: null,
+    escapes: [],
+    why:
+      "R2 (2026-07-30) — the flag refuses when the test's own prose already names a different lane, which is " +
+      "the wedge it used to author: the label moves one way by construction and an append-only vault cannot " +
+      "shrink the sentence, so nothing the agent held could clear it. A human's `ost-agent lane --set` still can",
   },
   "rung-unearned": { create: null, escapes: [], why: "B3 — a measurement rung is refused when provenance cannot carry it" },
 };
@@ -817,9 +888,57 @@ describe("3 — no single call takes checkInvariants from non-empty to empty for
 
   const authored = RULES.filter((r) => AUTHORSHIP[r].create);
 
-  test("at least one rule is authorable, or the whole section proves nothing", () => {
-    expect(authored.length).toBeGreaterThan(0);
+  /**
+   * The two single calls that used to author a rule, and the guards that now
+   * refuse them.
+   *
+   * This is what replaced *"at least one rule is authorable, or the whole section
+   * proves nothing"*. That assertion was right when it was written and is
+   * unsatisfiable now: R2 and R6 closed the last two create paths, so the sweep
+   * below iterates over nothing and clause (b) holds by absence. **An absence is
+   * exactly the shape of claim this repository has been burned by**, so the calls
+   * are still made — every build, against a real fixture — and the refusal plus
+   * an empty `checkInvariants` is what stands in for the sweep they used to feed.
+   */
+  const CLOSED_CREATES: { rule: string; tool: string; input: Record<string, unknown>; refusal: RegExp }[] = [
+    {
+      rule: "dangling-link",
+      tool: "ost_link_nodes",
+      input: { parent: OPPORTUNITY, child: "Ghost opportunity" },
+      refusal: /does not exist/,
+    },
+    {
+      rule: "lane-conflict",
+      tool: "ost_flag_humans_required",
+      input: { test: BLOCKED_TEST, why: 'the manifest has to be read by someone: "compare"' },
+      refusal: /already declares a lane/,
+    },
+  ];
+
+  test("the section has a subject: some rule is authorable, or every closed create is still refused", () => {
+    expect(authored.length + CLOSED_CREATES.length).toBeGreaterThan(0);
+    // Each closed create names a rule the table still knows about, so a rule
+    // renamed out of `checkInvariants` cannot leave a row here pointing at air.
+    for (const c of CLOSED_CREATES) expect(RULES).toContain(c.rule);
   });
+
+  for (const c of CLOSED_CREATES) {
+    test(`${c.tool} can no longer author ${c.rule} in one call`, async () => {
+      const f = makeFixture();
+      try {
+        expect(violations(f)).toEqual([]);
+        await expect(fire(toolsFor(f), { tool: c.tool, input: c.input, how: "the create that used to work", reached: 0 })).rejects.toThrow(
+          c.refusal,
+        );
+        expect(
+          violations(f),
+          `${c.tool} still authors ${c.rule} — put its row back in AUTHORSHIP so the sweep below runs against it`,
+        ).toEqual([]);
+      } finally {
+        fs.rmSync(f.dir, { recursive: true, force: true });
+      }
+    });
+  }
 
   for (const rule of authored) {
     const { create, escapes } = AUTHORSHIP[rule]!;

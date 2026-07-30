@@ -1,6 +1,21 @@
 /**
  * Shared helpers over the tree and the vault's `.ost-agent/` sidecar state:
- * evidence capture, the P2 "mapped" set, and layer-aware child counting.
+ * evidence capture, what an evidence id looks like, and layer-aware child counting.
+ *
+ * **There is no "mapped" set here any more, and that absence is the point (W12).**
+ * `getMapped`/`setMapped` read and wrote `.ost-agent/state/mapped.json`, a second
+ * record of which evidence had been distilled into the tree. `setMapped` had zero
+ * callers — the batch runner that wrote it was deleted — so the file was never
+ * created, while `computeNextWork` still read it. A reader with no writer is not
+ * merely dead: it is a second answer to "is this evidence mapped?" that any actor
+ * able to drop a JSON file into the vault could make say yes, retiring a builder's
+ * report from the work list without anyone reading it.
+ *
+ * So the persisted half is gone and the relation is derived instead: evidence is
+ * mapped iff some node in the tree cites its id as that node's `source`. One
+ * writer — `ost_create_node`'s `source`, which lands in node frontmatter — and one
+ * reader, `computeNextWork`. That is this repository's standing preference ("derive,
+ * never restate") applied to the one place it was violated.
  */
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -30,9 +45,6 @@ export type UnstampedEvidence = Omit<EvidenceRecord, "actor">;
 
 function evidenceDir(dir: string): string {
   return path.join(dir, ".ost-agent", "evidence");
-}
-function stateFile(dir: string, name: string): string {
-  return path.join(dir, ".ost-agent", "state", name);
 }
 function safeName(id: string): string {
   return id.replace(/\.(md|txt|markdown)$/i, "").replace(/[^a-zA-Z0-9._-]+/g, "_");
@@ -178,21 +190,45 @@ export function readEvidence(dir: string): EvidenceRecord[] {
   return out;
 }
 
-export function getMapped(dir: string): Set<string> {
-  const p = stateFile(dir, "mapped.json");
-  if (!fs.existsSync(p)) return new Set();
-  try {
-    const parsed = JSON.parse(fs.readFileSync(p, "utf8")) as { mapped?: string[] };
-    return new Set(parsed.mapped ?? []);
-  } catch {
-    return new Set();
-  }
-}
+/**
+ * The prefixes an adapter mints as an evidence record's `id` — the namespace that
+ * `.ost-agent/evidence/` owns.
+ *
+ * Read off the adapters, not invented: `INBOX:<file>` (`adapters/inbox.ts`),
+ * `TRANSCRIPT:<session>` (`adapters/transcript.ts`), `SLACK:<channel>:<ts>`
+ * (`adapters/slack.ts`), `JIRA:<key>` and `CONFLUENCE:<id>` (`adapters/atlassian.ts`),
+ * `USAGE:<day>` (`adapters/usage.ts`). Every one of those is written into a record's
+ * frontmatter `id` by `writeEvidence`, so every one of them is a name that either
+ * resolves to a stored file or names nothing at all.
+ *
+ * **What is deliberately NOT here matters more than what is.** `classifyProvenance`
+ * (`knowledge/believability.ts`) also recognises `WEB:<host>` and `INTERVIEW:…`, and
+ * neither is an evidence id: no adapter mints them, and a node citing a page the agent
+ * read or a conversation a human had is making a true statement about where a claim came
+ * from without claiming a stored record exists. Holding those to resolution would refuse
+ * honest provenance, which is why the rule this list feeds is narrower than "the source
+ * must resolve": it is "a source that *claims to name a stored evidence record* must name
+ * one that exists."
+ */
+export const EVIDENCE_ID_PREFIXES = ["INBOX", "TRANSCRIPT", "SLACK", "JIRA", "CONFLUENCE", "USAGE"] as const;
 
-export function setMapped(dir: string, mapped: Set<string>): void {
-  const p = stateFile(dir, "mapped.json");
-  fs.mkdirSync(path.dirname(p), { recursive: true });
-  fs.writeFileSync(p, JSON.stringify({ mapped: [...mapped] }, null, 2), "utf8");
+const EVIDENCE_ID_SHAPE = new RegExp(`^(?:${EVIDENCE_ID_PREFIXES.join("|")}):`, "i");
+
+/**
+ * Does this `source` claim to name a stored evidence record?
+ *
+ * The *claim* is matched case-insensitively while resolution (everywhere that consumes
+ * this) stays byte-exact, and the asymmetry is the whole reason this is a function
+ * rather than a `startsWith`. Evidence ids are keys: the cursor, the on-disk filename
+ * and the mapped-ness derivation all compare them verbatim. So `inbox:note.md` typed
+ * against a stored `INBOX:note.md` is precisely the W12 failure — the evidence stays on
+ * the unmapped list forever while the session believes it mapped it, and the sweep
+ * reports "nothing changed" rather than "you missed." Matching the claim loosely is what
+ * lets that near-miss be *reported* instead of silently accepted as a non-evidence
+ * citation.
+ */
+export function claimsStoredEvidence(source: string | undefined): source is string {
+  return !!source && EVIDENCE_ID_SHAPE.test(source.trim());
 }
 
 /** Index a node list by title. */

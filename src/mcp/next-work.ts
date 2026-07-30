@@ -9,7 +9,7 @@
  * Purely a reader — it reads the tree + the `.ost-agent/` sidecar and reports.
  * It never mutates, so it carries no commit.
  */
-import { byTitle, childrenOfLayer, getMapped, readEvidence } from "../processes/tree.js";
+import { byTitle, childrenOfLayer, claimsStoredEvidence, readEvidence } from "../processes/tree.js";
 import type { Actor } from "../adapters/source.js";
 import { checkInvariants } from "../eval/invariants.js";
 import { scanNearDuplicates } from "../ost/dedupe.js";
@@ -55,7 +55,8 @@ export interface HygieneIssue {
   /**
    * The `checkInvariants` rule this issue is the `next_work` face of, so the two
    * gates can be joined by something other than string matching. `near-duplicate`
-   * is the one value with no invariant behind it — see {@link HYGIENE_ONLY_RULES}.
+   * and `unresolved-citation` are the values with no invariant behind them — see
+   * {@link HYGIENE_ONLY_RULES}.
    */
   rule: string;
 }
@@ -184,7 +185,84 @@ export const HYGIENE_LABELS: Readonly<Record<string, string>> = {
  * gate lying, because a stricter `done` never reports complete over a red tree.
  * The reverse — `check` stricter than `done` — is the R4 defect.
  */
-export const HYGIENE_ONLY_RULES = ["near-duplicate"] as const;
+export const HYGIENE_ONLY_RULES = ["near-duplicate", "unresolved-citation"] as const;
+
+/**
+ * The `rule` a dangling evidence citation is reported under, and the sentence a
+ * session reads when it is (W12's second branch).
+ *
+ * Mapped-ness is derived from exact string equality between an evidence record's `id`
+ * and the `source` a node cites. That equality is silent in the one direction that
+ * matters: a `source` naming nothing — a typo, a filename the model reconstructed from
+ * memory, `INBOX:does-not-exist.md` — creates a node that *looks* mapped to its author
+ * and leaves the evidence outstanding forever, while every subsequent sweep reports the
+ * same count and concludes nothing changed. The citation is a claim about a file, so it
+ * gets checked against the files.
+ *
+ * **Why this is reported here rather than refused at the write boundary,** which is the
+ * shape this repository prefers (R1, B1, B3): the refusal would live in
+ * `ost_create_node` (`src/security/tools.ts`), and it should — a citation that cannot
+ * resolve is a citation that should never reach disk. This module is the honest
+ * fallback, and the criterion names it as the alternative branch. It is also not
+ * redundant once the refusal exists: the tool surface is not the only writer to a vault
+ * (a human in Obsidian, an import, a node that predates the guard), and a record can be
+ * cited correctly and then fail to resolve because the evidence file was never written
+ * — the same argument `detectHygiene`'s wrapped-wikilink detector makes for staying
+ * after R1 closed its write boundary.
+ *
+ * **Why it blocks `done` and why that is not a wedge (R2/R3).** It is reported through
+ * `take()`, so it is a hygiene issue like any other: `ost_annotate` on the node clears
+ * it, and that clear path is the same one every other blocking rule uses and the same
+ * one `test/eval/clearability.test.ts` enforces. An unclearable red is the failure this
+ * repository keeps re-learning; a red whose only escape is "write down, on the node,
+ * that the citation is dangling" is a recorded decision, not a trap. Note that
+ * annotating clears the *issue* and not the *mapping*: the uncited evidence stays on
+ * `unmappedEvidence`, which is correct, because it still has not been read.
+ */
+export const UNRESOLVED_CITATION_RULE = "unresolved-citation";
+
+/**
+ * How much of a `source` may be quoted into an issue, and the characters that may
+ * survive the trip.
+ *
+ * **A `source` is the one caller-supplied string on a node that never passes
+ * `assertWritableContent`.** `ost_create_node` hands `input.source` straight to
+ * `serialize`, where YAML happily stores a multi-line scalar; every other free-text
+ * parameter is checked at the write boundary. So the string quoted below is arbitrary
+ * untrusted content, and the issue it lands in has to survive being written *back*
+ * through that boundary by `ost_annotate` — the one and only way out of this red.
+ *
+ * Quoting it raw was a wedge, and it was reachable in three ways at once (measured
+ * against a scratch vault before this existed):
+ *
+ * - `source: "INBOX:x.md\n## Results\n- it worked"` produced an issue containing a
+ *   reserved heading, and `vault.annotate` **refuses** it (B1). Permanent `done: false`
+ *   with no tool on either surface able to clear it.
+ * - `source: "INBOX:[[Some\nTitle]].md"` produced an issue carrying a split wikilink,
+ *   refused by the same guard for the same reason.
+ * - Even where the guard let it through, a multi-line issue is unclearable *silently*:
+ *   `annotate` writes `- <date> <issue>` and {@link annotatedIssues} reads one line back,
+ *   so the suppression key could never match what was written and the issue would be
+ *   re-reported forever.
+ *
+ * Flattening C0 controls to spaces closes all three: the reserved-heading and
+ * wrapped-wikilink checks are both line-anchored (`declaresHeading` splits on `\n`;
+ * `wrappedLinkTargets` looks for a newline *inside* the brackets), and a one-line issue
+ * is what the suppression reader can see. The length clamp is the response-size half —
+ * `MAX_ITEMS_PER_LIST`'s bound argument rests on every quoted string being clamped
+ * (titles 200, excerpts 280), and `source` has no schema length limit anywhere.
+ *
+ * The cost is that the quote is a rendering rather than the bytes: whitespace is
+ * collapsed and a long id is cut. That is the right trade for a string whose purpose is
+ * to let a human see the typo, and it cannot cause a *mis*-clear, because suppression is
+ * keyed per node ({@link detectHygiene}'s `annotatedCache`) and a node has one `source`.
+ */
+const QUOTED_SOURCE_CONTROL_CHARS = new RegExp("[\\u0000-\\u001F\\u007F]+", "g");
+const MAX_QUOTED_SOURCE_LENGTH = 200;
+function quotableSource(source: string): string {
+  const flat = source.replace(QUOTED_SOURCE_CONTROL_CHARS, " ").replace(/\s+/g, " ").trim();
+  return flat.length > MAX_QUOTED_SOURCE_LENGTH ? `${flat.slice(0, MAX_QUOTED_SOURCE_LENGTH)}…` : flat;
+}
 
 /**
  * The structural issues P5_hygiene annotates, derived from `checkInvariants`
@@ -197,7 +275,13 @@ export const HYGIENE_ONLY_RULES = ["near-duplicate"] as const;
  * connected on one gate and adrift on the other. Neither gap was hidden; both
  * were remembered rather than computed.
  */
-function detectHygiene(tree: OstNode[], live: OstNode[], limit: number): { issues: HygieneIssue[]; total: number } {
+function detectHygiene(
+  tree: OstNode[],
+  live: OstNode[],
+  limit: number,
+  /** Every `id` currently stored under `.ost-agent/evidence/`. See {@link UNRESOLVED_CITATION_RULE}. */
+  storedEvidenceIds: ReadonlySet<string>,
+): { issues: HygieneIssue[]; total: number } {
   const index = byTitle(tree);
 
   // Parsed once per node rather than once per issue. On a duplicated tree one
@@ -242,6 +326,27 @@ function detectHygiene(tree: OstNode[], live: OstNode[], limit: number): { issue
     const title = v.node ?? outcome;
     if (!title) continue; // nothing to hang it on; the parity test is what keeps this unreachable
     take({ title, issue: `${HYGIENE_LABELS[v.rule] ?? v.rule}: ${v.detail}`, rule: v.rule });
+  }
+  // A citation that claims a stored evidence record must name one that exists.
+  // Taken over the WHOLE tree rather than `live`, like every rule above and unlike
+  // the duplicate scan: retiring a node must never be a way to clear the fact that
+  // it cites a record nobody can go read.
+  //
+  // The dangling id is quoted into the issue text, because "this node's source does
+  // not resolve" is not actionable and "this node's source is INBOX:reprot.md" names
+  // the typo. The node itself is named by `title`, which is also what makes the issue
+  // annotatable — an issue with no node is a wedge. The quote goes through
+  // `quotableSource` for the other half of that same argument: an issue `ost_annotate`
+  // refuses to write is just as unclearable as one with no node to write it on.
+  for (const n of tree) {
+    if (!claimsStoredEvidence(n.source) || storedEvidenceIds.has(n.source)) continue;
+    take({
+      title: n.title,
+      issue:
+        `unresolvable citation: source "${quotableSource(n.source)}" claims a stored evidence record, but no record ` +
+        `under .ost-agent/evidence/ carries that id (ids are matched exactly, so case and extension count)`,
+      rule: UNRESOLVED_CITATION_RULE,
+    });
   }
   // Likely duplicates (same-layer near-identical titles) — flagged for a human,
   // never merged. Taken over `live`, the tree with retired nodes withheld (Z4);
@@ -360,15 +465,28 @@ export function computeNextWork(vault: Vault, dir: string, min: number): NextWor
     }
   }
 
-  // Evidence counts as mapped if any node in the tree cites it as its `source` — that is
-  // how a session records the mapping, via ost_create_node's `source`. `mapped.json` is
-  // read too, because vaults mapped before the batch runner was deleted recorded it there
-  // and nowhere else; deriving "mapped" from the tree as well is what lets /ost-pass reach
-  // done on a vault the session mapped itself.
-  const mapped = getMapped(dir);
+  /*
+   * Mapped-ness, derived and only derived (W12).
+   *
+   * Evidence counts as mapped iff some node in the tree cites its id as that node's
+   * `source`. ONE WRITER — `ost_create_node`'s `source`, which lands in the node's
+   * frontmatter — and ONE READER, the line below.
+   *
+   * There used to be a second reader: `getMapped(dir)`, over `.ost-agent/state/mapped.json`.
+   * Its writer had been deleted with the batch runner, so nothing ever created the file,
+   * and a reader whose writer is gone is not inert — it is a standing second answer to
+   * "has this been read?" that anything able to drop a JSON file into the vault could
+   * make say yes, retiring a builder's report from the work list with nobody having read
+   * it. The persisted half is gone; this derivation is the whole mechanism.
+   *
+   * ONE read of the evidence directory, reused below for citation resolution — a second
+   * read is a second answer, and these two have to agree by construction.
+   */
+  const evidence = readEvidence(dir);
+  const storedEvidenceIds = new Set(evidence.map((e) => e.id));
   const citedSources = new Set(tree.map((n) => n.source).filter((s): s is string => !!s));
-  const allUnmappedEvidence: UnmappedEvidence[] = readEvidence(dir)
-    .filter((e) => !mapped.has(e.id) && !citedSources.has(e.id))
+  const allUnmappedEvidence: UnmappedEvidence[] = evidence
+    .filter((e) => !citedSources.has(e.id))
     .map((e) => ({ id: e.id, source: e.source, title: e.title, excerpt: e.body.slice(0, 280), actor: e.actor }));
 
   const allUnderservedOpportunities: UnderservedOpportunity[] = tree
@@ -391,7 +509,7 @@ export function computeNextWork(vault: Vault, dir: string, min: number): NextWor
     .filter((s) => childrenOfLayer(s, index, "AssumptionTest").length === 0)
     .map((s) => ({ title: s.title, opportunity: firstOpportunityParent.get(s.title) ?? null }));
 
-  const hygiene = detectHygiene(tree, liveCensus.nodes, MAX_ITEMS_PER_LIST);
+  const hygiene = detectHygiene(tree, liveCensus.nodes, MAX_ITEMS_PER_LIST, storedEvidenceIds);
 
   // Tree order — the order the walk produced.
   const allOpenUnknowns: OpenUnknown[] = tree

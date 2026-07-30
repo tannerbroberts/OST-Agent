@@ -7,6 +7,7 @@
  * fail-closed guard remain the single source of truth for what is callable.
  */
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { buildOstTools } from "../security/tools.js";
@@ -17,6 +18,7 @@ import { buildPassContext } from "../runner/context.js";
 import { enqueueCommit } from "./commit.js";
 import { bootstrapNextWork, vaultReadiness, type VaultNotReady } from "./bootstrap.js";
 import { configProblemGuidance, setupGuidance } from "./setup.js";
+import { withAttribution } from "../telemetry/usage.js";
 import { VERSION } from "../index.js";
 
 export const MCP_TOOL_NAMES = [
@@ -155,7 +157,35 @@ function declaredUnknown(args: unknown): string | undefined {
   return title.length > 0 ? title : undefined;
 }
 
-async function handleOstCall(ctx: PassContext, byName: Map<string, McpToolDef>, name: string, args: unknown): Promise<ToolCallResult> {
+/**
+ * This server's own identity, minted at construction and never accepted from
+ * outside.
+ *
+ * `session` exists so that a later reader can say "these calls came from one
+ * run" — and that grouping is only worth anything if the label cannot be
+ * authored by something that was not the run. It used to come from `OST_SESSION`,
+ * which means any shell that exported the variable before launching the plugin
+ * could stamp its own value onto the trace, and two unrelated servers launched
+ * from the same profile would collapse into one apparent session. A generated
+ * UUID is unguessable, unforgeable and unique per server instance, which is the
+ * grouping the field actually claims to offer. (Per INSTANCE, not per process:
+ * two servers in one process are two dispatchers, and merging them would be the
+ * same lie in miniature.)
+ *
+ * The `mcp-` prefix is for the human reading the JSONL, not for the machine —
+ * nothing parses it.
+ */
+function mintSessionId(): string {
+  return `mcp-${randomUUID()}`;
+}
+
+async function handleOstCall(
+  ctx: PassContext,
+  byName: Map<string, McpToolDef>,
+  name: string,
+  args: unknown,
+  session: string,
+): Promise<ToolCallResult> {
   const tool = byName.get(name);
   if (!tool) return unknownTool(name);
   // First run: the session has the tools but no vault to point them at. Answer
@@ -182,27 +212,27 @@ async function handleOstCall(ctx: PassContext, byName: Map<string, McpToolDef>, 
       isError: true,
     };
   }
-  // OST_UNKNOWN is process-global and this server is long-lived, so dispatch
-  // takes ownership of it for exactly the span of one call: SET when the call
-  // declares an unknown, DELETED when it does not — silence must read as
-  // silence even when some earlier value is still lying around — and restored
-  // to whatever it was in a `finally`, including when the tool throws. A leaked
-  // marker bills the next call to the wrong unknown, which is worse than no
-  // attribution: a wrong number reads as a measured one.
+  // Attribution is DECLARED here, at the one dispatch point, and travels to the
+  // trace as an in-process scope rather than through the environment (H5). Two
+  // fields, two different authorities:
   //
-  // Be plain about the limit. This is correct because MCP dispatch here handles
-  // one call at a time and `withUsageTracing` reads the variable inside the same
-  // call it wraps (src/telemetry/usage.ts:78). It is NOT concurrency-safe in
-  // general: two calls genuinely interleaved in one process would race on one
-  // variable, and the loser would be attributed to the winner's unknown. If this
-  // surface ever dispatches concurrently, the marker must stop being an
-  // environment variable and become an argument threaded into withUsageTracing.
+  //   session — this server's minted identity. The surface knows it, so it is
+  //             always stamped.
+  //   unknown — whatever THIS call declared in its arguments. Stamped when the
+  //             call named one, ABSENT when it did not. Absent is the honest
+  //             answer and a stale value is not: a leaked marker bills the next
+  //             call to the wrong unknown, and a wrong number reads as a
+  //             measured one.
+  //
+  // The previous version of this achieved the same by assigning `process.env.
+  // OST_UNKNOWN` and restoring it in a `finally`, which worked only because this
+  // dispatcher is serial and left the trace readable by any shell that had
+  // exported the variable. `withAttribution` scopes the declaration to this call's
+  // async context: a concurrent dispatcher would be correct by construction, and
+  // an ambient `OST_UNKNOWN`/`OST_SESSION` is now simply not consulted by anyone.
   const marker = declaredUnknown(args);
-  const priorMarker = process.env.OST_UNKNOWN;
   try {
-    if (marker) process.env.OST_UNKNOWN = marker;
-    else delete process.env.OST_UNKNOWN;
-    const out = await tool.run(args);
+    const out = await withAttribution({ session, ...(marker ? { unknown: marker } : {}) }, () => tool.run(args));
     let text = typeof out === "string" ? out : JSON.stringify(out);
     if (MUTATING.has(name)) {
       const commit = await enqueueCommit(ctx.dir, `mcp: ${name} — ${text}`);
@@ -211,9 +241,6 @@ async function handleOstCall(ctx: PassContext, byName: Map<string, McpToolDef>, 
     return { content: [{ type: "text", text }] };
   } catch (e) {
     return { content: [{ type: "text", text: e instanceof Error ? e.message : String(e) }], isError: true };
-  } finally {
-    if (priorMarker === undefined) delete process.env.OST_UNKNOWN;
-    else process.env.OST_UNKNOWN = priorMarker;
   }
 }
 
@@ -224,11 +251,12 @@ function newServer(): Server {
 export function createOstMcpServer(ctx: PassContext): Server {
   const defs = buildDefs(ctx);
   const byName = new Map(defs.map((d) => [d.name, d]));
+  const session = mintSessionId();
 
   const server = newServer();
   server.setRequestHandler(ListToolsRequestSchema, async () => listToolsPayload(defs));
   server.setRequestHandler(CallToolRequestSchema, async (req) =>
-    handleOstCall(ctx, byName, req.params.name, req.params.arguments ?? {}),
+    handleOstCall(ctx, byName, req.params.name, req.params.arguments ?? {}, session),
   );
   return server;
 }
@@ -251,6 +279,10 @@ interface LiveTools {
  */
 export function createLazyOstMcpServer(vaultDir: string): Server {
   const dir = path.resolve(vaultDir);
+  // Minted at construction, not on the first successful call: the identity
+  // belongs to the server, and a vault that was not ready for the first three
+  // calls is still the same run as the fourth.
+  const session = mintSessionId();
 
   // Built on the first call that finds the vault ready, then cached. Never
   // earlier: the context must load the config `init` wrote, not the bootstrap
@@ -317,7 +349,7 @@ export function createLazyOstMcpServer(vaultDir: string): Server {
       return { content: [{ type: "text", text: configProblemGuidance(dir, cause) }], isError: true };
     }
     if ("setup" in got) return notReadyResult(got.setup, name);
-    return handleOstCall(got.live.ctx, got.live.byName, name, req.params.arguments ?? {});
+    return handleOstCall(got.live.ctx, got.live.byName, name, req.params.arguments ?? {}, session);
   });
 
   return server;
