@@ -39,7 +39,7 @@ import { checkCorroboration } from "../eval/corroboration.js";
 import { rungRefusal, unearnedRung } from "../eval/rungs.js";
 import { reconcileWithGit } from "../ost/census.js";
 import { InboxSource } from "../adapters/inbox.js";
-import { loadCursor, saveCursor } from "../adapters/source.js";
+import { loadCursor, saveCursor, type EvidenceItem } from "../adapters/source.js";
 import { writeEvidence } from "../processes/tree.js";
 import { loadConfig } from "../config/load.js";
 import { DEFAULT_MIN_SOLUTIONS_PER_OPPORTUNITY } from "../config/schema.js";
@@ -648,12 +648,39 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
           return "the inbox adapter is disabled (adapters.inbox.enabled: false in ost.config.yaml) — nothing was read.";
         }
         const source = new InboxSource(path.join(dir, inboxConfig.path));
-        const { items, cursor } = await source.fetchSince(loadCursor(dir, source.name));
+        const previous = loadCursor(dir, source.name);
+        const { items, cursor } = await source.fetchSince(previous);
         const capturedTitles: string[] = [];
-        // The actor comes off the source object, never off the item: this is the
-        // surface stamping who produced the record (W11).
-        for (const item of items) if (writeEvidence(dir, item, source.actor)) capturedTitles.push(item.title);
-        saveCursor(dir, source.name, cursor);
+        // Items that reached disk — the ones the cursor is allowed to describe as
+        // delivered. Advancing past an item that did not reach disk loses a report
+        // permanently, and the inbox is the builder's only channel (W10), so the
+        // cursor follows the storage rather than the fetch.
+        const stored: EvidenceItem[] = [];
+        let failure: { item: EvidenceItem; reason: string } | null = null;
+        for (const item of items) {
+          try {
+            // The actor comes off the source object, never off the item: this is the
+            // surface stamping who produced the record (W11).
+            if (writeEvidence(dir, item, source.actor)) capturedTitles.push(item.title);
+          } catch (e) {
+            failure = { item, reason: e instanceof Error ? e.message : String(e) };
+            break;
+          }
+          stored.push(item);
+        }
+        // Stop at the first failure rather than skipping it: continuing would need a
+        // cursor that names a gap, which no adapter's scheme here can express, and a
+        // gap the cursor cannot name is the loss this criterion is about.
+        saveCursor(dir, source.name, failure ? source.advanceCursor(previous, stored) : cursor);
+        if (failure) {
+          // Reported, not thrown. The records already written are on disk, and only a
+          // returning call reaches the `git add -A` commit that stages them — a throw
+          // here would leave them untracked, trading a lost report for an unattributed
+          // file (D5). The text says plainly that the run is incomplete.
+          const shown = capturedTitles.slice(0, MAX_TITLES_LISTED).map(displaySafeTitle);
+          const prefix = capturedTitles.length > 0 ? `captured ${capturedTitles.length} note(s): ${shown.join(", ")}. ` : "";
+          return `${prefix}STOPPED at "${displaySafeTitle(failure.item.title)}" — ${failure.reason}. It was NOT captured and the cursor was not advanced past it: fix the cause and call ost_ingest_inbox again to re-offer it and everything after it.`;
+        }
         if (capturedTitles.length === 0) {
           return "0 new notes — the inbox holds nothing that has not already been captured.";
         }

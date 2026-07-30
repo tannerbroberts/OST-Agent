@@ -105,6 +105,16 @@ export class UsageSource implements Source {
     return { items, cursor: advanced };
   }
 
+  /**
+   * Refuses to advance partially. The cursor is a day watermark that deliberately
+   * moves past too-quiet days which never became items, so rebuilding it from
+   * `stored` would re-emit those days forever — and a day is a rollup, not a report
+   * someone is waiting on, so re-deriving it is free.
+   */
+  advanceCursor(previous: Cursor): Cursor {
+    return previous;
+  }
+
   private rollup(day: string, events: UsageEvent[]): EvidenceItem {
     const errors = events.filter((e) => !e.ok);
     const durations = events.map((e) => e.ms).sort((a, b) => a - b);

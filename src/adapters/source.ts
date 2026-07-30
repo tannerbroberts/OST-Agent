@@ -75,6 +75,24 @@ export interface Source {
   readonly actor: Actor;
   /** Return items new since `cursor`, plus the advanced cursor. Read-only. */
   fetchSince(cursor: Cursor): Promise<FetchResult>;
+  /**
+   * The cursor that covers `stored` and nothing else — what to persist when a fetch
+   * was only partly stored.
+   *
+   * `fetchSince` returns one cursor for the whole batch, so persisting it after a
+   * storage failure marks unstored items as delivered: the producer's report is
+   * accepted and then lost, with no way to detect it or retry (W10). The framework
+   * cannot repair that itself, because a cursor is opaque to it by design — only the
+   * adapter knows whether its scheme can express "these three of five".
+   *
+   * **Returning `previous` unchanged is a correct implementation, and the required
+   * one for a watermark cursor.** A high-water mark cannot name a subset; the honest
+   * answer is to re-fetch the whole batch next time and let the store's own
+   * idempotency drop the ones already written. The method is required rather than
+   * optional so that a new adapter has to decide which of the two it is, in the file
+   * where its cursor scheme is written.
+   */
+  advanceCursor(previous: Cursor, stored: EvidenceItem[]): Cursor;
 }
 
 function stateDir(vaultDir: string): string {

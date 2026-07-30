@@ -307,6 +307,17 @@ export class TranscriptSource implements Source {
 
     return { items, cursor: encodeSeen([...seen]) };
   }
+
+  /**
+   * Refuses to advance partially. The seen-set here is wider than the emitted items —
+   * a harvested session with no friction is marked seen and never becomes an item —
+   * so a cursor rebuilt from `stored` alone would forget those sessions and harvest
+   * them again forever. Re-offering the whole batch costs a re-read; rebuilding from
+   * the wrong set costs correctness.
+   */
+  advanceCursor(previous: Cursor): Cursor {
+    return previous;
+  }
 }
 
 function decodeSeen(cursor: Cursor): string[] {

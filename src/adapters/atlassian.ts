@@ -82,6 +82,14 @@ export class AtlassianSource implements Source {
 
     return { items, cursor: encode({ since: newSince, seen: newSeen }) };
   }
+
+  /**
+   * Refuses to advance partially, for the same reason as {@link SlackSource}: `since`
+   * is a high-water mark over `updated`, which cannot name a subset of one batch.
+   */
+  advanceCursor(previous: Cursor): Cursor {
+    return previous;
+  }
 }
 
 function jiraToEvidence(i: JiraIssue): EvidenceItem {

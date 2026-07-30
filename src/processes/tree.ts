@@ -2,6 +2,7 @@
  * Shared helpers over the tree and the vault's `.ost-agent/` sidecar state:
  * evidence capture, the P2 "mapped" set, and layer-aware child counting.
  */
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
@@ -37,6 +38,40 @@ function safeName(id: string): string {
   return id.replace(/\.(md|txt|markdown)$/i, "").replace(/[^a-zA-Z0-9._-]+/g, "_");
 }
 
+/** The `id` a stored record claims, or null if the file cannot be read as one. */
+function storedId(file: string): string | null {
+  try {
+    const value = matter(fs.readFileSync(file, "utf8")).data.id;
+    return typeof value === "string" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Where this exact id lives — the storage half of "lookup must agree with storage".
+ *
+ * `safeName` is lossy on purpose (an id is not a filename), and lossy means two
+ * different ids can name one file: `INBOX:note.md` and `INBOX:note.txt` both collapse
+ * to `INBOX_note`. Keying idempotency on that name made the second delivery
+ * indistinguishable from a re-delivery of the first, so it was accepted, reported as
+ * captured, marked seen in the cursor — and never written (W9). A builder whose
+ * report collides has no way to detect it, and under DEC-1 the inbox is its only
+ * channel.
+ *
+ * So the name is a *hint* and the frontmatter `id` is the key. A file whose stored id
+ * is this id is this record; a file whose stored id is anything else — including a
+ * file too damaged to state one — is somebody else's, and this record moves to a name
+ * disambiguated by a digest of the whole id. That keeps the common path byte-identical
+ * to what earlier versions wrote, which is what lets W8's second guard (`existsSync`,
+ * the one that survives a deleted cursor) keep working on vaults written before this.
+ */
+function evidenceFile(dir: string, id: string): string {
+  const base = path.join(dir, `${safeName(id)}.md`);
+  if (!fs.existsSync(base) || storedId(base) === id) return base;
+  return path.join(dir, `${safeName(id)}-${createHash("sha256").update(id).digest("hex").slice(0, 8)}.md`);
+}
+
 /**
  * Persist an evidence item as a provenance-tagged Markdown file (idempotent).
  *
@@ -59,6 +94,12 @@ function safeName(id: string): string {
  * on-disk filename and `classifyProvenance` all match them verbatim — and
  * rewriting a key to fix a display problem is how one record becomes two.
  *
+ * The return value is a contract, not a convenience: `true` means this call wrote the
+ * record, `false` means *this exact id* is already on disk, and a throw means it is not
+ * stored and the caller must not record it as delivered. There is no fourth answer —
+ * in particular, "stored under a name another record already owns" is a throw, because
+ * the alternative is the silent drop W9 names.
+ *
  * `actor` is a SEPARATE ARGUMENT rather than a field on the item, because it is the
  * one thing on the record whose producer must have no say in it. It comes off the
  * `Source` that did the fetching, and a new adapter cannot forget to supply one
@@ -67,8 +108,18 @@ function safeName(id: string): string {
 export function writeEvidence(dir: string, rec: UnstampedEvidence, actor: Actor): boolean {
   const d = evidenceDir(dir);
   fs.mkdirSync(d, { recursive: true });
-  const p = path.join(d, `${safeName(rec.id)}.md`);
-  if (fs.existsSync(p)) return false;
+  const p = evidenceFile(d, rec.id);
+  if (fs.existsSync(p)) {
+    // Reached only when the digest-disambiguated name is taken by a *third* id — a
+    // sha256 collision among ids that already share a `safeName`. Throwing rather than
+    // returning `false` is the point: `false` means "already stored", and the one
+    // thing this function must never do is say that about a record it did not store.
+    // The caller's contract turns a throw into an un-advanced cursor and a retry (W10).
+    if (storedId(p) !== rec.id) {
+      throw new Error(`evidence id "${rec.id}" cannot be stored: ${path.basename(p)} belongs to another record`);
+    }
+    return false;
+  }
   // The body goes in as `{ content }`, NOT as a bare string. `matter.stringify` PARSES
   // a string argument first and merges any frontmatter it finds *under* the fields
   // passed here — `matter.stringify(str, data)` runs `matter(str)` first — so a note

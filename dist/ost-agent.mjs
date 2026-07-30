@@ -31300,6 +31300,14 @@ var InboxSource = class {
     }
     return { items, cursor: encodeSeen([...seen]) };
   }
+  /**
+   * Exact, because this cursor is a set of ids rather than a watermark: the ids that
+   * were already seen, plus the ids that were actually stored. An item that failed to
+   * store is absent, so the next `fetchSince` offers it again.
+   */
+  advanceCursor(previous, stored) {
+    return encodeSeen([.../* @__PURE__ */ new Set([...decodeSeen(previous), ...stored.map((i2) => i2.id)])]);
+  }
 };
 function decodeSeen(cursor) {
   if (!cursor) return [];
@@ -31340,6 +31348,13 @@ var AtlassianSource = class {
     for (const f of fetched) if (!newSince || f.updated > newSince) newSince = f.updated;
     const newSeen = newSince ? fetched.filter((f) => f.updated === newSince).map((f) => f.id) : [];
     return { items, cursor: encode({ since: newSince, seen: newSeen }) };
+  }
+  /**
+   * Refuses to advance partially, for the same reason as {@link SlackSource}: `since`
+   * is a high-water mark over `updated`, which cannot name a subset of one batch.
+   */
+  advanceCursor(previous) {
+    return previous;
   }
 };
 function jiraToEvidence(i2) {
@@ -31630,6 +31645,16 @@ var TranscriptSource = class {
     }
     return { items, cursor: encodeSeen2([...seen]) };
   }
+  /**
+   * Refuses to advance partially. The seen-set here is wider than the emitted items —
+   * a harvested session with no friction is marked seen and never becomes an item —
+   * so a cursor rebuilt from `stored` alone would forget those sessions and harvest
+   * them again forever. Re-offering the whole batch costs a re-read; rebuilding from
+   * the wrong set costs correctness.
+   */
+  advanceCursor(previous) {
+    return previous;
+  }
 };
 function decodeSeen2(cursor) {
   if (!cursor) return [];
@@ -31708,6 +31733,15 @@ var UsageSource = class {
       items.push(this.rollup(day, dayEvents));
     }
     return { items, cursor: advanced };
+  }
+  /**
+   * Refuses to advance partially. The cursor is a day watermark that deliberately
+   * moves past too-quiet days which never became items, so rebuilding it from
+   * `stored` would re-emit those days forever — and a day is a rollup, not a report
+   * someone is waiting on, so re-deriving it is free.
+   */
+  advanceCursor(previous) {
+    return previous;
   }
   rollup(day, events) {
     const errors = events.filter((e) => !e.ok);
@@ -31834,6 +31868,15 @@ var SlackSource = class {
     for (const f of fetched) if (!newSince || tsGt(f.ts, newSince)) newSince = f.ts;
     const newSeen = newSince ? fetched.filter((f) => f.ts === newSince).map((f) => f.id) : [];
     return { items, cursor: encode2({ since: newSince, seen: newSeen }) };
+  }
+  /**
+   * Refuses to advance partially: `since` is a high-water mark, and no watermark can
+   * express "the first three messages of this batch stored, the fourth did not".
+   * Keeping the previous cursor re-fetches the batch, and `writeEvidence`'s
+   * id-keyed idempotency drops the ones already on disk.
+   */
+  advanceCursor(previous) {
+    return previous;
   }
 };
 function tsToIso(ts) {
@@ -38119,6 +38162,7 @@ ${historyBlock}`;
 
 // src/processes/tree.ts
 var import_gray_matter3 = __toESM(require_gray_matter(), 1);
+import { createHash } from "node:crypto";
 import fs11 from "node:fs";
 import path10 from "node:path";
 
@@ -38162,11 +38206,29 @@ function stateFile(dir, name) {
 function safeName(id) {
   return id.replace(/\.(md|txt|markdown)$/i, "").replace(/[^a-zA-Z0-9._-]+/g, "_");
 }
+function storedId(file) {
+  try {
+    const value = (0, import_gray_matter3.default)(fs11.readFileSync(file, "utf8")).data.id;
+    return typeof value === "string" ? value : null;
+  } catch {
+    return null;
+  }
+}
+function evidenceFile(dir, id) {
+  const base = path10.join(dir, `${safeName(id)}.md`);
+  if (!fs11.existsSync(base) || storedId(base) === id) return base;
+  return path10.join(dir, `${safeName(id)}-${createHash("sha256").update(id).digest("hex").slice(0, 8)}.md`);
+}
 function writeEvidence(dir, rec, actor) {
   const d = evidenceDir(dir);
   fs11.mkdirSync(d, { recursive: true });
-  const p2 = path10.join(d, `${safeName(rec.id)}.md`);
-  if (fs11.existsSync(p2)) return false;
+  const p2 = evidenceFile(d, rec.id);
+  if (fs11.existsSync(p2)) {
+    if (storedId(p2) !== rec.id) {
+      throw new Error(`evidence id "${rec.id}" cannot be stored: ${path10.basename(p2)} belongs to another record`);
+    }
+    return false;
+  }
   const content = import_gray_matter3.default.stringify({ content: redactSecrets(rec.body).trim() + "\n" }, {
     id: rec.id,
     source: rec.source,
@@ -41845,10 +41907,26 @@ function buildOstTools(ctx, allowedNames) {
           return "the inbox adapter is disabled (adapters.inbox.enabled: false in ost.config.yaml) \u2014 nothing was read.";
         }
         const source = new InboxSource(path18.join(dir, inboxConfig.path));
-        const { items, cursor } = await source.fetchSince(loadCursor(dir, source.name));
+        const previous = loadCursor(dir, source.name);
+        const { items, cursor } = await source.fetchSince(previous);
         const capturedTitles = [];
-        for (const item of items) if (writeEvidence(dir, item, source.actor)) capturedTitles.push(item.title);
-        saveCursor(dir, source.name, cursor);
+        const stored = [];
+        let failure = null;
+        for (const item of items) {
+          try {
+            if (writeEvidence(dir, item, source.actor)) capturedTitles.push(item.title);
+          } catch (e) {
+            failure = { item, reason: e instanceof Error ? e.message : String(e) };
+            break;
+          }
+          stored.push(item);
+        }
+        saveCursor(dir, source.name, failure ? source.advanceCursor(previous, stored) : cursor);
+        if (failure) {
+          const shown2 = capturedTitles.slice(0, MAX_TITLES_LISTED).map(displaySafeTitle);
+          const prefix = capturedTitles.length > 0 ? `captured ${capturedTitles.length} note(s): ${shown2.join(", ")}. ` : "";
+          return `${prefix}STOPPED at "${displaySafeTitle(failure.item.title)}" \u2014 ${failure.reason}. It was NOT captured and the cursor was not advanced past it: fix the cause and call ost_ingest_inbox again to re-offer it and everything after it.`;
+        }
         if (capturedTitles.length === 0) {
           return "0 new notes \u2014 the inbox holds nothing that has not already been captured.";
         }
