@@ -297,13 +297,19 @@ export function createLazyOstMcpServer(vaultDir: string): Server {
     if (!live) {
       const readiness = vaultReadiness({ dir });
       if (!readiness.ready) return { setup: readiness };
-      // Strict about the config — the vault exists now, so it must parse — but
-      // with NO adapter sources: the MCP surface never consumes ctx.sources,
-      // so an adapter whose env vars are absent in the MCP host process (the
-      // plugin launches this server without the operator's shell env) must not
-      // take unrelated tools down. May still throw on a broken config; both
-      // request handlers catch that and answer with the fix.
-      const ctx = buildPassContext(dir, { skipSources: true, tolerateInvalidConfig: true });
+      // Sources ARE built here, and that is a deliberate reversal. This used to pass
+      // `skipSources: true` because an adapter whose env vars are absent in the MCP
+      // host process (the plugin launches this server without the operator's shell
+      // env) would throw inside `buildPassContext` and take every unrelated tool
+      // down — G1's failure mode. Suppressing them fixed that and cost the surface
+      // every adapter it ships: `ost_ingest_inbox` had no sources to iterate, so the
+      // only path to new evidence was a human writing into the drop folder (S1, S5).
+      //
+      // `buildPassContext` now degrades PER SOURCE instead: a source that cannot be
+      // constructed becomes a named entry on `ctx.unavailableSources`, never a throw.
+      // G1's property is preserved by the same mechanism that fixed it for configs,
+      // rather than by refusing to build anything.
+      const ctx = buildPassContext(dir, { tolerateInvalidConfig: true });
       const defs = buildDefs(ctx);
       const built = { ctx, defs, byName: new Map(defs.map((d) => [d.name, d])) };
       // A degraded context is never cached. Recovery-on-fix used to be free — a

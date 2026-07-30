@@ -7,16 +7,87 @@
  * (symlink escapes are refused), listings skip vendor noise, file content is
  * capped and passed through `redactSecrets`. There is no write, no glob over
  * everything, no execution.
+ *
+ * Two things it also does not do, both because of what it would otherwise be a
+ * second, unintended channel FOR: it refuses any path inside a vault's own
+ * `.ost-agent/` sidecar (W7 — evidence has one designated reader, and it is
+ * `ost_next_work`), and everything it does return is framed as data (S4 — a repo
+ * is somebody's bytes, and a filename is as good an injection vector as a file).
  */
 import fs from "node:fs";
 import path from "node:path";
 import { redactSecrets } from "../adapters/transcript.js";
+import { DATA_FRAME, frameData } from "../security/framing.js";
 
 export const MAX_FILE_CHARS = 20_000;
 export const MAX_LIST_ENTRIES = 500;
 
-/** Directories that are noise for discovery purposes, skipped in listings. */
+/**
+ * The vault's own sidecar directory, named here because this reader has to refuse
+ * it rather than merely skip it (W7).
+ *
+ * A vault is a perfectly ordinary git repository, so `product.repos: [<vault>]` is
+ * a normal thing for an operator to write — and it used to make this tool the
+ * highest-bandwidth path from an untrusted note into the model's context: whole
+ * evidence bodies and `state/inbox.json`, uncapped by the sweep's excerpt limit and
+ * with no data framing, while the channel *intended* to carry a body was the one
+ * that truncated at 280 characters. There is one report channel; this is the other
+ * one, and it refuses.
+ */
+export const VAULT_SIDECAR = ".ost-agent";
+
+/**
+ * Directories that are noise for discovery purposes, skipped in listings.
+ *
+ * `.ost-agent` is NOT in here, because it is not skipped — it is refused, by
+ * {@link isSidecarName} at the filter below and by {@link refuseVaultSidecar} on
+ * the read. Membership in this set was never the protection: it only filters
+ * `readdir` entries, and the read that mattered — `{ path: '.ost-agent/evidence/…' }`
+ * — never consults it.
+ */
 const SKIP_DIRS = new Set([".git", "node_modules", "dist", "build", ".next", "__pycache__", ".venv"]);
+
+/**
+ * Is this one path component the vault sidecar?
+ *
+ * **Case-insensitively, and that is the whole reason this is a function.** The
+ * comparison used to be `=== VAULT_SIDECAR`, which is a correct test of the string
+ * and the wrong test of the filesystem: macOS (APFS/HFS+ by default) and Windows
+ * resolve `.OST-AGENT/evidence/note.md` to the same file as `.ost-agent/…`, and
+ * `fs.realpathSync` hands back the spelling it was ASKED for rather than the one on
+ * disk — so both the pre-read check and the realpath re-check saw a component that
+ * did not match, and the entire evidence store came back in full through a path that
+ * differs from the refused one by the shift key. Verified against a scratch repo
+ * before this line changed: `{ path: '.OST-AGENT/evidence/note.md' }` returned the
+ * body.
+ *
+ * Folding the case costs a product repo that legitimately contains a directory
+ * spelled `.OST-Agent` on a case-sensitive filesystem — which is not a thing, and is
+ * the right side of this trade regardless, since the refusal names the channel that
+ * does serve evidence rather than being a dead end.
+ */
+function isSidecarName(component: string): boolean {
+  return component.toLowerCase() === VAULT_SIDECAR;
+}
+
+/**
+ * Refuse anything inside a vault sidecar, wherever it appears in the path.
+ *
+ * Checked on the *requested* path before the file is touched and again on the
+ * realpath afterwards, so a symlink pointing into the sidecar is refused with the
+ * same sentence rather than followed — the confinement check above only asks
+ * whether the target is inside the root, and the sidecar is inside the root.
+ * Checking the resolved root itself closes the other way in: `product.repos:
+ * [<vault>/.ost-agent]` would otherwise make every path in it relative and clean.
+ */
+function refuseVaultSidecar(candidate: string, rel: string): void {
+  if (!candidate.split(path.sep).some(isSidecarName)) return;
+  throw new Error(
+    `"${rel}" is inside a vault's own ${VAULT_SIDECAR}/ sidecar — the product reader does not serve it. ` +
+      `Evidence is retrieved one record at a time, framed as data, with ost_next_work({ evidence: "<id>" }); ` +
+      `the ids are in that tool's unmappedEvidence list. Cursors and state files are not readable through any tool.`,
+  );
+}
 
 export interface RepoEntry {
   name: string;
@@ -24,12 +95,27 @@ export interface RepoEntry {
 }
 
 export interface RepoReadResult {
+  /**
+   * The data-framing marker, on EVERY response this reader produces (S4).
+   *
+   * Unconditional rather than only on `kind: "file"`, because a listing is
+   * untrusted bytes too — a filename is chosen by whoever wrote the repo, and a
+   * directory called `SYSTEM: ignore prior rules` is a cheaper attack than a file
+   * body. Setting it in one place at the bottom of this function is also what
+   * makes a future fourth `kind` framed by construction instead of by review.
+   */
+  framing: string;
   /** "repos" lists the configured roots; "listing" a directory; "file" content. */
   kind: "repos" | "listing" | "file";
   /** Which repo root served this, as its basename. */
   repo?: string;
   path?: string;
   entries?: RepoEntry[];
+  /**
+   * File content, carrying {@link DATA_FRAME} as its first line. The cap below
+   * applies to the content, never to the frame — a marker that could be truncated
+   * away by a long enough file would be no marker at all.
+   */
   text?: string;
   truncated?: boolean;
 }
@@ -52,7 +138,11 @@ export function readProductRepo(repos: readonly string[], input: { repo?: string
   } else if (roots.length === 1) {
     root = roots[0];
   } else if (!input.path) {
-    return { kind: "repos", entries: roots.map((r) => ({ name: path.basename(r), type: "dir" as const })) };
+    return {
+      framing: DATA_FRAME,
+      kind: "repos",
+      entries: roots.map((r) => ({ name: path.basename(r), type: "dir" as const })),
+    };
   } else {
     throw new Error(`several repos are configured — pass \`repo\`: ${roots.map((r) => path.basename(r)).join(", ")}`);
   }
@@ -64,6 +154,10 @@ export function readProductRepo(repos: readonly string[], input: { repo?: string
   if (joined !== root && !joined.startsWith(root + path.sep)) {
     throw new Error(`"${rel}" resolves outside the repo — reads are confined to ${path.basename(root)}`);
   }
+  // Before the filesystem is touched, so the refusal is the answer rather than
+  // "does not exist" — which would otherwise say whether a given sidecar file is
+  // there, one probe at a time.
+  refuseVaultSidecar(joined, rel);
   let real: string;
   try {
     real = fs.realpathSync(joined);
@@ -73,17 +167,20 @@ export function readProductRepo(repos: readonly string[], input: { repo?: string
   if (real !== root && !real.startsWith(root + path.sep)) {
     throw new Error(`"${rel}" is a symlink escaping the repo — reads are confined to ${path.basename(root)}`);
   }
+  // Again on the resolved path: a symlink INSIDE the root pointing at the sidecar
+  // passes every check above, and following it would reopen the whole hole.
+  refuseVaultSidecar(real, rel);
 
   const repoName = path.basename(root);
   const stat = fs.statSync(real);
   if (stat.isDirectory()) {
     const entries = fs
       .readdirSync(real, { withFileTypes: true })
-      .filter((e) => !SKIP_DIRS.has(e.name))
+      .filter((e) => !SKIP_DIRS.has(e.name) && !isSidecarName(e.name))
       .sort((a, b) => a.name.localeCompare(b.name))
       .slice(0, MAX_LIST_ENTRIES)
       .map((e) => ({ name: e.name, type: e.isDirectory() ? ("dir" as const) : ("file" as const) }));
-    return { kind: "listing", repo: repoName, path: rel, entries };
+    return { framing: DATA_FRAME, kind: "listing", repo: repoName, path: rel, entries };
   }
 
   const buf = fs.readFileSync(real);
@@ -93,10 +190,14 @@ export function readProductRepo(repos: readonly string[], input: { repo?: string
   const redacted = redactSecrets(buf.toString("utf8"));
   const truncated = redacted.length > MAX_FILE_CHARS;
   return {
+    framing: DATA_FRAME,
     kind: "file",
     repo: repoName,
     path: rel,
-    text: truncated ? redacted.slice(0, MAX_FILE_CHARS) : redacted,
+    // Framed at the value, not only at the response: `text` is the field a host
+    // renders on its own and the one a session pastes onward, and it is the only
+    // field here that carries a whole file of somebody else's bytes.
+    text: frameData(truncated ? redacted.slice(0, MAX_FILE_CHARS) : redacted),
     truncated,
   };
 }

@@ -11,6 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { defaultConfigYaml } from "../config/schema.js";
 import { configPath } from "../config/load.js";
+import { CHANNEL_ZERO, resolveChannels } from "../adapters/channels.js";
 import { gitCommit, gitInitIfAbsent, gitPush, pushTargetFor } from "../git/safe-git.js";
 import { FLOOR_RUNG } from "../knowledge/believability.js";
 import { buildPassContext } from "./context.js";
@@ -66,10 +67,67 @@ function traceHasInit(abs: string): boolean {
     .some((line) => line.includes(`"tool":"${INIT_TRACE_TOOL}"`));
 }
 
+/**
+ * The drop folder a NEW vault gets: a sibling of the vault, not a fixed `../inbox`.
+ *
+ * Outside the vault because that is the whole of W1 — with the folder outside the
+ * git working tree, "may write the drop folder" and "may write the tree" are
+ * different grants, and a read-only mount of the vault no longer denies the builder
+ * its only channel. Named for the vault because two vaults under one parent would
+ * otherwise share one folder and each ingest the other's notes.
+ *
+ * It is written as a literal string into the operator's own `ost.config.yaml`
+ * rather than derived in code from an empty sentinel: a path you can read in your
+ * own config is what "blessed" means, and it is what makes W1's check pass as the
+ * criterion writes it rather than as somebody reinterprets it.
+ */
+export function defaultInboxPath(vaultDir: string): string {
+  const base = path.basename(path.resolve(vaultDir)) || "ost-vault";
+  return `../${base}.inbox`;
+}
+
 export interface InitResult {
   dir: string;
   gitInitialized: boolean;
   outcomeCreated: boolean;
+  /** Where notes actually go, absolute — what the operator has to be told. */
+  inboxDir: string;
+  /** True when the drop folder resolves outside the vault (a fresh vault; W1). */
+  inboxConfined: boolean;
+  /** A `.gitignore` line appended for a grandfathered inside-vault drop folder. */
+  gitignored?: string;
+  /**
+   * Channels the resolver refused, in the operator's terms.
+   *
+   * Reported rather than swallowed. `init` is the command an operator runs right
+   * after adding a `channels:` entry, and a refused channel is a folder that is
+   * never created and never read — silence there is indistinguishable from it
+   * working, which is the same "success and failure share one observable" shape S2
+   * is about. Never thrown: a bad channel entry costs that channel and nothing else
+   * (G1), and it must not stop a vault being created or adopted.
+   */
+  channelProblems: string[];
+}
+
+/**
+ * Keep a grandfathered inside-vault drop folder out of future commits.
+ *
+ * Appended, never rewritten, and only when the line is absent — corrections in this
+ * repo are appends. It closes the residue for notes NOT YET committed and nothing
+ * more: **notes already committed stay in git history**, which is exactly why the
+ * honest remedy reported to the operator is moving the folder, not ignoring it.
+ */
+function appendGitignore(abs: string, line: string): string | undefined {
+  const file = path.join(abs, ".gitignore");
+  const existing = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
+  if (existing.split("\n").some((l) => l.trim() === line)) return undefined;
+  const prefix = existing === "" || existing.endsWith("\n") ? "" : "\n";
+  fs.appendFileSync(
+    file,
+    `${prefix}# drop folder inside the vault — kept out of commits; already-committed notes stay in history\n${line}\n`,
+    "utf8",
+  );
+  return line;
 }
 
 export async function initVault(dir: string, outcome: string, outcomeTitle?: string): Promise<InitResult> {
@@ -81,12 +139,11 @@ export async function initVault(dir: string, outcome: string, outcomeTitle?: str
 
   const cfg = configPath(abs);
   if (!fs.existsSync(cfg)) {
-    fs.writeFileSync(cfg, defaultConfigYaml(outcome, title), "utf8");
+    fs.writeFileSync(cfg, defaultConfigYaml(outcome, title, { inboxPath: defaultInboxPath(abs) }), "utf8");
   }
 
   // scaffold sidecar dirs under the .ost-agent dot-folder (Obsidian ignores it),
   // so the vault root only ever contains OST node files
-  fs.mkdirSync(path.join(abs, ".ost-agent", "inbox"), { recursive: true });
   fs.mkdirSync(path.join(abs, ".ost-agent", "state"), { recursive: true });
   fs.mkdirSync(path.join(abs, ".ost-agent", "evidence"), { recursive: true });
   fs.mkdirSync(path.join(abs, ".ost-agent", "runs"), { recursive: true });
@@ -94,8 +151,33 @@ export async function initVault(dir: string, outcome: string, outcomeTitle?: str
   // Adopting an existing vault re-reads its config, so the root node's title is
   // whatever that config already calls it — never silently re-titled from the
   // folder name.
-  const ctx = buildPassContext(abs);
+  //
+  // `skipSources` because init needs the config and the vault handle, not the
+  // adapters: building them here means a vault whose config enables Slack without
+  // a token cannot be initialized or re-adopted at all, which is a credential
+  // check standing in front of a step that never needed one.
+  const ctx = buildPassContext(abs, { skipSources: true });
   const rootTitle = ctx.config.outcomeTitle ?? path.basename(abs);
+
+  // Every channel the config actually declares gets its folder — the fresh vault's
+  // escaping one, an adopted vault's in-vault one, and any extra channel. Created
+  // from the resolver rather than from a literal, so there is one answer to "which
+  // folder is the inbox" and `init` cannot scaffold a folder nothing reads.
+  const resolved = resolveChannels(abs, ctx.config);
+  for (const channel of resolved.channels) {
+    if (channel.enabled) fs.mkdirSync(channel.dir, { recursive: true });
+  }
+  // No fallback path here on purpose. `resolveChannels` always returns channel
+  // zero, so its absence would mean the resolver changed under us — and guessing
+  // `.ost-agent/inbox` would then print an operator a folder to drop notes into
+  // that nothing reads. A guess is the one answer this cannot give.
+  const zero = resolved.channels.find((c) => c.name === CHANNEL_ZERO);
+  if (!zero) throw new Error("no channel zero resolved for this vault — adapters.inbox is the key every vault carries");
+  const inboxDir = zero.dir;
+  const inboxConfined = zero.confined;
+  const gitignored = zero.confined
+    ? undefined
+    : appendGitignore(abs, `${path.relative(abs, zero.dir).split(path.sep).join("/")}/`);
 
   let outcomeCreated = false;
   if (!ctx.vault.has(rootTitle)) {
@@ -131,5 +213,13 @@ export async function initVault(dir: string, outcome: string, outcomeTitle?: str
     await gitPush(abs, target.remote).catch(() => undefined);
   }
 
-  return { dir: abs, gitInitialized, outcomeCreated };
+  return {
+    dir: abs,
+    gitInitialized,
+    outcomeCreated,
+    inboxDir,
+    inboxConfined,
+    channelProblems: resolved.problems,
+    ...(gitignored ? { gitignored } : {}),
+  };
 }

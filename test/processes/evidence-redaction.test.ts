@@ -17,6 +17,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { InboxSource } from "../../src/adapters/inbox.js";
+import { CHANNEL_ZERO } from "../../src/adapters/channels.js";
 import { readEvidence, writeEvidence } from "../../src/processes/tree.js";
 
 let dir: string;
@@ -29,10 +30,19 @@ beforeEach(() => {
 });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
-/** Drop a note and run it through the real ingest path (source → writeEvidence). */
+/**
+ * Drop a note and run it through the real ingest path (source → writeEvidence).
+ *
+ * The channel is named explicitly because `InboxSource` has no positional-string
+ * overload any more; a call that omitted it would silently be channel zero, which
+ * is S3's bug re-entering through a compatibility path. {@link CHANNEL_ZERO} is the
+ * right channel here because the fixed `INBOX:second.md` id below is channel zero's
+ * frozen *bare* id shape, and the point of the last test is that the two bodies meet
+ * at one funnel — they have to be records of the same channel to be comparable.
+ */
 async function ingest(name: string, body: string): Promise<void> {
   fs.writeFileSync(path.join(inbox, name), body, "utf8");
-  const source = new InboxSource(inbox);
+  const source = new InboxSource({ dir: inbox, channel: CHANNEL_ZERO });
   const { items } = await source.fetchSince(null);
   for (const item of items) writeEvidence(dir, item, source.actor);
 }

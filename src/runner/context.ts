@@ -1,9 +1,27 @@
 /**
  * Build a PassContext from a vault directory: load config, open the vault, and
  * instantiate the enabled read-only sources.
+ *
+ * **Source construction degrades per source, and that is the whole reason this
+ * file changed.** It used to throw the moment any enabled adapter was missing its
+ * credentials, and `buildPassContext` is what every tool is built through — so an
+ * absent `SLACK_BOT_TOKEN` took `ost_check` and `ost_read_tree` down with it, tools
+ * that never needed the token. The MCP server worked around that by refusing to
+ * build sources at all (`skipSources: true`), which cost the surface every adapter
+ * it ships: the tree could not feed itself because nothing on the live surface ever
+ * constructed a source (S1, S5).
+ *
+ * The shape is `readConfig`'s, deliberately reused rather than reinvented (G1): a
+ * problem becomes a NAMED, REPORTED unavailability on `unavailableSources`, the
+ * capabilities that do not depend on it keep working, and the one tool that does
+ * says plainly which channel is missing and why. Skipping silently is the one thing
+ * it may not do — a default is a fallback, never a substitute for the operator's
+ * intent, and an enabled channel that quietly vanishes makes "0 new items" mean
+ * both "nothing to report" and "never looked".
  */
 import path from "node:path";
-import { defaultConfig, loadConfig, readConfig } from "../config/load.js";
+import { CONFIG_FILENAME, defaultConfig, loadConfig, readConfig } from "../config/load.js";
+import { resolveChannels } from "../adapters/channels.js";
 import { InboxSource } from "../adapters/inbox.js";
 import { AtlassianSource, HttpAtlassianClient } from "../adapters/atlassian.js";
 import { TranscriptSource, defaultTranscriptDir } from "../adapters/transcript.js";
@@ -18,7 +36,7 @@ import { federatedProvider } from "../web/federated.js";
 import { wikipediaSource, hackerNewsSource, discourseSource } from "../web/sources.js";
 import type { Config } from "../config/schema.js";
 import { OST_RULESET } from "../knowledge/ruleset.js";
-import type { PassContext } from "../processes/types.js";
+import type { PassContext, UnavailableSource } from "../processes/types.js";
 
 /**
  * Brave if a key is set, else the keyless federated sources if they are turned
@@ -46,11 +64,14 @@ export interface BuildPassContextOptions {
    */
   allowMissingConfig?: boolean;
   /**
-   * Skip constructing adapter sources (and their env-var checks). The MCP
-   * server sets this on its live context: its tool surface never consumes
-   * `ctx.sources` — the tools are built from vault/dir/remote/web/product
-   * alone — so an adapter whose env vars are absent in the MCP host process
-   * must not be able to take unrelated tools down.
+   * Build no adapter sources at all, and claim nothing about them:
+   * `unavailableSources` comes back empty because nothing was considered.
+   *
+   * The MCP server no longer sets this — its `ost_ingest_inbox` reads
+   * `ctx.passContext.sources`, so suppressing them is what left the tree unable to
+   * feed itself (S1). What is left is `init`, which needs the config and the vault
+   * handle and nothing else, and the listing-only path. It is NOT a way to survive
+   * a missing credential any more: that is per-source degradation's job, above.
    */
   skipSources?: boolean;
   /**
@@ -74,6 +95,143 @@ export interface BuildPassContextOptions {
   tolerateInvalidConfig?: boolean;
 }
 
+/** One line, so a multi-line adapter message cannot forge structure in a report. */
+function oneLine(e: unknown): string {
+  return (e instanceof Error ? e.message : String(e)).replace(/\s+/g, " ").trim();
+}
+
+interface AssembledSources {
+  sources: Source[];
+  unavailableSources: UnavailableSource[];
+}
+
+/**
+ * Every source this vault declares — the ones that could be built, and by name the
+ * ones that could not.
+ *
+ * The two outputs are a partition of what the config asks for, and that is the
+ * property to preserve when adding an adapter: a declared channel lands in exactly
+ * one of them, always. Dropping a channel from both lists is how "0 new items" and
+ * "never looked" became the same sentence.
+ */
+function buildSources(dir: string, config: Config): AssembledSources {
+  const sources: Source[] = [];
+  const unavailableSources: UnavailableSource[] = [];
+
+  /**
+   * Construct one source, or record why not. `disabled` is a message when the
+   * operator turned this channel off and `null` when they did not — the
+   * distinction survives all the way to the report because "off by choice" and
+   * "asked for and broken" are different facts.
+   */
+  const consider = (name: string, disabled: string | null, build: () => Source): void => {
+    if (disabled !== null) {
+      unavailableSources.push({ name, kind: "disabled", reason: disabled });
+      return;
+    }
+    try {
+      sources.push(build());
+    } catch (e) {
+      // The throw is CAUGHT, not prevented, so an adapter keeps stating its own
+      // requirement in its own words at the place that knows it — and one adapter's
+      // unmet requirement costs that adapter alone.
+      unavailableSources.push({ name, kind: "unavailable", reason: oneLine(e) });
+    }
+  };
+
+  // Drop folders come from `resolveChannels` and never from `config.adapters.inbox`
+  // directly: the resolver is the single place drop-folder configuration and its
+  // back-compat live, and reading the config here would be a second answer to "which
+  // folder is the inbox".
+  try {
+    const resolution = resolveChannels(dir, config);
+    for (const problem of resolution.problems) {
+      // A refused channel is not a disabled one. The operator asked for it and it is
+      // not running, which is exactly the state that must never read as "empty".
+      unavailableSources.push({ name: "adapters.inbox.channels", kind: "unavailable", reason: problem });
+    }
+    for (const channel of resolution.channels) {
+      consider(
+        channel.name,
+        channel.enabled ? null : `turned off in ${CONFIG_FILENAME} — nothing is read from ${channel.declaredPath}`,
+        () => new InboxSource({ dir: channel.dir, channel: channel.name }),
+      );
+    }
+  } catch (e) {
+    // Nothing in `resolveChannels` is supposed to throw — it reports refusals on
+    // `problems`. If it does anyway, the drop folders are lost and every OTHER
+    // channel must still run: this catch is what keeps that true, and it names the
+    // loss rather than leaving an empty channel list to be read as "no folders".
+    unavailableSources.push({
+      name: "adapters.inbox",
+      kind: "unavailable",
+      reason: `the channel list could not be resolved: ${oneLine(e)}`,
+    });
+  }
+
+  consider(
+    "transcript",
+    config.adapters.transcript.enabled ? null : `turned off in ${CONFIG_FILENAME} (adapters.transcript.enabled: false)`,
+    () => {
+      const t = config.adapters.transcript;
+      if (!t.path && !t.projectDir) {
+        throw new Error(
+          "adapters.transcript is enabled but neither `path` nor `projectDir` is set — " +
+            "set projectDir to the repo whose sessions to harvest, or path to a directory of *.jsonl transcripts.",
+        );
+      }
+      return new TranscriptSource({
+        dir: t.path ? path.resolve(dir, t.path) : defaultTranscriptDir(t.projectDir),
+        quietMinutes: t.quietMinutes,
+        maxEventsPerSession: t.maxEventsPerSession,
+      });
+    },
+  );
+
+  consider(
+    "usage",
+    config.adapters.usage.enabled ? null : `turned off in ${CONFIG_FILENAME} (adapters.usage.enabled: false)`,
+    () => new UsageSource({ file: usageLogPath(dir), minEvents: config.adapters.usage.minEvents }),
+  );
+
+  consider(
+    "atlassian",
+    config.adapters.atlassian.enabled ? null : `turned off in ${CONFIG_FILENAME} (adapters.atlassian.enabled: false)`,
+    () => {
+      const baseUrl = process.env.ATLASSIAN_BASE_URL;
+      const email = process.env.ATLASSIAN_EMAIL;
+      const apiToken = process.env.ATLASSIAN_API_TOKEN;
+      if (!baseUrl || !email || !apiToken) {
+        throw new Error(
+          "adapters.atlassian is enabled but ATLASSIAN_BASE_URL / ATLASSIAN_EMAIL / ATLASSIAN_API_TOKEN are not all set. " +
+            "Use a read-only API token (id.atlassian.com → API tokens).",
+        );
+      }
+      return new AtlassianSource(new HttpAtlassianClient({ baseUrl, email, apiToken }), {
+        projects: config.adapters.atlassian.projects,
+        spaces: config.adapters.atlassian.spaces,
+      });
+    },
+  );
+
+  consider(
+    "slack",
+    config.adapters.slack.enabled ? null : `turned off in ${CONFIG_FILENAME} (adapters.slack.enabled: false)`,
+    () => {
+      const token = process.env.SLACK_BOT_TOKEN;
+      if (!token) {
+        throw new Error(
+          "adapters.slack is enabled but SLACK_BOT_TOKEN is not set. " +
+            "Use a least-privilege bot token (scopes: channels:history, channels:read); it is never written into the vault.",
+        );
+      }
+      return new SlackSource(new HttpSlackClient({ token }), { channels: config.adapters.slack.channels });
+    },
+  );
+
+  return { sources, unavailableSources };
+}
+
 export function buildPassContext(vaultDir: string, opts: BuildPassContextOptions = {}): PassContext {
   const dir = path.resolve(vaultDir);
   const missing = opts.allowMissingConfig ? ({ missing: "defaults" } as const) : {};
@@ -85,57 +243,9 @@ export function buildPassContext(vaultDir: string, opts: BuildPassContextOptions
   const config = loaded.config;
   const skipSources = opts.skipSources === true || opts.listingOnly === true;
 
-  const sources: Source[] = [];
-  if (!skipSources && config.adapters.inbox.enabled) {
-    sources.push(new InboxSource(path.join(dir, config.adapters.inbox.path)));
-  }
-  if (!skipSources && config.adapters.transcript.enabled) {
-    const t = config.adapters.transcript;
-    if (!t.path && !t.projectDir) {
-      throw new Error(
-        "adapters.transcript is enabled but neither `path` nor `projectDir` is set — " +
-          "set projectDir to the repo whose sessions to harvest, or path to a directory of *.jsonl transcripts.",
-      );
-    }
-    sources.push(
-      new TranscriptSource({
-        dir: t.path ? path.resolve(dir, t.path) : defaultTranscriptDir(t.projectDir),
-        quietMinutes: t.quietMinutes,
-        maxEventsPerSession: t.maxEventsPerSession,
-      }),
-    );
-  }
-  if (!skipSources && config.adapters.usage.enabled) {
-    sources.push(new UsageSource({ file: usageLogPath(dir), minEvents: config.adapters.usage.minEvents }));
-  }
-  if (!skipSources && config.adapters.atlassian.enabled) {
-    const baseUrl = process.env.ATLASSIAN_BASE_URL;
-    const email = process.env.ATLASSIAN_EMAIL;
-    const apiToken = process.env.ATLASSIAN_API_TOKEN;
-    if (!baseUrl || !email || !apiToken) {
-      throw new Error(
-        "adapters.atlassian is enabled but ATLASSIAN_BASE_URL / ATLASSIAN_EMAIL / ATLASSIAN_API_TOKEN are not all set. " +
-          "Use a read-only API token (id.atlassian.com → API tokens).",
-      );
-    }
-    const client = new HttpAtlassianClient({ baseUrl, email, apiToken });
-    sources.push(
-      new AtlassianSource(client, {
-        projects: config.adapters.atlassian.projects,
-        spaces: config.adapters.atlassian.spaces,
-      }),
-    );
-  }
-  if (!skipSources && config.adapters.slack.enabled) {
-    const token = process.env.SLACK_BOT_TOKEN;
-    if (!token) {
-      throw new Error(
-        "adapters.slack is enabled but SLACK_BOT_TOKEN is not set. " +
-          "Use a least-privilege bot token (scopes: channels:history, channels:read); it is never written into the vault.",
-      );
-    }
-    sources.push(new SlackSource(new HttpSlackClient({ token }), { channels: config.adapters.slack.channels }));
-  }
+  const { sources, unavailableSources } = skipSources
+    ? { sources: [] as Source[], unavailableSources: [] as UnavailableSource[] }
+    : buildSources(dir, config);
 
   return {
     vault: new Vault(dir, { create: !opts.listingOnly }),
@@ -144,6 +254,7 @@ export function buildPassContext(vaultDir: string, opts: BuildPassContextOptions
     ...(loaded.problem ? { configProblem: loaded.problem } : {}),
     ruleset: OST_RULESET,
     sources,
+    unavailableSources,
     remote: { enabled: config.remote.enabled, url: config.remote.url },
     // The key is optional: ost_read_web works without it, and ost_search_web
     // answers at call time — with results if a provider resolved, otherwise

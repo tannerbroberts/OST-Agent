@@ -5,6 +5,7 @@
  * of the tree. Everything else has a safe default: no remote push, inbox enabled.
  */
 import { z } from "zod";
+import { parseCadence } from "../loop/cadence.js";
 
 const RemoteSchema = z
   .object({
@@ -13,14 +14,112 @@ const RemoteSchema = z
   })
   .default({ enabled: false });
 
-// Inbox lives under the .ost-agent dot-folder so Obsidian never graphs raw
-// evidence notes — the vault root contains only actual OST nodes.
+/**
+ * What a channel may be called.
+ *
+ * A channel name is three things at once: the cursor filename under
+ * `.ost-agent/state/`, the id-namespace segment (`INBOX:<name>/<file>`), and the
+ * key an operator reads in `ost-agent channels`. Lowercase alnum-dash only, so a
+ * name can never contain `/` or `..` — which would be a cursor write *out of* the
+ * state directory — and can never collide case-insensitively with another channel
+ * on macOS, where `Support.json` and `support.json` are one file.
+ */
+export const CHANNEL_NAME_PATTERN = /^[a-z0-9][a-z0-9-]{0,31}$/;
+
+/**
+ * Names an operator may not take, because something already owns that cursor file.
+ *
+ * A channel called `usage` would write `.ost-agent/state/usage.json` — the usage
+ * adapter's cursor — and the two would consume each other's watermark. `inbox` and
+ * `friction` are reserved for the two channels this file declares itself: `inbox`
+ * is channel zero, whose id shape is frozen (see `channelIdPrefix`), and `friction`
+ * is where the agent files its own record.
+ */
+export const RESERVED_CHANNEL_NAMES = ["inbox", "friction", "transcript", "usage", "atlassian", "slack"] as const;
+
+/**
+ * One drop folder: its own path, its own cursor, its own id namespace, its own
+ * declared cadence. `adapters.inbox` is channel zero rather than a special case.
+ */
+const DropChannelSchema = z.object({
+  name: z
+    .string()
+    .regex(
+      CHANNEL_NAME_PATTERN,
+      "a channel name must be lowercase letters, digits and dashes (1-32 chars) — it is a filename and an id segment, not a label",
+    ),
+  path: z.string().min(1),
+  enabled: z.boolean().default(true),
+  /**
+   * Absent ⇒ this channel can never be reported silent. Same rule, and the same
+   * reason, as `loop.cadence`: a tool that picks the number is deciding on the
+   * operator's behalf what "this pipeline is dead" means.
+   */
+  cadence: z.string().nullish(),
+});
+
+export type DropChannel = z.infer<typeof DropChannelSchema>;
+
+// Channel zero. The default path stays `.ost-agent/inbox` on purpose: changing it
+// would mean a vault whose config omits the key silently stops reading the drop
+// folder it already has. New vaults get an *escaping* path written into their own
+// config by `init` instead, which is what makes "may write the drop folder" and
+// "may write the tree" different grants (W1/DEC-1).
 const InboxSchema = z
   .object({
     enabled: z.boolean().default(true),
     path: z.string().default(".ost-agent/inbox"),
+    cadence: z.string().nullish(),
+    /**
+     * `.nullish().transform(v => v ?? [])`, never a bare `.default([])`: YAML hands
+     * `null` for a bare `channels:` key, `z.array` REJECTS null, and an operator who
+     * typed the key and went to look up the syntax would take the whole config down
+     * over it. That is G1's failure mode exactly.
+     */
+    channels: z
+      .array(DropChannelSchema)
+      .nullish()
+      .transform((v) => v ?? []),
   })
-  .default({ enabled: true, path: ".ost-agent/inbox" });
+  // Pure string work only. Whether a channel's path escapes the vault cannot be
+  // decided here — Zod has no vault directory — so confinement is the resolver's
+  // job (`src/adapters/channels.ts`), which is also the only place that knows
+  // which channels are first-party.
+  .superRefine((inbox, ctx) => {
+    const seen = new Set<string>();
+    inbox.channels.forEach((c, i) => {
+      if ((RESERVED_CHANNEL_NAMES as readonly string[]).includes(c.name)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["channels", i, "name"],
+          message: `"${c.name}" is reserved — it already names a cursor file under .ost-agent/state/, and two channels sharing one cursor consume each other's watermark`,
+        });
+      }
+      if (seen.has(c.name)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["channels", i, "name"],
+          message: `duplicate channel name "${c.name}" — a name IS the cursor file, so two channels with one name are one channel`,
+        });
+      }
+      seen.add(c.name);
+      if (c.cadence != null && parseCadence(c.cadence) === null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["channels", i, "cadence"],
+          message: `unreadable cadence "${c.cadence}" — use a count and a unit ("30m", "6h", "7d"). Guessing at it would be inventing the number that decides this channel is dead`,
+        });
+      }
+    });
+    if (inbox.cadence != null && parseCadence(inbox.cadence) === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["cadence"],
+        message: `unreadable cadence "${inbox.cadence}" — use a count and a unit ("30m", "6h", "7d")`,
+      });
+    }
+  })
+  .default({ enabled: true, path: ".ost-agent/inbox", channels: [] });
 
 const AtlassianSchema = z
   .object({
@@ -191,8 +290,30 @@ export type Config = z.infer<typeof ConfigSchema>;
 export type LoopConfig = NonNullable<Config["loop"]>;
 export type ProcessConfig = Config["processes"][string];
 
+export interface DefaultConfigOptions {
+  /**
+   * The drop folder written into the scaffolded config, vault-relative.
+   *
+   * `init` passes an *escaping* path (`../<vault>.inbox`) so a fresh vault's
+   * "may write the drop folder" grant is not the "may write the tree" grant
+   * (W1/DEC-1). The literal string goes into the operator's own file rather than
+   * being derived in code from an empty sentinel, because a path you can read in
+   * your own config is what "blessed" means.
+   *
+   * The default here stays the historical in-vault path: this function is also
+   * how tests and docs render a plain config, and a config the operator never
+   * asked to escape must not silently claim to.
+   */
+  inboxPath?: string;
+}
+
 /** The scaffolded default config written at `init`, given a human-set outcome. */
-export function defaultConfigYaml(outcome: string, outcomeTitle = "Outcome"): string {
+export function defaultConfigYaml(outcome: string, outcomeTitle = "Outcome", opts: DefaultConfigOptions = {}): string {
+  const inboxPath = opts.inboxPath ?? ".ost-agent/inbox";
+  const inboxComment =
+    inboxPath.startsWith("..")
+      ? "drop notes here — OUTSIDE the vault on purpose, so writing the drop folder is a different grant from writing the tree"
+      : "drop notes here; kept out of the vault root so Obsidian's graph shows only OST nodes";
   return `# OST-Agent configuration
 outcome: ${JSON.stringify(outcome)}   # the steering mandate (human-set; tune with \`ost-agent set-outcome\`)
 outcomeTitle: ${JSON.stringify(outcomeTitle)}   # stable label for the root node (rarely changed)
@@ -207,7 +328,14 @@ remote:
 adapters:
   inbox:
     enabled: true
-    path: .ost-agent/inbox  # drop notes here; kept out of the vault root so Obsidian's graph shows only OST nodes
+    path: ${JSON.stringify(inboxPath)}   # ${inboxComment}
+    # cadence: "7d"         # optional: \`ost-agent channels\` reports this folder silent if nothing
+                            # has ARRIVED in that long. No default — nobody but you can say what
+                            # "this pipeline is dead" means for your team.
+    # channels:             # more drop folders, each with its own cursor, id namespace and cadence:
+    #   - name: support     #   ids are INBOX:support/<file>; cursor is .ost-agent/state/support.json
+    #     path: ../support-drop      #   must resolve OUTSIDE the vault, or it is refused
+    #     cadence: "7d"
   transcript:
     enabled: false          # harvest the agent's own finished sessions as usage evidence (observed behavior, not demand)
     projectDir: ""          # repo whose sessions to read; transcripts are found under ~/.claude/projects/<slug>

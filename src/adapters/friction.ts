@@ -12,10 +12,18 @@
  * filing, picked up by `ost_ingest_inbox` like any other evidence. Notes are
  * redacted before they land, because whatever the agent was stuck on may be
  * in its hands at the time.
+ *
+ * Filings land in the **`friction` channel**, not in channel zero. That channel
+ * exists for them and its folder is a constant inside the vault, which is what
+ * `FRICTION_CHANNEL`'s own doc comment is about: once `init` began writing an
+ * escaping `adapters.inbox.path`, a filing written to channel zero landed outside
+ * the git working tree, so the vault's own `git add -A` stopped committing the
+ * agent's record of where it got stuck.
  */
 import fs from "node:fs";
 import path from "node:path";
-import { loadConfig } from "../config/load.js";
+import { readConfig } from "../config/load.js";
+import { FRICTION_CHANNEL, resolveChannels } from "./channels.js";
 import { redactSecrets } from "./transcript.js";
 
 /** The vocabulary the agent is told to use. Small on purpose — filing must be cheap. */
@@ -63,8 +71,38 @@ function uniquePath(dir: string, base: string): string {
 }
 
 /**
- * File one friction event into the vault's inbox. Returns the path written.
- * Throws on an empty note or an unknown kind — a filing that says nothing is
+ * Where a filing goes: the `friction` channel's folder, resolved not guessed.
+ *
+ * Through {@link resolveChannels} rather than by joining {@link FRICTION_CHANNEL_PATH}
+ * here, because that resolver is the single place channel configuration lives and a
+ * second computation of "where does friction go" is a second chance to disagree with
+ * the folder `init` creates and `ost_ingest_inbox` reads.
+ *
+ * `readConfig` with `missing: "defaults"`, not `loadConfig`, and that is load-bearing
+ * rather than defensive: a config that will not parse is one of the things most worth
+ * filing friction ABOUT, and the folder does not depend on the config to be located —
+ * the friction channel's path is a code constant, so defaults and a real config
+ * resolve it identically. Failing to file because of the thing you are filing about
+ * is the worst available behaviour.
+ *
+ * `enabled` is deliberately not consulted. That switch governs whether the channel is
+ * READ; refusing to write would throw the agent's record away to honour a setting
+ * about ingestion, and an unread filing still sits in git where a person can find it.
+ */
+function frictionDir(vaultDir: string): string {
+  const { config } = readConfig(vaultDir, { missing: "defaults" });
+  const channel = resolveChannels(vaultDir, config).channels.find((c) => c.name === FRICTION_CHANNEL);
+  // No fallback path, on `init`'s precedent: `resolveChannels` always returns the
+  // friction channel, so its absence means the resolver changed under us — and
+  // guessing a folder would put the filing somewhere nothing ingests, which is the
+  // silent loss this whole change is about.
+  if (!channel) throw new Error(`no "${FRICTION_CHANNEL}" channel resolved for this vault — it is declared in src/adapters/channels.ts`);
+  return channel.dir;
+}
+
+/**
+ * File one friction event into the vault's friction channel. Returns the path
+ * written. Throws on an empty note or an unknown kind — a filing that says nothing is
  * worse than no filing, because it inflates the count the assumption test reads.
  */
 export function fileFriction(vaultDir: string, filing: FrictionFiling): string {
@@ -75,7 +113,7 @@ export function fileFriction(vaultDir: string, filing: FrictionFiling): string {
   if (!note) throw new Error("a friction filing needs a note — one line describing what went wrong");
 
   const dir = path.resolve(vaultDir);
-  const inboxDir = path.join(dir, loadConfig(dir).adapters.inbox.path);
+  const inboxDir = frictionDir(dir);
   fs.mkdirSync(inboxDir, { recursive: true });
 
   const at = filing.at ?? new Date().toISOString();

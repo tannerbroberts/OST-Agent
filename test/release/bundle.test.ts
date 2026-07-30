@@ -17,11 +17,40 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parse as parseYaml } from "yaml";
 import { expect, test } from "vitest";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const readJson = (p: string) => JSON.parse(fs.readFileSync(path.join(root, p), "utf8"));
 const bundlePath = path.join(root, "dist/ost-agent.mjs");
+
+/**
+ * Where THIS vault's drop folder is, asked of the vault rather than assumed.
+ *
+ * This test used to write its note into a hardcoded `<vault>/.ost-agent/inbox`.
+ * That was the default `init` scaffolded at the time, so it worked — until `init`
+ * started writing an *escaping* path (`../<vault>.inbox`) so that writing the drop
+ * folder is a different grant from writing the tree. The note then landed in a
+ * folder nothing reads, and the ingest assertion went red for a reason that had
+ * nothing to do with the bundle. Hardcoding the *new* path would only reschedule
+ * that failure for the next time the default moves.
+ *
+ * The config file is read rather than `resolveChannels` being imported, because
+ * this file's whole premise is that the program under test is the committed
+ * bundle: `ost.config.yaml` is the artifact the bundle just wrote, so asking it
+ * where notes go asks the bundle, not a source module that may be ahead of it.
+ * Absent or non-string is a throw, never a fallback — a silent default here is
+ * how the hardcoded path survived unnoticed in the first place.
+ */
+function dropFolderOf(vault: string): string {
+  const cfgPath = path.join(vault, "ost.config.yaml");
+  const cfg = parseYaml(fs.readFileSync(cfgPath, "utf8")) as { adapters?: { inbox?: { path?: unknown } } };
+  const declared = cfg.adapters?.inbox?.path;
+  if (typeof declared !== "string" || declared === "") {
+    throw new Error(`${cfgPath} declares no adapters.inbox.path, so this test cannot know where a note has to be dropped`);
+  }
+  return path.resolve(vault, declared);
+}
 
 test("the plugin launches node against the committed bundle", () => {
   const plugin = readJson(".claude-plugin/plugin.json");
@@ -140,12 +169,24 @@ test(
     //   - ost_check: reads the tree and runs the analysis modules.
     //   - ost_ingest_inbox: reads the adapter + cursor code and captures a
     //     real inbox file.
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ost-bundle-handlers-"));
+    // The vault lives INSIDE a scratch workspace rather than being the scratch
+    // directory itself: its drop folder is a sibling of the vault now, so a vault
+    // that was `mkdtemp`'d directly would leave that folder behind in the system
+    // temp directory on every run, and the next run would find a stale note in it.
+    const work = fs.mkdtempSync(path.join(os.tmpdir(), "ost-bundle-handlers-"));
+    const dir = path.join(work, "vault");
     try {
       const init = spawnSync("node", [bundlePath, "init", dir, "--outcome", "Bundle handler smoke test.", "--title", "Root"]);
       expect(init.status, init.stderr.toString()).toBe(0);
 
-      const inboxDir = path.join(dir, ".ost-agent", "inbox");
+      const inboxDir = dropFolderOf(dir);
+      // Non-vacuity for the lookup itself: if `dropFolderOf` ever quietly fell back
+      // to a path under the vault, the note would land somewhere nothing reads and
+      // the ingest assertion below would fail for a reason that is not the bundle's.
+      expect(
+        path.relative(dir, inboxDir).startsWith(".."),
+        `the drop folder ${inboxDir} came back inside the vault, so it is not the escaping path init writes`,
+      ).toBe(true);
       fs.mkdirSync(inboxDir, { recursive: true });
       fs.writeFileSync(path.join(inboxDir, "note1.md"), "A user said the export button is confusing.\n");
 
@@ -177,7 +218,13 @@ test(
 
       const ingestRes = responses.get(3);
       expect(ingestRes?.result?.isError, dump()).not.toBe(true);
-      expect(ingestRes?.result?.content?.[0]?.text, dump()).toMatch(/captured 1 new note/);
+      // The report counts *items* across channels now, not notes from one folder.
+      // The per-channel line is asserted alongside the total, because a bare "1" is
+      // satisfied by any of the other five channels delivering something — and the
+      // claim this test makes is that the drop-folder adapter and its cursor code
+      // ran, against the folder the config named.
+      expect(ingestRes?.result?.content?.[0]?.text, dump()).toMatch(/captured 1 new item\(s\)/);
+      expect(ingestRes?.result?.content?.[0]?.text, dump()).toMatch(/\[inbox\] captured 1: note1\b/);
 
       // None of the three real results may be a deferred module-resolution
       // failure — the specific residual risk the createRequire banner leaves
@@ -187,7 +234,8 @@ test(
         expect(text, dump()).not.toMatch(/Cannot find module|MODULE_NOT_FOUND|ERR_MODULE_NOT_FOUND/);
       }
     } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
+      // The workspace, not the vault — the drop folder is the vault's sibling.
+      fs.rmSync(work, { recursive: true, force: true });
     }
   },
   30_000,
