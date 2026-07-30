@@ -1,31 +1,56 @@
 /**
- * Inbox adapter — a zero-credential local drop-folder.
+ * Inbox adapter — a zero-credential local drop-folder, one instance per channel.
  *
- * The user (or any script) drops `*.md` / `*.txt` files into `inbox/`; each new
+ * The user (or any script) drops `*.md` / `*.txt` files into the folder; each new
  * file becomes an evidence item. The adapter is strictly read-only: it never
- * modifies or deletes inbox files. Its cursor is the JSON list of file ids it has
- * already emitted, so re-runs never re-ingest the same note.
+ * modifies or deletes drop-folder files. Its cursor is the JSON list of file ids it
+ * has already emitted, so re-runs never re-ingest the same note.
+ *
+ * The channel it serves is a REQUIRED constructor argument with no positional
+ * overload, because that argument is both the cursor filename and the id namespace:
+ * a call site that could omit it would silently get channel zero and share the
+ * legacy cursor, which is S3's bug exactly. Requiring it makes the compiler
+ * enumerate every call site.
  */
 import fs from "node:fs";
 import path from "node:path";
+import { channelIdPrefix } from "./channels.js";
 import type { Actor, Cursor, EvidenceItem, FetchResult, Source } from "./source.js";
 
 const TEXT_EXT = new Set([".md", ".txt", ".markdown"]);
 
+export interface InboxSourceOptions {
+  /** The folder to read. Already resolved by `resolveChannels`. */
+  dir: string;
+  /** Which channel this instance IS — its cursor file and its id namespace. */
+  channel: string;
+}
+
 export class InboxSource implements Source {
-  readonly name = "inbox";
+  /** The cursor filename under `.ost-agent/state/`. One per channel, never shared. */
+  readonly name: string;
   /**
-   * Everything read out of the drop folder is `inbox` — including the agent's own
-   * friction filings, which land here as ordinary files (`src/adapters/friction.ts`).
-   * That is the honest answer rather than a lost distinction: the folder is writable
-   * by anyone who can write the vault, so any finer-grained claim about *which*
-   * producer wrote a given file would be read off a name the producer chose.
+   * Every drop folder is `inbox`, however many there are — including the agent's own
+   * friction filings. That is the honest answer rather than a lost distinction: a
+   * folder is writable by anyone who can write that mount, so any finer-grained
+   * claim about *which* producer wrote a given file would be read off a name the
+   * producer chose. What the channel buys instead is a segment of the id the writer
+   * cannot forge, stamped here from config rather than parsed out of a filename.
    */
   readonly actor: Actor = "inbox";
   private readonly dir: string;
+  private readonly prefix: string;
 
-  constructor(inboxDir: string) {
-    this.dir = path.resolve(inboxDir);
+  constructor(options: InboxSourceOptions) {
+    // The positional-string fallback that lived here is GONE, together with the last
+    // `new InboxSource(dir)` in `src/`. It existed so legacy call sites kept working
+    // while the compiler enumerated them, and it silently mapped an un-migrated call
+    // to channel zero — which, once a vault has two drop folders, is a second channel
+    // quietly consuming the first's cursor. A shim that outlives its reason is
+    // indistinguishable from a feature.
+    this.name = options.channel;
+    this.prefix = channelIdPrefix(options.channel);
+    this.dir = path.resolve(options.dir);
   }
 
   async fetchSince(cursor: Cursor): Promise<FetchResult> {
@@ -42,7 +67,7 @@ export class InboxSource implements Source {
 
     const items = [];
     for (const e of entries) {
-      const id = `INBOX:${e.name}`;
+      const id = `${this.prefix}${e.name}`;
       if (seen.has(id)) continue;
       const full = path.join(this.dir, e.name);
       const stat = fs.statSync(full);

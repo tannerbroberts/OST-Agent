@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { FRICTION_CHANNEL_PATH } from "../../src/adapters/channels.js";
 import { defaultConfigYaml } from "../../src/config/schema.js";
 
 // The local tsx binary, invoked directly rather than through `npx`.
@@ -30,15 +31,20 @@ function cli(args: string[]) {
   return run(TSX, [CLI, ...args], { cwd: path.resolve(__dirname, "../..") });
 }
 
+const frictionDir = () => path.join(dir, FRICTION_CHANNEL_PATH);
+
 describe("ost-agent friction", () => {
-  test("files a one-line friction note into the vault inbox", async () => {
+  test("files a one-line friction note into the vault's friction channel", async () => {
     const { stdout } = await cli(["friction", "The vault is not discoverable from the repo", "--vault", dir]);
 
-    const inbox = path.join(dir, ".ost-agent", "inbox");
-    const notes = fs.readdirSync(inbox);
+    const notes = fs.readdirSync(frictionDir());
     expect(notes).toHaveLength(1);
-    expect(fs.readFileSync(path.join(inbox, notes[0]), "utf8")).toContain("not discoverable from the repo");
+    expect(fs.readFileSync(path.join(frictionDir(), notes[0]), "utf8")).toContain("not discoverable from the repo");
     expect(stdout).toContain(notes[0]); // tells the agent where it landed
+    // Non-vacuity for the folder, not just the file: channel zero — the folder the
+    // untrusted builder writes, and the one `init` now points OUTSIDE the vault —
+    // was not created and did not receive it.
+    expect(fs.existsSync(path.join(dir, ".ost-agent", "inbox"))).toBe(false);
   }, 30_000);
 
   test("carries the kind and context through to the note", async () => {
@@ -53,14 +59,13 @@ describe("ost-agent friction", () => {
       dir,
     ]);
 
-    const inbox = path.join(dir, ".ost-agent", "inbox");
-    const body = fs.readFileSync(path.join(inbox, fs.readdirSync(inbox)[0]), "utf8");
+    const body = fs.readFileSync(path.join(frictionDir(), fs.readdirSync(frictionDir())[0]), "utf8");
     expect(body).toContain("guessed");
     expect(body).toContain("four candidate vault directories exist");
   }, 30_000);
 
   test("rejects an unknown kind instead of filing a mislabelled note", async () => {
     await expect(cli(["friction", "x", "--kind", "vibes", "--vault", dir])).rejects.toThrow(/blocked/);
-    expect(fs.existsSync(path.join(dir, ".ost-agent", "inbox"))).toBe(false);
+    expect(fs.existsSync(frictionDir())).toBe(false);
   }, 30_000);
 });

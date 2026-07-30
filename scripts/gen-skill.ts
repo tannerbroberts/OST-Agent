@@ -244,10 +244,19 @@ export function renderSetupCommand(): string {
   // would hand a shell to the one product whose promise is that it has none.
   // There is no `ost-agent` binary on any PATH — the plugin ships one committed
   // bundle, launched with `node`, and that is the only launch path there is.
+  //
+  // `set-outcome:*` was granted here until 2026-07-30 and is not, because W6 says
+  // no shipped command may grant a Bash subcommand that writes the tree and
+  // `set-outcome` writes both the root node and the config. The separator between
+  // it and `init` is mechanical rather than a judgement about mandates: in every
+  // state a granted `init` can reach, it cannot put model-chosen text into an
+  // EXISTING tree — on a healthy vault it is a no-op, and on `no-outcome` it
+  // restores the root from the mandate already in `ost.config.yaml`, discarding
+  // the argv. `set-outcome` can. Retuning the sentence the whole tree ladders up
+  // to stays a human's command on a human's shell.
   const allowed = [
     `${MCP_PREFIX}ost_next_work`,
     "Bash(node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init:*)",
-    "Bash(node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs set-outcome:*)",
   ].join(", ");
 
   return `---
@@ -281,11 +290,13 @@ node \${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init <folder> --outcome "<their w
 
 ## 3. A vault with no root Outcome
 
-Ask the same question, confirm the same way, then run:
+The mandate is still recorded in \`ost.config.yaml\`; what is missing is the root node. Restore it from what is already there:
 
 \`\`\`
-node \${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs set-outcome "<their words>" --vault <dir>
+node \${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init <dir>
 \`\`\`
+
+Then read the restored mandate back to the human and ask whether it is still the one they want. **If it is not, do not change it yourself** — tell them to run \`ost-agent set-outcome "<new words>" --vault <dir>\` on their own shell. Retuning the sentence the whole tree ladders up to is the sponsor's act, and this command is not granted it (W6).
 
 ## 4. Confirm
 

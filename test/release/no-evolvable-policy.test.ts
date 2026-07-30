@@ -38,10 +38,25 @@
  *    types. Exact equality, like G3's — a third writer is a visible commit that
  *    has to argue for itself, not a line that slips in.
  *
+ *    **The vault is no longer the whole world the surface can reach, and half 3
+ *    had to grow to keep meaning what it said.** When the drop folder lived at
+ *    `<vault>/.ost-agent/inbox`, walking the vault covered every directory an
+ *    ingest touches, so "everything it wrote is a node at the root or state under
+ *    `.ost-agent/`" was a statement about all of the surface's reachable
+ *    filesystem. `init` now writes an escaping drop folder (`../<vault>.inbox`),
+ *    which is the point of W1 — but it means a `policy.yaml` written *beside* the
+ *    vault would satisfy every vault-scoped assertion here while being read by the
+ *    next pass all the same. So the fixture puts the vault inside a workspace
+ *    directory, snapshots that whole workspace with content hashes, and the
+ *    root-or-sidecar test now also asserts that nothing outside the vault was
+ *    added, removed or altered — the drop folder included, since the adapter's
+ *    read-only promise is what leaves the untouched original recoverable.
+ *
  * **Not a wedge.** Every assertion is over a `mkdtemp` vault or over the source
  * tree; nothing here can red a real vault, and every red is cleared by changing
  * the code or by adding the new writer to the register with its reason.
  */
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -52,7 +67,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { initVault } from "../../src/runner/init.js";
 import { buildPassContext } from "../../src/runner/context.js";
 import { createOstMcpServer, MCP_TOOL_NAMES } from "../../src/mcp/server.js";
-import { CONFIG_FILENAME, configPath } from "../../src/config/load.js";
+import { CONFIG_FILENAME, configPath, readConfig } from "../../src/config/load.js";
+import { CHANNEL_ZERO, resolveChannels } from "../../src/adapters/channels.js";
 import { Vault } from "../../src/ost/vault.js";
 import { RESULTS_HEADING } from "../../src/ost/headings.js";
 
@@ -92,12 +108,62 @@ function walkVault(dir: string, base = dir, out: string[] = []): string[] {
   return out.sort();
 }
 
+/**
+ * Everything in the workspace that is NOT the vault, keyed by path and hashed.
+ *
+ * Hashed rather than listed, because outside the vault the interesting failures
+ * include *editing* a file that already exists — a drop-folder note rewritten in
+ * place, or a `policy.yaml` beside the vault gaining a line. A name list would
+ * call all of those unchanged.
+ */
+function walkOutside(work: string, vault: string, cur = work, out = new Map<string, string>()): Map<string, string> {
+  for (const entry of fs.readdirSync(cur, { withFileTypes: true })) {
+    const p = path.join(cur, entry.name);
+    if (path.resolve(p) === path.resolve(vault)) continue; // the vault has its own walker
+    if (entry.isDirectory()) walkOutside(work, vault, p, out);
+    else out.set(path.relative(work, p), createHash("sha256").update(fs.readFileSync(p)).digest("hex"));
+  }
+  return out;
+}
+
+/** Paths present on one side only, or whose bytes moved. */
+function changedOutside(before: Map<string, string>, after: Map<string, string>): string[] {
+  return [...new Set([...before.keys(), ...after.keys()])].filter((n) => before.get(n) !== after.get(n)).sort();
+}
+
+/**
+ * Channel zero's folder, asked of the vault's own configuration.
+ *
+ * Never `path.join(dir, ".ost-agent", "inbox")`. That literal was correct until
+ * `init` started writing an escaping drop-folder path, at which point this file
+ * was planting its note in a folder nothing reads — the ingest call still
+ * succeeded, having found nothing, and the surface was being exercised with one
+ * fewer tool than the count claimed. Reading the resolver keeps that from
+ * recurring the next time the default moves, which is the actual defect.
+ */
+function dropFolderOf(vault: string): string {
+  const { channels, problems } = resolveChannels(vault, readConfig(vault).config);
+  if (problems.length > 0) throw new Error(`fixture vault has channel problems: ${problems.join("; ")}`);
+  const zero = channels.find((c) => c.name === CHANNEL_ZERO);
+  if (!zero) throw new Error("no channel zero resolved for the fixture vault");
+  return zero.dir;
+}
+
+/**
+ * `work` is the world; `dir` is the vault inside it. The vault is not the
+ * `mkdtemp` directory itself because its drop folder is now a *sibling* of the
+ * vault — so the fixture has to own a directory that contains both, or the
+ * teardown leaves the drop folder behind and the "wrote nothing outside" checks
+ * would have nowhere to look.
+ */
+let work: string;
 let dir: string;
 beforeEach(async () => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), "ost-g4-"));
+  work = fs.mkdtempSync(path.join(os.tmpdir(), "ost-g4-"));
+  dir = path.join(work, "vault");
   await initVault(dir, OUTCOME, ROOT);
 });
-afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
+afterEach(() => fs.rmSync(work, { recursive: true, force: true }));
 
 describe("the evolvable-policy machinery is gone", () => {
   test("`ls src/harness src/genome` finds nothing", () => {
@@ -219,9 +285,22 @@ describe("the unattended surface writes no policy into the vault", () => {
     ost_read_web: "read-only, and would need the network the suite refuses",
   };
 
-  async function exerciseSurface(): Promise<{ before: string[]; after: string[]; ok: number }> {
-    fs.writeFileSync(path.join(dir, ".ost-agent", "inbox", "note.md"), "players churn after day three\n", "utf8");
+  async function exerciseSurface(): Promise<{
+    before: string[];
+    after: string[];
+    outsideBefore: Map<string, string>;
+    outsideAfter: Map<string, string>;
+    dropFolder: string;
+    ok: number;
+  }> {
+    // The drop folder is wherever this vault's config says — outside the vault, on
+    // a fresh vault, which is exactly why the snapshot below is taken over `work`
+    // and not only over `dir`.
+    const dropFolder = dropFolderOf(dir);
+    fs.mkdirSync(dropFolder, { recursive: true });
+    fs.writeFileSync(path.join(dropFolder, "note.md"), "players churn after day three\n", "utf8");
     const before = walkVault(dir);
+    const outsideBefore = walkOutside(work, dir);
     const client = await connect();
     let ok = 0;
     for (const call of CALLS) {
@@ -241,7 +320,7 @@ describe("the unattended surface writes no policy into the vault", () => {
       const res = (await client.callTool(call)) as { isError?: boolean };
       if (!res.isError) ok += 1;
     }
-    return { before, after: walkVault(dir), ok };
+    return { before, after: walkVault(dir), outsideBefore, outsideAfter: walkOutside(work, dir), dropFolder, ok };
   }
 
   test("every tool on the MCP surface is exercised here, or declared read-only", () => {
@@ -253,9 +332,27 @@ describe("the unattended surface writes no policy into the vault", () => {
   });
 
   test("the surface really ran — otherwise the assertions below are about nothing", async () => {
-    const { before, after, ok } = await exerciseSurface();
+    const { before, after, outsideBefore, dropFolder, ok } = await exerciseSurface();
     expect(ok).toBe(CALLS.length);
     expect(after.length).toBeGreaterThan(before.length);
+
+    // The outside walker has to be able to see the world it is about to report
+    // unchanged. Without this, `changedOutside` over two empty maps would report
+    // "nothing was written outside the vault" for a surface that wrote anything at
+    // all out there.
+    expect([...outsideBefore.keys()]).toContain(path.relative(work, path.join(dropFolder, "note.md")));
+
+    // `ost_ingest_inbox` succeeds when it finds nothing, so a green `ok` count does
+    // not prove the drop folder was read — which is precisely how the note being
+    // planted in a hardcoded folder nobody reads any more stayed invisible. The
+    // record has to actually exist.
+    const stored = after
+      .filter((rel) => rel.startsWith(".ost-agent/evidence/"))
+      .map((rel) => fs.readFileSync(path.join(dir, rel), "utf8"));
+    expect(
+      stored.some((text) => text.includes("players churn after day three")),
+      "the planted note never became an evidence record — the drop folder this fixture writes is not the one the vault reads",
+    ).toBe(true);
   });
 
   test("the operator's config is unchanged, byte for byte", async () => {
@@ -282,5 +379,22 @@ describe("the unattended surface writes no policy into the vault", () => {
       return path.dirname(rel) !== "." || !rel.endsWith(".md");
     });
     expect(stray).toEqual([]);
+  });
+
+  test("and nothing at all outside the vault, where that rule cannot reach", async () => {
+    // The clause above is scoped to the vault, and the vault used to be the whole
+    // of what an ingest touches. Since the drop folder escaped, it is not: a
+    // `policy.yaml` written next to the vault would satisfy every assertion above
+    // and still be sitting in the directory the next pass reads from. So the same
+    // criterion is asserted over the rest of the workspace, where the permitted
+    // answer is not "root node or sidecar" but *nothing* — the surface has no
+    // business writing outside the vault it was pointed at.
+    //
+    // Bytes, not names: the drop folder is included, and the adapter's read-only
+    // promise is what leaves an over-redacted note's original recoverable
+    // (`test/processes/evidence-redaction.test.ts`). A note rewritten in place
+    // would keep its name.
+    const { outsideBefore, outsideAfter } = await exerciseSurface();
+    expect(changedOutside(outsideBefore, outsideAfter)).toEqual([]);
   });
 });

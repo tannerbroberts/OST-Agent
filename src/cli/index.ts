@@ -11,6 +11,7 @@
  *   ost-agent lanes --flag-cautious <who>     bulk: humans-required for every test naming an outside person
  *   ost-agent lane "<test>" --set <lane> ...  classify one test into a lane
  *   ost-agent gate "<solution>" [--vault DIR] block building against untested assumptions
+ *   ost-agent channels [--vault DIR]          every drop folder, its last delivery, and what has gone silent
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
  *   ost-agent loop due|start|step|seal        unattended firing: cadence, lock, ceiling, health
  *   ost-agent mcp [--vault DIR]               stdio MCP server (no API key needed)
@@ -19,6 +20,8 @@ import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { Command } from "commander";
 import { buildPassContext } from "../runner/context.js";
+import { readConfig } from "../config/load.js";
+import { ailingChannels, allChannels, channelHealth, renderChannels } from "../adapters/channels.js";
 import { initVault } from "../runner/init.js";
 import { setOutcome } from "../runner/set-outcome.js";
 import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/render.js";
@@ -30,7 +33,9 @@ import { laneDef, LANES, type LaneId } from "../knowledge/lanes.js";
 import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapters/friction.js";
 import { createLazyOstMcpServer, MCP_TOOL_NAMES } from "../mcp/server.js";
 import { vaultReadiness } from "../mcp/bootstrap.js";
-import { registerLoopCommands } from "./loop.js";
+import { gitCommit } from "../git/safe-git.js";
+import { workingTreeStatus, type VaultTreeStatus } from "../loop/state.js";
+import { entriesRequiringAHuman, registerLoopCommands } from "./loop.js";
 import { VERSION } from "../index.js";
 
 async function prompt(question: string, fallback?: string): Promise<string> {
@@ -63,8 +68,25 @@ program
     console.log(`Initialized vault at ${r.dir}`);
     console.log(`  git: ${r.gitInitialized ? "initialized" : "already present"}`);
     console.log(`  outcome node: ${r.outcomeCreated ? "created" : "already present"}`);
-    const inboxPath = buildPassContext(r.dir).config.adapters.inbox.path;
-    console.log(`\nDrop notes into ${path.join(dir, inboxPath)}/, then run /ost-map in Claude Code to fold them into the tree.`);
+    // The absolute path off `initVault`, not a path re-derived here: the folder the
+    // operator is told to use has to be the folder the ingest actually reads, and
+    // two computations of it are two chances to disagree.
+    console.log(`\nDrop notes into ${r.inboxDir}/, then run /ost-map in Claude Code to fold them into the tree.`);
+    if (r.inboxConfined) {
+      console.log("  That folder is deliberately OUTSIDE the vault: writing it is a different grant from writing the tree.");
+    } else {
+      console.log("  ⚠ That folder is INSIDE the vault, so writing notes and writing the tree are the same grant.");
+      console.log("    Move it outside (adapters.inbox.path) when you can — ids and cursors are keyed on filenames, so nothing re-ingests.");
+      if (r.gitignored) console.log(`    Added \`${r.gitignored}\` to .gitignore; notes already committed stay in git history.`);
+    }
+    // A refused channel gets no folder and is never read. Saying nothing about it
+    // would make "refused" and "working" the same observable at the exact moment
+    // the operator is looking — init is what they run after adding the entry.
+    if (r.channelProblems.length > 0) {
+      console.log(`\n⚠ ${r.channelProblems.length} channel(s) in ost.config.yaml were refused and will NOT be read:`);
+      for (const p of r.channelProblems) console.log(`  - ${p}`);
+    }
+    console.log(`\nRun \`ost-agent channels --vault ${dir}\` at any time to see every drop folder and whether it has gone quiet.`);
   });
 
 program
@@ -79,15 +101,76 @@ program
     console.log(`  prior mandate preserved in the root node's ## History`);
   });
 
+/** What committing the filing did, in the three shapes the operator has to be told apart. */
+type FilingCommit =
+  | { kind: "committed"; sha: string }
+  | { kind: "left-dirty"; entries: string[] }
+  | { kind: "no-history"; reason: string };
+
+/**
+ * Put the filing into the vault's history, so that filing friction does not brick
+ * the next unattended firing.
+ *
+ * **The wedge this closes.** `.ost-agent/friction/` sits INSIDE the vault on
+ * purpose — that is what gets a filing committed with the tree instead of stranded
+ * outside it, now that `adapters.inbox.path` escapes the vault. But nothing else
+ * commits it: `fileFriction` writes the file and returns. So a filing made outside
+ * a pass sits in the working tree as `?? .ost-agent/friction/`, and `loop start`'s
+ * D5 gate then refuses every firing after it ({@link entriesRequiringAHuman}) until
+ * a person intervenes. Filing friction is what the agent is told to do the moment it
+ * is blocked — being blocked is exactly when it stops making mutating calls — so the
+ * affordance for being stuck would be the thing that stops the loop, with a
+ * human-only way out, reached by using the tool as `README.md` documents it.
+ *
+ * Committing here also closes the other half of the same residue. A file left in the
+ * tree is swept into the NEXT firing's `git add -A`: the filing is attributed to that
+ * firing and it is what moves the HEAD F4 reads its verdict from, so a firing that
+ * did nothing seals `healthy` on the strength of a note filed before it began.
+ * Committed now, it lands outside every firing's bracket, where it belongs.
+ *
+ * **Gated on there being nothing a human has to deal with**, because `gitCommit`
+ * stages with `git add -A`: from a dirty tree it would commit a stranger's file under
+ * this filing's name, which is the misattribution D5 exists to stop. The predicate is
+ * `entriesRequiringAHuman` — D5's own — and not "clean", so the usage-trace residue
+ * every read-only call leaves behind does not suppress the commit; riding along on
+ * some later commit is the only route that trace has ever had into history, and this
+ * is one of those.
+ *
+ * Best-effort by construction: a vault with no git, no identity or no history still
+ * gets its filing. Losing the agent's record because a commit failed would be worse
+ * than losing the commit — and the caller says out loud which of the two happened,
+ * because an uncommitted filing is a firing the operator is about to lose.
+ */
+async function commitFiling(vaultDir: string, before: VaultTreeStatus, written: string): Promise<FilingCommit> {
+  if (before.kind === "unknown") return { kind: "no-history", reason: before.reason };
+  const foreign = before.kind === "dirty" ? entriesRequiringAHuman(before.entries) : [];
+  if (foreign.length > 0) return { kind: "left-dirty", entries: foreign };
+  try {
+    const r = await gitCommit(vaultDir, `friction: ${path.basename(written)}`);
+    return r.committed
+      ? { kind: "committed", sha: r.sha.slice(0, 8) }
+      : // Nothing to commit right after writing a file means git cannot see it —
+        // an ignore rule over the friction folder. Reported rather than read as
+        // success: the filing exists and is not versioned, which is the one state
+        // that looks like the good one and is not.
+        { kind: "no-history", reason: "git reports nothing to commit — something is ignoring the friction folder" };
+  } catch (e) {
+    return { kind: "no-history", reason: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 program
   .command("friction")
-  .description("file one line of friction at the point of pain (lands in the vault inbox as evidence)")
+  .description("file one line of friction at the point of pain (lands in the vault's friction channel, and is committed)")
   .argument("<note>", "what went wrong, in one line")
   .option("-k, --kind <kind>", `one of: ${FRICTION_KINDS.join(", ")}`, "blocked")
   .option("-c, --context <text>", "what you were doing, or what you wish existed")
   .option("-s, --source <text>", "who is filing (loop, process, session)")
   .option("--vault <dir>", "vault directory", process.env.OST_VAULT ?? ".")
-  .action((note: string, opts: { kind: string; context?: string; source?: string; vault: string }) => {
+  .action(async (note: string, opts: { kind: string; context?: string; source?: string; vault: string }) => {
+    // Read BEFORE the write. The question is whether this tree was already carrying
+    // something a person has to explain, and after the write the answer is never no.
+    const before = workingTreeStatus(opts.vault);
     const written = fileFriction(opts.vault, {
       kind: opts.kind as FrictionFilingKind,
       note,
@@ -95,6 +178,20 @@ program
       source: opts.source,
     });
     console.log(`filed ${path.basename(written)}`);
+    const result = await commitFiling(opts.vault, before, written);
+    if (result.kind === "committed") {
+      console.log(`  committed ${result.sha} — it is in the vault's history and the working tree is clean again`);
+      return;
+    }
+    if (result.kind === "left-dirty") {
+      console.log(`  NOT committed: ${result.entries.length} path(s) were already dirty here before this filing:`);
+      for (const e of result.entries.slice(0, 5)) console.log(`      ${e}`);
+      console.log("  Committing would have put those into history under this filing's name. Deal with them and commit,");
+      console.log("  or `ost-agent loop start` will refuse the next firing over this filing as well.");
+      return;
+    }
+    console.log(`  NOT committed (${result.reason}).`);
+    console.log(`  The filing is on disk at ${written} and nothing has versioned it.`);
   });
 
 program
@@ -307,6 +404,47 @@ program
     }
     console.error(text);
     process.exitCode = 1;
+  });
+
+program
+  .command("channels")
+  .description("list every commissioned channel, when it last delivered, and which ones are silent or unavailable (read-only)")
+  .option("--vault <dir>", "vault directory", ".")
+  .action((opts: { vault: string }) => {
+    const dir = path.resolve(opts.vault);
+    // Deliberately NOT `buildPassContext`: that opens a Vault handle which creates
+    // the vault directory, and it constructs adapters. This command answers a
+    // question about configuration and state files; it must be able to run against
+    // a vault it does not touch, and a test asserts it leaves the tree byte-identical.
+    //
+    // `readConfig`, not `loadConfig`, and the difference is the whole reason this
+    // command exists: a broken `ost.config.yaml` is the most likely reason somebody
+    // runs it, and the channel list is the surface that can say which line broke.
+    // Throwing would hand them commander's bare error text and no channel report at
+    // all. A MISSING config still throws — that is not a broken vault, it is not a
+    // vault, and "run `ost-agent init`" is the only useful thing to say.
+    const { config, problem } = readConfig(dir);
+    // The defaults `readConfig` falls back to are a fallback and not a substitute:
+    // listing `.ost-agent/inbox` here would show the operator a channel list they
+    // never wrote and cannot act on. So a broken file reports the problem and no
+    // channels — `renderChannels` says so in as many words.
+    //
+    // `allChannels`, not `resolveChannels`: the drop folders are three of the six
+    // channels a default vault commissions, and S2's sentence is that EVERY one of
+    // them is enumerable. `transcript`, `usage`, `atlassian` and `slack` write
+    // timestamped cursor records like any other channel, so a report that omitted
+    // them left four pipelines whose death had no observable at all. It stays pure:
+    // no source is constructed and no credential is used, only read for presence.
+    const resolved = problem ? { channels: [], problems: [problem] } : allChannels(dir, config);
+    const health = channelHealth(dir, resolved.channels);
+    console.log(renderChannels({ health, problems: resolved.problems }));
+    // The verdict is the exit code, not the prose: a silent channel is only
+    // actionable if something that is not a human reading text can notice it. An
+    // enabled channel that cannot run counts too — it is reading nothing, which is
+    // the same consequence by a different cause, and the report names which. A
+    // config that could not be read is non-zero for the same reason — a report that
+    // could not be produced must not exit 0.
+    if (problem || ailingChannels(health).length > 0) process.exitCode = 1;
   });
 
 program

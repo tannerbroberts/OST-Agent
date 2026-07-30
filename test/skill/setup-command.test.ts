@@ -42,18 +42,37 @@ describe("the generated /ost-setup command", () => {
     expect(cmd).toMatch(/allowed-tools:.*mcp__ost-agent__ost_next_work/);
   });
 
-  test("its shell allowance is scoped to the two setup commands, not to a shell", () => {
+  test("its shell allowance is scoped to a named subcommand, not to a shell", () => {
     const allowed = /^allowed-tools: (.*)$/m.exec(cmd)?.[1] ?? "";
     const bashGrants = allowed.split(",").map((s) => s.trim()).filter((s) => s.startsWith("Bash("));
     expect(bashGrants.length).toBeGreaterThan(0);
     // Every Bash grant names a concrete ost-agent subcommand. A bare `Bash` or
     // `Bash(*)` would hand a shell to the one product whose whole promise is
     // that it has no shell tool.
-    for (const grant of bashGrants) {
-      // One launch path: the bundle the plugin ships. No PATH binary, no registry.
-      expect(grant).toMatch(
-        /^Bash\(node \$\{CLAUDE_PLUGIN_ROOT\}\/dist\/ost-agent\.mjs (init|set-outcome):\*\)$/,
-      );
+    //
+    // The subcommand is matched as a *shape*, not against a list of names. This
+    // test used to spell `(init|set-outcome)`, which made it a third hand-kept
+    // copy of the grant — and copies of the grant are the thing that keeps
+    // drifting here. Which names may appear is decided in one place,
+    // `test/release/command-allowlists.test.ts`, and it asks the two questions
+    // this file cannot: does the subcommand exist (D2), and does running it
+    // write the tree (W6).
+    // One launch path: the bundle the plugin ships. No PATH binary, no registry.
+    const SHAPE = /^Bash\(node \$\{CLAUDE_PLUGIN_ROOT\}\/dist\/ost-agent\.mjs [a-z][a-z0-9-]*:\*\)$/;
+    for (const grant of bashGrants) expect(grant).toMatch(SHAPE);
+
+    // Non-vacuity. Dropping the old `(init|set-outcome)` alternation left this
+    // test asserting a shape over grants that already have it, and a shape that
+    // matched anything would be green on exactly the same input. Each of these
+    // is a widening someone could plausibly write, and the shape has to refuse
+    // all four or it is decorating rather than deciding.
+    for (const widened of [
+      "Bash",
+      "Bash(*)",
+      "Bash(node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs:*)",
+      "Bash(ost-agent init:*)",
+    ]) {
+      expect(widened, `${widened} was accepted as a narrow grant`).not.toMatch(SHAPE);
     }
   });
 

@@ -32,15 +32,32 @@ function enableAtlassian() {
   );
 }
 
+/** The name of every channel the context accounts for, built or not. */
+function accountedFor(ctx: ReturnType<typeof buildPassContext>): string[] {
+  return [...ctx.sources.map((s) => s.name), ...ctx.unavailableSources.map((u) => u.name)].sort();
+}
+
 describe("buildPassContext adapter wiring", () => {
-  test("inbox and the mechanical usage trace by default", () => {
+  test("the drop folders and the mechanical usage trace by default", () => {
     const ctx = buildPassContext(dir);
-    expect(ctx.sources.map((s) => s.name).sort()).toEqual(["inbox", "usage"]);
+    expect(ctx.sources.map((s) => s.name).sort()).toEqual(["friction", "inbox", "usage"]);
   });
 
-  test("enabling Atlassian without credentials fails with a clear message", () => {
+  test("enabling Atlassian without credentials degrades that source and nothing else", () => {
+    // G1's shape, applied per source: it USED to throw here, and buildPassContext is
+    // what every tool is built through — so one absent env var took `ost_check` and
+    // `ost_read_tree` down with it, tools that never needed a Jira token.
     enableAtlassian();
-    expect(() => buildPassContext(dir)).toThrow(/ATLASSIAN_BASE_URL|API token/);
+    const ctx = buildPassContext(dir);
+    expect(ctx.sources.map((s) => s.name)).not.toContain("atlassian");
+    // Named and reported, never silently skipped: an enabled channel that vanishes
+    // makes "0 new items" mean both "nothing to report" and "never looked".
+    const gap = ctx.unavailableSources.find((u) => u.name === "atlassian");
+    expect(gap?.kind).toBe("unavailable");
+    expect(gap?.reason).toMatch(/ATLASSIAN_BASE_URL|API token/);
+    // The rest of the surface is untouched — that is the whole point of degrading.
+    expect(ctx.sources.map((s) => s.name).sort()).toEqual(["friction", "inbox", "usage"]);
+    expect(ctx.vault.readTree().length).toBeGreaterThan(0);
   });
 
   test("enabling the transcript adapter with an explicit path adds the source", () => {
@@ -50,16 +67,46 @@ describe("buildPassContext adapter wiring", () => {
       "utf8",
     );
     const ctx = buildPassContext(dir);
-    expect(ctx.sources.map((s) => s.name).sort()).toEqual(["inbox", "transcript", "usage"]);
+    expect(ctx.sources.map((s) => s.name).sort()).toEqual(["friction", "inbox", "transcript", "usage"]);
   });
 
-  test("enabling the transcript adapter with neither path nor projectDir fails clearly", () => {
+  test("enabling the transcript adapter with neither path nor projectDir degrades it by name", () => {
     fs.writeFileSync(
       configPath(dir),
       `outcome: "Reach 10,000 daily active users"\nadapters:\n  transcript:\n    enabled: true\n`,
       "utf8",
     );
-    expect(() => buildPassContext(dir)).toThrow(/transcript.*(path|projectDir)/i);
+    const ctx = buildPassContext(dir);
+    expect(ctx.sources.map((s) => s.name)).not.toContain("transcript");
+    // The adapter still states its own requirement in its own words; what changed is
+    // that the sentence is carried rather than thrown.
+    expect(ctx.unavailableSources.find((u) => u.name === "transcript")?.reason).toMatch(/transcript.*(path|projectDir)/i);
+  });
+
+  test("a source turned OFF and a source that could not be built are different facts", () => {
+    // Both are "not in ctx.sources". Collapsing them into one word is how an
+    // operator staring at a full folder is told the same thing whether they turned
+    // the channel off or the process is missing its credentials.
+    enableAtlassian();
+    const ctx = buildPassContext(dir);
+    expect(ctx.unavailableSources.find((u) => u.name === "atlassian")?.kind).toBe("unavailable");
+    expect(ctx.unavailableSources.find((u) => u.name === "slack")?.kind).toBe("disabled");
+  });
+
+  test("every declared channel lands in exactly one of the two lists", () => {
+    // The partition property. A channel that falls out of both is invisible, which
+    // is the failure this whole split exists to make impossible.
+    enableAtlassian();
+    const ctx = buildPassContext(dir);
+    expect(accountedFor(ctx)).toEqual(["atlassian", "friction", "inbox", "slack", "transcript", "usage"]);
+    // Non-vacuity: with credentials present the SAME channel moves lists rather than
+    // disappearing, so the equality above is tracking config and env, not a constant.
+    process.env.ATLASSIAN_BASE_URL = "https://x.atlassian.net";
+    process.env.ATLASSIAN_EMAIL = "me@x.com";
+    process.env.ATLASSIAN_API_TOKEN = "tok";
+    const withCreds = buildPassContext(dir);
+    expect(accountedFor(withCreds)).toEqual(["atlassian", "friction", "inbox", "slack", "transcript", "usage"]);
+    expect(withCreds.sources.map((s) => s.name)).toContain("atlassian");
   });
 
   test("enabling Atlassian with credentials adds the source", () => {
@@ -68,7 +115,16 @@ describe("buildPassContext adapter wiring", () => {
     process.env.ATLASSIAN_EMAIL = "me@x.com";
     process.env.ATLASSIAN_API_TOKEN = "tok";
     const ctx = buildPassContext(dir);
-    expect(ctx.sources.map((s) => s.name).sort()).toEqual(["atlassian", "inbox", "usage"]);
+    expect(ctx.sources.map((s) => s.name).sort()).toEqual(["atlassian", "friction", "inbox", "usage"]);
+  });
+
+  test("skipSources claims nothing about the channels it did not build", () => {
+    // An empty `unavailableSources` here is meaningful: nothing was considered, so
+    // nothing may be reported as off or as broken.
+    enableAtlassian();
+    const ctx = buildPassContext(dir, { skipSources: true });
+    expect(ctx.sources).toEqual([]);
+    expect(ctx.unavailableSources).toEqual([]);
   });
 });
 

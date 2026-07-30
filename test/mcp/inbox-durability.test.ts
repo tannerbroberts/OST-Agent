@@ -16,6 +16,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { initVault } from "../../src/runner/init.js";
 import { createLazyOstMcpServer } from "../../src/mcp/server.js";
 import { readEvidence, writeEvidence } from "../../src/processes/tree.js";
+import { CHANNEL_ZERO, resolveChannels } from "../../src/adapters/channels.js";
+import { loadConfig } from "../../src/config/load.js";
 
 /**
  * The one stub the W10 check calls for: `writeEvidence` throwing on a named item.
@@ -41,7 +43,11 @@ beforeEach(async () => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "ost-inbox-durability-"));
   await initVault(dir, "Reach ten returning operators.", "Reach ten returning operators");
 });
-afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
+afterEach(() => {
+  // The drop folder lives OUTSIDE the vault now, so removing the vault alone leaks it.
+  fs.rmSync(dropDir(dir), { recursive: true, force: true });
+  fs.rmSync(dir, { recursive: true, force: true });
+});
 
 async function connect(vaultDir: string): Promise<Client> {
   const [clientT, serverT] = InMemoryTransport.createLinkedPair();
@@ -52,8 +58,20 @@ async function connect(vaultDir: string): Promise<Client> {
   return client;
 }
 
+/**
+ * The drop folder is asked for, never assumed: `init` writes an escaping
+ * `adapters.inbox.path` (W1), so a hardcoded `<vault>/.ost-agent/inbox` would put
+ * these fixtures in a folder nothing reads — and a W10 test that delivers nothing
+ * proves nothing while passing its "0 new" branches.
+ */
+function dropDir(vaultDir: string): string {
+  const zero = resolveChannels(vaultDir, loadConfig(vaultDir)).channels.find((c) => c.name === CHANNEL_ZERO);
+  if (!zero) throw new Error("no channel zero resolved — adapters.inbox is the key every vault carries");
+  return zero.dir;
+}
+
 function drop(vaultDir: string, name: string, body: string): void {
-  const inbox = path.join(vaultDir, ".ost-agent", "inbox");
+  const inbox = dropDir(vaultDir);
   fs.mkdirSync(inbox, { recursive: true });
   fs.writeFileSync(path.join(inbox, name), body, "utf8");
 }
@@ -105,7 +123,7 @@ test("a colliding note is still idempotent on re-delivery", async () => {
   const again = await ingest(client);
 
   expect(readEvidence(dir)).toHaveLength(2);
-  expect(again).toMatch(/0 new notes/);
+  expect(again).toMatch(/\[inbox\] 0 new/);
 });
 
 test("an id that does not collide keeps the plain filename", () => {

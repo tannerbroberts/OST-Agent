@@ -3,7 +3,9 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { fileFriction, FRICTION_KINDS } from "../../src/adapters/friction.js";
+import { FRICTION_CHANNEL, FRICTION_CHANNEL_PATH, resolveChannels } from "../../src/adapters/channels.js";
 import { defaultConfigYaml } from "../../src/config/schema.js";
+import { loadConfig } from "../../src/config/load.js";
 
 let dir: string;
 
@@ -15,17 +17,23 @@ afterEach(() => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-const inbox = () => path.join(dir, ".ost-agent", "inbox");
+/** Where filings go now: the first-party channel, not channel zero. */
+const friction = () => path.join(dir, FRICTION_CHANNEL_PATH);
+const channelZero = () => path.join(dir, ".ost-agent", "inbox");
 
 describe("fileFriction", () => {
-  test("drops a note into the vault's configured inbox", () => {
+  test("drops a note into the vault's friction channel, not into channel zero", () => {
     const written = fileFriction(dir, { kind: "blocked", note: "Could not find the vault from the repo" });
 
-    expect(written.startsWith(inbox())).toBe(true);
+    expect(written.startsWith(friction())).toBe(true);
     expect(fs.existsSync(written)).toBe(true);
     const body = fs.readFileSync(written, "utf8");
     expect(body).toContain("blocked");
     expect(body).toContain("Could not find the vault from the repo");
+
+    // The distinction the friction channel was created to draw: channel zero is
+    // where the untrusted builder writes, and nothing the agent files lands there.
+    expect(fs.existsSync(channelZero())).toBe(false);
   });
 
   test("records the context and who filed it when given", () => {
@@ -69,12 +77,56 @@ describe("fileFriction", () => {
     expect(body).toContain("[redacted]");
   });
 
-  test("creates the inbox directory when the vault has never received a note", () => {
-    fs.rmSync(inbox(), { recursive: true, force: true });
+  test("creates the friction directory when the vault has never received a filing", () => {
+    fs.rmSync(friction(), { recursive: true, force: true });
 
     const written = fileFriction(dir, { kind: "unclear-rule", note: "Which layer does this belong to?" });
 
     expect(fs.existsSync(written)).toBe(true);
+    // Named, not merely existing: a filing that landed anywhere at all would satisfy
+    // `existsSync`, and the folder this test is about is the one that had to be made.
+    expect(written.startsWith(friction())).toBe(true);
+  });
+
+  /**
+   * A config that will not parse is one of the things most worth filing friction
+   * about, so filing must survive it. It can, because the friction channel's folder
+   * is a code constant rather than a config value.
+   */
+  test("files against a broken config, and against no config at all", () => {
+    fs.writeFileSync(path.join(dir, "ost.config.yaml"), "adapters:\n  inbox:\n    cadence: soon\n", "utf8");
+    const broken = fileFriction(dir, { kind: "blocked", note: "ost.config.yaml will not parse" });
+    expect(broken.startsWith(friction())).toBe(true);
+
+    fs.rmSync(path.join(dir, "ost.config.yaml"));
+    const absent = fileFriction(dir, { kind: "blocked", note: "there is no config here at all" });
+    expect(absent.startsWith(friction())).toBe(true);
+
+    // Non-vacuity: the two filings are distinct files that really exist, so the
+    // assertions above are about where they landed and not about a path string.
+    expect(absent).not.toBe(broken);
+    expect(fs.existsSync(broken) && fs.existsSync(absent)).toBe(true);
+  });
+
+  /**
+   * `adapters.inbox.enabled: false` means "the drop-folder adapter is off", and the
+   * friction channel follows that switch — for READING. Filing must not follow it.
+   * That switch governs ingestion; refusing to write would throw the agent's record
+   * away to honour a setting about what gets read, and an unfiled friction is gone
+   * while an unread one still sits in git where a person can find it.
+   */
+  test("files even when the drop-folder adapter is switched off", () => {
+    fs.writeFileSync(path.join(dir, "ost.config.yaml"), 'outcome: "X"\nadapters:\n  inbox:\n    enabled: false\n', "utf8");
+
+    const written = fileFriction(dir, { kind: "blocked", note: "filed while the adapter is switched off" });
+    expect(written.startsWith(friction())).toBe(true);
+    expect(fs.readFileSync(written, "utf8")).toContain("switched off");
+
+    // Non-vacuity: the switch really is off in the config this filing was resolved
+    // against — the friction channel comes back not-enabled, and it was written
+    // anyway. Without this the assertion above passes on any config at all.
+    const channel = resolveChannels(dir, loadConfig(dir)).channels.find((c) => c.name === FRICTION_CHANNEL);
+    expect(channel?.enabled).toBe(false);
   });
 
   test("offers exactly the kinds the agent is told to use", () => {

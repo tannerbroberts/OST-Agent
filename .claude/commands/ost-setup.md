@@ -1,6 +1,6 @@
 ---
 description: Set up an Opportunity Solution Tree in this folder — the first-run front door
-allowed-tools: mcp__ost-agent__ost_next_work, Bash(node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs set-outcome:*)
+allowed-tools: mcp__ost-agent__ost_next_work, Bash(node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init:*)
 ---
 
 Set this directory up as an OST vault, or report that it already is one.
@@ -29,11 +29,13 @@ node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init <folder> --outcome "<their wo
 
 ## 3. A vault with no root Outcome
 
-Ask the same question, confirm the same way, then run:
+The mandate is still recorded in `ost.config.yaml`; what is missing is the root node. Restore it from what is already there:
 
 ```
-node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs set-outcome "<their words>" --vault <dir>
+node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init <dir>
 ```
+
+Then read the restored mandate back to the human and ask whether it is still the one they want. **If it is not, do not change it yourself** — tell them to run `ost-agent set-outcome "<new words>" --vault <dir>` on their own shell. Retuning the sentence the whole tree ladders up to is the sponsor's act, and this command is not granted it (W6).
 
 ## 4. Confirm
 

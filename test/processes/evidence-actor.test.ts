@@ -22,23 +22,45 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import matter from "gray-matter";
 import { InboxSource } from "../../src/adapters/inbox.js";
+import { CHANNEL_ZERO, isInsideVault } from "../../src/adapters/channels.js";
 import { ACTORS, isActor, UNKNOWN_ACTOR } from "../../src/adapters/source.js";
 import { readEvidence, writeEvidence } from "../../src/processes/tree.js";
 
+/**
+ * `work` is the world, `dir` is the vault inside it. The vault is not the `mkdtemp`
+ * directory itself because a *second* channel's folder has to resolve OUTSIDE the
+ * vault or `resolveChannels` refuses it — so a fixture that put one under `dir`
+ * would be exercising a configuration this vault can never hold, which is the same
+ * objection that keeps the legacy ids below in channel zero's bare shape.
+ */
+let work: string;
 let dir: string;
 let inbox: string;
 
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), "ost-actor-"));
+  work = fs.mkdtempSync(path.join(os.tmpdir(), "ost-actor-"));
+  dir = path.join(work, "vault");
+  // Channel zero under `.ost-agent/inbox` is the grandfathered inside-vault shape —
+  // accepted, unlike a config-declared channel, so this one is a real state too.
   inbox = path.join(dir, ".ost-agent", "inbox");
   fs.mkdirSync(inbox, { recursive: true });
 });
-afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
+afterEach(() => fs.rmSync(work, { recursive: true, force: true }));
 
-/** Drop a note and run it through the real ingest path (source → writeEvidence). */
+/**
+ * Drop a note and run it through the real ingest path (source → writeEvidence).
+ *
+ * The channel is named explicitly because `InboxSource` has no positional-string
+ * overload any more: a call that omitted it would silently be channel zero, which
+ * is S3's bug re-entering through a compatibility path. {@link CHANNEL_ZERO} rather
+ * than the literal `"inbox"` because the `INBOX:` ids the legacy-record tests below
+ * write by hand are channel zero's frozen *bare* id shape — any other channel would
+ * prefix them `INBOX:<channel>/` and those fixtures would stop being the records
+ * this vault would really hold.
+ */
 async function ingest(name: string, body: string): Promise<void> {
   fs.writeFileSync(path.join(inbox, name), body, "utf8");
-  const source = new InboxSource(inbox);
+  const source = new InboxSource({ dir: inbox, channel: CHANNEL_ZERO });
   const { items } = await source.fetchSince(null);
   for (const item of items) writeEvidence(dir, item, source.actor);
 }
@@ -84,6 +106,33 @@ describe("the surface stamps the actor", () => {
     expect(fm.rung).toBeUndefined();
     expect(fm.by).toBeUndefined();
     expect(Object.keys(fm).sort()).toEqual(["actor", "id", "source", "timestamp", "title"]);
+  });
+
+  test("a second channel is still recorded as the inbox, not as its own name", async () => {
+    // Drop folders became plural, and their names come out of `ost.config.yaml`.
+    // Minting a channel *instance* from config is the feature; minting a trust
+    // *kind* from it is the thing W11 forbids — if the stamped actor were derived
+    // from the channel name, anyone who can write the config could declare a
+    // channel called `sponsor` and lift that whole folder's namespace above the
+    // ceiling the actor is what decides. One folder, one grant, one actor.
+    // A sibling of the vault, not a child: `resolveChannels` refuses a declared
+    // channel that resolves inside the vault, so a fixture folder under `dir` would
+    // be a channel no config could ever mint — and the whole point of this test is
+    // what happens to a channel config really can.
+    const support = path.join(work, "support-drop");
+    expect(isInsideVault(dir, support)).toBe(false);
+    fs.mkdirSync(support, { recursive: true });
+    fs.writeFileSync(path.join(support, "ticket.md"), "Export is confusing.\n", "utf8");
+    const source = new InboxSource({ dir: support, channel: "support" });
+    const { items } = await source.fetchSince(null);
+    for (const item of items) writeEvidence(dir, item, source.actor);
+
+    const [rec] = readEvidence(dir);
+    // The id proves this really was a second channel and not channel zero under
+    // another name — without it the actor assertion would hold vacuously.
+    expect(rec.id).toBe("INBOX:support/ticket.md");
+    expect(rec.actor).toBe("inbox");
+    expect(frontmatterOnDisk().actor).toBe("inbox");
   });
 
   test("what the note said stays in the body instead of being hoisted out of it", async () => {
