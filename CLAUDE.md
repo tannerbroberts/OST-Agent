@@ -4,6 +4,13 @@ Guidance for Claude Code working in this repository. See [`CONTRIBUTING.md`](CON
 for the load-bearing invariants (the closed tool allowlist, the generated skill, adapter
 rules) — this file is about how work gets finished.
 
+## How to report back
+
+**Keep it simple for the user. The details don't matter so much as how well the details
+align with the user's vision.** Lead with what it means, not with what was touched. Names,
+counts and `file:line` belong in the commit, the PR body and the tests — surface them here
+only when the user asks for them or when one of them is the point.
+
 ## Standing directive: finish the work by shipping it
 
 **Work is not done when the diff is ready. It is done when it is on `main`.** Carry every
@@ -47,7 +54,7 @@ auto-committing tool will attribute to itself.
 
 ## Where the standards for this repo are written down
 
-`docs/reference/v1-readiness.md` is the bar: 67 criteria, each stating a check that can be
+`docs/reference/v1-readiness.md` is the bar: 75 criteria, each stating a check that can be
 run today, with a status and file:line evidence. When work closes a criterion, update its
 entry in the same commit — status, the date, and what the test that pins it actually
 proves. **A criterion whose status is carried by memory rather than by a test is how that
