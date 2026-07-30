@@ -301,11 +301,13 @@ export function classifyUnknown(node: OstNode, classifier: UnknownClassifier = D
  * (`eval/evidence-debt.ts`) — a floor that a recorded absence no longer clears,
  * not a verdict on whether the answer is any good.
  *
- * `byStatus` is deliberately ungraded. `ost_set_status validated` remains a
- * granted, ungraded route to satisfied: a human's explicit `validated` is
- * authoritative and stays so, and gating the status path would also break the
- * first-match-wins contract this interpreter states above. That route is a
- * pre-existing grant in B1's family and is NOT closed by this change.
+ * `byStatus` is deliberately ungraded, and B2 is what makes that safe rather
+ * than residual. A human's explicit `validated` is authoritative and stays so;
+ * gating the status path would also break the first-match-wins contract this
+ * interpreter states above. When this was written, `ost_set_status validated`
+ * was a route the AGENT held — which would have made an ungraded status path a
+ * hole. It is not: `validated` is off every tool's status enum, and the only
+ * writer is a human running `ost-agent promote`.
  *
  * `answerSection` is the canonical name for the heading that means "an answer
  * exists". The interpreter reads only `rules`, so renaming it there is what
