@@ -9,27 +9,39 @@ deleted the genome and the harness, again after the first Tier 1 batch closed
 R1, R5, S6 and H2, and again after the second batch turned R3's table, W4 and G3
 into committed tests, and again after R4 made the two health gates compute one
 rule set, and again after B12 stated the ingest-to-rank chain as one criterion
-instead of four cross-references. The suite is green — 790 tests across 79
+instead of four cross-references, and again after B8 made a declared rung a claim
+the tree checks. The suite is green — 819 tests across 83
 files, `tsc --noEmit` clean — and nothing below is about the code being broken.
 It is about the difference between *a tool that works when watched* and *a
 system that can be left alone*.
 
-**68 criteria, 17 of them blockers. 13 met, 3 partial, 52 not met.** Three of the
-thirteen were met by *deleting* something rather than building it, which is the
+**68 criteria, 17 of them blockers. 17 met, 3 partial, 48 not met.** Three of the
+seventeen were met by *deleting* something rather than building it, which is the
 document working as intended; four more were the first Tier 1 batch, each of
 which turned a wedge into a refusal at the boundary that could still take it back.
 
-> *These numbers were counted out of this file on 2026-07-29 rather than carried
-> forward, and two of them were wrong.* The line read **11 met, 53 not met**
-> against 67 criteria; the file held 13 `met` statuses and 51 `not met`, because
-> R4 and R7 closed in the last batch and their own entries were updated while
-> this line was not. (The criterion total moved 67 → 68 for a different reason:
-> B12 below is new.) The blocker count survived the count at 17 —
-> a naïve `grep -c '⛔'` returns 18, and the eighteenth is the legend that
-> explains the symbol. **A number in a summary line is a claim carried by memory
-> about claims carried by tests, which is the weakest link in the document and
-> the one nothing pins.** The counts are one `awk` over criterion headings and
-> `*Today:*` lines; the next revision should re-run it rather than adjust it.
+> *These numbers are re-counted out of this file on each revision rather than
+> adjusted, because the last time they were adjusted two of them were wrong.* The
+> line read **11 met, 53 not met** against 67 criteria while the file held 13
+> `met` and 51 `not met` — R4 and R7 had closed and their own entries were updated
+> while this line was not. The count that produced the numbers above, which is
+> what to re-run:
+>
+> ```bash
+> grep -cE '^\*\*(⛔ )?[A-Z][0-9]+ —' docs/reference/v1-readiness.md   # 68 criteria
+> grep -cE '^\*\*⛔ [A-Z][0-9]+ —' docs/reference/v1-readiness.md      # 17 blockers
+> grep -oE '^> \*Today:\*\s+\*\*[a-z, ]+' docs/reference/v1-readiness.md \
+>   | sed 's/.*\*\*//;s/^met.*/met/;s/^partial.*/partial/;s/^not met.*/not met/' \
+>   | sort | uniq -c                                                  # 17 / 3 / 48
+> ```
+>
+> The `sed` collapse is load-bearing: eight entries qualify the verdict in the
+> same bold span (*"not met, and nothing exists to build on"*), and a count that
+> matched only the bare word would silently drop them. A naïve
+> `grep -c '⛔'` returns 18 blockers; the eighteenth is the legend that explains
+> the symbol. **A number in a summary line is still a claim carried by memory
+> about claims carried by tests, and it remains the one thing here nothing pins** —
+> the three commands above are the cheapest available substitute, not a fix.
 
 **The second batch moved two criteria in opposite directions, and that is the
 point of pinning things.** R9's clearability table now runs (`test/eval/clearability.test.ts`),
@@ -439,24 +451,67 @@ kind.**
 **B7 — `classifyProvenance` has a production caller.**
 > *Check:* `grep -rn 'classifyProvenance' src/ --include=*.ts | grep -v
 > '^src/knowledge/believability.ts:'` is non-empty.
-> *Today:* **not met.** The function exists, is fail-closed, and would derive a
-> rung from `source` — `TRANSCRIPT:` → observed, `JIRA`/`SLACK`/`INTERVIEW:` →
-> stated, `WEB:<host>` → the host's earned rung clamped to expert, everything else
-> → floor (`src/knowledge/believability.ts:126-137`) — and has **no caller**. The
-> agent's freehand string is accepted instead. Under DEC-1 the inbox is precisely
-> where an unverified builder's self-description arrives. This is B3's missing
-> ceiling, one wire away.
+> *Today:* **met** (2026-07-29) — **and the caller is on the read side, which is
+> less than the entry above once implied.** B8's detector calls it to derive a
+> node's source ceiling (`src/eval/rungs.ts:81`), reached from `checkInvariants`,
+> and the derivation is pinned by behavior rather than by the grep: `TRANSCRIPT:`
+> backs a node's `observed` claim, `JIRA:` does not
+> (`test/eval/rungs.test.ts:66-81`). What that buys is a node whose label outruns
+> its provenance being *reported*. What it does not buy is the label being
+> *refused* when written — the agent's freehand string is still accepted at
+> `ost_set_evidence`, which is **B3**, and B3's ceiling is now one call away rather
+> than one function away. Under DEC-1 the inbox is precisely where an unverified
+> builder's self-description arrives, so the gap between reported and refused is
+> the whole of what is left here.
+>
+> **The check as written is a grep, and a grep is a proxy.** It came out true the
+> moment a production module imported the function, which is exactly the kind of
+> pass this document has been wrong by before — so the status rests on the two
+> behavior assertions cited above, not on the import.
 
 **B8 — `checkInvariants` reports a node whose declared rung exceeds what its
 source and results support.**
 > *Check:* run it on a Solution declaring `evidence: money` with no result of any
 > kind.
-> *Today:* **not met** *(verified: returns `[]`).* The template exists:
-> `laneConflicts` already reads a node's own prose, compares it to its frontmatter
-> label, and raises a hard invariant on disagreement
-> (`src/eval/invariants.ts:95-105`). The believability label is the one
-> declaration in the system nobody argues with. Keep this as the detector for
-> nodes that predate B3's guard.
+> *Today:* **met** (2026-07-29). The check is that row verbatim, committed:
+> `test/eval/rungs.test.ts:35-43`. `unearnedRungs` (`src/eval/rungs.ts:71-110`)
+> raises `rung-unearned` through `checkInvariants`
+> (`src/eval/invariants.ts:101-107`), and it is a blocking hygiene rule on both
+> gates (`src/mcp/next-work.ts:120`), so a red here also turns `done` false rather
+> than only reddening `check` — the R4 defect this document was built to stop
+> re-introducing.
+>
+> **The rule was already written down twice, in prose, addressed to the model.**
+> `ost_rank_source`'s description and `web-trust.ts` both say
+> `observed`/`money` "can only be earned by first-party measurement
+> (AssumptionTests + `ost_set_evidence`), never by a byline"
+> (`src/security/tools.ts:504`, `src/knowledge/web-trust.ts:62`) — in the two
+> places where the model is the actor being constrained. This computes it: a
+> measurement rung has to point at a measurement, which is either a recorded
+> result (the node's own `## Results`, or one on a node it links to) or provenance
+> that *is* a recording (`classifyProvenance` → `observed`, i.e. `TRANSCRIPT:`).
+> Results license both rungs; provenance licenses `observed` only, pinned at
+> `test/eval/rungs.test.ts:70-75` — a source string can describe a measurement, it
+> cannot put a price on one.
+>
+> Three scope limits, each a place this could have become a wedge:
+> - **Only the two measurement rungs are policed** (`src/eval/rungs.ts:44`).
+>   `stated` and `expert` also have to be earned, but their ceilings are B7's wire
+>   and B6's actor namespace; a detector deriving all five today would fire on
+>   every hand-authored node in every existing vault, and a rule that fires on
+>   everything is a rule someone turns off. Pinned as *not* firing at
+>   `test/eval/rungs.test.ts:83-87`.
+> - **One level of links, not the transitive closure** (`src/eval/rungs.ts:79`).
+>   That is the relation `gateSolution` already means by a result for a node, and
+>   it stops a grandchild's result laundering a claim two layers up
+>   (`test/eval/rungs.test.ts:55-64`).
+> - **Demotion always clears it**, on both surfaces, needing no result at all
+>   (`test/eval/clearability.test.ts:342`). There is a second route out — append a
+>   `## Results` section and the claim is backed — and it is exactly **B1's**
+>   forgeable path, so the clearability row deliberately records the demotion
+>   instead. **B8 is therefore met and, like B4, still downstream of B1:** it
+>   catches a rung nothing supports, not a rung supported by a result the agent
+>   wrote for itself.
 
 **B9 — A resolved Unknown's answer was checked against its own `## Format`.**
 > *Check:* create an Unknown whose `## Format` reads "a dollar figure with a
@@ -1345,10 +1400,14 @@ afterwards means anything if the subject is dead or if failure is invisible.
 **Tier 2 — the instruments must not be forgeable.** B1, B2, B3, B4, B8, B9. While
 the agent can write `## Results`, flip `validated`, and declare `money`, every
 number the system produces about itself is self-certified, and a health record
-built on a forgeable gate records forgeries faithfully. **B4 is done** (it closed
-the self-corroboration path Gate B opens with: a promotion cannot cite nothing).
-**B8 and B9 still wait on nothing** — they are detector checks buildable today
-against a single hand-made vault. Only B5, B6, B11 and P5 wait on Tier 4.
+built on a forgeable gate records forgeries faithfully. **B4 and B8 are done** —
+B4 closed the self-corroboration path Gate B opens with (a promotion cannot cite
+nothing), and B8 made `money` a claim the tree checks rather than a word the agent
+picks. **B8 took B7 with it**, the way R4 took R7: the detector needed a source
+ceiling, `classifyProvenance` was the ceiling with no caller, and wiring it was
+one line of the same change. **B9 still waits on nothing** — it is a detector
+check buildable today against a single hand-made vault. Only B5, B6, B11 and P5
+wait on Tier 4.
 
 **Tier 3 — the writer boundary, which several later gates sit on.** W1 and W11
 precede Gate S: S1's entire failure statement is about write access to the inbox
@@ -1411,9 +1470,26 @@ narrower and worth stating because it bounds the criterion: B4 reuses
 downstream of B1** — it closes the path where a promotion cites nothing, not the
 path where the agent writes the `## Results` it then cites.
 
-**The next single item is B8**, with B9 beside it. Both still wait on nothing —
-they are detector checks buildable against a single hand-made vault — and B8 is
-the one that catches the nodes predating B3's guard.
+**B8 is done too** (2026-07-29), and it earned the same description a third time.
+Two findings, both from building rather than from reading: the doctrine it
+enforces was **already written down twice in prose**, in the two tool descriptions
+where the model is the actor being constrained (`src/security/tools.ts:504`,
+`src/knowledge/web-trust.ts:62`) — a rule stated to the model twice and computed
+nowhere is the shape this whole tier is about. And adding one rule turned out to
+cost four pins, not one: the rule literal is grepped out of `invariants.ts` by both
+`test/eval/clearability.test.ts` and `test/mcp/rule-parity.test.ts`, so a rule with
+no clear path, or in neither the blocking nor the declared-non-blocking set, is a
+red build. **That is R3 and R4 collecting their rent** — the cost of a new rule is
+now paid up front, in the diff, instead of discovered as a permanent wedge later.
+The second finding is narrower and bounds the criterion: the first plant turned
+`done` false through *evidence debt* rather than hygiene, because a freshly planted
+Solution has no test beneath it — so the fixture proved nothing about the new rule
+until it relabelled a node already in the tree (`test/mcp/rule-parity.test.ts:141`).
+
+**The next single item is B9.** It still waits on nothing — a detector check
+buildable against a single hand-made vault — and it is where DEC-2's
+cause-and-effect test gets a seat: `## Format` is designed as the stopping
+condition and is a heading nobody grades.
 
 ---
 
@@ -1459,7 +1535,7 @@ a finding the build reproduces.** Moving rows from here to there is the work.
 | B2 | `ost_set_status("validated")` flips `hasRecordedResult`; `checkInvariants` returns `[]` | `src/eval/invariants.ts:85-89` |
 | B3 | `ost_set_evidence("money")` accepted with no note or corroboration | `src/security/tools.ts:369-377` |
 | B6 | `rankHost({host:"stripe-webhook-feed", rung:"expert"})` succeeds — no actor namespace | `src/knowledge/web-trust.ts:37-44` |
-| B8 | `checkInvariants` returns `[]` for a Solution declaring `money` with no result | `src/eval/invariants.ts:74-82` |
+| B8 | `checkInvariants` returns `[]` for a Solution declaring `money` with no result — *fixed 2026-07-29; the finding is now a row the build re-runs (`rung-unearned`), on both gates* | `test/eval/rungs.test.ts:35-43` |
 | B10 | Coverage gaps drop 2 → 1 after an `ost_append_to_node` of `## Uncovered` | `src/eval/coverage.ts` |
 | B12 | `classifyProvenance("INBOX:friction-report.md")` → `stated`, `"INBOX:note.md"` → `assertion`; the id is the producer's filename | `src/knowledge/believability.ts:129` |
 | R1 | `wrapped-wikilink` survives every clearing attempt on the tool surface — *fixed 2026-07-29 at the write boundary; the tool surface can no longer author one* | `src/ost/node.ts:97-103` |
