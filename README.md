@@ -33,7 +33,7 @@ Each node file:
 - **First line is a type tag** so Obsidian colors nodes by layer: `#Outcome` · `#Opportunity` · `#Solution` · `#AssumptionTest`.
 - **`[[wikilinks]]`** from a parent to its children become the graph's edges (Outcome → Opportunities → Solutions → Assumption Tests).
 - **YAML frontmatter** carries machine-readable metadata (`status`, `source`, `created`, `confidence`) without breaking graph view.
-- Agent-ideated ideas are appended with `status: unvalidated` and an **`#unvalidated`** tag, so speculation is always visually distinct from validated knowledge.
+- Agent-ideated ideas are appended with `status: unvalidated` and an **`#unvalidated`** tag stamped by the server, so speculation is always visually distinct from validated knowledge — and no allowlisted tool can take the tag back off.
 
 Open the folder as an Obsidian vault and the tree is a navigable graph.
 
@@ -44,7 +44,7 @@ Open the folder as an Obsidian vault and the tree is a navigable graph.
 The safety of OST-Agent does not depend on the agent behaving well. It depends on the agent **not having any dangerous capability in the first place**.
 
 - **Allowlist of tools, not a blocklist.** The connected Claude Code session gets an explicitly registered, append-only MCP tool set — `create node`, `append`, `link`, `set status`, `annotate`, and a handful of read-only reporting tools. There is **no** `bash`, **no** general file write, **no** delete or rename tool, and **no** tool that commits or pushes on the agent's own say-so. A destructive instruction maps to no available tool and simply fails.
-- **Git is the safety net.** Every mutating tool call is auto-committed by the server itself as a *new commit*. History is never rewritten; there is no `reset --hard`, no `rm`, no force-push, no branch deletion. Anything the agent writes lands as a normal commit you can revert — nothing is ever lost. What git does *not* do is stop a write from being believed while it stands: `ost_append_to_node` can write the `## Results` heading the solution gate reads, and `ost_set_status` can move a node to `validated`, so a pass can clear its own gate (criteria **B1**, **B2**, **P10** in [`docs/reference/v1-readiness.md`](docs/reference/v1-readiness.md)). Reversibility is the floor here, not the guarantee.
+- **Git is the safety net.** Every mutating tool call is auto-committed by the server itself as a *new commit*. History is never rewritten; there is no `reset --hard`, no `rm`, no force-push, no branch deletion. Anything the agent writes lands as a normal commit you can revert — nothing is ever lost. What git does *not* do is stop a write from being believed while it stands, so reversibility is the floor here rather than the guarantee. The two writes that used to clear a gate on the agent's own authority are now closed at the boundary: `## Results` and `## Uncovered` are reserved headings no tool argument can author, and `validated` is not a value `ost_set_status` or `ost_create_node` accepts (criteria **B1**, **B2**, **B10** in [`docs/reference/v1-readiness.md`](docs/reference/v1-readiness.md)). What remains is that a human with a text editor can write anything — which is the point, they are the actor the gate defers to.
 - **Untrusted input.** Content pulled into the tree (inbox notes, fetched web pages) is treated as *data, never instructions*. Nothing on the tool surface writes back to an outside system.
 - **Confined & bounded.** All writes stay inside the vault folder; filenames are sanitized. Outward web lookups share a per-session budget (`web.lookupBudget`) so "looking things up" stays easy to start and hard to binge.
 - **Secrets stay out of the vault.** Tokens live in environment variables, never in commits.
@@ -62,7 +62,7 @@ By design, OST-Agent:
 - **Does not invent or change its own outcome.** The root mandate is human-set; you provide it at `init` and retune it with `ost-agent set-outcome "…"` (a human-only command — never an agent tool). Retuning edits the root node in place and preserves the prior mandate under a `## History` section, so the outcome is a tunable steering knob (like a prompt) whose evolution stays observable.
 - **Does not write back** to any external system it reads from.
 - **Never deletes, never rewrites history, never force-pushes.** Corrections are new commits.
-- **Never marks its own ideas as validated.** Ideated solutions and assumptions are appended `unvalidated` for a human to review — today that is a rule the skill holds the agent to, not yet a mechanism the server enforces (**B2**).
+- **Never marks its own ideas as validated.** Ideated solutions and assumptions are appended `unvalidated` for a human to review, and the `#unvalidated` marker is stamped by the server rather than chosen by the author. `validated` is not a value the agent can pass to any tool; a human promotes with `ost-agent promote` (**B2**).
 
 ---
 
@@ -163,7 +163,7 @@ A `ost.config.yaml` in the vault declares the outcome, the local inbox path, the
 
 ### Evidence debt
 
-Delivery beats discovery by default: whenever there is code to write, the asking stops. `ost-agent debt` prints what each solution still owes — `untested` (no assumption test at all), `proposed-only` (tests written, none run), or `tested` — plus any result that never said what it left uncovered (see below) — and `ost-agent gate "<solution>"` exits non-zero unless some assumption beneath that solution has recorded a result, so a build step can refuse to start. A test counts as run when it has a `## Results` section or a human moved it to `validated`. The judgement is deliberately mechanical: it tells you whether *any* assumption was tested, never whether the *riskiest* one was — that stays a human call.
+Delivery beats discovery by default: whenever there is code to write, the asking stops. `ost-agent debt` prints what each solution still owes — `untested` (no assumption test at all), `proposed-only` (tests written, none run), or `tested` — plus any result that never said what it left uncovered (see below) — and `ost-agent gate "<solution>"` exits non-zero unless some assumption beneath that solution has recorded a result, so a build step can refuse to start. A test counts as run when it has a `## Results` section or a human moved it to `validated` — and both are written only from outside the agent's tool surface, by `ost-agent result` and `ost-agent promote` respectively. The judgement is deliberately mechanical: it tells you whether *any* assumption was tested, never whether the *riskiest* one was — that stays a human call.
 
 A gate is only passable if results can be recorded, so `ost-agent result` is the human's half:
 

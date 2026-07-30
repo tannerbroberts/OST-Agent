@@ -70,42 +70,79 @@ function isMeasurementRung(rung: string | undefined): rung is RungId {
  */
 export function unearnedRungs(tree: readonly OstNode[]): UnearnedRung[] {
   const index = byTitle([...tree]);
-  const found: UnearnedRung[] = [];
+  return tree.map((n) => unearnedRung(n, index)).filter((u): u is UnearnedRung => u !== null);
+}
 
-  for (const n of tree) {
-    if (!isMeasurementRung(n.evidence)) continue;
+/**
+ * One node's verdict — the ceiling, computed once, for both of its readers.
+ *
+ * Split out of the loop above so the WRITE boundary can ask the same question
+ * the detector asks (B3) instead of deriving a second ceiling beside it. R4's
+ * lesson at the moment a second caller appeared: two hand-written derivations of
+ * one rule drift, and the drift is invisible until something rests on it.
+ *
+ * `index` need only resolve this node's own `links` — the walk is one level, so
+ * a partial index is exact rather than an approximation. That is what lets the
+ * write boundary avoid a whole-tree read on every label write.
+ */
+export function unearnedRung(n: OstNode, index: ReadonlyMap<string, OstNode>): UnearnedRung | null {
+  if (!isMeasurementRung(n.evidence)) return null;
 
-    const ownResult = hasRecordedResult(n);
-    const childResult = n.links.map((t) => index.get(t)).find((c) => c && hasRecordedResult(c));
-    const resultBacked = ownResult || !!childResult;
-    const sourceRung = classifyProvenance(n.source ?? "");
-    const sourceObserved = rungRank(sourceRung) <= rungRank("observed");
+  const ownResult = hasRecordedResult(n);
+  const childResult = n.links.map((t) => index.get(t)).find((c) => c && hasRecordedResult(c));
+  const resultBacked = ownResult || !!childResult;
+  const sourceRung = classifyProvenance(n.source ?? "");
+  const sourceObserved = rungRank(sourceRung) <= rungRank("observed");
 
-    if (n.evidence === "money" && !resultBacked) {
-      found.push({
-        node: n.title,
-        declared: "money",
-        supported: sourceObserved ? "observed" : sourceRung,
-        missing:
-          "'money' means behavior with a cost attached, which only a result can show — " +
-          "record one (a `## Results` section on this node or on a test beneath it), " +
-          "or declare the rung its sources have earned",
-      });
-      continue;
-    }
-
-    if (n.evidence === "observed" && !resultBacked && !sourceObserved) {
-      found.push({
-        node: n.title,
-        declared: "observed",
-        supported: sourceRung,
-        missing:
-          "'observed' means a recording of what happened — cite provenance that is one " +
-          `(source: TRANSCRIPT:…; this node's source is ${n.source ? `"${n.source}"` : "unset"}, ` +
-          `which classifies as ${sourceRung}), record a result, or declare the weaker rung`,
-      });
-    }
+  if (n.evidence === "money" && !resultBacked) {
+    return {
+      node: n.title,
+      declared: "money",
+      supported: sourceObserved ? "observed" : sourceRung,
+      missing:
+        "'money' means behavior with a cost attached, which only a result can show — " +
+        "record one (a `## Results` section on this node or on a test beneath it), " +
+        "or declare the rung its sources have earned",
+    };
   }
 
-  return found;
+  if (n.evidence === "observed" && !resultBacked && !sourceObserved) {
+    return {
+      node: n.title,
+      declared: "observed",
+      supported: sourceRung,
+      missing:
+        "'observed' means a recording of what happened — cite provenance that is one " +
+        `(source: TRANSCRIPT:…; this node's source is ${n.source ? `"${n.source}"` : "unset"}, ` +
+        `which classifies as ${sourceRung}), record a result, or declare the weaker rung`,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * The same verdict, addressed to the caller being refused rather than to the
+ * reader being informed (B3).
+ *
+ * It deliberately does NOT reuse `UnearnedRung.missing`. That sentence tells its
+ * reader to "record one (a `## Results` section …)" — advice that is correct for
+ * a human reading `ost_check` and is, at the write boundary, addressed to the one
+ * actor forbidden to record a result, naming the forgery B1 closed as the remedy.
+ * One module owns the ceiling and both of its renderings, so they cannot drift;
+ * they are different sentences because they have different readers.
+ */
+export function rungRefusal(u: UnearnedRung): string {
+  const ways =
+    u.declared === "money"
+      ? `declare '${u.supported}' or lower (demotion is never gated), or have a human record a result — ` +
+        `ost-agent result "<test>" -v <verdict> -n "<what happened>" -b "<who ran it>" -u "<what it did not cover>" — ` +
+        `on this node or on a test one level beneath it`
+      : `declare '${u.supported}' or lower (demotion is never gated), have a human record a result, or cite ` +
+        `provenance that IS a recording (source: TRANSCRIPT:…). Note that \`source\` is settable only at ` +
+        `ost_create_node — on a node that already exists, the rung is the route`;
+  return (
+    `"${u.node}" cannot declare '${u.declared}': what it points at supports '${u.supported}'. ` +
+    `The two measurement rungs assert that something was measured, and no byline confers them. ${ways}.`
+  );
 }

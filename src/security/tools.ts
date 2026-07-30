@@ -13,7 +13,7 @@
 import path from "node:path";
 import { tool } from "./tool.js";
 import { gitCommit, gitPush } from "../git/safe-git.js";
-import { type NodeStatus, type OstNode } from "../ost/node.js";
+import { AGENT_IDEATED_TAG, type NodeStatus, type OstNode } from "../ost/node.js";
 import { BELIEVABILITY_LADDER, isRung, type RungId } from "../knowledge/believability.js";
 import { classifyUnknown } from "../knowledge/unknowns.js";
 import { titlesMatch } from "../ost/sanitize.js";
@@ -36,6 +36,7 @@ import { HOST_RUNGS, hostRung, rankHost, readHostTrust } from "../knowledge/web-
 import { readProductRepo } from "../product/repo.js";
 import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/render.js";
 import { checkCorroboration } from "../eval/corroboration.js";
+import { rungRefusal, unearnedRung } from "../eval/rungs.js";
 import { reconcileWithGit } from "../ost/census.js";
 import { InboxSource } from "../adapters/inbox.js";
 import { loadCursor, saveCursor } from "../adapters/source.js";
@@ -44,7 +45,24 @@ import { loadConfig } from "../config/load.js";
 import { DEFAULT_MIN_SOLUTIONS_PER_OPPORTUNITY } from "../config/schema.js";
 import type { PassContext } from "../processes/types.js";
 
-const STATUS_VALUES = ["unvalidated", "validated", "in-discovery", "shipped", "deferred"];
+/**
+ * The statuses the agent may declare. `validated` is deliberately absent.
+ *
+ * It is a legal on-disk status — `init` writes it on the Outcome and
+ * `hasRecordedResult` still honours it — but it is the one value that clears a
+ * gate on the strength of the claim alone, so it is not an argument the agent
+ * can express. Promotion is `ost-agent promote`, on the human's CLI. Same shape
+ * as `ost_flag_humans_required`: the unsafe value has no argument position
+ * rather than a validator. (B2.)
+ */
+const AGENT_SETTABLE_STATUSES = ["unvalidated", "in-discovery", "shipped", "deferred"];
+
+/** The refusal, in one place because both tools raise it. */
+const VALIDATED_REFUSAL =
+  `"validated" is not a status the agent can set — a node that clears its own evidence gate by ` +
+  `declaring itself cleared is the forgery this surface exists to prevent. Promotion is a human's ` +
+  `call, made on the CLI: ost-agent promote "<title>" --by "<who>" --why "<the evidence>". ` +
+  `Use "in-discovery" while a test is running, or "deferred" to record abandonment.`;
 
 /**
  * A captured note's title comes straight from an untrusted filename — "the user
@@ -111,6 +129,21 @@ export const ATTRIBUTABLE_TOOLS: readonly string[] = [
 ] as const;
 
 const ATTRIBUTABLE = new Set<string>(ATTRIBUTABLE_TOOLS);
+
+/**
+ * The one-level index `unearnedRung` needs, and nothing more.
+ *
+ * The walk only ever resolves this node's own `links`, so a partial index is
+ * exact rather than an approximation — and a whole-tree read on every label
+ * write would make `ost_set_evidence` cost O(vault).
+ */
+function linkIndex(vault: Vault, node: OstNode): ReadonlyMap<string, OstNode> {
+  const index = new Map<string, OstNode>();
+  for (const title of node.links) {
+    if (vault.has(title)) index.set(title, vault.read(title));
+  }
+  return index;
+}
 
 /**
  * A fresh schema fragment per tool, so no two schemas share one object.
@@ -196,7 +229,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
     tool({
       name: "ost_create_node",
       description:
-        "Create a NEW node AND attach it under an existing parent in one atomic step — so a node can never be an orphan. You CANNOT create an Outcome (there is exactly one, human-set at init). Hierarchy is enforced: an Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an AssumptionTest under a Solution; an Unknown (darkness, representing uncertainty) attaches under any layer. The type tag (#Opportunity / #Solution / #AssumptionTest / #Unknown) is applied automatically. For an Unknown, write its body with three `## ` sections — `## Format` (the shape a valid answer would take), `## Methodology` (how it would be collected), and `## Rationale` (which node this darkens and what metric it serves) — because Format is the stopping condition: an unknown that cannot say what an answer looks like cannot know when it is done, and one lacking Methodology is worth commissioning observability for rather than chasing further.",
+        "Create a NEW node AND attach it under an existing parent in one atomic step — so a node can never be an orphan. You CANNOT create an Outcome (there is exactly one, human-set at init). Hierarchy is enforced: an Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an AssumptionTest under a Solution; an Unknown (darkness, representing uncertainty) attaches under any layer. The type tag (#Opportunity / #Solution / #AssumptionTest / #Unknown) is applied automatically, and so is the #unvalidated marker: everything you create enters the tree unvalidated, and only a human can take that marker off (`ost-agent promote`). For an Unknown, write its body with three `## ` sections — `## Format` (the shape a valid answer would take), `## Methodology` (how it would be collected), and `## Rationale` (which node this darkens and what metric it serves) — because Format is the stopping condition: an unknown that cannot say what an answer looks like cannot know when it is done, and one lacking Methodology is worth commissioning observability for rather than chasing further.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -205,7 +238,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
           layer: { type: "string", enum: ["Opportunity", "Solution", "AssumptionTest", "Unknown"], description: "Opportunity | Solution | AssumptionTest | Unknown (Outcome cannot be created here)" },
           parent: { type: "string", description: "Title of the existing parent node to attach under." },
           body: { type: "string", description: "Prose description of the node." },
-          status: { type: "string", enum: STATUS_VALUES },
+          status: { type: "string", enum: AGENT_SETTABLE_STATUSES },
           source: { type: "string", description: "Provenance, e.g. JIRA:PROJ-1234 or INBOX:note.md" },
           confidence: { type: "string" },
           evidence: {
@@ -213,7 +246,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
             enum: BELIEVABILITY_LADDER.map((r) => r.id),
             description: `Which rung of the believability ladder this node rests on — ${BELIEVABILITY_LADDER.map((r) => `${r.id}: ${r.definition}`).join(" ")} Use the WEAKEST rung that honestly covers the node's sources; 'assertion' is the floor and is always available.`,
           },
-          tags: { type: "array", items: { type: "string" }, description: "Extra tags, e.g. ['unvalidated']" },
+          tags: { type: "array", items: { type: "string" }, description: "Extra topical tags. You do not need to pass 'unvalidated' — it is stamped for you." },
         },
         required: ["title", "layer", "parent", "body", "evidence"],
       },
@@ -247,11 +280,18 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         if (!allowedParents.includes(parentLayer)) {
           throw new Error(`a ${input.layer} must attach under ${allowedParents.join(" or ")}, but "${input.parent}" is a ${parentLayer}`);
         }
+        if (input.status === "validated") throw new Error(VALIDATED_REFUSAL);
         const node: OstNode = {
           title: input.title,
           layer: input.layer as OstNode["layer"],
           body: input.body,
-          tags: input.tags ?? [],
+          // Stamped server-side, regardless of what the caller asked — the same
+          // move the evidence refusal above makes. `no-self-validation` keys on
+          // this tag, so leaving it to the caller left the rule's precondition
+          // in the hands of the actor the rule constrains, and a node created
+          // without it was permanently exempt from the invariant the README
+          // sells as the guarantee. No allowlisted tool can take it off again.
+          tags: [...new Set([...(input.tags ?? []), AGENT_IDEATED_TAG])],
           links: [],
           status: input.status as NodeStatus | undefined,
           source: input.source,
@@ -259,6 +299,13 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
           evidence: input.evidence as RungId,
           created: new Date().toISOString().slice(0, 10),
         };
+        // B3, at the other write boundary. A refusal on `ost_set_evidence` while
+        // this one stayed open would be a fake fix: `ost_create_node` takes a
+        // rung AND a source in one call, and it is granted on both surfaces. The
+        // new node's `links` are empty — the edge is written on the PARENT below —
+        // so no child can back a claim made at birth.
+        const born = unearnedRung(node, new Map());
+        if (born) throw new Error(rungRefusal(born));
         vault.createNode(node); // gets its #<layer> tag from serialize
         vault.linkNodes(input.parent, input.title); // attach to the tree atomically
         return `created ${node.layer} "${node.title}" under "${input.parent}"`;
@@ -306,18 +353,22 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
     tool({
       name: "ost_set_status",
       description:
-        "Set a node's status and record the transition in its History section (the prior value is preserved). Never mark an idea 'validated' without human-provided evidence in the note.",
+        "Set a node's status and record the transition in its History section (the prior value is preserved). 'validated' is NOT a status you can set and never will be: a node that declares itself validated clears its own evidence gate, so promotion is a human's call, made with `ost-agent promote` on the CLI. Use 'in-discovery' while a test is running, or 'deferred' to record that something was abandoned.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
         properties: {
           title: { type: "string" },
-          status: { type: "string", enum: STATUS_VALUES },
+          status: { type: "string", enum: AGENT_SETTABLE_STATUSES },
           note: { type: "string", description: "Why the status changed / evidence reference." },
         },
         required: ["title", "status"],
       },
       run: async (input: { title: string; status: string; note?: string }) => {
+        // The schema already refuses this on the wire. `run` is reachable
+        // without the validator (tests call it directly, and so would any future
+        // in-process caller), so the guard is stated where the write happens too.
+        if (input.status === "validated") throw new Error(VALIDATED_REFUSAL);
         vault.setStatus(input.title, input.status as NodeStatus, input.note);
         return `status of "${input.title}" set to ${input.status}`;
       },
@@ -355,7 +406,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
     tool({
       name: "ost_set_evidence",
       description:
-        "Declare which rung of the believability ladder a node rests on, recording the change in its History. Use the WEAKEST rung that honestly covers the node's sources; 'assertion' is the floor. Use this to label nodes created before the ladder existed.",
+        "Declare which rung of the believability ladder a node rests on, recording the change in its History. Use the WEAKEST rung that honestly covers the node's sources; 'assertion' is the floor. Use this to label nodes created before the ladder existed. The two measurement rungs are capped by what the node points at and the call is REFUSED above that ceiling: 'money' needs a recorded result on this node or on a test linked beneath it, and 'observed' needs one of those or provenance that is itself a recording (source: TRANSCRIPT:…). Demotion is never gated, so declaring a weaker rung always works.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -372,6 +423,13 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
             `"${input.evidence}" is not on the believability ladder — use one of: ${BELIEVABILITY_LADDER.map((r) => r.id).join(", ")}`,
           );
         }
+        // B3: the ceiling B8's detector already computes, asked at the write
+        // boundary instead of only reported afterwards. The node is evaluated as
+        // it WILL be, not as it is — evaluating the stored rung would only ever
+        // re-refuse nodes that are already red.
+        const target = vault.read(input.title);
+        const refusal = unearnedRung({ ...target, evidence: input.evidence }, linkIndex(vault, target));
+        if (refusal) throw new Error(rungRefusal(refusal));
         vault.setEvidence(input.title, input.evidence, input.note);
         return `evidence class of "${input.title}" set to ${input.evidence}`;
       },

@@ -47,6 +47,18 @@ export type NodeStatus =
   | "shipped"
   | "deferred";
 
+/**
+ * The marker every agent-created node carries until a human promotes it.
+ *
+ * `no-self-validation` fires on the contradiction between this tag and
+ * `status: validated`, so the rule's precondition used to be set by the actor
+ * the rule constrains: omit the tag at creation and the invariant was
+ * unreachable forever. It is stamped server-side now and no allowlisted tool
+ * can remove it — the only remover is `Vault.promoteToValidated`, off every
+ * surface. One literal, because three places read it. (B2.)
+ */
+export const AGENT_IDEATED_TAG = "unvalidated";
+
 export interface OstNode {
   /** Node title; also the basis for the filename. */
   title: string;

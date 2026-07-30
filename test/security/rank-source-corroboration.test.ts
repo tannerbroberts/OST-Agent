@@ -20,6 +20,7 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { buildOstTools, type ToolContext } from "../../src/security/tools.js";
 import { hostTrustPath } from "../../src/knowledge/web-trust.js";
 import { Vault } from "../../src/ost/vault.js";
+import { RESULTS_HEADING } from "../../src/ost/headings.js";
 import type { OstNode } from "../../src/ost/node.js";
 
 let dir: string;
@@ -41,6 +42,18 @@ function rankSource(): Runnable {
 function writeTest(title: string, body: string): void {
   const node: OstNode = { title, layer: "AssumptionTest", body, tags: [], links: [], evidence: "assertion" };
   vault.createNode(node);
+}
+
+/**
+ * Record a result the way the only actor allowed to record one does.
+ *
+ * `## Results` is a reserved heading (`src/ost/headings.ts`), so a fixture that
+ * types it into a body is writing something no caller on any surface can write —
+ * and a corroboration test whose corroborating result was forged into place is
+ * testing a state the tree cannot reach. This is the CLI's own write path.
+ */
+function recordOutcome(title: string, line: string): void {
+  vault.appendUnderSection(title, RESULTS_HEADING, line);
 }
 
 describe("ost_rank_source — a promotion must name a result", () => {
@@ -71,7 +84,8 @@ describe("ost_rank_source — a promotion must name a result", () => {
   });
 
   test("accepts a promotion citing a test that recorded a result", async () => {
-    writeTest("Real Test", "## Method\nrun the funnel\n\n## Results\n- supported: lift held at 4%\n");
+    writeTest("Real Test", "## Method\nrun the funnel\n");
+    recordOutcome("Real Test", "- supported: lift held at 4%");
     const out = await rankSource().run({ host: "example.com", rung: "expert", reason: "corroborated by [[Real Test]]" });
     expect(out).toContain("expert");
     const rec = JSON.parse(fs.readFileSync(hostTrustPath(dir), "utf8").trim());
@@ -79,7 +93,8 @@ describe("ost_rank_source — a promotion must name a result", () => {
   });
 
   test("one corroborating result is enough — naming a second that has not run is a plan, not a defect", async () => {
-    writeTest("Ran", "## Results\n- supported\n");
+    writeTest("Ran", "## Method\nran last sprint\n");
+    recordOutcome("Ran", "- supported");
     writeTest("Queued", "## Method\nnext sprint\n");
     const out = await rankSource().run({
       host: "example.com",

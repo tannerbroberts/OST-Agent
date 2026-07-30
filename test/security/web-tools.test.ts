@@ -11,6 +11,7 @@ import { buildOstTools, type ToolContext } from "../../src/security/tools.js";
 import { createLookupBudget } from "../../src/web/budget.js";
 import { AllSourcesFailedError } from "../../src/web/federated.js";
 import { hostTrustPath } from "../../src/knowledge/web-trust.js";
+import { RESULTS_HEADING } from "../../src/ost/headings.js";
 import { MAX_SEARCH_RESULTS } from "../../src/web/search.js";
 import type { WebFetchFn } from "../../src/web/reader.js";
 import { Vault } from "../../src/ost/vault.js";
@@ -170,11 +171,15 @@ describe("ost_rank_source", () => {
     ctx.vault.createNode({
       title: "Invite copy A",
       layer: "AssumptionTest",
-      body: "## Results\n- supported: their claim replicated\n",
+      body: "## Method\nrun the invite copy for a week\n",
       tags: [],
       links: [],
       evidence: "assertion",
     });
+    // Through the heading argument, not as body content — `## Results` is
+    // reserved (`src/ost/headings.ts`) and a fixture that types it into a body
+    // sets up a state no caller can produce.
+    ctx.vault.appendUnderSection("Invite copy A", RESULTS_HEADING, "- supported: their claim replicated");
     const rank = tool(ctx, "ost_rank_source");
     await rank.run({ host: "https://www.example.com/x", rung: "expert", reason: "corroborated by [[Invite copy A]]" });
     const rec = JSON.parse(fs.readFileSync(hostTrustPath(dir), "utf8").trim());

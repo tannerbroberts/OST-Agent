@@ -7,11 +7,19 @@
  * vault root. This class is the ONLY thing that touches node files on disk, and
  * it is what the allowlist tool registry wraps — so the agent cannot express a
  * destructive operation because none exists here to call.
+ *
+ * It is also where the one thing the agent may never author is refused. Every
+ * caller-supplied string funnels through `assertWritableContent`, and a reserved
+ * heading (`ost/headings.ts`) is refused there rather than on any one parameter,
+ * because six different parameters could carry one. The heading ARGUMENT of
+ * `appendUnderSection` is deliberately not scanned: that is the position the
+ * human's CLI result path writes from, and no tool call reaches it.
  */
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
 import {
+  AGENT_IDEATED_TAG,
   deserialize,
   serialize,
   wrappedLinkTargets,
@@ -21,6 +29,7 @@ import {
   LAYERS,
 } from "./node.js";
 import { fileNameForTitle, sanitizeTitle } from "./sanitize.js";
+import { reservedHeadingIn } from "./headings.js";
 import type { CensusDrop, TreeCensus } from "./census.js";
 import type { RungId } from "../knowledge/believability.js";
 import type { LaneId } from "../knowledge/lanes.js";
@@ -74,6 +83,25 @@ function assertWritableContent(what: string, value: string): void {
         `render as bracketed text while permanently reddening \`wrapped-wikilink\` — and ` +
         `an append-only vault has no tool that can take it back. Put the link on one ` +
         `unbroken line.`,
+    );
+  }
+  // A reserved heading is a measurement claim, and this is the one place every
+  // write that could carry one funnels through. `appendUnderHeading` splices a
+  // caller's string in as LINES, so a `note`, an `issue` or a `why` with a
+  // newline in it authored a `## Results` section just as surely as `section`
+  // did — six arguments, one defect. Refusing the CONTENT here while leaving
+  // `appendUnderSection`'s `heading` parameter unscanned is what keeps the
+  // human's `ost-agent result` path open: it names the heading, it never writes
+  // one. (B1, B10.)
+  const reserved = reservedHeadingIn(value);
+  if (reserved) {
+    throw new Error(
+      `refusing to write ${what}: "${reserved}" is a reserved heading. The tree's gates read it ` +
+        `as evidence that a test was RUN outside the tree, and the agent may never run a test or ` +
+        `record a result — a heading it can author is a gate it can clear on its own authority. ` +
+        `A human records one on the CLI: ost-agent result "<test>" -v <verdict> -n "<what happened>" ` +
+        `-b "<who ran it>" -u "<what it did not cover>". Put your note under a different heading ` +
+        `(## Notes, ## Method, ## Plan).`,
     );
   }
 }
@@ -295,6 +323,31 @@ export class Vault {
     }
     node.body = newBody;
     fs.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+  }
+
+  /**
+   * Human promotion: set `validated` AND drop the agent-ideated marker.
+   *
+   * The second bounded exception in this class, alongside `setOutcomeBody`, and
+   * for the same reason: it is a human-only write with no tool wrapping it. It is
+   * also the only method here that REMOVES anything, so the removal is pinned to
+   * one literal — `AGENT_IDEATED_TAG`, never a caller-supplied tag — and every
+   * other tag survives.
+   *
+   * It has to drop the marker as well as set the status, or promotion would
+   * manufacture the `no-self-validation` contradiction it exists to resolve.
+   * Idempotent by construction, which is how a vault written before B2 gets
+   * repaired: promoting an already-validated node still clears the marker.
+   */
+  promoteToValidated(title: string, by: string, why: string): string {
+    const node = this.read(title);
+    const prev = node.status ?? "(none)";
+    node.tags = node.tags.filter((t) => t !== AGENT_IDEATED_TAG);
+    node.status = "validated";
+    const line = `- ${isoToday()} status: ${prev} → validated (promoted by ${by}) — ${why}`;
+    node.body = appendUnderHeading(node.body, "## History", line);
+    fs.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+    return line;
   }
 
   /** Attach a hygiene/issue annotation under a `## Issues` section. Add-only. */

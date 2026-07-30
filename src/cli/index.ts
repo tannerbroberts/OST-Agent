@@ -5,6 +5,7 @@
  *   ost-agent init [folder] --outcome "..."   create/adopt a vault
  *   ost-agent status [--vault DIR]            read-only tree summary
  *   ost-agent result "<test>" ...             record a human-run test's outcome
+ *   ost-agent promote "<node>" ...            move a node to validated (the agent cannot)
  *   ost-agent debt [--vault DIR]              evidence each solution still owes + unbounded results + unfixed thresholds
  *   ost-agent lanes [--vault DIR]             assumption tests by the human minutes they cost
  *   ost-agent lanes --flag-cautious <who>     bulk: humans-required for every test naming an outside person
@@ -22,7 +23,7 @@ import { initVault } from "../runner/init.js";
 import { setOutcome } from "../runner/set-outcome.js";
 import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/render.js";
 import { BELIEVABILITY_LADDER, type RungId } from "../knowledge/believability.js";
-import { recordResult, VERDICTS, type Verdict } from "../ost/results.js";
+import { promoteNode, recordResult, VERDICTS, type Verdict } from "../ost/results.js";
 import { formatCensus, reconcileWithGit } from "../ost/census.js";
 import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
 import { laneDef, LANES, type LaneId } from "../knowledge/lanes.js";
@@ -139,6 +140,19 @@ program
       console.log(`  does not cover: ${opts.uncovered.trim()}`);
     },
   );
+
+program
+  .command("promote")
+  .description("promote a node to 'validated' (humans only — the agent has no argument that expresses this)")
+  .argument("<node>", "title of the node to promote")
+  .requiredOption("-b, --by <who>", "who promoted it — an unattributed promotion cannot be told apart from a fabricated one")
+  .requiredOption("-w, --why <text>", "the evidence that earned it")
+  .option("--vault <dir>", "vault directory", ".")
+  .action((node: string, opts: { by: string; why: string; vault: string }) => {
+    const line = promoteNode(opts.vault, { node, by: opts.by, why: opts.why });
+    console.log(`promoted "${node}": ${line}`);
+    console.log("  removed the #unvalidated marker");
+  });
 
 program
   .command("debt")

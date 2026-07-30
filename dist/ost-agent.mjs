@@ -32038,6 +32038,7 @@ var LAYERS = [
   "AssumptionTest",
   "Unknown"
 ];
+var AGENT_IDEATED_TAG = "unvalidated";
 var WIKILINK_LINE = /^\[\[(.+?)\]\]$/;
 function wrappedLinkTargets(text2) {
   const targets = [];
@@ -32139,6 +32140,29 @@ function titlesMatch(a, b2) {
   return left !== null && left === canonicalTitle(b2);
 }
 
+// src/ost/headings.ts
+var RESULTS_HEADING = "## Results";
+var UNCOVERED_HEADING = "## Uncovered";
+var RESERVED_HEADINGS = Object.freeze([RESULTS_HEADING, UNCOVERED_HEADING]);
+function headingName(heading) {
+  return heading.replace(/^#+\s*/, "");
+}
+function escapeForPattern(text2) {
+  return text2.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function isHeadingLine(line, heading) {
+  return new RegExp(String.raw`^##\s+${escapeForPattern(headingName(heading))}\b`, "i").test(line.trim());
+}
+function declaresHeading(body, heading) {
+  return body.split("\n").some((line) => isHeadingLine(line, heading));
+}
+function reservedHeadingIn(content) {
+  for (const heading of RESERVED_HEADINGS) {
+    if (declaresHeading(content, heading)) return heading;
+  }
+  return null;
+}
+
 // src/ost/vault.ts
 function isoToday() {
   return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
@@ -32160,6 +32184,12 @@ function assertWritableContent(what, value) {
   if (wrapped.length > 0) {
     throw new Error(
       `refusing to write ${what}: the link [[${wrapped[0]}]] is split across a line break. Only a whole line of the form [[Title]] becomes an edge, so this would render as bracketed text while permanently reddening \`wrapped-wikilink\` \u2014 and an append-only vault has no tool that can take it back. Put the link on one unbroken line.`
+    );
+  }
+  const reserved = reservedHeadingIn(value);
+  if (reserved) {
+    throw new Error(
+      `refusing to write ${what}: "${reserved}" is a reserved heading. The tree's gates read it as evidence that a test was RUN outside the tree, and the agent may never run a test or record a result \u2014 a heading it can author is a gate it can clear on its own authority. A human records one on the CLI: ost-agent result "<test>" -v <verdict> -n "<what happened>" -b "<who ran it>" -u "<what it did not cover>". Put your note under a different heading (## Notes, ## Method, ## Plan).`
     );
   }
 }
@@ -32340,6 +32370,30 @@ var Vault = class {
     }
     node.body = newBody;
     fs6.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+  }
+  /**
+   * Human promotion: set `validated` AND drop the agent-ideated marker.
+   *
+   * The second bounded exception in this class, alongside `setOutcomeBody`, and
+   * for the same reason: it is a human-only write with no tool wrapping it. It is
+   * also the only method here that REMOVES anything, so the removal is pinned to
+   * one literal — `AGENT_IDEATED_TAG`, never a caller-supplied tag — and every
+   * other tag survives.
+   *
+   * It has to drop the marker as well as set the status, or promotion would
+   * manufacture the `no-self-validation` contradiction it exists to resolve.
+   * Idempotent by construction, which is how a vault written before B2 gets
+   * repaired: promoting an already-validated node still clears the marker.
+   */
+  promoteToValidated(title, by, why) {
+    const node = this.read(title);
+    const prev = node.status ?? "(none)";
+    node.tags = node.tags.filter((t2) => t2 !== AGENT_IDEATED_TAG);
+    node.status = "validated";
+    const line = `- ${isoToday()} status: ${prev} \u2192 validated (promoted by ${by}) \u2014 ${why}`;
+    node.body = appendUnderHeading(node.body, "## History", line);
+    fs6.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+    return line;
   }
   /** Attach a hygiene/issue annotation under a `## Issues` section. Add-only. */
   annotate(title, issue2) {
@@ -32749,7 +32803,7 @@ var OST_RULESET = {
     "Compare and contrast solutions against each other rather than validating a single idea in isolation ('good' is judgeable only relative to alternatives).",
     "Prefer generating more solutions especially when there is risk, when the opportunity is a differentiator, or when innovation is needed.",
     "Target one opportunity at a time (a work-in-progress limit) and go deep before moving on.",
-    "Every agent-originated solution enters the tree unvalidated; the agent never promotes or declares a winning solution."
+    "Every agent-originated solution enters the tree unvalidated \u2014 the marker is stamped by the server, not chosen by the author \u2014 and `validated` is not a status the agent can set at all; promotion is a human's call on the CLI."
   ],
   "assumptionCategories": [
     "desirability",
@@ -38112,7 +38166,7 @@ import path10 from "node:path";
 // src/eval/evidence-debt.ts
 function hasRecordedResult(test) {
   if (test.status === "validated") return true;
-  return /^##\s+Results\b/im.test(test.body);
+  return declaresHeading(test.body, RESULTS_HEADING);
 }
 function testsUnder(tree, solution) {
   return tree.filter((n) => n.layer === "AssumptionTest" && solution.links.includes(n.title));
@@ -38317,33 +38371,36 @@ function isMeasurementRung(rung) {
 }
 function unearnedRungs(tree) {
   const index = byTitle([...tree]);
-  const found = [];
-  for (const n of tree) {
-    if (!isMeasurementRung(n.evidence)) continue;
-    const ownResult = hasRecordedResult(n);
-    const childResult = n.links.map((t2) => index.get(t2)).find((c3) => c3 && hasRecordedResult(c3));
-    const resultBacked = ownResult || !!childResult;
-    const sourceRung = classifyProvenance(n.source ?? "");
-    const sourceObserved = rungRank(sourceRung) <= rungRank("observed");
-    if (n.evidence === "money" && !resultBacked) {
-      found.push({
-        node: n.title,
-        declared: "money",
-        supported: sourceObserved ? "observed" : sourceRung,
-        missing: "'money' means behavior with a cost attached, which only a result can show \u2014 record one (a `## Results` section on this node or on a test beneath it), or declare the rung its sources have earned"
-      });
-      continue;
-    }
-    if (n.evidence === "observed" && !resultBacked && !sourceObserved) {
-      found.push({
-        node: n.title,
-        declared: "observed",
-        supported: sourceRung,
-        missing: `'observed' means a recording of what happened \u2014 cite provenance that is one (source: TRANSCRIPT:\u2026; this node's source is ${n.source ? `"${n.source}"` : "unset"}, which classifies as ${sourceRung}), record a result, or declare the weaker rung`
-      });
-    }
+  return tree.map((n) => unearnedRung(n, index)).filter((u) => u !== null);
+}
+function unearnedRung(n, index) {
+  if (!isMeasurementRung(n.evidence)) return null;
+  const ownResult = hasRecordedResult(n);
+  const childResult = n.links.map((t2) => index.get(t2)).find((c3) => c3 && hasRecordedResult(c3));
+  const resultBacked = ownResult || !!childResult;
+  const sourceRung = classifyProvenance(n.source ?? "");
+  const sourceObserved = rungRank(sourceRung) <= rungRank("observed");
+  if (n.evidence === "money" && !resultBacked) {
+    return {
+      node: n.title,
+      declared: "money",
+      supported: sourceObserved ? "observed" : sourceRung,
+      missing: "'money' means behavior with a cost attached, which only a result can show \u2014 record one (a `## Results` section on this node or on a test beneath it), or declare the rung its sources have earned"
+    };
   }
-  return found;
+  if (n.evidence === "observed" && !resultBacked && !sourceObserved) {
+    return {
+      node: n.title,
+      declared: "observed",
+      supported: sourceRung,
+      missing: `'observed' means a recording of what happened \u2014 cite provenance that is one (source: TRANSCRIPT:\u2026; this node's source is ${n.source ? `"${n.source}"` : "unset"}, which classifies as ${sourceRung}), record a result, or declare the weaker rung`
+    };
+  }
+  return null;
+}
+function rungRefusal(u) {
+  const ways = u.declared === "money" ? `declare '${u.supported}' or lower (demotion is never gated), or have a human record a result \u2014 ost-agent result "<test>" -v <verdict> -n "<what happened>" -b "<who ran it>" -u "<what it did not cover>" \u2014 on this node or on a test one level beneath it` : `declare '${u.supported}' or lower (demotion is never gated), have a human record a result, or cite provenance that IS a recording (source: TRANSCRIPT:\u2026). Note that \`source\` is settable only at ost_create_node \u2014 on a node that already exists, the rung is the route`;
+  return `"${u.node}" cannot declare '${u.declared}': what it points at supports '${u.supported}'. The two measurement rungs assert that something was measured, and no byline confers them. ${ways}.`;
 }
 
 // src/eval/invariants.ts
@@ -38442,21 +38499,72 @@ var DEFAULT_CLASSIFIER = {
     { class: "unreached", present: ["Format"], absent: [] }
   ]
 };
+var NON_ANSWERS = Object.freeze([
+  "n/a",
+  "na",
+  "none",
+  "unknown",
+  "tbd",
+  "tbc",
+  "-",
+  "\u2013",
+  "\u2014",
+  "?",
+  "not applicable",
+  "not known",
+  "no answer",
+  "nothing"
+]);
 var DEFAULT_RESOLUTION = {
   answerSection: "Answer",
   fallback: "open",
   rules: [
     { state: "abandoned", status: ["deferred"] },
-    { state: "satisfied", status: ["validated"], section: "Answer" }
+    {
+      state: "satisfied",
+      status: ["validated"],
+      section: "Answer",
+      requires: ["Format"],
+      nonAnswers: NON_ANSWERS
+    }
   ]
 };
 var UNKNOWN_CLASSES = Object.freeze([...DEFAULT_CLASSIFIER.classes]);
 var CONTRACT_SECTIONS = Object.freeze([...DEFAULT_CLASSIFIER.contractSections]);
-function escapeForPattern(heading) {
+function escapeForPattern2(heading) {
   return heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 function hasSection(body, heading) {
-  return new RegExp(String.raw`^##\s+${escapeForPattern(heading)}\b`, "im").test(body);
+  return new RegExp(String.raw`^##\s+${escapeForPattern2(heading)}\b`, "im").test(body);
+}
+function sectionBlocks(body, heading) {
+  const opens = new RegExp(String.raw`^##\s+${escapeForPattern2(heading)}\b`, "i");
+  const anyHeading = /^#{1,6}\s/;
+  const blocks = [];
+  let current;
+  for (const line of body.split(/\r?\n/)) {
+    if (opens.test(line)) {
+      if (current !== void 0) blocks.push(current.join("\n"));
+      current = [];
+    } else if (current !== void 0 && anyHeading.test(line)) {
+      blocks.push(current.join("\n"));
+      current = void 0;
+    } else if (current !== void 0) {
+      current.push(line);
+    }
+  }
+  if (current !== void 0) blocks.push(current.join("\n"));
+  return blocks;
+}
+function normalizeAnswer(text2) {
+  return text2.replace(/\s+/g, " ").replace(/^[-*+>#`_"'\s]+/, "").replace(/[*`_"'\s]+$/, "").toLowerCase().replace(/\.$/, "").trim();
+}
+function carriesAnswer(body, heading, nonAnswers) {
+  const refused = new Set(nonAnswers.map(normalizeAnswer));
+  return sectionBlocks(body, heading).some((block) => {
+    const normalized = normalizeAnswer(block);
+    return normalized.length > 0 && !refused.has(normalized);
+  });
 }
 function contractGaps(node, sections = CONTRACT_SECTIONS) {
   return sections.filter((s) => !hasSection(node.body, s));
@@ -38472,7 +38580,7 @@ function classifyUnknown(node, classifier = DEFAULT_CLASSIFIER) {
 function resolutionState(node, resolution = DEFAULT_RESOLUTION) {
   for (const rule of resolution.rules) {
     const byStatus = node.status !== void 0 && rule.status.includes(node.status);
-    const bySection = rule.section !== void 0 && hasSection(node.body, rule.section);
+    const bySection = rule.section !== void 0 && hasSection(node.body, rule.section) && (rule.requires ?? []).every((s) => hasSection(node.body, s)) && (rule.nonAnswers === void 0 || carriesAnswer(node.body, rule.section, rule.nonAnswers));
     if (byStatus || bySection) return rule.state;
   }
   return resolution.fallback;
@@ -38641,10 +38749,9 @@ function computeAttention(tree, vaultDir, opts = {}) {
 }
 
 // src/eval/coverage.ts
-var UNCOVERED_HEADING = "## Uncovered";
 function countEntriesUnder(body, heading) {
   const lines = body.split("\n");
-  const start = lines.findIndex((l) => l.trim() === heading);
+  const start = lines.findIndex((l) => isHeadingLine(l, heading));
   if (start === -1) return 0;
   let count2 = 0;
   for (const line of lines.slice(start + 1)) {
@@ -38654,7 +38761,7 @@ function countEntriesUnder(body, heading) {
   return count2;
 }
 function coverageOf(test) {
-  const results = countEntriesUnder(test.body, "## Results");
+  const results = countEntriesUnder(test.body, RESULTS_HEADING);
   const claimed = results > 0 ? results : hasRecordedResult(test) ? 1 : 0;
   const stated = countEntriesUnder(test.body, UNCOVERED_HEADING);
   return { claimed, stated, unbounded: Math.max(0, claimed - stated) };
@@ -38713,7 +38820,7 @@ function computeUnfixedThresholds(tree) {
 }
 function uncoveredStatementsOf(test) {
   const lines = test.body.split("\n");
-  const start = lines.findIndex((l) => l.trim() === UNCOVERED_HEADING);
+  const start = lines.findIndex((l) => isHeadingLine(l, UNCOVERED_HEADING));
   if (start === -1) return [];
   const statements = [];
   for (const line of lines.slice(start + 1)) {
@@ -38975,13 +39082,27 @@ function recordResult(vaultDir, filing) {
   }
   const on = filing.on ?? (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
   const line = `- ${on} **${filing.verdict}** (ran by ${by}) \u2014 ${note}`;
-  vault.appendUnderSection(filing.test, "## Results", line);
+  vault.appendUnderSection(filing.test, RESULTS_HEADING, line);
   vault.appendUnderSection(filing.test, UNCOVERED_HEADING, `- ${on} (${filing.verdict}) \u2014 ${uncovered}`);
   if (filing.evidence) {
     if (!isRung(filing.evidence)) throw new Error(`"${filing.evidence}" is not on the believability ladder`);
     vault.setEvidence(filing.test, filing.evidence, `result recorded by ${by}`);
   }
   return line;
+}
+function promoteNode(vaultDir, filing) {
+  const by = (filing.by ?? "").trim();
+  if (!by) {
+    throw new Error(
+      "a promotion needs attribution \u2014 say who promoted it. An unattributed promotion cannot be told apart from a fabricated one."
+    );
+  }
+  const why = (filing.why ?? "").trim();
+  if (!why) {
+    throw new Error("a promotion needs a reason \u2014 what evidence earned it. 'validated' with no stated basis is a byline.");
+  }
+  const vault = new Vault(path13.resolve(vaultDir));
+  return vault.promoteToValidated(filing.node, by, why);
 }
 
 // src/adapters/friction.ts
@@ -41277,7 +41398,8 @@ function saveCursor(vaultDir, name, cursor) {
 }
 
 // src/security/tools.ts
-var STATUS_VALUES = ["unvalidated", "validated", "in-discovery", "shipped", "deferred"];
+var AGENT_SETTABLE_STATUSES = ["unvalidated", "in-discovery", "shipped", "deferred"];
+var VALIDATED_REFUSAL = `"validated" is not a status the agent can set \u2014 a node that clears its own evidence gate by declaring itself cleared is the forgery this surface exists to prevent. Promotion is a human's call, made on the CLI: ost-agent promote "<title>" --by "<who>" --why "<the evidence>". Use "in-discovery" while a test is running, or "deferred" to record abandonment.`;
 var MAX_TITLE_DISPLAY_LENGTH = 80;
 var MAX_TITLES_LISTED = 20;
 var TITLE_CONTROL_CHARS = new RegExp("[\\u0000-\\u001F\\u007F]+", "g");
@@ -41304,6 +41426,13 @@ var ATTRIBUTABLE_TOOLS = [
   "ost_rank_source"
 ];
 var ATTRIBUTABLE = new Set(ATTRIBUTABLE_TOOLS);
+function linkIndex(vault, node) {
+  const index = /* @__PURE__ */ new Map();
+  for (const title of node.links) {
+    if (vault.has(title)) index.set(title, vault.read(title));
+  }
+  return index;
+}
 function unknownProperty() {
   return {
     type: "string",
@@ -41339,7 +41468,7 @@ function buildOstTools(ctx, allowedNames) {
     }),
     tool({
       name: "ost_create_node",
-      description: "Create a NEW node AND attach it under an existing parent in one atomic step \u2014 so a node can never be an orphan. You CANNOT create an Outcome (there is exactly one, human-set at init). Hierarchy is enforced: an Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an AssumptionTest under a Solution; an Unknown (darkness, representing uncertainty) attaches under any layer. The type tag (#Opportunity / #Solution / #AssumptionTest / #Unknown) is applied automatically. For an Unknown, write its body with three `## ` sections \u2014 `## Format` (the shape a valid answer would take), `## Methodology` (how it would be collected), and `## Rationale` (which node this darkens and what metric it serves) \u2014 because Format is the stopping condition: an unknown that cannot say what an answer looks like cannot know when it is done, and one lacking Methodology is worth commissioning observability for rather than chasing further.",
+      description: "Create a NEW node AND attach it under an existing parent in one atomic step \u2014 so a node can never be an orphan. You CANNOT create an Outcome (there is exactly one, human-set at init). Hierarchy is enforced: an Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an AssumptionTest under a Solution; an Unknown (darkness, representing uncertainty) attaches under any layer. The type tag (#Opportunity / #Solution / #AssumptionTest / #Unknown) is applied automatically, and so is the #unvalidated marker: everything you create enters the tree unvalidated, and only a human can take that marker off (`ost-agent promote`). For an Unknown, write its body with three `## ` sections \u2014 `## Format` (the shape a valid answer would take), `## Methodology` (how it would be collected), and `## Rationale` (which node this darkens and what metric it serves) \u2014 because Format is the stopping condition: an unknown that cannot say what an answer looks like cannot know when it is done, and one lacking Methodology is worth commissioning observability for rather than chasing further.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -41348,7 +41477,7 @@ function buildOstTools(ctx, allowedNames) {
           layer: { type: "string", enum: ["Opportunity", "Solution", "AssumptionTest", "Unknown"], description: "Opportunity | Solution | AssumptionTest | Unknown (Outcome cannot be created here)" },
           parent: { type: "string", description: "Title of the existing parent node to attach under." },
           body: { type: "string", description: "Prose description of the node." },
-          status: { type: "string", enum: STATUS_VALUES },
+          status: { type: "string", enum: AGENT_SETTABLE_STATUSES },
           source: { type: "string", description: "Provenance, e.g. JIRA:PROJ-1234 or INBOX:note.md" },
           confidence: { type: "string" },
           evidence: {
@@ -41356,7 +41485,7 @@ function buildOstTools(ctx, allowedNames) {
             enum: BELIEVABILITY_LADDER.map((r2) => r2.id),
             description: `Which rung of the believability ladder this node rests on \u2014 ${BELIEVABILITY_LADDER.map((r2) => `${r2.id}: ${r2.definition}`).join(" ")} Use the WEAKEST rung that honestly covers the node's sources; 'assertion' is the floor and is always available.`
           },
-          tags: { type: "array", items: { type: "string" }, description: "Extra tags, e.g. ['unvalidated']" }
+          tags: { type: "array", items: { type: "string" }, description: "Extra topical tags. You do not need to pass 'unvalidated' \u2014 it is stamped for you." }
         },
         required: ["title", "layer", "parent", "body", "evidence"]
       },
@@ -41377,11 +41506,18 @@ function buildOstTools(ctx, allowedNames) {
         if (!allowedParents.includes(parentLayer)) {
           throw new Error(`a ${input.layer} must attach under ${allowedParents.join(" or ")}, but "${input.parent}" is a ${parentLayer}`);
         }
+        if (input.status === "validated") throw new Error(VALIDATED_REFUSAL);
         const node = {
           title: input.title,
           layer: input.layer,
           body: input.body,
-          tags: input.tags ?? [],
+          // Stamped server-side, regardless of what the caller asked — the same
+          // move the evidence refusal above makes. `no-self-validation` keys on
+          // this tag, so leaving it to the caller left the rule's precondition
+          // in the hands of the actor the rule constrains, and a node created
+          // without it was permanently exempt from the invariant the README
+          // sells as the guarantee. No allowlisted tool can take it off again.
+          tags: [.../* @__PURE__ */ new Set([...input.tags ?? [], AGENT_IDEATED_TAG])],
           links: [],
           status: input.status,
           source: input.source,
@@ -41389,6 +41525,8 @@ function buildOstTools(ctx, allowedNames) {
           evidence: input.evidence,
           created: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10)
         };
+        const born = unearnedRung(node, /* @__PURE__ */ new Map());
+        if (born) throw new Error(rungRefusal(born));
         vault.createNode(node);
         vault.linkNodes(input.parent, input.title);
         return `created ${node.layer} "${node.title}" under "${input.parent}"`;
@@ -41430,18 +41568,19 @@ function buildOstTools(ctx, allowedNames) {
     }),
     tool({
       name: "ost_set_status",
-      description: "Set a node's status and record the transition in its History section (the prior value is preserved). Never mark an idea 'validated' without human-provided evidence in the note.",
+      description: "Set a node's status and record the transition in its History section (the prior value is preserved). 'validated' is NOT a status you can set and never will be: a node that declares itself validated clears its own evidence gate, so promotion is a human's call, made with `ost-agent promote` on the CLI. Use 'in-discovery' while a test is running, or 'deferred' to record that something was abandoned.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
         properties: {
           title: { type: "string" },
-          status: { type: "string", enum: STATUS_VALUES },
+          status: { type: "string", enum: AGENT_SETTABLE_STATUSES },
           note: { type: "string", description: "Why the status changed / evidence reference." }
         },
         required: ["title", "status"]
       },
       run: async (input) => {
+        if (input.status === "validated") throw new Error(VALIDATED_REFUSAL);
         vault.setStatus(input.title, input.status, input.note);
         return `status of "${input.title}" set to ${input.status}`;
       }
@@ -41472,7 +41611,7 @@ function buildOstTools(ctx, allowedNames) {
     }),
     tool({
       name: "ost_set_evidence",
-      description: "Declare which rung of the believability ladder a node rests on, recording the change in its History. Use the WEAKEST rung that honestly covers the node's sources; 'assertion' is the floor. Use this to label nodes created before the ladder existed.",
+      description: "Declare which rung of the believability ladder a node rests on, recording the change in its History. Use the WEAKEST rung that honestly covers the node's sources; 'assertion' is the floor. Use this to label nodes created before the ladder existed. The two measurement rungs are capped by what the node points at and the call is REFUSED above that ceiling: 'money' needs a recorded result on this node or on a test linked beneath it, and 'observed' needs one of those or provenance that is itself a recording (source: TRANSCRIPT:\u2026). Demotion is never gated, so declaring a weaker rung always works.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -41489,6 +41628,9 @@ function buildOstTools(ctx, allowedNames) {
             `"${input.evidence}" is not on the believability ladder \u2014 use one of: ${BELIEVABILITY_LADDER.map((r2) => r2.id).join(", ")}`
           );
         }
+        const target = vault.read(input.title);
+        const refusal = unearnedRung({ ...target, evidence: input.evidence }, linkIndex(vault, target));
+        if (refusal) throw new Error(rungRefusal(refusal));
         vault.setEvidence(input.title, input.evidence, input.note);
         return `evidence class of "${input.title}" set to ${input.evidence}`;
       }
@@ -42747,6 +42889,11 @@ program2.command("result").description("record what happened when a human ran an
     console.log(`  does not cover: ${opts.uncovered.trim()}`);
   }
 );
+program2.command("promote").description("promote a node to 'validated' (humans only \u2014 the agent has no argument that expresses this)").argument("<node>", "title of the node to promote").requiredOption("-b, --by <who>", "who promoted it \u2014 an unattributed promotion cannot be told apart from a fabricated one").requiredOption("-w, --why <text>", "the evidence that earned it").option("--vault <dir>", "vault directory", ".").action((node, opts) => {
+  const line = promoteNode(opts.vault, { node, by: opts.by, why: opts.why });
+  console.log(`promoted "${node}": ${line}`);
+  console.log("  removed the #unvalidated marker");
+});
 program2.command("debt").description("what each solution owes in evidence before anyone builds it (no model needed)").option("--vault <dir>", "vault directory", ".").action((opts) => {
   const ctx = buildPassContext(opts.vault);
   console.log(renderDebt(ctx.vault.readTree()));

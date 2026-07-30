@@ -136,6 +136,14 @@ describe("open unknowns", () => {
     expect(withUnknown(`${CONTRACT}\n\n## Answer\n412 per day`).openUnknowns).toHaveLength(0);
   });
 
+  test("an ## Answer recording an absence is still work, and STILL does not block done", () => {
+    const work = withUnknown(`${CONTRACT}\n\n## Answer\nn/a`);
+    expect(work.openUnknowns).toHaveLength(1);
+    // The load-bearing line: openUnknowns is deliberately not a term of `done`,
+    // so reclassifying answered unknowns as open can never wedge a pass.
+    expect(work.done).toBe(true);
+  });
+
   test("an abandoned unknown is no longer offered as work", () => {
     expect(withUnknown(CONTRACT, "deferred").openUnknowns).toHaveLength(0);
   });
