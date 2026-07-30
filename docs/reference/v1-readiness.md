@@ -10,15 +10,37 @@ R1, R5, S6 and H2, and again after the second batch turned R3's table, W4 and G3
 into committed tests, and again after R4 made the two health gates compute one
 rule set, and again after B12 stated the ingest-to-rank chain as one criterion
 instead of four cross-references, and again after B8 made a declared rung a claim
-the tree checks. The suite is green — 819 tests across 83
-files, `tsc --noEmit` clean — and nothing below is about the code being broken.
-It is about the difference between *a tool that works when watched* and *a
-system that can be left alone*.
+the tree checks, and again after **Gate F** was added because everything above it
+specifies a system that cannot hurt you and none of it specifies a system that
+does anything. `tsc --noEmit` is clean and the suite is green — and nothing below
+is about the code being broken. It is about the difference between *a tool that
+works when watched* and *a system that can be left alone*.
 
-**68 criteria, 17 of them blockers. 17 met, 3 partial, 48 not met.** Three of the
-seventeen were met by *deleting* something rather than building it, which is the
+**75 criteria, 20 of them blockers. 27 met, 5 partial, 43 not met.** Three of the
+twenty-seven were met by *deleting* something rather than building it, which is the
 document working as intended; four more were the first Tier 1 batch, each of
 which turned a wedge into a refusal at the boundary that could still take it back.
+The Gate F batch closed nine — W5, W13, F1, F2, F3, H1, H3, H4 and G3, with F4 and
+F6 partial — and **six of those nine were not Gate F criteria.** H1, H3 and H4 had
+been waiting on a firing to record; G3's two dead modules were both dead because
+the criterion that needed them had not been built. That is the ordering constraint
+paying out rather than being obeyed.
+
+> **What the Gate F revision changed, beyond adding six criteria.** Three existing
+> entries were wrong and one check could not be run at all. **Z1 — a blocker — was
+> recorded `not met` and had been met since R4's commit**, which deleted the spread
+> that caused its `RangeError` while rewriting something else; the reproduction was
+> never re-run, and its citation had drifted onto an unrelated line. That is Z5's
+> failure mode on a blocker, for the second time. **P8's check named
+> `makeLookupBudget`, a function that exists nowhere** — three parameters, one of
+> them a leftover `policy` argument — so a criterion on a bar had been unrunnable
+> since `8261a6f`. **D1's evidence line claimed 790 tests across 79 files** against
+> an actual 819/83, on the criterion whose subject is that the release gates pass,
+> for the third time on that line. And **22 citations had drifted to wrong lines**,
+> every one of them still in bounds, so `test/release/readiness-citations.test.ts`
+> was green on all 22. The lesson is the one this document keeps re-learning from a
+> new direction: *a check that cannot distinguish its passing state from its broken
+> state is not a check*, and a status nothing runs is memory.
 
 > *These numbers are re-counted out of this file on each revision rather than
 > adjusted, because the last time they were adjusted two of them were wrong.* The
@@ -38,10 +60,14 @@ which turned a wedge into a refusal at the boundary that could still take it bac
 > The `sed` collapse is load-bearing: eight entries qualify the verdict in the
 > same bold span (*"not met, and nothing exists to build on"*), and a count that
 > matched only the bare word would silently drop them. A naïve
-> `grep -c '⛔'` returns 18 blockers; the eighteenth is the legend that explains
-> the symbol. **A number in a summary line is still a claim carried by memory
-> about claims carried by tests, and it remains the one thing here nothing pins** —
-> the three commands above are the cheapest available substitute, not a fix.
+> `grep -c '⛔'` returns 24, of which four are not criteria: the legend that
+> explains the symbol, and three occurrences inside this blockquote's own prose
+> and commands. *That sentence used to read "returns 18 blockers; the eighteenth
+> is the legend" — a claim this blockquote falsified in the same commit that added
+> it, by mentioning the symbol three more times.* **A number in a summary line is
+> still a claim carried by memory about claims carried by tests, and it remains
+> the one thing here nothing pins** — the three commands above are the cheapest
+> available substitute, not a fix.
 
 **The second batch moved two criteria in opposite directions, and that is the
 point of pinning things.** R9's clearability table now runs (`test/eval/clearability.test.ts`),
@@ -134,6 +160,16 @@ things the repo currently does.
    output, "the worst thing it can do is make a commit that doesn't make sense"
    stops being true of the system. Reversibility has to become a first-class
    property of a *decision*, not an accident of the tool surface.
+6. **The tree is the artefact under test; it is never the referee.** Every gate
+   above says what the cartographer may not *forge*. None of them says who decides
+   that a mechanism *works* — and the answer can never be a heading, a status
+   field, an annotation, or any `ost_*` call, because B1, B2 and B10 are the
+   standing proof that those are writable by the actor being judged. A verdict has
+   to be computed by a process exit code, a ledger no allowlisted tool can reach,
+   a deterministic CLI run out of band, or a reviewing actor that reads the tree
+   and cannot write it. **This is what Gate F adds, and it is why every Gate F
+   criterion states two acceptance conditions rather than one:** what the
+   mechanism must do, and what decides that it did.
 
 ---
 
@@ -143,6 +179,14 @@ things the repo currently does.
 ID — the claim, stated so it can come out false.
     Check:  the exact command or assertion that decides it, runnable today.
     Today:  status, with file:line evidence.
+```
+
+Gate F criteria carry a third line, because a mechanism that works and a mechanism
+that can be *shown* to work are different claims and this document has repeatedly
+recorded the first while meaning the second:
+
+```
+    Decided by:  what computes the verdict, and why the agent cannot produce it.
 ```
 
 | Status | Meaning |
@@ -233,12 +277,29 @@ tool surface.**
 > examples/automation/autonomous-pass.sh examples/automation/github-workflow.yml`
 > — pass requires either a non-`acceptEdits` mode or an explicit
 > `--disallowedTools Edit,Write,Bash,…`.
-> *Today:* **not met.** `autonomous-pass.sh:39` passes `--permission-mode
-> acceptEdits` with no `--disallowedTools`, so ordinary Edit/Write in cwd — which
-> *is* the vault — are pre-accepted. `test/release/examples-allowlist.test.ts`
-> checks the allowlist stays in sync with `/ost-pass` frontmatter; it never
-> checks the list is exhaustive. Pin this alongside the existing `OST_TOOLS` sync
-> assertion.
+> *Today:* **met** (2026-07-29). Both examples dropped `--permission-mode
+> acceptEdits` and pass an explicit
+> `--disallowedTools Bash,BashOutput,KillShell,Edit,MultiEdit,Write,NotebookEdit,Task,SlashCommand,WebFetch,WebSearch`
+> (`examples/automation/autonomous-pass.sh:64`,
+> `examples/automation/github-workflow.yml:59`). `Task` and `SlashCommand` are on
+> the list because neither writes anything itself — each hands the turn to
+> something whose tool set the flag no longer describes, and `/ost-setup` already
+> ships frontmatter granting a `Bash(…)` prefix. `WebFetch`/`WebSearch` are on it
+> because `ost_read_web` and `ost_search_web` meter against one per-pass budget and
+> the raw built-ins do not, so leaving them would make P8's cap decorative.
+> `test/release/examples-allowlist.test.ts` now holds the list to an authoritative
+> `MUST_DENY` set, asserts neither example re-adds `acceptEdits`, and asserts
+> allow ∩ deny = ∅ — a denied MCP tool would silently drop a phase, which is the
+> failure the sync half of that file already existed to prevent.
+>
+> **This was the cheapest criterion on the list and the most load-bearing, and
+> nothing in this document said so until Gate F was written.** It read as two shell
+> flags on two example files. It is the precondition for every Gate F decider: the
+> MCP surface cannot reach a sidecar ledger — `nodePath` refuses any path
+> containing a separator (`src/ost/vault.ts:103-110`) — so the health record, the
+> cadence ledger, the spend pool and `ost.config.yaml` were reachable by exactly
+> one route, and it was this one. See F6, which exists to state that dependency in
+> a form that can come out false, and the Tier 1 note on the promotion.
 
 **W6 — No shipped command grants a Bash subcommand that writes the tree.**
 > *Check:* `grep -n 'allowed-tools' .claude/commands/*.md | grep 'ost-agent.mjs'`
@@ -260,7 +321,7 @@ tool surface.**
 > `.ost-agent` is in `SKIP_DIRS`). Separately assert the designated channel can
 > retrieve a full body by evidence id.
 > *Today:* **not met, in both directions at once.** `ost_next_work` returns a bare
-> 280-character excerpt (`src/mcp/next-work.ts:210-212`), while `ost_read_repo`
+> 280-character excerpt (`src/mcp/next-work.ts:219`), while `ost_read_repo`
 > pointed at the vault reads the entire `.ost-agent/` sidecar — `SKIP_DIRS` omits
 > it (`src/product/repo.ts:19`) — returning full evidence bodies and
 > `state/inbox.json` *(verified: a 4,311-char body read in full)*. **The
@@ -307,19 +368,55 @@ retry.**
 > own friction filing, and a poisoned note are byte-identical once captured. The
 > correct pattern exists twice already — `by` stamped by the surface, not
 > self-reported (`src/security/tools.ts:168`, `:343-350`;
-> `src/knowledge/web-trust.ts:23-30`).
+> `src/knowledge/web-trust.ts:40-41`).
 
 **W12 — "Mapped" has one writer and one reader, and a citation must resolve.**
 > *Check:* (a) `grep -rn 'setMapped\|getMapped' src/` shows a writer with a
 > caller, or `mapped.json` leaves the read path. (b) `ost_create_node({…, source:
 > "INBOX:does-not-exist.md"})` is refused, or `computeNextWork` reports the
 > citation as unresolvable.
-> *Today:* **not met on both.** `setMapped` (`src/processes/tree.ts:75`) has zero
+> *Today:* **not met on both.** `setMapped` (`src/processes/tree.ts:88`) has zero
 > callers and `mapped.json` is never created. The one live mechanism is exact
 > string equality between an evidence id and a free-form `source` the model types
 > (`src/mcp/next-work.ts:209-212`), with no validation that the id exists. So a
 > report can be retired from the work list without being read, and a typo'd
 > `source` strands an item forever while the sweep stops on "nothing changed."
+
+**W13 — No evidence record reaches disk with a credential still in it.**
+> *Check:* drop an inbox note containing `sk-ant-api03-…`, ingest it, and assert
+> the bytes of `.ost-agent/evidence/*.md` do not contain the key — in the body and
+> in the title, since the title is derived from a filename the producer chooses.
+> *Today:* **met** (2026-07-29). *(verified before the fix, against a scratch vault
+> outside this repository: a note carrying an Anthropic key, a GitHub token and a
+> bearer header produced an evidence record containing all three verbatim, with no
+> `.gitignore` and `git add -A` staging it.)* Four body-carrying paths already
+> called `redactSecrets` — transcript, friction, product-repo, usage errors — and
+> `InboxSource` did not, which under DEC-1 put the **only channel the document
+> models as hostile** on the one path with no mask. The fix is at the
+> `writeEvidence` choke point (`src/processes/tree.ts:56-59`) rather than in the
+> adapter, on R1's argument: one funnel every record passes through beats five
+> call sites, and it holds for adapters that do not exist yet. Pinned by
+> `test/processes/evidence-redaction.test.ts`.
+>
+> **The interesting half is what redaction costs on this channel, and it was
+> measured rather than assumed.** Customer verbatims are exactly what the inbox
+> carries, evidence records are append-only with no edit tool, and the record is
+> what the model then reads — so a false positive is a permanently mangled quote
+> that the tree reasons from. `SECRET_PATTERNS`' keyword rule matched an English
+> word plus `:` plus eight word-characters, which turned *"secret: customers do not
+> trust us"* into *"secret: [redacted] do not trust us"*. Retuned and measured on
+> 30 lines of realistic customer prose against 16 credentials only that rule can
+> catch: **false positives 67% → 20%, missed credentials 19% → 6%.** Both halves
+> are pinned, because precision on prose is not licence to narrow recall
+> (`test/adapters/transcript.test.ts`).
+>
+> *Two residues, stated because they bound the claim.* The **original inbox note**
+> is still swept into a commit by `git add -A` with its credential intact — the
+> honest claim is "no evidence record carries a credential," not "no vault does,"
+> and the fix is a `.gitignore` from `initVault`, which is W1's territory. And
+> `ost_ingest_inbox`'s tool report echoes the producer's un-redacted *title*
+> (`src/security/tools.ts:604`) into the model's context; transient and never
+> committed, but it is S4's problem and it is one line from here.
 
 ---
 
@@ -370,7 +467,7 @@ the node's provenance.**
 > *Today:* **not met** *(verified: accepted, with no note).* The repo already
 > articulates and enforces exactly this ceiling — for web publishers only:
 > `rankHost` throws above `expert` and names why (`src/knowledge/web-trust.ts:20`,
-> `:46-52`). The strongest evidence claims in the tree are the least constrained
+> `:59-64`). The strongest evidence claims in the tree are the least constrained
 > ones. The refusal belongs at `src/security/tools.ts:369-377`, and the ceiling it
 > needs is B7's.
 
@@ -393,12 +490,12 @@ the node's provenance.**
 >
 > Three scope limits, each recorded because each is a place this could have
 > become a wedge instead of a guard:
-> - **Only promotions are held to it** (`corroboration.ts:77`). Demotion to the
+> - **Only promotions are held to it** (`src/eval/corroboration.ts:77`). Demotion to the
 >   floor stays free and is pinned as such (test `:95-98`). A guard that
 >   demanded paperwork before the agent could stop trusting a bad host would
 >   point at the safe direction — B11's failure mode is the expensive one.
 > - **"Has an outcome" is `hasRecordedResult`, reused rather than restated**
->   (`corroboration.ts:91`). That predicate is forgeable today, which is **B1's**
+>   (`src/eval/corroboration.ts:91`). That predicate is forgeable today, which is **B1's**
 >   criterion and not this one's: B4 closes the path where a promotion cites
 >   *nothing at all*, and tightens automatically when B1 lands. **This criterion
 >   is therefore met and still downstream of B1** — it is not a claim that
@@ -418,9 +515,9 @@ the node's provenance.**
 **B5 — A source's rung is a *function* of its recorded track record, not an
 independently settable field.**
 > *Check:* (a) `grep -n 'predict\|outcome\|score' src/knowledge/web-trust.ts` is
-> empty and `HostTrustRecord` (`:23-30`) declares no such field. (b) every
+> empty and `HostTrustRecord` (`:35-42`) declares no such field. (b) every
 > consumer of `readHostTrust` derives a rung from history rather than reading
-> `rec.rung` verbatim — today `hostRung` (`:89-92`) returns the stored value
+> `rec.rung` verbatim — today `hostRung` (`:101-104`) returns the stored value
 > directly.
 > *Today:* **not met.** `hosts.jsonl` stores a current rung plus free-text prose.
 > No prediction field, no outcome field, no scoring function, no reader that
@@ -436,12 +533,12 @@ independently settable field.**
 
 **B6 — The trust ledger is keyed on an actor, with a rung ceiling per actor
 kind.**
-> *Check:* (a) `HostTrustRecord` (`src/knowledge/web-trust.ts:23-30`) carries a
+> *Check:* (a) `HostTrustRecord` (`src/knowledge/web-trust.ts:35-42`) carries a
 > `kind`/`actor` discriminator. (b) a first-party commissioned pipeline can hold
 > `observed`, i.e. the rung vocabulary is not `HOST_RUNGS` for every actor.
 > *Today:* **not met — and note the naïve check passes, which is the trap.**
 > `rankHost(dir, {host:'stripe-webhook-feed', rung:'expert', …})` *succeeds*
-> *(verified)*: `normalizeHost` (`:37-44`) is a no-op on a bare string. So a
+> *(verified)*: `normalizeHost` (`:49-55`) is a no-op on a bare string. So a
 > commissioned pipeline and a real hostname collide in one namespace, and
 > `HOST_RUNGS` (`:20`) caps *every* actor at `expert` — including one whose
 > standing DEC-2 says is earned by measurement, which is exactly what `expert` is
@@ -518,8 +615,8 @@ source and results support.**
 > date" and whose `## Answer` reads "n/a"; assert
 > `resolutionState(node, DEFAULT_RESOLUTION) === "open"`.
 > *Today:* **not met** — it returns non-open. `resolutionState` is
-> `byStatus || bySection` (`src/knowledge/unknowns.ts:133-143`), and the module's
-> own comment concedes it at `:121-127`: satisfaction means a heading exists or a
+> `byStatus || bySection` (`src/knowledge/unknowns.ts:172-183`), and the module's
+> own comment concedes it at `:160-166`: satisfaction means a heading exists or a
 > status was set, "never that an answer was checked against its declared Format."
 > `## Format` is designed as the stopping condition and is a heading nobody
 > grades — which makes it the natural seat of DEC-2's cause-and-effect test.
@@ -675,17 +772,27 @@ not.**
 
 **P8 — The system can state a total bound on outward reach, not just a burst
 rate.**
-> *Check:* construct `makeLookupBudget(policy, operatorLimit, {now,
-> refillPerHour})` (`src/web/budget.ts:88-101`) with an injected clock; run **two**
+> *Check:* construct `createLookupBudget(operatorLimit, {now, refillPerHour})`
+> (`src/web/budget.ts:65-108`) with an injected clock; run **two**
 > simulated days hour by hour, calling `take()` until refused. **Pass =** day two
 > sums to zero, i.e. total successful takes over all time equals `limit`.
 > (One day cannot distinguish the hypotheses: with `DEFAULT_LOOKUP_BUDGET = 10`
-> and `DEFAULT_REFILL_PER_HOUR = 10`, `src/web/budget.ts:55-56`, one day sums to
+> and `DEFAULT_REFILL_PER_HOUR = 10`, `src/web/budget.ts:39-40`, one day sums to
 > ~240 whether the cap is lifetime or daily.)
-> *Today:* **not met** — day two sums to ~240 again (`:109-117`). Comments call
+> *Today:* **not met** — day two sums to ~240 again, because `refill` restores
+> `used` at `refillPerHour` on every `take` (`:77-83`, `:87-92`). Comments call
 > the budget "the only backpressure this system has"; under "forever" it is a rate
 > limit described as a cap. `refillPerHour: 0` already supports a hard cap
-> (`:44-46`) — a lifetime counter is the same bookkeeping.
+> (`:79`, and `msUntilNext` returns `Infinity` at `:104`) — a lifetime counter is
+> the same bookkeeping.
+>
+> *The check on this entry named a function that does not exist.* It read
+> `makeLookupBudget(policy, operatorLimit, {…})` — three parameters, including a
+> `policy` argument left over from the genome — and `grep -rn 'makeLookupBudget'`
+> matched this document and nothing else. The real function is
+> `createLookupBudget(limit, opts)`, two parameters. **A criterion whose check
+> cannot be run is not a bar**, and this one had been unrunnable since `8261a6f`
+> without anyone noticing, because nothing runs the checks.
 
 **P9 — What leaves the machine is determined by the vault's config, not ambient
 git state.**
@@ -695,7 +802,7 @@ git state.**
 > *Today:* **not met.** `gitPush` defaults its remote to `origin`
 > (`src/git/safe-git.ts:64`) and neither call site ever passes one
 > (`src/security/tools.ts:636`, `src/runner/init.ts:70`), while `config.remote.url`
-> is carried into the context (`src/runner/context.ts:142`) and read by nothing.
+> is carried into the context (`src/runner/context.ts:129`) and read by nothing.
 
 **P10 — No single agent-reachable call can flip a gate or empty a violation it
 created.**
@@ -706,10 +813,33 @@ created.**
 > *Today:* **not met** — rows `ost_append_to_node` and `ost_set_status` both fail,
 > by B1 and B2. This is the falsifiable core of the trust-model claim, and the
 > mechanism lives in B1/B2; it carries their blocker status by reference.
-> **Either those two land, or `README.md:9-11` and
-> `docs/consuming-from-claude-code.md` should stop promising that the worst
-> outcome is a nonsensical, revertible commit.** It is the repo's central claim
-> and it is currently false in the presence of a builder that reads the gate.
+>
+> **The second branch of this criterion's fork was taken on 2026-07-29.** It read
+> *"Either those two land, or `README.md` and `docs/consuming-from-claude-code.md`
+> should stop promising that the worst outcome is a nonsensical, revertible
+> commit."* B1 and B2 have not landed, so the promise was withdrawn. Each site
+> keeps the half that is true — the MCP surface has no delete, edit, rename or
+> shell tool, every write is a new append-only commit, so every write is
+> revertible — and now says plainly that a pass can move a solution's gate with no
+> human in the loop, citing B1, B2 and this criterion.
+>
+> **The claim shipped in four places and this entry named two.** The two it missed
+> are the ones no criterion could see: `examples/automation/autonomous-pass.sh`,
+> which D4's scope deliberately excludes as an example, and the *generated*
+> `.claude/skills/opportunity-solution-tree/SKILL.md`, whose **prose** D3 does not
+> read — D3 compares only its tool list against the server's surface. So the claim
+> this criterion calls false was being loaded into the model's own instructions on
+> every single run, by a file two criteria look at and neither one reads. Pinned by
+> `test/release/withdrawn-claims.test.ts`, which scans the operator-facing surfaces
+> for the phrasing *family* rather than one literal string — the claim was written
+> four different ways in four files, and a literal-string guard would have caught
+> one of them.
+>
+> *Withdrawing the promise is not progress on the mechanism.* This criterion stays
+> **not met** and stays blocked on B1 and B2; what changed is that the repo has
+> stopped asserting a guarantee it cannot make, which the header of this document
+> calls "the cheapest honest fix" and counts as a criterion met by *deleting a
+> claim*. P10 is not one of those, because the mechanism is the criterion.
 
 ---
 
@@ -760,7 +890,7 @@ Two such doors exist.
 >
 > *Reachability, which keeps this off the blocker bar:* `ost_flag_humans_required`
 > appears in **no** shipped command's `allowed-tools` — verified across all nine
-> files in `.claude/commands/` — and is absent from `SKILL.md:5` (see Gate D's D3).
+> files in `.claude/commands/` — and is absent from `.claude/skills/opportunity-solution-tree/SKILL.md:5` (see Gate D's D3).
 > Under Gate D's D2 finding that an out-of-allowlist tool is *denied, not prompted*, the
 > unattended sweep cannot reach the tool at all. The wedge is reachable only from
 > an interactive or custom surface. The same is true of `ost_set_evidence` (R7).
@@ -905,7 +1035,7 @@ that quotes it.**
 > *Check:* assert `ost_link_nodes({parent: <a Solution>, child: <an
 > Opportunity>})` throws, and that a non-existent *child* throws.
 > *Today:* **partial** *(verified).* `linkNodes` checks the **parent** exists —
-> `this.read(parent)` throws `no such node` (`src/ost/vault.ts:206`) — but does
+> `this.read(parent)` throws `no such node` (`src/ost/vault.ts:189`) — but does
 > not check the child exists and performs no hierarchy check at all, unlike
 > `src/security/tools.ts:238-249`. An Opportunity was accepted as a child of a
 > Solution. It remains an unguarded edge-forging primitive on the child/hierarchy
@@ -962,28 +1092,350 @@ can be blocked by.**
 
 ---
 
+### Gate F — Function: the system does the job it exists to do
+
+**Every other gate in this document is negative.** They say what may not be forged
+(B), what may not become permanent (R), what may not grow without bound (Z), what
+may not be claimed untruthfully (D). Read together they specify a system that
+cannot hurt you. They do not specify a system that does anything.
+
+The headline on line 3 is that a vault can be *"pointed at OST-Agent, left
+unattended, and trusted to make progress."* Nothing in Gates W through D decides
+any clause of that sentence. Nothing fires the loop — the engine is an example
+shell script, covered by W5 for its permission flags and H2 for its exit code and
+by no criterion for existing. Nothing bounds what a firing costs; P8 caps outward
+web lookups and there is no token, dollar or wall-clock bound anywhere in `src/`.
+Nothing stops two firings overlapping on one vault; Gate W asks *who* may write and
+never *how many at once*. Nothing distinguishes a firing that worked from one that
+did nothing, and S1 records that the steady state after one sweep is `done: true`
+forever. And nothing decides that the mandate advanced — `done` means "no
+outstanding hygiene", the document explicitly disclaims measuring usefulness, and
+S1's own after-check measures evidence *count*.
+
+**A system passing all 68 of the other criteria could run forever, grow the tree
+with true and worthless nodes, and read healthy the entire time.** That is not a
+defect in any one of them. It is the shape of a bar assembled entirely out of
+things that must not happen.
+
+#### Why each criterion here states two acceptance conditions
+
+Derived consequence 6: the tree is the artefact under test and never the referee.
+So a Gate F criterion is not met by a mechanism that works — it is met by a
+mechanism that works *and* whose working is decided by something the cartographer
+cannot write. The two are separated on purpose, because the cheap version of every
+criterion below is an `ost_*` tool that reports success, and B1, B2 and B10 are the
+standing proof that the agent would then be grading its own homework.
+
+**Disqualified deciders**, in every entry: any tool in `MCP_TOOL_NAMES`; any
+heading, section, status field or annotation on a node; anything under the vault's
+writable surface while W5 is open. **Qualified deciders:** a process exit code; an
+append-only ledger no allowlisted tool can reach; a deterministic CLI run out of
+band; CI; or a reviewing actor that reads the tree and cannot write it.
+
+#### The dependency that governs this whole gate
+
+**W5 is the precondition for every criterion below, and until it closed each of
+their deciders was forgeable.** Not through MCP — that surface is clean, because
+`nodePath` refuses any path containing a separator (`src/ost/vault.ts:103-110`), so
+no `ost_*` call can write a sidecar ledger or `ost.config.yaml`. Through the
+*harness*: `autonomous-pass.sh` passed `--permission-mode acceptEdits` with no
+`--disallowedTools`, and the vault is cwd, so ordinary Edit and Write were
+pre-accepted against every file a Gate F verdict reads. A health record the agent
+can append one line to decides nothing; one future-stamped line pins a cadence gate
+closed forever, and one appended line resets a no-op streak permanently.
+
+This was found by trying to write these criteria and failing: each draft named an
+unforgeable decider, and each named one that a single Write could forge. **W5 was
+recorded as a Tier 3 item about shell flags. It is actually the load-bearing
+precondition of the gate that makes this system work at all,** so it is promoted to
+Tier 1 below — and it was closed in the same change that added this gate, because
+shipping F1 through F4 against an open W5 would have produced four mechanisms whose
+verdicts all read authoritative and none of which decided anything.
+
+**A second precondition is not met and is not closable here.** The records the
+loop writes live in `<vault>/.git/ost-agent/`, not `<vault>/.ost-agent/`, and that
+is not tidiness: every mutating MCP tool commits with `git add -A`
+(`src/git/safe-git.ts:49`), so a ledger on a tracked path would be swept into the
+next `mcp: <tool>` commit — W2's failure and D5's, manufactured deterministically
+on every single firing. Under `.git/` it is untrackable by construction rather than
+by a `.gitignore` an operator can delete. The cost is stated rather than hidden: a
+fresh CI checkout always reads "never fired", which is correct for a machine-local
+record and is why the GitHub example keeps `cron` as its scheduler.
+
+#### The wedge rule, stated once and applying to all six
+
+Every mechanism here can enter a state that stops the loop: an exhausted budget, a
+held lock, a future-stamped clock, an unmet acceptance condition. R2 is this
+repo's cautionary tale — *"a safety mechanism that turns into a permanent red when
+used as intended will be routed around"* — and the way an operator routes around a
+cron that has been failing for a week is by deleting the cron. So **every stopping
+state a Gate F mechanism can enter must name its way out, and that way out must be
+automatic unless a human interrupt is the actual point.** R9's clearability table
+is the institution for this; a Gate F stopping state with no row is a bug.
+
+**⛔ F1 — A firing is an event with a beginning and an end, it recurs on a cadence
+the vault declares, and a vault declaring none never fires.**
+> *Check:* against a scratch vault with a declared cadence and an empty run ledger,
+> `loop due` exits 0; run one full firing; `loop due` now exits non-zero with
+> *not-elapsed*, without sleeping or advancing a clock — the firing consumed the
+> window. Three fail-closed rows decide the negative half: with the cadence key
+> deleted, `loop due` refuses even against a year-old run ledger (elapsed time
+> never manufactures a cadence); an unparseable cadence refuses rather than
+> defaulting; and a newest run stamped in the *future* is **ignored, with a warning
+> on stderr, rather than either fired on or wedged behind** — see the note below,
+> because this row was written the other way round and the implementation was right.
+> *Decided by:* the CLI process's exit code, computed from `ost.config.yaml` and
+> the newest record in the run ledger. Unforgeable because there is deliberately no
+> `--force`, no `--cadence` and no `--since` anywhere in the command family, so
+> "fire now" is not an expressible argument — `ost_flag_humans_required`'s shape
+> (`src/security/tools.ts:326-353`) — and because W5 now closes the Write path onto
+> the two files it reads.
+> *Today:* **met** (2026-07-29). `ost-agent loop due | start | step | seal` exists
+> (`src/cli/loop.ts`), cadence is declared per-vault under `loop.cadence`
+> (`src/config/schema.ts`) with no default, and each refusal carries its own exit
+> code — `notElapsed` is the only non-zero a wrapper should treat as routine, because
+> collapsing them all into "not firing, exit 0" would make a vault that has never
+> fired once indistinguishable from a healthy one, which is S2's failure statement
+> verbatim. Pinned in `test/loop/cadence.test.ts` and `test/cli/loop.test.ts`.
+>
+> **The future-stamped row was wrong when this criterion was written, and building
+> it is what showed that.** The criterion said *refuses rather than firing*, on the
+> reasoning that a clock you cannot trust should stop the loop. But refusing has no
+> way out: clock skew, a restored backup or a machine that briefly had the wrong
+> date silences the vault permanently and silently, and the only remedy is a human
+> hand-editing a JSONL file inside `.git/`. The implementation filters future
+> records out, uses the newest record that is not in the future, and warns on
+> stderr (`src/loop/cadence.ts`). That is strictly better on both counts — it
+> neither wedges nor fires spuriously — so **the criterion moved to match the
+> code, in the same commit, rather than the code being bent to match a row written
+> before anyone tried it.** Recorded because the reverse is how this document has
+> been wrong before.
+>
+> *Way out of every stopping state:* not-elapsed clears with time. Undeclared and
+> unparseable clear by editing the config, which is the sponsor's job and correctly
+> a human interrupt. Future-stamped clears itself, per above.
+
+**F2 — Two firings cannot run against one vault at the same time.**
+> *Check:* spawn N firings concurrently against one vault; assert exactly one
+> proceeds and the rest exit with a distinct *held* code; then kill a holder
+> uncleanly and assert the next firing acquires without human help.
+> *Decided by:* the exit codes of the losing processes, plus an
+> `fs.linkSync`-based acquire that is atomic on content, not merely on creation.
+> Unforgeable because acquisition is decided by the filesystem, not by anything
+> written into the vault.
+> *Today:* **met** (2026-07-29). `acquireFiringLock` (`src/loop/lock.ts`) writes the
+> full holder record to a temp file and then `fs.linkSync`s it into place, which
+> fails `EEXIST` atomically and is never visible in a partial state. Losers exit
+> 15. Pinned in `test/loop/lock.test.ts`, which spawns four concurrent firings and
+> asserts exactly one wins.
+>
+> *Two failures this criterion did not commit, both found by trying:* a lock taken
+> with `writeFileSync(…, {flag:"wx"})` is create-then-write, and between the two
+> syscalls it exists and is **zero bytes** — measured over 20,000 trials, a second
+> firing reads it, fails to parse, classifies it unreadable, breaks it and
+> proceeds, so **both run**. And a lock or ledger on a git-tracked path is swept
+> into the next `mcp: <tool>` commit by `git add -A` (`src/git/safe-git.ts:49`),
+> which manufactures W2 on every firing and makes D5 red by construction — which is
+> why these records live under `.git/ost-agent/`.
+>
+> *The pin is narrower than its name, and the test header says so.* Four concurrent
+> processes prove **mutual exclusion**; they do not prove **atomicity** — reverting
+> to `{flag:"wx"}` leaves that test green three runs out of three, because the
+> zero-byte window is too narrow to hit by racing whole processes. Catching it would
+> need a deterministic syscall-interleaving harness that does not exist here.
+> Recorded rather than implied, because a test named for a property it does not
+> decide is the vacuity W4 is about.
+>
+> *Way out:* stale locks break automatically on a TTL (`loop.lockTtlMinutes`,
+> default 60). PID-liveness alone is not enough — a recycled pid landing on a
+> long-lived daemon never clears, which would be a hand-cleared wedge on the exact
+> surface this exists to protect.
+
+**⛔ F3 — A firing that has not been granted a spend ceiling does not happen.**
+> *Check:* with no ceiling declared, the firing refuses and exits non-zero before
+> the model is invoked; with a ceiling declared, `floor(pool / per-firing)` firings
+> succeed and the next refuses. Fail-closed: no default grant, and an unparseable
+> or partially-declared ceiling refuses rather than falling back.
+> *Decided by:* the exit code of a reservation step that runs *before* the model
+> process is spawned, against an append-only ledger outside the tree. Unforgeable
+> because the number is read once per firing, before the agent exists in that
+> firing — the shape `web.lookupBudget` already uses, "resolved ONCE, at tool-set
+> construction, and captured by every closure below" (`src/security/tools.ts:161-167`),
+> which is why an agent editing that config value cannot widen its own live budget.
+> *Today:* **met** (2026-07-29). `loop due` refuses with a distinct exit code
+> before the model is ever spawned, and the ceiling is a rolling window declared at
+> `loop.spend` — `ceilingWeightedTokens`, `windowHours`, `sessionsDir` — with **no
+> default for any of the three**. An absent block refuses; a *half-typed* block also
+> refuses, naming the missing keys, without throwing out of `loadConfig`. That last
+> distinction is G1's whole lesson and the first implementation got it wrong: the
+> wrappers were `.nullish()` and the three leaves were not, so an operator partway
+> through writing the block took down `ost-agent status`, `ost-agent check` and the
+> entire MCP surface over a key none of them read. Pinned in
+> `test/loop/spend.test.ts` and `test/loop/config.test.ts`.
+>
+> **This wired up `src/adapters/tokens.ts`, the second entry on G3's dead-module
+> register** — the one instrument that could measure what "forever" costs. Spend is
+> read out of Claude Code's session transcripts, which the agent does not write, so
+> the measurement is first-party in the sense DEC-2 means.
+>
+> *One sharp edge, found by review rather than by testing:* `sessionsDir` is the one
+> field an operator cannot avoid writing a `~` into, and `path.resolve` turns
+> `~/.claude/…` into `<vault>/~/.claude/…` silently — so the loop read an
+> unmeasurable spend and refused to fire, permanently, **on the exact configuration
+> the documentation hands out**. A refusal that cannot be cleared by following the
+> instructions is R2 in its purest form. Fixed and pinned
+> (`test/loop/config.test.ts`), and it is worth naming as a class: **a fail-closed
+> gate turns every path-resolution bug into a wedge.**
+>
+> *Way out:* an exhausted pool stops the loop until a human raises it, and here that
+> **is** the point rather than a wedge — spending real money is exactly where DEC-3
+> says the sponsor should be interrupted. Stated explicitly so it reads as a decision
+> and not an oversight. The failure mode to watch is the operator who raises the
+> number until it stops mattering; F4 is what makes that visible.
+
+**F4 — A firing that changed nothing does not read as a firing that worked.**
+> *Check:* run three consecutive firings against a tree with no new input; assert
+> each seals a *no-op* verdict rather than *healthy*, and that a run of them
+> escalates rather than continuing to report success. Positive control: a firing
+> that really does advance the tree seals *healthy*, so the detector is not simply
+> reporting failure always.
+> *Decided by:* a verdict derived from process exit codes and a committed-delta
+> measurement, written to the run ledger by the runner — never by a tool on the
+> agent's allowlist.
+> *Today:* **partial** (2026-07-29). **The per-firing half holds:** a firing that
+> changes no commit seals `no-op`, never `healthy`, and the verdict is derived from
+> the vault's own HEAD before and after rather than from anything the agent says
+> (`computeVerdict`, `src/loop/health.ts:193-199`). A missing required phase seals
+> `unhealthy` even when every recorded step exited 0, and a firing that dies without
+> sealing is swept into a `crashed` record by the next `loop start` — so omission is
+> visible in both directions. Pinned in `test/loop/health.test.ts` and
+> `test/cli/loop.test.ts`.
+>
+> **The escalation half does not, and that is a decision rather than an omission.**
+> Nothing yet reacts to a *run* of `no-op` firings; each is recorded honestly and
+> the loop keeps firing. Building the counter now would ship a permanent red into
+> every existing vault on day three, because S1 — a blocker, not met — records that
+> the steady state after one sweep is `done: true` forever, and the only mechanism
+> that could end a dry spell is the one S1 describes and nobody has built. A
+> detector that latches red in a repo whose normal state is the condition it
+> detects is R2 exactly, and the way an operator clears it is by deleting the cron.
+> **So the record is complete and the reaction waits for S1.** That ordering is the
+> criterion's, not a convenience: escalation is only meaningful once a dry firing is
+> genuinely abnormal.
+>
+> *Two measurement hazards this half must handle when it is built, both found by
+> trying:* a streak counter that resets on any non-`no-op` record is reset by a
+> `crashed` record, and a timed-out firing is the ordinary condition in an
+> unattended cron — so a vault alternating dry-run and timeout would never escalate.
+> And a committed-delta measurement is defeated by D5: if the tree is dirty at the
+> start of a firing, the leftover is what the *next* firing's `git add -A` commits,
+> so verdicts shift by one and a single stale untracked file keeps a dead vault
+> reading healthy indefinitely. **D5 is therefore a precondition for the escalation
+> half**, which no tier recorded before this gate existed.
+>
+> *Way out, when it lands:* escalation must not latch. It reports; it does not
+> refuse to fire.
+
+**F5 — The mandate carries a stated acceptance condition, and distance from it is
+reported by something that cannot write the tree.**
+> *Check:* a vault whose Outcome declares no acceptance condition is reported as
+> undecidable rather than as done; a vault declaring one has its distance reported
+> by a reader with no write path; and the report is byte-identical before and after
+> an `ost_append_to_node` that would otherwise look like progress.
+> *Decided by:* **not settled, and that is the honest state of this criterion.**
+> A reviewing actor that reads the tree and cannot write it is the only shape that
+> satisfies derived consequence 6 without shipping an automated judge, which this
+> repo deliberately does not ship (`docs/reference/evaluating-ost-agent.md`).
+> *Today:* **not met, and partly not designed.** Two findings bound it. First, the
+> obvious home for a declared acceptance condition is the Outcome, and the Outcome
+> is written by `set-outcome`, which **is** granted to the model
+> (`.claude/commands/ost-setup.md:3`) — W6 already records this as a live tree
+> write. Putting acceptance there hands the cartographer authorship of its own
+> acceptance criteria, which is B2 with extra steps. Second, the deleted harness's
+> fitness function got one thing right and it is the constraint here: it *refused*
+> to score `resolutionState`, because that heading is "one allowlisted
+> `ost_append_to_node` away."
+>
+> **What this criterion does not claim, stated in the voice of the section below:**
+> not that usefulness is measured, not that an automated judge ships, and not that
+> a number can distinguish a good tree from a large one. It claims only that
+> "progress" should stop being a word no mechanism decides. **A criterion that is
+> honestly undesigned is worth more here than a mechanism that reports a number
+> nobody should trust** — and the temptation to ship the number is precisely why
+> Gate B exists.
+
+**⛔ F6 — No Gate F verdict is computed from a file the unattended surface can
+write.**
+> *Check:* enumerate every file each Gate F decider reads; assert that for each,
+> the unattended automation path grants no tool that can write it — the MCP half
+> from `MCP_TOOL_NAMES`, the harness half from the automation entry points'
+> `--disallowedTools`.
+> *Decided by:* a committed test over both surfaces, run by CI. This is the
+> criterion that makes the other five mean anything, and the only one whose subject
+> is the other five.
+> *Today:* **partial** (2026-07-29). **Both halves hold for the files that exist,
+> and nothing yet asserts the join.** The MCP half was always clean: `nodePath`
+> refuses any path containing a separator (`src/ost/vault.ts:103-110`), so no
+> `ost_*` call can reach a sidecar. The harness half closed with W5 — Edit, Write,
+> Bash and the rest are explicitly denied on both automation entry points, pinned by
+> `test/release/examples-allowlist.test.ts`. And the loop's records live under
+> `<vault>/.git/ost-agent/`, which is outside the tree the agent can address at all.
+>
+> What is missing is the criterion's actual subject: **a single test that enumerates
+> the files each Gate F decider reads and checks them against both surfaces.** Today
+> that property is the conjunction of three tests written for three other reasons,
+> which is precisely the shape B12 exists to warn about — *each link passing in
+> isolation while nothing asserts they are the same chain.* W5 could be tightened,
+> the ledger path could move, and a fourth decider could be added reading somewhere
+> new, and every existing test would stay green.
+>
+> **F6 is what turns "the tree must never validate itself" from a principle into
+> something with a failure mode**, and it is why W5 moved to Tier 1. It stays a
+> blocker until the join is asserted, because the whole gate is worth exactly what
+> this criterion is worth.
+
+---
+
 ### Gate H — Deterministic health
 
-Each criterion below has a today-runnable absence check and a post-build check.
-The post-build halves cannot be run yet, and saying so is the point.
+Three of these five closed on 2026-07-29 with Gate F, because the event they
+describe finally exists: **H1, H3 and H4 were all waiting on a firing to record,
+and F1 built the firing.** What is left is H2 (met earlier) and H5.
 
 **⛔ H1 — A firing appends one machine-readable record whose verdict comes from
 exit codes.**
-> *Check (today):* `grep -rn '\.ost-agent/health' src/ test/` is empty **and**
-> `grep -rnE '"(healthy|unhealthy|no-op|crashed)"' src/` is empty.
-> *Check (after build):* a scripted firing with one deliberately failed phase and
-> one simulated kill produces exactly one record per firing with the expected
-> verdict.
-> *Today:* **not met.** No `loop` command exists (`src/cli/index.ts` declares
-> init, set-outcome, friction, check, result, debt, lanes, lane, gate, status,
-> mcp). The design doc states plainly that `src/loop/health.ts` was deleted with
-> the API-key runner and the convention "now survives only as prose"
-> (`docs/superpowers/specs/2026-07-27-epistemic-uncertainty-design.md:59`). The
-> repo had exactly one append-only JSONL run-record writer — the harness's, at
-> `.ost-agent/harness/runs.jsonl` — and it was deleted with the genome
-> (`8261a6f`). It was a complete, correct, fail-open implementation of precisely
-> the contract a health record needs ("a lost record costs a data point, never a
-> run"), so recovering it from history is the cheapest way to build H1.
+> *Check:* a scripted firing with one deliberately failed phase and one simulated
+> kill produces exactly one record per firing with the expected verdict, and no
+> command anywhere accepts a verdict from its caller.
+> *Today:* **met** (2026-07-29). `ost-agent loop start | step | seal` appends
+> exactly one JSONL record per firing to `<vault>/.git/ost-agent/runs.jsonl`, with a
+> verdict in `healthy | unhealthy | no-op | crashed` computed only from what the
+> process observed itself: the exit codes its steps actually produced, which
+> required phases produced a step at all, and the vault's HEAD before and after
+> (`computeVerdict`, `src/loop/health.ts:193-199`). Pinned in
+> `test/cli/loop.test.ts`, which runs the real bracket — a green firing appends one
+> line, a red phase seals `unhealthy` and exits 1, and a firing that never sealed is
+> recorded `crashed` by the next one.
+>
+> **Recovered from history rather than rewritten, and repaired in two places the
+> recovery made obvious.** `git show cce593b^:src/loop/health.ts` came back nearly
+> intact, but its `REQUIRED_WORK_PHASES = ["sense","decide","build","ost-pass"]` was
+> the deleted API-key runner's vocabulary — against the shipped firing every real
+> run would have sealed `unhealthy`, and a rule that fires on everything is a rule
+> someone turns off. It is now `["pass","check"]`, the two proving steps the script
+> actually has. And `readRuns` admitted any line carrying a string `startedAt`,
+> which is the field the cadence gate sorts on: one line reading
+> `"startedAt": "tomorrow"` would answer "when did this vault last fire" forever.
+> It now requires a timestamp that parses.
+>
+> *The record write is deliberately **not** wrapped in a blanket try/catch,* against
+> the append-only fail-open convention the rest of the repo uses
+> (`recordUsageEvent`, `src/telemetry/usage.ts:53-61`). That convention governs
+> ledgers nothing decides on. Here the record **is** the decider: if the write
+> failed silently and `seal` still exited 0, the cadence window would never be
+> consumed and the vault would fire on every tick forever with no trace of why.
+> Compare `computeMayRun` (`src/knowledge/lanes.ts:84-87`), which returns false when
+> it does not know.
 
 **H2 — A failed pass cannot exit 0, and no push follows one.**
 > *Check:* the script gates the push on a check exit code.
@@ -1008,22 +1460,36 @@ exit codes.**
 **H3 — Any recorded proving step could have come out red.**
 > *Check:* `grep -rn 'detectLaunderedExit' src/ --include=*.ts | grep -v
 > '^src/loop/exitLaundering.ts:'` is non-empty.
-> *Today:* **not met.** `detectLaunderedExit` and `launderedExitMessage` are
-> correct, tested, and have zero non-test callers
-> (`src/loop/exitLaundering.ts:137,157`). Their refusal message names
-> `ost-agent loop step` — a command that does not exist. The module is now one of
-> the two entries on G3's debt register, so "nobody calls it" is asserted rather
-> than remembered, and H3 is met by wiring it up or by deleting it — either way the
-> register changes and says so.
+> *Today:* **met** (2026-07-29). `loop step` calls `detectLaunderedExit` before it
+> runs or records anything (`src/cli/loop.ts`), so a phase whose exit code has been
+> laundered through a pipe is refused rather than recorded green. Pinned in
+> `test/cli/loop.test.ts`: a piped shell command exits 2 and writes nothing to the
+> open run.
+>
+> **The criterion resolved the way its own entry predicted, in the cheaper of the
+> two directions it named** — "H3 is met by wiring it up or by deleting it — either
+> way the register changes and says so." The module's refusal message had named
+> `ost-agent loop step` since before that command existed, and F1 built the command
+> the message was already pointing at. Its entry came off G3's register in the same
+> change, which is the register working as designed rather than being maintained.
 
 **H4 — Omission is visible: a firing that skipped a phase does not read as
 healthy.**
-> *Check (today):* the same two greps as H1 — no verdict vocabulary and no `loop`
-> command exist, so omission cannot be detected by construction.
-> *Check (after build):* kill a firing between phases; assert exactly one record
-> exists with verdict `crashed`, and that a firing writing no record at all is
-> reported `unhealthy` by the next reader.
-> *Today:* **not met.**
+> *Check:* kill a firing between phases; assert exactly one record exists with
+> verdict `crashed`, and that a firing which skipped a required phase reads
+> `unhealthy` even when every step it *did* run exited 0.
+> *Today:* **met** (2026-07-29). Omission is visible in both directions, which is
+> the point — a skipped phase and a dead process fail differently and neither may
+> read as success. A firing missing a required phase seals `unhealthy` on the
+> phase-set check (`src/loop/health.ts:195-196`) regardless of exit codes; a firing
+> that dies without sealing leaves its open record behind and is swept into a
+> `crashed` record by the next `loop start`. Both pinned in
+> `test/loop/health.test.ts` and `test/cli/loop.test.ts`.
+>
+> Note the asymmetry with F4, which is deliberate: **H4 is about a firing that did
+> not finish; F4 is about a firing that finished and accomplished nothing.** The
+> first is an error and reads as one. The second is not an error at all, which is
+> exactly why it needed its own criterion and why H2 could never catch it.
 
 **H5 — Attribution in the usage trace is stamped by the surface, not read from
 the environment.**
@@ -1136,23 +1602,45 @@ than theoretical. **The gate becomes unreadable long before it becomes slow.**
 
 **⛔ Z1 — `ost_next_work` never throws on a large tree.**
 > *Check:* build **500** near-identical same-layer Opportunities — the smallest
-> size proven to fail — and assert `computeNextWork` returns without throwing.
+> size once proven to fail — and assert `computeNextWork` returns without throwing.
 > (Do not use 5,000: at O(n²) that fixture builds ~12.5M issue objects and will
 > exhaust memory before the assertion is reached, so the test cannot run.)
-> *Today:* **not met** *(verified: 500 → `RangeError: Maximum call stack size
-> exceeded`).* `issues.push(...findNearDuplicateIssues(tree))` spreads an
-> O(n²)-sized array into `Function.prototype.apply`'s argument list
-> (`src/mcp/next-work.ts:113`). An agent ideating on one theme reaches this, and
-> `/ost-pass` has no other gate.
+> *Today:* **met** (2026-07-29) — *and it was already met when this entry said
+> `not met`, which is the finding.* Re-running the 500-Opportunity reproduction
+> returns in **186 ms** with 125,750 hygiene issues. The `RangeError` came from
+> `issues.push(...findNearDuplicateIssues(tree))` spreading an O(n²)-sized array
+> into `Function.prototype.apply`'s argument list, and **R4's own commit deleted
+> that line** while rewriting `detectHygiene` to derive from `checkInvariants`:
+> `git log -L 156,156:src/mcp/next-work.ts` shows the spread replaced by
+> `for (const d of findNearDuplicateIssues(tree)) issues.push({ ...d, rule: … })`
+> (`src/mcp/next-work.ts:156`). Nobody re-ran the check, and the citation went on
+> pointing at `:113`, which is now a `HYGIENE_LABELS` entry.
+>
+> **This is Z5's failure mode — "a criterion whose status outlived the code it
+> described" — repeated on a blocker, and it is the second time.** It is also the
+> exact hazard the near-miss in R4's own entry describes: a fix that moves a
+> criterion nobody thought to re-check. Unlike Z5, this one moved in the safe
+> direction; the same mechanism moving one the other way is G3. **A status is a
+> claim, and until it is a test it is memory.** Pinned now at
+> `test/mcp/large-tree.test.ts`, so the next rewrite of the dedupe path cannot
+> silently reopen the hole the way the last one silently closed it. The pin asserts
+> the issue set is non-empty rather than merely that nothing threw — a bare
+> `.not.toThrow()` would stay green if the quadratic pass were skipped instead of
+> fixed, which is the same vacuity W4 records.
 
 **⛔ Z2 — Every unbounded list in a tool response is capped, with the hidden count
 named.**
 > *Check:* assert `JSON.stringify(computeNextWork(...))` and the `ost_read_tree`
 > response each stay **under 200 KB** on a 5,000-node vault, and that each capped
 > list names its hidden count.
-> *Today:* **not met** *(verified: 400 near-duplicate Opportunities → 80,200
-> hygiene issues and a **13.1 MB** response — it returns, which is why this is a
-> Z2 failure and not a Z1 one).* Only `openUnknowns` is capped — and it is capped
+> *Today:* **not met**, and worse than this entry recorded *(verified 2026-07-29:
+> 500 near-duplicate Opportunities → 125,750 hygiene issues and a **21.4 MB**
+> response, up from the 400-node / 80,200-issue / 13.1 MB figure measured before).*
+> **The defect Z1 used to name did not go away when Z1 closed — it moved into this
+> column.** A `RangeError` is at least a stop; what R4's rewrite bought is that the
+> same O(n²) issue set now marshals successfully into the model's context, which is
+> why Z1 and Z2 must be read together and why closing Z1 is not progress on scale.
+> Only `openUnknowns` is capped — and it is capped
 > *correctly*: cap the display, compute `done` over the full set, name the hidden
 > count so a cap can never read as amnesty (`src/mcp/next-work.ts:252-256`). That
 > is the pattern every other list needs, including the full-body retrieval W7
@@ -1221,7 +1709,7 @@ whole tool surface.**
 > `ost_ingest_inbox` alike. **Deleting the genome removed one such file, not the
 > failure class.** `loadConfig` throws on an invalid config
 > (`src/config/load.ts:56-59`), `buildPassContext` calls it *before* anything
-> else (`src/runner/context.ts:69`), the throw escapes `acquire()`
+> else (`src/runner/context.ts:68`), the throw escapes `acquire()`
 > (`src/mcp/server.ts:274`), and `live` is never cached on that path.
 >
 > The deletion did change the *shape* of the risk, and in the direction that
@@ -1233,7 +1721,7 @@ whole tool surface.**
 >
 > The right shape exists one handler away: `ListTools` already catches, falls
 > back, and keeps serving (`src/mcp/server.ts:283-295`). `allowMissingConfig`
-> (`src/runner/context.ts:69`) is the precedent for tolerating an absent file;
+> (`src/runner/context.ts:47`) is the precedent for tolerating an absent file;
 > what is missing is the analogue for a *broken* one.
 
 **G2 — No file the agent can write may widen a bound the operator set.**
@@ -1250,24 +1738,39 @@ whole tool surface.**
 > `import` outside `test/`. (Computing the dead set mechanically is the point —
 > "excluding dead modules" as a manual carve-out lets whoever runs the check make
 > it pass by declaring more modules dead.)
-> *Today:* **not met** — and this entry previously read *met*, which is the finding.
-> `test/release/module-reachability.test.ts` now walks the import graph from entry
-> points **derived** from `package.json` (the esbuild bundle entry and the `tsx` dev
-> entry, both `src/cli/index.ts`) plus whatever `scripts/` imports, and two modules
-> are unreachable:
+> *Today:* **met** (2026-07-29). **The debt register is empty**
+> (`KNOWN_UNREACHABLE = {}`, `test/release/module-reachability.test.ts:59`), and it
+> emptied itself rather than being emptied. `test/release/module-reachability.test.ts`
+> walks the import graph from entry points **derived** from `package.json` (the
+> esbuild bundle entry and the `tsx` dev entry, both `src/cli/index.ts`) plus
+> whatever `scripts/` imports.
 >
-> | Module | Why it is still here |
+> | Module | How its entry came off |
 > |---|---|
-> | `src/loop/exitLaundering.ts` | H3's detector — correct, tested, no caller, and its refusal message names `ost-agent loop step`, a command that does not exist. H3 is met by wiring it up; it is equally met by deleting it. |
-> | `src/adapters/tokens.ts` | Reads token spend from Claude Code's session JSONL, written for the correlator its own header names (`src/eval/attention.ts`), which never came to import it. |
+> | `src/loop/exitLaundering.ts` | H3's detector, whose refusal message named `ost-agent loop step` before that command existed. F1 built the command; `loop step` now calls it before it runs or records anything. |
+> | `src/adapters/tokens.ts` | Reads token spend from Claude Code's session JSONL. F3's ceiling is the consumer it was written for and never had — the correlator its header names (`src/eval/attention.ts`) never imported it. |
 >
-> The criterion was recorded as met because the module that motivated it
-> (`correlate.ts`) had been deleted, and nobody enumerated the rest. Reachability
-> is the assertion rather than "is imported at least once", because two dead
-> modules that import each other pass the weaker form. The known-unreachable list
-> is asserted by **exact equality**, not as a floor: widening it is a visible commit
-> that has to argue for itself, and deleting or wiring up either module fails the
-> test until its entry comes off. A debt register, not an exemption.
+> **Both entries came off because a criterion that needed them landed, which is the
+> only ending this register was designed to have.** Its two entries had described
+> "a module that is dead by neglect" and "a module that is dead because its
+> criterion has not been built yet" — the register existed precisely so those two
+> would stop looking alike, and in the event both turned out to be the second kind.
+>
+> *One trap worth recording, because the obvious way to close this criterion is to
+> fake it.* The walk measures **import**-reachability, not call-reachability, so
+> registering a `commander` subcommand is enough to make a module "reachable"
+> whether or not anything ever invokes it. Wiring `tokens.ts` behind a `spend`
+> command nobody calls would have satisfied the test while changing nothing — the
+> inverse of the manual carve-out this criterion's check warns about. Both modules
+> here are reached from a path the shipped `autonomous-pass.sh` actually executes.
+>
+> The criterion was once recorded as met because the module that motivated it
+> (`correlate.ts`) had been deleted and nobody enumerated the rest; writing the pin
+> moved it to *not met*, and building Gate F moved it back. Reachability is the
+> assertion rather than "is imported at least once", because two dead modules that
+> import each other pass the weaker form. The register is asserted by **exact
+> equality**, not as a floor: widening it is a visible commit that has to argue for
+> itself. A debt register, not an exemption — and now a paid one.
 >
 > The rule earns its place under DEC-2: the harness was the repo's only
 > prediction/outcome/score triple, and a harness varying a gene that reached no
@@ -1278,10 +1781,26 @@ whole tool surface.**
 **G4 — Policy does not evolve unattended.**
 > *Check:* `ls src/harness src/genome` finds nothing, and no code path writes a
 > policy file into a vault.
-> *Today:* **met**, by deletion. Re-introducing an evolvable policy needs the
-> replay holdout, variance decomposition and promotion gate that the removed
-> harness never had — that is the bar, and it should be met before a second
-> attempt, not after.
+> *Today:* **met** (2026-07-29), and for the first time something runs it.
+> Re-introducing an evolvable policy needs the replay holdout, variance
+> decomposition and promotion gate that the removed harness never had — that is the
+> bar, and it should be met before a second attempt, not after.
+>
+> **This entry read "met, by deletion" with nothing pinning it, which is exactly
+> the configuration G3 was in before its pin was written — and G3 turned out to be
+> wrong.** It was the document's last remaining *met carried by memory*.
+> `test/release/no-evolvable-policy.test.ts` now runs both clauses. The directory
+> half is trivial. The write half is asserted three ways: ten candidate policy
+> files are dropped at a vault root — `genome.yaml`, `policy.yaml`,
+> `ost.policy.yaml`, the near-miss spellings `ost.config.yml` and
+> `ost.config.json`, and five more — each raising `lookupBudget` to 99, and the
+> operator's bound survives every one, with a control asserting the probe can
+> observe the bound change at all so the ten zero-effect assertions cannot pass
+> vacuously. Then every mutating MCP tool is driven against a scratch vault and the
+> config comes out byte-identical, with the exercised set checked against
+> `MCP_TOOL_NAMES` so a new tool cannot join the surface unexercised. That
+> generalises G2's pin, which only ever covered the one filename that used to
+> exist.
 
 #### The mechanisms that may never become tunable
 
@@ -1306,6 +1825,17 @@ measured ones), `SECRET_PATTERNS` (a narrowed table leaks credentials into a
 committed vault), the append-only fail-open ledger writes, and `OST_RULESET`,
 which is distilled Torres canon and safety rules rather than tunable policy.
 
+> **`SECRET_PATTERNS` is fixed, not frozen, and W13 is the worked example of the
+> difference.** Its keyword rule was retuned on 2026-07-29 because it mangled the
+> customer verbatims the inbox exists to carry, and the change was *measured* —
+> false positives 67% → 20%, missed credentials 19% → 6% — with both halves pinned,
+> so the recall floor cannot be quietly traded away for precision on prose. That is
+> what "may never become tunable" means here: not that the table is immutable, but
+> that **no variant may loosen it to score better**, because a variant that relaxed
+> the mask would look identical to one that had genuinely learned to leak less. A
+> human may edit it in a diff that argues for itself and shows the numbers. Nothing
+> automated may.
+
 ---
 
 ### Gate D — Distribution and truthful documentation
@@ -1314,7 +1844,7 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 790 tests across 79 files, verified 2026-07-29. (The count this
+> *Today:* **met** — 942 tests across 94 files, verified 2026-07-29. (The count this
 > line carried two revisions ago, 878 across 86, predated `8261a6f`'s deletion of the
 > genome and harness and was never updated with it — a reminder that a number in this
 > document is a claim like any other.)
@@ -1339,7 +1869,7 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > half.
 
 **D3 — The skill's tool list and the server's surface agree.**
-> *Check:* parse tool names from `SKILL.md:5`; assert `MCP_TOOL_NAMES \ SKILL` is
+> *Check:* parse tool names from `.claude/skills/opportunity-solution-tree/SKILL.md:5`; assert `MCP_TOOL_NAMES \ SKILL` is
 > empty, or that each omission carries an explicit `<!-- omitted: <reason> -->`.
 > *Today:* **not met.** The difference is `{ost_set_evidence,
 > ost_flag_humans_required, ost_check, ost_debt, ost_status, ost_gate}`, with no
@@ -1380,8 +1910,20 @@ become unmeasurable rather than merely unbuilt.**
 that can be permanently reddened by its own prose), G1 and S6 (a single malformed
 file that removes the tool the sweep depends on — S6 is the more reachable of the
 two, because under DEC-1 the evidence directory is fed by an untrusted builder by
-design), and H2 (a firing that fails silently and pushes anyway). Nothing measured
-afterwards means anything if the subject is dead or if failure is invisible.
+design), H2 (a firing that fails silently and pushes anyway), and **W5**. Nothing
+measured afterwards means anything if the subject is dead or if failure is
+invisible.
+
+> **W5 was moved here from Tier 3 on 2026-07-29, and the move is the main structural
+> change Gate F made to this section.** It had been filed as a Tier 3 item about
+> shell flags — tighten `--permission-mode acceptEdits` on two example scripts. It
+> is actually the precondition for every Gate F decider and therefore for F6, which
+> is the criterion that makes the other five mean anything. While Edit and Write are
+> pre-accepted across the vault, every verdict Gate F computes is one Write away
+> from being forged, and a health record, a cadence gate and a spend ledger that the
+> agent can rewrite are worse than absent — they are *believable*. The tell that it
+> belongs in Tier 1: it satisfies this tier's own test, "nothing measured afterwards
+> means anything." That is precisely what an open W5 does to Gate F.
 >
 > **Status (2026-07-29): R1, R4, R5, S6 and H2 are met; R3 is partial and R9 is met.**
 > **R3**'s table now runs on every build, eight of its nine rows satisfy the criterion,
@@ -1413,8 +1955,42 @@ wait on Tier 4.
 precede Gate S: S1's entire failure statement is about write access to the inbox
 path W1 must relocate, and S2/S3 build cursors, cadence and provenance on that
 same ingestion path, while B6 and P5 are unbuildable until W11 stamps a producer
-identity on the record. W2, W5, W9, W10 and W12 belong here too. Building S before
-W1/W11 means rebuilding the ingestion path.
+identity on the record. W2, W9, W10, W12 and W13 belong here too. Building S before
+W1/W11 means rebuilding the ingestion path. *(W5 was here until 2026-07-29 and is
+now Tier 1 — see the note under that tier.)*
+
+**Tier 3½ — the engine, which nothing above needs and nothing below works
+without.** F1–F4 and F6, in that order, and **F6 is not last by accident** — it is
+the acceptance test for the tier, the same role B12 plays for Tiers 2–4. Each of
+F1 through F4 can be built, tested and shipped while the chain stays broken,
+because each one's verdict lands in a file the harness can still write. Only F6
+asks whether the deciders are actually outside the agent's reach, and it comes out
+false when the other four are each built and W5 is not.
+
+The tier is numbered 3½ rather than 6 because it does not come after Tier 5; it
+sits on W5 (now Tier 1) and on nothing else in Tiers 2–5. It could be built
+tomorrow — and on 2026-07-29 it was: **F1, F2 and F3 are met, F4 and F6 are
+partial, and W5 closed in the same change.** The reason it is placed after the
+writer boundary rather than before the forgeable instruments is the counter-case
+below, and F4 is where that argument actually bites: a firing that seals `healthy`
+has passed `checkInvariants`, and B1 and B2 are the standing finding that
+`checkInvariants` is forgeable. The resolution is the idiom B4 and B8 already use —
+**land it and record that it is downstream of B1** — rather than blocking the
+engine on Tier 2. A machine that cannot tell you it stopped working is a worse
+problem than a machine whose success report is only as good as Gate B.
+
+> **What is left in this tier is the join, and it is the part that matters.** F6
+> is partial because both of its halves hold and *nothing asserts they are the same
+> chain* — the property is currently the conjunction of three tests written for
+> three other reasons. That is B12's shape exactly, one tier over: W5 could be
+> loosened, the ledger could move out of `.git/`, or a fourth decider could be
+> added reading somewhere new, and every existing test would stay green while the
+> gate quietly stopped meaning anything. **A tier whose acceptance test is partial
+> is a tier that is built, not a tier that is done.**
+
+**F5 is deliberately not in this tier, or any tier.** It is not sequenced because
+it is not designed; see its entry. Sequencing an undesigned criterion is how a
+placeholder becomes a plan.
 
 **Tier 4 — earned belief, once there are distinguishable sources emitting on a
 cadence.** B5, B6, B11, P5. H1 belongs at the head of this tier: a self-feeding
@@ -1433,6 +2009,22 @@ because its criterion has not been built yet stop looking alike.)
 P1 and P2 gate the *first real-world action*, not the first firing, so they can
 trail the spine — but they must land before anything the tree proposes gets
 executed by a builder.
+
+**Sequenced nowhere, deliberately:** W3, W4, W6, W7, W8, B10, F5, P3, P4, P6, R6,
+R8, H4, H5, S4, S5. Each is buildable independently of every tier above — none is a
+precondition for another criterion and none waits on one. *This line exists because
+an audit found fifteen criteria absent from every tier with no way to tell an
+independent one from a forgotten one, including S1 (a blocker, present only as
+dependency prose) and W7, which another criterion names as an owner.* It is
+asserted by `test/release/readiness-tiers.test.ts`, so a criterion added without
+being sequenced — or listed here — fails the build. **A tier list that silently
+omits a third of the document is not an ordering, it is a subset**, and the fix is
+the same one `08a78e8` applied to citations: compute the set difference rather than
+maintaining it.
+
+*(S1, S2 and S3 appear in Tier 3's prose as dependencies rather than assignments;
+they are sequenced by Gate S's own dependency on W1/W11 and are listed here for
+completeness of the audit trail, not as unsequenced work.)*
 
 > **The counter-case, stated so the ordering can be argued with:** one could put
 > H1 first, on the grounds that you cannot debug a wedge you cannot see, and that
@@ -1486,10 +2078,40 @@ The second finding is narrower and bounds the criterion: the first plant turned
 Solution has no test beneath it — so the fixture proved nothing about the new rule
 until it relabelled a node already in the tree (`test/mcp/rule-parity.test.ts:141`).
 
-**The next single item is B9.** It still waits on nothing — a detector check
-buildable against a single hand-made vault — and it is where DEC-2's
-cause-and-effect test gets a seat: `## Format` is designed as the stopping
-condition and is a heading nobody grades.
+**Gate F is new (2026-07-29), and writing it found something the prose had not —
+the same way R3, R4, B4 and B8 each did.** The finding is W5, and it arrived by
+failing. Each of the six criteria was drafted with an unforgeable decider named in
+it, and each named one that a single `Write` could forge: the health record, the
+cadence ledger, the spend pool, the config that declares all three. The MCP surface
+is clean and was never the exposure. The exposure is that the *unattended harness*
+pre-accepts Edit and Write across the vault, which is a fact this document already
+recorded — as a Tier 3 item about tightening two shell scripts.
+
+**So the most valuable line in this revision is a promotion, not a criterion.**
+W5 is the precondition for Gate F, F6 exists to state that dependency in a form
+that can come out false, and both moved to Tier 1. The general shape is worth
+naming because it will recur: *a criterion filed by the surface it touches rather
+than by what depends on it will be mis-tiered, and the mis-tiering is invisible
+until something downstream tries to rest on it.* W5 looked like shell flags. It is
+the difference between a health record and a rumour.
+
+**The second finding bounds the gate.** Five of the six criteria can enter a state
+that stops the loop — exhausted pool, held lock, future-stamped clock, escalating
+no-op streak, unmet acceptance condition — and the first drafts of all five shipped
+that state with no way out but a human editing a file, on a system whose defining
+property is being left unattended. That is R2 five times over. The wedge rule at
+the head of the gate is the response, and F3's stopping state is deliberately kept
+as a human interrupt because spending real money is where DEC-3 says the sponsor
+*should* be interrupted — recorded as a decision so it cannot later read as an
+oversight.
+
+**The next single item is still B9,** and Gate F does not displace it. B9 waits on
+nothing — a detector check buildable against a single hand-made vault — and it is
+where DEC-2's cause-and-effect test gets a seat: `## Format` is designed as the
+stopping condition and is a heading nobody grades. **But W5 is now cheaper than B9
+and unblocks more**, so it goes first: it is two `--disallowedTools` arguments, it
+moves a Tier 1 criterion, and until it lands every Gate F mechanism is a mechanism
+whose verdict the agent can write.
 
 ---
 
@@ -1515,7 +2137,22 @@ Stating these keeps the bar honest and keeps the README from over-promising:
 - **Not** that "the worst thing it can do is make a commit that doesn't make
   sense." That claim is false today in the presence of a builder that reads the
   gate (P10), and it should be either earned or withdrawn before V1 — not
-  repeated.
+  repeated. *It shipped in four places, and P10 named two. The two it missed were
+  `examples/automation/autonomous-pass.sh`, which D4's scope deliberately excludes,
+  and the generated `SKILL.md`, whose prose D3 does not read — so the claim P10
+  calls false was being loaded into the model's own instructions on every run.*
+- **Not** that the tree decides whether the tree is working. Gate F's verdicts are
+  computed by exit codes and by ledgers no allowlisted tool can reach, precisely
+  because a heading, a status field and an annotation are all writable by the actor
+  being judged (B1, B2, B10). **Where a Gate F decider is not yet outside the
+  agent's reach, the criterion says so rather than reporting a number** — F6 is the
+  criterion that comes out false while that is true, and it is false today.
+- **Not** that "progress" is a measured quantity. F5 states the acceptance
+  condition a mandate should carry and **does not ship a mechanism**, because the
+  two obvious ones are both disqualified: an automated judge is what
+  `evaluating-ost-agent.md` argues against, and declaring acceptance on the Outcome
+  hands the cartographer authorship of its own bar through a `set-outcome` grant
+  W6 already flags. An undesigned criterion is recorded as undesigned.
 
 ---
 
@@ -1534,19 +2171,21 @@ a finding the build reproduces.** Moving rows from here to there is the work.
 | B1 | `ost_append_to_node` writing `## Results` flips `gateSolution` BLOCKED → CLEARED | `src/eval/evidence-debt.ts:38-41` |
 | B2 | `ost_set_status("validated")` flips `hasRecordedResult`; `checkInvariants` returns `[]` | `src/eval/invariants.ts:85-89` |
 | B3 | `ost_set_evidence("money")` accepted with no note or corroboration | `src/security/tools.ts:369-377` |
-| B6 | `rankHost({host:"stripe-webhook-feed", rung:"expert"})` succeeds — no actor namespace | `src/knowledge/web-trust.ts:37-44` |
+| B6 | `rankHost({host:"stripe-webhook-feed", rung:"expert"})` succeeds — no actor namespace | `src/knowledge/web-trust.ts:58-79` |
 | B8 | `checkInvariants` returns `[]` for a Solution declaring `money` with no result — *fixed 2026-07-29; the finding is now a row the build re-runs (`rung-unearned`), on both gates* | `test/eval/rungs.test.ts:35-43` |
 | B10 | Coverage gaps drop 2 → 1 after an `ost_append_to_node` of `## Uncovered` | `src/eval/coverage.ts` |
 | B12 | `classifyProvenance("INBOX:friction-report.md")` → `stated`, `"INBOX:note.md"` → `assertion`; the id is the producer's filename | `src/knowledge/believability.ts:129` |
 | R1 | `wrapped-wikilink` survives every clearing attempt on the tool surface — *fixed 2026-07-29 at the write boundary; the tool surface can no longer author one* | `src/ost/node.ts:97-103` |
 | R2 | `lane-conflict` created by `ost_flag_humans_required`, unclearable | `src/ost/lanes.ts:124-133` |
 | R4 | `check` red while `next_work` reports zero hygiene issues, permanently | `src/eval/invariants.ts:38-46` |
-| R5 | Hygiene issue suppressed by prose merely quoting it; `[[Ghost]]` cleared — *fixed 2026-07-29; suppression now reads the dated `## Issues` entry* | `src/mcp/next-work.ts:115-118` |
-| R6 | `ost_link_nodes` accepted an Opportunity under a Solution; parent existence *is* checked | `src/ost/vault.ts:205-214` |
+| R5 | Hygiene issue suppressed by prose merely quoting it; `[[Ghost]]` cleared — *fixed 2026-07-29; suppression now reads the dated `## Issues` entry* | `src/mcp/next-work.ts:158-161` |
+| R6 | `ost_link_nodes` accepted an Opportunity under a Solution; parent existence *is* checked | `src/ost/vault.ts:229-238` |
 | W7 | `ost_read_repo` read a 4,311-char evidence body and `state/inbox.json` | `src/product/repo.ts:19` |
 | W9 | Two colliding inbox files → one record, tool reports "captured 1" | `src/processes/tree.ts:24-26` |
-| Z1 | 500 near-duplicates → `RangeError: Maximum call stack size exceeded` | `src/mcp/next-work.ts:113` |
-| Z2 | 400 near-duplicates → 80,200 hygiene issues, 13.1 MB response (returns) | `src/mcp/next-work.ts:113` |
+| F6 | Every drafted Gate F decider reads a file the unattended path can `Write`: `acceptEdits` with no `--disallowedTools`, vault as cwd | `examples/automation/autonomous-pass.sh` |
+| W5 | Same finding, from the other side — the MCP surface cannot reach a sidecar ledger (`nodePath` refuses a separator), the harness surface can | `src/ost/vault.ts:103-110` |
+| Z1 | 500 near-duplicates → `RangeError` — *withdrawn 2026-07-29: re-running it returns in 186 ms. R4's commit deleted the spread that caused it and nobody re-ran the check. Now a row the build re-runs* | `test/mcp/large-tree.test.ts` |
+| Z2 | 500 near-duplicates → 125,750 hygiene issues, **21.4 MB** response (returns) — worse than the 400-node / 13.1 MB figure this row used to carry, and now the *only* home for the defect Z1 shed | `src/ost/dedupe.ts:62-72` |
 | G1 | Malformed `genome.yaml` returned `isError` from every tool. The file is gone; `ost.config.yaml` throws the same way | `src/config/load.ts:56-59` |
 | G2 | `budgets.sharedPool: 9999` overrode `web.lookupBudget: 10`. Fixed by deletion | `src/web/budget.ts` |
 | G3 | `computeAttention` reported `calls-and-ms` when the genome asked `tokens` | `src/eval/attention.ts` |
