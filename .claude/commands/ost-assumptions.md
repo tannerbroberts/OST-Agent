@@ -7,6 +7,6 @@ Run assumption surfacing. Follow the `opportunity-solution-tree` skill's rules.
 
 1. Call `ost_next_work`; take its `solutionsMissingAssumptions` list. If empty, say so and stop.
 2. For each solution, surface the **riskiest underlying assumptions** it depends on across the four risk categories — desirability, viability, feasibility, usability (also consider potential-harm / ethical assumptions).
-3. Create `#AssumptionTest` nodes with `ost_create_node` (layer `AssumptionTest`, parent = the solution, `status: unvalidated`, `unvalidated` tag). Each node must **propose a small, fast test** with a pre-committed success threshold.
+3. Create `#AssumptionTest` nodes with `ost_create_node` (layer `AssumptionTest`, parent = the solution, `status: unvalidated` — the `unvalidated` tag is stamped for you). Each node must **propose a small, fast test** with a pre-committed success threshold.
 4. You propose test designs only — you never run tests, and you never record results as evidence. Humans run tests with real customers/data.
 5. Report the assumptions/tests you proposed per solution. Writes auto-commit.

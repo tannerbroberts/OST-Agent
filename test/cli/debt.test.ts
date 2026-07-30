@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { initVault } from "../../src/runner/init.js";
 import { Vault } from "../../src/ost/vault.js";
+import { recordResult } from "../../src/ost/results.js";
 
 // The local tsx binary, invoked directly rather than through `npx`.
 // `npx` adds a process layer AND consults npm's cache, which takes a cacache
@@ -54,18 +55,22 @@ describe("ost-agent debt", () => {
       layer: "AssumptionTest",
       tags: [],
       links: [],
-      body: [
-        "**Pre-committed threshold:** at least 5 of 20 book a kickoff.",
-        "",
-        "## Results",
-        "- 2026-07-25 **supported** (ran by Tanner) — 6 booked",
-        "",
-        "## Uncovered",
-        "- 2026-07-25 (supported) — says nothing about whether any of them sent an artefact",
-      ].join("\n"),
+      body: "**Pre-committed threshold:** at least 5 of 20 book a kickoff.",
       evidence: "observed",
     });
     vault.linkNodes("Untested idea", "Cold offer");
+    // Planted through the human's own write path rather than by typing the
+    // headings into a body: `## Results` and `## Uncovered` are reserved
+    // (`src/ost/headings.ts`), so a fixture that writes them as content is
+    // writing something no caller can write (B1, B10).
+    recordResult(dir, {
+      test: "Cold offer",
+      verdict: "supported",
+      note: "6 booked",
+      by: "Tanner",
+      uncovered: "says nothing about whether any of them sent an artefact",
+      on: "2026-07-25",
+    });
 
     const { stdout } = await cli(["debt", "--vault", dir]);
 
@@ -87,18 +92,18 @@ describe("ost-agent debt", () => {
       layer: "AssumptionTest",
       tags: [],
       links: [],
-      body: [
-        "just a plan, with no threshold",
-        "",
-        "## Results",
-        "- 2026-07-25 **supported** (ran by Tanner) — went well",
-        "",
-        "## Uncovered",
-        "- 2026-07-25 (supported) — only covers desktop",
-      ].join("\n"),
+      body: "just a plan, with no threshold",
       evidence: "observed",
     });
     vault.linkNodes("Untested idea", "Unasked");
+    recordResult(dir, {
+      test: "Unasked",
+      verdict: "supported",
+      note: "went well",
+      by: "Tanner",
+      uncovered: "only covers desktop",
+      on: "2026-07-25",
+    });
 
     const { stdout } = await cli(["debt", "--vault", dir]);
 
@@ -118,10 +123,18 @@ describe("ost-agent gate", () => {
       layer: "AssumptionTest",
       tags: [],
       links: [],
-      body: "plan\n\n## Results\n- 2026-07-24 ran it",
+      body: "plan",
       evidence: "observed",
     });
     vault.linkNodes("Untested idea", "Asm");
+    recordResult(dir, {
+      test: "Asm",
+      verdict: "supported",
+      note: "ran it",
+      by: "Tanner",
+      uncovered: "only the desktop funnel",
+      on: "2026-07-24",
+    });
 
     const { stdout } = await cli(["gate", "Untested idea", "--vault", dir]);
     expect(stdout).toMatch(/cleared/i);
@@ -176,18 +189,18 @@ describe("ost-agent debt — thresholds that were never fixed", () => {
       layer: "AssumptionTest",
       tags: [],
       links: [],
-      body: [
-        "**Pre-committed threshold:** Choose the bar before starting.",
-        "",
-        "## Results",
-        "- 2026-07-25 **supported** (ran by Tanner) — went well",
-        "",
-        "## Uncovered",
-        "- 2026-07-25 (supported) — only covers desktop",
-      ].join("\n"),
+      body: "**Pre-committed threshold:** Choose the bar before starting.",
       evidence: "observed",
     });
     vault.linkNodes("Untested idea", "Unfixed but run");
+    recordResult(dir, {
+      test: "Unfixed but run",
+      verdict: "supported",
+      note: "went well",
+      by: "Tanner",
+      uncovered: "only covers desktop",
+      on: "2026-07-25",
+    });
 
     const { stdout } = await cli(["gate", "Untested idea", "--vault", dir]);
 

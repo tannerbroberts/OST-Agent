@@ -53,6 +53,8 @@ import { initVault } from "../../src/runner/init.js";
 import { buildPassContext } from "../../src/runner/context.js";
 import { createOstMcpServer, MCP_TOOL_NAMES } from "../../src/mcp/server.js";
 import { CONFIG_FILENAME, configPath } from "../../src/config/load.js";
+import { Vault } from "../../src/ost/vault.js";
+import { RESULTS_HEADING } from "../../src/ost/headings.js";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const OUTCOME = "Reach 10,000 daily active users";
@@ -189,7 +191,13 @@ describe("the unattended surface writes no policy into the vault", () => {
       arguments: { title: "Streaks lift day-7 return", layer: "AssumptionTest", parent: "Daily streak", body: "## Format\nreturn rate", source: "INBOX:x", evidence: "stated" },
     },
     { name: "ost_link_nodes", arguments: { parent: "Daily streak", child: "Streaks lift day-7 return" } },
-    { name: "ost_append_to_node", arguments: { title: "Streaks lift day-7 return", section: "## Results\nday-7 return rose from 21% to 28%." } },
+    // Deliberately NOT "## Results". That heading is reserved
+    // (`src/ost/headings.ts`, B1) — the agent may never author the section its
+    // own gates read as proof a test was run, so a sequence that used one here
+    // would be asserting the surface can do something it is now refused. The
+    // corroborating result `ost_rank_source` needs is planted out of band by
+    // `exerciseSurface`, through the CLI's write path.
+    { name: "ost_append_to_node", arguments: { title: "Streaks lift day-7 return", section: "## Notes\nday-7 return rose from 21% to 28%." } },
     { name: "ost_set_status", arguments: { title: "Daily streak", status: "in-discovery", note: "test is running" } },
     { name: "ost_set_evidence", arguments: { title: "Streaks lift day-7 return", evidence: "stated", note: "one report" } },
     { name: "ost_flag_humans_required", arguments: { test: "Streaks lift day-7 return", why: 'names an outside person: "interview"' } },
@@ -217,6 +225,19 @@ describe("the unattended surface writes no policy into the vault", () => {
     const client = await connect();
     let ok = 0;
     for (const call of CALLS) {
+      // `ost_rank_source` refuses a promotion that cites no recorded result (B4),
+      // and the only actor that may record one is the human on the CLI (B1). So
+      // the result is planted here, through the write path that names the heading
+      // as its own argument — the position no tool call reaches. Doing it inside
+      // the loop rather than in the fixture keeps the ordering honest: the node
+      // has to exist first, and it is created by an earlier call.
+      if (call.name === "ost_rank_source") {
+        new Vault(dir).appendUnderSection(
+          "Streaks lift day-7 return",
+          RESULTS_HEADING,
+          "- 2026-07-30 **supported** (ran by Tanner) — day-7 return rose from 21% to 28%.",
+        );
+      }
       const res = (await client.callTool(call)) as { isError?: boolean };
       if (!res.isError) ok += 1;
     }

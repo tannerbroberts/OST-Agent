@@ -34,13 +34,16 @@ describe("ost_set_evidence", () => {
     expect(ctx.vault.read("Legacy node").evidence).toBe("assertion");
   });
 
+  // The subject here is the History line, not the ceiling. Both rungs are below
+  // the measurement pair on purpose: `observed` on a sourceless node is now
+  // refused by B3's guard, and reaching for it would make this test about that.
   test("records the labelling in the node's history rather than silently restating it", async () => {
     await setEvidence({ title: "Legacy node", evidence: "stated", note: "from an interview" });
-    await setEvidence({ title: "Legacy node", evidence: "observed", note: "usage log confirms it" });
+    await setEvidence({ title: "Legacy node", evidence: "expert", note: "an advisor's read, not their own behaviour" });
 
     const body = ctx.vault.read("Legacy node").body;
     expect(body).toContain("stated");
-    expect(body).toContain("observed");
+    expect(body).toContain("expert");
     expect(body).toContain("from an interview");
   });
 

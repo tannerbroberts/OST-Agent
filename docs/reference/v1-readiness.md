@@ -13,12 +13,14 @@ instead of four cross-references, and again after B8 made a declared rung a clai
 the tree checks, and again after **Gate F** was added because everything above it
 specifies a system that cannot hurt you and none of it specifies a system that
 does anything, and again after **F6's join landed** and Tier 3½'s acceptance test
-stopped being a conjunction of tests written for other reasons. `tsc --noEmit` is
+stopped being a conjunction of tests written for other reasons, and again after
+**Tier 2 closed** — B1, B2, B3, B9 and B10 in one batch, which took the tree's
+three forgeable instruments off the agent's surface. `tsc --noEmit` is
 clean and the suite is green — and nothing below is about the code being broken.
 It is about the difference between *a tool that works when watched* and *a system
 that can be left alone*.
 
-**75 criteria, 20 of them blockers. 28 met, 4 partial, 43 not met.** Three of the
+**75 criteria, 20 of them blockers. 33 met, 4 partial, 38 not met.** Three of the
 twenty-eight were met by *deleting* something rather than building it, which is the
 document working as intended; four more were the first Tier 1 batch, each of
 which turned a wedge into a refusal at the boundary that could still take it back.
@@ -60,7 +62,7 @@ vacuous and green.
 > grep -cE '^\*\*⛔ [A-Z][0-9]+ —' docs/reference/v1-readiness.md      # 20 blockers
 > grep -oE '^> \*Today:\*\s+\*\*[a-z, ]+' docs/reference/v1-readiness.md \
 >   | sed 's/.*\*\*//;s/^met.*/met/;s/^partial.*/partial/;s/^not met.*/not met/' \
->   | sort | uniq -c                                                  # 28 / 4 / 43
+>   | sort | uniq -c                                                  # 33 / 4 / 38
 > ```
 >
 > *Those three trailing comments read `68 / 17 / 17-3-48` until 2026-07-29 — the
@@ -85,6 +87,24 @@ vacuous and green.
 > can no longer drift apart in silence — the failure that produced `11 met, 53 not
 > met` against a file holding 13 and 51, and then produced the stale comments
 > above.
+
+> **What the Tier 2 batch changed, beyond closing five criteria.** Two of them
+> were recorded here with the wrong shape, and building them is what showed it.
+> **B1 named one exposure and there were six**: `appendUnderHeading` splices any
+> caller's string in as body lines, so `ost_create_node`'s `body`, two `note`
+> parameters, an `issue` and a `why` each wrote `## Results` as well as `section`
+> did — five of them granted to the unattended sweep — and each was measured
+> clearing `gateSolution` on its own. **B2 named one door and there were two**:
+> `ost_create_node` takes `status`, so closing `ost_set_status` alone would have
+> left the criterion's sentence true and its intent defeated in one call. Both
+> corrections point the same way: *a criterion that names its exposure by the tool
+> it was found on will under-state it.* A third finding is smaller and worse —
+> **the two readers of `## Results` did not agree about what one is**, one matching
+> `## Results of the pilot` and the other `  ## Results`, so a guard written
+> against either would have been a sieve. And **B2's refusal had no way out to
+> name**: no CLI command, no tool, nothing in the repo moved a node to
+> `validated` except the agent doing it on a human's say-so, so the criterion
+> shipped with `ost-agent promote` or it shipped as R2.
 
 **The second batch moved two criteria in opposite directions, and that is the
 point of pinning things.** R9's clearability table now runs (`test/eval/clearability.test.ts`),
@@ -451,42 +471,136 @@ artefact that a promotion would cite.
 evidence of a run.**
 > *Check:* call `ost_append_to_node({section: "## Results\n- supported"})` on an
 > AssumptionTest, then `gateSolution(tree, parentSolution)`.
-> *Today:* **not met** *(verified: the gate went from `{cleared:false, "none
-> run"}` to `{cleared:true, "1 of 1 assumption test(s) recorded a result"}`).*
-> `hasRecordedResult` matches the literal heading
-> (`src/eval/evidence-debt.ts:38-41`) and `ost_append_to_node` writes arbitrary
-> headings (`src/security/tools.ts:268-285`). This is the single load-bearing
-> separation in the repo — "The agent may never run a test or record a result"
-> (`src/ost/results.ts:4-9`) — and it is discipline, not mechanism. The precedent
-> for the fix is `ost_flag_humans_required` (`src/security/tools.ts:326-353`): a
-> tool whose unsafe argument *is not expressible*, pinned by
-> `test/security/lane-capability.test.ts:41-50`.
+> *Today:* **met** (2026-07-30). A reserved heading is refused at the vault's
+> single content funnel (`src/ost/vault.ts:88-105`), and the set is data
+> (`src/ost/headings.ts:45`). The Check is the first test in
+> `test/ost/reserved-headings.test.ts`; the gate does not move and
+> `hasRecordedResult` stays false.
+>
+> **Building it found that the exposure was six paths, not one, and this entry
+> said one for four revisions.** `appendUnderHeading` splices a caller's string
+> in as *lines* (`src/ost/vault.ts:333-351`), so any free-text parameter carrying
+> a newline authored a heading exactly as well as `section` did. Measured through
+> the real tool set, each of these cleared `gateSolution` on its own:
+> `ost_create_node`'s `body`, `ost_set_status`'s `note`, `ost_set_evidence`'s
+> `note`, `ost_annotate`'s `issue`, and `ost_flag_humans_required`'s `why` —
+> five of which `/ost-pass` grants. That is why the guard is at the funnel and
+> not on a parameter, and all six are pinned as a loop rather than as a case.
+> **A criterion that names its exposure by the tool it was found on will
+> under-state it; the parameter was never the thing that was wrong.**
+>
+> *What makes the human's path survive its own guard:* `appendUnderSection` takes
+> the heading as its **own argument** and runs the content guard on the line only
+> (`src/ost/vault.ts:238-243`), and `recordResult` writes from that position
+> (`src/ost/results.ts:78`). So the exclusivity is a property of the **writer**,
+> not of the string — the `ost_flag_humans_required` shape transposed from a
+> parameter onto a value. There is no argument on any tool that reaches the
+> heading position.
+>
+> *A second finding, and it is the reason the guard could have been a sieve:*
+> **the two readers of `## Results` did not agree about what one is.**
+> `hasRecordedResult` used a case-insensitive regex and read `## Results of the
+> pilot`; `countEntriesUnder` used trim-equality and read `  ## Results`. Each
+> was blind to the other's spelling, so a guard matching either one alone would
+> have left the other's open. All three now match through
+> `isHeadingLine` (`src/ost/headings.ts:69-71`), and both directions are pinned —
+> six spellings refused, five near-misses (`### Results`, `##Results`,
+> `## Resultsish`) still writable, because a guard on the word rather than the
+> heading is a different and worse product.
+>
+> *Way out:* a human records one — `ost-agent result "<test>" -v … -b … -u …`,
+> CLI-only and on no allowlist (`src/ost/results.ts:1-13`). The refusal names
+> that command, and is pinned NOT to say "record one", which is what
+> `UnearnedRung.missing` says to its own reader and would, here, be advice to
+> forge. Ordinary prose under any other heading is untouched.
 
 **⛔ B2 — An agent cannot move a node to `validated`, and `ost_check` catches it
 if one appears.**
 > *Check:* `ost_create_node` with `tags: []`, then
 > `ost_set_status({status:"validated"})`, then `checkInvariants`.
-> *Today:* **not met** *(verified: the call succeeds, `hasRecordedResult` flips
-> true, and `checkInvariants` returns `[]`).* The `no-self-validation` rule fires
-> only when the node *also* carries the `unvalidated` tag
-> (`src/eval/invariants.ts:85-89`), and nothing mechanically applies that tag —
-> `ost_create_node` passes `tags` straight through. **An agent that omits the tag
-> at creation is permanently exempt from the invariant the README sells as the
-> guarantee.** The fix has a precedent one function away: `ost_create_node`
-> already refuses a node with no declared rung, server-side, regardless of what
-> the caller asked (`src/security/tools.ts:231-237`). Stamp the marker there.
+> *Today:* **met** (2026-07-30), both halves, in
+> `test/security/self-validation.test.ts`. `validated` is gone from the status
+> enum on **both** tools that carried it (`src/security/tools.ts:58`), so the
+> value is refused by the schema before `run` — it has no argument position
+> rather than a validator behind one. The marker is stamped server-side
+> regardless of what the caller asked (`src/security/tools.ts:288-291`), the same
+> move the evidence refusal two lines above already made, so the rule's
+> precondition is no longer the constrained actor's to withhold. And the detector
+> still fires on a node that arrives from outside the surface, turning `done`
+> false rather than only reddening `check`.
+>
+> **The criterion's own Check names one door and there were two.**
+> `ost_create_node` takes `status` in the same call, so "born validated" was a
+> single call that left the criterion's sentence — *an agent cannot **move** a
+> node to validated* — technically true and its intent defeated. Closing only
+> `ost_set_status` would have been a met criterion and an open hole. Pinned
+> separately as "the second door".
+>
+> *Why this is a status and not a heading:* `hasRecordedResult` returns true for
+> `status === "validated"` (`src/eval/evidence-debt.ts:47`), so this was B1's
+> forgery needing no heading at all. B1 and B2 are one exposure with two doors,
+> and closing either alone leaves the predicate writable.
+>
+> *Way out, and it did not exist before this change:* **there was no human path
+> to `validated` anywhere in the repo.** `ost-agent result` never touches
+> `status`, no CLI command set one, and the shipped instruction for promotion
+> (`.claude/commands/ost-review.md`) told the *agent* to do it on the human's
+> say-so — which is the discipline this criterion says must become mechanism.
+> Refusing the agent without building the human's path would have been R2 with a
+> text editor as the only remedy. `ost-agent promote "<title>" --by --why`
+> (`src/cli/index.ts:144-156` → `src/ost/results.ts:88-118`) is that path: it
+> drops the marker *and* sets the status, because promoting without dropping it
+> would manufacture the contradiction it exists to resolve. It carries
+> `recordResult`'s attribution rules for the same reason, and it is idempotent,
+> which is how a vault written before this change gets repaired. It is
+> deliberately **not** gated on a recorded result — that predicate is the thing
+> this path protects, and gating the human on it would be circular.
 
 **⛔ B3 — A declared rung is refused when it exceeds the ceiling derivable from
 the node's provenance.**
 > *Check:* `ost_set_evidence({title: <node with source 'INBOX:note.md'>,
 > evidence: 'money'})` is refused, naming the derived ceiling; and the same call
 > on a node with no source at all is refused to the floor.
-> *Today:* **not met** *(verified: accepted, with no note).* The repo already
-> articulates and enforces exactly this ceiling — for web publishers only:
-> `rankHost` throws above `expert` and names why (`src/knowledge/web-trust.ts:20`,
-> `:59-64`). The strongest evidence claims in the tree are the least constrained
-> ones. The refusal belongs at `src/security/tools.ts:369-377`, and the ceiling it
-> needs is B7's.
+> *Today:* **met** (2026-07-30), at the scope stated below, pinned in
+> `test/security/rung-ceiling.test.ts`. B8's ceiling is now *asked* at the write
+> boundary instead of only reported afterwards: `unearnedRung`
+> (`src/eval/rungs.ts:79-116`) was split out of the detector's loop so both
+> callers compute one rule, and `ost_set_evidence` evaluates the node **as it
+> will be** rather than as it sits — evaluating the stored rung would only ever
+> re-refuse nodes that are already red. `ost_create_node` carries the same guard,
+> because it takes a rung *and* a source in one call and is granted on both
+> surfaces; a refusal on one boundary while the other stayed open would have been
+> a fake fix.
+>
+> **The scope is B8's — the two measurement rungs — and the criterion's second
+> row, read strictly, is a wedge.** *"Every rung above the floor requires a
+> source"* refuses a write while naming a remedy the agent cannot perform: **no
+> allowlisted tool can add a `source` to an existing node** (`source` is an
+> `ost_create_node` parameter and there is no `ost_set_source`). Recorded as
+> considered and rejected rather than silently narrowed; its prerequisite is a
+> source-setting write path, which is its own criterion. The row that ships is
+> the readable one — a *measurement* rung on a sourceless node is refused, and
+> the ceiling named is the floor — and it satisfies the Check as written.
+>
+> *The refusal is a second rendering, not a second rule.* `UnearnedRung.missing`
+> tells its reader to *"record one (a `## Results` section …)"*, which is right
+> for a human reading `ost_check` and would, at the write boundary, be advice to
+> the one actor forbidden to record results — naming the path B1 just closed.
+> `rungRefusal` (`src/eval/rungs.ts:118-146`) is the same verdict addressed to
+> the caller being refused. One module owns the ceiling and both of its
+> renderings; the negative is pinned.
+>
+> **Unlike B4 and B8 when they landed, this one is not standing on a forgeable
+> predicate.** Both routes by which the agent could manufacture what the ceiling
+> reads — the `## Results` heading and `status: validated` — closed in this same
+> change (B1, B2). What remains outside it is a human with a text editor, which
+> is the actor the gate defers to.
+>
+> *Way out:* demotion, never gated, agent-reachable, no human needed — pinned as
+> clearing the violation. Above that: provenance that is itself a recording
+> (`TRANSCRIPT:`, settable at creation), or a human recording a result. Every
+> node already on disk is untouched; the guard is prospective and `rung-unearned`
+> stays a detector for the rest.
 
 **B4 — A promotion names a corroborating result that exists and has an outcome.**
 > *Check:* three rows against a vault, each of which must be refused —
@@ -512,11 +626,13 @@ the node's provenance.**
 >   demanded paperwork before the agent could stop trusting a bad host would
 >   point at the safe direction — B11's failure mode is the expensive one.
 > - **"Has an outcome" is `hasRecordedResult`, reused rather than restated**
->   (`src/eval/corroboration.ts:91`). That predicate is forgeable today, which is **B1's**
->   criterion and not this one's: B4 closes the path where a promotion cites
->   *nothing at all*, and tightens automatically when B1 lands. **This criterion
->   is therefore met and still downstream of B1** — it is not a claim that
->   promotions are unforgeable.
+>   (`src/eval/corroboration.ts:91`). That predicate was forgeable when this
+>   criterion closed, which was **B1's** business and not this one's: B4 closed
+>   the path where a promotion cites *nothing at all*, and said it would tighten
+>   automatically when B1 landed. **B1 landed on 2026-07-30 and it did**, without
+>   a line changing here — reuse rather than restatement is what collected that.
+>   The residue is now the same one every criterion in this gate has: a human
+>   with a text editor.
 > - **An unrecognized rung stays `rankHost`'s refusal**, so a `money` promotion
 >   still names the ceiling rather than complaining about wikilinks
 >   (pinned, test `:103-107`). `isHostRung` was exported
@@ -571,12 +687,14 @@ kind.**
 > and the derivation is pinned by behavior rather than by the grep: `TRANSCRIPT:`
 > backs a node's `observed` claim, `JIRA:` does not
 > (`test/eval/rungs.test.ts:66-81`). What that buys is a node whose label outruns
-> its provenance being *reported*. What it does not buy is the label being
-> *refused* when written — the agent's freehand string is still accepted at
-> `ost_set_evidence`, which is **B3**, and B3's ceiling is now one call away rather
-> than one function away. Under DEC-1 the inbox is precisely where an unverified
-> builder's self-description arrives, so the gap between reported and refused is
-> the whole of what is left here.
+> its provenance being *reported*. What it did not buy was the label being
+> *refused* when written, which was **B3** — and B3 closed on 2026-07-30 by
+> calling the very function this criterion is about, from
+> `ost_set_evidence` and `ost_create_node`. The caller is now on both sides. Under
+> DEC-1 the inbox is precisely where an unverified builder's self-description
+> arrives, and the gap between reported and refused is closed for the two
+> measurement rungs; the three below them are still reported only, which is B3's
+> stated scope and not a silent narrowing of this one.
 >
 > **The check as written is a grep, and a grep is a proxy.** It came out true the
 > moment a production module imported the function, which is exactly the kind of
@@ -619,30 +737,70 @@ source and results support.**
 >   That is the relation `gateSolution` already means by a result for a node, and
 >   it stops a grandchild's result laundering a claim two layers up
 >   (`test/eval/rungs.test.ts:55-64`).
-> - **Demotion always clears it**, on both surfaces, needing no result at all
->   (`test/eval/clearability.test.ts:342`). There is a second route out — append a
->   `## Results` section and the claim is backed — and it is exactly **B1's**
->   forgeable path, so the clearability row deliberately records the demotion
->   instead. **B8 is therefore met and, like B4, still downstream of B1:** it
->   catches a rung nothing supports, not a rung supported by a result the agent
->   wrote for itself.
+> - **Demotion always clears it**, on both surfaces, needing no result at all.
+>   The clearability row records the demotion rather than the second route out —
+>   append a `## Results` section and the claim is backed — because that route was
+>   **B1's** forgeable path. **B1 closed it on 2026-07-30**, so the sentence this
+>   entry carried, *"it catches a rung nothing supports, not a rung supported by a
+>   result the agent wrote for itself"*, no longer has a second clause: the agent
+>   cannot write that result. B3 closed the same claim at the write boundary in
+>   the same change, so an over-claimed rung is now refused as well as reported.
 
 **B9 — A resolved Unknown's answer was checked against its own `## Format`.**
 > *Check:* create an Unknown whose `## Format` reads "a dollar figure with a
 > date" and whose `## Answer` reads "n/a"; assert
 > `resolutionState(node, DEFAULT_RESOLUTION) === "open"`.
-> *Today:* **not met** — it returns non-open. `resolutionState` is
-> `byStatus || bySection` (`src/knowledge/unknowns.ts:172-183`), and the module's
-> own comment concedes it at `:160-166`: satisfaction means a heading exists or a
-> status was set, "never that an answer was checked against its declared Format."
-> `## Format` is designed as the stopping condition and is a heading nobody
-> grades — which makes it the natural seat of DEC-2's cause-and-effect test.
+> *Today:* **met** (2026-07-30). The Check is the first test in the B9 block of
+> `test/knowledge/unknowns.test.ts`. `ResolutionRule` gained two optional data
+> fields — `requires` and `nonAnswers` — and the default policy's satisfied rule
+> names both, so a resolution needs a declared `## Format` *and* an `## Answer`
+> that is not a recorded absence.
+>
+> **What this does and does not claim, because the criterion's title outruns the
+> mechanism and that is worth saying rather than hiding.** The Format is read for
+> **existence, never for meaning**: a Format asking for "a dollar figure with a
+> date" beside an Answer reading "sail west" is satisfied. What is checked is
+> that a stopping condition was declared at all, and that the answer is not one
+> of fourteen tokens recording an absence. That is a crude floor on
+> `hasRecordedResult`'s own precedent — deliberately not a judge. **The two
+> designs that would deliver the title literally were rejected in writing:** a
+> machine-readable `## Format` is a node-contract change every existing vault
+> fails, and a keyword table mapping Format prose to answer shapes is F5's "number
+> nobody should trust" with the confidence stripped off.
+>
+> *The one implementation detail that is load-bearing:* the answer probe reads the
+> **union** of every `## Answer` block, never the first. An append-only vault
+> cannot rewrite a bad answer — it can only append a better one — so first-wins
+> semantics would have made "n/a" an unclearable state, R2 exactly. That way out
+> is a committed test.
+>
+> *Way out, three, all automatic:* append a second `## Answer`; append the missing
+> `## Format`, which `ost_next_work` already reports as a gap before anyone asks;
+> or a human's `validated`, which is never graded. And the blast radius is a
+> report rather than a gate — `openUnknowns` is deliberately not a term of `done`,
+> pinned as an assertion in `test/mcp/next-work.test.ts`, so reclassifying
+> unknowns cannot wedge a pass under any circumstance.
+>
+> *What it does not close:* `ost_set_status` to `validated` was a granted,
+> ungraded route to satisfied. B2 closed that in the same batch; B9 did not.
 
 **B10 — The coverage-debt signal cannot be silenced by the actor that created
 the debt.**
 > *Check:* `ost_append_to_node({section:'## Uncovered\n- nothing much'})` on a
 > test with an unbounded claim; re-run `computeCoverageDebt`.
-> *Today:* **not met** *(verified: gaps drop from 2 to 1).*
+> *Today:* **met** (2026-07-30) — **closed by B1's mechanism rather than by one
+> of its own, which is why it cost one array entry.** `## Uncovered` is the
+> second member of `RESERVED_HEADINGS` (`src/ost/headings.ts:45`), so the write
+> is refused at the same funnel and the gap count does not move. The Check is
+> committed verbatim in `test/ost/reserved-headings.test.ts`.
+>
+> The bar for reserving a heading is that a gate reads it as a measurement, and
+> this one qualifies: `computeCoverageDebt` counts its entries against the result
+> count, so an agent writing one silences the debt it just created. Nothing on
+> any shipped surface ever instructed the agent to write it — the only writer is
+> `recordResult`, which pairs one line here with each result, from the heading
+> argument position. **A criterion met by a set already built for a neighbouring
+> one is the ordering constraint paying out, the way H1/H3/H4 fell out of Gate F.**
 
 **B11 — A source that loses standing causes everything downstream to be reported
 as suspect.**
@@ -827,9 +985,20 @@ created.**
 > single call flips `renderGate(tree, solution).cleared` from false to true, and
 > (b) no single call takes `checkInvariants` from non-empty to empty for a rule
 > the same caller created.
-> *Today:* **not met** — rows `ost_append_to_node` and `ost_set_status` both fail,
-> by B1 and B2. This is the falsifiable core of the trust-model claim, and the
-> mechanism lives in B1/B2; it carries their blocker status by reference.
+> *Today:* **not met — and for a different reason than yesterday, which is the
+> point of keeping the check separate from the mechanism.** The two rows that
+> failed, `ost_append_to_node` and `ost_set_status`, were failing *by B1 and B2*,
+> and **both closed on 2026-07-30**: the heading is refused at the vault's write
+> funnel and `validated` is off both status enums. A third route, `ost_create_node`
+> declaring a measurement rung, closed with B3. So this criterion no longer
+> carries anyone's blocker status by reference — **what is missing is now the
+> table itself.** Its check is a committed enumeration over
+> `buildOstTools(ctx, MCP_TOOL_NAMES)`, and nothing enumerates. That distinction
+> matters here more than anywhere: three separate criteria each pinned the door
+> they were about, and *"no single call flips a gate"* is a claim over the whole
+> surface that no conjunction of them makes. **A property proved door by door is
+> not proved** — F6 is the same shape one gate over, and it is the criterion that
+> found the hole its own first draft left.
 >
 > **The second branch of this criterion's fork was taken on 2026-07-29.** It read
 > *"Either those two land, or `README.md` and `docs/consuming-from-claude-code.md`
@@ -852,11 +1021,14 @@ created.**
 > four different ways in four files, and a literal-string guard would have caught
 > one of them.
 >
-> *Withdrawing the promise is not progress on the mechanism.* This criterion stays
-> **not met** and stays blocked on B1 and B2; what changed is that the repo has
-> stopped asserting a guarantee it cannot make, which the header of this document
-> calls "the cheapest honest fix" and counts as a criterion met by *deleting a
-> claim*. P10 is not one of those, because the mechanism is the criterion.
+> *Withdrawing the promise was not progress on the mechanism, and the mechanism
+> has since arrived.* B1 and B2 landed on 2026-07-30, so the operator-facing text
+> was re-stated rather than merely withdrawn: `README.md` now says which two
+> writes are closed and names the one that is not (a human with a text editor).
+> This criterion stays **not met** because its subject is the enumeration, not the
+> doors — see above. Writing the table is the next thing that would move it, and
+> it is cheap now in a way it was not before, because the rows that would have
+> failed no longer do.
 
 ---
 
@@ -1896,7 +2068,7 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 968 tests across 96 files, verified 2026-07-29 (`npx vitest run`,
+> *Today:* **met** — 1027 tests across 99 files, verified 2026-07-30 (`npx vitest run`,
 > after F6's join test and the readiness-count pin landed). (The count this line
 > carried two revisions ago, 878 across 86, predated `8261a6f`'s deletion of the
 > genome and harness and was never updated with it — a reminder that a number in this
@@ -2002,17 +2174,21 @@ invisible.
 > *tell the operator what to repair*. It matters less now that `genome.yaml` is gone and
 > the only such file is one a human wrote at init.
 
-**Tier 2 — the instruments must not be forgeable.** B1, B2, B3, B4, B8, B9. While
-the agent can write `## Results`, flip `validated`, and declare `money`, every
-number the system produces about itself is self-certified, and a health record
-built on a forgeable gate records forgeries faithfully. **B4 and B8 are done** —
-B4 closed the self-corroboration path Gate B opens with (a promotion cannot cite
-nothing), and B8 made `money` a claim the tree checks rather than a word the agent
-picks. **B8 took B7 with it**, the way R4 took R7: the detector needed a source
-ceiling, `classifyProvenance` was the ceiling with no caller, and wiring it was
-one line of the same change. **B9 still waits on nothing** — it is a detector
-check buildable today against a single hand-made vault. Only B5, B6, B11 and P5
-wait on Tier 4.
+**Tier 2 — the instruments must not be forgeable. It closed on 2026-07-30.**
+B1, B2, B3, B4, B8, B9 — all six are met, and B10 came with them. The tier's
+premise was that while the agent can write `## Results`, flip `validated`, and
+declare `money`, every number the system produces about itself is self-certified,
+and a health record built on a forgeable gate records forgeries faithfully. All
+three of those writes are now refused at the boundary: the heading and its
+coverage counterpart at the vault's single content funnel (B1, B10), the status
+by absence from both schemas that carried it (B2), and the measurement rung by
+the ceiling B8 already computed, asked at the write boundary instead of after it
+(B3). **B4 and B8 went first** and each recorded itself as *met and still
+downstream of B1*; neither needed a line of code when B1 landed, because both
+reused `hasRecordedResult` rather than restating it — **the clearest return this
+document has yet collected on "derive, never restate."** B8 took B7 with it, the
+way R4 took R7, and B3 took B7 the rest of the way by giving it a caller on the
+write side. Only B5, B6, B11 and P5 wait on Tier 4.
 
 **Tier 3 — the writer boundary, which several later gates sit on.** W1 and W11
 precede Gate S: S1's entire failure statement is about write access to the inbox
@@ -2171,22 +2347,29 @@ as a human interrupt because spending real money is where DEC-3 says the sponsor
 *should* be interrupted — recorded as a decision so it cannot later read as an
 oversight.
 
-**The next single item is B9.** W5 went first — it was cheaper, it moved a Tier 1
-criterion, and until it landed every Gate F mechanism was a mechanism whose verdict
-the agent could write — and F6 followed it, which is what closed Tier 3½'s
-acceptance test. Neither displaces B9, which has been the next item across three
-revisions and is now actually next: it waits on nothing, it is a detector check
-buildable against a single hand-made vault, and it is where DEC-2's cause-and-effect
-test gets a seat — `## Format` is designed as the stopping condition and is a
-heading nobody grades.
+**The next single item is P10, and it is a different kind of item than the last
+six.** B9 was next across four revisions and closed on 2026-07-30, in the same
+batch as B1, B2, B3 and B10 — which is Tier 2 shut. Every criterion this document
+has closed so far was *build the mechanism*. P10 is not: its three failing rows
+were failing by B1, B2 and B3, all three of which now hold, so **what is missing
+is the enumeration, not the mechanism.** Its check is a table over
+`buildOstTools(ctx, MCP_TOOL_NAMES)` asserting that no single call flips a gate
+or empties a violation the same caller created, and nothing enumerates. That is
+worth doing precisely because it cannot be assembled out of the six criteria that
+just closed: each pinned the door it was about, and a property proved door by
+door is not proved. B12 and F6 are the two precedents for what a criterion like
+that finds, and F6's own first draft is the standing warning — it was vacuous and
+green.
 
 > **What is *not* next, and why, because the ordering keeps being the thing this
 > document gets right.** F4's escalation half looks closable and is not: it is
 > downstream of S1 (a blocker), because a no-op streak counter latches red in a repo
 > whose steady state is the condition it detects. F5 is undesigned rather than
-> unbuilt. And **B1 still sits under B4, B8 and F4** — the forgeable-heading path is
-> now the named dependency of three met-or-partial criteria, which is a lot of
-> weight on one open blocker. B9 is next; B1 is the one that is accumulating debt.
+> unbuilt. **The debt this note recorded is paid:** B1 sat under B4, B8 and F4 as
+> the named dependency of three met-or-partial criteria, and it closed. F4's
+> per-firing half no longer seals `healthy` off a forgeable `checkInvariants`;
+> its remaining half is still S1's. The open blockers are now W-gate and S-gate
+> work, not Gate B's.
 
 ---
 

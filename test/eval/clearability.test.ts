@@ -297,9 +297,13 @@ const SCENARIOS: Record<string, Scenario> = {
     createRefusal: /evidence/,
   },
 
+  // B2: the create path is closed at the schema. `validated` is no longer in
+  // either status enum, and the marker this rule keys on is stamped server-side
+  // rather than passed by the caller — so the `tags` argument is deliberately
+  // absent below. Leaving it in would have proved nothing about the stamp.
   "no-self-validation": {
     setup: withOpportunity,
-    createPath: "ost_create_node tagged #unvalidated, then ost_set_status validated",
+    createPath: "ost_create_node, then ost_set_status validated — which the schema no longer accepts",
     create: [
       {
         tool: "ost_create_node",
@@ -309,7 +313,6 @@ const SCENARIOS: Record<string, Scenario> = {
           parent: OPPORTUNITY,
           body: "an idea",
           evidence: "assertion",
-          tags: ["unvalidated"],
         },
       },
       { tool: "ost_set_status", input: { title: "A self-declared win", status: "validated", note: "it went well" } },
@@ -317,7 +320,10 @@ const SCENARIOS: Record<string, Scenario> = {
     plant: (v) => put(v, { title: "A planted win", layer: "Solution", tags: ["unvalidated"], status: "validated" }),
     clearPath: "ost_set_status moving it off validated",
     clear: [{ tool: "ost_set_status", input: { title: "A planted win", status: "in-discovery", note: "no result backs this" } }],
-    expected: { mcp: { create: true, clear: true }, "ost-pass": { create: true, clear: true } },
+    expected: { mcp: { create: false, clear: true }, "ost-pass": { create: false, clear: true } },
+    // The cell rests on a guard, so it is pinned to the guard's own words: if
+    // someone re-adds the enum value, this row fails instead of quietly passing.
+    createRefusal: /ost-agent promote|not one of/,
   },
 
   "lane-conflict": {
@@ -360,9 +366,10 @@ const SCENARIOS: Record<string, Scenario> = {
       put(v, { title: "A legacy money claim", layer: "Solution", evidence: "money" });
       v.linkNodes(OPPORTUNITY, "A legacy money claim");
     },
-    // There is a second route out — append a `## Results` section and the claim
-    // is backed — and it is exactly B1's forgeable path, so it is not what this
-    // row records. Demotion is the honest clear, and it needs no result at all.
+    // Demotion is the clear, and it needs no result at all. The other route —
+    // append a `## Results` section and the claim is backed — used to be B1's
+    // forgeable path and is now closed at the write boundary too, so a fresh
+    // violation cannot be cleared by manufacturing what backs it.
     clearPath: "ost_set_evidence declaring the rung the sources actually earned — demotion is never gated",
     clear: [
       {
@@ -370,7 +377,11 @@ const SCENARIOS: Record<string, Scenario> = {
         input: { title: "A legacy money claim", evidence: "assertion", note: "no result backs this; it is founder theory" },
       },
     ],
-    expected: { mcp: { create: true, clear: true }, "ost-pass": { create: true, clear: true } },
+    // B3: the create path is closed at both write boundaries. The rule stays a
+    // detector because every node predating the guard is still one of these, and
+    // a human editing markdown can still write the label by hand.
+    expected: { mcp: { create: false, clear: true }, "ost-pass": { create: false, clear: true } },
+    createRefusal: /cannot declare 'money'/,
   },
 };
 

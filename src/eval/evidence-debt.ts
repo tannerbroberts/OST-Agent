@@ -13,6 +13,7 @@
  */
 import type { OstNode } from "../ost/node.js";
 import { titlesMatch } from "../ost/sanitize.js";
+import { declaresHeading, RESULTS_HEADING } from "../ost/headings.js";
 
 export type DebtState = "untested" | "proposed" | "tested";
 
@@ -34,10 +35,17 @@ export interface EvidenceDebt {
  * A test counts as run when it records a result: a `## Results` section in its
  * body, or a human moving it off 'unvalidated' to 'validated'. Anything else is
  * a proposal, however carefully written.
+ *
+ * Both halves are now writable only from outside the agent's surface — the
+ * heading by the CLI's `recordResult` (B1), the status by `ost-agent promote`
+ * (B2) — so this predicate stopped being a thing its own subject could arrange.
+ * The heading is matched through `ost/headings.ts` rather than by a literal
+ * here, because the guard that refuses it and the reader that honours it
+ * disagreeing about what counts as one is the whole failure mode.
  */
 export function hasRecordedResult(test: OstNode): boolean {
   if (test.status === "validated") return true;
-  return /^##\s+Results\b/im.test(test.body);
+  return declaresHeading(test.body, RESULTS_HEADING);
 }
 
 function testsUnder(tree: readonly OstNode[], solution: OstNode): OstNode[] {

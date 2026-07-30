@@ -70,7 +70,7 @@ export const OST_RULESET = {
     "Compare and contrast solutions against each other rather than validating a single idea in isolation ('good' is judgeable only relative to alternatives).",
     "Prefer generating more solutions especially when there is risk, when the opportunity is a differentiator, or when innovation is needed.",
     "Target one opportunity at a time (a work-in-progress limit) and go deep before moving on.",
-    "Every agent-originated solution enters the tree unvalidated; the agent never promotes or declares a winning solution."
+    "Every agent-originated solution enters the tree unvalidated — the marker is stamped by the server, not chosen by the author — and `validated` is not a status the agent can set at all; promotion is a human's call on the CLI."
   ],
   "assumptionCategories": [
     "desirability",

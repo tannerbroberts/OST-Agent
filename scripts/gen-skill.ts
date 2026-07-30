@@ -81,7 +81,7 @@ All are exposed by the \`ost-agent\` MCP server (names may appear as \`mcp__ost-
 - **ost_create_node** — create a node AND attach it under an existing parent atomically (never an orphan). You cannot create an Outcome. An Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an AssumptionTest under a Solution.
 - **ost_link_nodes** — add a parent→child edge (idempotent).
 - **ost_append_to_node** — append a Markdown section to a node (grows only, never rewrites).
-- **ost_set_status** — set a node's status; never mark something \`validated\` without human-provided evidence in the note.
+- **ost_set_status** — set a node's status. \`validated\` is NOT a value you can pass and never will be: a node that declares itself validated clears its own evidence gate. Promotion is a human's call, made with \`ost-agent promote\` on the CLI. Use \`in-discovery\` while a test is running, or \`deferred\` to record abandonment.
 - **ost_annotate** — attach a hygiene/issue note (add-only). Used to flag orphans, dangling links, likely duplicates — never to delete.
 
 ### Outward sensing (bounded, read-only)
@@ -99,7 +99,7 @@ ${bullets(R.firstRun)}
 
 1. **Call \`ost_ingest_inbox\`, then \`ost_next_work\`.** If \`done: true\`, report that the tree is fully maintained and stop.
 2. **Map evidence → opportunities** (for each \`unmappedEvidence\` item). Distill the *customer need/pain/desire* it reveals, from the customer's perspective — never a solution. Create an \`#Opportunity\` under the Outcome (or a parent opportunity), with \`source\` set to the evidence id. Reuse an existing opportunity instead of duplicating. If an item reveals no genuine need, skip it.
-3. **Ideate solutions** (for each \`underservedOpportunity\`). Generate genuinely distinct candidate \`#Solution\` nodes until it has the required minimum, each with \`status: unvalidated\` and an \`unvalidated\` tag. Compare-and-contrast — do not describe implementation steps or code.
+3. **Ideate solutions** (for each \`underservedOpportunity\`). Generate genuinely distinct candidate \`#Solution\` nodes until it has the required minimum, each with \`status: unvalidated\` (the \`unvalidated\` tag is stamped for you). Compare-and-contrast — do not describe implementation steps or code.
 4. **Surface assumptions** (for each \`solutionsMissingAssumptions\` entry). Create \`#AssumptionTest\` nodes (\`unvalidated\`) that each *propose* a small, fast test of one underlying assumption across the risk categories (${R.assumptionCategories.join(", ")}). You propose tests; humans run them.
 5. **Annotate hygiene issues** (for each \`hygieneIssue\`) with \`ost_annotate\`. Never delete — flag for a human.
 6. **Explore open unknowns** (for each \`openUnknowns\` entry). Discretionary, and taken only after 1–5 are clear. **Exploration never blocks \`done\`**: darkness with no declared Format has no stopping condition, so counting it toward completion would wedge every pass forever. Prefer the ones whose contract is already complete. For each unknown you pick up:

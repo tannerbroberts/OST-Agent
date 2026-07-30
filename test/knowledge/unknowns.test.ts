@@ -3,6 +3,7 @@ import {
   CONTRACT_SECTIONS,
   DEFAULT_CLASSIFIER,
   DEFAULT_RESOLUTION,
+  NON_ANSWERS,
   UNKNOWN_CLASSES,
   classifyUnknown,
   contractGaps,
@@ -238,5 +239,108 @@ describe("the resolution gene — rule order IS the precedence", () => {
     };
     expect(resolutionState(unknown(FULL, { status: "shipped" }), gene)).toBe("superseded");
     expect(resolutionState(unknown(FULL, { status: "deferred" }), gene)).toBe("abandoned");
+  });
+});
+
+describe("a recorded absence is not an answer (B9)", () => {
+  test("an Answer of `n/a` under a Format asking for a dollar figure is still open", () => {
+    const node = unknown("## Format\na dollar figure with a date\n\n## Answer\nn/a");
+    expect(resolutionState(node, DEFAULT_RESOLUTION)).toBe("open");
+  });
+
+  test("a real answer in the same slot still satisfies — the grader is a floor, not a judge", () => {
+    const node = unknown("## Format\na dollar figure with a date\n\n## Answer\n$4,120 as of 2026-03-01");
+    expect(resolutionState(node, DEFAULT_RESOLUTION)).toBe("satisfied");
+  });
+
+  test("prose satisfies — a vault whose answers read like sentences does not go red", () => {
+    const bodies = [
+      "About four thousand dollars, measured at the end of Q1.",
+      "We looked at the March invoices and it came to $4,120.",
+      "It varies, but never above six hundred a month.",
+      "Nobody uses the export path any more — we checked the logs for all of June.",
+      "None of the three teams we asked had ever seen it fail.",
+    ];
+    for (const answer of bodies) {
+      expect(resolutionState(unknown(`${FULL}\n\n## Answer\n${answer}`))).toBe("satisfied");
+    }
+  });
+
+  test("an empty ## Answer is a heading, not an answer", () => {
+    expect(resolutionState(unknown(`${FULL}\n\n## Answer\n`))).toBe("open");
+    expect(resolutionState(unknown(`${FULL}\n\n## Answer`))).toBe("open");
+  });
+
+  test("a whitespace-only ## Answer followed by another heading is still not an answer", () => {
+    expect(resolutionState(unknown(`${FULL}\n\n## Answer\n   \n\t\n\n## Notes\n412 per day`))).toBe("open");
+  });
+
+  test("THE WAY OUT: appending a SECOND ## Answer with a real one clears it", () => {
+    // The only move an append-only vault has — it cannot rewrite the `n/a`, so
+    // grading the first block alone would be an unclearable stopping state.
+    const stuck = `${FULL}\n\n## Answer\nn/a`;
+    expect(resolutionState(unknown(stuck))).toBe("open");
+    expect(resolutionState(unknown(`${stuck}\n\n## Answer\n412 per day`))).toBe("satisfied");
+  });
+
+  test("an ## Answer with no declared ## Format does not resolve, and contractGaps names Format", () => {
+    const node = unknown("## Methodology\nquery the log\n\n## Answer\n412 per day");
+    expect(resolutionState(node)).toBe("open");
+    // The way out is already reported: the session is told what to declare.
+    expect(contractGaps(node)).toContain("Format");
+  });
+
+  test("a human's validated still closes it — the guaranteed way out is ungraded", () => {
+    expect(resolutionState(unknown(`${FULL}\n\n## Answer\nn/a`, { status: "validated" }))).toBe("satisfied");
+    expect(resolutionState(unknown("nothing declared at all", { status: "validated" }))).toBe("satisfied");
+  });
+
+  test("deferred still outranks everything — abandonment is never gated", () => {
+    expect(resolutionState(unknown(`${FULL}\n\n## Answer\nn/a`, { status: "deferred" }))).toBe("abandoned");
+    expect(resolutionState(unknown("", { status: "deferred" }))).toBe("abandoned");
+  });
+
+  test("the grading is opt-in data: a policy naming neither field decides what it decided before", () => {
+    const ungraded: ResolutionPolicy = {
+      answerSection: "Answer",
+      fallback: "open",
+      rules: [
+        { state: "abandoned", status: ["deferred"] },
+        { state: "satisfied", status: ["validated"], section: "Answer" },
+      ],
+    };
+    expect(resolutionState(unknown(`${FULL}\n\n## Answer\nn/a`), ungraded)).toBe("satisfied");
+    expect(resolutionState(unknown("## Answer\n"), ungraded)).toBe("satisfied");
+    expect(resolutionState(unknown("## Answer\n412 per day"), ungraded)).toBe("satisfied");
+  });
+
+  test("the default policy's satisfied rule names NON_ANSWERS and requires Format", () => {
+    // Dropping either field is a one-line silent regression: every test above
+    // would still compile and the grader would simply stop grading.
+    const satisfied = DEFAULT_RESOLUTION.rules.find((r) => r.state === "satisfied");
+    expect(satisfied?.requires).toEqual(["Format"]);
+    expect(satisfied?.nonAnswers).toBe(NON_ANSWERS);
+    // And abandonment stays ungraded.
+    const abandoned = DEFAULT_RESOLUTION.rules.find((r) => r.state === "abandoned");
+    expect(abandoned?.section).toBeUndefined();
+    expect(abandoned?.requires).toBeUndefined();
+    expect(abandoned?.nonAnswers).toBeUndefined();
+  });
+
+  test("NON_ANSWERS stays short — a longer list is a grader exercising judgement", () => {
+    expect(NON_ANSWERS.length).toBeLessThanOrEqual(16);
+    expect(NON_ANSWERS).toContain("n/a");
+  });
+
+  test("case, emphasis and a trailing period do not launder a non-answer", () => {
+    for (const answer of ["N/A", "  n/a  ", "- n/a", "**TBD**", "`—`", "Unknown.", "> None", "*n/a*"]) {
+      expect(resolutionState(unknown(`${FULL}\n\n## Answer\n${answer}`))).toBe("open");
+    }
+  });
+
+  test("digits survive normalization — a small true answer is still an answer", () => {
+    for (const answer of ["$0", "0", "0 per day", "-$0.00", "**0**"]) {
+      expect(resolutionState(unknown(`${FULL}\n\n## Answer\n${answer}`))).toBe("satisfied");
+    }
   });
 });
