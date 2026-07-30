@@ -32197,6 +32197,17 @@ function assertWritableNote(what, value) {
   if (value === void 0) return;
   assertWritableContent(what, value);
 }
+function assertWritableTag(title, tag) {
+  if (/\s/.test(tag)) {
+    throw new Error(
+      `refusing to write a tag on "${title}": tags cannot contain whitespace, and this one does (${JSON.stringify(tag)}). A tag is rendered as a single #word on one shared line, so whitespace in one either silently splits it in two or, with a newline, writes body content that no reader can tell from prose the author wrote. Use one word, or hyphens.`
+    );
+  }
+  if (tag.includes("#")) {
+    throw new Error(`refusing to write a tag on "${title}": tags are rendered with their own "#" \u2014 drop it from ${JSON.stringify(tag)}.`);
+  }
+  assertWritableContent(`a tag on "${title}"`, tag);
+}
 var Vault = class {
   root;
   constructor(rootDir, opts = {}) {
@@ -32278,6 +32289,7 @@ var Vault = class {
   /** Create a new node file. Throws if a file for this title already exists. */
   createNode(node) {
     assertWritableContent(`the body of "${node.title}"`, node.body);
+    for (const tag of node.tags) assertWritableTag(node.title, tag);
     const p2 = this.nodePath(node.title);
     if (fs6.existsSync(p2)) {
       throw new Error(`node already exists (create is non-overwriting): ${node.title}`);
@@ -32406,7 +32418,7 @@ var Vault = class {
 function appendUnderHeading(body, heading, line) {
   const trimmed2 = body.trimEnd();
   const lines = trimmed2.split("\n");
-  const start = lines.findIndex((l) => l.trim() === heading);
+  const start = lines.findIndex((l) => isHeadingLine(l, heading));
   if (start === -1) {
     return `${trimmed2}
 

@@ -11,7 +11,10 @@
  * It is also where the one thing the agent may never author is refused. Every
  * caller-supplied string funnels through `assertWritableContent`, and a reserved
  * heading (`ost/headings.ts`) is refused there rather than on any one parameter,
- * because six different parameters could carry one. The heading ARGUMENT of
+ * because SEVEN different arguments could carry one — six free-text parameters
+ * and `tags`, which is not free text and was found last, by review, after the
+ * other six had been enumerated by hand. That is the argument for the funnel
+ * stated as a fact rather than as a preference. The heading ARGUMENT of
  * `appendUnderSection` is deliberately not scanned: that is the position the
  * human's CLI result path writes from, and no tool call reaches it.
  */
@@ -29,7 +32,7 @@ import {
   LAYERS,
 } from "./node.js";
 import { fileNameForTitle, sanitizeTitle } from "./sanitize.js";
-import { reservedHeadingIn } from "./headings.js";
+import { isHeadingLine, reservedHeadingIn } from "./headings.js";
 import type { CensusDrop, TreeCensus } from "./census.js";
 import type { RungId } from "../knowledge/believability.js";
 import type { LaneId } from "../knowledge/lanes.js";
@@ -114,6 +117,41 @@ function assertWritableContent(what: string, value: string): void {
 function assertWritableNote(what: string, value: string | undefined): void {
   if (value === undefined) return;
   assertWritableContent(what, value);
+}
+
+/**
+ * A tag is one `#word`, and this is what makes that true rather than assumed.
+ *
+ * `serialize` renders every tag onto ONE space-joined line and `deserialize`
+ * reads only the first non-empty line back, so a tag carrying a newline is not a
+ * tag at all — it is arbitrary body content, and the remainder of the tag line
+ * (including the `#unvalidated` stamp) is stranded below it and lost on the next
+ * read. Measured: `tags: ["a\nb"]` round-trips to `["a"]`, and a tag holding a
+ * `## Results` block cleared `gateSolution` in one allowlisted call while
+ * `checkInvariants` stayed empty.
+ *
+ * **That door was open for the same reason the criterion it defeats existed:**
+ * `assertWritableContent` was reached by every *free-text* parameter and `tags`
+ * was not free text, so it was never enumerated. A hand-written list of writable
+ * parameters will always be one short of the truth; the pin for this is a
+ * property over each tool's own schema, not a seventh entry on a list.
+ *
+ * Whitespace is the load-bearing half — it makes the injection inexpressible —
+ * and the content guard runs too, so a tag cannot be void or carry a broken link.
+ */
+function assertWritableTag(title: string, tag: string): void {
+  if (/\s/.test(tag)) {
+    throw new Error(
+      `refusing to write a tag on "${title}": tags cannot contain whitespace, and this one does ` +
+        `(${JSON.stringify(tag)}). A tag is rendered as a single #word on one shared line, so ` +
+        `whitespace in one either silently splits it in two or, with a newline, writes body content ` +
+        `that no reader can tell from prose the author wrote. Use one word, or hyphens.`,
+    );
+  }
+  if (tag.includes("#")) {
+    throw new Error(`refusing to write a tag on "${title}": tags are rendered with their own "#" — drop it from ${JSON.stringify(tag)}.`);
+  }
+  assertWritableContent(`a tag on "${title}"`, tag);
 }
 
 export class Vault {
@@ -221,6 +259,7 @@ export class Vault {
   /** Create a new node file. Throws if a file for this title already exists. */
   createNode(node: OstNode): void {
     assertWritableContent(`the body of "${node.title}"`, node.body);
+    for (const tag of node.tags) assertWritableTag(node.title, tag);
     const p = this.nodePath(node.title);
     if (fs.existsSync(p)) {
       throw new Error(`node already exists (create is non-overwriting): ${node.title}`);
@@ -370,7 +409,12 @@ export class Vault {
 function appendUnderHeading(body: string, heading: string, line: string): string {
   const trimmed = body.trimEnd();
   const lines = trimmed.split("\n");
-  const start = lines.findIndex((l) => l.trim() === heading);
+  // The WRITER matches the same way the readers do. It used to be trim-equality
+  // while `hasRecordedResult` and `countEntriesUnder` were unified onto
+  // `isHeadingLine`, and a writer that cannot find the section its readers can
+  // see appends a SECOND one — after which `countEntriesUnder`, which stops at
+  // the first, counts only half the results. Four matchers, one heading.
+  const start = lines.findIndex((l) => isHeadingLine(l, heading));
   if (start === -1) {
     return `${trimmed}\n\n${heading}\n${line}`;
   }

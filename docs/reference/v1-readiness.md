@@ -472,14 +472,14 @@ evidence of a run.**
 > *Check:* call `ost_append_to_node({section: "## Results\n- supported"})` on an
 > AssumptionTest, then `gateSolution(tree, parentSolution)`.
 > *Today:* **met** (2026-07-30). A reserved heading is refused at the vault's
-> single content funnel (`src/ost/vault.ts:88-105`), and the set is data
+> single content funnel (`src/ost/vault.ts:99-110`), and the set is data
 > (`src/ost/headings.ts:45`). The Check is the first test in
 > `test/ost/reserved-headings.test.ts`; the gate does not move and
 > `hasRecordedResult` stays false.
 >
 > **Building it found that the exposure was six paths, not one, and this entry
 > said one for four revisions.** `appendUnderHeading` splices a caller's string
-> in as *lines* (`src/ost/vault.ts:333-351`), so any free-text parameter carrying
+> in as *lines* (`src/ost/vault.ts:409-427`), so any free-text parameter carrying
 > a newline authored a heading exactly as well as `section` did. Measured through
 > the real tool set, each of these cleared `gateSolution` on its own:
 > `ost_create_node`'s `body`, `ost_set_status`'s `note`, `ost_set_evidence`'s
@@ -489,21 +489,51 @@ evidence of a run.**
 > **A criterion that names its exposure by the tool it was found on will
 > under-state it; the parameter was never the thing that was wrong.**
 >
+> **Then adversarial review found a seventh, and it is the most useful thing in
+> this entry.** `tags` is not free text, so it was never enumerated as a writable
+> parameter — but `serialize` renders every tag onto one shared line, and
+> `deserialize` reads only the first line back. A tag carrying a newline was
+> therefore arbitrary body content: one allowlisted `ost_create_node` call wrote a
+> `## Results` block, cleared `gateSolution`, zeroed the coverage debt, and left
+> `checkInvariants` empty — **and it stranded the `#unvalidated` stamp below the
+> break, where the next read loses it, defeating B2's marker in the same call.**
+> Three of four review lenses found it independently; not one of the tests written
+> for these criteria did, because **a list cannot fail for the door it does not
+> name.** The guard now covers tags (`src/ost/vault.ts:142-155`), and whitespace
+> in a tag is refused outright — a tag is one `#word`, and a space-bearing one
+> already split in two on the round trip.
+>
+> *So the pin is a property, not a seventh entry on the list.* For every
+> string-valued argument every mutating tool declares — read off the tool's own
+> `input_schema`, array items included — the attack is attempted and the tree is
+> then asserted to hold no recorded result, no silenced coverage debt, and no
+> node that lost its marker. An eighth writable argument is covered on the day it
+> lands. **That test was itself vacuous when first written** — it reused one
+> title, so every `ost_create_node` attempt failed on "node already exists" rather
+> than on the guard — and it was caught by deleting the guard and watching the
+> test stay green. The lesson costs nothing to restate: *neuter the mechanism and
+> confirm the pin goes red, or the pin is decoration.*
+>
 > *What makes the human's path survive its own guard:* `appendUnderSection` takes
 > the heading as its **own argument** and runs the content guard on the line only
-> (`src/ost/vault.ts:238-243`), and `recordResult` writes from that position
+> (`src/ost/vault.ts:288-293`), and `recordResult` writes from that position
 > (`src/ost/results.ts:78`). So the exclusivity is a property of the **writer**,
 > not of the string — the `ost_flag_humans_required` shape transposed from a
-> parameter onto a value. There is no argument on any tool that reaches the
-> heading position.
+> parameter onto a value. No string-valued argument on any tool reaches the
+> heading position, and that sentence is now the assertion a test makes rather
+> than a claim this entry states.
 >
 > *A second finding, and it is the reason the guard could have been a sieve:*
 > **the two readers of `## Results` did not agree about what one is.**
 > `hasRecordedResult` used a case-insensitive regex and read `## Results of the
 > pilot`; `countEntriesUnder` used trim-equality and read `  ## Results`. Each
 > was blind to the other's spelling, so a guard matching either one alone would
-> have left the other's open. All three now match through
-> `isHeadingLine` (`src/ost/headings.ts:69-71`), and both directions are pinned —
+> have left the other's open. **There was a fourth matcher and review caught that
+> too:** `appendUnderHeading`, the WRITER, was still on trim-equality, so once the
+> readers honoured `## Results of the pilot` the writer could not find it and
+> appended a second section — after which `countEntriesUnder`, which stops at the
+> first, counted half the results. All four now match through
+> `isHeadingLine` (`src/ost/headings.ts:73-75`), and both directions are pinned —
 > six spellings refused, five near-misses (`### Results`, `##Results`,
 > `## Resultsish`) still writable, because a guard on the word rather than the
 > heading is a different and worse product.
@@ -523,7 +553,7 @@ if one appears.**
 > enum on **both** tools that carried it (`src/security/tools.ts:58`), so the
 > value is refused by the schema before `run` — it has no argument position
 > rather than a validator behind one. The marker is stamped server-side
-> regardless of what the caller asked (`src/security/tools.ts:288-291`), the same
+> regardless of what the caller asked (`src/security/tools.ts:288-294`), the same
 > move the evidence refusal two lines above already made, so the rule's
 > precondition is no longer the constrained actor's to withhold. And the detector
 > still fires on a node that arrives from outside the surface, turning `done`
@@ -541,14 +571,15 @@ if one appears.**
 > forgery needing no heading at all. B1 and B2 are one exposure with two doors,
 > and closing either alone leaves the predicate writable.
 >
-> *Way out, and it did not exist before this change:* **there was no human path
-> to `validated` anywhere in the repo.** `ost-agent result` never touches
-> `status`, no CLI command set one, and the shipped instruction for promotion
+> *Way out, and it did not exist before this change:* **no human path could
+> promote an existing node.** `ost-agent init` writes `validated` once, on the
+> human-set Outcome, and nothing moved a node there afterwards: `ost-agent result`
+> never touches `status`, no other CLI command set one, and the shipped instruction for promotion
 > (`.claude/commands/ost-review.md`) told the *agent* to do it on the human's
 > say-so — which is the discipline this criterion says must become mechanism.
 > Refusing the agent without building the human's path would have been R2 with a
 > text editor as the only remedy. `ost-agent promote "<title>" --by --why`
-> (`src/cli/index.ts:144-156` → `src/ost/results.ts:88-118`) is that path: it
+> (`src/cli/index.ts:144-157` → `src/ost/results.ts:96-127`) is that path: it
 > drops the marker *and* sets the status, because promoting without dropping it
 > would manufacture the contradiction it exists to resolve. It carries
 > `recordResult`'s attribution rules for the same reason, and it is idempotent,
@@ -564,7 +595,7 @@ the node's provenance.**
 > *Today:* **met** (2026-07-30), at the scope stated below, pinned in
 > `test/security/rung-ceiling.test.ts`. B8's ceiling is now *asked* at the write
 > boundary instead of only reported afterwards: `unearnedRung`
-> (`src/eval/rungs.ts:79-116`) was split out of the detector's loop so both
+> (`src/eval/rungs.ts:88-125`) was split out of the detector's loop so both
 > callers compute one rule, and `ost_set_evidence` evaluates the node **as it
 > will be** rather than as it sits — evaluating the stored rung would only ever
 > re-refuse nodes that are already red. `ost_create_node` carries the same guard,
@@ -586,7 +617,7 @@ the node's provenance.**
 > tells its reader to *"record one (a `## Results` section …)"*, which is right
 > for a human reading `ost_check` and would, at the write boundary, be advice to
 > the one actor forbidden to record results — naming the path B1 just closed.
-> `rungRefusal` (`src/eval/rungs.ts:118-146`) is the same verdict addressed to
+> `rungRefusal` (`src/eval/rungs.ts:135-148`) is the same verdict addressed to
 > the caller being refused. One module owns the ceiling and both of its
 > renderings; the negative is pinned.
 >
@@ -596,11 +627,22 @@ the node's provenance.**
 > change (B1, B2). What remains outside it is a human with a text editor, which
 > is the actor the gate defers to.
 >
+> **What it does not close, stated rather than left for a reader to find.** The
+> `money` half needs a result, and a result is now unforgeable. The `observed`
+> half also accepts provenance that *is* a recording — and the only string that
+> qualifies is one matching `TRANSCRIPT:`, which the agent types into
+> `ost_create_node`'s `source` as free text. **So `observed` is refused exactly
+> when the agent declines to assert a transcript, and self-conferrable when it
+> does.** That is not a hole this criterion opened — nothing anywhere verifies a
+> source string — but B7's ceiling is only as good as the provenance under it, and
+> that is **B6**'s subject: a ledger keyed on an actor, with a rung ceiling per
+> actor kind, so a claimed channel has to have earned its standing. B3 refuses the
+> label that outruns its evidence; B6 is what makes the evidence mean something.
+>
 > *Way out:* demotion, never gated, agent-reachable, no human needed — pinned as
-> clearing the violation. Above that: provenance that is itself a recording
-> (`TRANSCRIPT:`, settable at creation), or a human recording a result. Every
-> node already on disk is untouched; the guard is prospective and `rung-unearned`
-> stays a detector for the rest.
+> clearing the violation. Above that: provenance that is itself a recording, or a
+> human recording a result. Every node already on disk is untouched; the guard is
+> prospective and `rung-unearned` stays a detector for the rest.
 
 **B4 — A promotion names a corroborating result that exists and has an outcome.**
 > *Check:* three rows against a vault, each of which must be refused —
@@ -2068,7 +2110,7 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1027 tests across 99 files, verified 2026-07-30 (`npx vitest run`,
+> *Today:* **met** — 1031 tests across 99 files, verified 2026-07-30 (`npx vitest run`,
 > after F6's join test and the readiness-count pin landed). (The count this line
 > carried two revisions ago, 878 across 86, predated `8261a6f`'s deletion of the
 > genome and harness and was never updated with it — a reminder that a number in this

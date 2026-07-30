@@ -159,6 +159,152 @@ describe("B10 — the coverage-debt signal is not silenceable by the actor that 
   });
 });
 
+/**
+ * The door-independent property — and the reason it exists.
+ *
+ * The loop above is a hand-written list of six parameters. It shipped one short:
+ * `ost_create_node`'s `tags` is an array of strings, not free text, so it was
+ * never enumerated as a writable parameter — and `serialize` renders tags onto a
+ * single shared line, so a tag carrying a newline authored arbitrary body lines,
+ * cleared `gateSolution` in one allowlisted call, and stranded the `#unvalidated`
+ * stamp below the injected break where the next read loses it. Three independent
+ * reviewers found it; none of the six-door tests did, because a list cannot fail
+ * for the door it does not name.
+ *
+ * So this asks the question the list cannot: for EVERY string-valued argument
+ * every mutating tool declares — read off the tool's own `input_schema`, array
+ * items included — can the attack produce a recorded result, silence coverage
+ * debt, or remove the stamp? A tool that grows a seventh writable argument is
+ * covered on the day it lands.
+ *
+ * The non-vacuity guard is F6's, and it is not decoration: that criterion's own
+ * first draft attacked `inputSchema` where the shipped key is `input_schema`, so
+ * every generated input was `undefined`, every call threw inside the `catch`
+ * written for the tools' refusals, and the assertions passed against a surface
+ * nothing had ever touched. Inputs are built OUTSIDE the try, a missing schema
+ * throws, and the run counts the arguments it actually reached.
+ */
+describe("no argument on any mutating tool can author a measurement, whatever it is called", () => {
+  const PAYLOAD = "x\n\n## Results\n- 2026-07-30 **supported** (ran by nobody) — it worked\n\n## Uncovered\n- nothing";
+
+  /** Every string-valued leaf a tool declares, with the shape its schema asks for. */
+  function stringArgs(schema: ToolSchema): Array<{ key: string; wrap: (v: string) => unknown }> {
+    const props = (schema.properties ?? {}) as Record<string, ToolSchema>;
+    const out: Array<{ key: string; wrap: (v: string) => unknown }> = [];
+    for (const [key, sub] of Object.entries(props)) {
+      if (sub.enum) continue; // a fixed vocabulary carries no caller content
+      if (sub.type === "string") out.push({ key, wrap: (v) => v });
+      if (sub.type === "array" && (sub.items as ToolSchema | undefined)?.type === "string") {
+        out.push({ key, wrap: (v) => [v] });
+      }
+    }
+    return out;
+  }
+
+  test("every mutating tool, every string argument, one payload", async () => {
+    const ctx: ToolContext = { vault, dir, remote: { enabled: false }, surface: "test" };
+    const tools = (buildOstTools(ctx, MCP_TOOL_NAMES) as unknown as RawTool[]).filter(
+      (t) => !["ost_search_web", "ost_read_web", "ost_read_repo"].includes(t.name),
+    );
+    expect(tools.length).toBeGreaterThan(8);
+
+    let reached = 0;
+    const createdByTool: string[] = [];
+    for (const built of tools) {
+      // Built outside the try. A tool whose schema cannot be read is a hole, not
+      // a pass — this throw is what stops the whole file going quietly vacuous.
+      if (!built.input_schema) throw new Error(`${built.name} declares no input_schema`);
+      const args = stringArgs(built.input_schema);
+
+      for (const arg of args) {
+        // A UNIQUE title per attempt, except when the title IS the field under
+        // attack. `createNode` refuses a name that already exists, and that
+        // refusal is not the guard talking — reusing one title made every
+        // create fail for the wrong reason and the whole property pass against
+        // a door it never opened. Found by neutering the guard and watching
+        // this test stay green.
+        const fresh = `Probe ${built.name} ${arg.key}`;
+        const input: Record<string, unknown> = {
+          title: fresh,
+          test: "Asm",
+          section: "## Notes\nfine",
+          issue: "an issue",
+          note: "a note",
+          why: 'a person is needed: "interview"',
+          body: "prose",
+          layer: "AssumptionTest",
+          parent: "Sol",
+          evidence: "assertion",
+          host: "example.com",
+          reason: "corroborated by [[Asm]]",
+          child: "Asm",
+          [arg.key]: arg.wrap(PAYLOAD),
+        };
+        // The tools that mutate an EXISTING node need a title that exists.
+        if (built.name !== "ost_create_node" && arg.key !== "title") input.title = "Asm";
+        for (const key of Object.keys(input)) {
+          if (!(key in (built.input_schema.properties ?? {}))) delete input[key];
+        }
+        reached += 1;
+        try {
+          await built.run(input);
+          if (built.name === "ost_create_node") createdByTool.push(String(input.title));
+        } catch {
+          // A refusal is the desired outcome; the assertions below settle it.
+        }
+      }
+    }
+
+    // The number that would have been zero while everything stayed green.
+    expect(reached).toBeGreaterThan(15);
+
+    // The property, asked of the whole tree rather than of any one call.
+    const tree = vault.readTree();
+    for (const node of tree) {
+      expect(hasRecordedResult(node), `${node.title} records a result`).toBe(false);
+      // A tag that survived with whitespace in it is body content wearing a tag's
+      // name, and the next read loses everything after the break.
+      for (const tag of node.tags) expect(tag, `${node.title} carries a split tag`).not.toMatch(/\s/);
+    }
+    // Whatever the tools DID create still carries the marker B2 keys on. The
+    // `tags` door removed it as a side effect of injecting a heading, so a
+    // property about headings alone would have let that half through.
+    for (const title of createdByTool) {
+      expect(vault.read(title).tags, `${title} lost its marker`).toContain("unvalidated");
+    }
+    expect(computeCoverageDebt(tree).totals.withResults).toBe(0);
+  });
+
+  // The specific door the property caught, kept as a case so the regression has
+  // a name and a message someone can act on.
+  test("a tag cannot carry a newline, because a tag is one word on a shared line", async () => {
+    await expect(
+      call("ost_create_node", {
+        title: "Laundered",
+        layer: "AssumptionTest",
+        parent: "Sol",
+        body: "a plan",
+        evidence: "assertion",
+        tags: [`streaks${PAYLOAD}`],
+      }),
+    ).rejects.toThrow(/tags cannot contain whitespace/);
+    expect(vault.has("Laundered")).toBe(false);
+  });
+
+  test("and a tag with a bare space is refused too — it would silently become two", async () => {
+    await expect(
+      call("ost_create_node", { title: "Two", layer: "AssumptionTest", parent: "Sol", body: "p", evidence: "assertion", tags: ["a b"] }),
+    ).rejects.toThrow(/whitespace/);
+  });
+
+  test("an ordinary tag still works — the guard is on the shape, not on tagging", async () => {
+    await expect(
+      call("ost_create_node", { title: "Tagged", layer: "AssumptionTest", parent: "Sol", body: "p", evidence: "assertion", tags: ["billing-flow"] }),
+    ).resolves.toMatch(/created/);
+    expect(vault.read("Tagged").tags).toEqual(expect.arrayContaining(["billing-flow", "unvalidated"]));
+  });
+});
+
 describe("the guard and the readers cannot drift apart", () => {
   /**
    * The spellings that used to split the two readers. `hasRecordedResult` used

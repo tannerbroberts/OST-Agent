@@ -8,12 +8,14 @@
 # shell tool, and every write it makes is a new append-only git commit — so every
 # write this script can produce is revertible.
 #
-# Revertible is not the same as inconsequential. The agent can append a `## Results`
-# heading and it can set a node's status, and the tree's own gates read both: an
-# unattended pass can move a gate from BLOCKED to CLEARED with no human in the loop,
-# and whoever reads the tree next sees a cleared gate rather than an agent's claim.
-# See docs/reference/v1-readiness.md criteria B1, B2 and P10 before pointing this at
-# a tree that anyone decides from.
+# Revertible is not the same as inconsequential. The two writes the tree's gates read
+# are now refused at the boundary rather than left to the agent's discipline: the
+# `## Results` and `## Uncovered` headings cannot be authored through any tool
+# argument, and `validated` is not a status any tool accepts (criteria B1, B2, B10).
+# What is still open is the general claim rather than those two doors — nothing yet
+# enumerates the whole surface to show no single call flips a gate, which is criterion
+# P10. See docs/reference/v1-readiness.md before pointing this at a tree that anyone
+# decides from.
 #
 # Usage:
 #   OST_AGENT_DIR=/path/to/OST-Agent  examples/automation/autonomous-pass.sh  /path/to/vault
