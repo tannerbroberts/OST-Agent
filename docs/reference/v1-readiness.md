@@ -30,7 +30,7 @@ clean and the suite is green — and nothing below is about the code being broke
 It is about the difference between *a tool that works when watched* and *a system
 that can be left alone*.
 
-**75 criteria, 20 of them blockers. 70 met, 1 partial, 4 not met.** Three of the
+**75 criteria, 20 of them blockers. 71 met, 0 partial, 4 not met.** Three of the
 twenty-eight were met by *deleting* something rather than building it, which is the
 document working as intended; four more were the first Tier 1 batch, each of
 which turned a wedge into a refusal at the boundary that could still take it back.
@@ -72,7 +72,7 @@ vacuous and green.
 > grep -cE '^\*\*⛔ [A-Z][0-9]+ —' docs/reference/v1-readiness.md      # 20 blockers
 > grep -oE '^> \*Today:\*\s+\*\*[a-z, ]+' docs/reference/v1-readiness.md \
 >   | sed 's/.*\*\*//;s/^met.*/met/;s/^partial.*/partial/;s/^not met.*/not met/' \
->   | sort | uniq -c                                                  # 70 / 1 / 4
+>   | sort | uniq -c                                                  # 71 / 0 / 4
 > ```
 >
 > *Those three trailing comments read `68 / 17 / 17-3-48` until 2026-07-29 — the
@@ -2057,44 +2057,46 @@ the vault declares, and a vault declaring none never fires.**
 > *Decided by:* a verdict derived from process exit codes and a committed-delta
 > measurement, written to the run ledger by the runner — never by a tool on the
 > agent's allowlist.
-> *Today:* **partial** (2026-07-29). **The per-firing half holds:** a firing that
-> changes no commit seals `no-op`, never `healthy`, and the verdict is derived from
-> the vault's own HEAD before and after rather than from anything the agent says
-> (`computeVerdict`, `src/loop/health.ts:193-199`). A missing required phase seals
-> `unhealthy` even when every recorded step exited 0, and a firing that dies without
-> sealing is swept into a `crashed` record by the next `loop start` — so omission is
-> visible in both directions. Pinned in `test/loop/health.test.ts` and
-> `test/cli/loop.test.ts`.
+> *Today:* **met** (2026-07-30). **The per-firing half** was already the case: a
+> firing that changes no commit seals `no-op`, never `healthy`, and the verdict is
+> derived from the vault's own HEAD before and after rather than from anything the
+> agent says (`computeVerdict`, `src/loop/health.ts:193-199`). A missing required
+> phase seals `unhealthy` even when every recorded step exited 0, and a firing that
+> dies without sealing is swept into a `crashed` record by the next `loop start` —
+> so omission is visible in both directions. Pinned in `test/loop/health.test.ts`
+> and `test/cli/loop.test.ts`.
 >
-> **The escalation half does not, and it was a decision rather than an omission —
-> but the reason has since expired.** Nothing yet reacts to a *run* of `no-op`
-> firings; each is recorded honestly and the loop keeps firing. Building the counter
-> was refused because S1 — then a blocker, not met — recorded that the steady state
-> after one sweep is `done: true` forever, so a streak detector would have shipped a
-> permanent red into every existing vault on day three. A detector that latches red
-> in a repo whose normal state is the condition it detects is R2 exactly, and the
-> way an operator clears it is by deleting the cron. The ordering was the
-> criterion's, not a convenience: escalation is only meaningful once a dry firing is
-> genuinely abnormal.
+> **The escalation half closed here, and its two preconditions are why it could.**
+> S1 closed on 2026-07-30, so a dry firing is genuinely abnormal: three consecutive
+> firings with zero human input produce strictly increasing evidence on a live
+> vault, so a `no-op` streak is a vault that has actually stopped rather than a
+> quiet healthy one — the R2 hazard that refused this detector for a whole tier
+> (a permanent red in a repo whose normal state is the condition it detects) is
+> gone. D5 closed the same day, so the committed-delta the verdict turns on is
+> trustworthy: a firing refuses to begin against a dirty tree, so a stale untracked
+> file can no longer shift verdicts by one and keep a dead vault reading healthy.
+> Both were named here as preconditions; both are met.
 >
-> **S1 closed on 2026-07-30, so a dry firing is now genuinely abnormal** — three
-> consecutive firings with zero human input produce strictly increasing evidence,
-> pinned. This half is therefore unblocked and this entry is the reason it stays
-> `partial` rather than becoming met by association: the counter is not built, and
-> D5 below is still its second precondition.
+> The detector is `assessStall` (`src/loop/stall.ts`) — a fold over the ledger that
+> counts firings back to the last `healthy` one and escalates at three, exactly the
+> streak the check runs. It is surfaced on `loop seal`, the point a `no-op` used to
+> report and exit 0, and on `loop due`, the one command a cron runs every cycle
+> whose stderr it reads. Pinned unit and end-to-end in `test/loop/stall.test.ts`
+> and `test/cli/loop.test.ts`, positive control included: a firing that really
+> advances the tree seals `healthy` and clears the signal, so the detector is not
+> simply reporting failure always.
 >
-> *Two measurement hazards this half must handle when it is built, both found by
-> trying:* a streak counter that resets on any non-`no-op` record is reset by a
-> `crashed` record, and a timed-out firing is the ordinary condition in an
-> unattended cron — so a vault alternating dry-run and timeout would never escalate.
-> And a committed-delta measurement is defeated by D5: if the tree is dirty at the
-> start of a firing, the leftover is what the *next* firing's `git add -A` commits,
-> so verdicts shift by one and a single stale untracked file keeps a dead vault
-> reading healthy indefinitely. **D5 is therefore a precondition for the escalation
-> half**, which no tier recorded before this gate existed.
+> **Both measurement hazards this entry named are handled, and each has its own
+> test.** A `crashed` record does not reset the streak — only `healthy` does, since
+> only `healthy` means the tree moved — so a vault alternating dry-run and timeout
+> still escalates instead of reading never-stuck. And the committed-delta is safe
+> because D5 refuses the dirty tree that would defeat it; that refusal is a firing
+> precondition rather than a lint, for this exact reason.
 >
-> *Way out, when it lands:* escalation must not latch. It reports; it does not
-> refuse to fire.
+> *The way out landed as the entry required:* escalation does not latch. It reports
+> on stderr and leaves the firing's own exit code unchanged; the next healthy firing
+> clears the streak with no file for a human to edit, and nothing here refuses to
+> fire.
 
 **F5 — The mandate carries a stated acceptance condition, and distance from it is
 reported by something that cannot write the tree.**
@@ -2898,7 +2900,7 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1533 tests across 137 files, verified 2026-07-30 (`npx vitest run`,
+> *Today:* **met** — 1548 tests across 138 files, verified 2026-07-30 (`npx vitest run`,
 > after the earned-belief batch). (The count this line
 > carried two revisions ago, 878 across 86, predated `8261a6f`'s deletion of the
 > genome and harness and was never updated with it — a reminder that a number in this

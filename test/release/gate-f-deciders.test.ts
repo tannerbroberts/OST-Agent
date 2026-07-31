@@ -127,7 +127,7 @@ const READER_MODULES: Record<string, string> = {
  * trusted: a pure module that quietly grows a `readFileSync` is a new decider
  * input nobody enumerated.
  */
-const PURE_MODULES = ["cadence.ts", "exitLaundering.ts"];
+const PURE_MODULES = ["cadence.ts", "exitLaundering.ts", "stall.ts"];
 
 const FS_READ = /\bfs\.(readFileSync|readdirSync|existsSync|statSync|lstatSync|realpathSync|openSync)\b|\bspawnSync\b|\bexecFileSync\b/;
 

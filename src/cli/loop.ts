@@ -27,6 +27,7 @@ import type { LoopConfig } from "../config/schema.js";
 import { evaluateCadence, parseCadence } from "../loop/cadence.js";
 import { detectLaunderedExit, launderedExitMessage } from "../loop/exitLaundering.js";
 import { appendStep, readRuns, sealRun, startRun } from "../loop/health.js";
+import { assessStall } from "../loop/stall.js";
 import { acquireFiringLock, releaseFiringLock, stampFiringLock } from "../loop/lock.js";
 import { checkCeiling, measureFiring, type SpendCeiling } from "../loop/spend.js";
 import { gitHead, workingTreeStatus, type VaultTreeStatus } from "../loop/state.js";
@@ -273,6 +274,13 @@ export function registerLoopCommands(program: Command): void {
       const last = runs[0];
       console.log(last ? `last record: ${last.verdict ?? "unsealed"} at ${last.startedAt}` : "last record: none — this vault has never fired");
 
+      // The stall signal rides on `due` because this is the one command a cron
+      // runs every cycle whose output it reliably reads, and it is stated BEFORE
+      // the gates deliberately: escalation reports, it never refuses to fire, so
+      // it must not touch the decision or the exit code below. See loop/stall.ts.
+      const stall = assessStall(runs);
+      if (stall.stalled) console.error(`⚠ stalled: ${stall.reason}`);
+
       const cadence = evaluateCadence({ runs, now, cadenceMs: parseCadence(config.loop?.cadence) });
       if (cadence.ignoredFuture > 0) {
         console.error(
@@ -448,6 +456,14 @@ export function registerLoopCommands(program: Command): void {
       if (!released) {
         console.error("note: the firing lock is no longer this run's — it was broken as stale and retaken. Left alone.");
       }
+      // Seal is the exact point where a `no-op` firing reports and exits 0 —
+      // where, one at a time, a dead vault reads like a productive one. The
+      // just-sealed run is already appended, so this fold sees it. Escalation is
+      // a loud stderr line and nothing more: it does not gate the next firing and
+      // does not require a human to clear (a later healthy firing does that on its
+      // own), so it stays off the exit code, which reports THIS firing's verdict.
+      const stall = assessStall(readRuns(opts.vault));
+      if (stall.stalled) console.error(`⚠ stalled: ${stall.reason}`);
       if (sealed.verdict === "unhealthy" || sealed.verdict === "crashed") process.exitCode = 1;
     });
 }
