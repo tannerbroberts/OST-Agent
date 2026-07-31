@@ -30,7 +30,7 @@ clean and the suite is green — and nothing below is about the code being broke
 It is about the difference between *a tool that works when watched* and *a system
 that can be left alone*.
 
-**75 criteria, 20 of them blockers. 71 met, 0 partial, 4 not met.** Three of the
+**75 criteria, 20 of them blockers. 72 met, 0 partial, 3 not met.** Three of the
 twenty-eight were met by *deleting* something rather than building it, which is the
 document working as intended; four more were the first Tier 1 batch, each of
 which turned a wedge into a refusal at the boundary that could still take it back.
@@ -72,7 +72,7 @@ vacuous and green.
 > grep -cE '^\*\*⛔ [A-Z][0-9]+ —' docs/reference/v1-readiness.md      # 20 blockers
 > grep -oE '^> \*Today:\*\s+\*\*[a-z, ]+' docs/reference/v1-readiness.md \
 >   | sed 's/.*\*\*//;s/^met.*/met/;s/^partial.*/partial/;s/^not met.*/not met/' \
->   | sort | uniq -c                                                  # 71 / 0 / 4
+>   | sort | uniq -c                                                  # 72 / 0 / 3
 > ```
 >
 > *Those three trailing comments read `68 / 17 / 17-3-48` until 2026-07-29 — the
@@ -1278,15 +1278,37 @@ surfaced.**
 > *Check:* for each of the four ids in `LANES`, `grep -rn "'<id>'" src/ | grep
 > -vE 'src/knowledge/lanes\.ts|src/ost/lanes\.ts'` must name a consumer that
 > changes behaviour, not one that formats a string.
-> *Today:* **not met — including for the one lane that matters most.** Only
-> `compute-only` appears at all, in `runnableByCompute`
-> (`src/ost/lanes.ts:75-77`), whose only consumer is `triageLanes`
-> (`src/ost/lanes.ts:103`), whose `runnable` list the `lanes` CLI *prints*
-> (`src/cli/index.ts:162-166`). **Nothing anywhere executes a `compute-only`
-> test, and `ost_next_work` has no runnable-test bucket.** The taxonomy that
-> decides "compute may run this" has no runner — so the mechanism DEC-3 needs, that
-> the agent answers feasibility questions by *testing its working environment*,
-> has a vocabulary and no engine.
+> *Today:* **met** (2026-07-30). `ost_next_work` now routes every assumption test
+> with no result into its lane's bucket — `assumptionWork.{runnable,
+> awaitingOneCommand, blockedOnPermission, needsHumans}` — through a
+> `Record<LaneId, …>` disposition table in `src/mcp/next-work.ts`, so each of the
+> four lane ids drives which bucket a test lands in. That is the behavioural
+> consumer the check demands: `test/mcp/lane-consumer.test.ts` proves it by
+> input→output rather than by grep — the same tree with the test relabelled moves
+> it between buckets, exactly one bucket ever holds it, and an unlabelled test
+> falls to `needsHumans` by the fail-closed rule. `runnable` is asserted equal to
+> `runnableByCompute`, so "what compute may run" has one definition, not two. This
+> is the sort the lane vocabulary was designed for and never had — `lanes.ts` says
+> a label "lets an unattended pass run the lane that costs nobody anything, and
+> lets the rest be presented to a person already sorted by what they are actually
+> waiting on."
+>
+> **What this deliberately is not, because the boundary is the point.** It is a
+> work *surface*, not a runner that executes and records. Recording a result is a
+> `## Results` heading or a `validated` status, both writable only off the agent's
+> surface (`ost-agent result`/`promote` — B1, B2), and `/ost-pass` carries the hard
+> rule "never run tests" for the same reason those gates exist: an agent that runs
+> and records its own test is the one failure this product cannot survive. So
+> `runnable` names what an *attended* session — a human present to run
+> `ost-agent result` — may go run now; the unattended pass reads it as information,
+> pinned by the "read, do not action" step added to `.claude/commands/ost-pass.md`.
+> **The full DEC-3 mechanism — an agent that answers feasibility questions by
+> executing tests against its environment unattended — is deliberately still
+> unbuilt**, because building it means reopening B1/B2, and that trade is DEC-3's to
+> make, not this criterion's. What P3 asked for was a consumer per lane and a
+> runnable bucket in `ost_next_work`; both exist. `assumptionWork` never blocks
+> `done` (a test the agent cannot mark run cannot be a completion blocker — the
+> R2/R3 wedge), asserted in the same file.
 
 **P4 — Exactly one lane is runnable by compute, and anything unrecognised is
 not.**
@@ -2900,7 +2922,7 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1548 tests across 138 files, verified 2026-07-30 (`npx vitest run`,
+> *Today:* **met** — 1557 tests across 139 files, verified 2026-07-30 (`npx vitest run`,
 > after the earned-belief batch). (The count this line
 > carried two revisions ago, 878 across 86, predated `8261a6f`'s deletion of the
 > genome and harness and was never updated with it — a reminder that a number in this

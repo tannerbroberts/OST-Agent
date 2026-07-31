@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- **The lane vocabulary finally has a consumer: `ost_next_work` sorts every
+  assumption test by what it is waiting on (P3).** A test's lane always decided who
+  may run it, but nothing acted on that — the only reader printed a CLI list. Now
+  the tool routes each not-yet-resulted test into `assumptionWork.{runnable,
+  awaitingOneCommand, blockedOnPermission, needsHumans}`: `runnable` is the
+  compute-only bucket a session with a human present may go run and record with
+  `ost-agent result`; the other three are already sorted by whether they wait on a
+  one-command verdict, a credential, or real outside people. Unlabelled tests fall
+  to `needsHumans` by the fail-closed rule. It is a work *surface*, not a runner:
+  recording a result stays off the agent's surface (B1/B2) and the unattended pass
+  still never runs tests, so `assumptionWork` — like `openUnknowns` — never blocks
+  `done`. Autonomous test execution remains DEC-3's to decide and is deliberately
+  unbuilt; what shipped is the per-lane consumer and the runnable bucket the
+  taxonomy always implied.
+
 - **A run of firings that moves nothing now escalates, instead of reading as success
   one firing at a time (F4's escalation half).** A single `no-op` firing is ordinary
   — a cron that fires between two bits of new input finds nothing and says so. A
