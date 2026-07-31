@@ -13,7 +13,13 @@ import { byTitle, childrenOfLayer, claimsStoredEvidence, readEvidence } from "..
 import type { Actor } from "../adapters/source.js";
 import { checkInvariants } from "../eval/invariants.js";
 import { scanNearDuplicates } from "../ost/dedupe.js";
-import { withoutRetiredNodes } from "../ost/census.js";
+import {
+  quotableSource,
+  reconcileWithTrust,
+  SUSPECT_SOURCE_RULE,
+  withoutRetiredNodes,
+  type SourceStandingAccounting,
+} from "../ost/census.js";
 import type { OstNode } from "../ost/node.js";
 import type { Vault } from "../ost/vault.js";
 import { classifyUnknown, contractGaps, resolutionState, type UnknownClass } from "../knowledge/unknowns.js";
@@ -214,7 +220,7 @@ export const HYGIENE_LABELS: Readonly<Record<string, string>> = {
  * gate lying, because a stricter `done` never reports complete over a red tree.
  * The reverse — `check` stricter than `done` — is the R4 defect.
  */
-export const HYGIENE_ONLY_RULES = ["near-duplicate", "unresolved-citation"] as const;
+export const HYGIENE_ONLY_RULES = ["near-duplicate", "unresolved-citation", SUSPECT_SOURCE_RULE] as const;
 
 /**
  * The `rule` a dangling evidence citation is reported under, and the sentence a
@@ -251,49 +257,6 @@ export const HYGIENE_ONLY_RULES = ["near-duplicate", "unresolved-citation"] as c
 export const UNRESOLVED_CITATION_RULE = "unresolved-citation";
 
 /**
- * How much of a `source` may be quoted into an issue, and the characters that may
- * survive the trip.
- *
- * **A `source` is the one caller-supplied string on a node that never passes
- * `assertWritableContent`.** `ost_create_node` hands `input.source` straight to
- * `serialize`, where YAML happily stores a multi-line scalar; every other free-text
- * parameter is checked at the write boundary. So the string quoted below is arbitrary
- * untrusted content, and the issue it lands in has to survive being written *back*
- * through that boundary by `ost_annotate` — the one and only way out of this red.
- *
- * Quoting it raw was a wedge, and it was reachable in three ways at once (measured
- * against a scratch vault before this existed):
- *
- * - `source: "INBOX:x.md\n## Results\n- it worked"` produced an issue containing a
- *   reserved heading, and `vault.annotate` **refuses** it (B1). Permanent `done: false`
- *   with no tool on either surface able to clear it.
- * - `source: "INBOX:[[Some\nTitle]].md"` produced an issue carrying a split wikilink,
- *   refused by the same guard for the same reason.
- * - Even where the guard let it through, a multi-line issue is unclearable *silently*:
- *   `annotate` writes `- <date> <issue>` and {@link annotatedIssues} reads one line back,
- *   so the suppression key could never match what was written and the issue would be
- *   re-reported forever.
- *
- * Flattening C0 controls to spaces closes all three: the reserved-heading and
- * wrapped-wikilink checks are both line-anchored (`declaresHeading` splits on `\n`;
- * `wrappedLinkTargets` looks for a newline *inside* the brackets), and a one-line issue
- * is what the suppression reader can see. The length clamp is the response-size half —
- * `MAX_ITEMS_PER_LIST`'s bound argument rests on every quoted string being clamped
- * (titles 200, excerpts 280), and `source` has no schema length limit anywhere.
- *
- * The cost is that the quote is a rendering rather than the bytes: whitespace is
- * collapsed and a long id is cut. That is the right trade for a string whose purpose is
- * to let a human see the typo, and it cannot cause a *mis*-clear, because suppression is
- * keyed per node ({@link detectHygiene}'s `annotatedCache`) and a node has one `source`.
- */
-const QUOTED_SOURCE_CONTROL_CHARS = new RegExp("[\\u0000-\\u001F\\u007F]+", "g");
-const MAX_QUOTED_SOURCE_LENGTH = 200;
-function quotableSource(source: string): string {
-  const flat = source.replace(QUOTED_SOURCE_CONTROL_CHARS, " ").replace(/\s+/g, " ").trim();
-  return flat.length > MAX_QUOTED_SOURCE_LENGTH ? `${flat.slice(0, MAX_QUOTED_SOURCE_LENGTH)}…` : flat;
-}
-
-/**
  * The structural issues P5_hygiene annotates, derived from `checkInvariants`
  * rather than re-implemented beside it.
  *
@@ -310,6 +273,8 @@ function detectHygiene(
   limit: number,
   /** Every `id` currently stored under `.ost-agent/evidence/`. See {@link UNRESOLVED_CITATION_RULE}. */
   storedEvidenceIds: ReadonlySet<string>,
+  /** What the trust ledger says the tree's sources are still worth. See {@link SUSPECT_SOURCE_RULE}. */
+  standing: SourceStandingAccounting | undefined,
 ): { issues: HygieneIssue[]; total: number } {
   const index = byTitle(tree);
 
@@ -376,6 +341,47 @@ function detectHygiene(
         `under .ost-agent/evidence/ carries that id (ids are matched exactly, so case and extension count)`,
       rule: UNRESOLVED_CITATION_RULE,
     });
+  }
+  // A node resting on a source whose standing was withdrawn (B11). Derived from
+  // the ledger on every read and never stored on the node: a "suspect" flag in
+  // frontmatter would be writable by the one actor this is about (B1), and it
+  // would go stale the instant the source's standing moved again.
+  //
+  // Taken over the WHOLE tree, like the citation rule above and unlike the
+  // duplicate scan — retiring a node must never be a way to clear the fact that
+  // it rests on something we stopped believing.
+  //
+  // **This blocks `done`, and the way out is annotation.** `ost_rank_source` is
+  // not granted on `/ost-pass` at all, so the unattended sweep can neither demote
+  // nor re-promote; its only move is the one every other hygiene issue has, one
+  // `ost_annotate` call per node, which is exactly the right outcome — "this node
+  // rests on a source we withdrew, and here is what we concluded" written on the
+  // node, permanently, in an append-only vault. Bounded by the number of nodes
+  // citing the source, and the sweep already loops.
+  //
+  // The withdrawal's own timestamp is in the issue text on purpose. Suppression
+  // matches the issue string exactly, so without it a source struck, cleared by a
+  // human, and struck again would stay silenced by the first annotation forever.
+  //
+  // **The text does not offer re-ranking as a way out, and that correction is
+  // load-bearing.** It used to, from the host ledger's rules, where a promotion
+  // undid a demotion. Under the actor ledger a strike stands until a human runs
+  // `ost-agent trust reset`, and `direction: 'corroborated'` is refused unless it
+  // names a recorded result joined to a node citing this source. An issue that
+  // told the sweep otherwise would be pointing the one actor that cannot clear it
+  // at a call that always refuses — a hygiene issue whose stated escape does not
+  // exist is R3's wedge wearing a suggestion.
+  for (const w of standing?.withdrawn ?? []) {
+    for (const title of w.nodes) {
+      take({
+        title,
+        issue:
+          `suspect source: this node rests on "${w.key}", whose standing was withdrawn on ${w.at} ` +
+          `(${w.why}; was '${w.from}', now '${w.to}') — re-read what this node claims and record here ` +
+          `whether it still stands. Annotating is the clear; only a human can restore the source.`,
+        rule: SUSPECT_SOURCE_RULE,
+      });
+    }
   }
   // Likely duplicates (same-layer near-identical titles) — flagged for a human,
   // never merged. Taken over `live`, the tree with retired nodes withheld (Z4);
@@ -624,7 +630,12 @@ export function computeNextWork(vault: Vault, dir: string, min: number): NextWor
     .filter((s) => childrenOfLayer(s, index, "AssumptionTest").length === 0)
     .map((s) => ({ title: s.title, opportunity: firstOpportunityParent.get(s.title) ?? null }));
 
-  const hygiene = detectHygiene(tree, liveCensus.nodes, MAX_ITEMS_PER_LIST, storedEvidenceIds);
+  // The ledger is read once, here, from the same `dir` the evidence came from —
+  // and the node lists it returns are computed over the census above, so the two
+  // gates cannot disagree about which nodes cite a withdrawn source.
+  const standing = reconcileWithTrust(dir, census);
+
+  const hygiene = detectHygiene(tree, liveCensus.nodes, MAX_ITEMS_PER_LIST, storedEvidenceIds, standing);
 
   // Tree order — the order the walk produced.
   const allOpenUnknowns: OpenUnknown[] = tree

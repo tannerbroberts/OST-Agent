@@ -44,6 +44,23 @@ export const UNCOVERED_HEADING = "## Uncovered";
  */
 export const RESERVED_HEADINGS: readonly string[] = Object.freeze([RESULTS_HEADING, UNCOVERED_HEADING]);
 
+/**
+ * The closed set of words a `## Results` line may record.
+ *
+ * The vocabulary lives beside the heading rather than beside the CLI that writes it
+ * because two modules read it from opposite ends — `ost/results.ts` validates a filing
+ * on the way in, `knowledge/actor-trust.ts` reads a verdict back out to score the actor
+ * the result is about — and this is the only file both can import without a cycle.
+ * `results.ts` re-exports it, so the writer's spelling is unchanged.
+ *
+ * It is closed for the same reason `RESERVED_HEADINGS` is: a verdict that can be any
+ * string is a verdict a source's standing cannot be computed from. `inconclusive` is a
+ * member so that a run which settled nothing has somewhere to land other than silence.
+ */
+export const VERDICTS = ["supported", "refuted", "inconclusive"] as const;
+
+export type Verdict = (typeof VERDICTS)[number];
+
 /** `## Results` → `Results`. The constants carry the marker so call sites read as the heading they mean. */
 function headingName(heading: string): string {
   return heading.replace(/^#+\s*/, "");

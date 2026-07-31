@@ -21,12 +21,16 @@ answered "already stored" when it meant "not stored" is exactly what let the cur
 mark an unstored report as delivered — and again after **W2 and W3 closed together**,
 which is the first criterion here whose detector had to be a third instrument: the walk
 and git both go blind on the same file, because the `git add -A` every mutating call
-runs has already reconciled the index the walk would be compared against. `tsc --noEmit` is
+runs has already reconciled the index the walk would be compared against — and again
+after **Gate B's earned half closed**: B5, B6, B11, B12 and P5 in one batch, which
+replaced a store where the agent wrote the rung it wanted with a ledger where no
+record carries a rung at all and standing is a fold over what an actor's claims
+predicted and what human-recorded tests then found. `tsc --noEmit` is
 clean and the suite is green — and nothing below is about the code being broken.
 It is about the difference between *a tool that works when watched* and *a system
 that can be left alone*.
 
-**75 criteria, 20 of them blockers. 65 met, 1 partial, 9 not met.** Three of the
+**75 criteria, 20 of them blockers. 70 met, 1 partial, 4 not met.** Three of the
 twenty-eight were met by *deleting* something rather than building it, which is the
 document working as intended; four more were the first Tier 1 batch, each of
 which turned a wedge into a refusal at the boundary that could still take it back.
@@ -68,7 +72,7 @@ vacuous and green.
 > grep -cE '^\*\*⛔ [A-Z][0-9]+ —' docs/reference/v1-readiness.md      # 20 blockers
 > grep -oE '^> \*Today:\*\s+\*\*[a-z, ]+' docs/reference/v1-readiness.md \
 >   | sed 's/.*\*\*//;s/^met.*/met/;s/^partial.*/partial/;s/^not met.*/not met/' \
->   | sort | uniq -c                                                  # 65 / 1 / 9
+>   | sort | uniq -c                                                  # 70 / 1 / 4
 > ```
 >
 > *Those three trailing comments read `68 / 17 / 17-3-48` until 2026-07-29 — the
@@ -596,9 +600,12 @@ retry.**
 > unmapped record (`src/mcp/next-work.ts:31`), pinned end-to-end through the live
 > MCP surface in `test/mcp/ingest-inbox.test.ts`. That is deliberate: **B12 names
 > "an `actor` field no reader consumes" as this criterion's way of passing while
-> the chain stays broken.** It is not the whole join. Nothing yet derives a
-> provenance floor from the actor — `classifyProvenance` still keys on the id
-> string — so B12 stays not met, and its first link is now the one that holds.
+> the chain stays broken.** It was not the whole join when this closed, and it is
+> now: B5 and B6 made the stamped actor the key of the trust ledger, so the ceiling
+> a node's provenance is held to is derived from the identity this criterion
+> records rather than from the id string. B12 — the end-to-end assertion that the
+> identity stamped here is the one the ceiling comes from and the write boundary
+> enforces — closed on 2026-07-30.
 
 **W12 — "Mapped" has one writer and one reader, and a citation must resolve.**
 > *Check:* (a) `grep -rn 'setMapped\|getMapped' src/` shows a writer with a
@@ -870,28 +877,40 @@ the node's provenance.**
 > prospective and `rung-unearned` stays a detector for the rest.
 
 **B4 — A promotion names a corroborating result that exists and has an outcome.**
-> *Check:* three rows against a vault, each of which must be refused —
-> `ost_rank_source({host:'example.com', rung:'expert', reason:'corroborated by
-> [[No Such Test]]'})`; the same with `reason:'looks solid'` (names no node);
-> and the same with `reason:'corroborated by [[Real Test]]'` where Real Test
-> exists but carries no `## Results`. (`host` is required and
-> `additionalProperties: false`, `src/security/tools.ts:505-518` — omitting it
+> *Check:* four rows against a vault, each of which must be refused —
+> `ost_rank_source({kind:'web', id:'example.com', direction:'corroborated',
+> reason:'corroborated by [[No Such Test]]'})`; the same with `reason:'looks solid'`
+> (names no node); the same with `reason:'corroborated by [[Real Test]]'` where Real
+> Test exists but carries no `## Results`; and the same where Real Test carries one
+> but was never a test *of this source*. (All four keys are required and
+> `additionalProperties: false`, `src/security/tools.ts:966-993` — omitting one
 > throws for the wrong reason and proves nothing.)
-> *Today:* **met** (2026-07-29). `checkCorroboration`
-> (`src/eval/corroboration.ts:73-108`) requires the reason to RESOLVE — it names
-> nodes as `[[wikilinks]]`, at least one is on the tree, and that one satisfies
-> `hasRecordedResult` — and `ost_rank_source` calls it before `rankHost`
-> (`src/security/tools.ts:519-527`), so a refused promotion writes nothing to the
-> ledger. All three rows are pinned, through the tool rather than against the
-> function, in `test/security/rank-source-corroboration.test.ts:47-64`; the
-> no-write-on-refusal row is at `:66-71`.
+> *Today:* **met** (2026-07-29; the fourth row added 2026-07-30 with B5).
+> `checkCorroboration` (`src/eval/corroboration.ts:73-108`) requires the reason to
+> RESOLVE — it names nodes as `[[wikilinks]]`, at least one is on the tree, and that
+> one satisfies `hasRecordedResult` — and `ost_rank_source` calls it before touching
+> the ledger (`src/security/tools.ts:1031-1036`), so a refused corroboration writes
+> nothing. All four rows are pinned through the tool rather than against the
+> function, in `test/security/rank-source-corroboration.test.ts:90-118`; the
+> no-write-on-refusal row is at `:119-123`.
+>
+> **The fourth row is the one that closed the replay, and it did not exist when this
+> criterion first read met.** Naming *any* already-supported test satisfied the
+> first three, so the agent could hitch a source it chose onto a result somebody
+> else's test produced. The join `joinedTests`
+> (`src/knowledge/actor-trust.ts:337`) requires the cited test to sit one level from
+> a node whose own `source` resolves to this actor — the same one-level relation
+> `gateSolution` and `unearnedRung` already mean by "a result for a node", reused so
+> a grandchild's result cannot launder standing two layers up.
 >
 > Three scope limits, each recorded because each is a place this could have
 > become a wedge instead of a guard:
-> - **Only promotions are held to it** (`src/eval/corroboration.ts:77`). Demotion to the
->   floor stays free and is pinned as such (test `:95-98`). A guard that
->   demanded paperwork before the agent could stop trusting a bad host would
->   point at the safe direction — B11's failure mode is the expensive one.
+> - **Only promotions are held to it** (`src/eval/corroboration.ts:77`). Withdrawal
+>   stays free — `direction: 'contradicted'`, no citation, one call — and is pinned
+>   as such (`test/security/rank-source-corroboration.test.ts:156-172`). A guard
+>   that demanded paperwork before the agent
+>   could stop trusting a bad host would point at the safe direction; B11's failure
+>   mode is the expensive one.
 > - **"Has an outcome" is `hasRecordedResult`, reused rather than restated**
 >   (`src/eval/corroboration.ts:91`). That predicate was forgeable when this
 >   criterion closed, which was **B1's** business and not this one's: B4 closed
@@ -900,12 +919,17 @@ the node's provenance.**
 >   a line changing here — reuse rather than restatement is what collected that.
 >   The residue is now the same one every criterion in this gate has: a human
 >   with a text editor.
-> - **An unrecognized rung stays `rankHost`'s refusal**, so a `money` promotion
->   still names the ceiling rather than complaining about wikilinks
->   (pinned, test `:103-107`). `isHostRung` was exported
->   (`src/knowledge/web-trust.ts:31-33`) and both sites now call it, so the two
->   spellings of one membership test cannot drift — R4's lesson, applied at the
->   moment a second caller appeared.
+> - **A rung is no longer namable here at all**, which retired this bullet's original
+>   worry rather than answering it. The tool takes a `direction`, not a rung, so
+>   there is no `money` promotion to refuse for the wrong reason. What survives is
+>   the membership test `checkCorroboration` uses to decide whether a change is a
+>   raise (`isHostRung`, `src/knowledge/web-trust.ts:41-43`), passed the guard's own
+>   word for one; the guard's refusal text is then re-addressed to the actor being
+>   raised rather than to a rung nobody named (`src/security/tools.ts:1036`).
+>   **An id the namespace refuses complains about the namespace, not about
+>   corroboration** — the wrong *thing* named before the wrong *permission* — and
+>   that ordering is a committed row
+>   (`test/security/rank-source-corroboration.test.ts:173-191`).
 >
 > The check shape it followed already existed twice: `ost_create_node` resolves a
 > parent through `vault.has()` and refuses a wrong-layer one
@@ -914,36 +938,80 @@ the node's provenance.**
 
 **B5 — A source's rung is a *function* of its recorded track record, not an
 independently settable field.**
-> *Check:* (a) `grep -n 'predict\|outcome\|score' src/knowledge/web-trust.ts` is
-> empty and `HostTrustRecord` (`:35-42`) declares no such field. (b) every
-> consumer of `readHostTrust` derives a rung from history rather than reading
-> `rec.rung` verbatim — today `hostRung` (`:101-104`) returns the stored value
-> directly.
-> *Today:* **not met.** `hosts.jsonl` stores a current rung plus free-text prose.
-> No prediction field, no outcome field, no scoring function, no reader that
-> computes anything from history — and now no precedent either: the only
-> prediction/outcome/score triple in the repo was the harness answer key, deleted
-> with the genome (`8261a6f`). Worth recovering from that history is the one
-> sentence it got right — its fitness function *refused* to score
-> `resolutionState`, because that heading is "one allowlisted
-> `ost_append_to_node` away." That refusal is the argument for this whole gate.
-> The storage shape to copy is `web-trust.ts` (append-only jsonl, last-record-wins,
-> ceiling-enforced, `by` stamped by the surface), keyed on an actor rather than a
-> hostname — see B6.
+> *Check:* (a) no variant of the ledger's record type declares a `rung`, asserted
+> against the type rather than grepped. (b) every function in `src/` that hands
+> back a rung folds a whole history to get it — equivalently, `grep -rn 'hostRung\|
+> readHostTrust\|rankHost' src/` is empty.
+> *Today:* **met** (2026-07-30), both halves, pinned by
+> `test/knowledge/trust-derivation.test.ts:48-128`. The live ledger is
+> `src/knowledge/actor-trust.ts`, and the two properties are carried by types
+> rather than by review: `TrustObservation` (`:372-397`) has four variants —
+> `corroboration`, `strike`, `reset`, `migration` — and **none of them has a rung
+> field**, so a record that asserts standing is unrepresentable; and
+> `readTrustLedger` (`:494`) returns *histories* rather than a last-record-wins map,
+> so there is no stored current value for a consumer to read. `explainRung`
+> (`:587`) is the only thing in the repo that turns a history into a rung.
+>
+> **The scoring rule, because "computed" is not the same as "computed sensibly".**
+> Any strike or any refuted verdict sends an actor to the floor, immediately and
+> absolutely; otherwise standing rises by **distinct supporting tests** — the kind's
+> starting rung, one rung above at the first, the kind's ceiling at
+> `CORROBORATIONS_FOR_CEILING` (`:530`, three). *Distinct tests, never a ratio*, and
+> that is B11's sentence turned into arithmetic: under a ratio, a channel that
+> delivers plausible wrong content on cadence has a numerator. Fifty nodes citing
+> one host under one test are worth one observation. `inconclusive` scores nothing
+> in either direction, because punishing the honest third answer pushes whoever
+> records a result toward a verdict they do not have. No decay and no
+> time-weighting, so "why is this host at expert?" is answerable without a clock.
+>
+> **The asymmetry is the safety argument, and it is why this closed without a new
+> forgeable predicate.** The agent can append only records that LOWER standing —
+> `direction: 'contradicted'`, ungated, one call, no citation. Credit is minted only
+> where the verdict is read off a test a human recorded under `## Results`, which B1
+> made unauthorable; the caller never supplies the verdict, `recordedVerdict`
+> (`:317`) reads it. So falling is one tool call and rising back from a strike takes
+> a human (`ost-agent trust reset`). **Naming a refuted test therefore lowers the
+> source that cited it** — the one behaviour that makes this a track record rather
+> than an applause meter.
+>
+> *The old store is not deleted, and that is deliberate.* `web-trust.ts` is now a
+> hundred-line read-only shim (`src/knowledge/web-trust.ts:1-25`) whose only live
+> caller is `migrateLegacyHostTrust` (`src/knowledge/actor-trust.ts:767`). It reads
+> `hosts.jsonl` in **file order** rather than last-record-wins, because the old fold
+> collapsed the one distinction the migration needs: a host sitting at `assertion`
+> having never been promoted is nothing to migrate, and one that was demoted there
+> is a strike. The file is never rewritten or deleted, so a vault rolled back to an
+> earlier version still finds its trust history where it left it.
 
 **B6 — The trust ledger is keyed on an actor, with a rung ceiling per actor
 kind.**
-> *Check:* (a) `HostTrustRecord` (`src/knowledge/web-trust.ts:35-42`) carries a
-> `kind`/`actor` discriminator. (b) a first-party commissioned pipeline can hold
-> `observed`, i.e. the rung vocabulary is not `HOST_RUNGS` for every actor.
-> *Today:* **not met — and note the naïve check passes, which is the trap.**
-> `rankHost(dir, {host:'stripe-webhook-feed', rung:'expert', …})` *succeeds*
-> *(verified)*: `normalizeHost` (`:49-55`) is a no-op on a bare string. So a
-> commissioned pipeline and a real hostname collide in one namespace, and
-> `HOST_RUNGS` (`:20`) caps *every* actor at `expert` — including one whose
-> standing DEC-2 says is earned by measurement, which is exactly what `expert` is
-> the ceiling *against*. Under DEC-2 this is the central missing data structure, and
-> `web-trust.ts` is the right shape keyed wrongly.
+> *Check:* (a) `rankHost({host:'stripe-webhook-feed', rung:'expert'})`'s successor
+> call is refused — a bare pipeline name cannot take a row in the publisher
+> namespace. (b) a first-party commissioned instrument can hold `observed` and a web
+> publisher cannot, no matter how much corroboration it accumulates.
+> *Today:* **met** (2026-07-30), pinned by `test/security/actor-namespace.test.ts`.
+> An actor is an `ActorKey` — a `{kind, id}` pair (`src/knowledge/actor-trust.ts:72`)
+> whose `kind` comes from a closed union (`:64`) and whose `id` is normalized *per
+> kind* by a constructor that refuses rather than coerces (`actorKey`, `:196`). The
+> `web` namespace admits only something shaped like a hostname (`:150`), so
+> `stripe-webhook-feed` — the trap this criterion was filed on — has nowhere to land
+> in it. Ceilings are a table (`TRUST_CEILINGS`, `:110`): `expert` for a publisher,
+> `stated` for a delivery channel or the sponsor, `observed` for a first-party
+> instrument. A byline can never confer a measurement rung and an instrument is not
+> capped at one; both halves of the old collision are unrepresentable.
+>
+> **`ost_rank_source` no longer takes a rung, and that is the shape of the fix
+> rather than a side effect.** The tool takes `{kind, id, direction, reason}`
+> (`src/security/tools.ts:964-993`) and the namespace refusal comes from the
+> constructor first, before the permission check — the wrong *thing* named is
+> reported before the wrong *permission*, so a bad id complains about the namespace
+> rather than about what the surface may write.
+>
+> *What it costs, stated:* a starting rung is per kind too (`TRUST_INITIAL`, `:119`),
+> and an instrument starts at `observed` rather than at the floor. A commissioned
+> first-party measuring device that has recorded nothing is trusted as a measuring
+> device. That is the claim the operator makes by declaring it an instrument at all,
+> and it is the one place in this gate where standing is granted rather than earned.
 
 **B7 — `classifyProvenance` has a production caller.**
 > *Check:* `grep -rn 'classifyProvenance' src/ --include=*.ts | grep -v
@@ -981,11 +1049,15 @@ source and results support.**
 > re-introducing.
 >
 > **The rule was already written down twice, in prose, addressed to the model.**
-> `ost_rank_source`'s description and `web-trust.ts` both say
+> When this closed, `ost_rank_source`'s description and `web-trust.ts` both said
 > `observed`/`money` "can only be earned by first-party measurement
-> (AssumptionTests + `ost_set_evidence`), never by a byline"
-> (`src/security/tools.ts:504`, `src/knowledge/web-trust.ts:62`) — in the two
-> places where the model is the actor being constrained. This computes it: a
+> (AssumptionTests + `ost_set_evidence`), never by a byline" — in the two places
+> where the model is the actor being constrained. Both are now *data* rather than
+> prose: B5 and B6 turned the second into `TRUST_CEILINGS`
+> (`src/knowledge/actor-trust.ts:110`), whose table says the same thing in a form the
+> scorer reads, and the tool description that remains
+> (`src/security/tools.ts:966`) describes that table instead of asking the model to
+> honour it. This criterion computes it on the node side: a
 > measurement rung has to point at a measurement, which is either a recorded
 > result (the node's own `## Results`, or one on a node it links to) or provenance
 > that *is* a recording (`classifyProvenance` → `observed`, i.e. `TRANSCRIPT:`).
@@ -1073,18 +1145,39 @@ the debt.**
 as suspect.**
 > *Check:* record a demotion for source S, then assert `ost_check` names every
 > node whose `source` is S.
-> *Today:* **not met, and nothing exists to build on.** There is **no belief
-> revision mechanism at all** — no retract, supersede, quarantine, or re-open, for
-> a node or an evidence record. `grep -E 'retract|supersede|invalidat|quarantin'`
-> over `src/` returns four hits: one mechanism
-> (`src/runner/set-outcome.ts:55`, the human-only CLI's mandate history line) and
-> three prose entries in `OST_RULESET` (`src/knowledge/ruleset.ts:57`, `:103`,
-> `:134`) that *tell the model* to re-chart an invalidated branch while providing
-> no tool that does it. No invariant reads `source` at all. Under DEC-2 a source that
-> can earn standing must be able to lose it, and losing it is worthless if the
-> tree cannot mark what it already seeded. **This is the harder half of DEC-2 —
-> silence is the failure mode everyone plans for; a channel that keeps delivering
-> plausible, wrong content on cadence is the one that costs money.**
+> *Today:* **met** (2026-07-30). The Check is committed as written — demote through
+> the real tool, then read the report — in
+> `test/eval/suspect-source.test.ts:156-292`, with the operator-facing half in
+> `test/mcp/suspect-source-work.test.ts`. `withdrawnStanding`
+> (`src/ost/census.ts:515`) reads a *transition* rather than a state: an actor that
+> once stood above the floor and now stands at it, which is either a strike or a
+> refuted verdict. `reconcileWithTrust` (`:595`) then names every node whose own
+> `source` resolves to that actor, and the issue carries the source, both rungs and
+> the withdrawal's own date, so the operator can see what changed and when.
+>
+> **The resolution of "reported as suspect" is the whole design decision here.** A
+> withdrawn source does *not* raise a `checkInvariants` violation. It is a
+> hygiene-only rule (`SUSPECT_SOURCE_RULE`, `src/ost/census.ts:430`, listed in
+> `HYGIENE_ONLY_RULES`, `src/mcp/next-work.ts:223`), which turns `done` false
+> without reddening `check`. The reason is R4's, inverted: a violation is a
+> statement that the tree's *shape* is wrong, and nothing about this tree's shape is
+> wrong — a source it rests on stopped being trustworthy, which is a report about
+> the world. Making it an invariant would red a vault permanently for a fact the
+> tree cannot fix, and `check` stricter than `done` is the defect this document was
+> built to stop re-introducing; `done` stricter than `check` is the safe direction.
+>
+> *Way out, and there is exactly one the unattended sweep has:* annotate the node.
+> That is deliberate — `/ost-pass` cannot rank a source, so annotation is its only
+> exit, and it is the exit that leaves a dated line a human can read. A
+> corroboration does **not** clear it: the agent cannot vote a struck source back
+> up. A human's `ost-agent trust reset` clears it everywhere at once, writing
+> nothing to any node. And a *second* withdrawal is reported again past the first
+> one's annotation, so re-affirmed bad news is new information rather than
+> already-suppressed news. All five are committed rows.
+>
+> *Non-vacuity, since a rule that names everything names nothing:* a node citing a
+> source that kept its standing is not named, an `inconclusive` verdict withdraws
+> nothing, and a vault with no ledger at all is unaffected.
 
 **B12 — A report is ranked at the boundary it arrives on, and the rank is derived
 from the channel rather than from anything the producer wrote.**
@@ -1097,30 +1190,46 @@ from the channel rather than from anything the producer wrote.**
 > the channel and not from the payload's self-description (B7); `ost_set_evidence`
 > refuses above that ceiling and names it (B3); and the ceiling comes from a ledger
 > keyed on the actor rather than on a hostname (B6).
-> *Today:* **not met, with the first link now built** — and the reason this is a
-> criterion rather than a summary of four others is that **each of W11, B7, B3 and
-> B6 can pass in isolation while the chain stays broken.** Nothing asserts that the
-> identity W11 stamps is the one B7 classifies and B3 enforces; B7 can acquire a
-> caller on a path `ost_set_evidence` never takes. W11 closed on 2026-07-30, so a
-> stored record's actor now reads `inbox` and one reader consumes it — that is this
-> check's first assertion and nothing more. The rung is still derived from the id
-> string rather than from that identity, which is the next link and is B7's.
+> *Today:* **met** (2026-07-30), pinned by `test/mcp/b12-ingest-to-rank.test.ts` —
+> **one `test()` running the whole pass, not four assertions about four modules**,
+> because the reason this is a criterion rather than a summary of its neighbours is
+> that each of W11, B7, B3 and B6 can pass in isolation while the chain stays
+> broken. A conjunction of unit tests is precisely what lets that happen silently.
+> The note that arrives lies about itself in the strongest way the format allows —
+> its own frontmatter declares `source: TRANSCRIPT:session-1`, `evidence: money` and
+> `actor: transcript` — and not one of those is believed.
 >
-> The chain's current state is worse than unbuilt at the one place it is
-> half-built. `classifyProvenance` is fail-closed everywhere except for a single
-> `INBOX:` pattern, and that pattern is keyed on a substring of the producer's own
-> filename: `classifyProvenance("INBOX:friction-report.md")` returns `stated` while
-> `classifyProvenance("INBOX:note.md")` returns `assertion`
-> (`src/knowledge/believability.ts:129`), and the id is `INBOX:${filename}`
-> verbatim (`src/adapters/inbox.ts:36-38`) *(verified)*. The rule is not a mistake
-> — it exists so the agent's own friction filings, which land in the inbox as
-> `<date>-friction-<slug>.md` (`src/adapters/friction.ts:101`), are classified as
-> first-person reports. But under DEC-1 the inbox is written by the untrusted
-> builder, and **the sole provenance rule that rises above the floor on the
-> builder's only channel reads a string the builder chooses.** That is B6's
-> diagnosis in a second place: the right shape, keyed on something unauthenticated.
-> Not a blocker on its own — it carries B3's status by reference, as P10 carries
-> B1's — but it is the criterion that fails if the tier is built and not connected.
+> **Every link was mutation-tested, and the mutation and its failure text are
+> recorded in the test's own header.** Stamping the payload's claimed actor instead
+> of the surface's makes the derived key `instrument:transcript`, which *starts* at
+> `observed`, so the note talks its way onto the measuring-device ceiling — RED.
+> Deriving the ceiling from the id string instead of the stamped actor's history
+> makes three recorded results invisible, so `stated` stays refused after the
+> channel has earned it — RED. Deleting the ceiling check from `ost_set_evidence`
+> writes `stated` onto a node whose channel has earned nothing — RED. Keying the row
+> by stripping the prefix and handing the remainder to the `web` namespace — B6's
+> original bug seen from this end — makes the corroborations recorded against
+> `channel:inbox` invisible — RED. A link whose break leaves the test green is a
+> link the test is not exercising, and none of these did.
+>
+> **The half-built place this entry used to describe is closed, and the fix is a
+> key rather than a rule.** `classifyProvenance` was fail-closed everywhere except a
+> single `INBOX:` pattern keyed on a *substring of the producer's own filename* —
+> `/^INBOX:.*friction/i`, matched anywhere in an id that is `INBOX:${filename}`
+> verbatim, so `my-notes-on-friction.md` dropped into channel zero classified as a
+> first-person report. It is now keyed on the leading channel segment
+> (`/^INBOX:friction\//i`, `src/knowledge/believability.ts:143`), which
+> `channelIdPrefix` mints from the channel's own name. A filename cannot contain a
+> slash, `friction` is a reserved channel name so config cannot mint a second one,
+> and the friction folder is inside the vault where the builder does not write — so
+> channel zero has no spelling that reaches the rule. Same rule, unforgeable key.
+>
+> *The cost is stated rather than hidden:* a filing made before the friction channel
+> existed lives in channel zero as `INBOX:<date>-friction-<slug>.md` and now reads
+> `assertion`. That is the honest answer, since such an id is byte-for-byte
+> something the builder could have written, and it is a committed assertion in
+> `test/adapters/friction-channel.test.ts` so the regression is a decision somebody
+> made rather than a surprise somebody finds.
 
 ---
 
@@ -1156,11 +1265,14 @@ surfaced.**
 > that "assumes it has forever" and cannot see that it asked for a signature 40
 > days ago will either re-ask forever or route around the ask — and the lane will
 > still read `pending-permission`, which looks like the system working. The file
-> shape is already in the repo: append-only JSONL under `.ost-agent/`,
-> last-record-wins, surface-stamped attribution
-> (`src/knowledge/web-trust.ts:32-90`). **Ask latency is the one genuinely
-> sponsor-specific measurement** — the rest of the sponsor relationship is B5 and
-> B6 applied to one actor.
+> shape is already in the repo, and B5 sharpened it: append-only JSONL under
+> `.ost-agent/`, read as a *history* rather than last-record-wins, with attribution
+> stamped by the surface (`src/knowledge/actor-trust.ts:405-520`). **Ask latency is
+> the one genuinely sponsor-specific measurement** — the rest of the sponsor
+> relationship is B5 and B6 applied to one actor, and that half closed on
+> 2026-07-30 (P5). What is left is exactly the part a ledger of outcomes cannot
+> see: an ask that is never answered records nothing, so silence has to be measured
+> by a clock rather than scored by a fold.
 
 **P3 — Every lane has a behavioural consumer.**
 > *Check:* for each of the four ids in `LANES`, `grep -rn "'<id>'" src/ | grep
@@ -1184,13 +1296,28 @@ not.**
 > `test/security/lane-capability.test.ts`.
 
 **P5 — The sponsor is one row in the actor-keyed ledger, not a special case.**
-> *Check:* B5 and B6 pass, and no sponsor-specific trust mechanism exists
-> (`grep -rn 'sponsor' src/` is empty).
-> *Today:* **not met**, entirely by way of B5 and B6. Recorded here only so the
-> sponsor is not forgotten when the ledger is designed: a promise about the
-> runtime environment is a prediction, its fulfilment or breach is the outcome,
-> and the sponsor's standing is the function of the two. Derived consequence 2
-> forbids building this twice.
+> *Check:* B5 and B6 pass, and nothing in `src/` *branches* on the sponsor — every
+> occurrence of the word is a vocabulary member or a table row, never a condition.
+> *Today:* **met** (2026-07-30), pinned by
+> `test/knowledge/trust-derivation.test.ts:130-163`. B5 and B6 closed in the same
+> change, and `sponsor` is a member of `TRUST_KINDS`
+> (`src/knowledge/actor-trust.ts:64`) with a ceiling written in the same frozen
+> table as everyone else's (`:110`, `stated`) and a starting rung in the same table
+> below it. The check is stated as "no branch" rather than as the original "grep is
+> empty" on purpose: the criterion's point was never that the word must be absent —
+> it is that the sponsor must not have a *mechanism*, and a grep that goes red when
+> the ledger correctly names one of its kinds would push the fix in the wrong
+> direction.
+>
+> So a promise about the runtime environment is a prediction, its fulfilment or
+> breach is a verdict recorded by a human, and the sponsor's standing is the fold of
+> the two — the same fold, in the same file, as a publisher's. Derived consequence 2
+> forbade building this twice, and it was not built twice.
+>
+> *What this does not do is P2's:* an ask that is never answered records no
+> observation at all, so it moves the sponsor's standing not at all. Silence is
+> invisible to a ledger that scores outcomes, which is exactly why ask latency is a
+> separate measurement and still open.
 
 **P6 — No tool ships an outward mutation.**
 > *Check:* (a) `grep -rn 'method: *"' src/web src/adapters | grep -v '"GET"'` is
@@ -1939,17 +2066,22 @@ the vault declares, and a vault declaring none never fires.**
 > visible in both directions. Pinned in `test/loop/health.test.ts` and
 > `test/cli/loop.test.ts`.
 >
-> **The escalation half does not, and that is a decision rather than an omission.**
-> Nothing yet reacts to a *run* of `no-op` firings; each is recorded honestly and
-> the loop keeps firing. Building the counter now would ship a permanent red into
-> every existing vault on day three, because S1 — a blocker, not met — records that
-> the steady state after one sweep is `done: true` forever, and the only mechanism
-> that could end a dry spell is the one S1 describes and nobody has built. A
-> detector that latches red in a repo whose normal state is the condition it
-> detects is R2 exactly, and the way an operator clears it is by deleting the cron.
-> **So the record is complete and the reaction waits for S1.** That ordering is the
+> **The escalation half does not, and it was a decision rather than an omission —
+> but the reason has since expired.** Nothing yet reacts to a *run* of `no-op`
+> firings; each is recorded honestly and the loop keeps firing. Building the counter
+> was refused because S1 — then a blocker, not met — recorded that the steady state
+> after one sweep is `done: true` forever, so a streak detector would have shipped a
+> permanent red into every existing vault on day three. A detector that latches red
+> in a repo whose normal state is the condition it detects is R2 exactly, and the
+> way an operator clears it is by deleting the cron. The ordering was the
 > criterion's, not a convenience: escalation is only meaningful once a dry firing is
 > genuinely abnormal.
+>
+> **S1 closed on 2026-07-30, so a dry firing is now genuinely abnormal** — three
+> consecutive firings with zero human input produce strictly increasing evidence,
+> pinned. This half is therefore unblocked and this entry is the reason it stays
+> `partial` rather than becoming met by association: the counter is not built, and
+> D5 below is still its second precondition.
 >
 > *Two measurement hazards this half must handle when it is built, both found by
 > trying:* a streak counter that resets on any non-`no-op` record is reset by a
@@ -2325,11 +2457,13 @@ cursors and distinct id namespaces.**
 >   can never contain a separator and can never collide with a shipped adapter's
 >   cursor file — which would be this criterion's own bug wearing a new hat.
 >
-> *On B12, which this does not fix but does make fixable:* the only above-floor
-> inbox rule keys on `/friction/` in a **filename the producer chooses**. Friction
-> filings now have a first-party `friction` channel whose folder stays inside the
-> vault, where under DEC-1 the builder cannot write — so the rule can eventually
-> key on the channel instead of on the string. That is B12's, not this criterion's.
+> *On B12, which this did not fix but did make fixable:* the only above-floor inbox
+> rule keyed on `/friction/` in a **filename the producer chooses**. Friction
+> filings got a first-party `friction` channel whose folder stays inside the vault,
+> where under DEC-1 the builder cannot write — so the rule could key on the channel
+> instead of on the string. **B12 did exactly that on 2026-07-30**, and the reason
+> it was one line of regex there rather than a redesign is this criterion: the
+> unforgeable segment had to exist before a rule could be keyed on it.
 
 **S4 — Every path that puts untrusted bytes in the model's context frames them as
 data.**
@@ -2736,7 +2870,7 @@ number can tell those two apart.
 | **The lane gate** | `LANES`, `computeMayRun`, `CAUTIOUS_LANE` (`src/knowledge/lanes.ts`); `flagHumansRequired` (`src/ost/lanes.ts`) | Exactly one lane carries `computeMayRun: true`, and it fails closed on an unknown, missing or future id. The setter is restrictive-only *by having no lane parameter* — the absence of the parameter is the safety argument. |
 | **The invariant checker** | `checkInvariants` (`src/eval/invariants.ts`) | Structural truths, model-independent. `no-self-validation` is the rule that stops a variant declaring its own work validated. |
 | **The SSRF guard** | `assertAllowedUrl`, `isPrivateIpv4`, `MAX_REDIRECTS` (`src/web/guard.ts`) | Outward sensing crosses a trust boundary exactly once. `TIMEOUT_MS` and `MAX_PAGE_CHARS` are arguably cost parameters, but they sit inside the guard and extracting them risks loosening it by adjacency. |
-| **The believability floor** | `FLOOR_RUNG` (`src/knowledge/believability.ts`); `HOST_RUNGS` (`src/knowledge/web-trust.ts`) | Anything unjustified sinks to `assertion`, and `expert` is the ceiling a byline can earn. Promoting a page to first-party-measurement strength is the same category error as self-validation. |
+| **The believability floor** | `FLOOR_RUNG` (`src/knowledge/believability.ts`); `TRUST_CEILINGS` (`src/knowledge/actor-trust.ts`) | Anything unjustified sinks to `assertion`, and each kind of actor has a fixed ceiling — `expert` for a byline, and `money` for nobody. Promoting a page to first-party-measurement strength is the same category error as self-validation. |
 | **The promotion gate** | `gateSolution`, `hasRecordedResult` (`src/eval/evidence-debt.ts`) | Extracting the referee into the thing being refereed is the category error the whole design avoids. |
 
 Also fixed, for the same family of reasons: `CHILD_HIERARCHY` (a rewritten tree
@@ -2764,8 +2898,8 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1418 tests across 131 files, verified 2026-07-30 (`npx vitest run`,
-> after the Gate S batch). (The count this line
+> *Today:* **met** — 1533 tests across 137 files, verified 2026-07-30 (`npx vitest run`,
+> after the earned-belief batch). (The count this line
 > carried two revisions ago, 878 across 86, predated `8261a6f`'s deletion of the
 > genome and harness and was never updated with it — a reminder that a number in this
 > document is a claim like any other. It has since been wrong twice more, both times
@@ -2991,7 +3125,9 @@ downstream of B1*; neither needed a line of code when B1 landed, because both
 reused `hasRecordedResult` rather than restating it — **the clearest return this
 document has yet collected on "derive, never restate."** B8 took B7 with it, the
 way R4 took R7, and B3 took B7 the rest of the way by giving it a caller on the
-write side. Only B5, B6, B11 and P5 wait on Tier 4.
+write side. **Tier 4 has since closed too** (2026-07-30), so Gate B holds end to
+end: the tier below refuses the three forgeable writes, and the tier above makes a
+source's standing a fold over what those unforgeable results said.
 
 **Tier 3 — the writer boundary, which several later gates sit on.** W1 and W11
 precede Gate S: S1's entire failure statement is about write access to the inbox
@@ -3047,6 +3183,18 @@ Tiers 2–4 rather than sitting in one:** it is the only criterion that comes ou
 false when W11, B7, B3 and B6 are each built and none of them is wired to the
 next, which is the shape a chain assembled across three tiers actually fails in.
 
+> **The whole tier closed on 2026-07-30, and the acceptance test earned its keep.**
+> B5, B6, B11 and P5 landed together because they are one data structure; the four
+> unit-level criteria were green well before B12 was, and B12 is what said so. Its
+> header records the mutation run against each of the four links and the failure
+> text each one produced — the discipline this document keeps re-learning, applied
+> before the status was written rather than after it was found wrong. **P5 cost
+> nothing, which is the point of it:** the sponsor is a member of `TRUST_KINDS` and
+> a row in the ceiling table, and the criterion is satisfied by there being no
+> sponsor-specific mechanism to point at. The tier's own premise — *once there are
+> distinguishable sources emitting on a cadence* — was met by W11's stamp and S2's
+> channels, which is the ordering constraint paying out for the fourth time.
+
 **Tier 5 — consequence, scale, release.** P1, P2, P7–P10; Z1–Z5; G3; Gate D.
 (G2 and G4 are met by deletion. G3's grep is now committed, and it moved the
 criterion from *met* to *not met*: two modules have no live caller, one of them
@@ -3092,9 +3240,11 @@ immediately found a fourth un-computed rule this document had not named
 (`no-self-validation`) and a semantic divergence in the orphan check that no rule
 count would have shown.
 
-**Tier 2 is open and B4, its head, is done** (2026-07-29). A promotion now has to
+**Tier 2 opened with B4, its head** (2026-07-29). A promotion now has to
 name a corroborating result that exists and has an outcome; `reason` resolves
-against the tree instead of being checked for non-emptiness. Tier 1 remains
+against the tree instead of being checked for non-emptiness. *(Both Tier 2 and
+Tier 4 have since closed; B4's own entry records the fourth refusal row that
+2026-07-30's ledger added to it.)* Tier 1 remains
 closed except for G1, which is a product decision (*degrade and keep serving* vs.
 *tell the operator what to repair*) rather than a defect, and which shrank when
 `genome.yaml` was deleted.
@@ -3111,10 +3261,12 @@ path where the agent writes the `## Results` it then cites.
 
 **B8 is done too** (2026-07-29), and it earned the same description a third time.
 Two findings, both from building rather than from reading: the doctrine it
-enforces was **already written down twice in prose**, in the two tool descriptions
-where the model is the actor being constrained (`src/security/tools.ts:504`,
-`src/knowledge/web-trust.ts:62`) — a rule stated to the model twice and computed
-nowhere is the shape this whole tier is about. And adding one rule turned out to
+enforces was **already written down twice in prose**, in the two places where the
+model is the actor being constrained — a rule stated to the model twice and
+computed nowhere is the shape this whole tier is about. (Both have since become
+data: `TRUST_CEILINGS`, `src/knowledge/actor-trust.ts:110`, and a tool description
+that now describes that table rather than asking the model to honour it.) And
+adding one rule turned out to
 cost four pins, not one: the rule literal is grepped out of `invariants.ts` by both
 `test/eval/clearability.test.ts` and `test/mcp/rule-parity.test.ts`, so a rule with
 no clear path, or in neither the blocking nor the declared-non-blocking set, is a
@@ -3172,20 +3324,25 @@ precedents for what a criterion like that finds. F6's own first draft is the
 standing warning — it was vacuous and green — **and so was this one, in four
 separate places**, every one found by mutating the source rather than by reading it.
 
-**The next single item is S1, and with it Gate S.** It is a blocker; it is what
-stands between this repository and the sentence on line 3; and it is the only
-remaining criterion F4's open half waits on. Everything Tier 1 through Tier 3½ was
-holding back is now behind it.
+**S1 was the next single item, and it closed with Gate S** (2026-07-30), taking
+with it the last thing standing between this repository and the sentence on line 3.
+Gate B's earned half closed beside it. **What is left is Gate P's consequence
+vocabulary — P1, P2, P3 — and it is a different kind of work than everything above
+it.** P1 through P3 are not doors to shut on a capable agent; they are the
+vocabulary an agent needs before it may be given a capability that costs money or
+signatures, and nothing in the repo today has one. That is why they read *not met*
+against a document otherwise 70-for-75: the safety properties above them are all
+carried by the fact that **no irreversible verb exists on the tool surface**, which
+is precisely the property DEC-3 removes.
 
 > **What is *not* next, and why, because the ordering keeps being the thing this
-> document gets right.** F4's escalation half looks closable and is not: it is
-> downstream of S1 (a blocker), because a no-op streak counter latches red in a repo
-> whose steady state is the condition it detects. F5 is undesigned rather than
-> unbuilt. **The debt this note recorded is paid:** B1 sat under B4, B8 and F4 as
-> the named dependency of three met-or-partial criteria, and it closed. F4's
-> per-firing half no longer seals `healthy` off a forgeable `checkInvariants`;
-> its remaining half is still S1's. The open blockers are now W-gate and S-gate
-> work, not Gate B's.
+> document gets right.** F4's escalation half is now unblocked — S1 closed — but it
+> is still gated on D5, because a committed-delta measurement taken over a dirty
+> tree shifts every verdict by one. F5 is undesigned rather than unbuilt. **Both
+> debts this note recorded are paid:** B1 sat under B4, B8 and F4 as the named
+> dependency of three met-or-partial criteria and it closed; S1 sat under F4's
+> second half and Gate S and it closed. The open blockers are now Gate P's, and
+> they are the ones that have to be *designed* rather than found.
 
 ---
 
@@ -3249,10 +3406,10 @@ a finding the build reproduces.** Moving rows from here to there is the work.
 | B1 | `ost_append_to_node` writing `## Results` flips `gateSolution` BLOCKED → CLEARED | `src/eval/evidence-debt.ts:38-41` |
 | B2 | `ost_set_status("validated")` flips `hasRecordedResult`; `checkInvariants` returns `[]` | `src/eval/invariants.ts:85-89` |
 | B3 | `ost_set_evidence("money")` accepted with no note or corroboration | `src/security/tools.ts:369-377` |
-| B6 | `rankHost({host:"stripe-webhook-feed", rung:"expert"})` succeeds — no actor namespace | `src/knowledge/web-trust.ts:58-79` |
+| B6 | `rankHost({host:"stripe-webhook-feed", rung:"expert"})` succeeds — no actor namespace — *fixed 2026-07-30; the trap is now a row the build re-runs, and the constructor refuses it* | `test/security/actor-namespace.test.ts:58-73` |
 | B8 | `checkInvariants` returns `[]` for a Solution declaring `money` with no result — *fixed 2026-07-29; the finding is now a row the build re-runs (`rung-unearned`), on both gates* | `test/eval/rungs.test.ts:35-43` |
 | B10 | Coverage gaps drop 2 → 1 after an `ost_append_to_node` of `## Uncovered` | `src/eval/coverage.ts` |
-| B12 | `classifyProvenance("INBOX:friction-report.md")` → `stated`, `"INBOX:note.md"` → `assertion`; the id is the producer's filename | `src/knowledge/believability.ts:129` |
+| B12 | `classifyProvenance("INBOX:friction-report.md")` → `stated`, `"INBOX:note.md"` → `assertion`; the id is the producer's filename — *fixed 2026-07-30; the rule is keyed on the channel segment and the forged filename is a row the build re-runs* | `test/adapters/friction-channel.test.ts` |
 | R1 | `wrapped-wikilink` survives every clearing attempt on the tool surface — *fixed 2026-07-29 at the write boundary; the tool surface can no longer author one* | `src/ost/node.ts:97-103` |
 | R2 | `lane-conflict` created by `ost_flag_humans_required`, unclearable | `src/ost/lanes.ts:124-133` |
 | R4 | `check` red while `next_work` reports zero hygiene issues, permanently | `src/eval/invariants.ts:38-46` |

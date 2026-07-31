@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { recordResult, VERDICTS } from "../../src/ost/results.js";
+import { VERDICTS as HEADING_VERDICTS } from "../../src/ost/headings.js";
 import { computeCoverageDebt, coverageOf, UNCOVERED_HEADING } from "../../src/eval/coverage.js";
 import { gateSolution } from "../../src/eval/evidence-debt.js";
 import { Vault } from "../../src/ost/vault.js";
@@ -87,6 +88,17 @@ describe("recordResult", () => {
 
   test("offers exactly the verdicts a test can come back with", () => {
     expect([...VERDICTS]).toEqual(["supported", "refuted", "inconclusive"]);
+  });
+
+  test("the writer's vocabulary and the reader's are the same array, not two that agree", () => {
+    // The verdict a filing is validated against and the verdict an actor's standing is
+    // computed from have to be one set, or a word can be writable and unscorable at the
+    // same time. They live in `headings.ts` because this module cannot be imported from
+    // the reader's side — `results.ts` → `Vault` → census → the actor ledger → back here
+    // is a cycle, and it crashed this very file at import time before the definition
+    // moved. `toBe` rather than `toEqual`: a second frozen copy that happens to match
+    // is the failure being excluded.
+    expect(VERDICTS).toBe(HEADING_VERDICTS);
   });
 });
 

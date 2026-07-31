@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { buildOstTools, type ToolContext } from "../../src/security/tools.js";
 import { createLookupBudget } from "../../src/web/budget.js";
 import { AllSourcesFailedError } from "../../src/web/federated.js";
-import { hostTrustPath } from "../../src/knowledge/web-trust.js";
+import { trustLedgerPath } from "../../src/knowledge/actor-trust.js";
 import { RESULTS_HEADING } from "../../src/ost/headings.js";
 import { MAX_SEARCH_RESULTS } from "../../src/web/search.js";
 import type { WebFetchFn } from "../../src/web/reader.js";
@@ -163,11 +163,11 @@ describe("ost_read_web", () => {
 });
 
 describe("ost_rank_source", () => {
-  test("appends a trust record stamped by the surface; ceiling enforced", async () => {
+  test("appends an observation stamped by the surface; the rung is computed, never named", async () => {
     const ctx = baseCtx();
-    // The corroborating test has to be on the tree with an outcome, or the
-    // promotion is refused before it reaches the ledger (B4 — its own rows are
-    // in rank-source-corroboration.test.ts).
+    // The corroborating test has to be on the tree, carry an outcome, and be a test OF
+    // THIS SOURCE, or the call is refused before it reaches the ledger (B4/B5 — their
+    // own rows are in rank-source-corroboration.test.ts).
     ctx.vault.createNode({
       title: "Invite copy A",
       layer: "AssumptionTest",
@@ -175,17 +175,27 @@ describe("ost_rank_source", () => {
       tags: [],
       links: [],
       evidence: "assertion",
+      source: "WEB:example.com",
     });
     // Through the heading argument, not as body content — `## Results` is
     // reserved (`src/ost/headings.ts`) and a fixture that types it into a body
     // sets up a state no caller can produce.
-    ctx.vault.appendUnderSection("Invite copy A", RESULTS_HEADING, "- supported: their claim replicated");
+    ctx.vault.appendUnderSection("Invite copy A", RESULTS_HEADING, "- 2026-01-01 **supported** (ran by T) — replicated");
     const rank = tool(ctx, "ost_rank_source");
-    await rank.run({ host: "https://www.example.com/x", rung: "expert", reason: "corroborated by [[Invite copy A]]" });
-    const rec = JSON.parse(fs.readFileSync(hostTrustPath(dir), "utf8").trim());
-    expect(rec.host).toBe("example.com");
+    await rank.run({
+      kind: "web",
+      id: "https://www.example.com/x",
+      direction: "corroborated",
+      reason: "corroborated by [[Invite copy A]]",
+    });
+    const rec = JSON.parse(fs.readFileSync(trustLedgerPath(dir), "utf8").trim());
+    expect(rec.id).toBe("example.com"); // normalized on the way in, as the legacy ledger did
     expect(rec.by).toBe("agent:test");
-    await expect(rank.run({ host: "example.com", rung: "money", reason: "r" })).rejects.toThrow(/first-party|expert/i);
+    expect(rec).not.toHaveProperty("rung"); // there is no rung to record
+    // And the ceiling still cannot be argued with — there is no argument for one.
+    await expect(rank.run({ kind: "web", id: "example.com", direction: "promoted", reason: "r" })).rejects.toThrow(
+      /not a direction/,
+    );
   });
 });
 

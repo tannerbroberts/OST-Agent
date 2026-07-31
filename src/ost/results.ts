@@ -14,12 +14,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import { Vault } from "./vault.js";
-import { RESULTS_HEADING, UNCOVERED_HEADING } from "./headings.js";
+import { RESULTS_HEADING, UNCOVERED_HEADING, VERDICTS, type Verdict } from "./headings.js";
 import { isRung, type RungId } from "../knowledge/believability.js";
 
-export const VERDICTS = ["supported", "refuted", "inconclusive"] as const;
-
-export type Verdict = (typeof VERDICTS)[number];
+// The vocabulary is DEFINED in `headings.ts`, beside the heading it is written under,
+// because the reader that scores an actor from a recorded verdict cannot import this
+// module without a cycle (this one pulls in `Vault`, which pulls in the census, which
+// reads the ledger). Re-exported so this file stays the place a reader looks for it.
+export { VERDICTS, type Verdict };
 
 export interface ResultFiling {
   /** Title of the AssumptionTest node the result belongs to. */

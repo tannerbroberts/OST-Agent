@@ -1,37 +1,48 @@
 /**
- * Per-host trust for web sources — how a publisher earns a rung.
+ * The LEGACY host-keyed trust file — read once, by the migration, and never written.
  *
- * Everything read from the web starts at the believability floor: a page is
- * one voice, however confident. When a claim from a host is later corroborated
- * by first-party evidence (an assumption test that moved a node to observed or
- * money), the agent may promote that HOST to `expert` — with the corroborating
- * result named in the reason. `expert` is the ceiling for publisher identity:
- * observed and money are earned by measurement, never by a byline.
+ * This module used to be the live trust store: `rankHost` wrote the rung the agent
+ * named into `.ost-agent/trust/hosts.jsonl`, `readHostTrust` folded it last-record-wins,
+ * and `hostRung` handed the stored value back. Two things were wrong with that, and
+ * both are why the live ledger is now `knowledge/actor-trust.ts`:
  *
- * Storage is append-only jsonl (`.ost-agent/trust/hosts.jsonl`), last record
- * per host wins, malformed lines are skipped fail-closed. Nothing is ever
- * rewritten, so the whole promotion/demotion history stays auditable.
+ * - **the stored rung** — a promotion was an assertion about an assertion, and the word
+ *   "earned" in `ost_rank_source`'s description was a word in a tool description (B5);
+ * - **the namespace** — `normalizeHost` is a no-op on a bare word, so
+ *   `rankHost({host: 'stripe-webhook-feed', rung: 'expert'})` succeeded: a commissioned
+ *   first-party pipeline and a publisher shared one namespace and one ceiling (B6).
+ *
+ * `rankHost`, `readHostTrust` and `hostRung` are **deleted**; that absence is B5(b)'s
+ * check, since there is now no function anywhere that returns a stored rung. What
+ * survives is exactly what the migration needs to read the old file exactly the way it
+ * was written — the same normalizer, so a host that keyed a legacy record keys the same
+ * actor row — plus `isHostRung`, which `checkCorroboration` (B4) still uses to decide
+ * whether a change is a promotion.
+ *
+ * The file itself is never rewritten, renamed or deleted: corrections are appends, and
+ * a vault rolled back to an earlier version must still find its trust file where it
+ * left it.
  */
 import fs from "node:fs";
 import path from "node:path";
-import { type RungId } from "./believability.js";
 
-/** The only rungs a publisher can hold. */
+/** The only rungs a publisher could hold in the legacy file. */
 export const HOST_RUNGS = ["assertion", "expert"] as const;
 export type HostRung = (typeof HOST_RUNGS)[number];
 
 /**
  * Is this one of the rungs a publisher can hold?
  *
- * Exported rather than inlined at each site because two spellings of one
- * membership test is how the pair of health gates drifted before R4 — and the
- * second caller (`checkCorroboration`, B4) has to agree with `rankHost` about
- * what counts as a rung or it will refuse a call for the wrong reason.
+ * Exported rather than inlined at each site because two spellings of one membership
+ * test is how the pair of health gates drifted before R4 — and the live caller
+ * (`checkCorroboration`, B4) has to agree with this module about what counts as a
+ * promotion or it will refuse a call for the wrong reason.
  */
 export function isHostRung(rung: string): rung is HostRung {
   return (HOST_RUNGS as readonly string[]).includes(rung);
 }
 
+/** A record as the legacy file holds it. Kept verbatim so the fold reads what was written. */
 export interface HostTrustRecord {
   ts: string;
   host: string;
@@ -54,51 +65,36 @@ export function normalizeHost(raw: string): string {
   return h.replace(/^www\./, "");
 }
 
-/** Append one trust record. Throws on a rung above the ceiling or an empty reason. */
-export function rankHost(dir: string, rec: { host: string; rung: string; reason: string; by: string }): HostTrustRecord {
-  if (!isHostRung(rec.rung)) {
-    throw new Error(
-      `a publisher can hold only "assertion" or "expert" — never "${rec.rung}". ` +
-        `observed/money are earned by first-party measurement (AssumptionTests + ost_set_evidence), not by a byline.`,
-    );
-  }
-  if (!rec.reason.trim()) {
-    throw new Error("a trust change needs a reason — name the corroborating (or failed) first-party result");
-  }
-  const record: HostTrustRecord = {
-    ts: new Date().toISOString(),
-    host: normalizeHost(rec.host),
-    rung: rec.rung as HostRung,
-    reason: rec.reason.trim(),
-    by: rec.by,
-  };
+/**
+ * Every legacy record, in file order, malformed lines skipped.
+ *
+ * ORDER, not last-record-wins: the fold needs to know whether a host that now sits at
+ * `assertion` was ever at `expert`, because that is the difference between "never
+ * promoted" (nothing to migrate) and "demoted" (a strike). The old reader collapsed
+ * exactly that distinction, which is why this returns the history instead of a map.
+ */
+export function readLegacyHostRecords(dir: string): HostTrustRecord[] {
   const file = hostTrustPath(dir);
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.appendFileSync(file, JSON.stringify(record) + "\n");
-  return record;
-}
-
-/** Current trust per host: last record wins; malformed lines are skipped fail-closed. */
-export function readHostTrust(dir: string): Map<string, HostRung> {
-  const file = hostTrustPath(dir);
-  const trust = new Map<string, HostRung>();
-  if (!fs.existsSync(file)) return trust;
+  const out: HostTrustRecord[] = [];
+  if (!fs.existsSync(file)) return out;
   for (const line of fs.readFileSync(file, "utf8").split("\n")) {
     if (!line.trim()) continue;
     try {
       const rec = JSON.parse(line) as Partial<HostTrustRecord>;
-      if (typeof rec.host === "string" && rec.host && (HOST_RUNGS as readonly string[]).includes(rec.rung as string)) {
-        trust.set(rec.host, rec.rung as HostRung);
+      // Fail-closed, as the old reader was: a record whose host or rung is not one this
+      // module recognises grants and revokes nothing.
+      if (typeof rec.host === "string" && rec.host && typeof rec.rung === "string" && isHostRung(rec.rung)) {
+        out.push({
+          ts: typeof rec.ts === "string" ? rec.ts : "",
+          host: normalizeHost(rec.host),
+          rung: rec.rung,
+          reason: typeof rec.reason === "string" ? rec.reason : "",
+          by: typeof rec.by === "string" ? rec.by : "",
+        });
       }
     } catch {
       // fail-closed: an unreadable record grants nothing
     }
   }
-  return trust;
-}
-
-/** A host's current rung — exact match only (trust never leaks to subdomains), floor otherwise. */
-export function hostRung(trust: ReadonlyMap<string, string>, host: string): RungId {
-  const r = trust.get(normalizeHost(host));
-  return r === "expert" ? "expert" : "assertion";
+  return out;
 }
