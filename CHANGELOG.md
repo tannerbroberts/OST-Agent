@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- **A run of firings that moves nothing now escalates, instead of reading as success
+  one firing at a time (F4's escalation half).** A single `no-op` firing is ordinary
+  — a cron that fires between two bits of new input finds nothing and says so. A
+  *streak* of them is a vault spending its schedule and producing nothing, and until
+  now each such firing exited 0 and looked exactly like a productive one. `assessStall`
+  (`src/loop/stall.ts`) folds the ledger and escalates at three firings since the tree
+  last moved; the signal rides on `loop seal` (where a `no-op` used to report success)
+  and `loop due` (the cron's every-cycle stderr). Only a `healthy` firing resets the
+  streak — a `crashed` one does not, so a vault alternating dry-run and timeout still
+  escalates rather than looking never-stuck. It does not latch: nothing is stored, it
+  reports on stderr without touching the firing's exit code, and the next healthy
+  firing clears it with no file for a human to edit. Both preconditions the readiness
+  doc named (S1, so a dry firing is genuinely abnormal; D5, so the committed-delta is
+  trustworthy) closed first.
+
 - **Three guarantees that were carried by discipline are now carried by tests.**
   No behaviour changed; what changed is that breaking any of them fails the build.
   - Every invariant the agent can create, it can also clear — one row per rule,

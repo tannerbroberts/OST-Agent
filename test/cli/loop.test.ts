@@ -11,7 +11,7 @@
  * what is being asserted — that `loop due` really consults the cadence gate and
  * the spend ceiling, in that order, and really refuses.
  */
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -36,18 +36,20 @@ function git(...args: string[]): string {
   return execFileSync("git", args, { cwd: vault, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
 
-/** `--vault` goes before any `--`, or commander hands it to the child command. */
+/**
+ * `--vault` goes before any `--`, or commander hands it to the child command.
+ *
+ * `out` is stdout AND stderr, on every exit path — several loop signals are
+ * warnings on `console.error` (the future-stamp notice, the dirty-tree refusal,
+ * the stall escalation) and a cron reads them because it mails stderr. A helper
+ * that captured only stdout on a code-0 command would be blind to exactly those.
+ */
 function loop(subcommand: string, ...args: string[]): Ran {
-  try {
-    const out = execFileSync(TSX, [CLI, "loop", subcommand, "--vault", vault, ...args], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    return { code: 0, out };
-  } catch (e) {
-    const err = e as { status: number | null; stdout?: string; stderr?: string };
-    return { code: err.status ?? -1, out: `${err.stdout ?? ""}${err.stderr ?? ""}` };
-  }
+  const r = spawnSync(TSX, [CLI, "loop", subcommand, "--vault", vault, ...args], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  return { code: r.status ?? -1, out: `${r.stdout ?? ""}${r.stderr ?? ""}` };
 }
 
 function config(loopBlock: string): void {
@@ -440,5 +442,73 @@ describe("D5 — a firing refuses to begin against a dirty vault", () => {
     loop("seal");
     fs.writeFileSync(path.join(vault, "zz-probe.md"), "x\n", "utf8");
     expect(loop("start").code).toBe(14);
+  });
+});
+
+/**
+ * F4's escalation half, end to end through the CLI — the wiring, not the fold.
+ * `stall.test.ts` pins `assessStall`; this pins that `loop seal` and `loop due`
+ * actually consult it, that the signal appears where a `no-op` used to read as
+ * success, and — the positive control — that a firing which really moves the
+ * tree clears it.
+ *
+ * A firing seals `healthy` only when HEAD moves between `start` and `seal`. The
+ * pass phase here makes an empty commit: it moves HEAD and leaves the tree clean,
+ * so D5's dirty-tree refusal never fires and the verdict turns on the delta
+ * alone. The dry firings run `true`, so HEAD is the baseline before and after and
+ * each seals `no-op`.
+ */
+describe("a run of dry firings escalates", () => {
+  /** One firing bracket; `pass` defaults to a no-op step. Returns `loop seal`'s output. */
+  function fire(pass: string[] = ["true"]): Ran {
+    loop("start");
+    loop("step", "--phase", "pass", "--", ...pass);
+    loop("step", "--phase", "check", "--", "true");
+    return loop("seal");
+  }
+
+  /** A pass step that advances the tree: an empty commit moves HEAD, leaving no dirt. */
+  const advance = (): string[] => ["sh", "-c", `git -C "${vault}" commit --allow-empty -qm advance`];
+
+  test("the third dry firing escalates where the first two do not", () => {
+    spend(1);
+    expect(fire().out).not.toMatch(/stalled/);
+    expect(fire().out).not.toMatch(/stalled/);
+    const third = fire();
+    // Still a `no-op` seal — the per-firing verdict is unchanged and honest.
+    expect(third.out).toMatch(/sealed: no-op/);
+    // …but no longer reading as success: the run of them is called out.
+    expect(third.out).toMatch(/⚠ stalled: 3 consecutive firing\(s\)/);
+    // Escalation reports; it does not refuse. A `no-op` is not `unhealthy`, so
+    // the exit code stays 0 — the wrapper keeps firing.
+    expect(third.code).toBe(0);
+  });
+
+  test("a firing that advances the tree clears the escalation — the positive control", () => {
+    spend(1);
+    fire();
+    fire();
+    expect(fire().out).toMatch(/⚠ stalled/); // stuck
+
+    const recovered = fire(advance());
+    expect(recovered.out).toMatch(/sealed: healthy/);
+    expect(recovered.out).not.toMatch(/stalled/);
+
+    // And the signal is gone from `due` too — cleared by the firing, not by any
+    // human editing a file, which is what "does not latch" means.
+    const d = loop("due");
+    expect(d.out).not.toMatch(/stalled/);
+  });
+
+  test("the stall also rides on `loop due`, before the gates and without changing the decision", () => {
+    spend(1);
+    fire();
+    fire();
+    fire();
+    const d = loop("due");
+    expect(d.out).toMatch(/⚠ stalled/);
+    // The decision is untouched: within the 6h cadence, `due` is the routine
+    // not-elapsed (exit 10). Escalation warned and then got out of the way.
+    expect(d.code).toBe(10);
   });
 });

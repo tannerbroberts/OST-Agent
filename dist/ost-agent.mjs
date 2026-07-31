@@ -44491,6 +44491,22 @@ function readRuns(dir) {
   return runs.sort((a, b2) => Date.parse(b2.startedAt) - Date.parse(a.startedAt));
 }
 
+// src/loop/stall.ts
+var STALL_STREAK_THRESHOLD = 3;
+function assessStall(runs, threshold = STALL_STREAK_THRESHOLD) {
+  let streak = 0;
+  let since2;
+  for (const run of runs) {
+    if (run.verdict === void 0) continue;
+    if (run.verdict === "healthy") break;
+    streak++;
+    since2 = run.startedAt;
+  }
+  const stalled = streak >= threshold;
+  const reason = stalled ? `${streak} consecutive firing(s) since ${since2} advanced nothing (escalates at ${threshold}) \u2014 this vault is firing on schedule and the tree is not moving. Not a refusal: it keeps firing. The way out is a firing that produces a commit; the streak clears itself the moment one does.` : streak > 0 ? `${streak} firing(s) without progress since the last healthy one (escalates at ${threshold})` : "the last firing advanced the tree";
+  return { stalled, streak, threshold, ...since2 !== void 0 ? { since: since2 } : {}, reason };
+}
+
 // src/loop/lock.ts
 import fs23 from "node:fs";
 import os2 from "node:os";
@@ -44809,6 +44825,8 @@ function registerLoopCommands(program3) {
     const runs = readRuns(opts.vault);
     const last2 = runs[0];
     console.log(last2 ? `last record: ${last2.verdict ?? "unsealed"} at ${last2.startedAt}` : "last record: none \u2014 this vault has never fired");
+    const stall = assessStall(runs);
+    if (stall.stalled) console.error(`\u26A0 stalled: ${stall.reason}`);
     const cadence = evaluateCadence({ runs, now, cadenceMs: parseCadence(config2.loop?.cadence) });
     if (cadence.ignoredFuture > 0) {
       console.error(
@@ -44912,6 +44930,8 @@ function registerLoopCommands(program3) {
     if (!released) {
       console.error("note: the firing lock is no longer this run's \u2014 it was broken as stale and retaken. Left alone.");
     }
+    const stall = assessStall(readRuns(opts.vault));
+    if (stall.stalled) console.error(`\u26A0 stalled: ${stall.reason}`);
     if (sealed.verdict === "unhealthy" || sealed.verdict === "crashed") process.exitCode = 1;
   });
 }
