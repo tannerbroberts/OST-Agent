@@ -1,13 +1,20 @@
 /**
- * The per-host trust map: append-only jsonl, last record wins, `expert` is
- * the ceiling for publisher identity — observed/money can only be earned by
- * first-party measurement, never by a byline.
+ * The legacy host-keyed trust file, which is now READ ONLY BY THE MIGRATION.
+ *
+ * `rankHost`/`readHostTrust`/`hostRung` are gone (B5b: no function anywhere returns a
+ * stored rung), so what is left to pin is the reader the fold depends on — and one
+ * property the old reader did not have: it returns the HISTORY in order, because
+ * "was ever expert" is what separates a host that was never promoted from one that was
+ * demoted, and last-record-wins collapsed exactly that distinction.
+ *
+ * Everything the ledger does with these records is in `actor-trust.test.ts`; this file
+ * is about reading the old file faithfully.
  */
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { hostTrustPath, normalizeHost, rankHost, readHostTrust, hostRung } from "../../src/knowledge/web-trust.js";
+import { hostTrustPath, isHostRung, normalizeHost, readLegacyHostRecords } from "../../src/knowledge/web-trust.js";
 import { classifyProvenance } from "../../src/knowledge/believability.js";
 
 let dir: string;
@@ -19,72 +26,80 @@ afterEach(() => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+function writeLegacy(lines: unknown[]): void {
+  const file = hostTrustPath(dir);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, lines.map((l) => (typeof l === "string" ? l : JSON.stringify(l))).join("\n") + "\n");
+}
+
 describe("normalizeHost", () => {
   test("lowercases, strips scheme/path/port/www", () => {
     expect(normalizeHost("https://Blog.Example.org:443/post?x=1")).toBe("blog.example.org");
     expect(normalizeHost("www.example.com")).toBe("example.com");
     expect(normalizeHost("Example.COM")).toBe("example.com");
   });
-});
 
-describe("rankHost / readHostTrust", () => {
-  test("appends records; last one wins; file is jsonl under .ost-agent/trust", () => {
-    rankHost(dir, { host: "example.com", rung: "expert", reason: "acquisition claim corroborated by our own funnel test", by: "agent:mcp" });
-    rankHost(dir, { host: "example.com", rung: "assertion", reason: "second claim failed replication", by: "agent:mcp" });
-    const lines = fs.readFileSync(hostTrustPath(dir), "utf8").trim().split("\n");
-    expect(lines).toHaveLength(2); // append-only: both records survive
-    expect(readHostTrust(dir).get("example.com")).toBe("assertion");
-  });
-
-  test("refuses rungs above the expert ceiling and rungs off the ladder", () => {
-    for (const rung of ["money", "observed", "stated", "gospel"]) {
-      expect(() => rankHost(dir, { host: "example.com", rung, reason: "r", by: "t" })).toThrow(/expert|assertion/);
-    }
-  });
-
-  test("requires a reason", () => {
-    expect(() => rankHost(dir, { host: "example.com", rung: "expert", reason: "  ", by: "t" })).toThrow(/reason/i);
-  });
-
-  test("malformed lines are skipped fail-closed", () => {
-    rankHost(dir, { host: "good.com", rung: "expert", reason: "r", by: "t" });
-    fs.appendFileSync(hostTrustPath(dir), "not json\n" + JSON.stringify({ host: "bad.com", rung: "money" }) + "\n");
-    const trust = readHostTrust(dir);
-    expect(trust.get("good.com")).toBe("expert");
-    expect(trust.has("bad.com")).toBe(false);
-  });
-
-  test("missing file means an empty map", () => {
-    expect(readHostTrust(dir).size).toBe(0);
+  test("it is a no-op on a bare word — which is why the ACTOR namespace validates the shape", () => {
+    // The B6 collision started here: a normalizer that cannot fail let
+    // `stripe-webhook-feed` into the publisher namespace. It is kept verbatim so the
+    // migration reads legacy keys exactly as they were written; the hostname CHECK
+    // lives in `actor-trust.ts`, where a row is minted.
+    expect(normalizeHost("stripe-webhook-feed")).toBe("stripe-webhook-feed");
   });
 });
 
-describe("hostRung", () => {
-  test("exact match only — trust never leaks to subdomains", () => {
-    const trust = new Map([["github.io", "expert" as const]]);
-    expect(hostRung(trust, "github.io")).toBe("expert");
-    expect(hostRung(trust, "someone.github.io")).toBe("assertion");
-    expect(hostRung(trust, "unknown.org")).toBe("assertion");
+describe("isHostRung", () => {
+  test("only the two rungs a byline could ever hold", () => {
+    expect(isHostRung("expert")).toBe(true);
+    expect(isHostRung("assertion")).toBe(true);
+    for (const rung of ["money", "observed", "stated", "gospel"]) expect(isHostRung(rung)).toBe(false);
   });
 });
 
-describe("classifyProvenance WEB: branch", () => {
-  test("an unranked web host lands on the floor", () => {
+describe("readLegacyHostRecords", () => {
+  test("returns the history in order, not a collapsed map", () => {
+    writeLegacy([
+      { ts: "2026-01-01T00:00:00.000Z", host: "example.com", rung: "expert", reason: "corroborated", by: "agent:mcp" },
+      { ts: "2026-01-02T00:00:00.000Z", host: "example.com", rung: "assertion", reason: "failed replication", by: "agent:mcp" },
+    ]);
+    const recs = readLegacyHostRecords(dir);
+    expect(recs.map((r) => r.rung)).toEqual(["expert", "assertion"]);
+    // Non-vacuity: a reader that kept only the last record would return one row here,
+    // and the migration could not tell a demotion from a host that was never promoted.
+    expect(recs).toHaveLength(2);
+  });
+
+  test("hosts are normalized on the way in, so a legacy key finds its actor row", () => {
+    writeLegacy([{ ts: "t", host: "https://WWW.Example.com/post", rung: "expert", reason: "r", by: "b" }]);
+    expect(readLegacyHostRecords(dir)[0].host).toBe("example.com");
+  });
+
+  test("malformed and off-ladder records are skipped fail-closed", () => {
+    writeLegacy([
+      { ts: "t", host: "good.com", rung: "expert", reason: "r", by: "b" },
+      "not json",
+      { host: "bad.com", rung: "money" },
+      { rung: "expert" },
+    ]);
+    expect(readLegacyHostRecords(dir).map((r) => r.host)).toEqual(["good.com"]);
+  });
+
+  test("a missing file is an empty history", () => {
+    expect(readLegacyHostRecords(dir)).toEqual([]);
+  });
+});
+
+describe("classifyProvenance without a vault", () => {
+  test("WEB: lands on the floor — earned standing is the ledger's answer, not this one", () => {
+    // The `hostTrust` option this function used to take was the last stored-rung read
+    // in the repo (B5b). Its absence is the assertion: there is no argument by which a
+    // caller can hand `classifyProvenance` a rung.
     expect(classifyProvenance("WEB:random-blog.net")).toBe("assertion");
+    expect(classifyProvenance("WEB:example.com https://example.com/post")).toBe("assertion");
+    expect(classifyProvenance.length).toBe(1);
   });
 
-  test("a ranked host lands on its earned rung", () => {
-    const hostTrust = new Map([["example.com", "expert" as const]]);
-    expect(classifyProvenance("WEB:example.com https://example.com/post", { hostTrust })).toBe("expert");
-    expect(classifyProvenance("WEB:other.com", { hostTrust })).toBe("assertion");
-  });
-
-  test("a poisoned trust map grants nothing — a rung a publisher cannot hold falls to the floor", () => {
-    const hostTrust = new Map([["example.com", "money" as const]]);
-    expect(classifyProvenance("WEB:example.com", { hostTrust })).toBe("assertion");
-  });
-
-  test("existing provenance classes are unchanged", () => {
+  test("the prefix classes it can answer without a vault are unchanged", () => {
     expect(classifyProvenance("TRANSCRIPT:abc")).toBe("observed");
     expect(classifyProvenance("JIRA:PROJ-1")).toBe("stated");
     expect(classifyProvenance("anything else")).toBe("assertion");

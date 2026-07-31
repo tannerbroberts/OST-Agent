@@ -249,8 +249,14 @@ describe("the unattended surface writes no policy into the vault", () => {
       arguments: { title: "I want a reason to come back", layer: "Opportunity", parent: ROOT, body: "b", source: "INBOX:x", evidence: "stated" },
     },
     {
+      // Cites the publisher on purpose. `ost_rank_source` no longer moves a source
+      // because a test somewhere passed — the test has to sit one level from a node
+      // whose `source` is that actor, or naming an already-supported test would mint
+      // standing for a publisher that predicted nothing. So the claim this solution
+      // carries has to come from `example.com` for the last call in this list to be a
+      // real exercise of the tool rather than a refusal counted as one.
       name: "ost_create_node",
-      arguments: { title: "Daily streak", layer: "Solution", parent: "I want a reason to come back", body: "b", source: "INBOX:x", evidence: "stated" },
+      arguments: { title: "Daily streak", layer: "Solution", parent: "I want a reason to come back", body: "b", source: "WEB:example.com", evidence: "assertion" },
     },
     {
       name: "ost_create_node",
@@ -268,7 +274,7 @@ describe("the unattended surface writes no policy into the vault", () => {
     { name: "ost_set_evidence", arguments: { title: "Streaks lift day-7 return", evidence: "stated", note: "one report" } },
     { name: "ost_flag_humans_required", arguments: { test: "Streaks lift day-7 return", why: 'names an outside person: "interview"' } },
     { name: "ost_annotate", arguments: { title: "Daily streak", issue: "duplicate of nothing yet" } },
-    { name: "ost_rank_source", arguments: { host: "example.com", rung: "expert", reason: "corroborated by [[Streaks lift day-7 return]]" } },
+    { name: "ost_rank_source", arguments: { kind: "web", id: "example.com", direction: "corroborated", reason: "corroborated by [[Streaks lift day-7 return]]" } },
     { name: "ost_ingest_inbox", arguments: {} },
   ];
 

@@ -12,6 +12,10 @@
  * - a conclusion is only as believable as its weakest input ({@link weakestRung});
  * - anything unrecognised falls to the floor ({@link classifyProvenance}), because
  *   an unearned rung is worse than an obviously unproven one.
+ *
+ * This module holds the ladder and nothing about who earned what: standing is computed
+ * from an actor's recorded history in `knowledge/actor-trust.ts`, which imports the
+ * ladder and the "weaker of two" rule from here so there is exactly one of each.
  */
 
 export interface Rung {
@@ -111,27 +115,44 @@ export function believabilityRollup(nodes: readonly { evidence?: string }[]): Be
 }
 
 /**
- * Best-effort rung for an evidence item's provenance tag. Fail-closed: only
- * provenance we can justify lands above the floor.
+ * Best-effort rung for an evidence item's provenance tag, WITHOUT a vault in hand.
+ * Fail-closed: only provenance we can justify lands above the floor.
  *
  * A harvested session is observed behavior — it is a recording of what happened.
  * A friction note the agent filed about itself is a first-person report, so it
  * sits at 'stated' alongside tickets and interview notes, not at 'observed'.
  *
- * `WEB:<host>` provenance lands on whatever rung the host has EARNED in the
- * per-host trust map (knowledge/web-trust.ts), clamped to 'expert' — a
- * publisher's identity can never make a claim observed or money; only
- * first-party measurement can. Without a trust map, the floor.
+ * **`WEB:<host>` always lands on the floor here, and the missing parameter is the
+ * point.** This used to take a `hostTrust` map and hand back whatever rung it held —
+ * the last place in the repo where a rung was READ from storage rather than derived
+ * from a history (B5b). Earned standing now comes from the actor ledger
+ * (`knowledge/actor-trust.ts`: `sourceStanding`, which folds an actor's whole record
+ * and clamps it to that kind's ceiling), and this function deliberately cannot reach
+ * it: it has no vault directory, and giving it one would recreate the stored-value
+ * read in a second spelling. Callers that hold a directory should prefer
+ * `sourceStanding`; this is the honest answer available to callers that do not.
  */
-export function classifyProvenance(source: string, opts?: { hostTrust?: ReadonlyMap<string, string> }): RungId {
+export function classifyProvenance(source: string): RungId {
   const s = source.trim();
   if (!s) return FLOOR_RUNG;
   if (/^TRANSCRIPT:/i.test(s)) return "observed";
-  if (/^INBOX:.*friction/i.test(s)) return "stated";
+  // Keyed on the CHANNEL SEGMENT, not on the filename (B12). This rule used to read
+  // `/^INBOX:.*friction/i` — it matched the word anywhere in the id, and the id is
+  // `INBOX:${filename}` verbatim, so the one provenance rule that rose above the floor
+  // on the untrusted builder's only channel read a string the builder chose:
+  // `my-notes-on-friction.md` dropped into channel zero classified as a first-person
+  // report. `INBOX:friction/` is minted by `channelIdPrefix(FRICTION_CHANNEL)` from the
+  // channel's own name, `friction` is a RESERVED_CHANNEL_NAME so config cannot mint a
+  // second one, a filename cannot contain `/` so channel zero can never carry the
+  // segment, and the friction folder is `.ost-agent/friction` INSIDE the vault, which
+  // the builder does not write. The rule is the same rule; its key is now unforgeable.
+  //
+  // The cost, stated rather than hidden: a filing made BEFORE the friction channel
+  // existed lives in channel zero as `INBOX:<date>-friction-<slug>.md` and now reads
+  // `assertion`. That is the honest answer — such an id is byte-for-byte something the
+  // builder could have written — and the floor is where a source with no established
+  // producer belongs.
+  if (/^INBOX:friction\//i.test(s)) return "stated";
   if (/^(JIRA|CONFLUENCE|SLACK|INTERVIEW):/i.test(s)) return "stated";
-  const web = /^WEB:([^\s/]+)/i.exec(s);
-  if (web) {
-    return opts?.hostTrust?.get(web[1].toLowerCase().replace(/^www\./, "")) === "expert" ? "expert" : FLOOR_RUNG;
-  }
   return FLOOR_RUNG;
 }

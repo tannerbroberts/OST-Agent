@@ -178,7 +178,7 @@ const EXERCISE: Record<string, unknown[]> = {
   ost_search_web: [{ query: "onboarding" }],
   ost_read_web: [{ url: "https://example.com/a" }],
   ost_read_repo: [{}, { path: "docs" }, { path: "docs/readme.md" }],
-  ost_rank_source: [{ host: "example.com", rung: "assertion", reason: "no corroboration yet" }],
+  ost_rank_source: [{ kind: "web", id: "example.com", direction: "contradicted", reason: "their claim failed to replicate" }],
   ost_check: [{}],
   ost_debt: [{}],
   ost_status: [{}],

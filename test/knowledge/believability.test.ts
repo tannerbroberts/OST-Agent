@@ -73,8 +73,22 @@ describe("classifyProvenance", () => {
     expect(classifyProvenance("TRANSCRIPT:8fc8d6e3")).toBe("observed");
   });
 
-  test("a friction note the agent filed about itself is a stated report, not observed behavior", () => {
-    expect(classifyProvenance("INBOX:2026-07-24-friction-the-vault-is-not-discoverable.md")).toBe("stated");
+  // The friction rule is keyed on the CHANNEL SEGMENT, not on the filename (B12). Both
+  // halves are asserted here because the pair is the rule: dropping either one leaves a
+  // regex that passes on the case it was written for and on the case it was written
+  // against. Restoring `/^INBOX:.*friction/i` in believability.ts turns the second
+  // assertion red — measured, not assumed.
+  test("a friction filing the agent made through its own channel is a stated report", () => {
+    expect(classifyProvenance("INBOX:friction/2026-07-24-friction-the-vault-is-not-discoverable.md")).toBe("stated");
+  });
+
+  test("a filename the builder chose cannot buy that rung — the segment is unforgeable, the name is not", () => {
+    // `INBOX:friction/` is minted by `channelIdPrefix(FRICTION_CHANNEL)`; a filename
+    // cannot contain `/`, so channel zero can never carry the segment. A note dropped
+    // there and NAMED for friction is byte-for-byte something the untrusted builder
+    // could have written, and it lands on the floor.
+    expect(classifyProvenance("INBOX:my-notes-on-friction.md")).toBe("assertion");
+    expect(classifyProvenance("INBOX:2026-07-24-friction-the-vault-is-not-discoverable.md")).toBe("assertion");
   });
 
   test("a ticket or page someone wrote is stated intent", () => {

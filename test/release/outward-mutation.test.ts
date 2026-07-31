@@ -362,7 +362,7 @@ const AIM: Record<string, (n: number) => Record<string, unknown>> = {
   ost_set_evidence: () => ({ title: TEST, evidence: "assertion" }),
   ost_annotate: () => ({ title: TEST, issue: "worth a second look" }),
   ost_flag_humans_required: () => ({ test: TEST, why: 'a person has to read it: "interview"' }),
-  ost_rank_source: () => ({ host: "example.com", rung: "assertion", reason: "demotion needs no citation" }),
+  ost_rank_source: () => ({ kind: "web", id: "example.com", direction: "contradicted", reason: "a strike needs no citation" }),
   ost_search_web: () => ({ query: "prior art" }),
   ost_read_web: () => ({ url: "https://example.com/notes" }),
   ost_read_repo: () => ({}),

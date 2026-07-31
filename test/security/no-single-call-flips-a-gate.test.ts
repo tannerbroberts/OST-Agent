@@ -420,8 +420,8 @@ const ROWS: Record<string, Row> = {
     aim: () => ({ test: UNFLAGGED_TEST }),
   },
   ost_rank_source: {
-    why: "the one web tool that writes — an append-only publisher-trust record, not a node",
-    aim: () => ({ host: "example.com" }),
+    why: "the one web tool that writes — an append-only trust observation, not a node",
+    aim: () => ({ kind: "web", id: "example.com" }),
   },
   ost_search_web: {
     why: "read-only sensing; driven against an injected provider so nothing leaves the machine",

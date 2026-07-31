@@ -20,7 +20,7 @@ import { computeCoverageDebt, computeCoveragePairs, computeUnfixedThresholds } f
 import { BELIEVABILITY_LADDER, believabilityRollup } from "../knowledge/believability.js";
 import type { PassContext } from "../processes/types.js";
 import { LAYERS, type OstNode } from "../ost/node.js";
-import { formatCensus, type TreeCensus } from "../ost/census.js";
+import { formatCensus, SUSPECT_SOURCE_RULE, type TreeCensus } from "../ost/census.js";
 
 /**
  * How many items any one list in a rendered analysis may show.
@@ -252,6 +252,107 @@ function appendUnexplained(lines: string[], census: TreeCensus, budget: Budget):
 }
 
 /**
+ * Every node resting on a source whose standing was withdrawn — named, and
+ * deliberately **not counted as a violation** (B11).
+ *
+ * The criterion asks that `ost_check` *name* every node whose `source` is the
+ * demoted source. Naming and failing are different things, and the difference is
+ * the whole safety argument here.
+ *
+ * **Why this does not turn the check red.** A node citing a demoted source is not
+ * malformed; it is well-formed and now less believable, which is a fact for a
+ * human to weigh rather than a defect anything can repair. And nothing on the
+ * tool surface *can* repair it: a vault is append-only, so a node's `source`
+ * cannot be rewritten, `ost_rank_source` is not granted to the unattended sweep at
+ * all, and a strike is not undone by any tool — the ledger clears one only through
+ * `ost-agent trust reset`, a human-only CLI path. A red `ost_check` here would
+ * therefore be a permanent red
+ * with no way out but a human on a shell — R2's stopping state — and it would be
+ * *caused by the agent doing the right thing*, which is the incentive DEC-2 least
+ * wants to invert: a demotion that makes the tree red is a demotion the agent
+ * learns not to record. Silence is the failure mode everyone plans for; a channel
+ * that keeps delivering plausible, wrong content on cadence is the one that costs
+ * money, and it is only ever caught by a cheap demotion.
+ *
+ * The consequence lives on the other gate instead, where it has a way out:
+ * `ost_next_work` reports the same finding as a hygiene issue, so it blocks `done`
+ * until the sweep annotates each affected node — one call per node, the same
+ * escape every other hygiene issue has. That is stricter-than-`check`, which is
+ * the safe direction R4 allows: a stricter `done` never reports complete over a
+ * red tree.
+ *
+ * Both the source list and each source's node list are capped, and the headers are
+ * charged to the byte allowance rather than exempted, because the number of
+ * withdrawn sources is bounded by the ledger — a file the agent appends to — and
+ * not by the tree. An uncharged per-source header would let ten thousand
+ * withdrawals spend the whole render.
+ */
+function appendStanding(lines: string[], census: TreeCensus, budget: Budget): number {
+  const standing = census.standing;
+  if (!standing) return 0;
+  // A line that could not be parsed is reported even when nothing is withdrawn,
+  // and this is the one place the order matters: skipping a corrupt `strike` fails
+  // OPEN — the source keeps standing somebody took away, and this whole section
+  // goes quiet about it. "0 withdrawn" read off a partly unreadable file is the
+  // silence B11 exists to break, so the caveat prints above the verdict.
+  if (standing.damaged > 0) {
+    lines.push(
+      `sources: ${standing.damaged} unreadable line(s) in ${standing.basis} — a lost strike reads here as` +
+        ` a source that was never doubted. The list below is a lower bound.`,
+    );
+  }
+  if (standing.withdrawn.length === 0) return 0;
+  // Counts off the full arrays and printed before anything is sampled, so this
+  // line reads the same whether or not the lists below it were shortened.
+  lines.push(
+    `sources: WITHDRAWN (${standing.nodes} node(s) rest on ${standing.withdrawn.length} source(s) whose standing was withdrawn)`,
+  );
+
+  let hidden = 0;
+  let shownSources = 0;
+  for (const w of standing.withdrawn) {
+    if (shownSources >= MAX_ITEMS_PER_LIST) break;
+    // `was 'x', now 'y'` rather than `x → y`, because the two are often the same
+    // rung and an arrow between equal words reads as a bug. A source struck before
+    // it ever earned anything is still a source somebody withdrew trust from —
+    // that is the transition, and the rungs are the detail.
+    const header = [
+      `  [${SUSPECT_SOURCE_RULE}] ${w.key}: standing withdrawn ${w.at} (${w.why}) — ${w.reason}` +
+        ` [was '${w.from}', now '${w.to}'; ${w.nodes.length} node(s) cite it]`,
+    ];
+    if (!budget.take(header)) break;
+    lines.push(...header);
+    shownSources++;
+    hidden += appendSample(lines, w.nodes, (title) => [`    ✗ "${title}": cites ${w.key}, whose standing was withdrawn`], {
+      budget,
+      what: `node(s) citing ${w.key}`,
+      indent: "    ",
+    });
+  }
+  const hiddenSources = standing.withdrawn.length - shownSources;
+  if (hiddenSources > 0) {
+    hidden += hiddenSources;
+    lines.push(
+      `  … ${hiddenSources} more withdrawn source(s) not listed (showing ${shownSources} of ${standing.withdrawn.length}).`,
+    );
+  }
+
+  lines.push(
+    `  Basis: ${standing.basis} — the append-only trust ledger. This section names; it does not\n` +
+      "  fail. The nodes above are well-formed and the count in the verdict line does not include\n" +
+      "  them: nothing on this surface can rewrite a node's source, so failing here would be a red\n" +
+      "  only a human could retire — earned by demoting a bad source, which must stay cheap.\n" +
+      "  Re-read what each node claims. No tool call clears this: a strike stands until a human runs\n" +
+      "  `ost-agent trust reset`, and a later corroboration does NOT undo one. `ost_next_work` reports\n" +
+      "  the same nodes as work, where annotating each one records the doubt on the node — that is the\n" +
+      "  only clear reachable from this surface, and it clears the report, not the strike.\n" +
+      "  Scope: nodes whose OWN `source` names the withdrawn source. Nodes merely linked beneath\n" +
+      "  one are NOT listed — that is a larger claim than this computes.",
+  );
+  return hidden;
+}
+
+/**
  * Violations, grouped by rule and capped **within** each rule.
  *
  * A flat cap over the whole list is the amnesty failure in a subtler form, and
@@ -310,6 +411,9 @@ export function renderCheck(census: TreeCensus): { text: string; violations: num
   }
   const unexplained = appendUnexplained(lines, census, budget);
   hidden += unexplained.hidden;
+  // After the two findings that DO fail, before the census. It never contributes
+  // to `violations` below — see the function's comment for the whole argument.
+  hidden += appendStanding(lines, census, budget);
   hidden += appendCensus(
     lines,
     census,

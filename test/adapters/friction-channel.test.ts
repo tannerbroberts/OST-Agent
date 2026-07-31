@@ -161,40 +161,46 @@ describe("filings already sitting in channel zero are left exactly where they ar
 
 /**
  * B12 — "the sole provenance rule that rises above the floor on the builder's only
- * channel reads a string the builder chooses" — is NOT fixed here, and these
- * assertions are what say so honestly, plus what says the fix is now expressible.
+ * channel reads a string the builder chooses" — is fixed here. The channel move made
+ * the fix expressible; these assertions are what make it hold.
+ *
+ * The rule is the same rule. Only its key changed: from the word `friction` anywhere in
+ * the id (which is `INBOX:${filename}`, so the builder wrote it) to the leading
+ * `friction/` segment, which `channelIdPrefix` mints from the channel's own name.
  */
-describe("provenance is unchanged, and a channel-keyed rule becomes expressible", () => {
-  test("a filing's rung is the same before and after the move", async () => {
+describe("the rung above the floor is keyed on the channel, not on the filename", () => {
+  test("a real filing still reaches 'stated', by way of the segment", async () => {
     fileFriction(dir, { kind: "blocked", note: "Which layer is this" });
     const [id] = await offeredIds(FRICTION_CHANNEL);
 
-    // Today's rule matches the filename, which the new id still carries; it also
-    // now matches the CHANNEL segment, which is the part a file's author cannot
-    // choose. Either way the rung is what it always was.
+    expect(id.startsWith(channelIdPrefix(FRICTION_CHANNEL))).toBe(true);
     expect(classifyProvenance(id)).toBe("stated");
-    expect(classifyProvenance("INBOX:2026-01-01-friction-old-shape.md")).toBe("stated");
 
-    // Non-vacuity: an inbox id without the word does not reach that rung, so the
-    // assertions above are about the rule and not about every INBOX id passing.
+    // Non-vacuity: an inbox id without the segment does not reach that rung, so the
+    // assertion above is about the rule and not about every INBOX id passing.
     expect(classifyProvenance("INBOX:2026-01-01-founder-theory.md")).toBe("assertion");
   });
 
-  test("the forgeable half is still forgeable, and the segment that is not is now there", async () => {
-    // The builder drops a file it named itself into channel zero and lands above
-    // the floor. That is B12, unfixed, and it stays reproducible on purpose.
+  test("the filename the builder chooses no longer buys a rung", async () => {
+    // The exact reproduction B12 was filed on: the builder drops a file it named
+    // itself into channel zero. It used to land above the floor. It no longer can,
+    // because the segment is minted from the channel and a filename cannot contain a
+    // slash — so channel zero has no spelling that reaches the rule.
     const zero = channel(CHANNEL_ZERO);
     fs.mkdirSync(zero.dir, { recursive: true });
     fs.writeFileSync(path.join(zero.dir, "my-notes-on-friction.md"), "not a filing\n", "utf8");
     const [forged] = await offeredIds(CHANNEL_ZERO);
     expect(forged).toBe("INBOX:my-notes-on-friction.md");
-    expect(classifyProvenance(forged)).toBe("stated");
-
-    // What this change buys: no file dropped into channel zero can ever carry the
-    // `friction/` segment, because the segment is minted from the channel and a
-    // filename cannot contain a slash. A rule keyed on it would be unforgeable.
     expect(forged.startsWith(channelIdPrefix(FRICTION_CHANNEL))).toBe(false);
-    fileFriction(dir, { kind: "blocked", note: "a real filing" });
-    expect((await offeredIds(FRICTION_CHANNEL))[0].startsWith(channelIdPrefix(FRICTION_CHANNEL))).toBe(true);
+    expect(classifyProvenance(forged)).toBe("assertion");
+  });
+
+  test("the cost is stated rather than hidden: a pre-move filing reads as an assertion", () => {
+    // A filing made before the friction channel existed lives in channel zero under a
+    // name containing the word, and now falls to the floor. That is the honest answer —
+    // such an id is byte-for-byte something the builder could have written — and it is
+    // asserted here so the regression is a decision somebody made rather than a
+    // surprise somebody discovers.
+    expect(classifyProvenance("INBOX:2026-01-01-friction-old-shape.md")).toBe("assertion");
   });
 });

@@ -30,6 +30,18 @@ import fs from "node:fs";
 import path from "node:path";
 import { simpleGit } from "simple-git";
 import { INIT_TRACE_TOOL, usageLogPath } from "../telemetry/usage.js";
+import {
+  evidenceActors,
+  explainRung,
+  historyOf,
+  keyString,
+  readTrustLedger,
+  sourceTrustKey,
+  trustLedgerPath,
+  type ActorKey,
+  type TrustLedger,
+  type TrustObservation,
+} from "../knowledge/actor-trust.js";
 import type { NodeStatus, OstNode } from "./node.js";
 
 /** A markdown file the walk enumerated but did not turn into a node. */
@@ -163,6 +175,8 @@ export interface TreeCensus {
   independent?: IndependentDenominator;
   /** Absent when the trace cannot speak for this vault's whole life. See {@link reconcileWithUsage}. */
   unexplained?: UsageAccounting;
+  /** Absent when no trust ledger exists for this vault. See {@link reconcileWithTrust}. */
+  standing?: SourceStandingAccounting;
 }
 
 /** What the usage trace says about where the tree's files came from. */
@@ -280,6 +294,357 @@ export function reconcileWithUsage(vaultRoot: string, census: TreeCensus): Usage
     basis: path.relative(path.resolve(vaultRoot), file) || file,
     unexplained: census.seenFiles.filter((f) => !claimed.has(f)).sort(),
   };
+}
+
+/**
+ * How much of a caller-supplied string may be quoted into a finding, and the
+ * characters that may survive the trip.
+ *
+ * **This lives here, in the lowest layer both readers already depend on, because
+ * there must be exactly one of it.** It was written for `ost_next_work`'s
+ * dangling-citation issue (W12) and now has a second caller in the withdrawn-standing
+ * finding below; two spellings of one flattening rule is the drift R4 was spent
+ * removing, and the failure it would cause here is not cosmetic — see the three
+ * measured wedges below.
+ *
+ * **The strings this is applied to are the ones that never pass
+ * `assertWritableContent`.** `ost_create_node` hands `input.source` straight to
+ * `serialize`, where YAML happily stores a multi-line scalar; `rankHost` checks only
+ * that a `reason` is non-empty and normalizes a `host` without ever looking for a
+ * newline. So each of them is arbitrary untrusted content, and a finding quoting one
+ * has to survive being written *back* through the write boundary by `ost_annotate` —
+ * the one and only way out of the red it causes.
+ *
+ * Quoting raw was a wedge, and it was reachable in three ways at once (measured
+ * against a scratch vault before this existed):
+ *
+ * - `source: "INBOX:x.md\n## Results\n- it worked"` produced an issue containing a
+ *   reserved heading, and `vault.annotate` **refuses** it (B1). Permanent `done: false`
+ *   with no tool on either surface able to clear it.
+ * - `source: "INBOX:[[Some\nTitle]].md"` produced an issue carrying a split wikilink,
+ *   refused by the same guard for the same reason.
+ * - Even where the guard let it through, a multi-line issue is unclearable *silently*:
+ *   `annotate` writes `- <date> <issue>` and `annotatedIssues` reads one line back,
+ *   so the suppression key could never match what was written and the issue would be
+ *   re-reported forever.
+ *
+ * Flattening C0 controls to spaces closes all three: the reserved-heading and
+ * wrapped-wikilink checks are both line-anchored (`declaresHeading` splits on `\n`;
+ * `wrappedLinkTargets` looks for a newline *inside* the brackets), and a one-line issue
+ * is what the suppression reader can see. The length clamp is the response-size half —
+ * the per-list caps' bound argument rests on every quoted string being clamped
+ * (titles 200, excerpts 280), and neither a `source` nor a trust `reason` has a schema
+ * length limit anywhere.
+ *
+ * The cost is that the quote is a rendering rather than the bytes: whitespace is
+ * collapsed and a long id is cut. That is the right trade for a string whose purpose is
+ * to let a human see the typo, and it cannot cause a *mis*-clear, because suppression is
+ * keyed per node and a node has one `source`.
+ */
+const QUOTED_SOURCE_CONTROL_CHARS = new RegExp("[\\u0000-\\u001F\\u007F]+", "g");
+export const MAX_QUOTED_SOURCE_LENGTH = 200;
+export function quotableSource(source: string): string {
+  const flat = source.replace(QUOTED_SOURCE_CONTROL_CHARS, " ").replace(/\s+/g, " ").trim();
+  return flat.length > MAX_QUOTED_SOURCE_LENGTH ? `${flat.slice(0, MAX_QUOTED_SOURCE_LENGTH)}…` : flat;
+}
+
+/**
+ * A source that held standing and lost it, together with the nodes it already
+ * seeded (B11).
+ *
+ * DEC-2 says standing is earned by testing cause and effect. The half everyone
+ * builds is the promotion; the half that costs money is the withdrawal, because a
+ * channel that goes silent is noticed and a channel that keeps delivering
+ * plausible, wrong content on cadence is not. A withdrawal that only edits a
+ * ledger changes what the *next* page from that publisher is worth and says
+ * nothing about the nodes already resting on it.
+ *
+ * **Every field here is derived, and none of it is ever written onto a node.** A
+ * "suspect" flag stamped into frontmatter would be forgeable by the one actor
+ * this is about (B1's path — the agent can write what it can also be judged on),
+ * and it would go stale the moment the source's standing moved again. The ledger
+ * is the single source of truth and this is a read of it.
+ */
+export interface WithdrawnSource {
+  /**
+   * The ledger's key for the source: `kind:id`, the same string the ledger keys
+   * its own rows on and the same one `ost_rank_source` echoes back. Flattened for
+   * display by {@link quotableSource}; the matching below is done on the raw key.
+   */
+  key: string;
+  /**
+   * Why standing is gone, in the ledger's own vocabulary: a `strike` the agent
+   * filed with `direction: 'contradicted'`, or a `refuted` verdict a human
+   * recorded on a test this source's own claim was put to.
+   *
+   * Carried rather than collapsed into one word because the two have different
+   * readers: a strike is a judgement someone made about the channel, a refutation
+   * is a prediction the world settled. DEC-2's sentence is about the second, and a
+   * report that could not tell them apart would let the agent's own opinion of a
+   * source read exactly like reality's.
+   */
+  why: "strike" | "refuted";
+  /** The rung the source's history had earned it just BEFORE the withdrawing record. */
+  from: string;
+  /** The rung it now holds — the floor, which is what any live strike or refutation forces. */
+  to: string;
+  /**
+   * The withdrawing record's own timestamp, straight from the ledger.
+   *
+   * The LAST live one, not the first, and that is the property that keeps this
+   * from silencing itself. `ost_next_work` reports the finding as a hygiene issue
+   * cleared by annotating the node, and annotation suppression is keyed on the
+   * issue's text — so if a second strike produced the same sentence as the first,
+   * a source struck, cleared by a human, and struck again would stay behind the
+   * first annotation forever. A new record reads differently and re-raises.
+   */
+  at: string;
+  /** Why standing was withdrawn, as recorded. Flattened and clamped — see {@link quotableSource}. */
+  reason: string;
+  /**
+   * Titles of nodes whose OWN `source` resolves to this actor, in tree order.
+   *
+   * **Not transitive, and the shortfall is stated rather than implied.** A node
+   * that cites no source but hangs beneath one that does is *not* here. Reporting
+   * every node reachable downstream is a much larger claim than reporting every
+   * node that rests on the source directly, and it needs an edge semantics this
+   * tree does not have — `links` carries "parent of" and "related to" in one
+   * relation, so a transitive walk would paint whole subtrees suspect on the
+   * strength of a `Related:` line. The direct set is what a human can act on
+   * without re-deriving the walk's assumptions, and it is what B11's check asks
+   * for. Never capped here: a cap belongs to a renderer, and the count below is
+   * what the renderers restate when they shorten a list.
+   */
+  nodes: string[];
+}
+
+/**
+ * The name both gates report a withdrawn source's downstream under.
+ *
+ * Declared once, here beside the derivation, because `ost_check` and
+ * `ost_next_work` name the same finding and a reader moving between them must not
+ * have to work out that two strings mean one thing. It is deliberately *not* a
+ * `checkInvariants` rule — see {@link reconcileWithTrust} for why — which is what
+ * makes it a `HYGIENE_ONLY_RULES` member on the `next_work` side.
+ */
+export const SUSPECT_SOURCE_RULE = "suspect-source";
+
+/** What the trust ledger says about the sources this tree already rests on. */
+export interface SourceStandingAccounting {
+  source: "trust-ledger";
+  /** The file the finding was computed from, named so an operator can open it. */
+  basis: string;
+  /** Sources that lost standing and have not been reset. Empty is the ordinary case. */
+  withdrawn: WithdrawnSource[];
+  /** Nodes named across `withdrawn` — the number a display cap must not be able to change. */
+  nodes: number;
+  /**
+   * Ledger lines that could not be read.
+   *
+   * Reported rather than swallowed because the direction of the loss is not
+   * symmetric: a dropped `corroboration` costs a source standing it earned, but a
+   * dropped `strike` leaves a source looking trustworthy that somebody withdrew
+   * trust from — this report's exact failure mode, silently. The number travels
+   * with the finding so "nothing is suspect" cannot be read off a file that was
+   * partly unreadable.
+   */
+  damaged: number;
+}
+
+/**
+ * What the ledger says about one actor, computed over an arbitrary slice of its
+ * history.
+ *
+ * A synthetic single-row ledger rather than a second scorer, because "what had
+ * this source earned before the strike?" must be answered by the *same* function
+ * that answers "what does it hold now" (`explainRung`). A local re-implementation
+ * of the ladder here is the drift R4 was spent removing, and it would drift in the
+ * direction of this report disagreeing with the rung the write boundary enforces.
+ */
+function rungOver(key: ActorKey, history: readonly TrustObservation[]): string {
+  return explainRung({ histories: new Map([[keyString(key), history]]), damaged: 0 }, key).rung;
+}
+
+/** The records after this actor's last `reset` — the only ones that still bind. */
+function sinceReset(history: readonly TrustObservation[]): readonly TrustObservation[] {
+  let last = -1;
+  history.forEach((r, i) => {
+    if (r.type === "reset") last = i;
+  });
+  return history.slice(last + 1);
+}
+
+/** Did this record take the source's standing away? */
+function isWithdrawal(rec: TrustObservation): boolean {
+  return rec.type === "strike" || (rec.type === "corroboration" && rec.verdict === "refuted");
+}
+
+/**
+ * Which sources currently stand withdrawn, folded out of the ledger's history.
+ *
+ * Pure, over a ledger already read, because this is the whole of the mechanism and
+ * it should be testable without a filesystem.
+ *
+ * **A withdrawal is a transition, not a state, and that is why the history has to
+ * be read rather than the rung.** `rungOf` answers `assertion` for a struck
+ * publisher and `assertion` for the thousands of publishers nobody ever ranked —
+ * the floor is where everyone starts. Only the append-only history can tell
+ * "never earned anything" from "somebody took it away", and only the second is a
+ * reason to go back and re-read what the source already seeded.
+ *
+ * Three rules, each load-bearing:
+ *
+ * - **A `strike` withdraws on its own, with or without prior standing.** This is
+ *   the record `ost_rank_source({direction: 'contradicted'})` writes and it is
+ *   the criterion's own step one — "record a demotion for source S". Requiring a
+ *   promotion first would be the weaker neighbouring check and would make B11
+ *   unreachable in practice, since raising a source now needs a corroborating
+ *   result joined to a node that cited it (B4/B5) and most struck channels never
+ *   had one.
+ * - **A `refuted` verdict withdraws too.** DEC-2's sentence is about predictions
+ *   reality did not corroborate, and that is exactly what a refutation on a test
+ *   one level from a citing node is. It reaches the ledger from the human-only
+ *   result path, so it is the half of this the agent cannot author at all.
+ * - **Only a `reset` clears it.** A later corroboration does not, which is the
+ *   ledger's own rule (`explainRung` returns the floor while any strike stands)
+ *   and the one that stops the actor being judged from voting itself back up. The
+ *   corresponding cost — that clearing needs a human on a shell — is why the
+ *   finding is reported by `ost_check` and `ost_next_work` rather than made an
+ *   invariant violation; see {@link reconcileWithTrust}.
+ */
+export function withdrawnStanding(
+  ledger: TrustLedger,
+): Map<string, { why: "strike" | "refuted"; from: string; to: string; at: string; reason: string }> {
+  const out = new Map<string, { why: "strike" | "refuted"; from: string; to: string; at: string; reason: string }>();
+  for (const [key, history] of ledger.histories) {
+    const first = history[0];
+    // `migration` markers are dropped at read time and never keyed; this narrows
+    // for the compiler rather than handling a case that occurs.
+    if (!first || first.type === "migration") continue;
+    const actor: ActorKey = { kind: first.kind, id: first.id };
+    const live = sinceReset(history);
+    // The LAST live withdrawal, so a second strike re-raises a finding an
+    // annotation had suppressed. See {@link WithdrawnSource.at}.
+    let at = -1;
+    live.forEach((r, i) => {
+      if (isWithdrawal(r)) at = i;
+    });
+    if (at === -1) continue;
+    const rec = live[at];
+    // `isWithdrawal` already established which two variants these are; the switch
+    // is what makes the compiler agree, and it fails closed on any third.
+    const said =
+      rec.type === "strike"
+        ? { why: "strike" as const, reason: rec.reason }
+        : rec.type === "corroboration"
+          ? {
+              why: "refuted" as const,
+              reason: `the test "${rec.test}" was refuted${rec.node ? `, on the claim in "${rec.node}"` : ""}`,
+            }
+          : null;
+    if (!said) continue;
+    out.set(key, {
+      ...said,
+      from: rungOver(actor, live.slice(0, at)),
+      to: rungOver(actor, live),
+      at: rec.ts,
+    });
+  }
+  return out;
+}
+
+/**
+ * Ask the trust ledger which of this tree's sources have lost their standing, and
+ * which nodes already rest on them (B11).
+ *
+ * The fourth instrument, and the only one that reads a claim the *tree* makes
+ * about the world rather than a claim about the tree's own files. It is shaped
+ * like {@link reconcileWithUsage} deliberately: computed from a sidecar file,
+ * carried on the census, rendered by `eval/render.ts`, and **not** a rule in
+ * `src/eval/invariants.ts`.
+ *
+ * **It reads the LIVE ledger, and that sentence is the one thing here worth
+ * checking on every change.** This mechanism was first written against
+ * `.ost-agent/trust/hosts.jsonl`, which by then was the RETIRED host-keyed file
+ * (`knowledge/web-trust.ts`): nothing writes it, `ost_rank_source` appends
+ * `actors.jsonl`, and the whole report was dead on arrival while three dozen tests
+ * that planted the legacy file by hand went green. A report keyed on a file no
+ * writer produces is the failure mode this comment exists to prevent, which is why
+ * the end-to-end assertion — demote through the tool, then read the finding — is
+ * the first test in `test/eval/suspect-source.test.ts` and not an afterthought.
+ * Legacy vaults are not lost: `readTrustLedger` folds `hosts.jsonl` in on first
+ * sight, so an old demotion arrives here as a `strike`.
+ *
+ * **Why not an invariant, stated here because it is the design and not an
+ * accident of where the data lives.** `checkInvariants` is model-independent
+ * structure over a node list, and this is neither of those — the nodes are
+ * perfectly well-formed; what moved is our confidence in what they were built
+ * from. The decisive reason is R3's table, though. A strike is free and
+ * agent-reachable in a single `ost_rank_source` call, deliberately (B4 kept it
+ * that way so a guard could never make distrusting a bad source expensive). As an
+ * invariant this would therefore be the table's first `create: true` cell since R2
+ * and R6 closed the last two — and R3 then demands a one-call clear, which does
+ * not exist: a strike is cleared only by `ost-agent trust reset`, a human-only CLI
+ * path, and annotation clears a hygiene issue rather than an invariant violation.
+ * Creatable and unclearable is precisely the permanent wedge R3 exists to forbid,
+ * and the wedge would be triggered by the agent doing the *right* thing.
+ *
+ * Returns undefined when there is no ledger at all. An absent source is not a
+ * discrepancy.
+ */
+export function reconcileWithTrust(vaultRoot: string, census: TreeCensus): SourceStandingAccounting | undefined {
+  const file = trustLedgerPath(vaultRoot);
+  // The legacy fold inside `readTrustLedger` can MINT this file, so "does it
+  // exist" is asked after the read, not before — otherwise a vault whose only
+  // trust history is a migrated `hosts.jsonl` would report no ledger on the run
+  // that migrated it and a ledger on the next one.
+  const ledger = readTrustLedger(vaultRoot);
+  if (ledger.histories.size === 0 && ledger.damaged === 0 && !fs.existsSync(file)) return undefined;
+  const basis = path.relative(path.resolve(vaultRoot), file) || file;
+
+  const lost = withdrawnStanding(ledger);
+  if (lost.size === 0) {
+    return { source: "trust-ledger", basis, withdrawn: [], nodes: 0, damaged: ledger.damaged };
+  }
+
+  // Read once for the whole census: `sourceTrustKey` resolves a stored-evidence
+  // citation through the actor the INGESTING SURFACE stamped on the record (W11),
+  // which is the only identity here the producer could not choose for itself.
+  const actors = evidenceActors(vaultRoot);
+
+  // Taken over the whole census, in tree order. A node cites at most one source,
+  // so the per-source lists partition the affected nodes and the total is their sum.
+  const byKey = new Map<string, string[]>();
+  for (const n of census.nodes) {
+    const key = sourceTrustKey(n.source, actors);
+    if (key === null) continue;
+    const k = keyString(key);
+    if (!lost.has(k)) continue;
+    const seen = byKey.get(k);
+    if (seen) seen.push(n.title);
+    else byKey.set(k, [n.title]);
+  }
+
+  const withdrawn: WithdrawnSource[] = [];
+  let nodes = 0;
+  for (const [key, change] of lost) {
+    const affected = byKey.get(key) ?? [];
+    // A source nothing cites is a withdrawal with no downstream. Reported anyway,
+    // with an empty list: "we stopped trusting this and nothing rests on it" is a
+    // fact an operator should be able to read off, and hiding it would make the
+    // section's absence mean two different things.
+    nodes += affected.length;
+    withdrawn.push({
+      key: quotableSource(key),
+      why: change.why,
+      from: change.from,
+      to: change.to,
+      at: change.at,
+      reason: quotableSource(change.reason),
+      nodes: affected,
+    });
+  }
+  return { source: "trust-ledger", basis, withdrawn, nodes, damaged: ledger.damaged };
 }
 
 /**
