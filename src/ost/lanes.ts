@@ -10,6 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { CAUTIOUS_LANE, computeMayRun, isLane, LANES, type LaneId } from "../knowledge/lanes.js";
 import { hasRecordedResult } from "../eval/evidence-debt.js";
+import { appendAsk } from "../knowledge/asks.js";
 import type { OstNode } from "./node.js";
 import { Vault } from "./vault.js";
 
@@ -445,8 +446,16 @@ export interface LaneFiling {
  * Classify a test into a lane, recording the call in History. Attribution and a
  * reason are both required: the lane decides whether an unattended agent may run
  * the test, so a label nobody can trace back is worse than no label at all.
+ *
+ * Landing on `pending-permission` also files an ask (P2): this is the one write
+ * path every route to that lane goes through — the CLI's `ost-agent lane --set`
+ * directly, `flagHumansRequired` never (it only ever sets {@link CAUTIOUS_LANE}) —
+ * so it is the one place the ask ledger needs a hook. `now` is injected for the
+ * same reason {@link import("../knowledge/asks.js").appendAsk} takes it: an ask's
+ * age is read back in `ost_next_work`, and a test asserting how stale it is cannot
+ * afford to race the wall clock.
  */
-export function setLane(vaultDir: string, filing: LaneFiling): string {
+export function setLane(vaultDir: string, filing: LaneFiling, now: () => Date = () => new Date()): string {
   if (!isLane(filing.lane)) {
     throw new Error(`"${filing.lane}" is not a lane — use one of: ${LANES.map((l) => l.id).join(", ")}`);
   }
@@ -459,13 +468,18 @@ export function setLane(vaultDir: string, filing: LaneFiling): string {
     throw new Error("a lane classification needs a why — an unauditable label is worse than no label");
   }
 
-  const vault = new Vault(path.resolve(vaultDir));
+  const dir = path.resolve(vaultDir);
+  const vault = new Vault(dir);
   const node = vault.read(filing.test);
   if (node.layer !== "AssumptionTest") {
     throw new Error(`"${filing.test}" is a ${node.layer} — lanes classify an AssumptionTest`);
   }
 
-  return vault.setLane(filing.test, filing.lane, `by ${by} — ${why}`);
+  const line = vault.setLane(filing.test, filing.lane, `by ${by} — ${why}`);
+  if (filing.lane === "pending-permission") {
+    appendAsk(dir, { test: filing.test, by, why }, now);
+  }
+  return line;
 }
 
 /** True when the directory looks like a vault (used for friendlier CLI errors). */

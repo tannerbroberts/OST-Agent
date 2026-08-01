@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **An outstanding ask now has an age, and silence is measured by a clock instead of
+  read as the system working (P2).** A test classified `pending-permission` used to
+  produce one dated `## History` line and then go dark — nothing re-read it, so an
+  ask for a signature 40 days ago looked identical to one filed an hour ago; both just
+  read `lane: pending-permission`. `setLane` (`src/ost/lanes.ts`) now files an ask to
+  `.ost-agent/asks/asks.jsonl` — append-only, read as a history, attributed to whoever
+  made the call — every time a test lands on that lane, the one write path every route
+  to it goes through. `ost_next_work` reports the result as `outstandingAsks`: every
+  currently-blocked test, aged from its latest ask, `ageDays: null` (not `0`) when no
+  ask is on record so a pre-P2 test reads as unmeasured rather than fresh. Like
+  `assumptionWork`, it is information, not a gate — answering an ask stays a human's,
+  so none of it blocks `done`.
+
 - **The lane vocabulary finally has a consumer: `ost_next_work` sorts every
   assumption test by what it is waiting on (P3).** A test's lane always decided who
   may run it, but nothing acted on that — the only reader printed a CLI list. Now
