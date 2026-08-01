@@ -26,6 +26,7 @@ import { classifyUnknown, contractGaps, resolutionState, type UnknownClass } fro
 import { CAUTIOUS_LANE, isLane, type LaneId } from "../knowledge/lanes.js";
 import { hasRecordedResult } from "../eval/evidence-debt.js";
 import { DATA_FRAME, frameData } from "../security/framing.js";
+import { latestAsk, readAskLedger } from "../knowledge/asks.js";
 
 export interface UnmappedEvidence {
   id: string;
@@ -145,6 +146,28 @@ export interface AssumptionWork {
 }
 
 /**
+ * One test currently sitting in `pending-permission`, with the age of the most
+ * recent recorded ask (P2). Computed over every title in
+ * {@link AssumptionWork.blockedOnPermission} — every ask that is still
+ * outstanding, because a test that left the lane (a result was recorded, or a
+ * human re-classified it) already left `blockedOnPermission`, and this list is
+ * always taken from that set.
+ */
+export interface OutstandingAsk {
+  /** Title of the AssumptionTest the ask is about. */
+  test: string;
+  /** ISO timestamp of the most recent ask on record, or `null` when none is. */
+  askedAt: string | null;
+  /**
+   * Whole days since `askedAt`, or `null` when `askedAt` is `null` — a test that
+   * entered `pending-permission` before the ask ledger existed, or by a route
+   * this ledger never saw. Unknown, not zero: reporting `0` would read as asked
+   * moments ago, which is exactly the silent-clock failure P2 exists to close.
+   */
+  ageDays: number | null;
+}
+
+/**
  * Which {@link AssumptionWork} bucket each lane's not-yet-run tests belong in.
  *
  * Keyed by every {@link LaneId}, so a lane added to the vocabulary is a type
@@ -232,6 +255,13 @@ export interface NextWork {
    * blocker. Each list may be capped; see {@link NextWork.truncated}.
    */
   assumptionWork: AssumptionWork;
+  /**
+   * P2 — every test in `assumptionWork.blockedOnPermission`, aged. Reported as
+   * available information, like `assumptionWork` itself, and never part of
+   * `done` for the same reason (B1/B2): answering an ask is off this surface.
+   * May be capped; see {@link NextWork.truncated}.
+   */
+  outstandingAsks: OutstandingAsk[];
   /** Structural issues that should be annotated (never auto-fixed). May be capped. */
   hygieneIssues: HygieneIssue[];
   /**
@@ -632,9 +662,10 @@ function capList<T>(list: T[], name: string, into: Truncation[], limit = MAX_ITE
 /**
  * Compute the outstanding maintenance work for the tree in `vault` (dir holds the
  * `.ost-agent/` evidence + state sidecar). `min` is minSolutionsPerOpportunity,
- * an operator knob from `ost.config.yaml`.
+ * an operator knob from `ost.config.yaml`. `now` is injected so ask age (P2) is
+ * deterministic under test — the same rule every clock in this repo follows.
  */
-export function computeNextWork(vault: Vault, dir: string, min: number): NextWork {
+export function computeNextWork(vault: Vault, dir: string, min: number, now: () => Date = () => new Date()): NextWork {
   // ONE parse. The census is read rather than `readTree()` so the retired
   // accounting Z4 needs comes from the same walk that produced the nodes —
   // a second read would be a second walk, and a second walk can disagree.
@@ -742,6 +773,23 @@ export function computeNextWork(vault: Vault, dir: string, min: number): NextWor
   // run them. Computed over the whole tree, like every list but the duplicate scan.
   const allAssumptionWork = disposeAssumptionTests(tree);
 
+  // Every outstanding ask, aged (P2). Read from the same ledger `setLane` writes to
+  // (`src/ost/lanes.ts`), keyed off `blockedOnPermission` so the two can never name
+  // a different set of tests: a title is here iff it is there. Oldest first, so a
+  // capped display still shows the longest-waiting ask.
+  const askLedger = readAskLedger(dir);
+  const nowMs = now().getTime();
+  const allOutstandingAsks: OutstandingAsk[] = allAssumptionWork.blockedOnPermission
+    .map((test) => {
+      const ask = latestAsk(askLedger, test);
+      return {
+        test,
+        askedAt: ask?.ts ?? null,
+        ageDays: ask ? Math.floor((nowMs - new Date(ask.ts).getTime()) / 86_400_000) : null,
+      };
+    })
+    .sort((a, b) => (b.ageDays ?? -1) - (a.ageDays ?? -1));
+
   // Every cap is a display limit, never an amnesty: `done` and every count below
   // are taken over the full sets, and each hidden count is named — both in
   // `truncated` and in the summary a human reads. A cap that silently shortened
@@ -766,6 +814,7 @@ export function computeNextWork(vault: Vault, dir: string, min: number): NextWor
     blockedOnPermission: capList(allAssumptionWork.blockedOnPermission, "assumptionWork.blockedOnPermission", truncated),
     needsHumans: capList(allAssumptionWork.needsHumans, "assumptionWork.needsHumans", truncated),
   };
+  const outstandingAsks = capList(allOutstandingAsks, "outstandingAsks", truncated);
 
   const done =
     allUnmappedEvidence.length === 0 &&
@@ -815,13 +864,25 @@ export function computeNextWork(vault: Vault, dir: string, min: number): NextWor
       ? ` ${runnableCount} assumption test(s) runnable now (compute-only, no result yet) → an attended session may run each and prepare a verdict; ` +
         `${awaitingHumans} more wait on a person (see assumptionWork). Recording a result stays a human's \`ost-agent result\`, so none block done.`
       : "";
+  // P2 — silence has a clock. Oldest ask leads because that is the one an
+  // unattended pass or a human skimming the summary is most likely to have
+  // forgotten about; an ask with no record on file is named as such rather than
+  // folded into the count, so "0 stale" can never mean "unmeasured."
+  const oldestAsk = allOutstandingAsks.find((a) => a.ageDays !== null);
+  const unrecordedAsks = allOutstandingAsks.filter((a) => a.askedAt === null).length;
+  const askNote = allOutstandingAsks.length
+    ? ` ${allOutstandingAsks.length} outstanding ask(s) awaiting an answer` +
+      (oldestAsk ? `, oldest ${oldestAsk.ageDays} day(s) unanswered (${oldestAsk.test})` : "") +
+      (unrecordedAsks ? `; ${unrecordedAsks} predate ask tracking and have no recorded age` : "") +
+      ` (see outstandingAsks). Answering one stays a human's, so none block done.`
+    : "";
   // `truncationNote` is appended in every branch: on a done tree the lane queues
   // can be the only capped lists, and a cap that named nothing would read as amnesty.
   const summary = done
     ? allOpenUnknowns.length
-      ? `Tree is fully maintained — nothing to do. ${allOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${truncationNote}${retirementNote}`
-      : `Tree is fully maintained — nothing to do.${assumptionNote}${truncationNote}${retirementNote}`
-    : `Outstanding: ${parts.join("; ")}.${assumptionNote}${truncationNote}${excerptNote}${retirementNote}`;
+      ? `Tree is fully maintained — nothing to do. ${allOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${askNote}${truncationNote}${retirementNote}`
+      : `Tree is fully maintained — nothing to do.${assumptionNote}${askNote}${truncationNote}${retirementNote}`
+    : `Outstanding: ${parts.join("; ")}.${assumptionNote}${askNote}${truncationNote}${excerptNote}${retirementNote}`;
 
   return {
     framing: DATA_FRAME,
@@ -831,6 +892,7 @@ export function computeNextWork(vault: Vault, dir: string, min: number): NextWor
     underservedOpportunities,
     solutionsMissingAssumptions,
     assumptionWork,
+    outstandingAsks,
     hygieneIssues,
     openUnknowns,
     retiredFromDuplicateScan,

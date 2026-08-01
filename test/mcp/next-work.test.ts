@@ -9,6 +9,8 @@ import { computeNextWork } from "../../src/mcp/next-work.js";
 import { serialize } from "../../src/ost/node.js";
 import { fileNameForTitle } from "../../src/ost/sanitize.js";
 import { recordAttention } from "../../src/telemetry/attention.js";
+import { setLane } from "../../src/ost/lanes.js";
+import { recordResult } from "../../src/ost/results.js";
 
 let dir: string;
 beforeEach(async () => {
@@ -234,5 +236,100 @@ describe("hygiene suppression is structural, not textual", () => {
     const ctx = withDanglingLink();
     ctx.vault.appendToNode("Retention", `## Issues\n- 2026-01-01 ${ISSUE}`);
     expect(dangling()).toEqual([]);
+  });
+});
+
+describe("outstandingAsks (P2) — an ask has an age, and silence is measured by a clock", () => {
+  async function withOneTestIn(lane: "pending-permission" | "compute-only") {
+    const ctx = buildPassContext(dir);
+    ctx.vault.createNode({ title: "Users churn after week one", layer: "Opportunity", evidence: "assertion", body: "x", tags: [], links: [] });
+    ctx.vault.createNode({ title: "Onboarding checklist", layer: "Solution", evidence: "assertion", body: "x", tags: [], links: [] });
+    ctx.vault.createNode({ title: "Checklist audit", layer: "AssumptionTest", evidence: "assertion", body: "x", tags: [], links: [] });
+    ctx.vault.linkNodes("Retention", "Users churn after week one");
+    ctx.vault.linkNodes("Users churn after week one", "Onboarding checklist");
+    ctx.vault.linkNodes("Onboarding checklist", "Checklist audit");
+    setLane(
+      dir,
+      { test: "Checklist audit", lane, by: "tanner", why: lane === "pending-permission" ? "waiting on legal sign-off" : "runs off artifacts already on disk" },
+      () => new Date("2026-01-01T00:00:00.000Z"),
+    );
+    return ctx;
+  }
+
+  test("a test asked about 10 days ago reports ageDays: 10", async () => {
+    await withOneTestIn("pending-permission");
+    const work = computeNextWork(buildPassContext(dir).vault, dir, 3, () => new Date("2026-01-11T00:00:00.000Z"));
+    expect(work.outstandingAsks).toEqual([
+      { test: "Checklist audit", askedAt: "2026-01-01T00:00:00.000Z", ageDays: 10 },
+    ]);
+    expect(work.assumptionWork.blockedOnPermission).toContain("Checklist audit");
+  });
+
+  test("a test with no ask on record reports ageDays: null, not 0 — unknown is not fresh", async () => {
+    const ctx = buildPassContext(dir);
+    ctx.vault.createNode({ title: "Users churn after week one", layer: "Opportunity", evidence: "assertion", body: "x", tags: [], links: [] });
+    ctx.vault.createNode({ title: "Onboarding checklist", layer: "Solution", evidence: "assertion", body: "x", tags: [], links: [] });
+    ctx.vault.createNode({ title: "Checklist audit", layer: "AssumptionTest", evidence: "assertion", body: "x", tags: [], links: [] });
+    ctx.vault.linkNodes("Retention", "Users churn after week one");
+    ctx.vault.linkNodes("Users churn after week one", "Onboarding checklist");
+    ctx.vault.linkNodes("Onboarding checklist", "Checklist audit");
+    // Set the lane the way pre-P2 history did: straight through the vault, no ask filed.
+    ctx.vault.setLane("Checklist audit", "pending-permission", "by tanner — legacy classification");
+
+    const work = computeNextWork(buildPassContext(dir).vault, dir, 3);
+    expect(work.outstandingAsks).toEqual([{ test: "Checklist audit", askedAt: null, ageDays: null }]);
+  });
+
+  test("a test in another lane files no ask and is absent from outstandingAsks", async () => {
+    await withOneTestIn("compute-only");
+    const work = computeNextWork(buildPassContext(dir).vault, dir, 3);
+    expect(work.outstandingAsks).toEqual([]);
+  });
+
+  test("recording a result clears the test from outstandingAsks — answering it is a human's, but the drop is automatic", async () => {
+    await withOneTestIn("pending-permission");
+    recordResult(dir, {
+      test: "Checklist audit",
+      verdict: "supported",
+      note: "the credential arrived and the checklist was audited",
+      by: "tanner",
+      uncovered: "only this cohort",
+    });
+    const work = computeNextWork(buildPassContext(dir).vault, dir, 1, () => new Date("2026-01-20T00:00:00.000Z"));
+    expect(work.outstandingAsks).toEqual([]);
+  });
+
+  test("re-asking after a bounce reports age from the LATEST ask, not the first", async () => {
+    await withOneTestIn("pending-permission");
+    setLane(
+      dir,
+      { test: "Checklist audit", lane: "humans-required", by: "tanner", why: "on reflection, needs a person first" },
+    );
+    setLane(
+      dir,
+      { test: "Checklist audit", lane: "pending-permission", by: "tanner", why: "re-asked after clarifying scope" },
+      () => new Date("2026-01-05T00:00:00.000Z"),
+    );
+    const work = computeNextWork(buildPassContext(dir).vault, dir, 3, () => new Date("2026-01-08T00:00:00.000Z"));
+    expect(work.outstandingAsks).toEqual([
+      { test: "Checklist audit", askedAt: "2026-01-05T00:00:00.000Z", ageDays: 3 },
+    ]);
+  });
+
+  test("never blocks done", async () => {
+    // min=1: the fixture's one Opportunity has exactly one Solution, so `done` turns
+    // on nothing but the ask — the property under test.
+    await withOneTestIn("pending-permission");
+    const work = computeNextWork(buildPassContext(dir).vault, dir, 1, () => new Date("2026-06-01T00:00:00.000Z"));
+    expect(work.outstandingAsks[0].ageDays).toBeGreaterThan(100);
+    expect(work.done).toBe(true);
+  });
+
+  test("the summary names the oldest outstanding ask and its age", async () => {
+    await withOneTestIn("pending-permission");
+    const work = computeNextWork(buildPassContext(dir).vault, dir, 3, () => new Date("2026-01-11T00:00:00.000Z"));
+    expect(work.summary).toContain("1 outstanding ask");
+    expect(work.summary).toContain("10 day(s) unanswered");
+    expect(work.summary).toContain("Checklist audit");
   });
 });

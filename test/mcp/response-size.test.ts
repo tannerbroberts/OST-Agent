@@ -118,6 +118,7 @@ test(
       "assumptionWork.awaitingOneCommand": work.assumptionWork.awaitingOneCommand.length,
       "assumptionWork.blockedOnPermission": work.assumptionWork.blockedOnPermission.length,
       "assumptionWork.needsHumans": work.assumptionWork.needsHumans.length,
+      outstandingAsks: work.outstandingAsks.length,
       hygieneIssues: work.hygieneIssues.length,
       openUnknowns: work.openUnknowns.length,
       retiredFromDuplicateScan: work.retiredFromDuplicateScan.length,
