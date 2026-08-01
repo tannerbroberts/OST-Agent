@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **An AssumptionTest may carry its threshold as a field, not only as a sentence
+  buried in the body.** `ost_create_node` now accepts an optional `threshold` on an
+  AssumptionTest (refused for any other layer); `askedOf` (`src/eval/coverage.ts`,
+  the function every `debt`/`status` threshold count runs through) reads it first
+  and falls back to the existing prose scan when it is absent, so every test
+  written before the field existed — the entire vault as of this change — keeps
+  reading exactly as it did. A field also has no line to hard-wrap across, so it
+  sidesteps the prose scan's recorded line-wrap misread (a bold lead-in broken
+  over two lines used to read as `absent`) for every new test that uses it,
+  without touching the scan or its already-published counts for anything older.
+  Scoped to the additive half of the proposing node's own Approach section —
+  deliberately not the destructive migration its Size estimate also named, which
+  the field's backward-compatible fallback makes unnecessary.
+
 - **An outstanding ask now has an age, and silence is measured by a clock instead of
   read as the system working (P2).** A test classified `pending-permission` used to
   produce one dated `## History` line and then go dark — nothing re-read it, so an

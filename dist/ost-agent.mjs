@@ -32663,6 +32663,7 @@ function serialize(node) {
   if (node.confidence) data.confidence = node.confidence;
   if (node.evidence) data.evidence = node.evidence;
   if (node.lane) data.lane = node.lane;
+  if (node.threshold) data.threshold = node.threshold;
   const extraTags = node.tags.filter((t2) => !EVIDENCE_TAG.test(t2));
   const tagLine = [
     "#" + node.layer,
@@ -32711,6 +32712,7 @@ function deserialize(title, markdown) {
   const rung = typeof data.evidence === "string" ? data.evidence : taggedRung;
   if (rung && isRung(rung)) node.evidence = rung;
   if (typeof data.lane === "string" && isLane(data.lane)) node.lane = data.lane;
+  if (typeof data.threshold === "string") node.threshold = data.threshold;
   return node;
 }
 
@@ -40286,6 +40288,10 @@ function coverageOf(test) {
 var PRECOMMIT_LEAD = /^\s*\*\*[^*]*pre-commit[^*]*\*\*[:.]?\s*/i;
 var ANY_LEAD = /^\s*\*\*[^*]+\*\*/;
 function askedOf(test) {
+  if (test.threshold) {
+    const trimmed2 = test.threshold.trim();
+    if (trimmed2) return trimmed2;
+  }
   const lines = test.body.split("\n");
   const start = lines.findIndex((l) => PRECOMMIT_LEAD.test(l));
   if (start === -1) return null;
@@ -43500,7 +43506,11 @@ function buildOstTools(ctx, allowedNames) {
             enum: BELIEVABILITY_LADDER.map((r2) => r2.id),
             description: `Which rung of the believability ladder this node rests on \u2014 ${BELIEVABILITY_LADDER.map((r2) => `${r2.id}: ${r2.definition}`).join(" ")} Use the WEAKEST rung that honestly covers the node's sources; 'assertion' is the floor and is always available.`
           },
-          tags: { type: "array", items: { type: "string" }, description: "Extra topical tags. You do not need to pass 'unvalidated' \u2014 it is stamped for you." }
+          tags: { type: "array", items: { type: "string" }, description: "Extra topical tags. You do not need to pass 'unvalidated' \u2014 it is stamped for you." },
+          threshold: {
+            type: "string",
+            description: "AssumptionTest only: the pre-committed bar as a field, not a sentence buried in the body \u2014 e.g. 'at least 5 of 20 book a kickoff.' `ost-agent debt`/`status` read this in place of the body's prose lead-in when it is set. Refused for any layer other than AssumptionTest."
+          }
         },
         required: ["title", "layer", "parent", "body", "evidence"]
       },
@@ -43522,6 +43532,9 @@ function buildOstTools(ctx, allowedNames) {
           throw new Error(`a ${input.layer} must attach under ${allowedParents.join(" or ")}, but "${input.parent}" is a ${parentLayer}`);
         }
         if (input.status === "validated") throw new Error(VALIDATED_REFUSAL);
+        if (input.threshold !== void 0 && input.layer !== "AssumptionTest") {
+          throw new Error(`threshold is only meaningful for an AssumptionTest, not a ${input.layer}`);
+        }
         const node = {
           title: input.title,
           layer: input.layer,
@@ -43538,6 +43551,7 @@ function buildOstTools(ctx, allowedNames) {
           source: input.source,
           confidence: input.confidence,
           evidence: input.evidence,
+          threshold: input.threshold,
           created: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10)
         };
         const born = unearnedRung(node, /* @__PURE__ */ new Map());

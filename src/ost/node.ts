@@ -83,6 +83,14 @@ export interface OstNode {
    * rules treat as "not runnable by compute" rather than as a default.
    */
   lane?: LaneId;
+  /**
+   * For an AssumptionTest: the pre-committed bar, carried as a field set at
+   * creation instead of scraped from a bold lead-in buried in the prose.
+   * `askedOf` (`src/eval/coverage.ts`) reads this first and falls back to the
+   * prose scan when it is absent — every test written before the field existed
+   * keeps working exactly the way it always did.
+   */
+  threshold?: string;
   /** Extra tags beyond the layer tag (e.g. ["unvalidated"]). */
   tags: string[];
   /** Titles of child nodes, rendered as `[[wikilinks]]`. */
@@ -128,6 +136,7 @@ export function serialize(node: OstNode): string {
   if (node.confidence) data.confidence = node.confidence;
   if (node.evidence) data.evidence = node.evidence;
   if (node.lane) data.lane = node.lane;
+  if (node.threshold) data.threshold = node.threshold;
 
   // The evidence tag is derived from `evidence`, never carried in `tags`, so a
   // round-trip cannot render it twice.
@@ -198,5 +207,6 @@ export function deserialize(title: string, markdown: string): OstNode {
   // An unrecognised lane is dropped, not carried: a label nobody defined must
   // never be the reason an unattended pass decides it may run a test.
   if (typeof data.lane === "string" && isLane(data.lane)) node.lane = data.lane;
+  if (typeof data.threshold === "string") node.threshold = data.threshold;
   return node;
 }

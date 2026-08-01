@@ -610,6 +610,11 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
             description: `Which rung of the believability ladder this node rests on — ${BELIEVABILITY_LADDER.map((r) => `${r.id}: ${r.definition}`).join(" ")} Use the WEAKEST rung that honestly covers the node's sources; 'assertion' is the floor and is always available.`,
           },
           tags: { type: "array", items: { type: "string" }, description: "Extra topical tags. You do not need to pass 'unvalidated' — it is stamped for you." },
+          threshold: {
+            type: "string",
+            description:
+              "AssumptionTest only: the pre-committed bar as a field, not a sentence buried in the body — e.g. 'at least 5 of 20 book a kickoff.' `ost-agent debt`/`status` read this in place of the body's prose lead-in when it is set. Refused for any layer other than AssumptionTest.",
+          },
         },
         required: ["title", "layer", "parent", "body", "evidence"],
       },
@@ -619,6 +624,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         parent: string;
         body: string;
         status?: string;
+        threshold?: string;
         source?: string;
         confidence?: string;
         evidence?: string;
@@ -644,6 +650,13 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
           throw new Error(`a ${input.layer} must attach under ${allowedParents.join(" or ")}, but "${input.parent}" is a ${parentLayer}`);
         }
         if (input.status === "validated") throw new Error(VALIDATED_REFUSAL);
+        // A threshold on anything but an AssumptionTest is not a mistake worth
+        // silently dropping — the field only means something on the layer whose
+        // whole point is a pre-committed bar, so a Solution or Opportunity
+        // carrying one is almost certainly a caller error.
+        if (input.threshold !== undefined && input.layer !== "AssumptionTest") {
+          throw new Error(`threshold is only meaningful for an AssumptionTest, not a ${input.layer}`);
+        }
         const node: OstNode = {
           title: input.title,
           layer: input.layer as OstNode["layer"],
@@ -660,6 +673,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
           source: input.source,
           confidence: input.confidence,
           evidence: input.evidence as RungId,
+          threshold: input.threshold,
           created: new Date().toISOString().slice(0, 10),
         };
         // B3, at the other write boundary. A refusal on `ost_set_evidence` while

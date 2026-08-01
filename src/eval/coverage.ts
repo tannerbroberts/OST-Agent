@@ -108,12 +108,23 @@ const ANY_LEAD = /^\s*\*\*[^*]+\*\*/;
 /**
  * The threshold a node pre-committed to, as one paragraph, or null.
  *
- * Deliberately dumb: it locates a marker and returns the prose after it. It
- * does not check that the prose is a threshold, is measurable, or was really
- * written before the run — all three are human judgements, and the point of
- * printing it is to put it where a human can make them.
+ * Reads `test.threshold` first when the node carries one — a field set at
+ * creation, immune to the prose scan's line-wrap misread (a bold lead-in
+ * hard-wrapped across two lines used to read as `absent`; a field cannot wrap).
+ * Falls back to the prose scan for every node written before the field
+ * existed, which is the entire vault as of the field's introduction — nothing
+ * already on disk is reclassified by this change.
+ *
+ * The prose scan itself is deliberately dumb: it locates a marker and returns
+ * the prose after it. Neither path checks that what it found is measurable or
+ * was really written before the run — that is a human judgement, and the
+ * point of printing it is to put it where a human can make it.
  */
 export function askedOf(test: OstNode): string | null {
+  if (test.threshold) {
+    const trimmed = test.threshold.trim();
+    if (trimmed) return trimmed;
+  }
   const lines = test.body.split("\n");
   const start = lines.findIndex((l) => PRECOMMIT_LEAD.test(l));
   if (start === -1) return null;
