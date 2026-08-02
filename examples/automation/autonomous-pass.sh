@@ -25,8 +25,7 @@
 #     for a non-interactive machine).
 #   - This OST-Agent checkout at OST_AGENT_DIR, with dist/ost-agent.mjs present (it's
 #     committed, so a plain `git clone` is enough — no build, no npm install). The
-#     plugin declares its MCP server as `node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs
-#     mcp`; --plugin-dir loads it straight out of this checkout.
+#     server, the pass instructions and the skill are all read straight out of it.
 #   - A `loop:` block in the vault's ost.config.yaml. Neither key has a default and
 #     the firing refuses without them — a cadence nobody declared is a spend rate
 #     this tool chose for you:
@@ -100,20 +99,55 @@ STARTED=$?
 set -e
 if [ "$STARTED" -eq 15 ]; then exit 0; fi
 if [ "$STARTED" -ne 0 ]; then exit "$STARTED"; fi
+# The temp file the MCP server is declared in, created before the trap below so that
+# ONE trap can own both cleanups. A second `trap … EXIT` does not stack in bash — it
+# replaces — so registering the unlink separately would silently discard the seal, and
+# the firing would hold its lock until the TTL expired while leaving no verdict behind.
+MCP_CONFIG="$(mktemp -t ost-agent-mcp)"
+
 # Seal on every exit path, including a phase that aborted under `set -e`. The
 # verdict is computed from what was recorded, so an aborted firing seals unhealthy
 # rather than vanishing, and the lock is released either way.
-trap 'node "$CLI" loop seal --vault . || true' EXIT
+trap 'rm -f "$MCP_CONFIG"; node "$CLI" loop seal --vault . || true' EXIT
 
-# --plugin-dir loads the OST-Agent plugin (skill + /ost-pass command + MCP server).
-# The plugin's MCP server reads OST_VAULT from ${CLAUDE_PROJECT_DIR}, which is this cwd.
+# The MCP server is declared here rather than loaded as a plugin, and the pass
+# instructions are handed over as the prompt rather than invoked as `/ost-pass`.
+#
+# **Why this is not the tidier-looking `--plugin-dir "$OST_AGENT_DIR"` it replaces.**
+# That form ran, exited 0, and did nothing: Claude Code answered `Unknown command:
+# /ost-pass` and the firing sealed `no-op` with both phases green. The plugin's
+# commands and its MCP server were both absent, so the surface the allowlist below
+# describes was never present to be allowed. A pass with no tools cannot fail loudly —
+# it has nothing to fail at — which is exactly the shape this repo refuses elsewhere,
+# and the meta vault burned five straight scheduled firings on it before the health
+# record's `no-op` verdict (F4) named it.
+#
+# --strict-mcp-config is the second half. Without it the pass inherits whatever MCP
+# servers the invoking user happens to have configured — observed live: an unrelated
+# deployment server's whole tool surface loaded into an unattended discovery pass. The
+# allowlist would still gate the calls, but the ambient grant is not this script's to
+# hand out.
+#
 # No --permission-mode: the default mode has no pre-acceptance, and under `-p` a tool
 # outside --allowedTools cannot be interactively approved, so it is denied. This used
 # to pass `acceptEdits`, which pre-approved Edit/Write against the vault itself and
 # made the tool allowlist decorative (readiness criterion W5).
+cat >"$MCP_CONFIG" <<JSON
+{"mcpServers":{"ost-agent":{"command":"node","args":["$CLI","mcp","--vault","$PWD"]}}}
+JSON
+
+# Read out of the checkout at firing time, not copied here, so the pass this script
+# runs is the pass the repo currently defines. `.claude/commands/ost-pass.md` is the
+# same file whose frontmatter is the authority for $OST_TOOLS above — everything after
+# its frontmatter is the instruction body that `/ost-pass` would have expanded to.
+PASS_PROMPT="$(awk 'BEGIN{n=0} /^---$/{n++; next} n>=2' "$OST_AGENT_DIR/.claude/commands/ost-pass.md")"
+OST_SKILL="$(cat "$OST_AGENT_DIR/.claude/skills/opportunity-solution-tree/SKILL.md")"
+
 node "$CLI" loop step --phase pass --vault . -- \
-  claude -p "/ost-pass" \
-  --plugin-dir "$OST_AGENT_DIR" \
+  claude -p "$PASS_PROMPT" \
+  --append-system-prompt "$OST_SKILL" \
+  --mcp-config "$MCP_CONFIG" \
+  --strict-mcp-config \
   --allowedTools "$OST_TOOLS" \
   --disallowedTools "$DENIED_TOOLS" \
   --output-format text
