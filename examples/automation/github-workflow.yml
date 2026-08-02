@@ -57,9 +57,25 @@ jobs:
         # so without this an ordinary Write edits a node in place and the append-only
         # guarantee is gone (readiness criterion W5). There is deliberately no
         # --permission-mode: `acceptEdits` pre-approved exactly those writes.
+        #
+        # The MCP server is declared here rather than loaded with `--plugin-dir`, and
+        # the pass instructions are handed over as the prompt rather than invoked as
+        # `/ost-pass`. The plugin form ran, exited 0, and did nothing — Claude Code
+        # answered `Unknown command: /ost-pass` with neither the command nor the server
+        # present, so the surface --allowedTools describes was never there to allow. A
+        # pass with no tools cannot fail loudly; it has nothing to fail at. See the
+        # header of autonomous-pass.sh, where the same substitution is made and where a
+        # health record caught it. --strict-mcp-config keeps any ambient server
+        # configuration out of an unattended pass.
         run: |
-          claude -p "/ost-pass" \
-            --plugin-dir "$GITHUB_WORKSPACE/.ost-agent-src" \
+          SRC="$GITHUB_WORKSPACE/.ost-agent-src"
+          cat >"$RUNNER_TEMP/ost-mcp.json" <<JSON
+          {"mcpServers":{"ost-agent":{"command":"node","args":["$SRC/dist/ost-agent.mjs","mcp","--vault","$PWD"]}}}
+          JSON
+          claude -p "$(awk 'BEGIN{n=0} /^---$/{n++; next} n>=2' "$SRC/.claude/commands/ost-pass.md")" \
+            --append-system-prompt "$(cat "$SRC/.claude/skills/opportunity-solution-tree/SKILL.md")" \
+            --mcp-config "$RUNNER_TEMP/ost-mcp.json" \
+            --strict-mcp-config \
             --allowedTools "mcp__ost-agent__ost_ingest_inbox,mcp__ost-agent__ost_next_work,mcp__ost-agent__ost_read_tree,mcp__ost-agent__ost_create_node,mcp__ost-agent__ost_link_nodes,mcp__ost-agent__ost_append_to_node,mcp__ost-agent__ost_set_status,mcp__ost-agent__ost_set_evidence,mcp__ost-agent__ost_annotate" \
             --disallowedTools "Bash,BashOutput,KillShell,Edit,MultiEdit,Write,NotebookEdit,Task,SlashCommand,WebFetch,WebSearch" \
             --output-format text
