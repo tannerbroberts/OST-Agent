@@ -45,18 +45,37 @@ function stub(name: string, body: string): void {
  *
  * `loop step` runs its wrapped command, so the `pass` phase really does invoke
  * the `claude` stub and the ordering assertion is about the real sequence.
+ *
+ * **Two things here are argument-aware rather than text-aware, and both had to
+ * become so.** The wrapped command used to be all single-word arguments, and this
+ * stub quietly depended on that in two places.
+ *
+ * It found the wrapped command by counting *words* after `--` and shifting by the
+ * difference. Once the script began passing the pass instructions as one multi-word
+ * `-p "$PASS_PROMPT"` argument, that count ran hundreds over the real argument count,
+ * `shift` was handed a negative number, and the stub hung instead of failing — a
+ * worker that never reports, which reads as a suite that never ran this file rather
+ * than as a failure. Walking `"$@"` to the literal `--` cannot drift that way.
+ *
+ * And it dispatched on `$*` — every argument flattened, wrapped command included. The
+ * prompt is now megabytes of instruction text read out of the repo, so a future edit
+ * to `ost-pass.md` or `SKILL.md` containing the words "loop start" would have silently
+ * re-routed this stub and quietly stopped testing what it claims to test. Only the
+ * arguments *before* `--` name the subcommand, so only those are matched.
  */
 function stubNode(opts: { due?: number; start?: number; check?: number } = {}): void {
   stub(
     "node",
     [
-      'args="$*"',
-      'case "$args" in',
+      // Everything up to the literal `--`; the wrapped command must not steer this.
+      'head=""',
+      'for a in "$@"; do [ "$a" = "--" ] && break; head="$head $a"; done',
+      'case "$head" in',
       `  *"loop due"*) exit ${opts.due ?? 0} ;;`,
       `  *"loop start"*) exit ${opts.start ?? 0} ;;`,
       '  *"loop seal"*) exit 0 ;;',
       // Everything after `--` is the wrapped command; run it for real.
-      '  *"loop step"*) shift $(( $# - $(echo "$args" | sed "s/.*-- //" | wc -w) )); exec "$@" ;;',
+      '  *"loop step"*) while [ "$#" -gt 0 ] && [ "$1" != "--" ]; do shift; done; shift; exec "$@" ;;',
       `  *" check "*|*" check") exit ${opts.check ?? 0} ;;`,
       "  *) exit 0 ;;",
       "esac",
