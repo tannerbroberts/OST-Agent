@@ -84,6 +84,20 @@ describe.each(EXAMPLES)("%s brings its own MCP surface", (file) => {
   });
 });
 
+describe("examples/automation/autonomous-pass.sh runs on a Linux runner too", () => {
+  test("mktemp is given an explicit XXXXXX template, not BSD's -t", () => {
+    // `mktemp -t ost-agent-mcp` is BSD syntax. GNU coreutils reads the argument as a
+    // template and rejects one with too few trailing X's, so the BSD form worked on
+    // the macOS machine this was written on and killed the firing at its first line
+    // on every Linux runner — under `set -e`, an exit 1 before anything was logged.
+    // The local suite was green; CI caught it. This pins the portable spelling so the
+    // next person writing shell here does not have to know that difference.
+    const source = executable("examples/automation/autonomous-pass.sh");
+    expect(source).not.toMatch(/mktemp\s+-t\b/);
+    expect(source).toMatch(/mktemp\s+"\$\{TMPDIR:-\/tmp\}\/[\w.-]*X{6,}"/);
+  });
+});
+
 describe("examples/automation/autonomous-pass.sh keeps exactly one EXIT trap", () => {
   test("the seal is not displaced by a later trap", () => {
     // bash `trap … EXIT` REPLACES; it does not stack. The temp file holding the MCP

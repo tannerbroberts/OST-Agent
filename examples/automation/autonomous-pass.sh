@@ -103,7 +103,13 @@ if [ "$STARTED" -ne 0 ]; then exit "$STARTED"; fi
 # ONE trap can own both cleanups. A second `trap … EXIT` does not stack in bash — it
 # replaces — so registering the unlink separately would silently discard the seal, and
 # the firing would hold its lock until the TTL expired while leaving no verdict behind.
-MCP_CONFIG="$(mktemp -t ost-agent-mcp)"
+# Spelled as an explicit template rather than `mktemp -t ost-agent-mcp`, which is
+# BSD syntax: GNU coreutils reads the argument as a template and rejects one with
+# too few trailing X's, so the BSD form worked on the macOS machine this was written
+# on and killed the firing at its first line on every Linux runner. `set -e` made
+# that an exit 1 before anything was logged, which is the least legible way for a
+# cron job to fail.
+MCP_CONFIG="$(mktemp "${TMPDIR:-/tmp}/ost-agent-mcp.XXXXXX")"
 
 # Seal on every exit path, including a phase that aborted under `set -e`. The
 # verdict is computed from what was recorded, so an aborted firing seals unhealthy
