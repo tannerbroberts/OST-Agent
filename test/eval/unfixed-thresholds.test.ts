@@ -15,7 +15,7 @@
  * nuisance while a refusal that is wrong is a wall.
  */
 import { describe, expect, test } from "vitest";
-import { computeUnfixedThresholds, thresholdKindOf } from "../../src/eval/coverage.js";
+import { askedOf, computeUnfixedThresholds, thresholdKindOf } from "../../src/eval/coverage.js";
 import type { OstNode } from "../../src/ost/node.js";
 
 function node(title: string, body: string, extra: Partial<OstNode> = {}): OstNode {
@@ -92,6 +92,42 @@ describe("thresholdKindOf — is this a commitment, or an instruction to make on
     const body = "plan\n\n**Pre-commit before looking:** Choose the cutoff first.";
 
     expect(thresholdKindOf(node("Asm", body))).toBe("instruction");
+  });
+});
+
+describe("askedOf — the threshold field, when a node carries one", () => {
+  test("a field reads directly, with no prose marker required", () => {
+    const n = node("Asm", "just a plan", { threshold: "at least 5 of 20 book a kickoff." });
+    expect(askedOf(n)).toBe("at least 5 of 20 book a kickoff.");
+    expect(thresholdKindOf(n)).toBe("bound");
+  });
+
+  test("the field wins over prose when both are present", () => {
+    const n = node("Asm", "**Pre-committed threshold:** the prose bar.", { threshold: "the field bar." });
+    expect(askedOf(n)).toBe("the field bar.");
+  });
+
+  test("a field that is empty or whitespace-only falls back to the prose scan", () => {
+    const withProse = node("Asm", "**Pre-committed threshold:** at least 5 of 20.", { threshold: "   " });
+    expect(askedOf(withProse)).toBe("at least 5 of 20.");
+
+    const withNothing = node("Asm", "no marker here", { threshold: "" });
+    expect(askedOf(withNothing)).toBeNull();
+  });
+
+  test("no field at all falls back to the prose scan exactly as before — the entire pre-field vault is unaffected", () => {
+    const n = asked("at least 5 of 20 book a kickoff.");
+    expect(n.threshold).toBeUndefined();
+    expect(askedOf(n)).toBe("at least 5 of 20 book a kickoff.");
+  });
+
+  test("the field is immune to the prose scan's line-wrap misread", () => {
+    // The prose scan's known defect (see the vault's own record): a bold
+    // lead-in hard-wrapped across a line break reads as absent. A field set at
+    // creation has no line to wrap.
+    const n = node("Asm", "plan", { threshold: "20 arrivals across both arms, decided before launch." });
+    expect(askedOf(n)).not.toBeNull();
+    expect(thresholdKindOf(n)).toBe("bound");
   });
 });
 

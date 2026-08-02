@@ -13,6 +13,7 @@ import {
 } from "../../src/ost/lanes.js";
 import { serialize, type OstNode } from "../../src/ost/node.js";
 import { Vault } from "../../src/ost/vault.js";
+import { askLedgerPath, latestAsk, readAskLedger } from "../../src/knowledge/asks.js";
 
 const node = (title: string, layer: OstNode["layer"], links: string[] = [], extra: Partial<OstNode> = {}): OstNode => ({
   title,
@@ -183,6 +184,39 @@ describe("setLane", () => {
     expect(() =>
       setLane(dir, { test: "A solution", lane: "compute-only", by: "tanner", why: "because" }),
     ).toThrow(/Solution/);
+  });
+
+  test("landing on pending-permission files an ask (P2)", () => {
+    setLane(
+      dir,
+      { test: "A test", lane: "pending-permission", by: "tanner", why: "waiting on legal sign-off" },
+      () => new Date("2026-01-01T00:00:00.000Z"),
+    );
+    const ledger = readAskLedger(dir);
+    const ask = latestAsk(ledger, "A test");
+    expect(ask).toMatchObject({ ts: "2026-01-01T00:00:00.000Z", test: "A test", by: "tanner", why: "waiting on legal sign-off" });
+  });
+
+  test("any other lane files no ask", () => {
+    setLane(dir, { test: "A test", lane: "compute-only", by: "tanner", why: "replays journals" });
+    expect(fs.existsSync(askLedgerPath(dir))).toBe(false);
+  });
+
+  test("re-classifying into pending-permission twice appends a second ask, keeping the first", () => {
+    setLane(
+      dir,
+      { test: "A test", lane: "pending-permission", by: "tanner", why: "first ask" },
+      () => new Date("2026-01-01T00:00:00.000Z"),
+    );
+    setLane(dir, { test: "A test", lane: "humans-required", by: "tanner", why: "reclassified" });
+    setLane(
+      dir,
+      { test: "A test", lane: "pending-permission", by: "tanner", why: "re-asked" },
+      () => new Date("2026-02-01T00:00:00.000Z"),
+    );
+    const ledger = readAskLedger(dir);
+    expect(ledger.histories.get("A test")).toHaveLength(2);
+    expect(latestAsk(ledger, "A test")?.why).toBe("re-asked");
   });
 });
 

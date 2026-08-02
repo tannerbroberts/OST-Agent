@@ -30,7 +30,7 @@ clean and the suite is green — and nothing below is about the code being broke
 It is about the difference between *a tool that works when watched* and *a system
 that can be left alone*.
 
-**75 criteria, 20 of them blockers. 72 met, 0 partial, 3 not met.** Three of the
+**75 criteria, 20 of them blockers. 73 met, 0 partial, 2 not met.** Three of the
 twenty-eight were met by *deleting* something rather than building it, which is the
 document working as intended; four more were the first Tier 1 batch, each of
 which turned a wedge into a refusal at the boundary that could still take it back.
@@ -72,7 +72,7 @@ vacuous and green.
 > grep -cE '^\*\*⛔ [A-Z][0-9]+ —' docs/reference/v1-readiness.md      # 20 blockers
 > grep -oE '^> \*Today:\*\s+\*\*[a-z, ]+' docs/reference/v1-readiness.md \
 >   | sed 's/.*\*\*//;s/^met.*/met/;s/^partial.*/partial/;s/^not met.*/not met/' \
->   | sort | uniq -c                                                  # 72 / 0 / 3
+>   | sort | uniq -c                                                  # 73 / 0 / 2
 > ```
 >
 > *Those three trailing comments read `68 / 17 / 17-3-48` until 2026-07-29 — the
@@ -1260,19 +1260,34 @@ surfaced.**
 > *Check:* `ls .ost-agent/asks/` (or equivalent) exists with ask/answer timestamp
 > pairs, **and** `NextWork` (`src/mcp/next-work.ts:52-79`) declares a field
 > derived from it.
-> *Today:* **not met.** A test entering `pending-permission` produces one dated
-> History line and then becomes invisible to every automated surface. An agent
-> that "assumes it has forever" and cannot see that it asked for a signature 40
-> days ago will either re-ask forever or route around the ask — and the lane will
-> still read `pending-permission`, which looks like the system working. The file
-> shape is already in the repo, and B5 sharpened it: append-only JSONL under
-> `.ost-agent/`, read as a *history* rather than last-record-wins, with attribution
-> stamped by the surface (`src/knowledge/actor-trust.ts:405-520`). **Ask latency is
-> the one genuinely sponsor-specific measurement** — the rest of the sponsor
+> *Today:* **met** (2026-08-01). `.ost-agent/asks/asks.jsonl` is an append-only ledger
+> (`src/knowledge/asks.ts`), the same shape B5 sharpened for the trust ledger: read as
+> a *history* keyed by test title, never last-record-wins, with the clock injected so
+> age is deterministic under test (`src/knowledge/actor-trust.ts:405-520` is the
+> pattern it copies). `setLane` (`src/ost/lanes.ts:449-483`) is the one write path
+> every route to `pending-permission` goes through — the CLI's `ost-agent lane --set`
+> directly, `ost_flag_humans_required` never (it only ever sets the cautious lane) —
+> so it is the one place that needed the hook: landing on `pending-permission` files
+> an ask, attributed to whoever made the call. `NextWork.outstandingAsks`
+> (`src/mcp/next-work.ts`) is the declared field: every title in
+> `assumptionWork.blockedOnPermission`, joined against the ledger's latest record for
+> that title, reporting `ageDays: null` rather than `0` when no ask is on file — a test
+> that entered the lane before this ledger existed reads as *unmeasured*, not fresh,
+> so a stale ask can never masquerade as a new one. There is no "answered" record type:
+> a test leaves `blockedOnPermission` (a result is recorded, or a human re-classifies
+> it) through the same read `disposeAssumptionTests` already does, so a second ledger
+> tracking resolution would be a second place that fact could disagree with the first.
+> Pinned by `test/knowledge/asks.test.ts` (ledger mechanics: append, history-not-fold,
+> damaged-line survival), `test/ost/lanes.test.ts`'s `setLane` block (an ask is filed
+> exactly on `pending-permission` and nowhere else, and a second ask appends rather
+> than overwrites), and `test/mcp/next-work.test.ts`'s `outstandingAsks` block
+> (age computed from the *latest* ask after a re-ask, `null` on an unrecorded ask,
+> cleared automatically once a result lands, and never blocking `done`). **Ask latency
+> is the one genuinely sponsor-specific measurement** — the rest of the sponsor
 > relationship is B5 and B6 applied to one actor, and that half closed on
-> 2026-07-30 (P5). What is left is exactly the part a ledger of outcomes cannot
-> see: an ask that is never answered records nothing, so silence has to be measured
-> by a clock rather than scored by a fold.
+> 2026-07-30 (P5). What P2 closes is exactly the part a ledger of outcomes cannot see:
+> an ask that is never answered records nothing, so silence is now measured by a
+> clock rather than scored by a fold.
 
 **P3 — Every lane has a behavioural consumer.**
 > *Check:* for each of the four ids in `LANES`, `grep -rn "'<id>'" src/ | grep
@@ -2922,8 +2937,8 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1568 tests across 140 files, verified 2026-08-02 (`npx vitest run`,
-> after `test/release/examples-mcp-surface.test.ts` landed). (The count this line
+> *Today:* **met** — 1597 tests across 142 files, verified 2026-08-02 (`npx vitest run`,
+> after the AssumptionTest threshold-field batch and `test/release/examples-mcp-surface.test.ts`). (The count this line
 > carried two revisions ago, 878 across 86, predated `8261a6f`'s deletion of the
 > genome and harness and was never updated with it — a reminder that a number in this
 > document is a claim like any other. It has since been wrong twice more, both times

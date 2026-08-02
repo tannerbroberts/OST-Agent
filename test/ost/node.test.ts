@@ -84,6 +84,26 @@ describe("serialize / deserialize round-trip", () => {
     const bad = "---\ntype: Nonsense\n---\n#Nonsense\n\nbody\n";
     expect(() => deserialize("bad", bad)).toThrow();
   });
+
+  test("round-trips an AssumptionTest's threshold field", () => {
+    const asm: OstNode = {
+      title: "Ten sessions book a kickoff",
+      layer: "AssumptionTest",
+      evidence: "assertion",
+      tags: [],
+      links: [],
+      threshold: "at least 5 of 20 book a kickoff.",
+      body: "the plan",
+    };
+    const md = serialize(asm);
+    expect(md).toContain("threshold: at least 5 of 20 book a kickoff.");
+    expect(deserialize(asm.title, md)).toEqual(asm);
+  });
+
+  test("a node with no threshold does not gain the frontmatter key", () => {
+    const md = serialize({ ...node, layer: "AssumptionTest" });
+    expect(md).not.toContain("threshold:");
+  });
 });
 
 describe("the Unknown layer", () => {

@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+- **An AssumptionTest may carry its threshold as a field, not only as a sentence
+  buried in the body.** `ost_create_node` now accepts an optional `threshold` on an
+  AssumptionTest (refused for any other layer); `askedOf` (`src/eval/coverage.ts`,
+  the function every `debt`/`status` threshold count runs through) reads it first
+  and falls back to the existing prose scan when it is absent, so every test
+  written before the field existed — the entire vault as of this change — keeps
+  reading exactly as it did. A field also has no line to hard-wrap across, so it
+  sidesteps the prose scan's recorded line-wrap misread (a bold lead-in broken
+  over two lines used to read as `absent`) for every new test that uses it,
+  without touching the scan or its already-published counts for anything older.
+  Scoped to the additive half of the proposing node's own Approach section —
+  deliberately not the destructive migration its Size estimate also named, which
+  the field's backward-compatible fallback makes unnecessary.
+
+- **An outstanding ask now has an age, and silence is measured by a clock instead of
+  read as the system working (P2).** A test classified `pending-permission` used to
+  produce one dated `## History` line and then go dark — nothing re-read it, so an
+  ask for a signature 40 days ago looked identical to one filed an hour ago; both just
+  read `lane: pending-permission`. `setLane` (`src/ost/lanes.ts`) now files an ask to
+  `.ost-agent/asks/asks.jsonl` — append-only, read as a history, attributed to whoever
+  made the call — every time a test lands on that lane, the one write path every route
+  to it goes through. `ost_next_work` reports the result as `outstandingAsks`: every
+  currently-blocked test, aged from its latest ask, `ageDays: null` (not `0`) when no
+  ask is on record so a pre-P2 test reads as unmeasured rather than fresh. Like
+  `assumptionWork`, it is information, not a gate — answering an ask stays a human's,
+  so none of it blocks `done`.
+
 - **The lane vocabulary finally has a consumer: `ost_next_work` sorts every
   assumption test by what it is waiting on (P3).** A test's lane always decided who
   may run it, but nothing acted on that — the only reader printed a CLI list. Now
