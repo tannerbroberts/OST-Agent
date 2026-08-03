@@ -9,13 +9,23 @@
  *
  * `input_schema` is snake_case on the way out because the MCP server and the
  * input validator both read that key.
+ *
+ * Every tool also resolves a {@link ReversibilityId} (P1): declare it on the
+ * spec, or don't — either way `OstToolDef.reversibility` is never `undefined`,
+ * because `reversibilityOf` fails closed to `irreversible` for a spec that
+ * omits it. A tool added later without thinking about reversibility reads as
+ * the least forgiving class rather than as unclassified.
  */
+
+import { reversibilityOf, type ReversibilityId } from "../knowledge/reversibility.js";
 
 export interface ToolSpec<I> {
   name: string;
   description: string;
   inputSchema: Record<string, unknown> & { type?: string };
   run: (input: I) => Promise<string | unknown> | string | unknown;
+  /** How expensive this tool's effect is to undo. Omit and it reads as `irreversible`. */
+  reversibility?: string;
 }
 
 export interface OstToolDef<I = unknown> {
@@ -23,6 +33,7 @@ export interface OstToolDef<I = unknown> {
   description: string;
   input_schema: Record<string, unknown>;
   run: (input: I) => Promise<string | unknown> | string | unknown;
+  reversibility: ReversibilityId;
 }
 
 export function tool<I>(spec: ToolSpec<I>): OstToolDef<I> {
@@ -36,5 +47,6 @@ export function tool<I>(spec: ToolSpec<I>): OstToolDef<I> {
     description: spec.description,
     input_schema: spec.inputSchema,
     run: spec.run,
+    reversibility: reversibilityOf(spec.reversibility),
   };
 }

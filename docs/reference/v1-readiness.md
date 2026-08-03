@@ -30,7 +30,7 @@ clean and the suite is green — and nothing below is about the code being broke
 It is about the difference between *a tool that works when watched* and *a system
 that can be left alone*.
 
-**75 criteria, 20 of them blockers. 73 met, 0 partial, 2 not met.** Three of the
+**75 criteria, 20 of them blockers. 74 met, 0 partial, 1 not met.** Three of the
 twenty-eight were met by *deleting* something rather than building it, which is the
 document working as intended; four more were the first Tier 1 batch, each of
 which turned a wedge into a refusal at the boundary that could still take it back.
@@ -72,7 +72,7 @@ vacuous and green.
 > grep -cE '^\*\*⛔ [A-Z][0-9]+ —' docs/reference/v1-readiness.md      # 20 blockers
 > grep -oE '^> \*Today:\*\s+\*\*[a-z, ]+' docs/reference/v1-readiness.md \
 >   | sed 's/.*\*\*//;s/^met.*/met/;s/^partial.*/partial/;s/^not met.*/not met/' \
->   | sort | uniq -c                                                  # 73 / 0 / 2
+>   | sort | uniq -c                                                  # 74 / 0 / 1
 > ```
 >
 > *Those three trailing comments read `68 / 17 / 17-3-48` until 2026-07-29 — the
@@ -1245,15 +1245,31 @@ fail-closed vocabulary with a cautious default.**
 > *Check:* `grep -rn 'export const REVERSIBILITY' src/` is non-empty, plus a unit
 > assertion mirroring P4's shape:
 > `reversibilityOf(undefined) === reversibilityOf("invented") === "irreversible"`.
-> *Today:* **not met.** `irreversible` appears nowhere in `src/`; the only
-> occurrences of `reversible` are two prose lines in the ruleset
-> (`src/knowledge/ruleset.ts:94`, `:179`) describing Torres's two-way-door
-> framing, which no code reads. Nothing distinguishes "append a note" from "wire
-> funds". Every safety property in this repo is currently carried by the fact that
-> **no irreversible verb exists on the tool surface** — which is exactly the
-> property DEC-3 removes. The lane vocabulary is the right shape to copy: closed, one
-> permissive member, fail-closed on anything unrecognised
-> (`src/knowledge/lanes.ts:84-87`).
+> *Today:* **met** (2026-08-02). `src/knowledge/reversibility.ts` is the vocabulary,
+> built the way `lanes.ts` says to: closed, three members (`reversible`, `costly`,
+> `irreversible`), and `reversibilityOf` fails closed to `irreversible` on a missing
+> or invented class — pinned verbatim by `test/knowledge/reversibility.test.ts`,
+> the same check this entry names.
+>
+> **The second half is the one a standalone vocabulary does not buy on its own:**
+> a fact nothing reads is a fact that rots, so `OstToolDef` (`src/security/tool.ts`)
+> now resolves a `reversibility` field through `reversibilityOf` for every tool the
+> `tool()` helper builds — never `undefined`, because a spec that forgets to declare
+> one falls to the cautious class rather than reading as unclassified. Every one of
+> the 20 tools `buildOstTools` constructs (`src/security/tools.ts`) declares its
+> class explicitly: `git_push` — the one tool that leaves the vault, and the one P6
+> already singled out as outward-mutating — is `costly`; everything else, git_commit
+> included, is `reversible`, because every other tool's whole effect is an append to
+> a git-tracked vault, a correction away from gone. `test/security/tool-reversibility.test.ts`
+> pins both halves: every built tool's class is a real vocabulary member, `git_push`
+> is the lone `costly` tool, and the `tool()` helper itself resolves an undeclared or
+> invented class to `irreversible` rather than passing it through.
+>
+> **What this does not yet claim:** nothing in this repo *branches* on reversibility
+> yet — no tool is refused or gated by its class. P1 asked for a declared class on
+> every action, which is now true and fail-closed; consuming that declaration to
+> change behaviour (the `costly`/`irreversible` classes demanding something a
+> `reversible` action does not) is DEC-3 machinery this criterion does not build.
 
 **⛔ P2 — An outstanding ask of the sponsor has an age, and an unanswered one is
 surfaced.**
@@ -2937,9 +2953,10 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1613 tests across 143 files, verified 2026-08-03 (`npx vitest run`,
-> after `test/release/build-pass-surface.test.ts` pinned the build loop's inverse tool
-> surface). (The count this line
+> *Today:* **met** — 1626 tests across 145 files, verified 2026-08-03 (`npx vitest run`,
+> after P1's reversibility vocabulary added `test/knowledge/reversibility.test.ts` and
+> `test/security/tool-reversibility.test.ts`, and `test/release/build-pass-surface.test.ts`
+> pinned the build loop's inverse tool surface). (The count this line
 > carried two revisions ago, 878 across 86, predated `8261a6f`'s deletion of the
 > genome and harness and was never updated with it — a reminder that a number in this
 > document is a claim like any other. It has since been wrong twice more, both times
@@ -3374,6 +3391,15 @@ signatures, and nothing in the repo today has one. That is why they read *not me
 against a document otherwise 70-for-75: the safety properties above them are all
 carried by the fact that **no irreversible verb exists on the tool surface**, which
 is precisely the property DEC-3 removes.
+
+> *All three closed after this paragraph was written* — P3 the same day (2026-07-30),
+> P2 on 2026-08-01, P1 last, on 2026-08-02. **The vocabulary now exists and every
+> tool declares against it, and that is a smaller claim than it sounds:** nothing
+> yet branches on a lane or a reversibility class to refuse or gate a capability —
+> DEC-3's actual mechanism, an agent trusted with something that costs money or
+> signatures, is still unbuilt, and was never these three criteria's to build. What
+> closed is the precondition the paragraph above names: the vocabulary an agent
+> would need before that trust could be reasoned about at all.
 
 > **What is *not* next, and why, because the ordering keeps being the thing this
 > document gets right.** F4's escalation half is now unblocked — S1 closed — but it
