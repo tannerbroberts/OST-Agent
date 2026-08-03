@@ -91,6 +91,17 @@ export interface OstNode {
    * keeps working exactly the way it always did.
    */
   threshold?: string;
+  /**
+   * For an AssumptionTest: the command whose exit code answers the test — the
+   * executable half of the threshold above.
+   *
+   * Carried verbatim, and validated only when it is read
+   * ({@link ../knowledge/instruments.ts}), so a node written by an older version
+   * or by hand round-trips unchanged instead of being silently dropped. A
+   * declaration that does not parse is not an instrument, but it is still what
+   * the author wrote, and the reader says so by name.
+   */
+  instrument?: string;
   /** Extra tags beyond the layer tag (e.g. ["unvalidated"]). */
   tags: string[];
   /** Titles of child nodes, rendered as `[[wikilinks]]`. */
@@ -137,6 +148,7 @@ export function serialize(node: OstNode): string {
   if (node.evidence) data.evidence = node.evidence;
   if (node.lane) data.lane = node.lane;
   if (node.threshold) data.threshold = node.threshold;
+  if (node.instrument) data.instrument = node.instrument;
 
   // The evidence tag is derived from `evidence`, never carried in `tags`, so a
   // round-trip cannot render it twice.
@@ -208,5 +220,8 @@ export function deserialize(title: string, markdown: string): OstNode {
   // never be the reason an unattended pass decides it may run a test.
   if (typeof data.lane === "string" && isLane(data.lane)) node.lane = data.lane;
   if (typeof data.threshold === "string") node.threshold = data.threshold;
+  // Kept verbatim even when it does not parse: the reader names an unusable
+  // declaration rather than pretending the author never made one.
+  if (typeof data.instrument === "string") node.instrument = data.instrument;
   return node;
 }

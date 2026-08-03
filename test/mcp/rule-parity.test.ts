@@ -84,7 +84,10 @@ function legalTree(): void {
   vault.linkNodes(OUTCOME, OPPORTUNITY);
   put({ title: SOLUTION, layer: "Solution" });
   vault.linkNodes(OPPORTUNITY, SOLUTION);
-  put({ title: ASSUMPTION, layer: "AssumptionTest" });
+  // Carries an instrument for the same reason it exists at all: the fixture has
+  // to be `done` for an uninteresting reason, and a test nothing can run is now
+  // one of the terms that blocks it.
+  put({ title: ASSUMPTION, layer: "AssumptionTest", instrument: "npx vitest run test/fixture.test.ts" });
   vault.linkNodes(SOLUTION, ASSUMPTION);
 }
 
@@ -115,9 +118,17 @@ const PLANT: Record<string, () => void> = {
     vault.linkNodes(OUTCOME, "Hand written note");
   },
   "opportunity-connected": () => put({ title: "Adrift", layer: "Opportunity" }),
+  // The test beneath it is instrumented for the reason the `rung-unearned` note
+  // below gives about a different term: a planted Solution whose tests are prose
+  // only turns `done` false through the instrument term, which would let this
+  // case pass without the hygiene rule doing any work at all.
   "solution-mapped": () => {
     put({ title: "Unmapped idea", layer: "Solution" });
-    put({ title: "Whether anyone asked for it", layer: "AssumptionTest" });
+    put({
+      title: "Whether anyone asked for it",
+      layer: "AssumptionTest",
+      instrument: "npx vitest run test/asked.test.ts",
+    });
     vault.linkNodes("Unmapped idea", "Whether anyone asked for it");
   },
   "assumption-mapped": () => put({ title: "Unmapped test", layer: "AssumptionTest" }),

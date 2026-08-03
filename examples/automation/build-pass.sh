@@ -13,14 +13,27 @@
 #     tool that writes, so a build pass cannot quietly re-frame the opportunity it failed
 #     to build. A builder that can edit its own spec is not being held to it.
 #
-# **The gate is the whole point.** `ost-agent gate <solution>` exits non-zero unless a
-# solution has an assumption test with a recorded result, and recording a result is
-# human-only by construction (`ost-agent result`) — the agent has no argument that
-# expresses it. So this script cannot talk itself into building. On a tree where nothing
-# has been tested it builds nothing, every time, and says so. That is the designed
-# outcome, not a failure mode: the product's entire thesis is that unvalidated solutions
-# are not build candidates, and a build loop that ignored that would be the first thing
-# this repo exists to refuse.
+# **The permits are the whole point, and there are two of them.**
+#
+#   - `ost-agent gate <solution>` exits non-zero unless a solution has an assumption test
+#     with a recorded result, and recording a result is human-only by construction
+#     (`ost-agent result`) — the agent has no argument that expresses it. This is the
+#     "worth building" permit and nothing here weakens it.
+#   - `ost-agent buildable <solution>` clears when a test beneath it names an INSTRUMENT —
+#     one spec-file command — that has been observed FAILING against this repository. This
+#     is the "defined well enough to build" permit. It is not a judgement and does not
+#     pretend to be one: an exit code was watched, and that is all it claims.
+#
+# So this script still cannot talk itself into building something nobody defined. What it
+# can now do is build something a discovery pass defined precisely enough to be wrong
+# about — which is the state the product's own vault was stuck outside of, at 243
+# solutions, 243 prose tests, and zero build candidates for the loop's whole life.
+#
+# The red-before-green rule is what keeps the second permit honest: an instrument that
+# passes on its first run is refused rather than recorded, so a test that could never fail
+# cannot become a permit. The agent stakes a falsifiable prediction; the repository answers
+# it. A solution that clears only this permit has been *specified*, not *validated*, and
+# the prompt below is required to say so in its report.
 #
 # A consequence worth stating because it is the reason this is affordable to run hourly:
 # **the buildability decision is mechanical and costs no model call.** The preflight below
@@ -138,6 +151,36 @@ if [ -s "$CANDIDATES" ]; then
   done < <(sort -u "$CANDIDATES")
 fi
 
+# ---------------------------------------------------------------------------
+# The second permit, and the reason this loop stopped starving.
+#
+# `gate` above asks whether a solution is WORTH building — a human's recorded
+# result, and still human-only. `buildable` asks whether it is DEFINED: does some
+# test beneath it name a command that has been observed failing against this very
+# repository? A red instrument is a build permit and a definition of done in one
+# object, which is what makes it safe to act on without a person in the loop —
+# nobody's judgement is being simulated, only an exit code that was watched.
+#
+# Both permits are honoured and neither is weakened. A solution cleared by either
+# is a solution somebody can start on; the prompt below is told which permit it
+# arrived under, because they mean different things and license different work.
+#
+# `verify` is run HERE, in the deterministic preflight, and never by the model.
+# The model in this pass cannot write the tree — that inversion is load-bearing
+# (see the header) — and an observation the model could author would be a build
+# it authorized itself.
+# ---------------------------------------------------------------------------
+INSTRUMENTED="$STATE/instrumented.txt"
+: >"$INSTRUMENTED"
+node "$CLI" buildable --vault . 2>/dev/null | grep -v '^  ' >"$INSTRUMENTED" || true
+
+if [ -s "$INSTRUMENTED" ]; then
+  while IFS= read -r sol; do
+    [ -n "$sol" ] || continue
+    grep -Fxq "$sol" "$BUILDABLE" 2>/dev/null || printf '%s\n' "$sol" >>"$BUILDABLE"
+  done <"$INSTRUMENTED"
+fi
+
 NODE_COUNT="$(node "$CLI" check --vault . 2>&1 | grep -oE '[0-9]+ node' | grep -oE '[0-9]+' | head -1)"
 NODE_COUNT="${NODE_COUNT:-unknown}"
 BUILD_COUNT="$(wc -l <"$BUILDABLE" | tr -d ' ')"
@@ -151,7 +194,7 @@ if [ "$BUILD_COUNT" -eq 0 ]; then
   # operator's terms, rather than reporting an empty result and leaving them to infer why.
   UNTESTED="$(node "$CLI" debt --vault . 2>&1 | grep -oE 'Solutions: [0-9]+' | grep -oE '[0-9]+' | head -1)"
   UNTESTED="${UNTESTED:-0}"
-  report "Build loop ran and built nothing, as designed. The tree holds ${UNTESTED} solutions across ${NODE_COUNT} nodes and not one has an assumption test with a recorded result, so ost-agent gate refuses every candidate. This will stay true until a human runs an assumption test and records what happened with 'ost-agent result' — no pass can clear it, because recording a result is human-only by construction. Run 'ost-agent lanes' in the vault to see which tests are cheapest in human minutes."
+  report "Build loop ran and built nothing. The tree holds ${UNTESTED} solutions across ${NODE_COUNT} nodes, and none cleared either permit: no assumption test carries a human-recorded result (ost-agent gate), and none names an instrument that has been observed failing against this repository (ost-agent buildable). The second one is the one a discovery pass can clear on its own — a test whose 'instrument:' names a spec that fails today becomes a build permit the moment 'ost-agent verify' watches it fail. Run 'ost-agent buildable' to see what is defined, and 'ost-agent lanes' to see which human-run tests are cheapest in minutes."
   exit 0
 fi
 
@@ -191,10 +234,19 @@ Solution cleared by the gate: "$TARGET"
 
 Work in the code repository. cwd is the vault, so cd to the repo first.
 
-1. Read the solution node "$TARGET" in the vault and the assumption test beneath it that
-   carries the recorded result. The recorded result is the reason this is buildable —
-   read what it actually says, because it may narrow the build considerably or contradict
-   the solution's original framing.
+1. Read the solution node "$TARGET" in the vault and the assumption test beneath it. It
+   cleared one of two permits and you must find out which, because they license different
+   work. Run 'node $CLI buildable "$TARGET" --vault $VAULT_DIR' and read what it says.
+   - If a test carries a RECORDED RESULT, that is a human's finding about the world and is
+     the reason this is worth building. Read what it actually says — it may narrow the
+     build considerably or contradict the solution's original framing.
+   - If a test carries a RED INSTRUMENT, that command is your definition of done. It fails
+     against this repository today and must pass when you are finished. Do not edit the
+     test to make it pass; make the behaviour it names real. If the instrument turns out to
+     be testing the wrong thing, STOP and say so in your report — a spec bent to fit the
+     code it was supposed to judge is the one outcome this loop cannot survive.
+   A red instrument says the work is defined, never that it was worth doing. If that is the
+   only permit this target holds, say so in your report.
 2. Build it, following the repository's CLAUDE.md and CONTRIBUTING.md. Branch off main;
    never commit to main directly.
 3. Run the gates before pushing: 'npx tsc --noEmit' must exit 0 and 'npx vitest run' must

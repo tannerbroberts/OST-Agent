@@ -25,6 +25,7 @@ import type { Vault } from "../ost/vault.js";
 import { classifyUnknown, contractGaps, resolutionState, type UnknownClass } from "../knowledge/unknowns.js";
 import { CAUTIOUS_LANE, isLane, type LaneId } from "../knowledge/lanes.js";
 import { hasRecordedResult } from "../eval/evidence-debt.js";
+import { solutionsMissingInstruments } from "../eval/buildable.js";
 import { DATA_FRAME, frameData } from "../security/framing.js";
 import { latestAsk, readAskLedger } from "../knowledge/asks.js";
 
@@ -246,6 +247,20 @@ export interface NextWork {
   underservedOpportunities: UnderservedOpportunity[];
   /** P4 — solutions with no assumption test surfaced yet. May be capped. */
   solutionsMissingAssumptions: BareSolution[];
+  /**
+   * P4b — solutions whose tests exist but are prose only: not one of them names
+   * a command that could go red or green.
+   *
+   * This blocks `done`, unlike `assumptionWork`, and the difference is the point.
+   * Recording a *result* is a human's, so a test awaiting one cannot be a
+   * completion blocker. Declaring an *instrument* is the agent's own work and
+   * costs nobody anything — it is the sentence that turns a proposal a person
+   * has to run into a test the repository can answer. A tree full of tests that
+   * nothing can run is not a maintained tree; it is the state this product's own
+   * vault sat in at 243 solutions with zero runnable tests, handing its builder
+   * nothing. May be capped; see {@link NextWork.truncated}.
+   */
+  solutionsMissingInstruments: string[];
   /**
    * Every assumption test that has not recorded a result, sorted by the lane that
    * decides who may run it — the runnable bucket a session may act on now, and the
@@ -798,6 +813,12 @@ export function computeNextWork(vault: Vault, dir: string, min: number, now: () 
   const unmappedEvidence = capList(allUnmappedEvidence, "unmappedEvidence", truncated);
   const underservedOpportunities = capList(allUnderservedOpportunities, "underservedOpportunities", truncated);
   const solutionsMissingAssumptions = capList(allSolutionsMissingAssumptions, "solutionsMissingAssumptions", truncated);
+  const allSolutionsMissingInstruments = solutionsMissingInstruments(tree);
+  const solutionsMissingInstrumentsList = capList(
+    allSolutionsMissingInstruments,
+    "solutionsMissingInstruments",
+    truncated,
+  );
   // `hygiene.issues` is already bounded at the source (it is never fully
   // materialized), so the total has to come from the scan rather than from the
   // array's length — the one list here whose full set is never in memory.
@@ -820,12 +841,18 @@ export function computeNextWork(vault: Vault, dir: string, min: number, now: () 
     allUnmappedEvidence.length === 0 &&
     allUnderservedOpportunities.length === 0 &&
     allSolutionsMissingAssumptions.length === 0 &&
+    allSolutionsMissingInstruments.length === 0 &&
     hygiene.total === 0;
 
   const parts: string[] = [];
   if (allUnmappedEvidence.length) parts.push(`${allUnmappedEvidence.length} unmapped evidence item(s) → map into #Opportunity nodes`);
   if (allUnderservedOpportunities.length) parts.push(`${allUnderservedOpportunities.length} opportunity(ies) with < ${min} solutions → ideate #Solution nodes`);
   if (allSolutionsMissingAssumptions.length) parts.push(`${allSolutionsMissingAssumptions.length} solution(s) with no assumption test → surface #AssumptionTest nodes`);
+  if (allSolutionsMissingInstruments.length)
+    parts.push(
+      `${allSolutionsMissingInstruments.length} solution(s) whose tests are prose only → declare an \`instrument:\` ` +
+        `(one spec file that fails today and passes when the solution is built)`,
+    );
   if (hygiene.total) parts.push(`${hygiene.total} hygiene issue(s) → annotate (never delete)`);
   if (allOpenUnknowns.length)
     parts.push(`${allOpenUnknowns.length} open unknown(s) → explore (does not block done)`);
@@ -891,6 +918,7 @@ export function computeNextWork(vault: Vault, dir: string, min: number, now: () 
     unmappedEvidence,
     underservedOpportunities,
     solutionsMissingAssumptions,
+    solutionsMissingInstruments: solutionsMissingInstrumentsList,
     assumptionWork,
     outstandingAsks,
     hygieneIssues,

@@ -386,7 +386,17 @@ const ROWS: Record<string, Row> = {
     // attempt and this row tested nothing, which the landing count caught. They
     // are still swept: the row's value is only the base the sweep varies from, so
     // every layer and every rung (both measurement rungs included) is tried.
-    aim: (n) => ({ title: `A forged test ${n}`, parent: BLOCKED, layer: "AssumptionTest", evidence: "assertion" }),
+    // `instrument` is aimed for the same reason as `layer` and `evidence`: the
+    // boundary refuses anything that is not a spec-file command, so the generic
+    // filler would get this row refused on every attempt and it would test
+    // nothing — the failure mode the landing count exists to catch.
+    aim: (n) => ({
+      title: `A forged test ${n}`,
+      parent: BLOCKED,
+      layer: "AssumptionTest",
+      evidence: "assertion",
+      instrument: "npx vitest run test/forged.test.ts",
+    }),
   },
   ost_append_to_node: {
     why: "B1's original door — free-text markdown onto an assumption test's body",

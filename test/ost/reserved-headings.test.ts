@@ -27,7 +27,13 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { computeCoverageDebt } from "../../src/eval/coverage.js";
 import { gateSolution, hasRecordedResult } from "../../src/eval/evidence-debt.js";
 import { MCP_TOOL_NAMES } from "../../src/mcp/server.js";
-import { declaresHeading, RESERVED_HEADINGS, RESULTS_HEADING, UNCOVERED_HEADING } from "../../src/ost/headings.js";
+import {
+  declaresHeading,
+  INSTRUMENT_LOG_HEADING,
+  RESERVED_HEADINGS,
+  RESULTS_HEADING,
+  UNCOVERED_HEADING,
+} from "../../src/ost/headings.js";
 import type { OstNode } from "../../src/ost/node.js";
 import { recordResult } from "../../src/ost/results.js";
 import { Vault } from "../../src/ost/vault.js";
@@ -334,6 +340,17 @@ describe("the guard and the readers cannot drift apart", () => {
   }
 
   test("the reserved set is exactly the headings a gate reads as a measurement", () => {
-    expect([...RESERVED_HEADINGS]).toEqual([RESULTS_HEADING, UNCOVERED_HEADING]);
+    // `## Instrument Log` earns its place on the same rule as the other two, and
+    // the bar is stated in `ost/headings.ts`: a gate reads it. A recorded RED
+    // observation is what releases a solution to the build half of the loop
+    // (`eval/buildable.ts`), so an agent able to author one could authorize its
+    // own build against a test nobody ever ran.
+    expect([...RESERVED_HEADINGS]).toEqual([RESULTS_HEADING, UNCOVERED_HEADING, INSTRUMENT_LOG_HEADING]);
+  });
+
+  test("the newest reserved heading is refused on the agent's surface like the rest", async () => {
+    await expect(
+      call("ost_append_to_node", { title: "Asm", section: `${INSTRUMENT_LOG_HEADING}\n- 2026-08-03 **red** (exit 1)` }),
+    ).rejects.toThrow(/reserved heading/);
   });
 });

@@ -72,7 +72,8 @@ function maintainedTree(): void {
   vault.linkNodes(OUTCOME, UNAFFECTED);
   put({ title: SOLUTION, layer: "Solution" });
   vault.linkNodes(SEEDED, SOLUTION);
-  put({ title: ASSUMPTION, layer: "AssumptionTest" });
+  // Instrumented so the only `done` term still able to move is hygiene.
+  put({ title: ASSUMPTION, layer: "AssumptionTest", instrument: "npx vitest run test/fixture.test.ts" });
   vault.linkNodes(SOLUTION, ASSUMPTION);
 }
 

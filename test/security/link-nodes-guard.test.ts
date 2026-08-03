@@ -83,7 +83,11 @@ let ctx: ToolContext;
 
 /** Fixture writes go through the Vault directly — never through the surface under test. */
 function put(title: string, layer: OstNode["layer"], body = `prose for ${title}`): void {
-  vault.createNode({ title, layer, tags: [], links: [], evidence: "assertion", body } as OstNode);
+  // Assumption tests are instrumented so this fixture stays `done` for the
+  // reason under test. A prose-only test blocks `done` on its own term, which
+  // would make the advisory-gate assertions below pass for the wrong reason.
+  const instrument = layer === "AssumptionTest" ? "npx vitest run test/fixture.test.ts" : undefined;
+  vault.createNode({ title, layer, tags: [], links: [], evidence: "assertion", body, instrument } as OstNode);
 }
 
 beforeEach(() => {

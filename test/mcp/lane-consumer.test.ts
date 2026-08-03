@@ -37,7 +37,10 @@ function withOneTest(lane: LaneId | undefined) {
   const v = buildPassContext(dir).vault;
   v.createNode({ title: "Users churn after week one", layer: "Opportunity", evidence: "assertion", body: "x", tags: [], links: [] });
   v.createNode({ title: "Onboarding checklist", layer: "Solution", evidence: "assertion", body: "x", tags: [], links: [] });
-  v.createNode({ title: "Checklist audit", layer: "AssumptionTest", evidence: "assertion", body: "x", tags: [], links: [] });
+  // Instrumented so the only thing this fixture can be not-done FOR is the lane
+  // question under test. A prose-only test blocks `done` on its own term now,
+  // which would make "assumptionWork never blocks done" pass for the wrong reason.
+  v.createNode({ title: "Checklist audit", layer: "AssumptionTest", evidence: "assertion", body: "x", tags: [], links: [], instrument: "npx vitest run test/checklist.test.ts" });
   v.linkNodes(OUTCOME, "Users churn after week one");
   v.linkNodes("Users churn after week one", "Onboarding checklist");
   v.linkNodes("Onboarding checklist", "Checklist audit");
