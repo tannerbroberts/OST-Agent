@@ -30,7 +30,7 @@ import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/rende
 import { BELIEVABILITY_LADDER, type RungId } from "../knowledge/believability.js";
 import { promoteNode, recordResult, VERDICTS, type Verdict } from "../ost/results.js";
 import { verifyInstrument } from "../ost/instrument.js";
-import { buildableSolutions, buildPermit } from "../eval/buildable.js";
+import { buildableSolutions, buildPermit, testsAwaitingVerification } from "../eval/buildable.js";
 import { formatCensus, reconcileWithGit, reconcileWithUsage } from "../ost/census.js";
 import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
 import { laneDef, LANES, type LaneId } from "../knowledge/lanes.js";
@@ -439,17 +439,33 @@ program
   .description("may work start on this solution, and against what definition of done? (exits non-zero when not)")
   .argument("[solution]", "title of the Solution node; omit to list every buildable solution")
   .option("--vault <dir>", "vault directory", ".")
-  .action((solution: string | undefined, opts: { vault: string }) => {
+  .option("--pending", "instead list the tests that declare an instrument nobody has run yet")
+  .action((solution: string | undefined, opts: { vault: string; pending?: boolean }) => {
     const ctx = buildPassContext(opts.vault);
     const tree = ctx.vault.readTree();
+    if (opts.pending) {
+      // One title per line and nothing else: this is the list an unattended loop
+      // reads to decide what to go run, so it is parsed far more often than read.
+      for (const t of testsAwaitingVerification(tree)) console.log(t);
+      return;
+    }
     if (!solution) {
       const all = buildableSolutions(tree);
+      // stdout carries solution titles and NOTHING else, because an unattended
+      // loop reads this list to decide what to build. The advisory below went to
+      // stdout once: the build script filtered out the indented detail lines,
+      // kept the unindented "nothing is buildable…" sentence, and handed that
+      // sentence to the model as the solution it had been cleared to build. An
+      // empty list has to BE empty, not a paragraph explaining that it is.
       if (all.length === 0) {
-        console.log("nothing is buildable: no solution carries an instrument that has been observed red.");
-        console.log("  `ost-agent debt` says which solutions still owe a test; a test owes an `instrument:` field.");
+        console.error("nothing is buildable: no solution carries an instrument that has been observed red.");
+        console.error("  `ost-agent debt` says which solutions still owe a test; a test owes an `instrument:` field.");
         return;
       }
-      for (const b of all) console.log(`${b.solution}\n  ${b.instrument}  (${b.test})`);
+      for (const b of all) {
+        console.log(b.solution);
+        console.error(`  ${b.instrument}  (${b.test})`);
+      }
       return;
     }
     const permit = buildPermit(tree, solution);

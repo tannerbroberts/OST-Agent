@@ -136,6 +136,31 @@ export function buildableSolutions(tree: readonly OstNode[]): { solution: string
 }
 
 /**
+ * Tests that declare an instrument nobody has run yet — the build loop's own work.
+ *
+ * This is the step between discovery writing a test and the builder being able to
+ * act on it, and it belongs to neither of them by judgement: running the command
+ * and reading its exit code is mechanical. Listing them here rather than letting
+ * the loop's shell re-derive the rule keeps one definition of "needs verifying"
+ * in the codebase instead of two that can drift.
+ *
+ * A test that has already been observed — red or green — is not here. Re-running
+ * a red instrument every hour would burn the suite for an answer the tree already
+ * has; the green→red direction (a build regressing) is a different question and
+ * deliberately not this one.
+ */
+export function testsAwaitingVerification(tree: readonly OstNode[]): string[] {
+  const out: string[] = [];
+  for (const n of tree) {
+    if (n.layer !== "AssumptionTest") continue;
+    if (!nodeInstrument(n)) continue;
+    if (observedRed(n) || observedGreen(n)) continue;
+    out.push(n.title);
+  }
+  return out;
+}
+
+/**
  * Solutions whose tests exist but cannot be run — the discovery loop's new work.
  *
  * This is the bucket that turns "think harder about tests" into something with a

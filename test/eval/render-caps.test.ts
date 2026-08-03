@@ -44,6 +44,7 @@ import {
 } from "../../src/eval/render.js";
 import { checkInvariants } from "../../src/eval/invariants.js";
 import { computeEvidenceDebt, gateSolution } from "../../src/eval/evidence-debt.js";
+import { solutionsMissingInstruments } from "../../src/eval/buildable.js";
 import { computeCoverageDebt, computeCoveragePairs } from "../../src/eval/coverage.js";
 import { promoteNode, recordResult } from "../../src/ost/results.js";
 import { buildLargeTree, phraseFrom, seededRandom } from "../ost/fixture-vault.js";
@@ -366,10 +367,14 @@ describe("Z2 — renderCheck / renderStatus / renderDebt / renderGate on a 10,00
     expect(gate.text).toContain(`has ${uncappedGate.debt!.testsProposed} proposed assumption test(s), none run`);
     expect(uncappedGate.debt!.testsProposed).toBeGreaterThan(MAX_ITEMS_PER_LIST);
 
-    // `ost_debt` — the totals line is computed before anything is sampled.
+    // `ost_debt` — the totals line is computed before anything is sampled. The
+    // instrument count rides on the same line and is held to the same rule:
+    // taken over the whole tree, never over the sample the lines below show.
     const totals = computeEvidenceDebt(tree).totals;
+    const proseOnly = solutionsMissingInstruments(tree).length;
     expect(renderDebt(tree).split("\n")[0]).toBe(
-      `Solutions: ${totals.solutions}  (untested ${totals.untested}, proposed-only ${totals.proposed}, tested ${totals.tested})`,
+      `Solutions: ${totals.solutions}  (untested ${totals.untested}, proposed-only ${totals.proposed}, ` +
+        `tested ${totals.tested}; ${proseOnly} with tests that are prose only)`,
     );
 
     // `ost_status` — the node count and the coverage denominator likewise.
