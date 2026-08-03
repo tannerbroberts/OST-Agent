@@ -2937,8 +2937,9 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1598 tests across 142 files, verified 2026-08-02 (`npx vitest run`,
-> after the AssumptionTest threshold-field batch and `test/release/examples-mcp-surface.test.ts`). (The count this line
+> *Today:* **met** — 1613 tests across 143 files, verified 2026-08-03 (`npx vitest run`,
+> after `test/release/build-pass-surface.test.ts` pinned the build loop's inverse tool
+> surface). (The count this line
 > carried two revisions ago, 878 across 86, predated `8261a6f`'s deletion of the
 > genome and harness and was never updated with it — a reminder that a number in this
 > document is a claim like any other. It has since been wrong twice more, both times
