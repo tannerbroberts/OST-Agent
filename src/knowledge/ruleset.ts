@@ -83,7 +83,11 @@ export const OST_RULESET = {
     "Classify each assumption into one of the four risk categories: desirability, viability, feasibility, or usability (also consider potential-harm/ethical assumptions as an additional check).",
     "Keep each test small and fast, with a success threshold pre-committed before running.",
     "Use assumption-test results as comparative evidence to choose among solutions, not as a yes/no verdict on one idea.",
-    "The agent may propose test designs but must never run tests or record test results as evidence; humans run tests with real customers/data."
+    "The agent may propose test designs but must never run tests or record test results as evidence; humans run tests with real customers/data.",
+    "Ask of every assumption, before reaching for an interview: could the repository answer this? A feasibility assumption about code — whether a guard refuses, whether a path resolves, whether an exit code is what the node claims — is settled by a spec file in minutes and does not need anybody's afternoon. Reaching for a customer study when the answer is on disk spends the scarcest resource in the process on a question that was never about customers.",
+    "Give every test an `instrument:` wherever one is possible — a single spec-file command whose exit code answers the test. Prose states what would count as an answer; an instrument is the answer, run. A test with a threshold and no instrument can only be settled by a person finding the time, which is why a tree can hold hundreds of them and still be unable to hand anything to a builder.",
+    "An instrument must be RED when it is written: it names behaviour that does not exist yet, so the command fails against the repository today and passes only once the solution is real. A command that already passes is a description of the present, not a test — it cannot fail, so it measures nothing and gives a builder no definition of done. This is the one property that makes an agent-authored test worth anything, because it is a falsifiable prediction rather than a claim.",
+    "Say what an instrument does NOT settle, in the test's own prose. A green spec proves the code does what the node said; it never proves anyone wanted it. Feasibility answered mechanically leaves desirability, viability and usability exactly where they were, and a node that does not say so invites a reader to mistake a passing test for a validated solution."
   ],
   "prioritization": [
     "Prioritize opportunities, not solutions; the strategic decision is which customer need to target.",
@@ -109,6 +113,7 @@ export const OST_RULESET = {
     "Keep opportunities laddered up to the outcome and propose (not silently impose) opportunity-space structure.",
     "Append multiple unvalidated candidate solutions under a target opportunity for compare-and-contrast.",
     "Make each solution's underlying assumptions explicit and propose (never run) assumption tests.",
+    "Finish a solution by appending its test to the end of the solution node: the `[[wikilink]]` to the AssumptionTest on its own line, and beneath it the one command that will go green when the solution is built. A builder reads the solution, not the layer beneath it, and a definition of done kept one node away is a definition of done nobody reads.",
     "Flag tree-hygiene issues: staleness, orphan solutions, duplicates, mislabeled nodes, and unbacked validity claims.",
     "Preserve full provenance and append-only history for every node it touches.",
     "Keep every wikilink on one line. A hard-wrapped paragraph that breaks a [[Node title]] across two lines produces bracketed text and no edge: it reads correctly in the source, and the graph — the artifact this whole thing produces — simply lacks the line. Let the line run long rather than wrap inside the brackets. `check` fails on it (rule wrapped-wikilink) and the hygiene pass reports it, because discipline alone has repeatedly not been enough.",

@@ -350,7 +350,17 @@ const AIM: Record<string, (n: number) => Record<string, unknown>> = {
   ost_status: () => ({}),
   ost_ingest_inbox: () => ({}),
   ost_gate: () => ({ solution: SOLUTION }),
-  ost_create_node: (n) => ({ title: `A new test ${n}`, parent: SOLUTION, layer: "AssumptionTest", evidence: "assertion" }),
+  // `instrument` is aimed rather than left to the schema filler: the boundary
+  // refuses anything that is not a spec-file command, so the generic `text for
+  // instrument` would make this a call that writes nothing — and a driver that
+  // silently stops writing proves nothing about the push path it is testing.
+  ost_create_node: (n) => ({
+    title: `A new test ${n}`,
+    parent: SOLUTION,
+    layer: "AssumptionTest",
+    evidence: "assertion",
+    instrument: "npx vitest run test/driven.test.ts",
+  }),
   ost_append_to_node: () => ({ title: TEST, section: "## Notes\nsomething true" }),
   // A NEW edge, and a LEGAL one: `linkNodes` no-ops on a duplicate, so aiming at
   // the edge the fixture already has would be a call that writes nothing — and

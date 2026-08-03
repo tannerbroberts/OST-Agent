@@ -244,7 +244,7 @@ describe("outstandingAsks (P2) — an ask has an age, and silence is measured by
     const ctx = buildPassContext(dir);
     ctx.vault.createNode({ title: "Users churn after week one", layer: "Opportunity", evidence: "assertion", body: "x", tags: [], links: [] });
     ctx.vault.createNode({ title: "Onboarding checklist", layer: "Solution", evidence: "assertion", body: "x", tags: [], links: [] });
-    ctx.vault.createNode({ title: "Checklist audit", layer: "AssumptionTest", evidence: "assertion", body: "x", tags: [], links: [] });
+    ctx.vault.createNode({ title: "Checklist audit", layer: "AssumptionTest", evidence: "assertion", body: "x", tags: [], links: [], instrument: "npx vitest run test/checklist.test.ts" });
     ctx.vault.linkNodes("Retention", "Users churn after week one");
     ctx.vault.linkNodes("Users churn after week one", "Onboarding checklist");
     ctx.vault.linkNodes("Onboarding checklist", "Checklist audit");
@@ -269,7 +269,7 @@ describe("outstandingAsks (P2) — an ask has an age, and silence is measured by
     const ctx = buildPassContext(dir);
     ctx.vault.createNode({ title: "Users churn after week one", layer: "Opportunity", evidence: "assertion", body: "x", tags: [], links: [] });
     ctx.vault.createNode({ title: "Onboarding checklist", layer: "Solution", evidence: "assertion", body: "x", tags: [], links: [] });
-    ctx.vault.createNode({ title: "Checklist audit", layer: "AssumptionTest", evidence: "assertion", body: "x", tags: [], links: [] });
+    ctx.vault.createNode({ title: "Checklist audit", layer: "AssumptionTest", evidence: "assertion", body: "x", tags: [], links: [], instrument: "npx vitest run test/checklist.test.ts" });
     ctx.vault.linkNodes("Retention", "Users churn after week one");
     ctx.vault.linkNodes("Users churn after week one", "Onboarding checklist");
     ctx.vault.linkNodes("Onboarding checklist", "Checklist audit");

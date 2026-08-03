@@ -11,6 +11,8 @@
  *   ost-agent lanes --flag-cautious <who>     bulk: humans-required for every test naming an outside person
  *   ost-agent lane "<test>" --set <lane> ...  classify one test into a lane
  *   ost-agent gate "<solution>" [--vault DIR] block building against untested assumptions
+ *   ost-agent verify "<test>" --repo DIR      run a test's instrument; record red/green as an observed fact
+ *   ost-agent buildable ["<solution>"]        is it defined well enough to build, and against what command?
  *   ost-agent channels [--vault DIR]          every drop folder, its last delivery, and what has gone silent
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
  *   ost-agent loop due|start|step|seal        unattended firing: cadence, lock, ceiling, health
@@ -27,6 +29,8 @@ import { setOutcome } from "../runner/set-outcome.js";
 import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/render.js";
 import { BELIEVABILITY_LADDER, type RungId } from "../knowledge/believability.js";
 import { promoteNode, recordResult, VERDICTS, type Verdict } from "../ost/results.js";
+import { verifyInstrument } from "../ost/instrument.js";
+import { buildableSolutions, buildPermit } from "../eval/buildable.js";
 import { formatCensus, reconcileWithGit, reconcileWithUsage } from "../ost/census.js";
 import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
 import { laneDef, LANES, type LaneId } from "../knowledge/lanes.js";
@@ -403,6 +407,57 @@ program
       return;
     }
     console.error(text);
+    process.exitCode = 1;
+  });
+
+program
+  .command("verify")
+  .description("run an assumption test's instrument and record what it did (the machine's half — a fact, never a result)")
+  .argument("<test>", "title of the AssumptionTest whose instrument to run")
+  .requiredOption("-r, --repo <dir>", "the repository the instrument is measured against")
+  .option("--vault <dir>", "vault directory", ".")
+  .action((test: string, opts: { repo: string; vault: string }) => {
+    let outcome;
+    try {
+      outcome = verifyInstrument(opts.vault, { test, repo: opts.repo });
+    } catch (e) {
+      console.error(String(e instanceof Error ? e.message : e));
+      process.exitCode = 1;
+      return;
+    }
+    console.log(`observed on "${test}": ${outcome.line}`);
+    if (outcome.run.observation === "red") {
+      console.log("  RED — this is a build permit: the command fails today and passes when the solution is built.");
+    } else if (outcome.transitioned) {
+      console.log("  GREEN after red — the solution has been built. This says nothing about whether it was worth building;");
+      console.log("  that is still `ost-agent result`, and still a human's.");
+    }
+  });
+
+program
+  .command("buildable")
+  .description("may work start on this solution, and against what definition of done? (exits non-zero when not)")
+  .argument("[solution]", "title of the Solution node; omit to list every buildable solution")
+  .option("--vault <dir>", "vault directory", ".")
+  .action((solution: string | undefined, opts: { vault: string }) => {
+    const ctx = buildPassContext(opts.vault);
+    const tree = ctx.vault.readTree();
+    if (!solution) {
+      const all = buildableSolutions(tree);
+      if (all.length === 0) {
+        console.log("nothing is buildable: no solution carries an instrument that has been observed red.");
+        console.log("  `ost-agent debt` says which solutions still owe a test; a test owes an `instrument:` field.");
+        return;
+      }
+      for (const b of all) console.log(`${b.solution}\n  ${b.instrument}  (${b.test})`);
+      return;
+    }
+    const permit = buildPermit(tree, solution);
+    if (permit.cleared) {
+      console.log(`buildable: CLEARED — ${permit.reason}`);
+      return;
+    }
+    console.error(`buildable: BLOCKED — ${permit.reason}`);
     process.exitCode = 1;
   });
 

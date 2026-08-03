@@ -14,6 +14,7 @@ import { tool } from "./tool.js";
 import { gitCommit, gitPush, pushTargetFor } from "../git/safe-git.js";
 import { AGENT_IDEATED_TAG, type NodeStatus, type OstNode } from "../ost/node.js";
 import { BELIEVABILITY_LADDER, isRung, rungRank, type RungId } from "../knowledge/believability.js";
+import { isInstrument, parseInstrument } from "../knowledge/instruments.js";
 import { classifyUnknown } from "../knowledge/unknowns.js";
 import { titlesMatch } from "../ost/sanitize.js";
 import { Vault } from "../ost/vault.js";
@@ -618,6 +619,11 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
             description:
               "AssumptionTest only: the pre-committed bar as a field, not a sentence buried in the body — e.g. 'at least 5 of 20 book a kickoff.' `ost-agent debt`/`status` read this in place of the body's prose lead-in when it is set. Refused for any layer other than AssumptionTest.",
           },
+          instrument: {
+            type: "string",
+            description:
+              "AssumptionTest only: the command whose exit code answers this test — the executable half of the threshold. Exactly one spec file in the repository's own suite, e.g. 'npx vitest run test/git/conflict-guard.test.ts'. It MUST fail against the repository today and pass only once the solution is built: an instrument that already passes cannot fail, so it measures nothing and gives a builder no definition of done. Nothing else is accepted — no shell punctuation, no arbitrary command — because a verdict has to come from committed code rather than from a string you chose. Declare one wherever the assumption is about code; leave it off when only real people can answer (interviews, willingness to pay, usability with strangers) and say so in the body.",
+          },
         },
         required: ["title", "layer", "parent", "body", "evidence"],
       },
@@ -628,6 +634,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         body: string;
         status?: string;
         threshold?: string;
+        instrument?: string;
         source?: string;
         confidence?: string;
         evidence?: string;
@@ -660,6 +667,23 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         if (input.threshold !== undefined && input.layer !== "AssumptionTest") {
           throw new Error(`threshold is only meaningful for an AssumptionTest, not a ${input.layer}`);
         }
+        // Same rule for the instrument, and then the stricter one: a declaration
+        // that does not parse is refused HERE rather than written and discovered
+        // later by a reader that silently ignores it. The failure mode being
+        // closed is a test that looks runnable in the node and is invisible to
+        // every tool that looks for runnable tests.
+        if (input.instrument !== undefined) {
+          if (input.layer !== "AssumptionTest") {
+            throw new Error(`instrument is only meaningful for an AssumptionTest, not a ${input.layer}`);
+          }
+          const parsed = parseInstrument(input.instrument);
+          if (!isInstrument(parsed)) {
+            throw new Error(
+              `"${input.title}" cannot carry that instrument: ${parsed.reason} ` +
+                `An instrument must also FAIL today — it names behaviour the solution does not have yet.`,
+            );
+          }
+        }
         const node: OstNode = {
           title: input.title,
           layer: input.layer as OstNode["layer"],
@@ -677,6 +701,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
           confidence: input.confidence,
           evidence: input.evidence as RungId,
           threshold: input.threshold,
+          instrument: input.instrument,
           created: new Date().toISOString().slice(0, 10),
         };
         // B3, at the other write boundary. A refusal on `ost_set_evidence` while

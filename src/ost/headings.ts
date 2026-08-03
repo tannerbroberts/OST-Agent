@@ -35,14 +35,40 @@ export const RESULTS_HEADING = "## Results";
 export const UNCOVERED_HEADING = "## Uncovered";
 
 /**
+ * The heading an instrument's observed exit code lives under — read by the build
+ * permit.
+ *
+ * Reserved on the same rule as the other two, and for a reason worth stating
+ * plainly: a line here saying an instrument was observed RED is what tells the
+ * build half of the loop to go and build something. An agent that could author
+ * one could authorize its own build against a test nobody ever ran. So the line
+ * is written only by `ost/instrument.ts`, from an exit code it watched a process
+ * produce, through `appendUnderSection`'s unscanned heading argument — the same
+ * asymmetry that keeps `## Results` a human's.
+ *
+ * Note what is NOT claimed by a line here: an observation is not a result. Red
+ * says "this does not pass yet", which is a fact about the repository, not
+ * evidence that the solution is worth building. `## Results` still answers that
+ * question and is still a human's alone.
+ */
+export const INSTRUMENT_LOG_HEADING = "## Instrument Log";
+
+/**
  * Headings only the human/CLI path may author.
  *
  * `## Results` is B1: `hasRecordedResult` clears `gateSolution`, backs a
  * measurement rung through `unearnedRungs`, and satisfies `checkCorroboration`.
  * `## Uncovered` is B10: `computeCoverageDebt` counts its entries against the
  * result count, so an agent that writes one silences the debt it created.
+ * `## Instrument Log` is the build permit: a recorded RED observation is what
+ * releases a solution to the build half of the loop, so authoring one is
+ * authorizing a build.
  */
-export const RESERVED_HEADINGS: readonly string[] = Object.freeze([RESULTS_HEADING, UNCOVERED_HEADING]);
+export const RESERVED_HEADINGS: readonly string[] = Object.freeze([
+  RESULTS_HEADING,
+  UNCOVERED_HEADING,
+  INSTRUMENT_LOG_HEADING,
+]);
 
 /**
  * The closed set of words a `## Results` line may record.
