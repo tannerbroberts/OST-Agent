@@ -16,6 +16,7 @@
 import { checkInvariants, type Violation } from "./invariants.js";
 import { computeAttention, weightedTokenCost } from "./attention.js";
 import { computeEvidenceDebt, gateSolution } from "./evidence-debt.js";
+import { solutionsMissingInstruments } from "./buildable.js";
 import { computeCoverageDebt, computeCoveragePairs, computeUnfixedThresholds } from "./coverage.js";
 import { BELIEVABILITY_LADDER, believabilityRollup } from "../knowledge/believability.js";
 import type { PassContext } from "../processes/types.js";
@@ -444,7 +445,15 @@ export function renderDebt(tree: OstNode[]): string {
   let hidden = 0;
   const debt = computeEvidenceDebt(tree);
   const t = debt.totals;
-  lines.push(`Solutions: ${t.solutions}  (untested ${t.untested}, proposed-only ${t.proposed}, tested ${t.tested})`);
+  // The instrument count rides on this line rather than getting its own section
+  // because it is the same question the rest of the line answers — what a
+  // solution owes before anyone builds it — and because the build loop reads it
+  // from here. A second place to compute it is a second place for it to be wrong.
+  const proseOnly = solutionsMissingInstruments(tree).length;
+  lines.push(
+    `Solutions: ${t.solutions}  (untested ${t.untested}, proposed-only ${t.proposed}, tested ${t.tested}` +
+      `; ${proseOnly} with tests that are prose only)`,
+  );
   // Grouped by state and capped within each, for the same reason `ost_check`
   // groups by rule: on any real vault the `tested` solutions outnumber the
   // untested ones, and a flat cap would spend the whole window on the solutions

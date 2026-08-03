@@ -165,18 +165,85 @@ fi
 # is a solution somebody can start on; the prompt below is told which permit it
 # arrived under, because they mean different things and license different work.
 #
-# `verify` is run HERE, in the deterministic preflight, and never by the model.
-# The model in this pass cannot write the tree — that inversion is load-bearing
-# (see the header) — and an observation the model could author would be a build
-# it authorized itself.
+# **This loop runs the instruments itself, and that is the step that makes the
+# whole thing autonomous.** Discovery writes a test naming a command; somebody has
+# to run it before anyone knows whether it fails. That somebody is this block: it
+# is mechanical, it needs no judgement, and it costs no model call. Leaving it to
+# a person would have put a human back in the middle of the one path that was
+# supposed to no longer need one — the loop would report "nothing is verified"
+# forever and ask the operator to go do it, which is exactly the notification
+# this rewrite exists to stop sending.
+#
+# Two containment rules, both deliberate:
+#
+#   1. **Never the model.** `verify` runs here in the preflight and again in the
+#      postflight, both outside the `claude` invocation. The model is told not to
+#      run it. An observation the model could author at will is a build it
+#      authorized itself, and the reserved-heading guard that stops the MCP
+#      surface writing one is worth nothing if the shell hands it over anyway.
+#   2. **Capped per firing, and the cap is announced.** Each verify spawns the
+#      repo's test runner, so an uncapped sweep over a few hundred instrumented
+#      tests would turn an hourly loop into a permanent one. What was skipped is
+#      named in the report rather than silently dropped.
 # ---------------------------------------------------------------------------
+VERIFY_CAP="${OST_BUILD_VERIFY_CAP:-8}"
+PENDING="$STATE/pending-verification.txt"
+node "$CLI" buildable --pending --vault . 2>/dev/null >"$PENDING" || : >"$PENDING"
+PENDING_COUNT="$(wc -l <"$PENDING" | tr -d ' ')"
+VERIFIED=0
+NEWLY_RED=0
+
+if [ "$PENDING_COUNT" -gt 0 ]; then
+  while IFS= read -r test_title; do
+    [ -n "$test_title" ] || continue
+    [ "$VERIFIED" -lt "$VERIFY_CAP" ] || break
+    VERIFIED=$(( VERIFIED + 1 ))
+    # A verify that refuses (green on its first run — a test that could never
+    # fail) is information, not an error: it means discovery wrote a test that
+    # measures nothing, and the tree keeps no observation for it. Logged and
+    # stepped over, because one bad test must not stop the firing.
+    if VERIFY_OUT="$(node "$CLI" verify "$test_title" --repo "$OST_AGENT_DIR" --vault . 2>&1)"; then
+      case "$VERIFY_OUT" in
+        *"**red**"*) NEWLY_RED=$(( NEWLY_RED + 1 )) ;;
+      esac
+      # Staged one file at a time, by the exact name this loop just wrote. The
+      # discovery loop may be mid-firing in the same vault — the two hold
+      # separate locks and neither waits on the other — so a blanket `add -A`,
+      # or even `add -- '*.md'`, would commit a stranger's in-flight work under
+      # this loop's message. Naming the file keeps the commit to what this pass
+      # actually did.
+      git -C "$VAULT_DIR" add -- "${test_title}.md" >/dev/null 2>&1 || true
+    else
+      echo "build-pass: verify declined \"$test_title\": $VERIFY_OUT" >&2
+    fi
+  done <"$PENDING"
+
+  # The observations are tree writes, and the vault must be clean when this exits
+  # or the discovery loop's `loop start` refuses its next firing.
+  if [ -n "$(git -C "$VAULT_DIR" diff --cached --name-only 2>/dev/null)" ]; then
+    git -C "$VAULT_DIR" -c user.name="ost-build-loop" -c user.email="build@localhost" \
+      commit -q -m "chore(instruments): record ${VERIFIED} observation(s) from the build loop" >/dev/null 2>&1 || true
+  fi
+fi
+
 INSTRUMENTED="$STATE/instrumented.txt"
 : >"$INSTRUMENTED"
-node "$CLI" buildable --vault . 2>/dev/null | grep -v '^  ' >"$INSTRUMENTED" || true
+# stdout only, and stdout is titles only (`src/cli/index.ts`). Every line is then
+# put back through `buildable <title>` before it is believed. That second check
+# is not redundant: a list this script mis-parses becomes the TARGET string the
+# model is told it may build, and the observed failure was exactly that — the
+# advisory sentence "nothing is buildable…" was read as a solution title and
+# handed to a build pass, which is a permit invented by a `grep`. A title that
+# does not survive its own permit check is a parse error, not a build candidate.
+node "$CLI" buildable --vault . 2>/dev/null >"$INSTRUMENTED" || true
 
 if [ -s "$INSTRUMENTED" ]; then
   while IFS= read -r sol; do
     [ -n "$sol" ] || continue
+    node "$CLI" buildable "$sol" --vault . >/dev/null 2>&1 || {
+      echo "build-pass: ignoring unparseable candidate: $sol" >&2
+      continue
+    }
     grep -Fxq "$sol" "$BUILDABLE" 2>/dev/null || printf '%s\n' "$sol" >>"$BUILDABLE"
   done <"$INSTRUMENTED"
 fi
@@ -190,11 +257,42 @@ BUILD_COUNT="$(wc -l <"$BUILDABLE" | tr -d ' ')"
 echo "$NOW" >"$STAMP"
 
 if [ "$BUILD_COUNT" -eq 0 ]; then
-  # The expected steady state on an untested tree. Say what would change it, in the
-  # operator's terms, rather than reporting an empty result and leaving them to infer why.
-  UNTESTED="$(node "$CLI" debt --vault . 2>&1 | grep -oE 'Solutions: [0-9]+' | grep -oE '[0-9]+' | head -1)"
-  UNTESTED="${UNTESTED:-0}"
-  report "Build loop ran and built nothing. The tree holds ${UNTESTED} solutions across ${NODE_COUNT} nodes, and none cleared either permit: no assumption test carries a human-recorded result (ost-agent gate), and none names an instrument that has been observed failing against this repository (ost-agent buildable). The second one is the one a discovery pass can clear on its own — a test whose 'instrument:' names a spec that fails today becomes a build permit the moment 'ost-agent verify' watches it fail. Run 'ost-agent buildable' to see what is defined, and 'ost-agent lanes' to see which human-run tests are cheapest in minutes."
+  # ------------------------------------------------------------------------
+  # Nothing to build. What this says — and what it deliberately does NOT say.
+  #
+  # This report used to end by telling the operator to go run an assumption test
+  # and file a result. That was wrong in two ways and it went out hourly. It
+  # asked a person to do tree work from a loop that is not allowed to touch the
+  # tree, and it named the one unblock that needs a human while the loop was
+  # sitting on a path that needs nobody — a test with an instrument becomes a
+  # build permit the moment something runs it, and the block above now does.
+  #
+  # So the rule for this branch: report the BUILD loop's state, name whichever
+  # machine is going to change it, and ask the operator for nothing. A human's
+  # recorded result is still the stronger permit and still worth having, but it
+  # is discovery's business to surface that, not a build loop's, and an hourly
+  # banner asking for it is how an operator learns to ignore this channel.
+  # ------------------------------------------------------------------------
+  # `unknown` rather than 0 when the read fails, and the branches below test for
+  # it. Defaulting a failed measurement to zero is how a loop ends up reporting
+  # "everything currently defined has been built" on the strength of a grep that
+  # matched nothing — a confident sentence with no observation behind it, which
+  # is the failure this whole codebase is about.
+  UNINSTRUMENTED="$(node "$CLI" debt --vault . 2>/dev/null | grep -oE '[0-9]+ with tests that are prose only' | grep -oE '^[0-9]+' | head -1)"
+  UNINSTRUMENTED="${UNINSTRUMENTED:-unknown}"
+
+  if [ "$VERIFIED" -gt 0 ]; then
+    SKIPPED=$(( PENDING_COUNT - VERIFIED ))
+    CAP_NOTE=""
+    [ "$SKIPPED" -gt 0 ] && CAP_NOTE=" ${SKIPPED} more are queued for the next firing (cap ${VERIFY_CAP} per pass)."
+    report "Build loop ran ${VERIFIED} instrument(s) and built nothing this pass. None of them came back red against a solution that still needs building, so there was no definition of done to work to.${CAP_NOTE} Nothing is required of you: discovery keeps writing tests and this loop keeps running them, and the first one that fails becomes a build on the next firing."
+  elif [ "$UNINSTRUMENTED" = "unknown" ]; then
+    report "Build loop ran and built nothing, and could not read how much of the tree is still prose only — 'ost-agent debt' did not report a count. Nothing was verified and nothing was built. This is a loop problem rather than a tree problem, so it is worth a look at the log; no tree work is being asked of you."
+  elif [ "$UNINSTRUMENTED" -gt 0 ]; then
+    report "Build loop ran and built nothing, because nothing is defined yet. ${UNINSTRUMENTED} solution(s) across ${NODE_COUNT} nodes still have tests that are prose only — no command to run, so nothing that can fail. The discovery loop is working through exactly that queue and this loop will pick each one up automatically once it has a runnable test. No action needed."
+  else
+    report "Build loop ran and built nothing. Nothing is pending verification and no solution is waiting on a definition of done, which on a tree of ${NODE_COUNT} nodes means everything currently defined has been built. New work reaches this loop when discovery writes the next test. No action needed."
+  fi
   exit 0
 fi
 
@@ -223,7 +321,17 @@ ALLOWED="$OST_READ_TOOLS,$BUILD_TOOLS"
 # review subagent merging the pull request containing the hole it had been asked to review.
 DENIED="mcp__ost-agent__ost_annotate,mcp__ost-agent__ost_append_to_node,mcp__ost-agent__ost_create_node,mcp__ost-agent__ost_flag_humans_required,mcp__ost-agent__ost_ingest_inbox,mcp__ost-agent__ost_link_nodes,mcp__ost-agent__ost_rank_source,mcp__ost-agent__ost_set_evidence,mcp__ost-agent__ost_set_status,NotebookEdit,SlashCommand,Task"
 
-BUILD_PROMPT="$(cat <<PROMPT
+# The prompt is written to a FILE and never through `BUILD_PROMPT="$(cat <<PROMPT …)"`,
+# and the difference is not style. Inside command substitution, bash parses the heredoc
+# body looking for quote pairs, so a single apostrophe in ordinary English — "a human's
+# finding" — is an unterminated string that kills the whole script at parse time. That is
+# not hypothetical: it happened here, and because a parse error takes the file before line
+# one runs, the loop could not even write a report saying it had died. Every due firing
+# exited 2 in silence while the last successful report sat on screen looking current.
+#
+# A plain redirect is not parsed that way, so prose can be prose.
+PROMPT_FILE="$(mktemp "${TMPDIR:-/tmp}/ost-build-prompt.XXXXXX")"
+cat >"$PROMPT_FILE" <<PROMPT
 You are the build half of an OST loop. The discovery half maintains the tree; you do not
 touch it. Your job is to build ONE solution the tree has already cleared for building, in
 the code repository, and to report what you found doing it.
@@ -264,6 +372,11 @@ You may NOT write to the vault. You have no tool that can, and you should not tr
 the build teaches you something the tree should know, put it in your report and the
 operator will decide whether it becomes a node.
 
+Do NOT run 'ost-agent verify' yourself. The loop runs the instruments before and after
+you, on purpose: an observation you can write at will is a build permit you granted
+yourself. Your job is to make the red command pass by building the thing, not to record
+what it did.
+
 FINALLY, and this is required: write a report of at most 90 words to $REPORT, as one
 plain-text paragraph with no markdown. Say what you built, whether it merged, and any
 finding that came out of the build process — especially anything that contradicts what
@@ -271,11 +384,12 @@ the node claimed, anything the recorded result did not cover, or anything that m
 build harder than the node implied. Findings are the point of this loop; a report that
 only says "built it" has wasted the pass. Use the Write tool for that file.
 PROMPT
-)"
+
+trap 'rm -f "$MCP_CONFIG" "$PROMPT_FILE"; rm -rf "$LOCK"' EXIT
 
 report "Build loop started on \"$TARGET\" but did not finish — the pass was interrupted before it could report. Check the log."
 
-claude -p "$BUILD_PROMPT" \
+claude -p "$(cat "$PROMPT_FILE")" \
   --mcp-config "$MCP_CONFIG" \
   --strict-mcp-config \
   --allowedTools "$ALLOWED" \
@@ -286,6 +400,41 @@ CLAUDE_EXIT=$?
 if [ "$CLAUDE_EXIT" -ne 0 ]; then
   report "Build loop failed while building \"$TARGET\": claude exited $CLAUDE_EXIT. Nothing was merged. The tree was not modified. Check the log for what it got through before it died."
   exit "$CLAUDE_EXIT"
+fi
+
+# ---------------------------------------------------------------------------
+# Postflight: did the instrument actually go green?
+#
+# The model reports what it believes it did. This records what the command
+# actually does now, which is the only half of the claim that is checkable — and
+# it closes the loop the red observation opened: red, build, green, all three
+# observed by something with no stake in the answer.
+#
+# A build the model called finished whose instrument is still red is the most
+# useful thing this loop can find, so it is reported rather than smoothed over.
+# ---------------------------------------------------------------------------
+TARGET_TEST="$(node "$CLI" buildable "$TARGET" --vault . 2>/dev/null | grep -oE '"[^"]+" is red' | head -1 | sed 's/" is red//; s/^"//')"
+if [ -n "$TARGET_TEST" ]; then
+  if VERIFY_OUT="$(node "$CLI" verify "$TARGET_TEST" --repo "$OST_AGENT_DIR" --vault . 2>&1)"; then
+    case "$VERIFY_OUT" in
+      *"**green**"*) BUILD_OBSERVED="green" ;;
+      *) BUILD_OBSERVED="still red" ;;
+    esac
+  else
+    BUILD_OBSERVED="unverifiable"
+  fi
+  # Same discipline as the preflight: name the one file, never sweep the vault.
+  git -C "$VAULT_DIR" add -- "${TARGET_TEST}.md" >/dev/null 2>&1 || true
+  if [ -n "$(git -C "$VAULT_DIR" diff --cached --name-only 2>/dev/null)" ]; then
+    git -C "$VAULT_DIR" -c user.name="ost-build-loop" -c user.email="build@localhost" \
+      commit -q -m "chore(instruments): record the post-build observation for ${TARGET_TEST}" >/dev/null 2>&1 || true
+  fi
+  if [ "$BUILD_OBSERVED" != "green" ]; then
+    echo "build-pass: WARNING — after the build, \"$TARGET_TEST\" is ${BUILD_OBSERVED}." >&2
+    # Appended rather than replacing: the model's own report is evidence too, and
+    # a disagreement between what it said and what the command does is the finding.
+    printf '%s\n' "$(cat "$REPORT" 2>/dev/null) [Loop check: the instrument for this solution is ${BUILD_OBSERVED} after the build, so the definition of done was not met regardless of what the report above says.]" >"$REPORT"
+  fi
 fi
 
 # The vault must be clean when this exits. A build pass that dirties the vault wedges the

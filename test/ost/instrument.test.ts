@@ -9,6 +9,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { initVault } from "../../src/runner/init.js";
 import { buildPassContext } from "../../src/runner/context.js";
@@ -154,6 +156,42 @@ describe("what the discovery loop is asked to fix", () => {
     const v = withInstrument("true");
     expect(solutionsMissingInstruments(v.readTree())).toEqual(["Onboarding checklist"]);
     expect(buildPermit(v.readTree(), "Onboarding checklist").cleared).toBe(false);
+  });
+});
+
+describe("the buildable list is safe to parse", () => {
+  /*
+   * A behavioural test, not a scan of the source, because the property that
+   * matters is what the process WRITES. The observed failure: `buildable`'s
+   * advisory went to stdout, the build loop filtered out the indented detail
+   * lines, kept the unindented "nothing is buildable..." sentence, and handed
+   * that sentence to a build pass as the solution it had been cleared to build.
+   * An empty work list has to BE empty on stdout, not a paragraph saying so.
+   */
+  const CLI = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../dist/ost-agent.mjs");
+
+  function runBuildable(vault: string): { stdout: string; stderr: string } {
+    const r = spawnSync("node", [CLI, "buildable", "--vault", vault], { encoding: "utf8" });
+    return { stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
+  }
+
+  test("nothing buildable writes nothing to stdout, and explains itself on stderr", () => {
+    withInstrument(undefined);
+    const { stdout, stderr } = runBuildable(dir);
+    expect(stdout.trim()).toBe("");
+    expect(stderr).toMatch(/nothing is buildable/);
+  });
+
+  test("stdout carries bare titles a loop can read line by line", () => {
+    withInstrument("npx vitest run test/a.test.ts");
+    repoWithSpec(1);
+    verifyInstrument(dir, { test: "Checklist audit", repo });
+
+    const { stdout, stderr } = runBuildable(dir);
+    // Exactly the titles, one per line, and nothing a parser has to strip.
+    expect(stdout.trim().split("\n")).toEqual(["Onboarding checklist"]);
+    // The human-facing detail is still produced, just not on the work channel.
+    expect(stderr).toMatch(/npx vitest run test\/a\.test\.ts/);
   });
 });
 

@@ -40279,6 +40279,216 @@ function computeAttention(tree, vaultDir, opts = {}) {
   };
 }
 
+// src/ost/instrument.ts
+import { spawnSync } from "node:child_process";
+import path18 from "node:path";
+
+// src/knowledge/instruments.ts
+var INSTRUMENT_FORMS = [
+  {
+    id: "vitest-spec",
+    label: "Vitest spec",
+    definition: "One spec file in the repository's own suite, run by the repository's own runner. Its verdict comes from committed code that passed the same review as everything else in the repo, so an agent cannot author the outcome \u2014 only name the file.",
+    pattern: /^npx vitest run (?<target>[A-Za-z0-9][A-Za-z0-9._/-]*\.test\.ts)$/,
+    argv: (target) => ["vitest", "run", target]
+  }
+];
+var SHELL_METACHARACTERS = /[;&|`$(){}<>\\\n\r*?!#~'"]/;
+function parseInstrument(raw) {
+  const command = (raw ?? "").trim();
+  if (!command) {
+    return { reason: "no instrument declared" };
+  }
+  if (SHELL_METACHARACTERS.test(command)) {
+    return {
+      reason: `"${command}" contains shell punctuation. Instruments are run as argv with no shell, so a command written to be interpreted would not mean what it looks like. Name one spec file.`
+    };
+  }
+  for (const form of INSTRUMENT_FORMS) {
+    const hit = form.pattern.exec(command);
+    if (!hit) continue;
+    const target = hit.groups?.target ?? "";
+    if (target.startsWith("/") || target.split("/").includes("..")) {
+      return {
+        reason: `"${target}" leaves the repository. An instrument names a spec file inside the repo it is measuring.`
+      };
+    }
+    return { form, command, target, argv: form.argv(target) };
+  }
+  return {
+    reason: `"${command}" is not an instrument form. The allowed forms are: ` + INSTRUMENT_FORMS.map((f) => `${f.id} (\`npx vitest run <path>.test.ts\`)`).join("; ") + `. The point of the restriction is that a verdict has to come from committed code rather than from a string an agent chose.`
+  };
+}
+function isInstrument(r2) {
+  return r2.form !== void 0;
+}
+
+// src/ost/instrument.ts
+function nodeInstrument(node) {
+  const parsed = parseInstrument(node.instrument);
+  return isInstrument(parsed) ? parsed : void 0;
+}
+function observedRed(node) {
+  return instrumentLog(node).some((l) => /\*\*red\*\*/i.test(l));
+}
+function observedGreen(node) {
+  return instrumentLog(node).some((l) => /\*\*green\*\*/i.test(l));
+}
+function instrumentLog(node) {
+  const body = node.body ?? "";
+  const lines = body.split("\n");
+  const start = lines.findIndex((l) => l.trim().toLowerCase().startsWith(INSTRUMENT_LOG_HEADING.toLowerCase()));
+  if (start === -1) return [];
+  const out = [];
+  for (const line of lines.slice(start + 1)) {
+    if (/^##\s+/.test(line.trim())) break;
+    if (line.trim().startsWith("- ")) out.push(line.trim());
+  }
+  return out;
+}
+function runInstrument(instrument, repoDir) {
+  const run = spawnSync("npx", instrument.argv, {
+    cwd: path18.resolve(repoDir),
+    encoding: "utf8",
+    // A spec suite that hangs would otherwise hang the loop that called it.
+    timeout: 10 * 6e4,
+    maxBuffer: 32 * 1024 * 1024
+  });
+  const exitCode = run.status;
+  const output = `${run.stdout ?? ""}
+${run.stderr ?? ""}`;
+  return {
+    observation: exitCode === 0 ? "green" : "red",
+    exitCode,
+    excerpt: firstMeaningfulLine(output, run.error?.message)
+  };
+}
+function firstMeaningfulLine(output, spawnError) {
+  if (spawnError) return spawnError.slice(0, 200);
+  const interesting = output.split("\n").map((l) => l.replace(/\[[0-9;]*m/g, "").trim()).filter((l) => l.length > 0).find((l) => /(FAIL|Error|✕|×|error TS|failed)/i.test(l));
+  const fallback = output.split("\n").map((l) => l.replace(/\[[0-9;]*m/g, "").trim()).filter((l) => l.length > 0).pop();
+  return (interesting ?? fallback ?? "no output").slice(0, 200);
+}
+function verifyInstrument(vaultDir, filing) {
+  const dir = path18.resolve(vaultDir);
+  const vault = new Vault(dir);
+  const node = vault.read(filing.test);
+  if (node.layer !== "AssumptionTest") {
+    throw new Error(`"${filing.test}" is a ${node.layer} \u2014 an instrument belongs to an AssumptionTest`);
+  }
+  const parsed = parseInstrument(node.instrument);
+  if (!isInstrument(parsed)) {
+    throw new Error(
+      `"${filing.test}" declares no runnable instrument: ${parsed.reason}. Add an \`instrument:\` field naming one spec file, e.g. \`npx vitest run test/thing.test.ts\`.`
+    );
+  }
+  const run = runInstrument(parsed, filing.repo);
+  const alreadyRed = observedRed(node);
+  if (run.observation === "green" && !alreadyRed) {
+    throw new Error(
+      `refusing to record "${filing.test}": its instrument passed on the first run, against a repository where the solution has not been built. A test that is green before anything was built cannot fail, so it measures nothing and gives the builder no definition of done. Point the instrument at behaviour that does not exist yet \u2014 the command should FAIL today and pass once the solution is real.`
+    );
+  }
+  const on = filing.on ?? (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  const line = `- ${on} **${run.observation}** (exit ${run.exitCode ?? "none"}) \`${parsed.command}\` \u2014 ${run.excerpt}`;
+  vault.appendUnderSection(filing.test, INSTRUMENT_LOG_HEADING, line);
+  return { line, run, instrument: parsed, transitioned: run.observation === "green" && alreadyRed };
+}
+
+// src/eval/buildable.ts
+function indexByTitle(tree) {
+  const index = /* @__PURE__ */ new Map();
+  for (const n of tree) index.set(n.title, n);
+  return index;
+}
+function testsUnder2(index, solution) {
+  const out = [];
+  for (const link of solution.links) {
+    const child = index.get(link);
+    if (child?.layer === "AssumptionTest") out.push(child);
+  }
+  return out;
+}
+function buildPermit(tree, title) {
+  return permitFrom(indexByTitle(tree), title);
+}
+function permitFrom(index, title) {
+  const solution = index.get(title);
+  if (!solution || solution.layer !== "Solution") {
+    return { cleared: false, reason: `no Solution node titled "${title}"` };
+  }
+  const tests = testsUnder2(index, solution);
+  if (tests.length === 0) {
+    return {
+      cleared: false,
+      reason: `"${title}" has no assumption test beneath it \u2014 there is nothing that could tell a builder what to build`
+    };
+  }
+  const withInstruments = tests.filter((t2) => nodeInstrument(t2));
+  if (withInstruments.length === 0) {
+    return {
+      cleared: false,
+      reason: `none of the ${tests.length} test(s) under "${title}" declares a runnable instrument, so none of them can go red or green. Add an \`instrument:\` naming one spec file to: ${tests.map((t2) => t2.title).join("; ")}`
+    };
+  }
+  const live = withInstruments.filter((t2) => observedRed(t2) && !observedGreen(t2));
+  if (live.length === 0) {
+    const built = withInstruments.filter((t2) => observedGreen(t2));
+    if (built.length > 0 && built.length === withInstruments.length) {
+      return {
+        cleared: false,
+        reason: `every instrument under "${title}" is already green \u2014 this solution has been built`
+      };
+    }
+    return {
+      cleared: false,
+      reason: `"${title}" declares an instrument that has never been run, so nobody knows whether it fails today. Run \`ost-agent verify\` on: ${withInstruments.map((t2) => t2.title).join("; ")}`
+    };
+  }
+  const chosen = live[0];
+  const instrument = nodeInstrument(chosen);
+  return {
+    cleared: true,
+    reason: `"${chosen.title}" is red against the repository \u2014 \`${instrument.command}\` fails today and passes when "${title}" is built. That is the definition of done.`,
+    instrument: instrument.command,
+    test: chosen.title
+  };
+}
+function buildableSolutions(tree) {
+  const index = indexByTitle(tree);
+  const out = [];
+  for (const n of tree) {
+    if (n.layer !== "Solution") continue;
+    const permit = permitFrom(index, n.title);
+    if (permit.cleared && permit.test && permit.instrument) {
+      out.push({ solution: n.title, test: permit.test, instrument: permit.instrument });
+    }
+  }
+  return out;
+}
+function testsAwaitingVerification(tree) {
+  const out = [];
+  for (const n of tree) {
+    if (n.layer !== "AssumptionTest") continue;
+    if (!nodeInstrument(n)) continue;
+    if (observedRed(n) || observedGreen(n)) continue;
+    out.push(n.title);
+  }
+  return out;
+}
+function solutionsMissingInstruments(tree) {
+  const index = indexByTitle(tree);
+  const out = [];
+  for (const n of tree) {
+    if (n.layer !== "Solution") continue;
+    const tests = testsUnder2(index, n);
+    if (tests.length === 0) continue;
+    if (tests.some((t2) => nodeInstrument(t2))) continue;
+    out.push(n.title);
+  }
+  return out;
+}
+
 // src/eval/coverage.ts
 function countEntriesUnder(body, heading) {
   const lines = body.split("\n");
@@ -40576,7 +40786,10 @@ function renderDebt(tree) {
   let hidden = 0;
   const debt = computeEvidenceDebt(tree);
   const t2 = debt.totals;
-  lines.push(`Solutions: ${t2.solutions}  (untested ${t2.untested}, proposed-only ${t2.proposed}, tested ${t2.tested})`);
+  const proseOnly = solutionsMissingInstruments(tree).length;
+  lines.push(
+    `Solutions: ${t2.solutions}  (untested ${t2.untested}, proposed-only ${t2.proposed}, tested ${t2.tested}; ${proseOnly} with tests that are prose only)`
+  );
   for (const state of DEBT_STATES) {
     const group = debt.solutions.filter((s) => s.state === state);
     if (group.length === 0) continue;
@@ -40771,7 +40984,7 @@ function renderStatus(ctx, census) {
 }
 
 // src/ost/results.ts
-import path18 from "node:path";
+import path19 from "node:path";
 function recordResult(vaultDir, filing) {
   if (!VERDICTS.includes(filing.verdict)) {
     throw new Error(`"${filing.verdict}" is not a verdict \u2014 use one of: ${VERDICTS.join(", ")}`);
@@ -40790,7 +41003,7 @@ function recordResult(vaultDir, filing) {
       "a result needs a statement of what it does NOT cover \u2014 the part of the threshold this run left untested. A result with no stated limit gets read as answering the whole question."
     );
   }
-  const dir = path18.resolve(vaultDir);
+  const dir = path19.resolve(vaultDir);
   const vault = new Vault(dir);
   const node = vault.read(filing.test);
   if (node.layer !== "AssumptionTest") {
@@ -40817,208 +41030,8 @@ function promoteNode(vaultDir, filing) {
   if (!why) {
     throw new Error("a promotion needs a reason \u2014 what evidence earned it. 'validated' with no stated basis is a byline.");
   }
-  const vault = new Vault(path18.resolve(vaultDir));
+  const vault = new Vault(path19.resolve(vaultDir));
   return vault.promoteToValidated(filing.node, by, why);
-}
-
-// src/ost/instrument.ts
-import { spawnSync } from "node:child_process";
-import path19 from "node:path";
-
-// src/knowledge/instruments.ts
-var INSTRUMENT_FORMS = [
-  {
-    id: "vitest-spec",
-    label: "Vitest spec",
-    definition: "One spec file in the repository's own suite, run by the repository's own runner. Its verdict comes from committed code that passed the same review as everything else in the repo, so an agent cannot author the outcome \u2014 only name the file.",
-    pattern: /^npx vitest run (?<target>[A-Za-z0-9][A-Za-z0-9._/-]*\.test\.ts)$/,
-    argv: (target) => ["vitest", "run", target]
-  }
-];
-var SHELL_METACHARACTERS = /[;&|`$(){}<>\\\n\r*?!#~'"]/;
-function parseInstrument(raw) {
-  const command = (raw ?? "").trim();
-  if (!command) {
-    return { reason: "no instrument declared" };
-  }
-  if (SHELL_METACHARACTERS.test(command)) {
-    return {
-      reason: `"${command}" contains shell punctuation. Instruments are run as argv with no shell, so a command written to be interpreted would not mean what it looks like. Name one spec file.`
-    };
-  }
-  for (const form of INSTRUMENT_FORMS) {
-    const hit = form.pattern.exec(command);
-    if (!hit) continue;
-    const target = hit.groups?.target ?? "";
-    if (target.startsWith("/") || target.split("/").includes("..")) {
-      return {
-        reason: `"${target}" leaves the repository. An instrument names a spec file inside the repo it is measuring.`
-      };
-    }
-    return { form, command, target, argv: form.argv(target) };
-  }
-  return {
-    reason: `"${command}" is not an instrument form. The allowed forms are: ` + INSTRUMENT_FORMS.map((f) => `${f.id} (\`npx vitest run <path>.test.ts\`)`).join("; ") + `. The point of the restriction is that a verdict has to come from committed code rather than from a string an agent chose.`
-  };
-}
-function isInstrument(r2) {
-  return r2.form !== void 0;
-}
-
-// src/ost/instrument.ts
-function nodeInstrument(node) {
-  const parsed = parseInstrument(node.instrument);
-  return isInstrument(parsed) ? parsed : void 0;
-}
-function observedRed(node) {
-  return instrumentLog(node).some((l) => /\*\*red\*\*/i.test(l));
-}
-function observedGreen(node) {
-  return instrumentLog(node).some((l) => /\*\*green\*\*/i.test(l));
-}
-function instrumentLog(node) {
-  const body = node.body ?? "";
-  const lines = body.split("\n");
-  const start = lines.findIndex((l) => l.trim().toLowerCase().startsWith(INSTRUMENT_LOG_HEADING.toLowerCase()));
-  if (start === -1) return [];
-  const out = [];
-  for (const line of lines.slice(start + 1)) {
-    if (/^##\s+/.test(line.trim())) break;
-    if (line.trim().startsWith("- ")) out.push(line.trim());
-  }
-  return out;
-}
-function runInstrument(instrument, repoDir) {
-  const run = spawnSync("npx", instrument.argv, {
-    cwd: path19.resolve(repoDir),
-    encoding: "utf8",
-    // A spec suite that hangs would otherwise hang the loop that called it.
-    timeout: 10 * 6e4,
-    maxBuffer: 32 * 1024 * 1024
-  });
-  const exitCode = run.status;
-  const output = `${run.stdout ?? ""}
-${run.stderr ?? ""}`;
-  return {
-    observation: exitCode === 0 ? "green" : "red",
-    exitCode,
-    excerpt: firstMeaningfulLine(output, run.error?.message)
-  };
-}
-function firstMeaningfulLine(output, spawnError) {
-  if (spawnError) return spawnError.slice(0, 200);
-  const interesting = output.split("\n").map((l) => l.replace(/\[[0-9;]*m/g, "").trim()).filter((l) => l.length > 0).find((l) => /(FAIL|Error|✕|×|error TS|failed)/i.test(l));
-  const fallback = output.split("\n").map((l) => l.replace(/\[[0-9;]*m/g, "").trim()).filter((l) => l.length > 0).pop();
-  return (interesting ?? fallback ?? "no output").slice(0, 200);
-}
-function verifyInstrument(vaultDir, filing) {
-  const dir = path19.resolve(vaultDir);
-  const vault = new Vault(dir);
-  const node = vault.read(filing.test);
-  if (node.layer !== "AssumptionTest") {
-    throw new Error(`"${filing.test}" is a ${node.layer} \u2014 an instrument belongs to an AssumptionTest`);
-  }
-  const parsed = parseInstrument(node.instrument);
-  if (!isInstrument(parsed)) {
-    throw new Error(
-      `"${filing.test}" declares no runnable instrument: ${parsed.reason}. Add an \`instrument:\` field naming one spec file, e.g. \`npx vitest run test/thing.test.ts\`.`
-    );
-  }
-  const run = runInstrument(parsed, filing.repo);
-  const alreadyRed = observedRed(node);
-  if (run.observation === "green" && !alreadyRed) {
-    throw new Error(
-      `refusing to record "${filing.test}": its instrument passed on the first run, against a repository where the solution has not been built. A test that is green before anything was built cannot fail, so it measures nothing and gives the builder no definition of done. Point the instrument at behaviour that does not exist yet \u2014 the command should FAIL today and pass once the solution is real.`
-    );
-  }
-  const on = filing.on ?? (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-  const line = `- ${on} **${run.observation}** (exit ${run.exitCode ?? "none"}) \`${parsed.command}\` \u2014 ${run.excerpt}`;
-  vault.appendUnderSection(filing.test, INSTRUMENT_LOG_HEADING, line);
-  return { line, run, instrument: parsed, transitioned: run.observation === "green" && alreadyRed };
-}
-
-// src/eval/buildable.ts
-function indexByTitle(tree) {
-  const index = /* @__PURE__ */ new Map();
-  for (const n of tree) index.set(n.title, n);
-  return index;
-}
-function testsUnder2(index, solution) {
-  const out = [];
-  for (const link of solution.links) {
-    const child = index.get(link);
-    if (child?.layer === "AssumptionTest") out.push(child);
-  }
-  return out;
-}
-function buildPermit(tree, title) {
-  return permitFrom(indexByTitle(tree), title);
-}
-function permitFrom(index, title) {
-  const solution = index.get(title);
-  if (!solution || solution.layer !== "Solution") {
-    return { cleared: false, reason: `no Solution node titled "${title}"` };
-  }
-  const tests = testsUnder2(index, solution);
-  if (tests.length === 0) {
-    return {
-      cleared: false,
-      reason: `"${title}" has no assumption test beneath it \u2014 there is nothing that could tell a builder what to build`
-    };
-  }
-  const withInstruments = tests.filter((t2) => nodeInstrument(t2));
-  if (withInstruments.length === 0) {
-    return {
-      cleared: false,
-      reason: `none of the ${tests.length} test(s) under "${title}" declares a runnable instrument, so none of them can go red or green. Add an \`instrument:\` naming one spec file to: ${tests.map((t2) => t2.title).join("; ")}`
-    };
-  }
-  const live = withInstruments.filter((t2) => observedRed(t2) && !observedGreen(t2));
-  if (live.length === 0) {
-    const built = withInstruments.filter((t2) => observedGreen(t2));
-    if (built.length > 0 && built.length === withInstruments.length) {
-      return {
-        cleared: false,
-        reason: `every instrument under "${title}" is already green \u2014 this solution has been built`
-      };
-    }
-    return {
-      cleared: false,
-      reason: `"${title}" declares an instrument that has never been run, so nobody knows whether it fails today. Run \`ost-agent verify\` on: ${withInstruments.map((t2) => t2.title).join("; ")}`
-    };
-  }
-  const chosen = live[0];
-  const instrument = nodeInstrument(chosen);
-  return {
-    cleared: true,
-    reason: `"${chosen.title}" is red against the repository \u2014 \`${instrument.command}\` fails today and passes when "${title}" is built. That is the definition of done.`,
-    instrument: instrument.command,
-    test: chosen.title
-  };
-}
-function buildableSolutions(tree) {
-  const index = indexByTitle(tree);
-  const out = [];
-  for (const n of tree) {
-    if (n.layer !== "Solution") continue;
-    const permit = permitFrom(index, n.title);
-    if (permit.cleared && permit.test && permit.instrument) {
-      out.push({ solution: n.title, test: permit.test, instrument: permit.instrument });
-    }
-  }
-  return out;
-}
-function solutionsMissingInstruments(tree) {
-  const index = indexByTitle(tree);
-  const out = [];
-  for (const n of tree) {
-    if (n.layer !== "Solution") continue;
-    const tests = testsUnder2(index, n);
-    if (tests.length === 0) continue;
-    if (tests.some((t2) => nodeInstrument(t2))) continue;
-    out.push(n.title);
-  }
-  return out;
 }
 
 // src/adapters/friction.ts
@@ -45585,18 +45598,24 @@ program2.command("verify").description("run an assumption test's instrument and 
     console.log("  that is still `ost-agent result`, and still a human's.");
   }
 });
-program2.command("buildable").description("may work start on this solution, and against what definition of done? (exits non-zero when not)").argument("[solution]", "title of the Solution node; omit to list every buildable solution").option("--vault <dir>", "vault directory", ".").action((solution, opts) => {
+program2.command("buildable").description("may work start on this solution, and against what definition of done? (exits non-zero when not)").argument("[solution]", "title of the Solution node; omit to list every buildable solution").option("--vault <dir>", "vault directory", ".").option("--pending", "instead list the tests that declare an instrument nobody has run yet").action((solution, opts) => {
   const ctx = buildPassContext(opts.vault);
   const tree = ctx.vault.readTree();
+  if (opts.pending) {
+    for (const t2 of testsAwaitingVerification(tree)) console.log(t2);
+    return;
+  }
   if (!solution) {
     const all = buildableSolutions(tree);
     if (all.length === 0) {
-      console.log("nothing is buildable: no solution carries an instrument that has been observed red.");
-      console.log("  `ost-agent debt` says which solutions still owe a test; a test owes an `instrument:` field.");
+      console.error("nothing is buildable: no solution carries an instrument that has been observed red.");
+      console.error("  `ost-agent debt` says which solutions still owe a test; a test owes an `instrument:` field.");
       return;
     }
-    for (const b2 of all) console.log(`${b2.solution}
-  ${b2.instrument}  (${b2.test})`);
+    for (const b2 of all) {
+      console.log(b2.solution);
+      console.error(`  ${b2.instrument}  (${b2.test})`);
+    }
     return;
   }
   const permit = buildPermit(tree, solution);
