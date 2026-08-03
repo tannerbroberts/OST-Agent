@@ -33,8 +33,28 @@ export interface BuildPermit {
   test?: string;
 }
 
-function testsUnder(tree: readonly OstNode[], solution: OstNode): OstNode[] {
-  return tree.filter((n) => n.layer === "AssumptionTest" && solution.links.includes(n.title));
+/**
+ * Title → node, built once per sweep.
+ *
+ * The obvious spelling of `testsUnder` is a filter over the whole tree, which is
+ * O(solutions × nodes) and was measurably too slow: it put `ost_next_work` at
+ * 3151ms on the 10,000-node vault against a 2000ms budget
+ * (`test/mcp/wall-clock-budget.test.ts`). A solution names its children, so the
+ * children can be looked up instead of searched for.
+ */
+function indexByTitle(tree: readonly OstNode[]): Map<string, OstNode> {
+  const index = new Map<string, OstNode>();
+  for (const n of tree) index.set(n.title, n);
+  return index;
+}
+
+function testsUnder(index: Map<string, OstNode>, solution: OstNode): OstNode[] {
+  const out: OstNode[] = [];
+  for (const link of solution.links) {
+    const child = index.get(link);
+    if (child?.layer === "AssumptionTest") out.push(child);
+  }
+  return out;
 }
 
 /**
@@ -44,12 +64,17 @@ function testsUnder(tree: readonly OstNode[], solution: OstNode): OstNode[] {
  * one of them is something a person or a pass can go and do.
  */
 export function buildPermit(tree: readonly OstNode[], title: string): BuildPermit {
-  const solution = tree.find((n) => n.layer === "Solution" && n.title === title);
-  if (!solution) {
+  return permitFrom(indexByTitle(tree), title);
+}
+
+/** The permit, against an index the caller already built. */
+function permitFrom(index: Map<string, OstNode>, title: string): BuildPermit {
+  const solution = index.get(title);
+  if (!solution || solution.layer !== "Solution") {
     return { cleared: false, reason: `no Solution node titled "${title}"` };
   }
 
-  const tests = testsUnder(tree, solution);
+  const tests = testsUnder(index, solution);
   if (tests.length === 0) {
     return {
       cleared: false,
@@ -98,10 +123,11 @@ export function buildPermit(tree: readonly OstNode[], title: string): BuildPermi
 
 /** Every solution a builder could start on right now, in tree order. */
 export function buildableSolutions(tree: readonly OstNode[]): { solution: string; test: string; instrument: string }[] {
+  const index = indexByTitle(tree);
   const out: { solution: string; test: string; instrument: string }[] = [];
   for (const n of tree) {
     if (n.layer !== "Solution") continue;
-    const permit = buildPermit(tree, n.title);
+    const permit = permitFrom(index, n.title);
     if (permit.cleared && permit.test && permit.instrument) {
       out.push({ solution: n.title, test: permit.test, instrument: permit.instrument });
     }
@@ -118,10 +144,11 @@ export function buildableSolutions(tree: readonly OstNode[]): { solution: string
  * prose.
  */
 export function solutionsMissingInstruments(tree: readonly OstNode[]): string[] {
+  const index = indexByTitle(tree);
   const out: string[] = [];
   for (const n of tree) {
     if (n.layer !== "Solution") continue;
-    const tests = testsUnder(tree, n);
+    const tests = testsUnder(index, n);
     if (tests.length === 0) continue; // already counted by solutionsMissingAssumptions
     if (tests.some((t) => nodeInstrument(t))) continue;
     out.push(n.title);

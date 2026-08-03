@@ -40938,15 +40938,28 @@ function verifyInstrument(vaultDir, filing) {
 }
 
 // src/eval/buildable.ts
-function testsUnder2(tree, solution) {
-  return tree.filter((n) => n.layer === "AssumptionTest" && solution.links.includes(n.title));
+function indexByTitle(tree) {
+  const index = /* @__PURE__ */ new Map();
+  for (const n of tree) index.set(n.title, n);
+  return index;
+}
+function testsUnder2(index, solution) {
+  const out = [];
+  for (const link of solution.links) {
+    const child = index.get(link);
+    if (child?.layer === "AssumptionTest") out.push(child);
+  }
+  return out;
 }
 function buildPermit(tree, title) {
-  const solution = tree.find((n) => n.layer === "Solution" && n.title === title);
-  if (!solution) {
+  return permitFrom(indexByTitle(tree), title);
+}
+function permitFrom(index, title) {
+  const solution = index.get(title);
+  if (!solution || solution.layer !== "Solution") {
     return { cleared: false, reason: `no Solution node titled "${title}"` };
   }
-  const tests = testsUnder2(tree, solution);
+  const tests = testsUnder2(index, solution);
   if (tests.length === 0) {
     return {
       cleared: false,
@@ -40984,10 +40997,11 @@ function buildPermit(tree, title) {
   };
 }
 function buildableSolutions(tree) {
+  const index = indexByTitle(tree);
   const out = [];
   for (const n of tree) {
     if (n.layer !== "Solution") continue;
-    const permit = buildPermit(tree, n.title);
+    const permit = permitFrom(index, n.title);
     if (permit.cleared && permit.test && permit.instrument) {
       out.push({ solution: n.title, test: permit.test, instrument: permit.instrument });
     }
@@ -40995,10 +41009,11 @@ function buildableSolutions(tree) {
   return out;
 }
 function solutionsMissingInstruments(tree) {
+  const index = indexByTitle(tree);
   const out = [];
   for (const n of tree) {
     if (n.layer !== "Solution") continue;
-    const tests = testsUnder2(tree, n);
+    const tests = testsUnder2(index, n);
     if (tests.length === 0) continue;
     if (tests.some((t2) => nodeInstrument(t2))) continue;
     out.push(n.title);
