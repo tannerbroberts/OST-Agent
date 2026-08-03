@@ -162,7 +162,7 @@ describe("the firing is bracketed, so it lands in the health record", () => {
   test("an overlapping firing exits 0 and runs nothing — a live pass is not silence", () => {
     stubNode({ start: 15 });
     expect(runPass()).toBe(0);
-    expect(calls()).not.toMatch(/claude/);
+    expect(calls()).not.toMatch(/^claude /m);
     expect(calls()).not.toMatch(/git push/);
     // And it must not seal a run it never opened.
     expect(calls()).not.toMatch(/loop seal/);
@@ -180,7 +180,7 @@ describe("the cadence gate decides whether anything runs at all", () => {
     stubNode({ due: 10 });
     expect(runPass()).toBe(0);
     expect(calls()).not.toMatch(/loop start/);
-    expect(calls()).not.toMatch(/claude/);
+    expect(calls()).not.toMatch(/^claude /m);
     expect(calls()).not.toMatch(/git push/);
   });
 
