@@ -49,7 +49,7 @@ CLI="$OST_AGENT_DIR/dist/ost-agent.mjs"
 
 # Kept in sync with .claude/commands/ost-pass.md's `allowed-tools` frontmatter — that
 # file is the authority on what /ost-pass needs. If it grants a new tool, add it here too.
-OST_TOOLS="mcp__ost-agent__ost_ingest_inbox,mcp__ost-agent__ost_next_work,mcp__ost-agent__ost_read_tree,mcp__ost-agent__ost_create_node,mcp__ost-agent__ost_link_nodes,mcp__ost-agent__ost_append_to_node,mcp__ost-agent__ost_set_status,mcp__ost-agent__ost_set_evidence,mcp__ost-agent__ost_set_instrument,mcp__ost-agent__ost_annotate,mcp__ost-agent__ost_detach_nodes,mcp__ost-agent__ost_edit_node,mcp__ost-agent__ost_merge_nodes"
+OST_TOOLS="mcp__ost-agent__ost_ingest_inbox,mcp__ost-agent__ost_next_work,mcp__ost-agent__ost_read_tree,mcp__ost-agent__ost_create_node,mcp__ost-agent__ost_link_nodes,mcp__ost-agent__ost_append_to_node,mcp__ost-agent__ost_set_status,mcp__ost-agent__ost_set_evidence,mcp__ost-agent__ost_set_instrument,mcp__ost-agent__ost_annotate,mcp__ost-agent__ost_detach_nodes,mcp__ost-agent__ost_edit_node,mcp__ost-agent__ost_merge_nodes,mcp__ost-agent__ost_search_web,mcp__ost-agent__ost_read_web,mcp__ost-agent__ost_read_repo"
 
 # Every Claude Code built-in that can write a file, run a command, delegate to an
 # agent with its own tool set, or reach the network. cwd IS the vault, so an
@@ -61,7 +61,13 @@ OST_TOOLS="mcp__ost-agent__ost_ingest_inbox,mcp__ost-agent__ost_next_work,mcp__o
 # grant; the two must stay disjoint or a denied MCP tool silently drops a phase.
 # `test/release/examples-allowlist.test.ts` pins both the membership and that
 # disjointness. Web is here because ost_read_web/ost_search_web meter lookups
-# against a per-pass budget and the raw built-ins do not.
+# against a per-pass budget and the raw built-ins do not — a reason that only
+# holds now that the metered pair is actually granted above. It did not before:
+# this list denied the unmetered path while the grant omitted the metered one,
+# so the pass had no way to look outward at all and the justification for the
+# denial described a route nobody could take. The tree recorded the symptom
+# from the operator's side ("Fresh outside findings never reach the tree unless
+# I go get them") without anyone noticing it was a missing line here.
 DENIED_TOOLS="Bash,BashOutput,KillShell,Edit,MultiEdit,Write,NotebookEdit,Task,SlashCommand,WebFetch,WebSearch"
 
 cd "$VAULT_DIR"

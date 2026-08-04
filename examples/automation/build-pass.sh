@@ -388,7 +388,7 @@ ALLOWED="$OST_READ_TOOLS,$BUILD_TOOLS"
 # Task is denied on purpose and not as boilerplate. A delegated agent arrives with its own
 # tool surface, which this allowlist does not constrain — and the observed failure was a
 # review subagent merging the pull request containing the hole it had been asked to review.
-DENIED="mcp__ost-agent__ost_annotate,mcp__ost-agent__ost_append_to_node,mcp__ost-agent__ost_create_node,mcp__ost-agent__ost_detach_nodes,mcp__ost-agent__ost_edit_node,mcp__ost-agent__ost_flag_humans_required,mcp__ost-agent__ost_ingest_inbox,mcp__ost-agent__ost_link_nodes,mcp__ost-agent__ost_merge_nodes,mcp__ost-agent__ost_rank_source,mcp__ost-agent__ost_set_evidence,mcp__ost-agent__ost_set_instrument,mcp__ost-agent__ost_set_status,NotebookEdit,SlashCommand,Task"
+DENIED="mcp__ost-agent__ost_annotate,mcp__ost-agent__ost_append_to_node,mcp__ost-agent__ost_create_node,mcp__ost-agent__ost_detach_nodes,mcp__ost-agent__ost_edit_node,mcp__ost-agent__ost_flag_humans_required,mcp__ost-agent__ost_ingest_inbox,mcp__ost-agent__ost_link_nodes,mcp__ost-agent__ost_merge_nodes,mcp__ost-agent__ost_rank_source,mcp__ost-agent__ost_read_repo,mcp__ost-agent__ost_read_web,mcp__ost-agent__ost_search_web,mcp__ost-agent__ost_set_evidence,mcp__ost-agent__ost_set_instrument,mcp__ost-agent__ost_set_status,NotebookEdit,SlashCommand,Task"
 
 # The prompt is written to a FILE and never through `BUILD_PROMPT="$(cat <<PROMPT …)"`,
 # and the difference is not style. Inside command substitution, bash parses the heredoc
