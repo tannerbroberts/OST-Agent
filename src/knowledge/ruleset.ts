@@ -116,7 +116,8 @@ export const OST_RULESET = {
     "Make each solution's underlying assumptions explicit and propose (never run) assumption tests.",
     "Finish a solution by appending its test to the end of the solution node: the `[[wikilink]]` to the AssumptionTest on its own line, and beneath it the one command that will go green when the solution is built. A builder reads the solution, not the layer beneath it, and a definition of done kept one node away is a definition of done nobody reads.",
     "Flag tree-hygiene issues: staleness, orphan solutions, duplicates, mislabeled nodes, and unbacked validity claims.",
-    "Preserve full provenance and append-only history for every node it touches.",
+    "Preserve full provenance for every node it touches: '## History' is append-only and every removal writes the line that explains it.",
+    "Resolve duplicates by merging them, not by annotating both. Two nodes making the same claim are a debt the tree pays on every future pass — each one re-read, re-counted, and re-ideated under. `ost_merge_nodes` folds one into the other, repoints every inbound edge, and deletes the loser's file; you choose the survivor and write the merged prose. Annotate instead only when you are unsure they are the same claim, and say what would settle it.",
     "Keep every wikilink on one line. A hard-wrapped paragraph that breaks a [[Node title]] across two lines produces bracketed text and no edge: it reads correctly in the source, and the graph — the artifact this whole thing produces — simply lacks the line. Let the line run long rather than wrap inside the brackets. `check` fails on it (rule wrapped-wikilink) and the hygiene pass reports it, because discipline alone has repeatedly not been enough.",
     "State a test's lane once, in one sentence, and let it name exactly one lane. `**Lane: compute-only.**` is a declaration a tool can read back; `**Lane: compute-only for the census, humans-required for the fixing.**` is two tests wearing one node, and the reader refuses it rather than picking a half. If a test really does split, split the test. A lane written in prose is still only a suggestion: `check` fails when it contradicts the `lane:` field (rule lane-conflict), and nothing ever promotes prose to a label — only a human's `ost-agent lane --set` moves what compute may run.",
     "Raise a flag or proposal for a human whenever an action is ambiguous or would generate/validate knowledge."
@@ -125,7 +126,8 @@ export const OST_RULESET = {
     "Run interviews, experiments, or assumption tests, or record synthetic results as evidence.",
     "Write implementation code or build solutions.",
     "Invent, edit, or change the desired outcome (may only flag a mis-formed outcome as a question for humans).",
-    "Delete or overwrite existing nodes or history; append, annotate, mark-stale, or propose-for-archive instead.",
+    "Remove or rewrite a '## Results', '## Uncovered' or '## Instrument Log' section. These record that something happened outside the tree — a human's finding, a stated limit, an observed exit code — and every gate reads one. Deleting one revokes a permit a human granted, which is the same act as authoring one. No tool can express it: an edit takes prose only, and a merge carries them across.",
+    "Rewrite a node's history. '## History' is append-only; a correction appends a new dated line rather than editing an old one.",
     "Mark any opportunity, solution, or assumption as validated or confirmed.",
     "Auto-select a target opportunity or declare a winning solution.",
     "Phrase an opportunity as a solution, feature, or business metric.",
@@ -137,7 +139,7 @@ export const OST_RULESET = {
     "wikilinks": "A parent->child edge is a [[Child Title]] wikilink written in the parent note (outgoing link); the child sees its parent via the Backlinks pane. The built-in Graph view's Display 'Arrows' toggle renders link direction natively, no plugin required. Keep every wikilink on a single line: a hard-wrapped paragraph that breaks one across two lines produces bracketed text and no edge, which reads correctly in the source and is missing from the graph. Let the line run long instead of wrapping inside the brackets. `check` fails on it (rule wrapped-wikilink) and the hygiene pass reports it, because discipline alone has not been enough.",
     "frontmatter": "YAML frontmatter carries type (outcome|opportunity|solution|assumption_test), status, source/provenance, created (ISO date), and confidence (high|medium|low). Frontmatter is the machine-readable source of truth for state; inline tags drive graph coloring. Keep type in frontmatter in sync with the body tag.",
     "unvalidatedMarking": "Agent-ideated, not-yet-validated nodes carry a companion #unvalidated tag on the same first body line (e.g. '#Solution #unvalidated') plus status: unvalidated in frontmatter; a dedicated Graph group query tag:#unvalidated colors them in a warning color. Status vocabulary (unvalidated -> in-discovery -> validated -> shipped -> deferred) is a vault/tooling convention, not Torres canon.",
-    "provenance": "Every note ends with an append-only '## History' section of dated entries; existing lines are never edited or deleted. Corrections append a new entry and update frontmatter while leaving original provenance intact. Abandoned nodes are set status: deferred (or superseded via a wikilink), never deleted; renames are done inside Obsidian so inbound wikilinks auto-update."
+    "provenance": "Every note ends with an append-only '## History' section of dated entries; existing lines are never edited or deleted, and every removal elsewhere in the note writes a dated line here saying what went and why. Corrections append a new entry and update frontmatter while leaving original provenance intact. A node's PROSE may be rewritten (ost_edit_node) and a duplicate may be folded into the node that survives and its file deleted (ost_merge_nodes) — git is the recovery path, and the merge commit names what it removed. What no tool can touch either way are the reserved sections '## Results', '## Uncovered' and '## Instrument Log': an edit takes prose only and reattaches them verbatim, and a merge carries the loser's across onto the survivor. Abandoned nodes are still set status: deferred rather than merged away — deferred means 'not now', merged means 'this was the same claim'. Renames are done inside Obsidian so inbound wikilinks auto-update."
   },
   "glossary": [
     {
@@ -268,6 +270,20 @@ export const OST_RULESET = {
     // and only `ost-agent verify` — CLI, off every allowlist — can record one.
     { "name": "ost_set_instrument", "grant": true },
     { "name": "ost_annotate", "grant": true },
+    // Granted together: the three that walked back append-only. A tree that may
+    // only grow cannot resolve its own overlap — annotating two duplicates leaves
+    // two nodes and adds a third claim, and every later pass re-reads both. This
+    // product's own vault reached 566 nodes and a root of 89KB that way.
+    //
+    // The bound is what they cannot reach, not who calls them. An edit takes
+    // PROSE, never a whole body; a merge carries the loser's reserved blocks onto
+    // the survivor. So `## Results`, `## Uncovered` and `## Instrument Log` became
+    // unremovable at the same moment bodies became rewritable — deleting a human's
+    // recorded result is the same act as authoring one, and the surface now
+    // refuses both directions.
+    { "name": "ost_detach_nodes", "grant": true },
+    { "name": "ost_edit_node", "grant": true },
+    { "name": "ost_merge_nodes", "grant": true },
     // Outward sensing: read-only, metered against one shared per-pass budget.
     { "name": "ost_search_web", "grant": true },
     { "name": "ost_read_web", "grant": true },

@@ -55,6 +55,7 @@ import {
 import { readProductRepo } from "../product/repo.js";
 import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/render.js";
 import { hasRecordedResult } from "../eval/evidence-debt.js";
+import { declaresHeading, RESULTS_HEADING } from "../ost/headings.js";
 import { checkCorroboration, namedNodes } from "../eval/corroboration.js";
 import { MEASUREMENT_RUNGS, rungRefusal, unearnedRung } from "../eval/rungs.js";
 import { reconcileWithGit, reconcileWithUsage } from "../ost/census.js";
@@ -228,6 +229,62 @@ function assertLinkAllowed(vault: Vault, parentTitle: string, childTitle: string
         `human run it. If the two solutions genuinely rest on the same tested assumption, a human says so — in the ` +
         `note, or by linking it themselves.`,
     );
+  }
+}
+
+/**
+ * R6, applied to the other way a node can acquire someone else's evidence.
+ *
+ * `assertLinkAllowed` closed *borrowing* a result by drawing a new edge onto an
+ * already-run test. A merge can reach the same place by two different routes,
+ * and P10's enumeration table is what surfaced them the day the tool was added:
+ *
+ *   1. **By inheritance.** A merge unions the loser's children onto the
+ *      survivor. If one of them is an AssumptionTest carrying a recorded result,
+ *      a blocked Solution's gate clears in one call — the identical flip R6
+ *      refuses, arriving through a tool R6 does not sit on.
+ *   2. **By carry.** A merge moves the loser's reserved sections onto the
+ *      survivor so nothing measured is lost with the file. If the loser held a
+ *      `## Results` and the survivor did not, the survivor is afterwards a node
+ *      that records a run nobody performed on it.
+ *
+ * Both are *declarative* clears in P10's sense: a condition asserted satisfied
+ * without being produced. The agent decides two nodes are duplicates, and that
+ * judgement is what moves the gate — which is precisely the authority the whole
+ * result-recording path is built to withhold.
+ *
+ * So the refusal is narrow and lands in one place: **a merge may not be the
+ * thing that gives a node its first recorded result.** Untested duplicates —
+ * effectively all of them, in a tree where a recorded result is rare and
+ * expensive — merge freely and autonomously, which is the case the tool exists
+ * for. The moment real evidence would change hands, a human does it.
+ */
+function assertMergeAllowed(vault: Vault, from: string, into: string): void {
+  const loser = vault.read(from);
+  const survivor = vault.read(into);
+
+  if (declaresHeading(loser.body, RESULTS_HEADING) && !declaresHeading(survivor.body, RESULTS_HEADING)) {
+    throw new Error(
+      `refusing to merge "${displaySafeTitle(from)}" into "${displaySafeTitle(into)}": the first records a result and ` +
+        `the second does not, so this merge would hand "${displaySafeTitle(into)}" a run nobody performed on it — ` +
+        `a gate cleared by the agent's judgement that two nodes are the same, in one call. If they really are the ` +
+        `same claim, a human merges them and carries the finding across deliberately.`,
+    );
+  }
+
+  if (survivor.layer !== "Solution") return;
+  for (const childTitle of loser.links) {
+    if (survivor.links.some((l) => titlesMatch(l, childTitle))) continue; // already ours — no gate moves
+    if (!vault.has(childTitle)) continue; // dangling; the merge repoints nothing that exists
+    const child = vault.read(childTitle);
+    if (child.layer === "AssumptionTest" && hasRecordedResult(child)) {
+      throw new Error(
+        `refusing to merge "${displaySafeTitle(from)}" into "${displaySafeTitle(into)}": it would bring the tested ` +
+          `assumption "${displaySafeTitle(childTitle)}" under "${displaySafeTitle(into)}", clearing that solution's ` +
+          `evidence gate on a run commissioned for a different one. Same refusal as attaching the test directly ` +
+          `(ost_link_nodes) — a human decides when two solutions rest on the same tested assumption.`,
+      );
+    }
   }
 }
 
@@ -1018,6 +1075,71 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
       run: async (input: { title: string; issue: string }) => {
         vault.annotate(input.title, input.issue);
         return `annotated "${input.title}"`;
+      },
+    }),
+
+    tool({
+      name: "ost_detach_nodes",
+      reversibility: "reversible",
+      description:
+        "Remove one parent→child edge, recording why in the parent's History. Reversible — `ost_link_nodes` restores it exactly. Use when re-parenting (unlink, then link under the new parent) or when an edge was drawn by mistake. This does NOT delete the child: its file and every other inbound edge are untouched. Unlinking can orphan the child, which `ost_check` will report — if you are re-parenting, do the link half too.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          parent: { type: "string", description: "The node holding the edge." },
+          child: { type: "string", description: "The node the edge points at." },
+          why: { type: "string", description: "Why this edge should not exist. Recorded in the parent's History." },
+        },
+        required: ["parent", "child", "why"],
+      },
+      run: async (input: { parent: string; child: string; why: string }) => {
+        vault.detach(input.parent, input.child, input.why);
+        return `unlinked "${input.child}" from "${input.parent}"`;
+      },
+    }),
+
+    tool({
+      name: "ost_edit_node",
+      reversibility: "costly",
+      description:
+        "Replace a node's prose. Costly to reverse — the previous wording leaves the file and survives only in git. Use to sharpen a framing, fold in what a duplicate said, or cut prose that has gone stale; use `ost_append_to_node` when you are ADDING to a node rather than rewriting it. `prose` is the body WITHOUT any reserved section: the node's existing `## Results`, `## Uncovered` and `## Instrument Log` blocks are reattached verbatim and are not yours to write or to drop. Frontmatter is untouched — status, evidence, lane and instrument each have their own tool because each records a typed transition.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          title: { type: "string" },
+          prose: { type: "string", description: "The node's new body, excluding reserved sections." },
+          why: { type: "string", description: "Why the previous wording was wrong or stale. Recorded in History." },
+        },
+        required: ["title", "prose", "why"],
+      },
+      run: async (input: { title: string; prose: string; why: string }) => {
+        vault.editProse(input.title, input.prose, input.why);
+        return `edited the body of "${input.title}"`;
+      },
+    }),
+
+    tool({
+      name: "ost_merge_nodes",
+      reversibility: "costly",
+      description:
+        "Fold a duplicate node into the one that survives, then DELETE the duplicate's file. Costly to reverse — recovery is `git show`. Use when two nodes make the same claim; annotating them both leaves two nodes and adds a third claim, which is how a tree accumulates overlap it cannot resolve. You decide which node survives and what the merged prose says; the tool does the mechanics — every inbound edge in the tree is repointed at the survivor, the loser's outbound edges are unioned in, and the loser's reserved sections are carried across so no recorded result or observed exit code is lost with the file. Refused if the two are different layers (an Opportunity folded into a Solution asserts a need and a way to meet it are one thing) or if the loser is the Outcome.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          from: { type: "string", description: "The duplicate. Its file is deleted." },
+          into: { type: "string", description: "The node that survives." },
+          prose: { type: "string", description: "The survivor's merged body, excluding reserved sections." },
+          why: { type: "string", description: "Why these are the same claim. Recorded in the survivor's History." },
+        },
+        required: ["from", "into", "prose", "why"],
+      },
+      run: async (input: { from: string; into: string; prose: string; why: string }) => {
+        assertMergeAllowed(vault, input.from, input.into);
+        vault.mergeNodes(input.from, input.into, { prose: input.prose, why: input.why });
+        return `merged "${input.from}" into "${input.into}" and deleted its file`;
       },
     }),
 

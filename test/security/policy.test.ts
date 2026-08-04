@@ -22,7 +22,7 @@ afterEach(() => {
 });
 
 describe("policy", () => {
-  test("the allowlist is exactly the 21 expected tools", () => {
+  test("the allowlist is exactly the 24 expected tools", () => {
     expect([...ALLOWED_TOOL_NAMES].sort()).toEqual(
       [
         "git_commit",
@@ -31,6 +31,15 @@ describe("policy", () => {
         "ost_append_to_node",
         "ost_create_node",
         "ost_link_nodes",
+        // The three that walked back append-only. `ost_detach_nodes` is named
+        // that and not `ost_unlink_nodes` on purpose: `unlink` is a
+        // DESTRUCTIVE_TOKEN because it is POSIX's name for deleting a file, and
+        // this removes an edge. Renaming was the cheaper of the two ways past a
+        // false positive — the other was deleting a token that still needs to
+        // flag the next tool that really does unlink a file.
+        "ost_detach_nodes",
+        "ost_edit_node",
+        "ost_merge_nodes",
         "ost_next_work",
         "ost_read_tree",
         "ost_set_status",

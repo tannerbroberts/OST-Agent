@@ -281,6 +281,19 @@ describe("the unattended surface writes no policy into the vault", () => {
     { name: "ost_flag_humans_required", arguments: { test: "Streaks lift day-7 return", why: 'names an outside person: "interview"' } },
     { name: "ost_annotate", arguments: { title: "Daily streak", issue: "duplicate of nothing yet" } },
     { name: "ost_rank_source", arguments: { kind: "web", id: "example.com", direction: "corroborated", reason: "corroborated by [[Streaks lift day-7 return]]" } },
+    // The three mutations, exercised because "the surface writes no policy" has
+    // to hold for the tools that can REMOVE things too — a merge deletes a file
+    // and rewrites every node that pointed at it, which is the widest write on
+    // this surface and therefore the one most worth walking the tree after.
+    // A second Solution is created first so the merge has a same-layer partner
+    // that carries no recorded result.
+    {
+      name: "ost_create_node",
+      arguments: { title: "A streak counter", layer: "Solution", parent: "I want a reason to come back", body: "b", source: "INBOX:x", evidence: "assertion" },
+    },
+    { name: "ost_edit_node", arguments: { title: "A streak counter", prose: "A sharper framing of the same idea.", why: "the first draft named a mechanism, not the need it serves" } },
+    { name: "ost_detach_nodes", arguments: { parent: "I want a reason to come back", child: "A streak counter", why: "re-parenting under the surviving solution" } },
+    { name: "ost_merge_nodes", arguments: { from: "A streak counter", into: "Daily streak", prose: "One framing covering both.", why: "the same solution, written twice" } },
     { name: "ost_ingest_inbox", arguments: {} },
   ];
 
