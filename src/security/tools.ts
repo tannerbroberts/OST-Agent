@@ -22,6 +22,7 @@ import { computeNextWork, readEvidenceBody } from "../mcp/next-work.js";
 import { DATA_FRAME } from "./framing.js";
 import { redactSecrets } from "../adapters/transcript.js";
 import { flagHumansRequired } from "../ost/lanes.js";
+import { CAUTIOUS_LANE } from "../knowledge/lanes.js";
 import { ALLOWED_TOOL_NAMES } from "./policy.js";
 import { withUsageTracing } from "../telemetry/usage.js";
 import { readWebPage, type WebFetchFn } from "../web/reader.js";
@@ -622,7 +623,12 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
           instrument: {
             type: "string",
             description:
-              "AssumptionTest only: the command whose exit code answers this test — the executable half of the threshold. Exactly one spec file in the repository's own suite, e.g. 'npx vitest run test/git/conflict-guard.test.ts'. It MUST fail against the repository today and pass only once the solution is built: an instrument that already passes cannot fail, so it measures nothing and gives a builder no definition of done. Nothing else is accepted — no shell punctuation, no arbitrary command — because a verdict has to come from committed code rather than from a string you chose. Declare one wherever the assumption is about code; leave it off when only real people can answer (interviews, willingness to pay, usability with strangers) and say so in the body.",
+              "AssumptionTest only, and REQUIRED for one unless `humansRequired` is given: the command whose exit code answers this test — the executable half of the threshold. Exactly one spec file in the repository's own suite, e.g. 'npx vitest run test/git/conflict-guard.test.ts'. It MUST fail against the repository today and pass only once the solution is built: an instrument that already passes cannot fail, so it measures nothing and gives a builder no definition of done. Nothing else is accepted — no shell punctuation, no arbitrary command — because a verdict has to come from committed code rather than from a string you chose.",
+          },
+          humansRequired: {
+            type: "string",
+            description:
+              "AssumptionTest only: use INSTEAD of `instrument`, and only when a person outside the building is irreducibly the measurement — an interview, an offer, willingness to pay, usability with strangers. Say who and why in one sentence; it is recorded in the node's History. The test is created in the humans-required lane, so it is counted and listed rather than sitting in the tree looking runnable. Do not use this to avoid writing a command: if the repository could answer the question, it is not a human-required test.",
           },
         },
         required: ["title", "layer", "parent", "body", "evidence"],
@@ -635,6 +641,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         status?: string;
         threshold?: string;
         instrument?: string;
+        humansRequired?: string;
         source?: string;
         confidence?: string;
         evidence?: string;
@@ -684,10 +691,52 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
             );
           }
         }
+        // A new assumption test must be runnable, or must say out loud that it
+        // cannot be.
+        //
+        // The default used to be prose, and the cost of that default is the
+        // clearest measurement this project has: 243 solutions, 243 tests, not
+        // one of them executable, and a build loop that ran hourly for its whole
+        // life with nothing it could act on. Nobody chose that; it is what
+        // happens when the cheap path is the one that answers no question.
+        //
+        // So the choice is now explicit rather than implicit. Either the test
+        // names a command, or the caller states which person is irreducibly in
+        // the loop — and that second branch is not a loophole, it is the
+        // desirability half of OST keeping its place. Willingness to pay cannot
+        // be settled by a spec file and pretending otherwise would be worse than
+        // prose. What it cannot be any more is the silent default: a
+        // human-required test is BORN in that lane, which is the restrictive
+        // one, so it is counted, listed by `ost-agent lanes`, and visible as a
+        // thing a person owes rather than a thing everyone forgot.
+        if (input.layer === "AssumptionTest" && input.instrument === undefined) {
+          const stated = (input.humansRequired ?? "").trim();
+          if (!stated) {
+            throw new Error(
+              `"${input.title}" needs an \`instrument\` — one spec-file command that fails today and passes when the ` +
+                `solution is built (e.g. 'npx vitest run test/thing.test.ts'). A test with only a threshold can be ` +
+                `settled by nobody but a person finding the time, and a tree of those hands its builder nothing.\n` +
+                `If a person really is irreducibly in the loop — an interview, an offer, willingness to pay, usability ` +
+                `with strangers — pass \`humansRequired\` saying who and why instead, and the test will be created in ` +
+                `the humans-required lane. One or the other is required; silence is not an option any more.`,
+            );
+          }
+        }
+        // The stated reason goes INTO the node, not just into the call that made
+        // it. A lane label with no argument beside it is a claim a later reader
+        // cannot check, and this one decides that no unattended pass may ever run
+        // the test. Phrased without the word "lane:" on purpose — that spelling
+        // is what `proseDeclaredLane` reads as a declaration, and a node whose
+        // prose and frontmatter both declare a lane is one edit away from the
+        // `lane-conflict` nothing on this surface can clear.
+        const body = input.humansRequired
+          ? `${input.body}\n\nA person outside the building is the measurement here: ${input.humansRequired.trim()}`
+          : input.body;
+
         const node: OstNode = {
           title: input.title,
           layer: input.layer as OstNode["layer"],
-          body: input.body,
+          body,
           // Stamped server-side, regardless of what the caller asked — the same
           // move the evidence refusal above makes. `no-self-validation` keys on
           // this tag, so leaving it to the caller left the rule's precondition
@@ -702,6 +751,13 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
           evidence: input.evidence as RungId,
           threshold: input.threshold,
           instrument: input.instrument,
+          // Born in the restrictive lane when the caller says a person is the
+          // measurement. Stamped here, server-side, for the same reason the
+          // `unvalidated` marker is: a classification the caller could describe
+          // and then not apply is a classification that goes missing exactly
+          // when it matters. `humans-required` is the one lane compute may never
+          // run, so erring into it costs an operator time and never credibility.
+          lane: input.humansRequired ? CAUTIOUS_LANE : undefined,
           created: new Date().toISOString().slice(0, 10),
         };
         // B3, at the other write boundary. A refusal on `ost_set_evidence` while
@@ -808,6 +864,74 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         if (input.status === "validated") throw new Error(VALIDATED_REFUSAL);
         vault.setStatus(input.title, input.status as NodeStatus, input.note);
         return `status of "${input.title}" set to ${input.status}`;
+      },
+    }),
+
+    tool({
+      name: "ost_set_instrument",
+      reversibility: "reversible",
+      description:
+        "Attach a runnable instrument to an assumption test that does not have one, or correct one that is wrong. The instrument is a single spec-file command whose exit code answers the test — 'npx vitest run test/thing.test.ts' — and it MUST name behaviour that does not exist yet, so it fails against the repository today and passes once the solution is built. A command that already passes cannot fail, measures nothing, and gives a builder no definition of done. Nothing else is accepted: no shell punctuation, no arbitrary command, because a verdict has to come from committed code rather than from a string you chose. Use this to work through tests written before instruments existed — a test with a threshold and no instrument can only ever be settled by a person finding the time, which is how a tree ends up holding hundreds of tests and handing its builder nothing. Setting an instrument does NOT make anything buildable on its own: a permit needs an observed failure, and only `ost-agent verify` can record one. Replacing an instrument deliberately un-clears any permit the old one had, so a swap cannot inherit an observation of a different command.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          test: { type: "string", description: "Title of the AssumptionTest." },
+          instrument: {
+            type: "string",
+            description: "The command, e.g. 'npx vitest run test/git/conflict-guard.test.ts'. Must fail against the repository today.",
+          },
+          why: {
+            type: "string",
+            description: "What this command measures, and why it fails today — one sentence, recorded in the node's History.",
+          },
+        },
+        required: ["test", "instrument", "why"],
+      },
+      run: async (input: { test: string; instrument: string; why: string }) => {
+        const node = vault.read(input.test);
+        if (node.layer !== "AssumptionTest") {
+          throw new Error(`"${input.test}" is a ${node.layer} — an instrument belongs to an AssumptionTest`);
+        }
+        const parsed = parseInstrument(input.instrument);
+        if (!isInstrument(parsed)) {
+          throw new Error(
+            `cannot set that instrument on "${input.test}": ${parsed.reason} ` +
+              `It must also FAIL today — it names behaviour the solution does not have yet.`,
+          );
+        }
+        const why = (input.why ?? "").trim();
+        if (!why) {
+          throw new Error("an instrument needs a why — what it measures and why it fails today");
+        }
+        // Refused on a test a human put beyond compute's reach, and the reason is
+        // the same asymmetry `flagHumansRequired` rests on: the RESTRICTIVE call
+        // is the agent's to make and the permissive one is not. Attaching a
+        // command to a humans-required test is the permissive direction wearing
+        // a different hat — it would leave the node claiming both that a person
+        // is the measurement and that a command answers it, and the verify sweep
+        // reads the command, so an unattended pass would go and run a test whose
+        // own label says it must not be run that way.
+        //
+        // Observed rather than reasoned about: a probe attached
+        // `npx vitest run …` to a willingness-to-pay test and the node came back
+        // saying both things at once, with the test sitting in the queue the
+        // build loop drains.
+        if (node.lane === CAUTIOUS_LANE) {
+          throw new Error(
+            `refusing to instrument "${input.test}": it is labelled ${CAUTIOUS_LANE}, so a person is the ` +
+              `measurement and no command can stand in for them. Attaching one would leave the node claiming ` +
+              `both, and the verify sweep would go and run it. If you believe the repository really can settle ` +
+              `this question, say so with ost_annotate and leave the label to a human, who can change it with ` +
+              `\`ost-agent lane "${input.test}" --set compute-only\`. Removing a caution is not a call this ` +
+              `surface makes.`,
+          );
+        }
+        const line = vault.setInstrument(input.test, parsed.command, why);
+        return (
+          `instrument of "${input.test}" set: ${line}\n` +
+          `This is not a build permit. Nothing is buildable until \`ost-agent verify\` watches this command fail.`
+        );
       },
     }),
 

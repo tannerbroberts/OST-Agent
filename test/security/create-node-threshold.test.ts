@@ -49,12 +49,17 @@ const create = (input: Record<string, unknown>): Promise<string> => {
   return (tool as unknown as { run: (i: unknown) => Promise<string> }).run(input);
 };
 
+// Declares `humansRequired` rather than an instrument, because that is what this
+// test honestly is: whether 20 invitees book a kickoff is a person's reaction and
+// no spec file can answer it. An AssumptionTest must now say which of the two it
+// is — a runnable command or a named human — and silence is refused.
 const GOOD_ASSUMPTION_TEST = {
   title: "At least 5 of 20 book a kickoff",
   layer: "AssumptionTest",
   parent: SOLUTION,
   body: "run the pilot with 20 invitees",
   evidence: "assertion",
+  humansRequired: "20 invited people either book or do not; their reaction is the measurement",
 } as const;
 
 describe("ost_create_node — threshold field", () => {

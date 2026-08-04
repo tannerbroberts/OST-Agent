@@ -260,7 +260,9 @@ describe("the unattended surface writes no policy into the vault", () => {
     },
     {
       name: "ost_create_node",
-      arguments: { title: "Streaks lift day-7 return", layer: "AssumptionTest", parent: "Daily streak", body: "## Format\nreturn rate", source: "INBOX:x", evidence: "stated" },
+      // Carries an instrument because an AssumptionTest without one is refused at
+      // the boundary now: a test nothing can run is a test the builder cannot use.
+      arguments: { title: "Streaks lift day-7 return", layer: "AssumptionTest", parent: "Daily streak", body: "## Format\nreturn rate", source: "INBOX:x", evidence: "stated", instrument: "npx vitest run test/streaks.test.ts" },
     },
     { name: "ost_link_nodes", arguments: { parent: "Daily streak", child: "Streaks lift day-7 return" } },
     // Deliberately NOT "## Results". That heading is reserved
@@ -272,6 +274,10 @@ describe("the unattended surface writes no policy into the vault", () => {
     { name: "ost_append_to_node", arguments: { title: "Streaks lift day-7 return", section: "## Notes\nday-7 return rose from 21% to 28%." } },
     { name: "ost_set_status", arguments: { title: "Daily streak", status: "in-discovery", note: "test is running" } },
     { name: "ost_set_evidence", arguments: { title: "Streaks lift day-7 return", evidence: "stated", note: "one report" } },
+    {
+      name: "ost_set_instrument",
+      arguments: { test: "Streaks lift day-7 return", instrument: "npx vitest run test/streaks-v2.test.ts", why: "the first command named the wrong module" },
+    },
     { name: "ost_flag_humans_required", arguments: { test: "Streaks lift day-7 return", why: 'names an outside person: "interview"' } },
     { name: "ost_annotate", arguments: { title: "Daily streak", issue: "duplicate of nothing yet" } },
     { name: "ost_rank_source", arguments: { kind: "web", id: "example.com", direction: "corroborated", reason: "corroborated by [[Streaks lift day-7 return]]" } },

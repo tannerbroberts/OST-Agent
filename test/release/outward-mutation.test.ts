@@ -370,6 +370,10 @@ const AIM: Record<string, (n: number) => Record<string, unknown>> = {
   ost_link_nodes: () => ({ parent: OUTCOME, child: SECOND_OPPORTUNITY }),
   ost_set_status: () => ({ title: TEST, status: "in-discovery" }),
   ost_set_evidence: () => ({ title: TEST, evidence: "assertion" }),
+  // A real instrument, not the schema filler: the boundary refuses anything that
+  // is not a spec-file command, so generic text would make this a call that
+  // writes nothing and the landing count would catch it.
+  ost_set_instrument: (n) => ({ test: TEST, instrument: `npx vitest run test/driven-${n}.test.ts`, why: "a driven probe" }),
   ost_annotate: () => ({ title: TEST, issue: "worth a second look" }),
   ost_flag_humans_required: () => ({ test: TEST, why: 'a person has to read it: "interview"' }),
   ost_rank_source: () => ({ kind: "web", id: "example.com", direction: "contradicted", reason: "a strike needs no citation" }),
@@ -480,6 +484,7 @@ describe("(b) no tool the server exposes reaches gitPush", () => {
       "ost_link_nodes",
       "ost_rank_source",
       "ost_set_evidence",
+      "ost_set_instrument",
       "ost_set_status",
     ]);
     expect(vi.mocked(gitPush), "a tool the MCP server exposes reached gitPush").not.toHaveBeenCalled();

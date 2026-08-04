@@ -247,6 +247,7 @@ describe("R6(b) — an already-run assumption test cannot be adopted by a second
       parent: BLOCKED,
       body: "read two manifests",
       evidence: "assertion",
+      humansRequired: "a person reads both manifests and counts the differences",
     });
     expect(linksOf(BLOCKED)).toContain("Count the diffs by hand");
 

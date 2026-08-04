@@ -19,6 +19,19 @@ export const ALLOWED_TOOL_NAMES = [
   "ost_link_nodes",
   "ost_set_status",
   "ost_set_evidence",
+  // Attaches a runnable command to an assumption test, or corrects one. It is a
+  // write, and it is here rather than withheld because the requirement it
+  // satisfies is one this project now makes of itself: a test nothing can run is
+  // a test the builder cannot use, and a tree can hold hundreds written before
+  // instruments existed. Withholding the tool would leave a pass able to see
+  // that debt and unable to pay it.
+  //
+  // What it CANNOT do bounds the grant. The command must match a closed
+  // allowlist of spec-file forms (knowledge/instruments.ts), so no string it
+  // writes can exit 0 without committed code behind it; and setting one clears
+  // no gate at all, because a build permit needs an OBSERVED failure and only
+  // `ost-agent verify` — CLI-only, off every tool surface — records one.
+  "ost_set_instrument",
   // Restrictive-only by construction: it can put a test out of compute's reach
   // and nothing else. There is deliberately no general lane setter here — see
   // ost/lanes.ts `flagHumansRequired`.

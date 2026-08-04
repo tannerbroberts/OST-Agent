@@ -50,16 +50,36 @@ export function nodeInstrument(node: OstNode): ParsedInstrument | undefined {
 }
 
 /**
- * Has this test ever been observed red? The precondition for a green being
- * meaningful, and the signal the build permit reads.
+ * Observations of the command the node names TODAY.
+ *
+ * Every log line carries the command it ran, in backticks, and this filters on
+ * it. That is not bookkeeping — it is what stops an instrument swap from
+ * inheriting a permit. `ost_set_instrument` can replace the field, and the
+ * append-only log keeps the older runs (a run that happened, happened), so
+ * without this filter a test could be observed red on one command, quietly
+ * re-pointed at another, and hand the builder a permit backed by an observation
+ * of something else entirely.
+ *
+ * A node with no parseable instrument has no current observations by
+ * definition, which is the fail-closed direction.
  */
-export function observedRed(node: OstNode): boolean {
-  return instrumentLog(node).some((l) => /\*\*red\*\*/i.test(l));
+function currentObservations(node: OstNode): string[] {
+  const instrument = nodeInstrument(node);
+  if (!instrument) return [];
+  return instrumentLog(node).filter((l) => l.includes(`\`${instrument.command}\``));
 }
 
-/** Has this test's instrument been observed green — i.e. is it already built? */
+/**
+ * Has the CURRENT instrument been observed red? The precondition for a green
+ * being meaningful, and the signal the build permit reads.
+ */
+export function observedRed(node: OstNode): boolean {
+  return currentObservations(node).some((l) => /\*\*red\*\*/i.test(l));
+}
+
+/** Has the CURRENT instrument been observed green — i.e. is it already built? */
 export function observedGreen(node: OstNode): boolean {
-  return instrumentLog(node).some((l) => /\*\*green\*\*/i.test(l));
+  return currentObservations(node).some((l) => /\*\*green\*\*/i.test(l));
 }
 
 /** The recorded observation lines, in the order they were filed. */
