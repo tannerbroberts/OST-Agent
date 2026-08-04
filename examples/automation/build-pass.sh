@@ -72,7 +72,37 @@ VAULT_DIR="$(cd "$VAULT_DIR" && pwd)"
 # The report file is the pass's only channel to the operator. Write it on every exit path
 # — a firing that decided not to fire is still something the operator asked to hear about,
 # and a silent no-op is indistinguishable from a loop that has died.
-report() { printf '%s\n' "$1" >"$REPORT"; }
+#
+# The lineage prefix: the Outcome→…→solution path, arrow-separated, at the very
+# head of the report. Empty until a target is chosen, and that is the design
+# rather than an initialisation detail — most firings build nothing, and a
+# root-only prefix on twenty reports out of twenty-one teaches the operator to
+# skip the first line. An arrow prefix therefore MEANS "this pass touched a
+# specific node", which is a fact worth a line only because it is not always
+# there. Naming the next candidate instead was the other option and is the same
+# defect this loop has already shipped once: a node in the report that the pass
+# never touched.
+LINEAGE=""
+
+report() {
+  if [ -n "$LINEAGE" ]; then
+    printf '%s\n\n%s\n' "$LINEAGE" "$1" >"$REPORT"
+  else
+    printf '%s\n' "$1" >"$REPORT"
+  fi
+}
+
+# Put the lineage back on a report the MODEL wrote. `report()` cannot do it: the
+# prompt tells the model to Write the file itself, which replaces whatever was
+# there. Idempotent by inspection — a second call finds the prefix already
+# present and leaves it — because the postflight below rewrites the report on one
+# branch and would otherwise double it.
+prefix_lineage() {
+  [ -n "$LINEAGE" ] || return 0
+  [ -s "$REPORT" ] || return 0
+  case "$(head -1 "$REPORT")" in "$LINEAGE") return 0 ;; esac
+  printf '%s\n\n%s\n' "$LINEAGE" "$(cat "$REPORT")" >"$REPORT"
+}
 
 # ---------------------------------------------------------------------------
 # Cadence gate.
@@ -330,6 +360,16 @@ fi
 # ---------------------------------------------------------------------------
 TARGET="$(head -1 "$BUILDABLE")"
 
+# Computed once, here, because every report from this point on is about this one
+# solution — including the two the script writes itself (the interrupted-firing
+# placeholder and the claude-failed one), which are exactly the reports an
+# operator reads without any other context about what the pass was doing.
+#
+# `|| true` and an empty result are a working state, not an error: an unreachable
+# node has no lineage, `lineage` exits 1 saying so, and the report goes out
+# unprefixed rather than headed by a bare arrow.
+LINEAGE="$(node "$CLI" lineage "$TARGET" --vault . 2>/dev/null || true)"
+
 MCP_CONFIG="$(mktemp "${TMPDIR:-/tmp}/ost-build-mcp.XXXXXX")"
 trap 'rm -f "$MCP_CONFIG"; rm -rf "$LOCK"' EXIT
 
@@ -474,6 +514,10 @@ if [ -n "$TARGET_TEST" ]; then
     printf '%s\n' "$(cat "$REPORT" 2>/dev/null) [Loop check: the instrument for this solution is ${BUILD_OBSERVED} after the build, so the definition of done was not met regardless of what the report above says.]" >"$REPORT"
   fi
 fi
+
+# Last, after every branch that could have rewritten the report — the model's own
+# Write, and the postflight's disagreement note above.
+prefix_lineage
 
 # The vault must be clean when this exits. A build pass that dirties the vault wedges the
 # discovery loop, whose `loop start` refuses a dirty tree — one loop silently killing the
