@@ -14,6 +14,7 @@
  *   ost-agent verify "<test>" --repo DIR      run a test's instrument; record red/green as an observed fact
  *   ost-agent buildable ["<solution>"]        is it defined well enough to build, and against what command?
  *   ost-agent stranded [--also DIR]           evidence no node cites, split by which fix would clear it
+ *   ost-agent capability [--repo DIR]         what each builder can do, read off the commits already written
  *   ost-agent channels [--vault DIR]          every drop folder, its last delivery, and what has gone silent
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
  *   ost-agent loop due|start|step|seal        unattended firing: cadence, lock, ceiling, health
@@ -41,6 +42,7 @@ import { verifyInstrument } from "../ost/instrument.js";
 import { buildableSolutions, buildPermit, testsAwaitingVerification } from "../eval/buildable.js";
 import { formatCensus, reconcileWithGit, reconcileWithUsage } from "../ost/census.js";
 import { formatStrandedCensus, strandedEvidenceCensus } from "../ost/stranded.js";
+import { committedCapabilityProfile, formatCapabilityProfile } from "../product/capability.js";
 import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
 import { laneDef, LANES, type LaneId } from "../knowledge/lanes.js";
 import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapters/friction.js";
@@ -535,6 +537,23 @@ program
     // that was mistyped.
     const dirs = [opts.vault, ...opts.also].map((d) => path.resolve(d));
     console.log(formatStrandedCensus(strandedEvidenceCensus(dirs, { excludeCiters: opts.ignoreCiter })));
+  });
+
+program
+  .command("capability")
+  .description("what each builder demonstrably knows how to do, read off the commits and PRs already written — nothing is asked of anyone")
+  .option("--repo <dir>", "the repository whose committed record to read", ".")
+  .option("--commits <n>", "how many commits back to read", (v) => Number(v), 100)
+  .option("--prs <n>", "how many pull requests back to read", (v) => Number(v), 30)
+  .action(async (opts: { repo: string; commits: number; prs: number }) => {
+    // No vault, no config, no context. The mechanism's whole argument is that a
+    // path to a git repository is the only input, so taking a second one here
+    // would quietly reintroduce the deposit it exists to avoid.
+    const report = await committedCapabilityProfile(path.resolve(opts.repo), { commits: opts.commits, prs: opts.prs });
+    console.log(formatCapabilityProfile(report));
+    // A record too illegible to profile is a finding, and a finding an automation
+    // can act on has to reach it through the exit code.
+    if (report.verdict === "refuted") process.exitCode = 1;
   });
 
 program
