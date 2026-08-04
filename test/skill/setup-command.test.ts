@@ -39,7 +39,7 @@ describe("the generated /ost-setup command", () => {
   });
 
   test("it can read the bootstrap state it is supposed to branch on", () => {
-    expect(cmd).toMatch(/allowed-tools:.*mcp__ost-agent__ost_next_work/);
+    expect(cmd).toMatch(/allowed-tools:.*mcp__plugin_ost-agent_ost-agent__ost_next_work/);
   });
 
   test("its shell allowance is scoped to a named subcommand, not to a shell", () => {

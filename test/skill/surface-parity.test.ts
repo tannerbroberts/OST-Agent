@@ -64,6 +64,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import { SKILL_PATH } from "../../scripts/gen-skill.js";
 import { MCP_TOOL_NAMES } from "../../src/mcp/server.js";
+import { MCP_PREFIX } from "../../scripts/mcp-prefix.js";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -75,18 +76,17 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../
  *
  * Hardcoding it here (as this file did until 2026-07-30) made the parity check
  * blind to the one edit that voids the whole grant at once: rename the server in
- * the manifest, and every `mcp__ost-agent__*` name in the skill resolves to
- * nothing — denied rather than prompted, so the model would lose its entire
- * surface silently. With both sides derived, that rename fails here.
+ * the manifest, and every granted name in the skill resolves to nothing — denied
+ * rather than prompted, so the model would lose its entire surface silently.
+ * With both sides derived, that rename fails here.
+ *
+ * Deriving locally was not enough. This file, `scripts/gen-skill.ts` and
+ * `test/release/command-allowlists.test.ts` each derived it separately and each
+ * derived `mcp__<server>__` — the form a directly-registered server mints, not
+ * the `mcp__plugin_<plugin>_<server>__` a plugin install produces. Three
+ * independent copies of one wrong model read as three confirmations. The single
+ * derivation now lives in `scripts/mcp-prefix.ts`.
  */
-const MCP_PREFIX: string = (() => {
-  const manifest = JSON.parse(fs.readFileSync(path.join(repoRoot, ".claude-plugin", "plugin.json"), "utf8")) as {
-    mcpServers?: Record<string, unknown>;
-  };
-  const names = Object.keys(manifest.mcpServers ?? {});
-  if (names.length !== 1) throw new Error(`expected exactly one mcpServers entry, found ${names.length}`);
-  return `mcp__${names[0]}__`;
-})();
 
 const skill = fs.readFileSync(SKILL_PATH, "utf8");
 
@@ -307,7 +307,7 @@ describe("the parity check reports a skill that disagrees with the surface", () 
 
   test("a skill left on the old prefix after the server was renamed is reported", () => {
     // The manifest edit, simulated from the other side: the skill still says
-    // `mcp__ost-agent__…` while the session mints `mcp__ost-tree__…`. Both
+    // `mcp__plugin_ost-agent_ost-agent__…` while the session mints `mcp__ost-tree__…`. Both
     // checks must notice — the prefix check by name, and parity because the
     // unstripped entries are then eighteen tools the server does not expose.
     const renamed = "mcp__ost-tree__";

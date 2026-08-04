@@ -2,7 +2,7 @@
 name: opportunity-solution-tree
 description: Maintain a Teresa Torres Opportunity Solution Tree (OST) — distill customer evidence into Opportunity nodes, ideate candidate Solutions, and surface Assumption Tests — as append-only Obsidian Markdown, driven through the ost-agent MCP tools. Use whenever asked to run product discovery, do opportunity mapping / solution ideation / assumption surfacing, or maintain an OST vault.
 when_to_use: The user wants to build or update an Opportunity Solution Tree, run continuous product discovery, map customer opportunities, ideate solutions, surface assumptions, or run an OST maintenance pass. Requires the ost-agent MCP server to be connected (its ost_* tools are present).
-allowed-tools: mcp__ost-agent__ost_ingest_inbox, mcp__ost-agent__ost_next_work, mcp__ost-agent__ost_read_tree, mcp__ost-agent__ost_create_node, mcp__ost-agent__ost_link_nodes, mcp__ost-agent__ost_append_to_node, mcp__ost-agent__ost_set_status, mcp__ost-agent__ost_set_evidence, mcp__ost-agent__ost_set_instrument, mcp__ost-agent__ost_annotate, mcp__ost-agent__ost_detach_nodes, mcp__ost-agent__ost_edit_node, mcp__ost-agent__ost_merge_nodes, mcp__ost-agent__ost_search_web, mcp__ost-agent__ost_read_web, mcp__ost-agent__ost_read_repo, mcp__ost-agent__ost_rank_source, mcp__ost-agent__ost_check, mcp__ost-agent__ost_debt, mcp__ost-agent__ost_status, mcp__ost-agent__ost_gate, mcp__ost-agent__ost_flag_humans_required
+allowed-tools: mcp__plugin_ost-agent_ost-agent__ost_ingest_inbox, mcp__plugin_ost-agent_ost-agent__ost_next_work, mcp__plugin_ost-agent_ost-agent__ost_read_tree, mcp__plugin_ost-agent_ost-agent__ost_create_node, mcp__plugin_ost-agent_ost-agent__ost_link_nodes, mcp__plugin_ost-agent_ost-agent__ost_append_to_node, mcp__plugin_ost-agent_ost-agent__ost_set_status, mcp__plugin_ost-agent_ost-agent__ost_set_evidence, mcp__plugin_ost-agent_ost-agent__ost_set_instrument, mcp__plugin_ost-agent_ost-agent__ost_annotate, mcp__plugin_ost-agent_ost-agent__ost_detach_nodes, mcp__plugin_ost-agent_ost-agent__ost_edit_node, mcp__plugin_ost-agent_ost-agent__ost_merge_nodes, mcp__plugin_ost-agent_ost-agent__ost_search_web, mcp__plugin_ost-agent_ost-agent__ost_read_web, mcp__plugin_ost-agent_ost-agent__ost_read_repo, mcp__plugin_ost-agent_ost-agent__ost_rank_source, mcp__plugin_ost-agent_ost-agent__ost_check, mcp__plugin_ost-agent_ost-agent__ost_debt, mcp__plugin_ost-agent_ost-agent__ost_status, mcp__plugin_ost-agent_ost-agent__ost_gate, mcp__plugin_ost-agent_ost-agent__ost_flag_humans_required
 ---
 
 # Maintaining an Opportunity Solution Tree
@@ -81,7 +81,7 @@ An unknown declares a contract in three body sections, and the sections are the 
 
 ## The tools you drive
 
-All are exposed by the `ost-agent` MCP server (names may appear as `mcp__ost-agent__ost_*`):
+All are exposed by the `ost-agent` MCP server (names may appear as `mcp__plugin_ost-agent_ost-agent__ost_*`):
 
 - **ost_ingest_inbox** — capture new notes from the vault's local inbox folder as evidence. Idempotent: a note already captured is never captured twice, and inbox files are never modified or deleted. Call this before `ost_next_work` when the user says they have added notes.
 - **ost_next_work** — read-only. Reports exactly what's outstanding: unmapped evidence, under-served opportunities, solutions missing assumption tests, hygiene issues, and `openUnknowns` — every declared darkness still unresolved, offered as available work that never blocks `done`. **Start every pass here.**

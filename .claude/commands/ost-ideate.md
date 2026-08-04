@@ -1,7 +1,7 @@
 ---
 description: Ideate candidate #Solution nodes for under-served opportunities (OST discovery process P3)
 argument-hint: [opportunity title to focus on — optional]
-allowed-tools: mcp__ost-agent__ost_next_work, mcp__ost-agent__ost_read_tree, mcp__ost-agent__ost_create_node, mcp__ost-agent__ost_link_nodes
+allowed-tools: mcp__plugin_ost-agent_ost-agent__ost_next_work, mcp__plugin_ost-agent_ost-agent__ost_read_tree, mcp__plugin_ost-agent_ost-agent__ost_create_node, mcp__plugin_ost-agent_ost-agent__ost_link_nodes
 ---
 
 Run solution ideation. Follow the `opportunity-solution-tree` skill's rules.

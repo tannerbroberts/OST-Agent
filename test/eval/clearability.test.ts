@@ -76,7 +76,7 @@ const PASS_TOOL_NAMES: string[] = (() => {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean)
-    .map((n) => n.replace(/^mcp__ost-agent__/, ""));
+    .map((n) => n.replace(/^mcp__plugin_ost-agent_ost-agent__/, ""));
 })();
 
 const SURFACES = [

@@ -78,7 +78,14 @@ If you are working on OST-Agent itself rather than consuming it, `git clone` thi
 
 ### Tool-name prefix caveat
 
-The skill and commands pre-approve tools as `mcp__ost-agent__ost_*`, which is the plugin's server name. If you ever register an MCP server under a different name (only possible from a `--plugin-dir` checkout, not through the marketplace), the pre-approvals won't match and Claude will ask for permission once per tool — harmless, just a prompt.
+The skill and commands pre-approve tools as `mcp__plugin_ost-agent_ost-agent__ost_*`. A plugin-delivered MCP server is namespaced `mcp__plugin_<plugin>_<server>__`, not `mcp__<server>__` — the latter is what a server registered directly (`claude mcp add`, `.mcp.json`) mints. Both names here are `ost-agent`, which is why the wrong form looked plausible for so long.
+
+If the pre-approvals ever stop matching the minted names, the consequence depends on how the session runs, and the difference is the whole problem:
+
+- **Interactive:** Claude asks for permission once per tool. Harmless.
+- **`claude -p` (the unattended pass):** an ungranted call is **denied, not prompted**. The pass runs, every tool call is refused, nothing is written, and it exits `0` reporting success.
+
+This is not hypothetical — it is the failure recorded above, which cost the meta vault five scheduled firings. Treat a prefix mismatch as a silent-failure bug, never as a prompt.
 
 ---
 

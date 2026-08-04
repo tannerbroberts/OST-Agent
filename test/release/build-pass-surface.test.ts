@@ -24,6 +24,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
+import { MCP_PREFIX } from "../../scripts/mcp-prefix.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const read = (p: string) => fs.readFileSync(path.join(root, p), "utf8");
@@ -65,15 +66,12 @@ describe("the build pass cannot write the tree it builds against", () => {
   test("grants no ost_* tool that mutates", () => {
     // Whitelist by name rather than by "contains write": the read-only surface is small
     // and closed, so anything outside it is a mutation until someone argues otherwise here.
-    const READ_ONLY = new Set([
-      "mcp__ost-agent__ost_read_tree",
-      "mcp__ost-agent__ost_next_work",
-      "mcp__ost-agent__ost_status",
-      "mcp__ost-agent__ost_debt",
-      "mcp__ost-agent__ost_check",
-      "mcp__ost-agent__ost_gate",
-    ]);
-    const granted = allowed.filter((t) => t.startsWith("mcp__ost-agent__"));
+    const READ_ONLY = new Set(
+      ["ost_read_tree", "ost_next_work", "ost_status", "ost_debt", "ost_check", "ost_gate"].map(
+        (t) => `${MCP_PREFIX}${t}`,
+      ),
+    );
+    const granted = allowed.filter((t) => t.startsWith(MCP_PREFIX));
     expect(granted.filter((t) => !READ_ONLY.has(t))).toEqual([]);
   });
 

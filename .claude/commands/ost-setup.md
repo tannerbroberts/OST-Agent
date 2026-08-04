@@ -1,6 +1,6 @@
 ---
 description: Set up an Opportunity Solution Tree in this folder — the first-run front door
-allowed-tools: mcp__ost-agent__ost_next_work, Bash(node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init:*)
+allowed-tools: mcp__plugin_ost-agent_ost-agent__ost_next_work, Bash(node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init:*)
 ---
 
 Set this directory up as an OST vault, or report that it already is one.

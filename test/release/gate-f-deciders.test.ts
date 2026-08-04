@@ -45,6 +45,7 @@ import { resolveSessionsDir } from "../../src/cli/loop.js";
 import { openRunPath, runsPath } from "../../src/loop/health.js";
 import { firingLockPath } from "../../src/loop/lock.js";
 import { MCP_TOOL_NAMES } from "../../src/mcp/server.js";
+import { MCP_PREFIX } from "../../scripts/mcp-prefix.js";
 import { buildOstTools } from "../../src/security/tools.js";
 import { Vault } from "../../src/ost/vault.js";
 
@@ -430,7 +431,13 @@ describe("3 — the unattended surface grants nothing beyond the tools proved in
         const allowed = toolList(source, allowPattern);
         expect(allowed.length).toBeGreaterThan(0);
         for (const t of allowed) {
-          const bare = t.replace(/^mcp__[^_]+(?:-[^_]+)*__/, "");
+          // Strip the derived prefix rather than pattern-matching one. The old
+          // regex assumed the segment between `mcp__` and `__` held no
+          // underscore, which is true of `mcp__<server>__` and false of the
+          // `mcp__plugin_<plugin>_<server>__` a plugin install actually mints —
+          // so it silently failed to strip and every real grant read as "not an
+          // ost_* tool".
+          const bare = t.startsWith(MCP_PREFIX) ? t.slice(MCP_PREFIX.length) : t;
           expect(
             (MCP_TOOL_NAMES as readonly string[]).includes(bare),
             `${t} is granted but is not an ost_* tool — part 2 says nothing about what it can write`,

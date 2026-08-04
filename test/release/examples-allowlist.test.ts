@@ -48,8 +48,8 @@ describe("examples' --allowedTools stay in sync with /ost-pass's frontmatter", (
   test("the frontmatter itself grants at least the ingest + read/write surface", () => {
     // Sanity check on the authority itself, so a typo there can't make both
     // comparisons below pass vacuously.
-    expect(authority).toContain("mcp__ost-agent__ost_ingest_inbox");
-    expect(authority).toContain("mcp__ost-agent__ost_next_work");
+    expect(authority).toContain("mcp__plugin_ost-agent_ost-agent__ost_ingest_inbox");
+    expect(authority).toContain("mcp__plugin_ost-agent_ost-agent__ost_next_work");
   });
 
   test("examples/automation/autonomous-pass.sh's OST_TOOLS matches, tool for tool", () => {
@@ -187,7 +187,7 @@ describe("/ost-pass's prose and its allowed-tools describe the same agent", () =
   // in exposition as well as instruction, and exposition is exactly what the
   // contained set above has to justify by name.
   const mentioned = [...new Set(body.match(/\bost_[a-z_]+\b/g) ?? [])].sort();
-  const granted = new Set(authority.map((t) => t.replace("mcp__ost-agent__", "")));
+  const granted = new Set(authority.map((t) => t.replace("mcp__plugin_ost-agent_ost-agent__", "")));
 
   test("the body names tools at all, so the comparison cannot pass vacuously", () => {
     expect(mentioned.length).toBeGreaterThan(5);

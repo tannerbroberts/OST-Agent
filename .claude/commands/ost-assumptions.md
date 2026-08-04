@@ -1,6 +1,6 @@
 ---
 description: Surface the key assumptions each solution depends on as #AssumptionTest nodes (OST discovery process P4)
-allowed-tools: mcp__ost-agent__ost_next_work, mcp__ost-agent__ost_read_tree, mcp__ost-agent__ost_create_node, mcp__ost-agent__ost_link_nodes
+allowed-tools: mcp__plugin_ost-agent_ost-agent__ost_next_work, mcp__plugin_ost-agent_ost-agent__ost_read_tree, mcp__plugin_ost-agent_ost-agent__ost_create_node, mcp__plugin_ost-agent_ost-agent__ost_link_nodes
 ---
 
 Run assumption surfacing. Follow the `opportunity-solution-tree` skill's rules.

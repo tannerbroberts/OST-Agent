@@ -22,9 +22,19 @@
  *    person adding one.
  * 2. **Both authorities are derived from source, never transcribed.** MCP names
  *    come from `MCP_TOOL_NAMES` (`src/mcp/server.ts`), the CLI subcommand set is
- *    grepped out of `src/cli/index.ts`, and the `mcp__…__` prefix is read off the
- *    server key in `.claude-plugin/plugin.json`. A list retyped here would be a
- *    fourth copy of the very thing whose copies keep drifting.
+ *    grepped out of `src/cli/index.ts`, and the `mcp__…__` prefix is derived in
+ *    `test/mcp-prefix.ts` from *both* the plugin name and the server key in
+ *    `.claude-plugin/plugin.json`. A list retyped here would be a fourth copy of
+ *    the very thing whose copies keep drifting.
+ *
+ *    Deriving is necessary but was not sufficient: this test derived the prefix
+ *    from the server key alone, producing `mcp__<server>__` — the form a
+ *    directly-registered server mints, not the `mcp__plugin_<plugin>_<server>__`
+ *    a plugin install produces. Every grant in the repo matched that wrong
+ *    derivation, and the non-vacuity pin below asserted the same wrong string,
+ *    so the guard certified the mismatch it existed to catch. A derivation is
+ *    only as good as the model of the loader behind it; the fixture named
+ *    "the direct-registration prefix" is what now holds that model in place.
  * 3. **Non-`mcp__` entries are matched against an explicit form, not waved
  *    through.** `/ost-setup` legitimately grants two `Bash(…)` prefixes, so
  *    "every entry must be an MCP tool" is wrong — but "any Bash grant is fine"
@@ -53,26 +63,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, test } from "vitest";
 import { MCP_TOOL_NAMES } from "../../src/mcp/server.js";
+import { MCP_PREFIX } from "../../scripts/mcp-prefix.js";
 import { initVault } from "../../src/runner/init.js";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const COMMANDS_DIR = path.join(repoRoot, ".claude", "commands");
-
-/**
- * The MCP tool-name prefix Claude Code will actually mint, taken from the plugin
- * manifest's server key rather than hardcoded. Renaming the server in
- * `plugin.json` renames every tool the session sees; if that ever happens, this
- * test fails on all nine files at once instead of the plugin silently losing its
- * whole tool surface at runtime.
- */
-const MCP_PREFIX: string = (() => {
-  const manifest = JSON.parse(fs.readFileSync(path.join(repoRoot, ".claude-plugin", "plugin.json"), "utf8")) as {
-    mcpServers?: Record<string, unknown>;
-  };
-  const names = Object.keys(manifest.mcpServers ?? {});
-  if (names.length !== 1) throw new Error(`expected exactly one mcpServers entry, found ${names.length}`);
-  return `mcp__${names[0]}__`;
-})();
 
 /**
  * Every subcommand `src/cli/index.ts` defines, read out of the source.
@@ -169,7 +164,12 @@ describe("the derived authorities are real (so nothing below can pass vacuously)
     for (const sub of ["init", "set-outcome", "gate", "promote"]) {
       expect(SUBCOMMANDS, `src/cli/index.ts defines ${sub}`).toContain(sub);
     }
-    expect(MCP_PREFIX).toBe("mcp__ost-agent__");
+    // Pinned to the literal a plugin session actually mints, not to a restatement
+    // of the derivation — this assertion previously agreed with a wrong derivation
+    // and so certified the very mismatch it existed to catch. `plugin_` is the
+    // load-bearing part: without it this is the name a directly-registered server
+    // would mint, which no plugin install ever produces.
+    expect(MCP_PREFIX).toBe("mcp__plugin_ost-agent_ost-agent__");
   });
 
   test("every shipped command file is being audited", () => {
@@ -199,13 +199,21 @@ describe("every command's allowed-tools names only tools that exist (D2)", () =>
 const BROKEN: ReadonlyArray<[why: string, frontmatter: string, expected: RegExp]> = [
   [
     "a misspelled MCP tool",
-    "mcp__ost-agent__ost_read_tree, mcp__ost-agent__ost_creat_node",
+    `${MCP_PREFIX}ost_read_tree, ${MCP_PREFIX}ost_creat_node`,
     /no such tool.*ost_creat_node/,
   ],
   [
     "a tool that was never on the surface",
-    "mcp__ost-agent__ost_delete_node",
+    `${MCP_PREFIX}ost_delete_node`,
     /no such tool.*ost_delete_node/,
+  ],
+  [
+    // The regression itself: the shape every grant in this repo carried for 23
+    // releases. It must report as another server's tool, because that is exactly
+    // what a plugin session treats it as — and why every call was denied.
+    "the direct-registration prefix, which a plugin install never mints",
+    "mcp__ost-agent__ost_read_tree",
+    /not a tool of this plugin's server/,
   ],
   [
     "a Bash grant for a subcommand the CLI does not define",
@@ -215,12 +223,12 @@ const BROKEN: ReadonlyArray<[why: string, frontmatter: string, expected: RegExp]
   [
     "a bare shell grant",
     "Bash",
-    /is neither an mcp__ost-agent__\* tool nor a/,
+    /is neither an mcp__plugin_ost-agent_ost-agent__\* tool nor a/,
   ],
   [
     "a wildcard shell grant dressed up as the real form",
     "Bash(node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs:*)",
-    /is neither an mcp__ost-agent__\* tool nor a/,
+    /is neither an mcp__plugin_ost-agent_ost-agent__\* tool nor a/,
   ],
   [
     "another server's tool",
@@ -248,7 +256,7 @@ describe("the auditor reports a command file that grants something unreal", () =
   test("a well-formed fixture passes, so the auditor is not simply always-red", () => {
     const source =
       "---\ndescription: fixture\n" +
-      "allowed-tools: mcp__ost-agent__ost_read_tree, Bash(node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init:*)\n" +
+      "allowed-tools: mcp__plugin_ost-agent_ost-agent__ost_read_tree, Bash(node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init:*)\n" +
       "---\n\nbody\n";
     expect(auditCommandFile("fixture.md", source)).toEqual([]);
   });

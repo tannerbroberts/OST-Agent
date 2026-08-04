@@ -3,7 +3,7 @@
  *
  * Both of them used to load OST-Agent with `--plugin-dir` and drive the pass with
  * `claude -p "/ost-pass"`. On current Claude Code that combination produces
- * `Unknown command: /ost-pass`, no `mcp__ost-agent__*` tools, exit 0 — a firing that
+ * `Unknown command: /ost-pass`, no `mcp__plugin_ost-agent_ost-agent__*` tools, exit 0 — a firing that
  * ran, wrote nothing, and reported success. It was caught only because the loop's
  * health record sealed the run `no-op` (F4) while both of its phases were green.
  *
@@ -53,7 +53,7 @@ describe.each(EXAMPLES)("%s brings its own MCP surface", (file) => {
 
   test("declares the ost-agent MCP server itself", () => {
     // The name matters as much as the presence: every allowlist entry next door is
-    // `mcp__ost-agent__…`, so a server declared under any other name is a pass whose
+    // `mcp__plugin_ost-agent_ost-agent__…`, so a server declared under any other name is a pass whose
     // every tool call is denied.
     expect(source).toMatch(/"mcpServers"\s*:\s*\{\s*"ost-agent"/);
     expect(source).toMatch(/--mcp-config/);

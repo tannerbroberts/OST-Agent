@@ -16,6 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { OST_RULESET as R } from "../src/knowledge/ruleset.js";
+import { MCP_PREFIX } from "./mcp-prefix.js";
 import { firstRunSkillSection } from "../src/mcp/setup.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -27,33 +28,19 @@ export const SETUP_COMMAND_PATH = path.join(COMMANDS_DIR, "ost-setup.md");
 const bullets = (items: readonly string[]) => items.map((s) => `- ${s}`).join("\n");
 
 /**
- * The tool-name prefix a Claude Code session mints for this plugin's MCP server,
- * **read off the manifest** rather than typed here.
+ * The tool-name prefix a Claude Code session mints for this plugin's MCP server.
  *
- * It was a literal until 2026-07-30, above a comment claiming that
- * `test/release/command-allowlists.test.ts` would fail if the two disagreed.
- * That test audits the *command* files against the manifest; nothing compared
- * this constant to anything. So renaming the `mcpServers` key would have left
- * the generated skill granting eighteen names that no longer resolve — and
- * under `-p --permission-mode acceptEdits` an unresolvable grant is denied, not
- * prompted, so the model would have lost its entire surface and the pass would
- * have reported done. Deriving it means the rename either propagates or the
- * manifest read throws, and either way nobody has to remember.
+ * It was a literal until 2026-07-30, then a derivation here — but the same wrong
+ * derivation the allowlist guard used, `mcp__<server>__`, which is what a
+ * *directly-registered* server mints rather than a plugin-delivered one. Two
+ * independent derivations agreeing looked like corroboration and was really one
+ * mistake written twice. It now lives in `scripts/mcp-prefix.ts`, imported by
+ * both this generator and the guard, where the reasoning and the cost are
+ * recorded.
  *
- * The generator stays deterministic: the manifest is a committed file, so the
- * output remains a pure function of files in the tree and the drift guard
- * remains a byte-for-byte comparison.
+ * Re-exported because `test/skill/surface-parity.test.ts` reads it from here.
  */
-const MCP_PREFIX: string = (() => {
-  const manifest = JSON.parse(fs.readFileSync(path.join(REPO, ".claude-plugin", "plugin.json"), "utf8")) as {
-    mcpServers?: Record<string, unknown>;
-  };
-  const names = Object.keys(manifest.mcpServers ?? {});
-  if (names.length !== 1) {
-    throw new Error(`.claude-plugin/plugin.json must declare exactly one mcpServers entry, found ${names.length}`);
-  }
-  return `mcp__${names[0]}__`;
-})();
+export { MCP_PREFIX };
 
 /**
  * The skill's `allowed-tools` frontmatter, rendered from `OST_RULESET.skillTools`
@@ -154,7 +141,7 @@ ${bullets(R.agentMustNot)}
 
 ## The tools you drive
 
-All are exposed by the \`ost-agent\` MCP server (names may appear as \`mcp__ost-agent__ost_*\`):
+All are exposed by the \`ost-agent\` MCP server (names may appear as \`mcp__plugin_ost-agent_ost-agent__ost_*\`):
 
 - **ost_ingest_inbox** — capture new notes from the vault's local inbox folder as evidence. Idempotent: a note already captured is never captured twice, and inbox files are never modified or deleted. Call this before \`ost_next_work\` when the user says they have added notes.
 - **ost_next_work** — read-only. Reports exactly what's outstanding: unmapped evidence, under-served opportunities, solutions missing assumption tests, hygiene issues, and \`openUnknowns\` — every declared darkness still unresolved, offered as available work that never blocks \`done\`. **Start every pass here.**

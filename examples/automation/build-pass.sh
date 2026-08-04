@@ -381,14 +381,14 @@ JSON
 # named in the denial below, because deny beats allow in Claude Code and the two lists
 # disagreeing is how a surface silently widens. A builder that can call ost_append_to_node
 # can rewrite the requirement it is being measured against.
-OST_READ_TOOLS="mcp__ost-agent__ost_read_tree,mcp__ost-agent__ost_next_work,mcp__ost-agent__ost_status,mcp__ost-agent__ost_debt,mcp__ost-agent__ost_check,mcp__ost-agent__ost_gate"
+OST_READ_TOOLS="mcp__plugin_ost-agent_ost-agent__ost_read_tree,mcp__plugin_ost-agent_ost-agent__ost_next_work,mcp__plugin_ost-agent_ost-agent__ost_status,mcp__plugin_ost-agent_ost-agent__ost_debt,mcp__plugin_ost-agent_ost-agent__ost_check,mcp__plugin_ost-agent_ost-agent__ost_gate"
 BUILD_TOOLS="Bash,Read,Edit,Write,Glob,Grep"
 ALLOWED="$OST_READ_TOOLS,$BUILD_TOOLS"
 
 # Task is denied on purpose and not as boilerplate. A delegated agent arrives with its own
 # tool surface, which this allowlist does not constrain — and the observed failure was a
 # review subagent merging the pull request containing the hole it had been asked to review.
-DENIED="mcp__ost-agent__ost_annotate,mcp__ost-agent__ost_append_to_node,mcp__ost-agent__ost_create_node,mcp__ost-agent__ost_detach_nodes,mcp__ost-agent__ost_edit_node,mcp__ost-agent__ost_flag_humans_required,mcp__ost-agent__ost_ingest_inbox,mcp__ost-agent__ost_link_nodes,mcp__ost-agent__ost_merge_nodes,mcp__ost-agent__ost_rank_source,mcp__ost-agent__ost_read_repo,mcp__ost-agent__ost_read_web,mcp__ost-agent__ost_search_web,mcp__ost-agent__ost_set_evidence,mcp__ost-agent__ost_set_instrument,mcp__ost-agent__ost_set_status,NotebookEdit,SlashCommand,Task"
+DENIED="mcp__plugin_ost-agent_ost-agent__ost_annotate,mcp__plugin_ost-agent_ost-agent__ost_append_to_node,mcp__plugin_ost-agent_ost-agent__ost_create_node,mcp__plugin_ost-agent_ost-agent__ost_detach_nodes,mcp__plugin_ost-agent_ost-agent__ost_edit_node,mcp__plugin_ost-agent_ost-agent__ost_flag_humans_required,mcp__plugin_ost-agent_ost-agent__ost_ingest_inbox,mcp__plugin_ost-agent_ost-agent__ost_link_nodes,mcp__plugin_ost-agent_ost-agent__ost_merge_nodes,mcp__plugin_ost-agent_ost-agent__ost_rank_source,mcp__plugin_ost-agent_ost-agent__ost_read_repo,mcp__plugin_ost-agent_ost-agent__ost_read_web,mcp__plugin_ost-agent_ost-agent__ost_search_web,mcp__plugin_ost-agent_ost-agent__ost_set_evidence,mcp__plugin_ost-agent_ost-agent__ost_set_instrument,mcp__plugin_ost-agent_ost-agent__ost_set_status,NotebookEdit,SlashCommand,Task"
 
 # The prompt is written to a FILE and never through `BUILD_PROMPT="$(cat <<PROMPT …)"`,
 # and the difference is not style. Inside command substitution, bash parses the heredoc
