@@ -893,6 +893,14 @@ const AUTHORSHIP: Record<string, Authorship> = {
       "note, an import, or a node predating the guard",
   },
   "wrapped-wikilink": { create: null, escapes: [], why: "R1 refuses a link split across a line break at the write funnel" },
+  "outcome-files-categories": {
+    create: null,
+    escapes: [],
+    why:
+      "ost_link_nodes reads CHILD_HIERARCHY, which has always said a Solution attaches under an Opportunity " +
+      "and an AssumptionTest under a Solution, so no single call can draw the edge this rule objects to. " +
+      "One arrives from a hand edit in Obsidian or from a vault written before the rule",
+  },
   "opportunity-connected": { create: null, escapes: [], why: "ost_create_node attaches under its parent in the same call, so it cannot orphan one" },
   "solution-mapped": { create: null, escapes: [], why: "same — creation and attachment are one atomic call" },
   "assumption-mapped": { create: null, escapes: [], why: "same — creation and attachment are one atomic call" },

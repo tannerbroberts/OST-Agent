@@ -342,6 +342,7 @@ export const HYGIENE_LABELS: Readonly<Record<string, string>> = {
   "dangling-link": "dangling link",
   "wrapped-wikilink": "wrapped wikilink",
   "opportunity-connected": "orphan opportunity",
+  "outcome-files-categories": "miscategorised outcome edge",
   "solution-mapped": "orphan solution",
   "assumption-mapped": "orphan assumption test",
   "evidence-class": "unclassed evidence",

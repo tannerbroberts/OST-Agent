@@ -40261,6 +40261,18 @@ function checkInvariants(tree) {
       });
     }
   }
+  for (const outcome of outcomes) {
+    for (const link of outcome.links) {
+      const child = index.get(link);
+      if (!child) continue;
+      if (child.layer === "Opportunity" || child.layer === "Unknown") continue;
+      v.push({
+        rule: "outcome-files-categories",
+        node: outcome.title,
+        detail: `links [[${link}]], which is a ${child.layer} \u2014 only category Opportunities attach to the Outcome; put it under the opportunity it serves`
+      });
+    }
+  }
   const reachable = reachableOpportunities(tree, index);
   for (const n of tree) {
     if (n.layer === "Opportunity" && !reachable.has(n.title)) {
@@ -43472,6 +43484,7 @@ var HYGIENE_LABELS = {
   "dangling-link": "dangling link",
   "wrapped-wikilink": "wrapped wikilink",
   "opportunity-connected": "orphan opportunity",
+  "outcome-files-categories": "miscategorised outcome edge",
   "solution-mapped": "orphan solution",
   "assumption-mapped": "orphan assumption test",
   "evidence-class": "unclassed evidence",
