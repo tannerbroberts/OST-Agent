@@ -2953,8 +2953,11 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1697 tests across 150 files, verified 2026-08-03 (`npx vitest run`,
-> after instruments gave assumption tests a runnable half: `test/knowledge/instruments.test.ts`
+> *Today:* **met** — 1716 tests across 151 files, verified 2026-08-04 (`npx vitest run`,
+> after `test/git/conflict-marker-guard.test.ts` enumerated every route by which a commit
+> reaches this repository and pinned which of them refuse staged conflict markers — and
+> which two do not; and after instruments gave assumption tests a runnable half:
+> `test/knowledge/instruments.test.ts`
 > pins the allowlist that keeps an agent from authoring its own verdict, and
 > `test/ost/instrument.test.ts` pins red-before-green against a real process, and
 > `test/automation/build-pass-reports.test.ts` pins that the build loop parses and that its

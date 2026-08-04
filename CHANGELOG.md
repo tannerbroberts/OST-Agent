@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- **A conflict marker cannot reach a commit.** A merge conflict once got committed
+  into a source file and the next run inherited a repository that could not build.
+  `gitCommit` — the funnel every commit this product makes passes through — now scans
+  the *staged blob* for an unresolved conflict block and throws instead of committing
+  (`src/git/conflict-guard.ts`), and it installs a matching `pre-commit` hook that
+  covers the commits a human makes in the same tree: `git commit`, `--amend`, and the
+  `git commit` that concludes a conflicted merge or rebase. A `pre-commit` hook this
+  project did not write is never overwritten — the run-side guard still holds there.
+  The marker rule is a *block* (`<<<<<<<` closed by a later `>>>>>>>`), not any of the
+  three lines: a bare `=======` is a setext `<h1>` underline, and a vault is Markdown.
+  `test/git/conflict-marker-guard.test.ts` enumerates every commit route and asserts
+  which refuse — including the two that do not. `git commit --no-verify` bypasses the
+  hook (human-only; nothing in `src/` can reach the flag, and that is asserted), and a
+  fresh clone has no hook until the product commits there. Both are the "advisory, not
+  a guarantee" limit of a local hook, recorded rather than papered over.
+
 - **An AssumptionTest may carry its threshold as a field, not only as a sentence
   buried in the body.** `ost_create_node` now accepts an optional `threshold` on an
   AssumptionTest (refused for any other layer); `askedOf` (`src/eval/coverage.ts`,
