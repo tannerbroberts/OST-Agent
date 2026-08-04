@@ -41546,6 +41546,72 @@ function retractNode(vaultDir, filing) {
   return line;
 }
 
+// src/ost/stranded.ts
+function escapeRegExp(literal2) {
+  return literal2.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+var ID_CHAR = "A-Za-z0-9_.:\\-";
+function quotesEvidenceId(text2, id) {
+  if (!text2.includes(id)) return false;
+  return new RegExp(`(?<![${ID_CHAR}])${escapeRegExp(id)}(?![${ID_CHAR}])`).test(text2);
+}
+function strandedEvidence(vault, tree, evidence, opts = {}) {
+  const excluded = new Set(opts.excludeCiters ?? []);
+  const citedSources = new Set(tree.map((n) => n.source).filter((s) => !!s));
+  const citers = tree.filter((n) => !excluded.has(n.title));
+  const stranded = [];
+  for (const record2 of evidence) {
+    if (citedSources.has(record2.id)) continue;
+    const citedBy = citers.filter((n) => quotesEvidenceId(n.body, record2.id)).map((n) => n.title);
+    stranded.push({
+      vault,
+      id: record2.id,
+      title: record2.title,
+      actor: record2.actor,
+      citedBy,
+      kind: citedBy.length > 0 ? "attachable" : "homeless"
+    });
+  }
+  return { vault, examined: evidence.length, mapped: evidence.length - stranded.length, stranded };
+}
+function strandedEvidenceCensus(dirs, opts = {}) {
+  const vaults = dirs.map((dir) => strandedEvidence(dir, new Vault(dir).readTree(), readEvidence(dir), opts));
+  const stranded = vaults.flatMap((v) => v.stranded);
+  return {
+    vaults,
+    examined: vaults.reduce((n, v) => n + v.examined, 0),
+    mapped: vaults.reduce((n, v) => n + v.mapped, 0),
+    stranded,
+    attachable: stranded.filter((i2) => i2.kind === "attachable"),
+    homeless: stranded.filter((i2) => i2.kind === "homeless")
+  };
+}
+function formatStrandedCensus(census) {
+  const lines = [];
+  lines.push(
+    `Stranded evidence: ${census.stranded.length} of ${census.examined} record(s) across ${census.vaults.length} vault(s) \u2014 ${census.attachable.length} an existing node already cites, ${census.homeless.length} nothing in the tree cites.`
+  );
+  for (const v of census.vaults) {
+    lines.push(`  ${v.vault}: ${v.stranded.length} stranded of ${v.examined} examined (${v.mapped} mapped)`);
+  }
+  lines.push("");
+  lines.push(`Only a new home would take these (${census.homeless.length}):`);
+  if (!census.homeless.length) lines.push("  (none)");
+  for (const i2 of census.homeless) lines.push(`  ${i2.id} \u2014 ${i2.title} [${i2.actor}]`);
+  lines.push("");
+  lines.push(`An existing node's prose already quotes these (${census.attachable.length}):`);
+  if (!census.attachable.length) lines.push("  (none)");
+  for (const i2 of census.attachable) {
+    const more = i2.citedBy.length > 1 ? ` (+${i2.citedBy.length - 1} more)` : "";
+    lines.push(`  ${i2.id} \u2192 ${i2.citedBy[0]}${more}`);
+  }
+  lines.push("");
+  lines.push(
+    "Citation in prose is the discriminator, not whether an item carries a customer need \u2014 a judgment no count can take. Read `citedBy` before believing either half."
+  );
+  return lines.join("\n");
+}
+
 // src/adapters/friction.ts
 import fs20 from "node:fs";
 import path21 from "node:path";
@@ -46181,6 +46247,9 @@ async function prompt(question, fallback) {
     rl.close();
   }
 }
+function collect(value, previous) {
+  return [...previous, value];
+}
 var program2 = new Command();
 program2.name("ost-agent").description("Autonomous, append-only Opportunity Solution Tree agent").version(VERSION);
 installVaultResolution(program2);
@@ -46454,6 +46523,15 @@ program2.command("buildable").description("may work start on this solution, and 
   }
   console.error(`buildable: BLOCKED \u2014 ${permit.reason}`);
   process.exitCode = 1;
+});
+program2.command("stranded").description("evidence no node cites, split into what an existing node already quotes and what only a new node type could home").option("--vault <dir>", VAULT_OPTION_HELP).option("--also <dir>", "another vault to include in the same census (repeatable)", collect, []).option(
+  "--ignore-citer <title>",
+  "a node whose prose citations do not count as an attachment \u2014 a node that merely enumerates the backlog cites all of it (repeatable)",
+  collect,
+  []
+).action((opts) => {
+  const dirs = [opts.vault, ...opts.also].map((d) => path32.resolve(d));
+  console.log(formatStrandedCensus(strandedEvidenceCensus(dirs, { excludeCiters: opts.ignoreCiter })));
 });
 program2.command("channels").description("list every commissioned channel, when it last delivered, and which ones are silent or unavailable (read-only)").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
   const dir = path32.resolve(opts.vault);

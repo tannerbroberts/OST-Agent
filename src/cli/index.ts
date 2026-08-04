@@ -13,6 +13,7 @@
  *   ost-agent gate "<solution>" [--vault DIR] block building against untested assumptions
  *   ost-agent verify "<test>" --repo DIR      run a test's instrument; record red/green as an observed fact
  *   ost-agent buildable ["<solution>"]        is it defined well enough to build, and against what command?
+ *   ost-agent stranded [--also DIR]           evidence no node cites, split by which fix would clear it
  *   ost-agent channels [--vault DIR]          every drop folder, its last delivery, and what has gone silent
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
  *   ost-agent loop due|start|step|seal        unattended firing: cadence, lock, ceiling, health
@@ -39,6 +40,7 @@ import { promoteNode, recordResult, retractNode, VERDICTS, type Verdict } from "
 import { verifyInstrument } from "../ost/instrument.js";
 import { buildableSolutions, buildPermit, testsAwaitingVerification } from "../eval/buildable.js";
 import { formatCensus, reconcileWithGit, reconcileWithUsage } from "../ost/census.js";
+import { formatStrandedCensus, strandedEvidenceCensus } from "../ost/stranded.js";
 import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
 import { laneDef, LANES, type LaneId } from "../knowledge/lanes.js";
 import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapters/friction.js";
@@ -62,6 +64,11 @@ async function prompt(question: string, fallback?: string): Promise<string> {
   } finally {
     rl.close();
   }
+}
+
+/** Commander's accumulator for a repeatable option: `--also a --also b` → `["a", "b"]`. */
+function collect(value: string, previous: string[]): string[] {
+  return [...previous, value];
 }
 
 const program = new Command();
@@ -508,6 +515,26 @@ program
     }
     console.error(`buildable: BLOCKED — ${permit.reason}`);
     process.exitCode = 1;
+  });
+
+program
+  .command("stranded")
+  .description("evidence no node cites, split into what an existing node already quotes and what only a new node type could home")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option("--also <dir>", "another vault to include in the same census (repeatable)", collect, [])
+  .option(
+    "--ignore-citer <title>",
+    "a node whose prose citations do not count as an attachment — a node that merely enumerates the backlog cites all of it (repeatable)",
+    collect,
+    [],
+  )
+  .action((opts: { vault: string; also: string[]; ignoreCiter: string[] }) => {
+    // Deliberately NOT `buildPassContext`: this reads more than one vault, and the
+    // extra ones are typed on the command line by a person asking a question about
+    // them. A context per vault would construct adapters and create any directory
+    // that was mistyped.
+    const dirs = [opts.vault, ...opts.also].map((d) => path.resolve(d));
+    console.log(formatStrandedCensus(strandedEvidenceCensus(dirs, { excludeCiters: opts.ignoreCiter })));
   });
 
 program

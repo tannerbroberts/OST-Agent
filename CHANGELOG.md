@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+- **The stranded-evidence census, computed instead of narrated.** An evidence record is
+  mapped iff some node names its id in frontmatter `source`, and `source` is settable only
+  at node creation — so an item that grounds a node written before the item arrived can be
+  read, used and quoted in prose and still be reported as outstanding on every future
+  sweep, with no action that clears it. That backlog is the case for two different fixes of
+  very different size: an appendable `source`, or a whole new node layer for evidence that
+  is true, useful and is not a customer need. The number that decides between them is not
+  the size of the backlog but the **split**, so `ost-agent stranded` (`src/ost/stranded.ts`)
+  computes it: stranded items divide into those some live node's prose already quotes —
+  which an appendable `source` would clear — and those nothing in the tree quotes, which
+  only a new home takes. `--also <dir>` takes the census across more than one vault, since
+  the same hole in a second tree that never heard of the first is the part that is evidence.
+
+- **The discriminator is a citation, and the census says so.** Each item carries the
+  titles of the nodes that quote it, not just a verdict, because "an existing node already
+  cites this" is checkable and "this carries no customer need" is a judgment no count can
+  take. Over this repository's own vault it reports 21 stranded of 76 records, 20 already
+  quoted somewhere and 1 quoted nowhere — where a hand-written census in that tree had
+  recorded 14 and 4. The gap is the point: three of the four items a human read as carrying
+  no need are quoted in other nodes' prose as grounding, and every id in the backlog is
+  quoted by the node that *enumerates* the backlog, which is why `--ignore-citer <title>`
+  exists. Ids are matched byte-exact with id-character boundaries, the same way every other
+  reader compares them, so `USAGE:2026-07-2` is not found inside `USAGE:2026-07-25`.
+  Citations from retracted nodes do not count.
+
 - **A project can name its own vault.** A vault knows which product it serves; the
   product never knew which vault mapped it, and discovery always starts from the code —
   so finding this repository's own tree took six exploratory commands and a guess between

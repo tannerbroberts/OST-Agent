@@ -2953,7 +2953,15 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1813 tests across 156 files, verified 2026-08-04 (`npx vitest run`,
+> *Today:* **met** — 1826 tests across 157 files, verified 2026-08-04 (`npx vitest run`,
+> after `test/ost/stranded-evidence-census.test.ts` pinned the stranded-evidence census —
+> the split between evidence some node's prose already quotes and evidence nothing in the
+> tree quotes, which is the number that decides between making `source` appendable and
+> adding a whole new node layer. It is computed rather than narrated, and it names the
+> citing nodes beside each verdict so the verdict can be checked: run over this repo's own
+> vault (`ost-agent stranded`) it reports 21 stranded of 76, of which 20 are already quoted
+> by some node and 1 is quoted nowhere — not the 14-of-19 a hand census recorded, because
+> "carries no customer need" is a judgment and a citation is an observable;
 > after `test/config/vault-pointer-resolution.test.ts` pinned that a project can name its
 > own vault: `ost.vault.yaml` at the project root is read by every entry point that takes
 > `--vault`, ahead of the `OST_VAULT` the plugin sets to `${CLAUDE_PROJECT_DIR}` for every
@@ -2964,8 +2972,8 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > a command written next year to the same rule;
 > after `test/ost/retraction-consumers.test.ts` audited every reader of the tree and pinned
 > the answer: there is ONE — nothing outside `src/ost/` turns a file into a node, so the
-> seventeen call sites across five modules all get their nodes from `Vault.readTreeCensus`
-> and honour a retraction by construction rather than by seventeen remembered edits. It
+> eighteen call sites across six modules all get their nodes from `Vault.readTreeCensus`
+> and honour a retraction by construction rather than by eighteen remembered edits. It
 > also pins the third way a retraction could have been forged, which was real: `mergeNodes`
 > carries the loser's reserved sections onto the survivor so a recorded result survives its
 > file's deletion, and for `## Retraction` that made `ost_merge_nodes(retracted, live)` a
