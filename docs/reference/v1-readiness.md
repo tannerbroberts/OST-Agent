@@ -2953,7 +2953,15 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1789 tests across 155 files, verified 2026-08-04 (`npx vitest run`,
+> *Today:* **met** — 1813 tests across 156 files, verified 2026-08-04 (`npx vitest run`,
+> after `test/config/vault-pointer-resolution.test.ts` pinned that a project can name its
+> own vault: `ost.vault.yaml` at the project root is read by every entry point that takes
+> `--vault`, ahead of the `OST_VAULT` the plugin sets to `${CLAUDE_PROJECT_DIR}` for every
+> project alike. The reason it is one hook rather than twenty-two edits is what the audit
+> found: twenty of the twenty-two `--vault` declarations hard-coded `"."` and two read the
+> environment, so "the CLI honours `OST_VAULT`" was true of two commands out of
+> twenty-two. None of them carry a default now, and the test reads the CLI sources to hold
+> a command written next year to the same rule;
 > after `test/ost/retraction-consumers.test.ts` audited every reader of the tree and pinned
 > the answer: there is ONE — nothing outside `src/ost/` turns a file into a node, so the
 > seventeen call sites across five modules all get their nodes from `Vault.readTreeCensus`

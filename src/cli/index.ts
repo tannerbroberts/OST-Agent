@@ -17,6 +17,11 @@
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
  *   ost-agent loop due|start|step|seal        unattended firing: cadence, lock, ceiling, health
  *   ost-agent mcp [--vault DIR]               stdio MCP server (no API key needed)
+ *
+ * `--vault` is optional everywhere it appears. Omitted, it resolves through
+ * `ost.vault.yaml` — the pointer file a project commits at its root to say where
+ * its tree lives — before falling back to `$OST_VAULT` and then the current
+ * directory. See `src/cli/vault-option.ts`.
  */
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
@@ -42,6 +47,8 @@ import { vaultReadiness } from "../mcp/bootstrap.js";
 import { gitCommit } from "../git/safe-git.js";
 import { workingTreeStatus, type VaultTreeStatus } from "../loop/state.js";
 import { entriesRequiringAHuman, registerLoopCommands } from "./loop.js";
+import { installVaultResolution, resolvedVaultSource, VAULT_OPTION_HELP } from "./vault-option.js";
+import { describeVaultSource } from "../config/pointer.js";
 import { VERSION } from "../index.js";
 
 async function prompt(question: string, fallback?: string): Promise<string> {
@@ -59,6 +66,9 @@ async function prompt(question: string, fallback?: string): Promise<string> {
 
 const program = new Command();
 program.name("ost-agent").description("Autonomous, append-only Opportunity Solution Tree agent").version(VERSION);
+// One rule for what `--vault` means, applied to every command that declares it,
+// including the ones `registerLoopCommands` adds below.
+installVaultResolution(program);
 
 program
   .command("init")
@@ -99,7 +109,7 @@ program
   .command("set-outcome")
   .description("retune the steering mandate (human-only; prior mandate kept in the root node's history)")
   .argument("[text]", "the new mandate (prompted if omitted)")
-  .option("--vault <dir>", "vault directory", ".")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
   .action(async (text: string | undefined, opts: { vault: string }) => {
     const next = text ?? (await prompt("New steering mandate: "));
     const r = await setOutcome(opts.vault, next);
@@ -172,7 +182,7 @@ program
   .option("-k, --kind <kind>", `one of: ${FRICTION_KINDS.join(", ")}`, "blocked")
   .option("-c, --context <text>", "what you were doing, or what you wish existed")
   .option("-s, --source <text>", "who is filing (loop, process, session)")
-  .option("--vault <dir>", "vault directory", process.env.OST_VAULT ?? ".")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
   .action(async (note: string, opts: { kind: string; context?: string; source?: string; vault: string }) => {
     // Read BEFORE the write. The question is whether this tree was already carrying
     // something a person has to explain, and after the write the answer is never no.
@@ -203,7 +213,7 @@ program
 program
   .command("check")
   .description("run the deterministic tree invariants (no model needed)")
-  .option("--vault <dir>", "vault directory", ".")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
   .action(async (opts: { vault: string }) => {
     const ctx = buildPassContext(opts.vault);
     const census = ctx.vault.readTreeCensus();
@@ -226,7 +236,7 @@ program
     "what this run does NOT cover — the part of the threshold it left untested",
   )
   .option("-e, --evidence <rung>", `raise the test's rung to what the run produced (${BELIEVABILITY_LADDER.map((r) => r.id).join(", ")})`)
-  .option("--vault <dir>", "vault directory", ".")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
   .action(
     (
       test: string,
@@ -251,7 +261,7 @@ program
   .argument("<node>", "title of the node to promote")
   .requiredOption("-b, --by <who>", "who promoted it — an unattributed promotion cannot be told apart from a fabricated one")
   .requiredOption("-w, --why <text>", "the evidence that earned it")
-  .option("--vault <dir>", "vault directory", ".")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
   .action((node: string, opts: { by: string; why: string; vault: string }) => {
     const line = promoteNode(opts.vault, { node, by: opts.by, why: opts.why });
     console.log(`promoted "${node}": ${line}`);
@@ -267,7 +277,7 @@ program
     "who retracted it — an unattributed retraction cannot be told apart from a fabricated one",
   )
   .requiredOption("-w, --why <text>", "why it is coming out — the only thing a reader who finds the file later will have")
-  .option("--vault <dir>", "vault directory", ".")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
   .action((node: string, opts: { by: string; why: string; vault: string }) => {
     const line = retractNode(opts.vault, { node, by: opts.by, why: opts.why });
     console.log(`retracted "${node}": ${line}`);
@@ -282,7 +292,7 @@ program
 program
   .command("debt")
   .description("what each solution owes in evidence before anyone builds it (no model needed)")
-  .option("--vault <dir>", "vault directory", ".")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
   .action((opts: { vault: string }) => {
     const ctx = buildPassContext(opts.vault);
     console.log(renderDebt(ctx.vault.readTree()));
@@ -291,7 +301,7 @@ program
 program
   .command("lanes")
   .description("assumption tests grouped by the human minutes they actually cost")
-  .option("--vault <dir>", "vault directory", ".")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
   .option("--runnable", "print only the compute-only backlog, one title per line (for scripting)")
   .option(
     "--flag-cautious <who>",
@@ -409,7 +419,7 @@ program
   .requiredOption("-s, --set <lane>", `one of: ${LANES.map((l) => l.id).join(", ")}`)
   .requiredOption("-b, --by <who>", "who made the call — an unauditable label is worse than none")
   .requiredOption("-w, --why <text>", "why this lane, in the classifier's words")
-  .option("--vault <dir>", "vault directory", ".")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
   .action((test: string, opts: { set: string; by: string; why: string; vault: string }) => {
     const line = setLane(opts.vault, { test, lane: opts.set as LaneId, by: opts.by, why: opts.why });
     console.log(`classified "${test}": ${line}`);
@@ -421,7 +431,7 @@ program
   .command("gate")
   .description("refuse to build against untested assumptions: exits non-zero unless a solution has a tested assumption")
   .argument("<solution>", "title of the Solution node about to be built")
-  .option("--vault <dir>", "vault directory", ".")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
   .action((solution: string, opts: { vault: string }) => {
     const ctx = buildPassContext(opts.vault);
     const { text, cleared } = renderGate(ctx.vault.readTree(), solution);
@@ -438,7 +448,7 @@ program
   .description("run an assumption test's instrument and record what it did (the machine's half — a fact, never a result)")
   .argument("<test>", "title of the AssumptionTest whose instrument to run")
   .requiredOption("-r, --repo <dir>", "the repository the instrument is measured against")
-  .option("--vault <dir>", "vault directory", ".")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
   .action((test: string, opts: { repo: string; vault: string }) => {
     let outcome;
     try {
@@ -461,7 +471,7 @@ program
   .command("buildable")
   .description("may work start on this solution, and against what definition of done? (exits non-zero when not)")
   .argument("[solution]", "title of the Solution node; omit to list every buildable solution")
-  .option("--vault <dir>", "vault directory", ".")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
   .option("--pending", "instead list the tests that declare an instrument nobody has run yet")
   .action((solution: string | undefined, opts: { vault: string; pending?: boolean }) => {
     const ctx = buildPassContext(opts.vault);
@@ -503,7 +513,7 @@ program
 program
   .command("channels")
   .description("list every commissioned channel, when it last delivered, and which ones are silent or unavailable (read-only)")
-  .option("--vault <dir>", "vault directory", ".")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
   .action((opts: { vault: string }) => {
     const dir = path.resolve(opts.vault);
     // Deliberately NOT `buildPassContext`: that opens a Vault handle which creates
@@ -543,7 +553,7 @@ program
 
 program
   .command("status")
-  .option("--vault <dir>", "vault directory", ".")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
   .action(async (opts: { vault: string }) => {
     const ctx = buildPassContext(opts.vault);
     const census = ctx.vault.readTreeCensus();
@@ -555,7 +565,7 @@ program
   .command("lineage")
   .argument("<node>", "the node to trace back to the Outcome")
   .description("the path from the Outcome down to one node, arrow-separated (exits 1 if unreachable)")
-  .option("--vault <dir>", "vault directory", ".")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
   .action((node: string, opts: { vault: string }) => {
     const path = lineageOf(buildPassContext(opts.vault).vault.readTree(), node);
     if (!path) {
@@ -572,7 +582,7 @@ program
 program
   .command("rollup")
   .description("the top-level view: what sits under each bucket, computed from the tree (no model needed)")
-  .option("--vault <dir>", "vault directory", ".")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
   .action((opts: { vault: string }) => {
     const ctx = buildPassContext(opts.vault);
     console.log(renderRollup(rollupTree(ctx.vault.readTree())));
@@ -583,7 +593,7 @@ registerLoopCommands(program);
 program
   .command("mcp")
   .description("run a stdio MCP server exposing the append-only OST tools (no API key needed)")
-  .option("--vault <dir>", "vault directory", process.env.OST_VAULT ?? ".")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
   .action(async (opts: { vault: string }) => {
     const dir = path.resolve(opts.vault);
     const { StdioServerTransport } = await import("@modelcontextprotocol/sdk/server/stdio.js");
@@ -593,6 +603,12 @@ program
     await server.connect(new StdioServerTransport());
     // stdout is the JSON-RPC channel — log only to stderr.
     console.error(`ost-agent mcp serving ${dir} over stdio. Tools: ${MCP_TOOL_NAMES.join(", ")}`);
+    // The plugin points every session at `${CLAUDE_PROJECT_DIR}`, so a session
+    // whose vault is somewhere else got there through a pointer file. Say which
+    // one: it is the difference between "the server is serving the wrong tree"
+    // and "the file at this path says to serve this tree, and it is wrong".
+    const provenance = describeVaultSource(resolvedVaultSource() ?? { dir, via: "argument" });
+    if (provenance) console.error(`ost-agent mcp: ${provenance}`);
     // Serve first, report readiness second. A server that refuses to start on a
     // first run shows the operator a failed connection — the least actionable
     // signal available. Started, it can say what to do instead.

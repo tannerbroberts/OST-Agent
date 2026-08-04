@@ -981,8 +981,8 @@ var require_command = __commonJS({
   "node_modules/commander/lib/command.js"(exports2) {
     var EventEmitter2 = __require("node:events").EventEmitter;
     var childProcess = __require("node:child_process");
-    var path31 = __require("node:path");
-    var fs28 = __require("node:fs");
+    var path33 = __require("node:path");
+    var fs30 = __require("node:fs");
     var process3 = __require("node:process");
     var { Argument: Argument2, humanReadableArgName } = require_argument();
     var { CommanderError: CommanderError2 } = require_error();
@@ -1914,11 +1914,11 @@ Expecting one of '${allowedValues.join("', '")}'`);
         let launchWithNode = false;
         const sourceExt = [".js", ".ts", ".tsx", ".mjs", ".cjs"];
         function findFile(baseDir, baseName) {
-          const localBin = path31.resolve(baseDir, baseName);
-          if (fs28.existsSync(localBin)) return localBin;
-          if (sourceExt.includes(path31.extname(baseName))) return void 0;
+          const localBin = path33.resolve(baseDir, baseName);
+          if (fs30.existsSync(localBin)) return localBin;
+          if (sourceExt.includes(path33.extname(baseName))) return void 0;
           const foundExt = sourceExt.find(
-            (ext) => fs28.existsSync(`${localBin}${ext}`)
+            (ext) => fs30.existsSync(`${localBin}${ext}`)
           );
           if (foundExt) return `${localBin}${foundExt}`;
           return void 0;
@@ -1930,21 +1930,21 @@ Expecting one of '${allowedValues.join("', '")}'`);
         if (this._scriptPath) {
           let resolvedScriptPath;
           try {
-            resolvedScriptPath = fs28.realpathSync(this._scriptPath);
+            resolvedScriptPath = fs30.realpathSync(this._scriptPath);
           } catch (err) {
             resolvedScriptPath = this._scriptPath;
           }
-          executableDir = path31.resolve(
-            path31.dirname(resolvedScriptPath),
+          executableDir = path33.resolve(
+            path33.dirname(resolvedScriptPath),
             executableDir
           );
         }
         if (executableDir) {
           let localFile = findFile(executableDir, executableFile);
           if (!localFile && !subcommand._executableFile && this._scriptPath) {
-            const legacyName = path31.basename(
+            const legacyName = path33.basename(
               this._scriptPath,
-              path31.extname(this._scriptPath)
+              path33.extname(this._scriptPath)
             );
             if (legacyName !== this._name) {
               localFile = findFile(
@@ -1955,7 +1955,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
           }
           executableFile = localFile || executableFile;
         }
-        launchWithNode = sourceExt.includes(path31.extname(executableFile));
+        launchWithNode = sourceExt.includes(path33.extname(executableFile));
         let proc;
         if (process3.platform !== "win32") {
           if (launchWithNode) {
@@ -2795,7 +2795,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
        * @return {Command}
        */
       nameFromFilename(filename) {
-        this._name = path31.basename(filename, path31.extname(filename));
+        this._name = path33.basename(filename, path33.extname(filename));
         return this;
       }
       /**
@@ -2809,9 +2809,9 @@ Expecting one of '${allowedValues.join("', '")}'`);
        * @param {string} [path]
        * @return {(string|null|Command)}
        */
-      executableDir(path32) {
-        if (path32 === void 0) return this._executableDir;
-        this._executableDir = path32;
+      executableDir(path34) {
+        if (path34 === void 0) return this._executableDir;
+        this._executableDir = path34;
         return this;
       }
       /**
@@ -3118,17 +3118,17 @@ var require_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    function visit_(key, node, visitor, path31) {
-      const ctrl = callVisitor(key, node, visitor, path31);
+    function visit_(key, node, visitor, path33) {
+      const ctrl = callVisitor(key, node, visitor, path33);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path31, ctrl);
-        return visit_(key, ctrl, visitor, path31);
+        replaceNode(key, path33, ctrl);
+        return visit_(key, ctrl, visitor, path33);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path31 = Object.freeze(path31.concat(node));
+          path33 = Object.freeze(path33.concat(node));
           for (let i2 = 0; i2 < node.items.length; ++i2) {
-            const ci = visit_(i2, node.items[i2], visitor, path31);
+            const ci = visit_(i2, node.items[i2], visitor, path33);
             if (typeof ci === "number")
               i2 = ci - 1;
             else if (ci === BREAK)
@@ -3139,13 +3139,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path31 = Object.freeze(path31.concat(node));
-          const ck = visit_("key", node.key, visitor, path31);
+          path33 = Object.freeze(path33.concat(node));
+          const ck = visit_("key", node.key, visitor, path33);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = visit_("value", node.value, visitor, path31);
+          const cv = visit_("value", node.value, visitor, path33);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -3166,17 +3166,17 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node, visitor, path31) {
-      const ctrl = await callVisitor(key, node, visitor, path31);
+    async function visitAsync_(key, node, visitor, path33) {
+      const ctrl = await callVisitor(key, node, visitor, path33);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path31, ctrl);
-        return visitAsync_(key, ctrl, visitor, path31);
+        replaceNode(key, path33, ctrl);
+        return visitAsync_(key, ctrl, visitor, path33);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path31 = Object.freeze(path31.concat(node));
+          path33 = Object.freeze(path33.concat(node));
           for (let i2 = 0; i2 < node.items.length; ++i2) {
-            const ci = await visitAsync_(i2, node.items[i2], visitor, path31);
+            const ci = await visitAsync_(i2, node.items[i2], visitor, path33);
             if (typeof ci === "number")
               i2 = ci - 1;
             else if (ci === BREAK)
@@ -3187,13 +3187,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path31 = Object.freeze(path31.concat(node));
-          const ck = await visitAsync_("key", node.key, visitor, path31);
+          path33 = Object.freeze(path33.concat(node));
+          const ck = await visitAsync_("key", node.key, visitor, path33);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = await visitAsync_("value", node.value, visitor, path31);
+          const cv = await visitAsync_("value", node.value, visitor, path33);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -3220,23 +3220,23 @@ var require_visit = __commonJS({
       }
       return visitor;
     }
-    function callVisitor(key, node, visitor, path31) {
+    function callVisitor(key, node, visitor, path33) {
       if (typeof visitor === "function")
-        return visitor(key, node, path31);
+        return visitor(key, node, path33);
       if (identity.isMap(node))
-        return visitor.Map?.(key, node, path31);
+        return visitor.Map?.(key, node, path33);
       if (identity.isSeq(node))
-        return visitor.Seq?.(key, node, path31);
+        return visitor.Seq?.(key, node, path33);
       if (identity.isPair(node))
-        return visitor.Pair?.(key, node, path31);
+        return visitor.Pair?.(key, node, path33);
       if (identity.isScalar(node))
-        return visitor.Scalar?.(key, node, path31);
+        return visitor.Scalar?.(key, node, path33);
       if (identity.isAlias(node))
-        return visitor.Alias?.(key, node, path31);
+        return visitor.Alias?.(key, node, path33);
       return void 0;
     }
-    function replaceNode(key, path31, node) {
-      const parent = path31[path31.length - 1];
+    function replaceNode(key, path33, node) {
+      const parent = path33[path33.length - 1];
       if (identity.isCollection(parent)) {
         parent.items[key] = node;
       } else if (identity.isPair(parent)) {
@@ -3846,10 +3846,10 @@ var require_Collection = __commonJS({
     var createNode = require_createNode();
     var identity = require_identity();
     var Node = require_Node();
-    function collectionFromPath(schema, path31, value) {
+    function collectionFromPath(schema, path33, value) {
       let v = value;
-      for (let i2 = path31.length - 1; i2 >= 0; --i2) {
-        const k2 = path31[i2];
+      for (let i2 = path33.length - 1; i2 >= 0; --i2) {
+        const k2 = path33[i2];
         if (typeof k2 === "number" && Number.isInteger(k2) && k2 >= 0) {
           const a = [];
           a[k2] = v;
@@ -3868,7 +3868,7 @@ var require_Collection = __commonJS({
         sourceObjects: /* @__PURE__ */ new Map()
       });
     }
-    var isEmptyPath = (path31) => path31 == null || typeof path31 === "object" && !!path31[Symbol.iterator]().next().done;
+    var isEmptyPath = (path33) => path33 == null || typeof path33 === "object" && !!path33[Symbol.iterator]().next().done;
     var Collection = class extends Node.NodeBase {
       constructor(type, schema) {
         super(type);
@@ -3898,11 +3898,11 @@ var require_Collection = __commonJS({
        * be a Pair instance or a `{ key, value }` object, which may not have a key
        * that already exists in the map.
        */
-      addIn(path31, value) {
-        if (isEmptyPath(path31))
+      addIn(path33, value) {
+        if (isEmptyPath(path33))
           this.add(value);
         else {
-          const [key, ...rest] = path31;
+          const [key, ...rest] = path33;
           const node = this.get(key, true);
           if (identity.isCollection(node))
             node.addIn(rest, value);
@@ -3916,8 +3916,8 @@ var require_Collection = __commonJS({
        * Removes a value from the collection.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path31) {
-        const [key, ...rest] = path31;
+      deleteIn(path33) {
+        const [key, ...rest] = path33;
         if (rest.length === 0)
           return this.delete(key);
         const node = this.get(key, true);
@@ -3931,8 +3931,8 @@ var require_Collection = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path31, keepScalar) {
-        const [key, ...rest] = path31;
+      getIn(path33, keepScalar) {
+        const [key, ...rest] = path33;
         const node = this.get(key, true);
         if (rest.length === 0)
           return !keepScalar && identity.isScalar(node) ? node.value : node;
@@ -3950,8 +3950,8 @@ var require_Collection = __commonJS({
       /**
        * Checks if the collection includes a value with the key `key`.
        */
-      hasIn(path31) {
-        const [key, ...rest] = path31;
+      hasIn(path33) {
+        const [key, ...rest] = path33;
         if (rest.length === 0)
           return this.has(key);
         const node = this.get(key, true);
@@ -3961,8 +3961,8 @@ var require_Collection = __commonJS({
        * Sets a value in this collection. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path31, value) {
-        const [key, ...rest] = path31;
+      setIn(path33, value) {
+        const [key, ...rest] = path33;
         if (rest.length === 0) {
           this.set(key, value);
         } else {
@@ -6477,9 +6477,9 @@ var require_Document = __commonJS({
           this.contents.add(value);
       }
       /** Adds a value to the document. */
-      addIn(path31, value) {
+      addIn(path33, value) {
         if (assertCollection(this.contents))
-          this.contents.addIn(path31, value);
+          this.contents.addIn(path33, value);
       }
       /**
        * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
@@ -6554,14 +6554,14 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path31) {
-        if (Collection.isEmptyPath(path31)) {
+      deleteIn(path33) {
+        if (Collection.isEmptyPath(path33)) {
           if (this.contents == null)
             return false;
           this.contents = null;
           return true;
         }
-        return assertCollection(this.contents) ? this.contents.deleteIn(path31) : false;
+        return assertCollection(this.contents) ? this.contents.deleteIn(path33) : false;
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -6576,10 +6576,10 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path31, keepScalar) {
-        if (Collection.isEmptyPath(path31))
+      getIn(path33, keepScalar) {
+        if (Collection.isEmptyPath(path33))
           return !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents;
-        return identity.isCollection(this.contents) ? this.contents.getIn(path31, keepScalar) : void 0;
+        return identity.isCollection(this.contents) ? this.contents.getIn(path33, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
@@ -6590,10 +6590,10 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value at `path`.
        */
-      hasIn(path31) {
-        if (Collection.isEmptyPath(path31))
+      hasIn(path33) {
+        if (Collection.isEmptyPath(path33))
           return this.contents !== void 0;
-        return identity.isCollection(this.contents) ? this.contents.hasIn(path31) : false;
+        return identity.isCollection(this.contents) ? this.contents.hasIn(path33) : false;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -6610,13 +6610,13 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path31, value) {
-        if (Collection.isEmptyPath(path31)) {
+      setIn(path33, value) {
+        if (Collection.isEmptyPath(path33)) {
           this.contents = value;
         } else if (this.contents == null) {
-          this.contents = Collection.collectionFromPath(this.schema, Array.from(path31), value);
+          this.contents = Collection.collectionFromPath(this.schema, Array.from(path33), value);
         } else if (assertCollection(this.contents)) {
-          this.contents.setIn(path31, value);
+          this.contents.setIn(path33, value);
         }
       }
       /**
@@ -8576,9 +8576,9 @@ var require_cst_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    visit.itemAtPath = (cst, path31) => {
+    visit.itemAtPath = (cst, path33) => {
       let item = cst;
-      for (const [field, index] of path31) {
+      for (const [field, index] of path33) {
         const tok = item?.[field];
         if (tok && "items" in tok) {
           item = tok.items[index];
@@ -8587,23 +8587,23 @@ var require_cst_visit = __commonJS({
       }
       return item;
     };
-    visit.parentCollection = (cst, path31) => {
-      const parent = visit.itemAtPath(cst, path31.slice(0, -1));
-      const field = path31[path31.length - 1][0];
+    visit.parentCollection = (cst, path33) => {
+      const parent = visit.itemAtPath(cst, path33.slice(0, -1));
+      const field = path33[path33.length - 1][0];
       const coll = parent?.[field];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
     };
-    function _visit(path31, item, visitor) {
-      let ctrl = visitor(item, path31);
+    function _visit(path33, item, visitor) {
+      let ctrl = visitor(item, path33);
       if (typeof ctrl === "symbol")
         return ctrl;
       for (const field of ["key", "value"]) {
         const token = item[field];
         if (token && "items" in token) {
           for (let i2 = 0; i2 < token.items.length; ++i2) {
-            const ci = _visit(Object.freeze(path31.concat([[field, i2]])), token.items[i2], visitor);
+            const ci = _visit(Object.freeze(path33.concat([[field, i2]])), token.items[i2], visitor);
             if (typeof ci === "number")
               i2 = ci - 1;
             else if (ci === BREAK)
@@ -8614,10 +8614,10 @@ var require_cst_visit = __commonJS({
             }
           }
           if (typeof ctrl === "function" && field === "key")
-            ctrl = ctrl(item, path31);
+            ctrl = ctrl(item, path33);
         }
       }
-      return typeof ctrl === "function" ? ctrl(item, path31) : ctrl;
+      return typeof ctrl === "function" ? ctrl(item, path33) : ctrl;
     }
     exports2.visit = visit;
   }
@@ -9919,14 +9919,14 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs28 = this.flowScalar(this.type);
+              const fs30 = this.flowScalar(this.type);
               if (atNextItem || it.value) {
-                map.items.push({ start, key: fs28, sep: [] });
+                map.items.push({ start, key: fs30, sep: [] });
                 this.onKeyLine = true;
               } else if (it.sep) {
-                this.stack.push(fs28);
+                this.stack.push(fs30);
               } else {
-                Object.assign(it, { key: fs28, sep: [] });
+                Object.assign(it, { key: fs30, sep: [] });
                 this.onKeyLine = true;
               }
               return;
@@ -10054,13 +10054,13 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs28 = this.flowScalar(this.type);
+              const fs30 = this.flowScalar(this.type);
               if (!it || it.value)
-                fc.items.push({ start: [], key: fs28, sep: [] });
+                fc.items.push({ start: [], key: fs30, sep: [] });
               else if (it.sep)
-                this.stack.push(fs28);
+                this.stack.push(fs30);
               else
-                Object.assign(it, { key: fs28, sep: [] });
+                Object.assign(it, { key: fs30, sep: [] });
               return;
             }
             case "flow-map-end":
@@ -13744,7 +13744,7 @@ var require_parse = __commonJS({
 var require_gray_matter = __commonJS({
   "node_modules/gray-matter/index.js"(exports2, module2) {
     "use strict";
-    var fs28 = __require("fs");
+    var fs30 = __require("fs");
     var sections = require_section_matter();
     var defaults = require_defaults();
     var stringify = require_stringify2();
@@ -13828,7 +13828,7 @@ var require_gray_matter = __commonJS({
       return stringify(file, data, options2);
     };
     matter4.read = function(filepath, options2) {
-      const str2 = fs28.readFileSync(filepath, "utf8");
+      const str2 = fs30.readFileSync(filepath, "utf8");
       const file = matter4(str2, options2);
       file.path = filepath;
       return file;
@@ -14515,10 +14515,10 @@ var require_src2 = __commonJS({
     var fs_1 = __require("fs");
     var debug_1 = __importDefault(require_src());
     var log = debug_1.default("@kwsites/file-exists");
-    function check2(path31, isFile, isDirectory) {
-      log(`checking %s`, path31);
+    function check2(path33, isFile, isDirectory) {
+      log(`checking %s`, path33);
       try {
-        const stat = fs_1.statSync(path31);
+        const stat = fs_1.statSync(path33);
         if (stat.isFile() && isFile) {
           log(`[OK] path represents a file`);
           return true;
@@ -14538,8 +14538,8 @@ var require_src2 = __commonJS({
         throw e;
       }
     }
-    function exists2(path31, type = exports2.READABLE) {
-      return check2(path31, (type & exports2.FILE) > 0, (type & exports2.FOLDER) > 0);
+    function exists2(path33, type = exports2.READABLE) {
+      return check2(path33, (type & exports2.FILE) > 0, (type & exports2.FOLDER) > 0);
     }
     exports2.exists = exists2;
     exports2.FILE = 1;
@@ -14802,10 +14802,10 @@ function assignProp(target, prop, value) {
     configurable: true
   });
 }
-function getElementAtPath(obj, path31) {
-  if (!path31)
+function getElementAtPath(obj, path33) {
+  if (!path33)
     return obj;
-  return path31.reduce((acc, key) => acc?.[key], obj);
+  return path33.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -15054,11 +15054,11 @@ function aborted(x2, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path31, issues) {
+function prefixIssues(path33, issues) {
   return issues.map((iss) => {
     var _a2;
     (_a2 = iss).path ?? (_a2.path = []);
-    iss.path.unshift(path31);
+    iss.path.unshift(path33);
     return iss;
   });
 }
@@ -23253,8 +23253,8 @@ var require_utils2 = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path31) {
-      let input = path31;
+    function removeDotSegments(path33) {
+      let input = path33;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -23506,8 +23506,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path31, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path31 && path31 !== "/" ? path31 : void 0;
+        const [path33, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path33 && path33 !== "/" ? path33 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -26906,12 +26906,12 @@ var require_dist4 = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs28, exportName) {
+    function addFormats(ajv, list, fs30, exportName) {
       var _a2;
       var _b;
       (_a2 = (_b = ajv.opts.code).formats) !== null && _a2 !== void 0 ? _a2 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs28[f]);
+        ajv.addFormat(f, fs30[f]);
     }
     module2.exports = exports2 = formatsPlugin;
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -27026,7 +27026,7 @@ var init_stdio2 = __esm({
 });
 
 // src/cli/index.ts
-import path30 from "node:path";
+import path32 from "node:path";
 import { createInterface } from "node:readline/promises";
 
 // node_modules/commander/esm.mjs
@@ -27532,8 +27532,8 @@ function getErrorMap() {
 
 // node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
-  const { data, path: path31, errorMaps, issueData } = params;
-  const fullPath = [...path31, ...issueData.path || []];
+  const { data, path: path33, errorMaps, issueData } = params;
+  const fullPath = [...path33, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -27649,11 +27649,11 @@ var errorUtil;
 
 // node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path31, key) {
+  constructor(parent, value, path33, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path31;
+    this._path = path33;
     this._key = key;
   }
   get path() {
@@ -33418,8 +33418,8 @@ function toLinesWithContent(input = "", trimmed2 = true, separator = "\n") {
 function forEachLineWithContent(input, callback) {
   return toLinesWithContent(input, true).map((line) => callback(line));
 }
-function folderExists(path31) {
-  return (0, import_file_exists.exists)(path31, import_file_exists.FOLDER);
+function folderExists(path33) {
+  return (0, import_file_exists.exists)(path33, import_file_exists.FOLDER);
 }
 function append(target, item) {
   if (Array.isArray(target)) {
@@ -33821,8 +33821,8 @@ function checkIsRepoRootTask() {
     commands,
     format: "utf-8",
     onError,
-    parser(path31) {
-      return /^\.(git)?$/.test(path31.trim());
+    parser(path33) {
+      return /^\.(git)?$/.test(path33.trim());
     }
   };
 }
@@ -34256,11 +34256,11 @@ function parseGrep(grep) {
   const paths = /* @__PURE__ */ new Set();
   const results = {};
   forEachLineWithContent(grep, (input) => {
-    const [path31, line, preview] = input.split(NULL);
-    paths.add(path31);
-    (results[path31] = results[path31] || []).push({
+    const [path33, line, preview] = input.split(NULL);
+    paths.add(path33);
+    (results[path33] = results[path33] || []).push({
       line: asNumber(line),
-      path: path31,
+      path: path33,
       preview
     });
   });
@@ -35024,14 +35024,14 @@ var init_hash_object = __esm2({
     init_task();
   }
 });
-function parseInit(bare, path31, text2) {
+function parseInit(bare, path33, text2) {
   const response = String(text2).trim();
   let result;
   if (result = initResponseRegex.exec(response)) {
-    return new InitSummary(bare, path31, false, result[1]);
+    return new InitSummary(bare, path33, false, result[1]);
   }
   if (result = reInitResponseRegex.exec(response)) {
-    return new InitSummary(bare, path31, true, result[1]);
+    return new InitSummary(bare, path33, true, result[1]);
   }
   let gitDir2 = "";
   const tokens = response.split(" ");
@@ -35042,7 +35042,7 @@ function parseInit(bare, path31, text2) {
       break;
     }
   }
-  return new InitSummary(bare, path31, /^re/i.test(response), gitDir2);
+  return new InitSummary(bare, path33, /^re/i.test(response), gitDir2);
 }
 var InitSummary;
 var initResponseRegex;
@@ -35051,9 +35051,9 @@ var init_InitSummary = __esm2({
   "src/lib/responses/InitSummary.ts"() {
     "use strict";
     InitSummary = class {
-      constructor(bare, path31, existing, gitDir2) {
+      constructor(bare, path33, existing, gitDir2) {
         this.bare = bare;
-        this.path = path31;
+        this.path = path33;
         this.existing = existing;
         this.gitDir = gitDir2;
       }
@@ -35065,7 +35065,7 @@ var init_InitSummary = __esm2({
 function hasBareCommand(command) {
   return command.includes(bareCommand);
 }
-function initTask(bare = false, path31, customArgs) {
+function initTask(bare = false, path33, customArgs) {
   const commands = ["init", ...customArgs];
   if (bare && !hasBareCommand(commands)) {
     commands.splice(1, 0, bareCommand);
@@ -35074,7 +35074,7 @@ function initTask(bare = false, path31, customArgs) {
     commands,
     format: "utf-8",
     parser(text2) {
-      return parseInit(commands.includes("--bare"), path31, text2);
+      return parseInit(commands.includes("--bare"), path33, text2);
     }
   };
 }
@@ -35889,12 +35889,12 @@ var init_FileStatusSummary = __esm2({
     "use strict";
     fromPathRegex = /^(.+)\0(.+)$/;
     FileStatusSummary = class {
-      constructor(path31, index, working_dir) {
-        this.path = path31;
+      constructor(path33, index, working_dir) {
+        this.path = path33;
         this.index = index;
         this.working_dir = working_dir;
         if (index === "R" || working_dir === "R") {
-          const detail2 = fromPathRegex.exec(path31) || [null, path31, path31];
+          const detail2 = fromPathRegex.exec(path33) || [null, path33, path33];
           this.from = detail2[2] || "";
           this.path = detail2[1] || "";
         }
@@ -35925,14 +35925,14 @@ function splitLine(result, lineStr) {
     default:
       return;
   }
-  function data(index, workingDir, path31) {
+  function data(index, workingDir, path33) {
     const raw = `${index}${workingDir}`;
     const handler = parsers6.get(raw);
     if (handler) {
-      handler(result, path31);
+      handler(result, path33);
     }
     if (raw !== "##" && raw !== "!!") {
-      result.files.push(new FileStatusSummary(path31, index, workingDir));
+      result.files.push(new FileStatusSummary(path33, index, workingDir));
     }
   }
 }
@@ -36283,9 +36283,9 @@ var init_simple_git_api = __esm2({
           next
         );
       }
-      hashObject(path31, write) {
+      hashObject(path33, write) {
         return this._runTask(
-          hashObjectTask(path31, write === true),
+          hashObjectTask(path33, write === true),
           trailingFunctionArgument(arguments)
         );
       }
@@ -36639,8 +36639,8 @@ var init_branch = __esm2({
   }
 });
 function toPath(input) {
-  const path31 = input.trim().replace(/^["']|["']$/g, "");
-  return path31 && normalize(path31);
+  const path33 = input.trim().replace(/^["']|["']$/g, "");
+  return path33 && normalize(path33);
 }
 var parseCheckIgnore;
 var init_CheckIgnore = __esm2({
@@ -36925,8 +36925,8 @@ __export2(sub_module_exports, {
   subModuleTask: () => subModuleTask,
   updateSubModuleTask: () => updateSubModuleTask
 });
-function addSubModuleTask(repo, path31) {
-  return subModuleTask(["add", repo, path31]);
+function addSubModuleTask(repo, path33) {
+  return subModuleTask(["add", repo, path33]);
 }
 function initSubModuleTask(customArgs) {
   return subModuleTask(["init", ...customArgs]);
@@ -37240,8 +37240,8 @@ var require_git = __commonJS2({
       }
       return this._runTask(straightThroughStringTask2(command, this._trimmed), next);
     };
-    Git2.prototype.submoduleAdd = function(repo, path31, then) {
-      return this._runTask(addSubModuleTask2(repo, path31), trailingFunctionArgument2(arguments));
+    Git2.prototype.submoduleAdd = function(repo, path33, then) {
+      return this._runTask(addSubModuleTask2(repo, path33), trailingFunctionArgument2(arguments));
     };
     Git2.prototype.submoduleUpdate = function(args, then) {
       return this._runTask(
@@ -41448,12 +41448,12 @@ function lineageOf(tree, target) {
   const seen = /* @__PURE__ */ new Set([root.title]);
   const queue = [[root.title]];
   while (queue.length > 0) {
-    const path31 = queue.shift();
-    const node = index.get(path31[path31.length - 1]);
+    const path33 = queue.shift();
+    const node = index.get(path33[path33.length - 1]);
     if (!node) continue;
     for (const child of [...node.links].sort()) {
       if (seen.has(child) || !index.has(child)) continue;
-      const next = [...path31, child];
+      const next = [...path33, child];
       if (child === target) return next;
       seen.add(child);
       queue.push(next);
@@ -41461,8 +41461,8 @@ function lineageOf(tree, target) {
   }
   return null;
 }
-function renderLineage(path31) {
-  return path31.join(" \u2192 ");
+function renderLineage(path33) {
+  return path33.join(" \u2192 ");
 }
 
 // src/ost/results.ts
@@ -45028,9 +45028,9 @@ This tool is governed by that file, and the schema defaults are not the operator
 }
 
 // src/security/validateToolInput.ts
-function validateToolInput(schema, input, path31 = "") {
+function validateToolInput(schema, input, path33 = "") {
   if (!schema) return [];
-  const at = path31 ? ` at \`${path31}\`` : "";
+  const at = path33 ? ` at \`${path33}\`` : "";
   const problems = [];
   if (schema.enum && !schema.enum.some((v) => v === input)) {
     return [`${describe(input)}${at} is not one of: ${schema.enum.map((v) => JSON.stringify(v)).join(", ")}`];
@@ -45054,13 +45054,13 @@ function validateToolInput(schema, input, path31 = "") {
     }
     for (const [key, sub] of Object.entries(schema.properties ?? {})) {
       if (obj[key] !== void 0) {
-        problems.push(...validateToolInput(sub, obj[key], path31 ? `${path31}.${key}` : key));
+        problems.push(...validateToolInput(sub, obj[key], path33 ? `${path33}.${key}` : key));
       }
     }
   }
   if (schema.type === "array" && schema.items && Array.isArray(input)) {
     input.forEach((item, i2) => {
-      problems.push(...validateToolInput(schema.items, item, `${path31}[${i2}]`));
+      problems.push(...validateToolInput(schema.items, item, `${path33}[${i2}]`));
     });
   }
   return problems;
@@ -45394,8 +45394,8 @@ function workingTreeStatus(vaultDir) {
 
 // src/cli/loop.ts
 import { spawnSync as spawnSync3 } from "node:child_process";
-import os3 from "node:os";
-import path29 from "node:path";
+import os4 from "node:os";
+import path31 from "node:path";
 
 // src/loop/exitLaundering.ts
 var SHELLS = /* @__PURE__ */ new Set(["sh", "bash", "zsh", "dash", "ksh", "ash"]);
@@ -45846,6 +45846,111 @@ function checkCeiling(ceiling, measurement) {
   };
 }
 
+// src/cli/vault-option.ts
+import fs29 from "node:fs";
+import path30 from "node:path";
+
+// src/config/pointer.ts
+var import_yaml2 = __toESM(require_dist(), 1);
+import fs28 from "node:fs";
+import os3 from "node:os";
+import path29 from "node:path";
+var VAULT_POINTER_FILENAME = "ost.vault.yaml";
+var PointerSchema = external_exports.union([
+  external_exports.string().min(1),
+  external_exports.object({
+    /** Where the vault is, absolute, `~`-prefixed, or relative to this file. */
+    vault: external_exports.string().min(1),
+    /**
+     * The outcome that vault serves, verbatim. Read by nothing — it is here so a
+     * human opening the file learns what they are being pointed at without
+     * having to go look.
+     */
+    outcome: external_exports.string().optional()
+  })
+]);
+function resolveAgainst(baseDir, declared) {
+  if (declared === "~") return os3.homedir();
+  if (declared.startsWith("~/")) return path29.join(os3.homedir(), declared.slice(2));
+  return path29.resolve(baseDir, declared);
+}
+function readVaultPointer(dir) {
+  const file = path29.join(path29.resolve(dir), VAULT_POINTER_FILENAME);
+  if (!fs28.existsSync(file)) return null;
+  let raw;
+  try {
+    raw = (0, import_yaml2.parse)(fs28.readFileSync(file, "utf8"));
+  } catch (e) {
+    throw new Error(`${file} is not valid YAML: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  const parsed = PointerSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw new Error(
+      `${file} does not name a vault \u2014 it needs a \`vault:\` key holding a path (or a bare path on one line)`
+    );
+  }
+  const value = parsed.data;
+  const declared = typeof value === "string" ? value : value.vault;
+  return {
+    dir: resolveAgainst(path29.dirname(file), declared),
+    outcome: typeof value === "string" ? void 0 : value.outcome,
+    file
+  };
+}
+function findVaultPointer(startDir) {
+  let dir = path29.resolve(startDir);
+  for (; ; ) {
+    const found = readVaultPointer(dir);
+    if (found) return found;
+    const parent = path29.dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+function resolveVaultDir(explicit, opts = {}) {
+  if (explicit != null && explicit !== "") return { dir: path29.resolve(explicit), via: "argument" };
+  const cwd = opts.cwd ?? process.cwd();
+  const env = opts.env ?? process.env.OST_VAULT;
+  let problem;
+  try {
+    const pointer = findVaultPointer(cwd);
+    if (pointer) return { dir: pointer.dir, via: "pointer", pointer };
+  } catch (e) {
+    problem = e instanceof Error ? e.message : String(e);
+  }
+  if (env) return { dir: path29.resolve(env), via: "environment", problem };
+  return { dir: path29.resolve(cwd), via: "cwd", problem };
+}
+function describeVaultSource(r2) {
+  if (r2.problem) return `${r2.problem} \u2014 falling back to ${r2.dir}`;
+  if (r2.via !== "pointer" || !r2.pointer) return null;
+  const outcome = r2.pointer.outcome ? ` (${r2.pointer.outcome})` : "";
+  return `vault ${r2.dir}${outcome} \u2014 named by ${r2.pointer.file}`;
+}
+
+// src/cli/vault-option.ts
+var VAULT_OPTION_HELP = "vault directory (default: the vault named by ost.vault.yaml, else $OST_VAULT, else the current directory)";
+function installVaultResolution(program3) {
+  program3.hook("preAction", (_root, actionCommand) => {
+    const declaresVault = actionCommand.options.some((o2) => o2.long === "--vault");
+    if (!declaresVault) return;
+    if (actionCommand.getOptionValueSource("vault") !== void 0) return;
+    lastResolution = resolveVaultDir();
+    actionCommand.setOptionValue("vault", lastResolution.dir);
+    const complaint = lastResolution.problem ? describeVaultSource(lastResolution) : stalePointerWarning(lastResolution);
+    if (complaint) console.error(`ost-agent: ${complaint}`);
+  });
+}
+var lastResolution = null;
+function resolvedVaultSource() {
+  return lastResolution;
+}
+function stalePointerWarning(r2) {
+  if (r2.via !== "pointer" || !r2.pointer) return null;
+  if (fs29.existsSync(path30.join(r2.dir, CONFIG_FILENAME))) return null;
+  return `${r2.pointer.file} names ${r2.dir}, which is not a vault (no ${CONFIG_FILENAME}). The pointer is stale, or that vault has not been cloned onto this machine.`;
+}
+
 // src/cli/loop.ts
 var LOOP_EXIT = {
   due: 0,
@@ -45859,9 +45964,9 @@ var LOOP_EXIT = {
 };
 var HOUR_MS = 60 * 60 * 1e3;
 function resolveSessionsDir(vaultDir, declared) {
-  if (declared === "~") return os3.homedir();
-  if (declared.startsWith("~/")) return path29.join(os3.homedir(), declared.slice(2));
-  return path29.resolve(vaultDir, declared);
+  if (declared === "~") return os4.homedir();
+  if (declared.startsWith("~/")) return path31.join(os4.homedir(), declared.slice(2));
+  return path31.resolve(vaultDir, declared);
 }
 function ceilingOf(vaultDir, spend) {
   if (!spend) return null;
@@ -45884,7 +45989,7 @@ function entriesRequiringAHuman(entries) {
   return entries.filter((e) => !porcelainPath(e).startsWith(FIRING_TRACE_PREFIX));
 }
 function dirtyTreeMessage(vaultDir, tree) {
-  const abs = path29.resolve(vaultDir);
+  const abs = path31.resolve(vaultDir);
   if (tree.kind === "unknown") {
     return [
       `not firing: cannot tell whether ${abs} is clean \u2014 ${tree.reason}.`,
@@ -45926,7 +46031,7 @@ function missingSpendKeys(spend) {
 }
 function registerLoopCommands(program3) {
   const loop = program3.command("loop").description("unattended firing: cadence gate, overlap lock, spend ceiling, health record");
-  loop.command("due").description("may this vault fire now? (cadence + spend ceiling; both refuse when undeclared)").option("--vault <dir>", "vault directory", ".").action((opts) => {
+  loop.command("due").description("may this vault fire now? (cadence + spend ceiling; both refuse when undeclared)").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
     const config2 = loadConfig(opts.vault);
     const now = Date.now();
     const runs = readRuns(opts.vault);
@@ -45970,7 +46075,7 @@ function registerLoopCommands(program3) {
   });
   loop.command("start").description(
     "refuse a dirty working tree, take the overlap lock, open a health record (sweeps any crashed prior run first)"
-  ).option("--vault <dir>", "vault directory", ".").option(
+  ).option("--vault <dir>", VAULT_OPTION_HELP).option(
     "--holder-pid <pid>",
     "pid of the process that owns the whole firing (defaults to this command's parent)"
   ).action((opts) => {
@@ -46007,7 +46112,7 @@ function registerLoopCommands(program3) {
     stampFiringLock(opts.vault, lock.record, opened.runId);
     console.log(`loop run ${opened.runId} open`);
   });
-  loop.command("step").description("run one phase command and record the exit code it actually produced").requiredOption("-p, --phase <id>", "phase id (pass, check, \u2026)").option("--vault <dir>", "vault directory", ".").argument("<command...>", "the command to run (after --)").action((command, opts) => {
+  loop.command("step").description("run one phase command and record the exit code it actually produced").requiredOption("-p, --phase <id>", "phase id (pass, check, \u2026)").option("--vault <dir>", VAULT_OPTION_HELP).argument("<command...>", "the command to run (after --)").action((command, opts) => {
     const laundered = detectLaunderedExit(command);
     if (laundered) {
       console.error(launderedExitMessage(laundered));
@@ -46029,7 +46134,7 @@ function registerLoopCommands(program3) {
     });
     process.exitCode = exit;
   });
-  loop.command("health").description("report when this vault's loop last fired and what is holding it, if anything (read-only; decides nothing)").option("--vault <dir>", "vault directory", ".").action((opts) => {
+  loop.command("health").description("report when this vault's loop last fired and what is holding it, if anything (read-only; decides nothing)").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
     const config2 = loadConfig(opts.vault);
     const runs = readRuns(opts.vault);
     const now = Date.now();
@@ -46049,7 +46154,7 @@ function registerLoopCommands(program3) {
     );
     console.log(spend.ok ? "blocking: none" : `blocked: ${spend.reason}`);
   });
-  loop.command("seal").description("compute the verdict from the recorded exits, append it to runs.jsonl, release the lock").option("--vault <dir>", "vault directory", ".").action((opts) => {
+  loop.command("seal").description("compute the verdict from the recorded exits, append it to runs.jsonl, release the lock").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
     const sealed = sealRun(opts.vault, { headAfter: gitHead(opts.vault) });
     const released = releaseFiringLock(opts.vault, { runId: sealed.runId });
     console.log(`loop run ${sealed.runId} sealed: ${sealed.verdict}`);
@@ -46078,6 +46183,7 @@ async function prompt(question, fallback) {
 }
 var program2 = new Command();
 program2.name("ost-agent").description("Autonomous, append-only Opportunity Solution Tree agent").version(VERSION);
+installVaultResolution(program2);
 program2.command("init").argument("[folder]", "vault folder (created if absent; prompted if omitted)").option("-o, --outcome <text>", "the steering mandate the system optimizes (human-set)").option("-t, --title <label>", "stable label for the root node (default: folder name)").action(async (folder, opts) => {
   const dir = folder ?? await prompt("Vault folder name: ");
   if (!dir) throw new Error("a vault folder is required");
@@ -46104,7 +46210,7 @@ Drop notes into ${r2.inboxDir}/, then run /ost-map in Claude Code to fold them i
   console.log(`
 Run \`ost-agent channels --vault ${dir}\` at any time to see every drop folder and whether it has gone quiet.`);
 });
-program2.command("set-outcome").description("retune the steering mandate (human-only; prior mandate kept in the root node's history)").argument("[text]", "the new mandate (prompted if omitted)").option("--vault <dir>", "vault directory", ".").action(async (text2, opts) => {
+program2.command("set-outcome").description("retune the steering mandate (human-only; prior mandate kept in the root node's history)").argument("[text]", "the new mandate (prompted if omitted)").option("--vault <dir>", VAULT_OPTION_HELP).action(async (text2, opts) => {
   const next = text2 ?? await prompt("New steering mandate: ");
   const r2 = await setOutcome(opts.vault, next);
   console.log(`Retuned "${r2.title}" \u2014 committed ${r2.sha.slice(0, 8)}`);
@@ -46115,7 +46221,7 @@ async function commitFiling(vaultDir, before, written) {
   const foreign = before.kind === "dirty" ? entriesRequiringAHuman(before.entries) : [];
   if (foreign.length > 0) return { kind: "left-dirty", entries: foreign };
   try {
-    const r2 = await gitCommit(vaultDir, `friction: ${path30.basename(written)}`);
+    const r2 = await gitCommit(vaultDir, `friction: ${path32.basename(written)}`);
     return r2.committed ? { kind: "committed", sha: r2.sha.slice(0, 8) } : (
       // Nothing to commit right after writing a file means git cannot see it —
       // an ignore rule over the friction folder. Reported rather than read as
@@ -46127,7 +46233,7 @@ async function commitFiling(vaultDir, before, written) {
     return { kind: "no-history", reason: e instanceof Error ? e.message : String(e) };
   }
 }
-program2.command("friction").description("file one line of friction at the point of pain (lands in the vault's friction channel, and is committed)").argument("<note>", "what went wrong, in one line").option("-k, --kind <kind>", `one of: ${FRICTION_KINDS.join(", ")}`, "blocked").option("-c, --context <text>", "what you were doing, or what you wish existed").option("-s, --source <text>", "who is filing (loop, process, session)").option("--vault <dir>", "vault directory", process.env.OST_VAULT ?? ".").action(async (note, opts) => {
+program2.command("friction").description("file one line of friction at the point of pain (lands in the vault's friction channel, and is committed)").argument("<note>", "what went wrong, in one line").option("-k, --kind <kind>", `one of: ${FRICTION_KINDS.join(", ")}`, "blocked").option("-c, --context <text>", "what you were doing, or what you wish existed").option("-s, --source <text>", "who is filing (loop, process, session)").option("--vault <dir>", VAULT_OPTION_HELP).action(async (note, opts) => {
   const before = workingTreeStatus(opts.vault);
   const written = fileFriction(opts.vault, {
     kind: opts.kind,
@@ -46135,7 +46241,7 @@ program2.command("friction").description("file one line of friction at the point
     context: opts.context,
     source: opts.source
   });
-  console.log(`filed ${path30.basename(written)}`);
+  console.log(`filed ${path32.basename(written)}`);
   const result = await commitFiling(opts.vault, before, written);
   if (result.kind === "committed") {
     console.log(`  committed ${result.sha} \u2014 it is in the vault's history and the working tree is clean again`);
@@ -46151,7 +46257,7 @@ program2.command("friction").description("file one line of friction at the point
   console.log(`  NOT committed (${result.reason}).`);
   console.log(`  The filing is on disk at ${written} and nothing has versioned it.`);
 });
-program2.command("check").description("run the deterministic tree invariants (no model needed)").option("--vault <dir>", "vault directory", ".").action(async (opts) => {
+program2.command("check").description("run the deterministic tree invariants (no model needed)").option("--vault <dir>", VAULT_OPTION_HELP).action(async (opts) => {
   const ctx = buildPassContext(opts.vault);
   const census = ctx.vault.readTreeCensus();
   census.independent = await reconcileWithGit(ctx.dir, census);
@@ -46163,7 +46269,7 @@ program2.command("check").description("run the deterministic tree invariants (no
 program2.command("result").description("record what happened when a human ran an assumption test (humans only \u2014 never the agent)").argument("<test>", "title of the AssumptionTest node that was run").requiredOption("-v, --verdict <verdict>", `one of: ${VERDICTS.join(", ")}`).requiredOption("-n, --note <text>", "what happened, in the runner's words").requiredOption("-b, --by <who>", "who ran it \u2014 a result with no name on it cannot be trusted").requiredOption(
   "-u, --uncovered <text>",
   "what this run does NOT cover \u2014 the part of the threshold it left untested"
-).option("-e, --evidence <rung>", `raise the test's rung to what the run produced (${BELIEVABILITY_LADDER.map((r2) => r2.id).join(", ")})`).option("--vault <dir>", "vault directory", ".").action(
+).option("-e, --evidence <rung>", `raise the test's rung to what the run produced (${BELIEVABILITY_LADDER.map((r2) => r2.id).join(", ")})`).option("--vault <dir>", VAULT_OPTION_HELP).action(
   (test, opts) => {
     const line = recordResult(opts.vault, {
       test,
@@ -46177,7 +46283,7 @@ program2.command("result").description("record what happened when a human ran an
     console.log(`  does not cover: ${opts.uncovered.trim()}`);
   }
 );
-program2.command("promote").description("promote a node to 'validated' (humans only \u2014 the agent has no argument that expresses this)").argument("<node>", "title of the node to promote").requiredOption("-b, --by <who>", "who promoted it \u2014 an unattributed promotion cannot be told apart from a fabricated one").requiredOption("-w, --why <text>", "the evidence that earned it").option("--vault <dir>", "vault directory", ".").action((node, opts) => {
+program2.command("promote").description("promote a node to 'validated' (humans only \u2014 the agent has no argument that expresses this)").argument("<node>", "title of the node to promote").requiredOption("-b, --by <who>", "who promoted it \u2014 an unattributed promotion cannot be told apart from a fabricated one").requiredOption("-w, --why <text>", "the evidence that earned it").option("--vault <dir>", VAULT_OPTION_HELP).action((node, opts) => {
   const line = promoteNode(opts.vault, { node, by: opts.by, why: opts.why });
   console.log(`promoted "${node}": ${line}`);
   console.log("  removed the #unvalidated marker");
@@ -46185,18 +46291,18 @@ program2.command("promote").description("promote a node to 'validated' (humans o
 program2.command("retract").description("take a node out of the live tree without deleting it (humans only \u2014 no tool can express this)").argument("<node>", "title of the node to retract").requiredOption(
   "-b, --by <who>",
   "who retracted it \u2014 an unattributed retraction cannot be told apart from a fabricated one"
-).requiredOption("-w, --why <text>", "why it is coming out \u2014 the only thing a reader who finds the file later will have").option("--vault <dir>", "vault directory", ".").action((node, opts) => {
+).requiredOption("-w, --why <text>", "why it is coming out \u2014 the only thing a reader who finds the file later will have").option("--vault <dir>", VAULT_OPTION_HELP).action((node, opts) => {
   const line = retractNode(opts.vault, { node, by: opts.by, why: opts.why });
   console.log(`retracted "${node}": ${line}`);
   console.log("  the file, its history and this line all stay on disk and in git");
   console.log("  it is now in no count, scan, gate or rollup; `ost-agent status` names it under retired");
   console.log("  inbound links still point at it \u2014 `ost-agent check` reports them as dangling until they are unlinked");
 });
-program2.command("debt").description("what each solution owes in evidence before anyone builds it (no model needed)").option("--vault <dir>", "vault directory", ".").action((opts) => {
+program2.command("debt").description("what each solution owes in evidence before anyone builds it (no model needed)").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
   const ctx = buildPassContext(opts.vault);
   console.log(renderDebt(ctx.vault.readTree()));
 });
-program2.command("lanes").description("assumption tests grouped by the human minutes they actually cost").option("--vault <dir>", "vault directory", ".").option("--runnable", "print only the compute-only backlog, one title per line (for scripting)").option(
+program2.command("lanes").description("assumption tests grouped by the human minutes they actually cost").option("--vault <dir>", VAULT_OPTION_HELP).option("--runnable", "print only the compute-only backlog, one title per line (for scripting)").option(
   "--flag-cautious <who>",
   "apply humans-required, in bulk, to every unclassified test whose text names an outside person"
 ).action((opts) => {
@@ -46288,13 +46394,13 @@ Runnable right now (compute-only, no result yet): ${t2.runnable.length}`);
     "\nA lane is a judgement, not a measurement. Unclassified never means safe to automate,\nand the \u26A0 hints only ever point AT a person \u2014 the permissive call is always a human's."
   );
 });
-program2.command("lane").description("classify one assumption test into a lane (attributed, recorded in History)").argument("<test>", "title of the AssumptionTest node").requiredOption("-s, --set <lane>", `one of: ${LANES.map((l) => l.id).join(", ")}`).requiredOption("-b, --by <who>", "who made the call \u2014 an unauditable label is worse than none").requiredOption("-w, --why <text>", "why this lane, in the classifier's words").option("--vault <dir>", "vault directory", ".").action((test, opts) => {
+program2.command("lane").description("classify one assumption test into a lane (attributed, recorded in History)").argument("<test>", "title of the AssumptionTest node").requiredOption("-s, --set <lane>", `one of: ${LANES.map((l) => l.id).join(", ")}`).requiredOption("-b, --by <who>", "who made the call \u2014 an unauditable label is worse than none").requiredOption("-w, --why <text>", "why this lane, in the classifier's words").option("--vault <dir>", VAULT_OPTION_HELP).action((test, opts) => {
   const line = setLane(opts.vault, { test, lane: opts.set, by: opts.by, why: opts.why });
   console.log(`classified "${test}": ${line}`);
   const def = laneDef(opts.set);
   console.log(def.computeMayRun ? "  an unattended pass MAY now run this test." : "  a person is still required.");
 });
-program2.command("gate").description("refuse to build against untested assumptions: exits non-zero unless a solution has a tested assumption").argument("<solution>", "title of the Solution node about to be built").option("--vault <dir>", "vault directory", ".").action((solution, opts) => {
+program2.command("gate").description("refuse to build against untested assumptions: exits non-zero unless a solution has a tested assumption").argument("<solution>", "title of the Solution node about to be built").option("--vault <dir>", VAULT_OPTION_HELP).action((solution, opts) => {
   const ctx = buildPassContext(opts.vault);
   const { text: text2, cleared } = renderGate(ctx.vault.readTree(), solution);
   if (cleared) {
@@ -46304,7 +46410,7 @@ program2.command("gate").description("refuse to build against untested assumptio
   console.error(text2);
   process.exitCode = 1;
 });
-program2.command("verify").description("run an assumption test's instrument and record what it did (the machine's half \u2014 a fact, never a result)").argument("<test>", "title of the AssumptionTest whose instrument to run").requiredOption("-r, --repo <dir>", "the repository the instrument is measured against").option("--vault <dir>", "vault directory", ".").action((test, opts) => {
+program2.command("verify").description("run an assumption test's instrument and record what it did (the machine's half \u2014 a fact, never a result)").argument("<test>", "title of the AssumptionTest whose instrument to run").requiredOption("-r, --repo <dir>", "the repository the instrument is measured against").option("--vault <dir>", VAULT_OPTION_HELP).action((test, opts) => {
   let outcome;
   try {
     outcome = verifyInstrument(opts.vault, { test, repo: opts.repo });
@@ -46321,7 +46427,7 @@ program2.command("verify").description("run an assumption test's instrument and 
     console.log("  that is still `ost-agent result`, and still a human's.");
   }
 });
-program2.command("buildable").description("may work start on this solution, and against what definition of done? (exits non-zero when not)").argument("[solution]", "title of the Solution node; omit to list every buildable solution").option("--vault <dir>", "vault directory", ".").option("--pending", "instead list the tests that declare an instrument nobody has run yet").action((solution, opts) => {
+program2.command("buildable").description("may work start on this solution, and against what definition of done? (exits non-zero when not)").argument("[solution]", "title of the Solution node; omit to list every buildable solution").option("--vault <dir>", VAULT_OPTION_HELP).option("--pending", "instead list the tests that declare an instrument nobody has run yet").action((solution, opts) => {
   const ctx = buildPassContext(opts.vault);
   const tree = ctx.vault.readTree();
   if (opts.pending) {
@@ -46349,40 +46455,42 @@ program2.command("buildable").description("may work start on this solution, and 
   console.error(`buildable: BLOCKED \u2014 ${permit.reason}`);
   process.exitCode = 1;
 });
-program2.command("channels").description("list every commissioned channel, when it last delivered, and which ones are silent or unavailable (read-only)").option("--vault <dir>", "vault directory", ".").action((opts) => {
-  const dir = path30.resolve(opts.vault);
+program2.command("channels").description("list every commissioned channel, when it last delivered, and which ones are silent or unavailable (read-only)").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
+  const dir = path32.resolve(opts.vault);
   const { config: config2, problem } = readConfig(dir);
   const resolved = problem ? { channels: [], problems: [problem] } : allChannels(dir, config2);
   const health = channelHealth(dir, resolved.channels);
   console.log(renderChannels({ health, problems: resolved.problems }));
   if (problem || ailingChannels(health).length > 0) process.exitCode = 1;
 });
-program2.command("status").option("--vault <dir>", "vault directory", ".").action(async (opts) => {
+program2.command("status").option("--vault <dir>", VAULT_OPTION_HELP).action(async (opts) => {
   const ctx = buildPassContext(opts.vault);
   const census = ctx.vault.readTreeCensus();
   census.independent = await reconcileWithGit(ctx.dir, census);
   console.log(renderStatus(ctx, census));
 });
-program2.command("lineage").argument("<node>", "the node to trace back to the Outcome").description("the path from the Outcome down to one node, arrow-separated (exits 1 if unreachable)").option("--vault <dir>", "vault directory", ".").action((node, opts) => {
-  const path31 = lineageOf(buildPassContext(opts.vault).vault.readTree(), node);
-  if (!path31) {
+program2.command("lineage").argument("<node>", "the node to trace back to the Outcome").description("the path from the Outcome down to one node, arrow-separated (exits 1 if unreachable)").option("--vault <dir>", VAULT_OPTION_HELP).action((node, opts) => {
+  const path33 = lineageOf(buildPassContext(opts.vault).vault.readTree(), node);
+  if (!path33) {
     console.error(`no path from the Outcome to "${node}" \u2014 it is unreachable, or this vault has no root`);
     process.exitCode = 1;
     return;
   }
-  console.log(renderLineage(path31));
+  console.log(renderLineage(path33));
 });
-program2.command("rollup").description("the top-level view: what sits under each bucket, computed from the tree (no model needed)").option("--vault <dir>", "vault directory", ".").action((opts) => {
+program2.command("rollup").description("the top-level view: what sits under each bucket, computed from the tree (no model needed)").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
   const ctx = buildPassContext(opts.vault);
   console.log(renderRollup(rollupTree(ctx.vault.readTree())));
 });
 registerLoopCommands(program2);
-program2.command("mcp").description("run a stdio MCP server exposing the append-only OST tools (no API key needed)").option("--vault <dir>", "vault directory", process.env.OST_VAULT ?? ".").action(async (opts) => {
-  const dir = path30.resolve(opts.vault);
+program2.command("mcp").description("run a stdio MCP server exposing the append-only OST tools (no API key needed)").option("--vault <dir>", VAULT_OPTION_HELP).action(async (opts) => {
+  const dir = path32.resolve(opts.vault);
   const { StdioServerTransport: StdioServerTransport2 } = await Promise.resolve().then(() => (init_stdio2(), stdio_exports));
   const server = createLazyOstMcpServer(dir);
   await server.connect(new StdioServerTransport2());
   console.error(`ost-agent mcp serving ${dir} over stdio. Tools: ${MCP_TOOL_NAMES.join(", ")}`);
+  const provenance = describeVaultSource(resolvedVaultSource() ?? { dir, via: "argument" });
+  if (provenance) console.error(`ost-agent mcp: ${provenance}`);
   const readiness = vaultReadiness({ dir });
   if (!readiness.ready) console.error(`ost-agent mcp: ${readiness.message}`);
 });
