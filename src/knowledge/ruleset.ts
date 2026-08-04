@@ -85,7 +85,8 @@ export const OST_RULESET = {
     "Use assumption-test results as comparative evidence to choose among solutions, not as a yes/no verdict on one idea.",
     "The agent may propose test designs but must never run tests or record test results as evidence; humans run tests with real customers/data.",
     "Ask of every assumption, before reaching for an interview: could the repository answer this? A feasibility assumption about code — whether a guard refuses, whether a path resolves, whether an exit code is what the node claims — is settled by a spec file in minutes and does not need anybody's afternoon. Reaching for a customer study when the answer is on disk spends the scarcest resource in the process on a question that was never about customers.",
-    "Give every test an `instrument:` wherever one is possible — a single spec-file command whose exit code answers the test. Prose states what would count as an answer; an instrument is the answer, run. A test with a threshold and no instrument can only be settled by a person finding the time, which is why a tree can hold hundreds of them and still be unable to hand anything to a builder.",
+    "Every test must name one of two things: an `instrument` — a single spec-file command whose exit code answers it — or the person who is irreducibly the measurement. A test that names neither is refused at the tool boundary, and that refusal is the point: prose states what would count as an answer, an instrument IS the answer, run, and a test with only a threshold can be settled by nobody but a person finding the time. That is how a tree comes to hold hundreds of tests and hand its builder nothing.",
+    "Go back and re-write the tests that were written before this rule. A test with a threshold and no runnable form is not finished work, it is debt, and `ost_set_instrument` is how it gets paid: read the test's own threshold and write the command that would settle it. This is giving an existing question a runnable form, not inventing a new question, so the test keeps its identity and its history.",
     "An instrument must be RED when it is written: it names behaviour that does not exist yet, so the command fails against the repository today and passes only once the solution is real. A command that already passes is a description of the present, not a test — it cannot fail, so it measures nothing and gives a builder no definition of done. This is the one property that makes an agent-authored test worth anything, because it is a falsifiable prediction rather than a claim.",
     "Say what an instrument does NOT settle, in the test's own prose. A green spec proves the code does what the node said; it never proves anyone wanted it. Feasibility answered mechanically leaves desirability, viability and usability exactly where they were, and a node that does not say so invites a reader to mistake a passing test for a validated solution."
   ],
@@ -257,6 +258,15 @@ export const OST_RULESET = {
     // Labelling a pre-ladder node's believability is ordinary maintenance, and a
     // model that cannot say "assertion" leaves the rung silently wrong instead.
     { "name": "ost_set_evidence", "grant": true },
+    // Granted. This is the tool that lets a pass go back and give a runnable
+    // command to a test written before instruments existed — the 243 in this
+    // product's own vault, every one of them a dead end for the builder. A skill
+    // that named the requirement and withheld the only tool that satisfies it
+    // would leave the model able to see the debt and unable to pay it.
+    //
+    // It reaches no gate on its own: a build permit needs an OBSERVED failure,
+    // and only `ost-agent verify` — CLI, off every allowlist — can record one.
+    { "name": "ost_set_instrument", "grant": true },
     { "name": "ost_annotate", "grant": true },
     // Outward sensing: read-only, metered against one shared per-pass budget.
     { "name": "ost_search_web", "grant": true },

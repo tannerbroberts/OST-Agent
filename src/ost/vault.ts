@@ -434,6 +434,34 @@ export class Vault {
   }
 
   /**
+   * Attach or replace an assumption test's instrument, recording the change in
+   * History. Returns the line written; the command is validated by the caller
+   * (`knowledge/instruments.ts`) — this is the write.
+   *
+   * Replacement is permitted on purpose, and it is the whole reason this exists:
+   * a tree can hold hundreds of tests written before instruments did, and every
+   * one of them is a dead end until something can go back and give it a command.
+   * A test whose instrument is wrong is worth correcting for the same reason.
+   *
+   * What replacement must never do is carry a permit across. The prior
+   * observations stay in the log — the vault is append-only and a run that
+   * happened, happened — but they name the command they ran, so
+   * {@link ../eval/buildable.ts} stops recognising them the moment the field
+   * says something else. Swapping the instrument therefore un-clears the build
+   * permit rather than inheriting it, and the test has to be verified again.
+   */
+  setInstrument(title: string, instrument: string, note?: string): string {
+    assertWritableNote(`the instrument note on "${title}"`, note);
+    const node = this.read(title);
+    const prev = node.instrument ?? "(none)";
+    node.instrument = instrument;
+    const line = `- ${isoToday()} instrument: ${prev} → ${instrument}${note ? ` — ${note}` : ""}`;
+    node.body = appendUnderHeading(node.body, "## History", line);
+    fs.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+    return line;
+  }
+
+  /**
    * Revise the root Outcome node's body in place (human-set mandate tuning).
    * Refuses any non-Outcome node, so the append-only guarantee for regular nodes
    * is untouched; prior mandate text is expected to be carried in `newBody`'s

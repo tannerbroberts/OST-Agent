@@ -173,6 +173,7 @@ const EXERCISE: Record<string, unknown[]> = {
   ost_link_nodes: [{ parent: OUTCOME, child: "Setup is slow" }],
   ost_set_status: [{ title: "Setup is slow", status: "in-discovery" }],
   ost_set_evidence: [{ title: "Setup is slow", evidence: "assertion", note: "one voice" }],
+  ost_set_instrument: [{ test: "A test", instrument: "npx vitest run test/a.test.ts", why: "names behaviour that does not exist yet" }],
   ost_flag_humans_required: [{ test: "Setup is slow", why: "interview" }],
   ost_annotate: [{ title: "Setup is slow", issue: "checked" }],
   ost_search_web: [{ query: "onboarding" }],

@@ -147,6 +147,9 @@ async function humanRecordsResult(testTitle: string, parent: string): Promise<vo
     parent,
     body: "## Method\nRun it for a week.",
     evidence: "assertion",
+    // A human runs this one and records the result below, so it declares a person
+    // rather than a command — the only two shapes an AssumptionTest may now take.
+    humansRequired: "a person runs it for a week and reports what happened",
   });
   vault.appendUnderSection(testTitle, RESULTS_HEADING, `- 2026-01-01 **supported** (ran by Tanner) — it replicated`);
 }

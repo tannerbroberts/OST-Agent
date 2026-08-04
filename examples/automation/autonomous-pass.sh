@@ -49,7 +49,7 @@ CLI="$OST_AGENT_DIR/dist/ost-agent.mjs"
 
 # Kept in sync with .claude/commands/ost-pass.md's `allowed-tools` frontmatter — that
 # file is the authority on what /ost-pass needs. If it grants a new tool, add it here too.
-OST_TOOLS="mcp__ost-agent__ost_ingest_inbox,mcp__ost-agent__ost_next_work,mcp__ost-agent__ost_read_tree,mcp__ost-agent__ost_create_node,mcp__ost-agent__ost_link_nodes,mcp__ost-agent__ost_append_to_node,mcp__ost-agent__ost_set_status,mcp__ost-agent__ost_set_evidence,mcp__ost-agent__ost_annotate"
+OST_TOOLS="mcp__ost-agent__ost_ingest_inbox,mcp__ost-agent__ost_next_work,mcp__ost-agent__ost_read_tree,mcp__ost-agent__ost_create_node,mcp__ost-agent__ost_link_nodes,mcp__ost-agent__ost_append_to_node,mcp__ost-agent__ost_set_status,mcp__ost-agent__ost_set_evidence,mcp__ost-agent__ost_set_instrument,mcp__ost-agent__ost_annotate"
 
 # Every Claude Code built-in that can write a file, run a command, delegate to an
 # agent with its own tool set, or reach the network. cwd IS the vault, so an

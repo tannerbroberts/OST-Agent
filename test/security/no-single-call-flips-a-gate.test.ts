@@ -416,6 +416,16 @@ const ROWS: Record<string, Row> = {
     why: "B3's door — declares a rung, and carries a free-text note onto the body",
     aim: () => ({ title: BLOCKED_TEST }),
   },
+  ost_set_instrument: {
+    // The interesting question for P10, answered rather than assumed: attaching a
+    // command to a test writes the field the BUILD permit reads. It still cannot
+    // flip anything in one call, because that permit needs an OBSERVED failure and
+    // only `ost-agent verify` (CLI, off this surface) records one — so the sweep
+    // below drives it like every other write and finds no flip. Aimed at the
+    // blocked test, where a flip would count.
+    why: "writes the instrument the build permit reads — a gate whose other half is off this surface",
+    aim: () => ({ test: BLOCKED_TEST, instrument: "npx vitest run test/probe.test.ts", why: "a probe" }),
+  },
   ost_annotate: {
     why: "free-text `issue` onto any node's body (B1 counted it as door four of six)",
     aim: () => ({ title: BLOCKED_TEST }),
@@ -746,6 +756,7 @@ describe("2 — no single call flips renderGate(tree, solution).cleared from fal
       "ost_ingest_inbox",
       "ost_rank_source",
       "ost_set_evidence",
+      "ost_set_instrument",
       "ost_set_status",
     ]);
   });

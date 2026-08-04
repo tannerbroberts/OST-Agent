@@ -22,6 +22,7 @@
  * test that has gone green stops being a reason to start work.
  */
 import { nodeInstrument, observedGreen, observedRed } from "../ost/instrument.js";
+import { CAUTIOUS_LANE } from "../knowledge/lanes.js";
 import type { OstNode } from "../ost/node.js";
 
 export interface BuildPermit {
@@ -153,6 +154,13 @@ export function testsAwaitingVerification(tree: readonly OstNode[]): string[] {
   const out: string[] = [];
   for (const n of tree) {
     if (n.layer !== "AssumptionTest") continue;
+    // A test a human put beyond compute's reach is never run by compute, even if
+    // it somehow carries a command. `ost_set_instrument` refuses to create that
+    // combination, so this is the second lock on the same door — and the one that
+    // matters for nodes that already carry both, or that a human edited by hand.
+    // The lane is the authority on who may run a test; an instrument only ever
+    // says what running it would mean.
+    if (n.lane === CAUTIOUS_LANE) continue;
     if (!nodeInstrument(n)) continue;
     if (observedRed(n) || observedGreen(n)) continue;
     out.push(n.title);
