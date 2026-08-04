@@ -41,8 +41,33 @@ const rel = (p: string) => path.relative(repoRoot, p);
 const isComment = (line: string) => /^\s*(\/\/|\/\*|\*)/.test(line);
 
 /** Files that import the ledger — the consumer set, derived rather than listed. */
+/**
+ * The module's rung-producing exports. Anything else hands back facts, not verdicts.
+ *
+ * Hoisted out of the test below because `consumers()` now needs it too — see there.
+ */
+const DERIVERS = ["rungOf", "explainRung", "standings", "webStanding", "sourceStanding"];
+
+/**
+ * Files that obtain STANDING from the trust module — not merely files that touch it.
+ *
+ * The distinction was forced by `src/eval/rollup.ts`, which imports exactly one
+ * thing: `recordedVerdict`, the reader for the verdict a human wrote under
+ * `## Results`. That is a fact about a run, not a conclusion about an actor, and
+ * folding the trust ledger to obtain it would be meaningless — there is no
+ * standing in the answer to fold.
+ *
+ * Keying on the derivers rather than on the import path keeps the rule saying
+ * what it means: a module that asks "how much is this source believed" must
+ * compute it from the whole history, every time. A module that asks "what did
+ * the human write down" is not making that claim and never was.
+ */
 function consumers(): string[] {
-  return srcFiles().filter((p) => p !== MODULE && /from\s+"[^"]*knowledge\/actor-trust\.js"/.test(fs.readFileSync(p, "utf8")));
+  return srcFiles().filter((p) => {
+    if (p === MODULE) return false;
+    const imported = /import\s*{([\s\S]*?)}\s*from\s*"[^"]*knowledge\/actor-trust\.js"/.exec(fs.readFileSync(p, "utf8"))?.[1];
+    return imported !== undefined && DERIVERS.some((d) => new RegExp(`\\b${d}\\b`).test(imported));
+  });
 }
 
 describe("B5(a) — no record carries a rung", () => {
@@ -89,8 +114,6 @@ describe("B5(b) — every consumer derives from a history", () => {
   });
 
   test("every consumer folds the whole ledger, and names a rung only through a deriver", () => {
-    /** The module's rung-producing exports. Anything else hands back facts, not verdicts. */
-    const DERIVERS = ["rungOf", "explainRung", "standings", "webStanding", "sourceStanding"];
     const set = consumers();
     // Non-vacuity: the derived set is real. If the import pattern ever stops matching,
     // this file would silently police nothing.

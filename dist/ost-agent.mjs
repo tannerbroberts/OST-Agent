@@ -41294,6 +41294,115 @@ function renderStatus(ctx, census) {
   return lines.join("\n");
 }
 
+// src/eval/rollup.ts
+function weakest(rungs) {
+  const declared = rungs.filter((r2) => r2 !== void 0);
+  return declared.length === 0 ? null : weakestRung(declared);
+}
+function subtree(start, index) {
+  const seen = /* @__PURE__ */ new Set();
+  const out = [];
+  const queue = [start];
+  while (queue.length > 0) {
+    const title = queue.shift();
+    if (seen.has(title)) continue;
+    seen.add(title);
+    const node = index.get(title);
+    if (!node) continue;
+    out.push(node);
+    for (const link of node.links) queue.push(link);
+  }
+  return out;
+}
+function rollUpBucket(bucket, index) {
+  const nodes = subtree(bucket.title, index);
+  const tests = nodes.filter((n) => n.layer === "AssumptionTest");
+  const instrumented = tests.filter((t2) => nodeInstrument(t2) !== void 0);
+  const sources = new Set(nodes.map((n) => n.source).filter((s) => typeof s === "string" && s.trim() !== ""));
+  return {
+    title: bucket.title,
+    // Minus one: the bucket itself is in its own subtree and is not one of the
+    // needs it files. A bucket reporting "1 opportunity" when it holds none was
+    // the first thing this got wrong.
+    opportunities: nodes.filter((n) => n.layer === "Opportunity").length - 1,
+    solutions: nodes.filter((n) => n.layer === "Solution").length,
+    tests: tests.length,
+    instrumented: instrumented.length,
+    green: instrumented.filter(observedGreen).length,
+    tested: tests.filter(hasRecordedResult).length,
+    refuted: tests.filter((t2) => recordedVerdict(t2) === "refuted").length,
+    corroborators: sources.size,
+    // `bound` is the only kind that names a number fixed in advance; `prose`,
+    // `instruction` and `absent` all leave the bar to be decided after the run,
+    // which is the same as having none.
+    withFixedThreshold: tests.filter((t2) => thresholdKindOf(t2) === "bound").length,
+    weakestRung: weakest(nodes.map((n) => n.evidence))
+  };
+}
+function rollupTree(tree) {
+  const index = byTitle([...tree]);
+  const outcome = tree.find((n) => n.layer === "Outcome") ?? null;
+  const buckets = (outcome?.links ?? []).map((t2) => index.get(t2)).filter((n) => n !== void 0 && n.layer === "Opportunity").map((b2) => rollUpBucket(b2, index));
+  const filed = /* @__PURE__ */ new Set();
+  for (const link of outcome?.links ?? []) {
+    const node = index.get(link);
+    if (node?.layer === "Opportunity") for (const n of subtree(link, index)) filed.add(n.title);
+  }
+  return {
+    outcome: outcome?.title ?? null,
+    buckets,
+    unfiled: tree.filter((n) => n.layer === "Opportunity" && !filed.has(n.title)).map((n) => n.title).sort(),
+    nonOpportunityChildren: (outcome?.links ?? []).filter((t2) => {
+      const n = index.get(t2);
+      return n !== void 0 && n.layer !== "Opportunity";
+    }).sort(),
+    totals: {
+      nodes: tree.length,
+      opportunities: tree.filter((n) => n.layer === "Opportunity").length,
+      solutions: tree.filter((n) => n.layer === "Solution").length,
+      tests: tree.filter((n) => n.layer === "AssumptionTest").length
+    }
+  };
+}
+function pct(part, whole) {
+  return whole === 0 ? "\u2014" : `${Math.round(part / whole * 100)}%`;
+}
+function renderRollup(rollup) {
+  const lines = [];
+  lines.push(`Outcome: ${rollup.outcome ?? "(none \u2014 this vault has no root)"}`);
+  lines.push(
+    `Tree: ${rollup.totals.nodes} nodes \u2014 ${rollup.totals.opportunities} opportunity, ${rollup.totals.solutions} solution, ${rollup.totals.tests} test`
+  );
+  lines.push("");
+  if (rollup.buckets.length === 0) {
+    lines.push("No buckets: the Outcome links no Opportunity, so there is no top-level view to roll up.");
+  } else {
+    lines.push(`Buckets (${rollup.buckets.length}), each with what is beneath it:`);
+    for (const b2 of rollup.buckets) {
+      lines.push(`  ${b2.title}`);
+      lines.push(
+        `    ${b2.opportunities} opportunity, ${b2.solutions} solution, ${b2.tests} test \u2014 built ${pct(b2.green, b2.instrumented)} (${b2.green}/${b2.instrumented} runnable), tested ${b2.tested}${b2.refuted > 0 ? ` (${b2.refuted} refuted)` : ""}, ${b2.corroborators} source(s), rests on ${b2.weakestRung ?? "nothing declared"}`
+      );
+      if (b2.tests > 0 && b2.withFixedThreshold < b2.tests) {
+        lines.push(`    ${b2.tests - b2.withFixedThreshold} of ${b2.tests} test(s) state no fixed bar \u2014 those cannot come out a failure`);
+      }
+    }
+  }
+  if (rollup.nonOpportunityChildren.length > 0) {
+    lines.push("");
+    lines.push(
+      `${rollup.nonOpportunityChildren.length} node(s) hang off the Outcome that are not Opportunities \u2014 only category opportunities belong there: ${rollup.nonOpportunityChildren.join(", ")}`
+    );
+  }
+  if (rollup.unfiled.length > 0) {
+    lines.push("");
+    lines.push(
+      `${rollup.unfiled.length} opportunity(s) are in no bucket, so nothing above counts them: ` + rollup.unfiled.join(", ")
+    );
+  }
+  return lines.join("\n");
+}
+
 // src/ost/results.ts
 import path20 from "node:path";
 function recordResult(vaultDir, filing) {
@@ -46150,6 +46259,10 @@ program2.command("status").option("--vault <dir>", "vault directory", ".").actio
   const census = ctx.vault.readTreeCensus();
   census.independent = await reconcileWithGit(ctx.dir, census);
   console.log(renderStatus(ctx, census));
+});
+program2.command("rollup").description("the top-level view: what sits under each bucket, computed from the tree (no model needed)").option("--vault <dir>", "vault directory", ".").action((opts) => {
+  const ctx = buildPassContext(opts.vault);
+  console.log(renderRollup(rollupTree(ctx.vault.readTree())));
 });
 registerLoopCommands(program2);
 program2.command("mcp").description("run a stdio MCP server exposing the append-only OST tools (no API key needed)").option("--vault <dir>", "vault directory", process.env.OST_VAULT ?? ".").action(async (opts) => {
