@@ -18,7 +18,7 @@
  */
 import { hasRecordedResult } from "./evidence-debt.js";
 import type { OstNode } from "../ost/node.js";
-import { isHeadingLine, RESULTS_HEADING, UNCOVERED_HEADING } from "../ost/headings.js";
+import { entriesUnder, RESULTS_HEADING, UNCOVERED_HEADING } from "../ost/headings.js";
 
 export { UNCOVERED_HEADING };
 
@@ -65,20 +65,13 @@ export interface CoveragePair {
  * placeholder ("TODO: fill this in"), and a placeholder bounds nothing.
  */
 function countEntriesUnder(body: string, heading: string): number {
-  const lines = body.split("\n");
-  // Matched through `ost/headings.ts`, not by trim-equality. This reader and
-  // `hasRecordedResult` used to disagree about what a `## Results` heading is —
-  // trim-equality saw `  ## Results` and missed `## Results of the pilot`; the
-  // regex did the reverse — so the guard that refuses the heading could only
-  // have covered one of them. One matcher, three readers.
-  const start = lines.findIndex((l) => isHeadingLine(l, heading));
-  if (start === -1) return 0;
-  let count = 0;
-  for (const line of lines.slice(start + 1)) {
-    if (/^#{1,6}\s/.test(line.trim())) break;
-    if (/^[-*]\s+\S/.test(line.trim())) count++;
-  }
-  return count;
+  // Matched through `ost/headings.ts`, not by trim-equality, and now by its
+  // reader rather than by a copy of it. This reader and `hasRecordedResult` used
+  // to disagree about what a `## Results` heading is — trim-equality saw
+  // `  ## Results` and missed `## Results of the pilot`; the regex did the
+  // reverse — so the guard that refuses the heading could only have covered one
+  // of them. One matcher, and now one entry-scanner, for every reader.
+  return entriesUnder(body, heading).length;
 }
 
 /** What one assumption test claims, and how much of that claim is bounded. */
@@ -247,17 +240,7 @@ export function computeUnfixedThresholds(tree: readonly OstNode[]): UnfixedThres
 
 /** The statements written under `## Uncovered`, without their list markers. */
 export function uncoveredStatementsOf(test: OstNode): string[] {
-  const lines = test.body.split("\n");
-  const start = lines.findIndex((l) => isHeadingLine(l, UNCOVERED_HEADING));
-  if (start === -1) return [];
-
-  const statements: string[] = [];
-  for (const line of lines.slice(start + 1)) {
-    const trimmed = line.trim();
-    if (/^#{1,6}\s/.test(trimmed)) break;
-    if (/^[-*]\s+\S/.test(trimmed)) statements.push(trimmed.replace(/^[-*]\s+/, ""));
-  }
-  return statements;
+  return entriesUnder(test.body, UNCOVERED_HEADING);
 }
 
 /**

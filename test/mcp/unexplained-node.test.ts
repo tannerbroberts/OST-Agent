@@ -119,7 +119,10 @@ test("the finding counts as a violation, so the CLI exits non-zero on it", () =>
   // `ost_check` has no exit code and the CLI does; both read this one number. A finding
   // that printed a line without moving it would leave `ost-agent check` green on a
   // tampered vault, which is the whole failure being closed.
-  const census = { nodes: [], examined: 0, seenFiles: ["Injected.md"], skipped: [], unreadable: [] };
+  // `retired` is a required field on `TreeCensus` and this literal omitted it —
+  // caught by no compiler, because `tsconfig.json` covers `src/` only. Every
+  // real census carries it, so a fixture without it is a shape nothing produces.
+  const census = { nodes: [], examined: 0, seenFiles: ["Injected.md"], skipped: [], unreadable: [], retired: [] };
   const before = renderCheck(census).violations;
   const after = renderCheck({
     ...census,

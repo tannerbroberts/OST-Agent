@@ -1,5 +1,6 @@
 /**
- * Recording an assumption test's result — the human's half of the gate.
+ * The human's half of the tree: recording a result, promoting a node, retracting
+ * one. Three writes the agent may never make, behind one CLI.
  *
  * The agent may never run a test or record a result: that rule is what keeps
  * synthetic evidence out of the tree. But the gate it enforces is only passable
@@ -14,7 +15,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { Vault } from "./vault.js";
-import { RESULTS_HEADING, UNCOVERED_HEADING, VERDICTS, type Verdict } from "./headings.js";
+import { RESULTS_HEADING, RETRACTION_HEADING, UNCOVERED_HEADING, VERDICTS, type Verdict } from "./headings.js";
+import { isRetractedNode, retractionReason } from "./census.js";
 import { isRung, type RungId } from "../knowledge/believability.js";
 
 // The vocabulary is DEFINED in `headings.ts`, beside the heading it is written under,
@@ -126,6 +128,81 @@ export function promoteNode(vaultDir: string, filing: PromotionFiling): string {
   }
   const vault = new Vault(path.resolve(vaultDir));
   return vault.promoteToValidated(filing.node, by, why);
+}
+
+export interface RetractionFiling {
+  /** Title of the node being retracted. */
+  node: string;
+  /** Who retracted it — a person, never the agent. */
+  by: string;
+  /** Why it is being taken out of the live tree. */
+  why: string;
+  /** ISO date; defaults to today. */
+  on?: string;
+}
+
+/**
+ * Retract a node — the way back that append-only never had.
+ *
+ * Nothing is deleted. The file stays, its history stays, and the retraction goes
+ * on the end of it saying who took it out and why; what changes is that
+ * `Vault.readTreeCensus` stops returning it as a node, so every count, scan,
+ * gate, rollup and sweep in the product stops carrying it. The record is
+ * complete and the live tree is correct, which is the pair no other mechanism
+ * here gives you at once — `deferred` keeps the node in every gate, and
+ * `archive/` needs a shell.
+ *
+ * **CLI-only, and that is the entire safety argument.** A retraction is total,
+ * so an agent that could write one could take any node — with its dangling link,
+ * its unearned rung, its self-validation contradiction — out of the tree the
+ * invariants run over. `## Retraction` is therefore a reserved heading refused at
+ * the vault's write funnel, and this function reaches it the one way nothing on
+ * the tool surface can: by naming the heading in `appendUnderSection`'s own
+ * argument, the position the content guard does not scan. Same asymmetry as
+ * {@link recordResult}, applied to a stronger claim.
+ *
+ * Two refusals, each a way retraction destroys rather than supersedes:
+ *   - the Outcome is never retracted; a tree with no root is not a smaller tree,
+ *     it is an unreadable one (`single-outcome` reddens every command at once)
+ *   - a node already retracted is not retracted twice; the second call is either
+ *     a mistake or a second author who could not see the first, and both are
+ *     better served by being shown the retraction that already stands
+ */
+export function retractNode(vaultDir: string, filing: RetractionFiling): string {
+  const by = (filing.by ?? "").trim();
+  if (!by) {
+    throw new Error(
+      "a retraction needs attribution — say who retracted it. An unattributed retraction cannot be told apart from a fabricated one.",
+    );
+  }
+  const why = (filing.why ?? "").trim();
+  if (!why) {
+    throw new Error(
+      "a retraction needs a reason — why this node is coming out of the live tree. It is the only thing a reader who finds the file later will have.",
+    );
+  }
+
+  const vault = new Vault(path.resolve(vaultDir));
+  const node = vault.read(filing.node);
+  if (node.layer === "Outcome") {
+    throw new Error(
+      `refusing to retract the Outcome node "${filing.node}" — every command reads the tree through its root, ` +
+        `so a vault with none does not report a smaller tree, it reports a broken one. Retract what hangs beneath it.`,
+    );
+  }
+  if (isRetractedNode(node)) {
+    throw new Error(
+      `"${filing.node}" is already retracted (${retractionReason(node)}). Nothing to do — it is in no count, scan or gate.`,
+    );
+  }
+
+  const on = filing.on ?? new Date().toISOString().slice(0, 10);
+  const line = `- ${on} **retracted** (by ${by}) — ${why}`;
+  // The heading travels as `appendUnderSection`'s own argument — the position the
+  // content guard does not scan — which IS this path's exclusivity. Do not inline
+  // it into `line` (ost/headings.ts).
+  vault.appendUnderSection(filing.node, RETRACTION_HEADING, line);
+  return line;
 }
 
 /** True when the vault directory looks like a vault (used for friendlier CLI errors). */

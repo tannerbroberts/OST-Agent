@@ -32,6 +32,7 @@ import {
   INSTRUMENT_LOG_HEADING,
   RESERVED_HEADINGS,
   RESULTS_HEADING,
+  RETRACTION_HEADING,
   UNCOVERED_HEADING,
 } from "../../src/ost/headings.js";
 import type { OstNode } from "../../src/ost/node.js";
@@ -349,7 +350,22 @@ describe("the guard and the readers cannot drift apart", () => {
     // observation is what releases a solution to the build half of the loop
     // (`eval/buildable.ts`), so an agent able to author one could authorize its
     // own build against a test nobody ever ran.
-    expect([...RESERVED_HEADINGS]).toEqual([RESULTS_HEADING, UNCOVERED_HEADING, INSTRUMENT_LOG_HEADING]);
+    //
+    // `## Retraction` is the fourth and it widens the bar, which is why this line
+    // had to be edited to admit it rather than growing quietly. The first three
+    // let their author clear ONE gate; a retraction takes the node out of every
+    // gate at once, because `Vault.readTreeCensus` stops returning it. So it is
+    // not a measurement a gate reads — it is the tree the gates run over, and an
+    // agent able to author one would hold a delete in the one form no invariant
+    // can see: the node a violation hangs off is no longer in the list the
+    // invariant is given. Same rule, stronger claim.
+    // (`test/ost/retraction-consumers.test.ts` is where that is held.)
+    expect([...RESERVED_HEADINGS]).toEqual([
+      RESULTS_HEADING,
+      UNCOVERED_HEADING,
+      INSTRUMENT_LOG_HEADING,
+      RETRACTION_HEADING,
+    ]);
   });
 
   test("the newest reserved heading is refused on the agent's surface like the rest", async () => {

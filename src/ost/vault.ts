@@ -59,7 +59,14 @@ import {
 import { fileNameForTitle, sanitizeTitle } from "./sanitize.js";
 import { isHeadingLine, reservedHeadingIn } from "./headings.js";
 import { joinReservedSections, splitReservedSections } from "./sections.js";
-import { ARCHIVE_DIRNAME, withoutRetiredNodes, type CensusDrop, type TreeCensus } from "./census.js";
+import {
+  ARCHIVE_DIRNAME,
+  isRetractedNode,
+  retractionReason,
+  withoutRetiredNodes,
+  type CensusDrop,
+  type TreeCensus,
+} from "./census.js";
 import type { RungId } from "../knowledge/believability.js";
 import type { LaneId } from "../knowledge/lanes.js";
 
@@ -243,6 +250,11 @@ export class Vault {
    * turns it on, and the argument for it, are on `withoutRetiredNodes`. Files
    * under `archive/` are withheld either way — nothing the agent can call puts
    * a file there.
+   *
+   * A node carrying a `## Retraction` is withheld either way too, for the same
+   * reason and by the same argument: the heading is reserved, so no tool call
+   * can author one and no edit can drop one, and a retirement the agent cannot
+   * forge is a retirement every gate may honour. See {@link isRetractedNode}.
    */
   readTreeCensus(opts: { excludeRetired?: boolean } = {}): TreeCensus {
     const entries = fs.readdirSync(this.root, { withFileTypes: true });
@@ -292,11 +304,34 @@ export class Vault {
         continue;
       }
 
+      let node: OstNode;
       try {
-        nodes.push(deserialize(e.name.replace(/\.md$/, ""), raw));
+        node = deserialize(e.name.replace(/\.md$/, ""), raw);
       } catch (err) {
         unreadable.push({ file: e.name, reason: (err as Error).message });
+        continue;
       }
+
+      // Retraction, honoured HERE and only here.
+      //
+      // This is the whole of "every reader and gate honours it", and it is one
+      // line rather than a change to each of the seventeen call sites downstream
+      // because there is exactly one door: nothing outside `src/ost/` turns a
+      // file into an `OstNode`, so every count, scan, gate, rollup and sweep in
+      // the product is reading this array. A per-consumer flag would have been
+      // the version that a reader written next year silently does not honour;
+      // `test/ost/retraction-consumers.test.ts` pins the door shut so it stays
+      // that way.
+      //
+      // Unconditional, unlike `excludeRetired` below, and the asymmetry is the
+      // safety argument in one word: `deferred` is the agent's to set and a
+      // retraction is not, so only this one is safe to apply to a gate.
+      if (isRetractedNode(node)) {
+        retired.push({ file: e.name, reason: retractionReason(node) });
+        continue;
+      }
+
+      nodes.push(node);
     }
 
     const census: TreeCensus = { nodes, examined: seenFiles.length, seenFiles, skipped, unreadable, retired };
@@ -630,6 +665,32 @@ export class Vault {
     }
     if (loser.layer === "Outcome") {
       throw new Error(`refusing to merge the Outcome node "${from}" — the root's identity is the mandate it carries`);
+    }
+    /*
+     * The laundering path, closed where it opens.
+     *
+     * A merge carries the LOSER's reserved blocks onto the survivor so a result
+     * it recorded is not lost with its file — correct for the three measurement
+     * headings and catastrophic for the fourth. `## Retraction` carried across
+     * would retract the survivor, so `ost_merge_nodes(retracted, live)` would be
+     * a delete of an arbitrary live node in one allowlisted call: the exact
+     * capability making the heading reserved was meant to withhold, reached by
+     * copying it rather than by writing it.
+     *
+     * Refused in both directions. The loser's case is the attack; the survivor's
+     * is the mirror of it — folding a live node into a retracted one buries a
+     * node the tree still holds behind a retirement it never had, which is the
+     * same loss with the arrow reversed. A human who means to do either retracts
+     * the node they mean to retract, by name.
+     */
+    for (const [role, node] of [["loser", loser] as const, ["survivor", survivor] as const]) {
+      if (!isRetractedNode(node)) continue;
+      throw new Error(
+        `refusing to merge "${from}" into "${into}": the ${role} "${node.title}" is retracted. ` +
+          `A merge carries reserved sections onto the survivor, so this would copy a retraction ` +
+          `onto a live node — taking it out of every count, scan and gate without anyone retracting it. ` +
+          `Retraction is a human's call on the CLI: ost-agent retract "<node>" -b "<who>" -w "<why>".`,
+      );
     }
 
     const loserTitle = sanitizeTitle(from);
