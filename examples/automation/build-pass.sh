@@ -289,7 +289,36 @@ if [ "$BUILD_COUNT" -eq 0 ]; then
   elif [ "$UNINSTRUMENTED" = "unknown" ]; then
     report "Build loop ran and built nothing, and could not read how much of the tree is still prose only — 'ost-agent debt' did not report a count. Nothing was verified and nothing was built. This is a loop problem rather than a tree problem, so it is worth a look at the log; no tree work is being asked of you."
   elif [ "$UNINSTRUMENTED" -gt 0 ]; then
-    report "Build loop ran and built nothing, because nothing is defined yet. ${UNINSTRUMENTED} solution(s) across ${NODE_COUNT} nodes still have tests that are prose only — no command to run, so nothing that can fail. The discovery loop is working through exactly that queue and this loop will pick each one up automatically once it has a runnable test. No action needed."
+    # ----------------------------------------------------------------------
+    # This branch used to end "The discovery loop is working through exactly
+    # that queue ... No action needed", hourly, and it was never checked against
+    # anything. It went out for 21 hours while discovery had not fired once,
+    # parked over its spend ceiling. A reassurance nobody measured is worse than
+    # no reassurance: it spends the operator's trust in this channel to hide the
+    # one fact they needed.
+    #
+    # So the claim is now made only when it is true, and `ost-agent loop health`
+    # is what makes it checkable. That is a READ-ONLY reporter, deliberately not
+    # `loop due` — `due` answers "may I fire?", which is the discovery loop's
+    # question, single-tenant, and not this loop's to ask.
+    # ----------------------------------------------------------------------
+    HEALTH="$(node "$CLI" loop health --vault . 2>/dev/null)"
+    BLOCKED="$(printf '%s\n' "$HEALTH" | grep '^blocked:' | sed 's/^blocked: //')"
+    LAST_MIN="$(printf '%s\n' "$HEALTH" | grep -oE '\(([0-9]+) minute' | grep -oE '[0-9]+' | head -1)"
+    STALLED="$(printf '%s\n' "$HEALTH" | grep '^stalled:' | sed 's/^stalled: //')"
+    # Three missed firings at discovery's hourly cadence. Long enough not to fire
+    # on an ordinary gap, short enough that a dead loop is named the same day.
+    QUIET_AFTER_MIN=180
+
+    QUEUE="${UNINSTRUMENTED} solution(s) across ${NODE_COUNT} nodes still have tests that are prose only — no command to run, so nothing that can fail."
+
+    if [ -n "$BLOCKED" ]; then
+      report "Build loop ran and built nothing, because nothing is defined yet. ${QUEUE} The discovery loop that would fix that is NOT running: ${BLOCKED}. Nothing will reach this loop until discovery fires again, so the queue will not move on its own."
+    elif [ -n "$LAST_MIN" ] && [ "$LAST_MIN" -gt "$QUIET_AFTER_MIN" ]; then
+      report "Build loop ran and built nothing, because nothing is defined yet. ${QUEUE} The discovery loop that would fix that has not fired in ${LAST_MIN} minutes, which is longer than its cadence — it is not currently working the queue, whatever is stopping it.${STALLED:+ Stall signal: ${STALLED}.} Worth a look at the discovery log."
+    else
+      report "Build loop ran and built nothing, because nothing is defined yet. ${QUEUE} The discovery loop is firing on schedule and working that queue, and this loop will pick each one up automatically once it has a runnable test. No action needed."
+    fi
   else
     report "Build loop ran and built nothing. Nothing is pending verification and no solution is waiting on a definition of done, which on a tree of ${NODE_COUNT} nodes means everything currently defined has been built. New work reaches this loop when discovery writes the next test. No action needed."
   fi

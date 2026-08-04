@@ -2953,14 +2953,15 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1691 tests across 149 files, verified 2026-08-03 (`npx vitest run`,
+> *Today:* **met** — 1697 tests across 150 files, verified 2026-08-03 (`npx vitest run`,
 > after instruments gave assumption tests a runnable half: `test/knowledge/instruments.test.ts`
 > pins the allowlist that keeps an agent from authoring its own verdict, and
 > `test/ost/instrument.test.ts` pins red-before-green against a real process, and
 > `test/automation/build-pass-reports.test.ts` pins that the build loop parses and that its
 > idle reports ask the operator for no tree work, and `test/security/instrument-required.test.ts`
 > pins that a test must name a command or a person and that a swapped instrument cannot
-> inherit the old one's permit). (The count this line
+> inherit the old one's permit, and `test/loop/health-report.test.ts` pins the read-only
+> reporter the build loop consults before claiming discovery is working). (The count this line
 > carried two revisions ago, 878 across 86, predated `8261a6f`'s deletion of the
 > genome and harness and was never updated with it — a reminder that a number in this
 > document is a claim like any other. It has since been wrong twice more, both times

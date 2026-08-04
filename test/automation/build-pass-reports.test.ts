@@ -86,6 +86,45 @@ describe("the no-build report never asks the operator to do tree work", () => {
     expect(offenders, `a build-loop report asks for tree work: ${offenders.join(" | ")}`).toEqual([]);
   });
 
+  /*
+   * The regression that prompted this block. The prose-only branch asserted "The
+   * discovery loop is working through exactly that queue ... No action needed"
+   * unconditionally, and shipped that hourly for 21 hours while discovery had not
+   * fired once, parked over its spend ceiling. The claim was never checked
+   * against anything.
+   */
+  test("the discovery-is-working claim is conditional, never unconditional", () => {
+    const source2 = fs.readFileSync(path.join(root, SCRIPTS[0]), "utf8");
+    const code = source2
+      .split("\n")
+      .filter((line) => !/^\s*#/.test(line))
+      .join("\n");
+    // It must consult something before reassuring anyone.
+    expect(code).toMatch(/loop health --vault/);
+    // And the reassurance must sit in a branch, not in the open.
+    const reassuring = [...code.matchAll(/report "([^"]*firing on schedule[^"]*)"/g)];
+    expect(reassuring.length, "the reassuring report should exist and be branch-guarded").toBe(1);
+    expect(code).toMatch(/if \[ -n "\$BLOCKED" \]/);
+    expect(code).toMatch(/LAST_MIN" -gt "\$QUIET_AFTER_MIN/);
+  });
+
+  test("a blocked or silent discovery loop is named, not papered over", () => {
+    const reports2 = [...fs.readFileSync(path.join(root, SCRIPTS[0]), "utf8").matchAll(/report "([^"]+)"/g)].map(
+      (m) => m[1],
+    );
+    // One report for "discovery is blocked, here is why", one for "discovery has
+    // gone quiet". Neither may end by telling the operator no action is needed.
+    const blocked = reports2.filter((r) => /is NOT running/.test(r));
+    const quiet = reports2.filter((r) => /has not fired in/.test(r));
+    expect(blocked.length).toBe(1);
+    expect(quiet.length).toBe(1);
+    for (const r of [...blocked, ...quiet]) {
+      expect(r, `a report about a stalled discovery loop must not say no action is needed: ${r}`).not.toMatch(
+        /No action needed/i,
+      );
+    }
+  });
+
   test("the nothing-to-build reports say who WILL change it, and ask for nothing", () => {
     const idle = reports.filter((r) => /built nothing/.test(r));
     expect(idle.length).toBeGreaterThanOrEqual(3);

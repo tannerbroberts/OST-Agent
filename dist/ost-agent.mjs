@@ -45461,6 +45461,26 @@ function registerLoopCommands(program3) {
     });
     process.exitCode = exit;
   });
+  loop.command("health").description("report when this vault's loop last fired and what is holding it, if anything (read-only; decides nothing)").option("--vault <dir>", "vault directory", ".").action((opts) => {
+    const config2 = loadConfig(opts.vault);
+    const runs = readRuns(opts.vault);
+    const now = Date.now();
+    const last2 = runs[0];
+    if (!last2) {
+      console.log("last-fired: never");
+    } else {
+      const ageMin = Math.floor((now - new Date(last2.startedAt).getTime()) / 6e4);
+      console.log(`last-fired: ${last2.startedAt} (${ageMin} minute(s) ago, ${last2.verdict ?? "unsealed"})`);
+    }
+    const stall = assessStall(runs);
+    if (stall.stalled) console.log(`stalled: ${stall.reason}`);
+    const ceiling = ceilingOf(opts.vault, config2.loop?.spend);
+    const spend = checkCeiling(
+      ceiling,
+      ceiling ? measureFiring(ceiling.sessionsDir, { vaultDir: opts.vault, sinceMs: now - ceiling.windowHours * HOUR_MS }) : void 0
+    );
+    console.log(spend.ok ? "blocking: none" : `blocked: ${spend.reason}`);
+  });
   loop.command("seal").description("compute the verdict from the recorded exits, append it to runs.jsonl, release the lock").option("--vault <dir>", "vault directory", ".").action((opts) => {
     const sealed = sealRun(opts.vault, { headAfter: gitHead(opts.vault) });
     const released = releaseFiringLock(opts.vault, { runId: sealed.runId });

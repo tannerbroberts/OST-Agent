@@ -445,6 +445,58 @@ export function registerLoopCommands(program: Command): void {
     });
 
   loop
+    .command("health")
+    .description("report when this vault's loop last fired and what is holding it, if anything (read-only; decides nothing)")
+    .option("--vault <dir>", "vault directory", ".")
+    .action((opts: { vault: string }) => {
+      /*
+       * A REPORTER, deliberately separate from `due`.
+       *
+       * `due` answers "may I fire?" — it is the discovery loop's question, it is
+       * single-tenant, and a second loop asking it reads as that loop claiming
+       * the window. This answers a different question that anyone may ask:
+       * what is the state of the vault's loop right now?
+       *
+       * It exists because the build loop was telling the operator "the discovery
+       * loop is working through exactly that queue. No action needed" — hourly,
+       * on a vault whose discovery loop had not fired for 21 hours because it was
+       * over its spend ceiling. That sentence was never checked against anything.
+       * A reassurance nobody measured is worse than no reassurance, because it
+       * spends the operator's trust in the channel to hide the one fact they
+       * needed.
+       *
+       * Never sets a non-zero exit code, whatever it finds. A blocked loop is not
+       * this command failing, and a caller reading the exit code would have to
+       * treat "discovery is paused" as its own error.
+       */
+      const config = loadConfig(opts.vault);
+      const runs = readRuns(opts.vault);
+      const now = Date.now();
+
+      const last = runs[0];
+      if (!last) {
+        console.log("last-fired: never");
+      } else {
+        const ageMin = Math.floor((now - new Date(last.startedAt).getTime()) / 60_000);
+        console.log(`last-fired: ${last.startedAt} (${ageMin} minute(s) ago, ${last.verdict ?? "unsealed"})`);
+      }
+
+      const stall = assessStall(runs);
+      if (stall.stalled) console.log(`stalled: ${stall.reason}`);
+
+      const ceiling = ceilingOf(opts.vault, config.loop?.spend);
+      const spend = checkCeiling(
+        ceiling,
+        ceiling
+          ? measureFiring(ceiling.sessionsDir, { vaultDir: opts.vault, sinceMs: now - ceiling.windowHours * HOUR_MS })
+          : undefined,
+      );
+      // `blocked:` / `blocking: none` are the two spellings a caller greps for,
+      // so the line is stable even as the reasons behind it change.
+      console.log(spend.ok ? "blocking: none" : `blocked: ${spend.reason}`);
+    });
+
+  loop
     .command("seal")
     .description("compute the verdict from the recorded exits, append it to runs.jsonl, release the lock")
     .option("--vault <dir>", "vault directory", ".")
