@@ -59,6 +59,8 @@ import { RESERVED_HEADINGS, RETRACTION_HEADING, declaresHeading } from "../../sr
 import { triageLanes } from "../../src/ost/lanes.js";
 import type { OstNode } from "../../src/ost/node.js";
 import { retractNode } from "../../src/ost/results.js";
+import { strandedEvidenceCensus } from "../../src/ost/stranded.js";
+import { writeEvidence } from "../../src/processes/tree.js";
 import { buildPassContext } from "../../src/runner/context.js";
 import { Vault } from "../../src/ost/vault.js";
 import { buildOstTools, type ToolContext } from "../../src/security/tools.js";
@@ -152,21 +154,26 @@ describe("the consumer set, enumerated and held there", () => {
     return out;
   }
 
-  test("every module that reads nodes is one of five, and the audit's bar is 12", () => {
+  test("every module that reads nodes is one of six, and the audit's bar is 12", () => {
     const readers = sources()
       .filter((f) => f.rel !== path.join("ost", "vault.ts"))
       .filter((f) => /\.(readTree|readTreeCensus|readLiveTree)\(/.test(f.text))
       .map((f) => f.rel)
       .sort();
 
-    // Exact, like `RETIRED_STATUSES`' pin: a sixth reading module is an argument
+    // Exact, like `RETIRED_STATUSES`' pin: a seventh reading module is an argument
     // someone makes in a diff rather than a line that slips through. It is not a
     // cap on the feature — a new reader is welcome — it is a cap on adding one
     // WITHOUT looking at whether it honours a retraction.
+    //
+    // `ost/stranded.ts` is the sixth, added with that argument made: the stranded
+    // census asks which nodes quote an evidence id, and a retracted node's prose
+    // must not be able to answer yes — see the assertion below.
     expect(readers).toEqual([
       path.join("cli", "index.ts"),
       path.join("mcp", "bootstrap.ts"),
       path.join("mcp", "next-work.ts"),
+      path.join("ost", "stranded.ts"),
       path.join("runner", "set-outcome.ts"),
       path.join("security", "tools.ts"),
     ]);
@@ -303,6 +310,25 @@ describe("a retracted node is in no count, scan, gate or rollup", () => {
     // refusing everything.
     expect(gateSolution(vault.readTree(), "Kept solution").cleared).toBe(false);
     expect(renderGate(vault.readTree(), "Kept solution").text).toContain("Kept test");
+  });
+
+  test("the stranded census — a retracted node's prose no longer counts as an attachment", () => {
+    writeEvidence(
+      dir,
+      { id: "TRANSCRIPT:only-cited-by-the-regretted-node", source: "f", title: "x", timestamp: "t", body: "b" },
+      "transcript",
+    );
+    vault.appendToNode(REGRETTED, "## Notes\ngrounded by `TRANSCRIPT:only-cited-by-the-regretted-node`");
+    expect(strandedEvidenceCensus([dir]).attachable.map((i) => i.citedBy)).toEqual([[REGRETTED]]);
+
+    retract(REGRETTED);
+
+    // The point: the citation is still on disk, and the census must not read it.
+    // "An existing node already cites this" is a claim about the LIVE tree, so a
+    // node nobody may act on cannot be the reason an item looks attached.
+    const after = strandedEvidenceCensus([dir]);
+    expect(after.attachable).toEqual([]);
+    expect(after.homeless.map((i) => i.id)).toEqual(["TRANSCRIPT:only-cited-by-the-regretted-node"]);
   });
 
   test("lane triage — a retracted test is not in an unattended pass's backlog", () => {
