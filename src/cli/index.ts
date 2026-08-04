@@ -15,6 +15,7 @@
  *   ost-agent buildable ["<solution>"]        is it defined well enough to build, and against what command?
  *   ost-agent stranded [--also DIR]           evidence no node cites, split by which fix would clear it
  *   ost-agent capability [--repo DIR]         what each builder can do, read off the commits already written
+ *   ost-agent preflight [--transcripts DIR]   did the callers whose calls failed already know they were unsure?
  *   ost-agent channels [--vault DIR]          every drop folder, its last delivery, and what has gone silent
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
  *   ost-agent loop due|start|step|seal        unattended firing: cadence, lock, ceiling, health
@@ -43,6 +44,10 @@ import { buildableSolutions, buildPermit, testsAwaitingVerification } from "../e
 import { formatCensus, reconcileWithGit, reconcileWithUsage } from "../ost/census.js";
 import { formatStrandedCensus, strandedEvidenceCensus } from "../ost/stranded.js";
 import { committedCapabilityProfile, formatCapabilityProfile } from "../product/capability.js";
+import {
+  formatPreflightCensus, preflightUncertaintyCensus, readTranscriptSessions, readUsageEvents,
+} from "../telemetry/preflight.js";
+import { defaultTranscriptDir } from "../adapters/transcript.js";
 import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
 import { laneDef, LANES, type LaneId } from "../knowledge/lanes.js";
 import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapters/friction.js";
@@ -556,6 +561,31 @@ program
     // not see at all exits the same way, and for a stronger reason: a sweep that
     // reports a clean run over a subject it never read is worse than a red one.
     if (report.verdict === "refuted" || report.shallow) process.exitCode = 1;
+  });
+
+program
+  .command("preflight")
+  .description("how often a call that failed came from a caller already showing doubt — the census behind a validate-only twin")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option(
+    "--transcripts <dir>",
+    "a directory of session transcripts to read the failures against (repeatable); defaults to this project's own",
+    collect,
+    [],
+  )
+  .action((opts: { vault: string; transcripts: string[] }) => {
+    // Deliberately NOT `buildPassContext`: this reads a trace and some transcripts
+    // and answers a question about them. Opening a Vault handle would create the
+    // directory a mistyped path names, and constructing adapters would reach for
+    // credentials nothing here needs.
+    const vault = path.resolve(opts.vault);
+    const dirs = opts.transcripts.length ? opts.transcripts : [defaultTranscriptDir(vault)];
+    const sessions = dirs.flatMap((d) => readTranscriptSessions(path.resolve(d)));
+    const census = preflightUncertaintyCensus(readUsageEvents(vault), sessions);
+    console.log(formatPreflightCensus(census));
+    // Nothing readable is not a clean result — it is the sweep that could not read
+    // its subject, and an automation has to learn that through the exit code.
+    if (census.readable === 0) process.exitCode = 1;
   });
 
 program

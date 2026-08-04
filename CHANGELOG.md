@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+- **The preflight-uncertainty census: did the callers whose calls failed already know they
+  were unsure?** A validate-only twin of every mutating tool — same arguments, every check
+  run, nothing written, a verdict returned — helps exactly one caller: the one who thinks
+  to use it. So the assumption underneath it is not that the twin is buildable, it is that
+  failing callers were hesitating. `ost-agent preflight` (`src/telemetry/preflight.ts`)
+  takes that count: the denominator is every failed call in the usage trace, and for each
+  it finds the call in the session transcript and reads a bounded window of what the caller
+  did immediately before — a first-person hedge, an announced check, a read issued before
+  the write, or a clarifying question. The rule is committed in `UNCERTAINTY_RULE` ahead of
+  the count, including the nine bare hedges (`might`, `maybe`, `probably`, …) it refuses on
+  the grounds that they occur in ordinary prose whatever the caller believes.
+
+- **The answer is 0 of 6, and the two numbers reported ahead of it matter more.** Over this
+  project's own trace — 1125 calls, 68 failures, committed whole under
+  `test/fixtures/preflight/` — not one readable failure was preceded by any doubt signal.
+  But 62 of the 68 have no session record at all, so the denominator is six; and the count
+  moves from 0 to 6 as the lookback widens from 6 entries to 24, which the census reports
+  as `boundDecides` on the face of the output rather than in a footnote. A share that swings
+  from none to all across plausible windows is a property of the window, not of the callers.
+
+- **A window whose reasoning was stripped is reported as unread prose, not as no hedge.**
+  Found by building it: Claude Code stores an assistant `thinking` block with its text
+  removed and only the signature kept, so the place a caller would have written "I'm not
+  sure this rung is allowed" is not in the record. Five of the six readable windows carry
+  no caller prose at all. `PreflightCensus.proseless` names them, because "no hedge" over a
+  window where a hedge could not have been seen is the sweep that cannot read its subject
+  reporting a clean run.
+
 - **A builder capability profile read off the work already committed.** Every other way of
   learning what a collaborator can do asks for a deposit — a skills matrix somebody fills
   in, a trace channel each builder opts into — and a mechanism that needs compliance is

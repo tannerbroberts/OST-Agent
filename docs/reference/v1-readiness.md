@@ -2953,7 +2953,19 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1848 tests across 158 files, verified 2026-08-04 (`npx vitest run`,
+> *Today:* **met** — 1882 tests across 159 files, verified 2026-08-04 (`npx vitest run`,
+> after `test/telemetry/preflight-uncertainty-census.test.ts` pinned the preflight-uncertainty
+> census — how often a call that failed came from a caller already showing doubt, which is the
+> assumption a validate-only twin of every mutating tool rests on. The classifier is committed
+> in `src/telemetry/preflight.ts` (`UNCERTAINTY_RULE`) ahead of the count, including the nine
+> bare hedges it refuses, and the controls in the test are what carry the file: every signal
+> kind fires on a window built to carry it and stays silent on a window built to look like it.
+> Over the committed corpus (`ost-agent preflight`) the answer is **0 of 6** against a bar of
+> half — but the census reports two things ahead of that share and they matter more. 62 of the
+> 68 failed calls have no session record at all, so the denominator is six. And the count moves
+> from 0 to 6 as the lookback widens from 6 entries to 24, so the share is a property of the
+> window as much as of the callers; `boundDecides` says so on the report's face rather than in
+> a footnote;
 > after `test/product/committed-capability-profile.test.ts` pinned the committed capability
 > profile — what each builder demonstrably knows how to do, inferred from authored commits
 > and the pull requests they arrived in, with nothing asked of anyone. Its load-bearing half
