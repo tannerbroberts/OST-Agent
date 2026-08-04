@@ -2953,7 +2953,20 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1826 tests across 157 files, verified 2026-08-04 (`npx vitest run`,
+> *Today:* **met** — 1848 tests across 158 files, verified 2026-08-04 (`npx vitest run`,
+> after `test/product/committed-capability-profile.test.ts` pinned the committed capability
+> profile — what each builder demonstrably knows how to do, inferred from authored commits
+> and the pull requests they arrived in, with nothing asked of anyone. Its load-bearing half
+> is the census it takes on the way past: a capability is named only from a conventional
+> type plus a domain the artifact locates, so the reading can come back empty, and the
+> profile carries the share of the record it could read on its face. Run over this
+> repository (`ost-agent capability`) it reports **NARROWED** — 64 of the last 100 commits
+> and 20 of the last 30 PRs name a capability, above the 50-of-100 line that would have
+> killed the candidate and below the 70 that would let it stand on the whole record. The
+> first CI run on that test is itself part of D1's evidence: `actions/checkout` clones at
+> depth 1, so the census over the last 100 commits read a record of ONE and reported a
+> share of it. `fetch-depth: 0` is now set on the `test` job, and the reader refuses a
+> truncated clone outright rather than reporting a clean run over a subject it never saw;
 > after `test/ost/stranded-evidence-census.test.ts` pinned the stranded-evidence census —
 > the split between evidence some node's prose already quotes and evidence nothing in the
 > tree quotes, which is the number that decides between making `source` appendable and

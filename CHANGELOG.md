@@ -2,6 +2,43 @@
 
 ## Unreleased
 
+- **A builder capability profile read off the work already committed.** Every other way of
+  learning what a collaborator can do asks for a deposit — a skills matrix somebody fills
+  in, a trace channel each builder opts into — and a mechanism that needs compliance is
+  defeated by non-compliance. `ost-agent capability` (`src/product/capability.ts`) asks for
+  nothing: it reads authored commits, their scopes, their diffs, and the pull requests they
+  arrived in, and reports what each builder demonstrably knows how to do with the refs
+  under each claim so it can be checked. Co-author trailers are builders too, because in a
+  repository with agent collaborators the author field records who ran the tool. It is the
+  only capability mechanism that works retroactively: the moment it exists it has the whole
+  history to read.
+
+- **The profile states how much of the record it could read, because "already there" and
+  "legible" are different properties.** A history of `wip` and `update stuff` is present in
+  full and supports no inference; a profile built over it would be a confident restatement
+  of who touched which file. So a capability is named only from a conventional-commit type
+  plus a domain the artifact actually locates — a scope that reads as a word, or an area
+  the diff dominates — and the reading is allowed to come back empty. Over this repository,
+  against bands fixed before anything was counted (70 of 100 commits and 20 of 30 PRs to
+  stand on the whole record, below 50 of 100 to kill the idea), it reports **NARROWED**:
+  64 of 100 and 20 of 30. Two findings sit in that number. Discarding opaque scopes moved
+  it from 87 to 64 — `feat(w11)` and `feat(tier2)` are well-formed conventional commits
+  whose scope is a work-item id, and "builds w11" is a sentence nobody can act on. And most
+  of what is left illegible is merge commits, which name a branch and nothing else. What
+  the profile still cannot do is stated on its face: it reads capability *exercised*, so
+  what a builder was never asked to do is absent, and absent reads the same as unable.
+
+- **A shallow clone is refused rather than profiled.** Found by shipping the above:
+  `actions/checkout` clones at depth 1, and the first CI run of the census over the last
+  100 commits read a record of one commit and reported a share of it. Every number this
+  produces is a share of a denominator, and a denominator of 1 makes any share look
+  decisive — the exact shape of a sweep that cannot see its subject and reports a clean
+  result. `fetch-depth: 0` is now set on CI's `test` job so the subject is there, and
+  `CapabilityProfileReport.shallow` refuses the reading when it is not: the header reads
+  `UNREAD (shallow clone)`, the coverage sentence says so ahead of any verdict and names
+  the fix, and `ost-agent capability` exits non-zero. A skip in the test would have been
+  the other option, and would have made the missing subject invisible.
+
 - **The stranded-evidence census, computed instead of narrated.** An evidence record is
   mapped iff some node names its id in frontmatter `source`, and `source` is settable only
   at node creation — so an item that grounds a node written before the item arrived can be
