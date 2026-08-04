@@ -32753,10 +32753,12 @@ function titlesMatch(a, b2) {
 var RESULTS_HEADING = "## Results";
 var UNCOVERED_HEADING = "## Uncovered";
 var INSTRUMENT_LOG_HEADING = "## Instrument Log";
+var RETRACTION_HEADING = "## Retraction";
 var RESERVED_HEADINGS = Object.freeze([
   RESULTS_HEADING,
   UNCOVERED_HEADING,
-  INSTRUMENT_LOG_HEADING
+  INSTRUMENT_LOG_HEADING,
+  RETRACTION_HEADING
 ]);
 var VERDICTS = ["supported", "refuted", "inconclusive"];
 function headingName(heading) {
@@ -32770,6 +32772,18 @@ function isHeadingLine(line, heading) {
 }
 function declaresHeading(body, heading) {
   return body.split("\n").some((line) => isHeadingLine(line, heading));
+}
+function entriesUnder(body, heading) {
+  const lines = body.split("\n");
+  const start = lines.findIndex((l) => isHeadingLine(l, heading));
+  if (start === -1) return [];
+  const out = [];
+  for (const line of lines.slice(start + 1)) {
+    const trimmed2 = line.trim();
+    if (/^#{1,6}\s/.test(trimmed2)) break;
+    if (/^[-*]\s+\S/.test(trimmed2)) out.push(trimmed2.replace(/^[-*]\s+/, ""));
+  }
+  return out;
 }
 function reservedHeadingIn(content) {
   for (const heading of RESERVED_HEADINGS) {
@@ -38254,6 +38268,14 @@ var RETIRED = new Set(RETIRED_STATUSES);
 function isRetiredNode(node) {
   return node.status !== void 0 && RETIRED.has(node.status);
 }
+function isRetractedNode(node) {
+  return node.body !== void 0 && declaresHeading(node.body, RETRACTION_HEADING);
+}
+function retractionReason(node) {
+  const entries = node.body ? entriesUnder(node.body, RETRACTION_HEADING) : [];
+  const first2 = entries[0];
+  return first2 ? `retracted \u2014 ${quotableSource(first2)}` : "retracted \u2014 no reason recorded";
+}
 function withoutRetiredNodes(census) {
   const kept = [];
   const retired = [...census.retired];
@@ -38521,6 +38543,11 @@ var Vault = class {
    * turns it on, and the argument for it, are on `withoutRetiredNodes`. Files
    * under `archive/` are withheld either way — nothing the agent can call puts
    * a file there.
+   *
+   * A node carrying a `## Retraction` is withheld either way too, for the same
+   * reason and by the same argument: the heading is reserved, so no tool call
+   * can author one and no edit can drop one, and a retirement the agent cannot
+   * forge is a retirement every gate may honour. See {@link isRetractedNode}.
    */
   readTreeCensus(opts = {}) {
     const entries = fs12.readdirSync(this.root, { withFileTypes: true });
@@ -38553,11 +38580,18 @@ var Vault = class {
         });
         continue;
       }
+      let node;
       try {
-        nodes.push(deserialize(e.name.replace(/\.md$/, ""), raw));
+        node = deserialize(e.name.replace(/\.md$/, ""), raw);
       } catch (err) {
         unreadable.push({ file: e.name, reason: err.message });
+        continue;
       }
+      if (isRetractedNode(node)) {
+        retired.push({ file: e.name, reason: retractionReason(node) });
+        continue;
+      }
+      nodes.push(node);
     }
     const census = { nodes, examined: seenFiles.length, seenFiles, skipped, unreadable, retired };
     return opts.excludeRetired ? withoutRetiredNodes(census) : census;
@@ -38861,6 +38895,12 @@ var Vault = class {
     }
     if (loser.layer === "Outcome") {
       throw new Error(`refusing to merge the Outcome node "${from}" \u2014 the root's identity is the mandate it carries`);
+    }
+    for (const [role, node] of [["loser", loser], ["survivor", survivor]]) {
+      if (!isRetractedNode(node)) continue;
+      throw new Error(
+        `refusing to merge "${from}" into "${into}": the ${role} "${node.title}" is retracted. A merge carries reserved sections onto the survivor, so this would copy a retraction onto a live node \u2014 taking it out of every count, scan and gate without anyone retracting it. Retraction is a human's call on the CLI: ost-agent retract "<node>" -b "<who>" -w "<why>".`
+      );
     }
     const loserTitle = sanitizeTitle(from);
     const survivorTitle = sanitizeTitle(into);
@@ -39358,6 +39398,7 @@ var OST_RULESET = {
     "Write implementation code or build solutions.",
     "Invent, edit, or change the desired outcome (may only flag a mis-formed outcome as a question for humans).",
     "Remove or rewrite a '## Results', '## Uncovered' or '## Instrument Log' section. These record that something happened outside the tree \u2014 a human's finding, a stated limit, an observed exit code \u2014 and every gate reads one. Deleting one revokes a permit a human granted, which is the same act as authoring one. No tool can express it: an edit takes prose only, and a merge carries them across.",
+    'Retract a node, or try to. A \'## Retraction\' takes a node out of EVERY read \u2014 no count, scan, gate, rollup or sweep returns it \u2014 while its file, its history and the retraction line all stay on disk, which is the only way back an append-only vault has. That makes it a delete in the one form no invariant can see, so it is a human\'s call on the CLI (`ost-agent retract "<node>" -b "<who>" -w "<why>"`) and the heading is refused in every argument you can pass. A merge cannot carry one across either. When a node should never have been written, say so and ask; to record that work stopped, use `deferred`.',
     "Rewrite a node's history. '## History' is append-only; a correction appends a new dated line rather than editing an old one.",
     "Mark any opportunity, solution, or assumption as validated or confirmed.",
     "Auto-select a target opportunity or declare a winning solution.",
@@ -39370,7 +39411,7 @@ var OST_RULESET = {
     "wikilinks": "A parent->child edge is a [[Child Title]] wikilink written in the parent note (outgoing link); the child sees its parent via the Backlinks pane. The built-in Graph view's Display 'Arrows' toggle renders link direction natively, no plugin required. Keep every wikilink on a single line: a hard-wrapped paragraph that breaks one across two lines produces bracketed text and no edge, which reads correctly in the source and is missing from the graph. Let the line run long instead of wrapping inside the brackets. `check` fails on it (rule wrapped-wikilink) and the hygiene pass reports it, because discipline alone has not been enough.",
     "frontmatter": "YAML frontmatter carries type (outcome|opportunity|solution|assumption_test), status, source/provenance, created (ISO date), and confidence (high|medium|low). Frontmatter is the machine-readable source of truth for state; inline tags drive graph coloring. Keep type in frontmatter in sync with the body tag.",
     "unvalidatedMarking": "Agent-ideated, not-yet-validated nodes carry a companion #unvalidated tag on the same first body line (e.g. '#Solution #unvalidated') plus status: unvalidated in frontmatter; a dedicated Graph group query tag:#unvalidated colors them in a warning color. Status vocabulary (unvalidated -> in-discovery -> validated -> shipped -> deferred) is a vault/tooling convention, not Torres canon.",
-    "provenance": "Every note ends with an append-only '## History' section of dated entries; existing lines are never edited or deleted, and every removal elsewhere in the note writes a dated line here saying what went and why. Corrections append a new entry and update frontmatter while leaving original provenance intact. A node's PROSE may be rewritten (ost_edit_node) and a duplicate may be folded into the node that survives and its file deleted (ost_merge_nodes) \u2014 git is the recovery path, and the merge commit names what it removed. What no tool can touch either way are the reserved sections '## Results', '## Uncovered' and '## Instrument Log': an edit takes prose only and reattaches them verbatim, and a merge carries the loser's across onto the survivor. Abandoned nodes are still set status: deferred rather than merged away \u2014 deferred means 'not now', merged means 'this was the same claim'. Renames are done inside Obsidian so inbound wikilinks auto-update."
+    "provenance": `Every note ends with an append-only '## History' section of dated entries; existing lines are never edited or deleted, and every removal elsewhere in the note writes a dated line here saying what went and why. Corrections append a new entry and update frontmatter while leaving original provenance intact. A node's PROSE may be rewritten (ost_edit_node) and a duplicate may be folded into the node that survives and its file deleted (ost_merge_nodes) \u2014 git is the recovery path, and the merge commit names what it removed. What no tool can touch either way are the reserved sections '## Results', '## Uncovered', '## Instrument Log' and '## Retraction': an edit takes prose only and reattaches them verbatim, and a merge carries the loser's across onto the survivor \u2014 except a retraction, which no merge may carry, because copying one onto a live node would take that node out of every count and gate without anyone having retracted it. Abandoned nodes are still set status: deferred rather than merged away \u2014 deferred means 'not now', merged means 'this was the same claim'. A node that should never have been written at all is RETRACTED, and that is a human's call on the CLI (\`ost-agent retract "<node>" -b "<who>" -w "<why>"\`): a retracted node keeps its file, its history and the retraction line, and is returned by no read \u2014 no count, scan, gate, rollup or sweep \u2014 which is why the agent has no way to write one. Ask for it; do not attempt it. Renames are done inside Obsidian so inbound wikilinks auto-update.`
   },
   "glossary": [
     {
@@ -40814,15 +40855,7 @@ function solutionsMissingInstruments(tree) {
 
 // src/eval/coverage.ts
 function countEntriesUnder(body, heading) {
-  const lines = body.split("\n");
-  const start = lines.findIndex((l) => isHeadingLine(l, heading));
-  if (start === -1) return 0;
-  let count2 = 0;
-  for (const line of lines.slice(start + 1)) {
-    if (/^#{1,6}\s/.test(line.trim())) break;
-    if (/^[-*]\s+\S/.test(line.trim())) count2++;
-  }
-  return count2;
+  return entriesUnder(body, heading).length;
 }
 function coverageOf(test) {
   const results = countEntriesUnder(test.body, RESULTS_HEADING);
@@ -40887,16 +40920,7 @@ function computeUnfixedThresholds(tree) {
   };
 }
 function uncoveredStatementsOf(test) {
-  const lines = test.body.split("\n");
-  const start = lines.findIndex((l) => isHeadingLine(l, UNCOVERED_HEADING));
-  if (start === -1) return [];
-  const statements = [];
-  for (const line of lines.slice(start + 1)) {
-    const trimmed2 = line.trim();
-    if (/^#{1,6}\s/.test(trimmed2)) break;
-    if (/^[-*]\s+\S/.test(trimmed2)) statements.push(trimmed2.replace(/^[-*]\s+/, ""));
-  }
-  return statements;
+  return entriesUnder(test.body, UNCOVERED_HEADING);
 }
 function computeCoveragePairs(tree) {
   return tree.filter((n) => n.layer === "AssumptionTest").filter((t2) => {
@@ -40960,7 +40984,7 @@ function appendElisionCoda(lines, hidden, howToSeeTheRest) {
 function appendCensus(lines, census, budget, coda) {
   const dropped = census.skipped.length + census.unreadable.length;
   const unseen = census.independent?.unseenByWalk.length ?? 0;
-  if (dropped === 0 && unseen === 0) return 0;
+  if (dropped === 0 && unseen === 0 && census.retired.length === 0) return 0;
   const [header, ...detail2] = formatCensus(census, census.nodes.length).split("\n");
   lines.push(header);
   const source = census.independent?.source;
@@ -41490,6 +41514,36 @@ function promoteNode(vaultDir, filing) {
   }
   const vault = new Vault(path20.resolve(vaultDir));
   return vault.promoteToValidated(filing.node, by, why);
+}
+function retractNode(vaultDir, filing) {
+  const by = (filing.by ?? "").trim();
+  if (!by) {
+    throw new Error(
+      "a retraction needs attribution \u2014 say who retracted it. An unattributed retraction cannot be told apart from a fabricated one."
+    );
+  }
+  const why = (filing.why ?? "").trim();
+  if (!why) {
+    throw new Error(
+      "a retraction needs a reason \u2014 why this node is coming out of the live tree. It is the only thing a reader who finds the file later will have."
+    );
+  }
+  const vault = new Vault(path20.resolve(vaultDir));
+  const node = vault.read(filing.node);
+  if (node.layer === "Outcome") {
+    throw new Error(
+      `refusing to retract the Outcome node "${filing.node}" \u2014 every command reads the tree through its root, so a vault with none does not report a smaller tree, it reports a broken one. Retract what hangs beneath it.`
+    );
+  }
+  if (isRetractedNode(node)) {
+    throw new Error(
+      `"${filing.node}" is already retracted (${retractionReason(node)}). Nothing to do \u2014 it is in no count, scan or gate.`
+    );
+  }
+  const on = filing.on ?? (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  const line = `- ${on} **retracted** (by ${by}) \u2014 ${why}`;
+  vault.appendUnderSection(filing.node, RETRACTION_HEADING, line);
+  return line;
 }
 
 // src/adapters/friction.ts
@@ -46127,6 +46181,16 @@ program2.command("promote").description("promote a node to 'validated' (humans o
   const line = promoteNode(opts.vault, { node, by: opts.by, why: opts.why });
   console.log(`promoted "${node}": ${line}`);
   console.log("  removed the #unvalidated marker");
+});
+program2.command("retract").description("take a node out of the live tree without deleting it (humans only \u2014 no tool can express this)").argument("<node>", "title of the node to retract").requiredOption(
+  "-b, --by <who>",
+  "who retracted it \u2014 an unattributed retraction cannot be told apart from a fabricated one"
+).requiredOption("-w, --why <text>", "why it is coming out \u2014 the only thing a reader who finds the file later will have").option("--vault <dir>", "vault directory", ".").action((node, opts) => {
+  const line = retractNode(opts.vault, { node, by: opts.by, why: opts.why });
+  console.log(`retracted "${node}": ${line}`);
+  console.log("  the file, its history and this line all stay on disk and in git");
+  console.log("  it is now in no count, scan, gate or rollup; `ost-agent status` names it under retired");
+  console.log("  inbound links still point at it \u2014 `ost-agent check` reports them as dangling until they are unlinked");
 });
 program2.command("debt").description("what each solution owes in evidence before anyone builds it (no model needed)").option("--vault <dir>", "vault directory", ".").action((opts) => {
   const ctx = buildPassContext(opts.vault);

@@ -42,6 +42,7 @@ import {
   type TrustLedger,
   type TrustObservation,
 } from "../knowledge/actor-trust.js";
+import { declaresHeading, entriesUnder, RETRACTION_HEADING } from "./headings.js";
 import type { NodeStatus, OstNode } from "./node.js";
 
 /** A markdown file the walk enumerated but did not turn into a node. */
@@ -92,6 +93,52 @@ const RETIRED = new Set<string>(RETIRED_STATUSES);
 /** Is this node retired by its declared status? */
 export function isRetiredNode(node: { status?: string }): boolean {
   return node.status !== undefined && RETIRED.has(node.status);
+}
+
+/**
+ * The third way out of the live tree, and the only one that is BOTH total and
+ * expressible without a shell.
+ *
+ * The other two each give up one of those. `archive/` is total — the walk never
+ * descends, so every reader honours it — but it costs a human at a shell with
+ * `git mv`, which is not a thing a remote operator, a scheduled loop or a person
+ * on their phone can do. `deferred` is one tool call away, and is therefore
+ * allowed to reach exactly one suspicion-only scan, because a status the agent
+ * can set on itself must never be able to empty a gate's denominator.
+ *
+ * Retraction is total like the archive and reachable like a status, and it is
+ * allowed both because it is neither the agent's to write nor the agent's to
+ * remove. `## Retraction` is a {@link ../ost/headings.ts} reserved heading: every
+ * caller-supplied string on the tool surface is scanned for one and refused, and
+ * `splitReservedSections` holds the block aside so an edit cannot drop it either.
+ * The one writer is `retractNode` on the CLI, beside `recordResult` and
+ * `promoteNode`, off every allowlist. So the same sentence that licenses the
+ * archive licenses this: an unforgeable retirement cannot become the agent's way
+ * of making a violation go away.
+ *
+ * Read off the BODY rather than a frontmatter field on purpose. A field would be
+ * one more thing `serialize` writes, which means one more thing an edit could
+ * carry or drop silently; the heading is the same mechanism the three
+ * measurements already use, and it is the mechanism the guards already know how
+ * to protect.
+ */
+export function isRetractedNode(node: { body?: string }): boolean {
+  return node.body !== undefined && declaresHeading(node.body, RETRACTION_HEADING);
+}
+
+/**
+ * Why a node was retracted, in the retracting human's own words — or a bare
+ * statement that it was, if the section carries no list entry.
+ *
+ * Named, never merely counted, for the reason {@link formatCensus} states: "1
+ * retired" tells an operator a number moved, and the retraction line tells them
+ * who moved it and why. Flattened and clamped by {@link quotableSource} because
+ * it reaches a census entry that renderers put on one line.
+ */
+export function retractionReason(node: { body?: string }): string {
+  const entries = node.body ? entriesUnder(node.body, RETRACTION_HEADING) : [];
+  const first = entries[0];
+  return first ? `retracted — ${quotableSource(first)}` : "retracted — no reason recorded";
 }
 
 /**

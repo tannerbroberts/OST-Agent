@@ -54,6 +54,33 @@ export const UNCOVERED_HEADING = "## Uncovered";
 export const INSTRUMENT_LOG_HEADING = "## Instrument Log";
 
 /**
+ * The heading a retraction lives under — read by the walk that builds the tree.
+ *
+ * Append-only is what makes the vault trustworthy and it is also what makes a
+ * regretted node permanent: there is no delete, so a node written by mistake is
+ * counted, scanned, gated and re-read by every pass forever. Retraction is the
+ * way back that does not lose anything — a later append declares the node
+ * superseded, names who did it and why, and `Vault.readTreeCensus` stops
+ * returning it as a node. The file, its history and the retraction itself all
+ * stay on disk and in git.
+ *
+ * **It is reserved for the strongest reason on this list.** The other three
+ * headings let their author clear a gate; this one takes a node out of EVERY
+ * gate at once. An agent that could write one would hold a delete — the exact
+ * capability `CONTRIBUTING.md` says this product does not have — and would hold
+ * it in the one form no invariant could see, because the node the violation
+ * hangs off would no longer be in the tree the invariant runs over. That is the
+ * `deferred` attack (`ost/census.ts`, `RETIRED_STATUSES`) with nothing left to
+ * stop it, which is why `deferred` reaches the duplicate scan and nothing else
+ * while this reaches everything.
+ *
+ * So the line is written only by `ost/results.ts`'s `retractNode`, CLI-only,
+ * off every allowlist, through `appendUnderSection`'s unscanned heading
+ * argument — the same asymmetry that keeps `## Results` a human's.
+ */
+export const RETRACTION_HEADING = "## Retraction";
+
+/**
  * Headings only the human/CLI path may author.
  *
  * `## Results` is B1: `hasRecordedResult` clears `gateSolution`, backs a
@@ -63,11 +90,14 @@ export const INSTRUMENT_LOG_HEADING = "## Instrument Log";
  * `## Instrument Log` is the build permit: a recorded RED observation is what
  * releases a solution to the build half of the loop, so authoring one is
  * authorizing a build.
+ * `## Retraction` is the whole tree: a node carrying one is returned by no read,
+ * so authoring one is deleting a node from every count, scan and gate at once.
  */
 export const RESERVED_HEADINGS: readonly string[] = Object.freeze([
   RESULTS_HEADING,
   UNCOVERED_HEADING,
   INSTRUMENT_LOG_HEADING,
+  RETRACTION_HEADING,
 ]);
 
 /**
@@ -119,6 +149,29 @@ export function isHeadingLine(line: string, heading: string): boolean {
 
 export function declaresHeading(body: string, heading: string): boolean {
   return body.split("\n").some((line) => isHeadingLine(line, heading));
+}
+
+/**
+ * The list entries directly under a `## Heading`, in order, stopping at the next
+ * heading of any level.
+ *
+ * Only list entries, because prose under a heading is a placeholder ("TODO: fill
+ * this in") and a placeholder records nothing. Lives here beside
+ * {@link isHeadingLine} for the reason the whole file exists: the readers of a
+ * reserved section must not each carry their own idea of where the section
+ * starts, or the guard that refuses the heading covers only some of them.
+ */
+export function entriesUnder(body: string, heading: string): string[] {
+  const lines = body.split("\n");
+  const start = lines.findIndex((l) => isHeadingLine(l, heading));
+  if (start === -1) return [];
+  const out: string[] = [];
+  for (const line of lines.slice(start + 1)) {
+    const trimmed = line.trim();
+    if (/^#{1,6}\s/.test(trimmed)) break;
+    if (/^[-*]\s+\S/.test(trimmed)) out.push(trimmed.replace(/^[-*]\s+/, ""));
+  }
+  return out;
 }
 
 /**

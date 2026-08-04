@@ -30,7 +30,7 @@ import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/rende
 import { renderRollup, rollupTree } from "../eval/rollup.js";
 import { lineageOf, renderLineage } from "../eval/lineage.js";
 import { BELIEVABILITY_LADDER, type RungId } from "../knowledge/believability.js";
-import { promoteNode, recordResult, VERDICTS, type Verdict } from "../ost/results.js";
+import { promoteNode, recordResult, retractNode, VERDICTS, type Verdict } from "../ost/results.js";
 import { verifyInstrument } from "../ost/instrument.js";
 import { buildableSolutions, buildPermit, testsAwaitingVerification } from "../eval/buildable.js";
 import { formatCensus, reconcileWithGit, reconcileWithUsage } from "../ost/census.js";
@@ -256,6 +256,27 @@ program
     const line = promoteNode(opts.vault, { node, by: opts.by, why: opts.why });
     console.log(`promoted "${node}": ${line}`);
     console.log("  removed the #unvalidated marker");
+  });
+
+program
+  .command("retract")
+  .description("take a node out of the live tree without deleting it (humans only — no tool can express this)")
+  .argument("<node>", "title of the node to retract")
+  .requiredOption(
+    "-b, --by <who>",
+    "who retracted it — an unattributed retraction cannot be told apart from a fabricated one",
+  )
+  .requiredOption("-w, --why <text>", "why it is coming out — the only thing a reader who finds the file later will have")
+  .option("--vault <dir>", "vault directory", ".")
+  .action((node: string, opts: { by: string; why: string; vault: string }) => {
+    const line = retractNode(opts.vault, { node, by: opts.by, why: opts.why });
+    console.log(`retracted "${node}": ${line}`);
+    // What actually changed, said plainly, because retraction is the one
+    // operation here whose whole effect is an ABSENCE — and an absence nobody
+    // described reads exactly like the command having done nothing.
+    console.log("  the file, its history and this line all stay on disk and in git");
+    console.log("  it is now in no count, scan, gate or rollup; `ost-agent status` names it under retired");
+    console.log("  inbound links still point at it — `ost-agent check` reports them as dangling until they are unlinked");
   });
 
 program

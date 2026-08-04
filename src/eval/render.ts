@@ -171,7 +171,14 @@ function appendElisionCoda(lines: string[], hidden: number, howToSeeTheRest: str
 function appendCensus(lines: string[], census: TreeCensus, budget: Budget, coda?: string): number {
   const dropped = census.skipped.length + census.unreadable.length;
   const unseen = census.independent?.unseenByWalk.length ?? 0;
-  if (dropped === 0 && unseen === 0) return 0;
+  // `retired` counts toward "is there anything to say", and leaving it out was a
+  // silence with the census's own name on it: a node that left the live tree is
+  // exactly a count that shrank on purpose, and `formatCensus` emits the line
+  // naming it — this function just never asked for it unless some OTHER kind of
+  // drop happened to be present too. So an archived node, and now a retracted
+  // one, was withheld from every number above and named on no surface a human
+  // reads. Withheld AND named is the whole rule (see `ARCHIVE_DIRNAME`).
+  if (dropped === 0 && unseen === 0 && census.retired.length === 0) return 0;
   const [header, ...detail] = formatCensus(census, census.nodes.length).split("\n");
   lines.push(header);
 

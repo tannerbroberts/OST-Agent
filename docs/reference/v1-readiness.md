@@ -2953,7 +2953,16 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1768 tests across 154 files, verified 2026-08-04 (`npx vitest run`,
+> *Today:* **met** — 1789 tests across 155 files, verified 2026-08-04 (`npx vitest run`,
+> after `test/ost/retraction-consumers.test.ts` audited every reader of the tree and pinned
+> the answer: there is ONE — nothing outside `src/ost/` turns a file into a node, so the
+> seventeen call sites across five modules all get their nodes from `Vault.readTreeCensus`
+> and honour a retraction by construction rather than by seventeen remembered edits. It
+> also pins the third way a retraction could have been forged, which was real: `mergeNodes`
+> carries the loser's reserved sections onto the survivor so a recorded result survives its
+> file's deletion, and for `## Retraction` that made `ost_merge_nodes(retracted, live)` a
+> delete of an arbitrary live node in one allowlisted call — reached by COPYING the heading
+> rather than authoring it, so every guard on authorship was blind to it;
 > after `test/eval/lineage.test.ts` pinned that a report's Outcome→node path is the
 > SHORTEST one with ties broken alphabetically — the graph is not a tree, so more than one
 > path exists and file order must not be what decides which the operator sees; and after
