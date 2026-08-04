@@ -126,3 +126,110 @@ describe("the unattended examples grant no write capability beyond the MCP surfa
     });
   }
 });
+
+/**
+ * The prompt and the grant must describe the same agent — and where they don't, the
+ * gap is named here rather than left to be discovered from behaviour.
+ *
+ * Everything above pins the three *copies* of the allowlist against each other, so
+ * they cannot drift apart. None of it asks the question one layer up: whether the
+ * list they all agree on is the list the prompt actually needs. It was not. The
+ * whole outward sense — `ost_search_web`, `ost_read_web`, `ost_read_repo` — was
+ * built, budgeted (`src/web/budget.ts`), classified read-only
+ * (`src/security/policy.ts`) and granted to nothing. `autonomous-pass.sh` denied the
+ * unmetered built-ins on the stated grounds that the metered MCP pair was the proper
+ * route, while the grant beside it omitted that pair: a justification describing a
+ * road nobody could take. The vault's only inputs were what the operator carried in
+ * by hand and what the agent observed about itself, and the tree recorded exactly
+ * that as a customer need — "Fresh outside findings never reach the tree unless I go
+ * get them", 2026-07-25 — without anyone connecting it to a missing frontmatter line.
+ *
+ * A missing grant is silent by construction. Under `-p` a tool outside
+ * `--allowedTools` is denied rather than prompted, the model cannot report a tool it
+ * was never offered, and a pass that skips a step still exits 0 and reports a clean
+ * run. So the sync tests above stayed green while the pass did less than its own
+ * prompt asked.
+ *
+ * The rule this file now enforces is *not* "every tool named in the prose is
+ * granted". `test/skill/surface-parity.test.ts` makes the opposite point deliberately
+ * and is right to: naming a tool in a sentence is not granting it, and two tools are
+ * withheld from this surface on purpose.
+ *
+ *   - `ost_flag_humans_required` — R7's containment. It is on no shipped command,
+ *     which is what keeps `lane-conflict`, the one rule the agent can create and
+ *     cannot clear, off the unattended surface. R2 has since closed that wedge at the
+ *     write boundary and the *skill* grants the tool, so the containment may no longer
+ *     be load-bearing — but retiring it is an R7/R2 decision, taken deliberately and
+ *     recorded there, not a side effect of tidying an allowlist.
+ *   - `ost_check` — named in the hygiene bucket only to explain that an annotated
+ *     issue leaves the other gate red. That is exposition, not an instruction.
+ *
+ * Both are listed below with their reason, so the set is a decision the repository
+ * has made rather than a silence. Adding an instruction for an ungranted tool fails
+ * here; so does granting a contained one, which forces the criterion to be updated in
+ * the same commit instead of quietly contradicted.
+ */
+const CONTAINED_ON_PURPOSE: ReadonlyMap<string, string> = new Map([
+  ["ost_flag_humans_required", "R7 containment — on no shipped command, keeps lane-conflict off this surface"],
+  ["ost_check", "named as exposition in the hygiene bucket, never as a step the pass takes"],
+  [
+    "ost_rank_source",
+    "finding a source and promoting it are the same act if one agent can do both; `suspect-source` " +
+      "stays clearable only by annotation (test/mcp/suspect-source-work.test.ts)",
+  ],
+]);
+
+describe("/ost-pass's prose and its allowed-tools describe the same agent", () => {
+  const body = read(".claude/commands/ost-pass.md").replace(/^---\n[\s\S]*?\n---\n/, "");
+
+  // The body names tools in backticks and occasionally in bold; match the bare
+  // identifier anywhere in the prose. Over-matching is the safe direction — it pulls
+  // in exposition as well as instruction, and exposition is exactly what the
+  // contained set above has to justify by name.
+  const mentioned = [...new Set(body.match(/\bost_[a-z_]+\b/g) ?? [])].sort();
+  const granted = new Set(authority.map((t) => t.replace("mcp__ost-agent__", "")));
+
+  test("the body names tools at all, so the comparison cannot pass vacuously", () => {
+    expect(mentioned.length).toBeGreaterThan(5);
+    expect(mentioned).toContain("ost_next_work");
+    expect(granted.size).toBeGreaterThan(5);
+  });
+
+  test("every tool it names is granted, or contained with a stated reason", () => {
+    const unaccountedFor = mentioned.filter((t) => !granted.has(t) && !CONTAINED_ON_PURPOSE.has(t));
+    expect(
+      unaccountedFor,
+      `/ost-pass names ${unaccountedFor.join(", ")} without granting ${unaccountedFor.length === 1 ? "it" : "them"} ` +
+        `and without a recorded reason for withholding. On the unattended surface that call is denied, the step is ` +
+        `skipped, and the pass still reports a clean run. Either grant it in all three copies, or add it to ` +
+        `CONTAINED_ON_PURPOSE with the criterion that withholds it.`,
+    ).toEqual([]);
+  });
+
+  test("the contained tools are genuinely still withheld", () => {
+    // The other direction. If a later change grants one of these, this fails and the
+    // criterion that argued for containment (R7, R2) has to be revisited on purpose.
+    const wronglyGranted = [...CONTAINED_ON_PURPOSE.keys()].filter((t) => granted.has(t));
+    expect(
+      wronglyGranted,
+      `${wronglyGranted.join(", ")} is granted to /ost-pass but recorded here as contained. Update ` +
+        `docs/reference/v1-readiness.md (R7/R2) and this list together, or drop the grant.`,
+    ).toEqual([]);
+  });
+
+  test("the contained set stays honest — every entry is actually named in the prose", () => {
+    // Guards the list against becoming a graveyard: an entry for a tool the prompt no
+    // longer mentions is a reason nobody needs, and it would mask a real regression by
+    // silently absorbing the name if the prose ever reintroduced it.
+    const stale = [...CONTAINED_ON_PURPOSE.keys()].filter((t) => !mentioned.includes(t));
+    expect(stale, `${stale.join(", ")} is listed as contained but /ost-pass no longer mentions it`).toEqual([]);
+  });
+
+  test("the outward senses reached the grant", () => {
+    // The specific regression this describe block was written for. Named individually
+    // so removing one reads as a reversal rather than a tidy-up.
+    for (const sense of ["ost_search_web", "ost_read_web", "ost_read_repo"]) {
+      expect(granted, `${sense} should be granted — the pass has no outward sense without it`).toContain(sense);
+    }
+  });
+});
