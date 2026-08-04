@@ -10,10 +10,16 @@
  *
  * There is deliberately no reset, no rm, no clean, no branch delete, no history
  * rewrite, and no force flag anywhere. History only ever grows.
+ *
+ * Because history only grows, a bad commit is permanent — so `gitCommit` refuses
+ * one class of them outright: staged content carrying an unresolved conflict
+ * block (see `./conflict-guard.ts`). It also installs the matching `pre-commit`
+ * hook, which is what covers the commits a human makes in the same tree.
  */
 import fs from "node:fs";
 import path from "node:path";
 import { simpleGit, type SimpleGit } from "simple-git";
+import { assertNoStagedConflictMarkers, ensurePreCommitHook } from "./conflict-guard.js";
 
 export interface CommitResult {
   sha: string;
@@ -40,18 +46,35 @@ export async function gitInitIfAbsent(dir: string): Promise<boolean> {
     await g.addConfig("user.email", "ost-agent@localhost");
     await g.addConfig("user.name", "OST-Agent");
   }
+  ensurePreCommitHook(abs);
   return true;
 }
 
-/** Stage all changes under the vault and create a new commit. */
+/**
+ * Stage all changes under the vault and create a new commit.
+ *
+ * **Refuses when the index carries an unresolved conflict block.** A marker that
+ * reaches a commit leaves the next run a repository that cannot build, and this
+ * is the funnel every commit the product makes passes through — the MCP
+ * auto-commit, the `git_commit` tool, `init`, `set-outcome`, the friction CLI.
+ * The check runs after staging, because staging is what decides the content the
+ * commit will hold, and it throws rather than returning a `committed: false`: a
+ * clean tree is a legitimate no-op the caller reports, a staged conflict marker
+ * is a mistake nobody should be able to skim past.
+ */
 export async function gitCommit(dir: string, message: string): Promise<CommitResult> {
   const g = git(dir);
+  // Re-assert the hook on the way past: a vault initialized before this existed,
+  // or one cloned fresh, has no hooks. Idempotent, and never overwrites a hook
+  // this project did not write.
+  ensurePreCommitHook(path.resolve(dir));
   await g.add(["-A"]);
   const status = await g.status();
   if (status.isClean()) {
     const sha = await g.revparse(["HEAD"]).catch(() => "");
     return { sha, committed: false };
   }
+  await assertNoStagedConflictMarkers(dir);
   await g.commit(message);
   const sha = await g.revparse(["HEAD"]);
   return { sha, committed: true };
