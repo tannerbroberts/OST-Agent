@@ -80,6 +80,19 @@ export interface CommittedRecord {
   repo: string;
   commits: CommittedArtifact[];
   prs: CommittedArtifact[];
+  /**
+   * The clone is truncated, so the record this reports is not the record that
+   * exists.
+   *
+   * Found by shipping it: CI checks out at depth 1, and the census over the last
+   * 100 commits read a record of one commit and reported on that. A reading
+   * taken over a subject the reader could not see is the single failure this
+   * module must not have — every count it prints is a share of a denominator,
+   * and a denominator of 1 makes any share look decisive. So it is carried on
+   * the record, carried into the report, printed by the formatter, and asserted
+   * by the test, rather than turned into a skip.
+   */
+  shallow: boolean;
 }
 
 /**
@@ -145,6 +158,8 @@ export interface CapabilityProfileReport {
   repo: string;
   commits: RecordLegibility;
   prs: RecordLegibility;
+  /** The clone was truncated — see {@link CommittedRecord.shallow}. */
+  shallow: boolean;
   /** Most-attributed builder first. */
   builders: BuilderCapabilityProfile[];
   verdict: LegibilityVerdict;
@@ -371,10 +386,23 @@ function verdictFor(commits: RecordLegibility, prs: RecordLegibility): Legibilit
   return "narrowed";
 }
 
-function coverageSentence(commits: RecordLegibility, prs: RecordLegibility, verdict: LegibilityVerdict): string {
+function coverageSentence(
+  commits: RecordLegibility,
+  prs: RecordLegibility,
+  verdict: LegibilityVerdict,
+  shallow: boolean,
+): string {
   const over =
     `read from ${commits.legible} of ${commits.examined} commit(s) and ${prs.legible} of ${prs.examined} ` +
     `pull request(s) that named a capability at all`;
+  // First, and ahead of the verdict, because a verdict taken over a subject the
+  // reader could not see is worse than no verdict at all.
+  if (shallow) {
+    return (
+      `Unread: the clone is shallow, so ${over} is a share of whatever history happened to be ` +
+      `fetched, not of the record. Deepen the clone (\`git fetch --unshallow\`, or \`fetch-depth: 0\`) and read it again.`
+    );
+  }
   if (verdict === "refuted") {
     return `Refuted: ${over}. Below half the record is legible, so this profile is reading noise — do not act on it.`;
   }
@@ -433,9 +461,10 @@ export function profileCommittedRecord(record: CommittedRecord): CapabilityProfi
     repo: record.repo,
     commits,
     prs,
+    shallow: record.shallow,
     builders: [...byBuilder.values()].sort((a, b) => b.attributed - a.attributed || a.builder.localeCompare(b.builder)),
     verdict,
-    coverage: coverageSentence(commits, prs, verdict),
+    coverage: coverageSentence(commits, prs, verdict, record.shallow),
   };
 }
 
@@ -499,6 +528,10 @@ export async function readCommittedRecord(repoRoot: string, window: RecordWindow
     throw new Error(`${repo} is not a git repository — there is no committed record to read`);
   }
 
+  // Asked before anything is read, so a truncated clone is a fact the reading
+  // carries rather than a short answer it presents as a whole one.
+  const shallow = (await git.raw(["rev-parse", "--is-shallow-repository"]).catch(() => "false")).trim() === "true";
+
   const format = `${RS}%H${FS}%an${FS}%ae${FS}%s${FS}%b${FS}`;
   const commits = parseLog(await git.raw(["log", `-n${w.commits}`, `--format=${format}`, "--name-only"]));
 
@@ -526,7 +559,7 @@ export async function readCommittedRecord(repoRoot: string, window: RecordWindow
     prs.push({ ...c, kind: "pr", ref: `#${number}`, commitSubjects });
   }
 
-  return { repo, commits, prs };
+  return { repo, commits, prs, shallow };
 }
 
 /** Read the record and profile it. The whole mechanism, in one call and one argument. */
@@ -540,7 +573,7 @@ export async function committedCapabilityProfile(
 /** The profile as an operator reads it: what it was read from, then who can do what. */
 export function formatCapabilityProfile(report: CapabilityProfileReport): string {
   const lines: string[] = [];
-  lines.push(`Capability profile for ${report.repo} — ${report.verdict.toUpperCase()}`);
+  lines.push(`Capability profile for ${report.repo} — ${report.shallow ? "UNREAD (shallow clone)" : report.verdict.toUpperCase()}`);
   lines.push(`  ${report.coverage}`);
   lines.push(
     `  commits: ${report.commits.legible} legible of ${report.commits.examined} examined ` +

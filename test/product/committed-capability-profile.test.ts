@@ -139,14 +139,14 @@ describe("who the record attributes work to", () => {
     expect(coAuthorsOf("no trailer here")).toEqual([]);
 
     const a = artifact({ authors: [{ name: "Ada", email: "ada@example.com" }, { name: "Claude", email: "noreply@anthropic.com" }] });
-    const report = profileCommittedRecord({ repo: "/x", commits: [a], prs: [] });
+    const report = profileCommittedRecord({ shallow: false, repo: "/x", commits: [a], prs: [] });
     expect(report.builders.map((b) => b.name)).toEqual(["Ada", "Claude"]);
     for (const b of report.builders) expect(b.capabilities[0].label).toBe("builds adapters");
   });
 
   test("a machine identity is not a builder the profile will name", () => {
     const bot = artifact({ authors: [{ name: "OST-Agent", email: "ost-agent@localhost" }] });
-    const report = profileCommittedRecord({ repo: "/x", commits: [bot], prs: [] });
+    const report = profileCommittedRecord({ shallow: false, repo: "/x", commits: [bot], prs: [] });
     expect(report.builders).toEqual([]);
     expect(legibilityOf("commit", [bot])).toMatchObject({ examined: 1, attributed: 0, legible: 0 });
   });
@@ -164,7 +164,7 @@ describe("who the record attributes work to", () => {
 
   test("evidence is capped but never empty, so any claim can be checked", () => {
     const many = Array.from({ length: 9 }, (_, i) => artifact({ ref: `sha${i}` }));
-    const [profile] = profileCommittedRecord({ repo: "/x", commits: many, prs: [] }).builders;
+    const [profile] = profileCommittedRecord({ shallow: false, repo: "/x", commits: many, prs: [] }).builders;
     expect(profile.capabilities[0].count).toBe(9);
     expect(profile.capabilities[0].refs).toEqual(["sha0", "sha1", "sha2", "sha3", "sha4"]);
     expect(builderKey({ name: "Ada", email: "ada@example.com" })).toBe("Ada <ada@example.com>");
@@ -176,27 +176,45 @@ describe("the three bands, and what each one makes the profile say", () => {
   const mute = (n: number) => Array.from({ length: n }, (_, i) => artifact({ ref: `no${i}`, subject: "wip" }));
 
   test("dense enough to stand on the whole record", () => {
-    const report = profileCommittedRecord({ repo: "/x", commits: [...legible(80), ...mute(20)], prs: legible(30) });
+    const report = profileCommittedRecord({ shallow: false, repo: "/x", commits: [...legible(80), ...mute(20)], prs: legible(30) });
     expect(report.verdict).toBe("clear");
     expect(report.coverage).toContain("80 of 100");
   });
 
   test("the middle band ships, and says on its face what it did not cover", () => {
-    const report = profileCommittedRecord({ repo: "/x", commits: [...legible(60), ...mute(40)], prs: legible(30) });
+    const report = profileCommittedRecord({ shallow: false, repo: "/x", commits: [...legible(60), ...mute(40)], prs: legible(30) });
     expect(report.verdict).toBe("narrowed");
     expect(report.coverage).toMatch(/Narrowed/);
     expect(report.coverage).toMatch(/not covered/);
   });
 
   test("below half, the profile refuses to be read as a finding", () => {
-    const report = profileCommittedRecord({ repo: "/x", commits: [...legible(40), ...mute(60)], prs: legible(30) });
+    const report = profileCommittedRecord({ shallow: false, repo: "/x", commits: [...legible(40), ...mute(60)], prs: legible(30) });
     expect(report.verdict).toBe("refuted");
     expect(report.coverage).toMatch(/reading noise/);
   });
 
   test("legible commits with an illegible PR half do not read as clear", () => {
-    const report = profileCommittedRecord({ repo: "/x", commits: legible(100), prs: [...legible(10), ...mute(20)] });
+    const report = profileCommittedRecord({ shallow: false, repo: "/x", commits: legible(100), prs: [...legible(10), ...mute(20)] });
     expect(report.verdict).toBe("narrowed");
+  });
+
+  test("a shallow clone is unread, and says so ahead of any verdict", () => {
+    // Found by shipping it: CI checks out at depth 1, and the census read a
+    // record of one commit and reported a share of it. Every count here is a
+    // share of a denominator, and a denominator the reader could not see makes
+    // any share look decisive — so this is said before the band is, rather than
+    // being turned into a skip.
+    const truncated = profileCommittedRecord({ shallow: true, repo: "/x", commits: legible(1), prs: [] });
+    expect(truncated.shallow).toBe(true);
+    expect(truncated.coverage).toMatch(/^Unread:/);
+    expect(truncated.coverage).toMatch(/unshallow|fetch-depth/);
+    expect(formatCapabilityProfile(truncated)).toContain("UNREAD (shallow clone)");
+
+    // CONTROL — the same reading over a full clone reports its band as usual.
+    const full = profileCommittedRecord({ shallow: false, repo: "/x", commits: legible(1), prs: [] });
+    expect(full.coverage).not.toMatch(/^Unread:/);
+    expect(formatCapabilityProfile(full)).not.toContain("UNREAD");
   });
 });
 
@@ -279,6 +297,13 @@ describe("no deposit is asked for", () => {
  * than tolerated: the thing being asserted is a property of the record, so a
  * record that degrades below the kill line SHOULD turn this red. What is fixed
  * is the bar, which was fixed before the first reading.
+ *
+ * The census needs the record present to read it, and the first run in CI did
+ * not have one — `actions/checkout` clones at depth 1, so a census over the last
+ * 100 commits saw one. The fix is `fetch-depth: 0` in `.github/workflows/ci.yml`
+ * plus the assertion below, deliberately in that order: making the subject
+ * available is the fix, and the assertion is what stops the next environment
+ * that hides it from reading as a pass.
  */
 describe("the census over this repository's committed record", () => {
   test("the record is legible enough for a capability profile to be derived at all", async () => {
@@ -287,8 +312,14 @@ describe("the census over this repository's committed record", () => {
     // Report before asserting: a number the reader can see is the point of the census.
     console.log(formatCapabilityProfile(report).split("\n").slice(0, 3).join("\n"));
 
-    expect(report.commits.examined).toBe(100);
-    expect(report.prs.examined).toBe(30);
+    // The subject, before the reading of it. A census whose denominator is
+    // whatever history the environment happened to fetch is not this census.
+    expect(
+      report.shallow,
+      "the clone is shallow — this census has no record to read. Set `fetch-depth: 0` on actions/checkout, or `git fetch --unshallow` locally.",
+    ).toBe(false);
+    expect(report.commits.examined, "fewer than 100 commits reachable from HEAD").toBe(100);
+    expect(report.prs.examined, "fewer than 30 pull requests reachable from HEAD").toBe(30);
 
     // The kill line. Nothing below it ships in any form.
     const commitShare = report.commits.legible / report.commits.examined;

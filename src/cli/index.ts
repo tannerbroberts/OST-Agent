@@ -552,8 +552,10 @@ program
     const report = await committedCapabilityProfile(path.resolve(opts.repo), { commits: opts.commits, prs: opts.prs });
     console.log(formatCapabilityProfile(report));
     // A record too illegible to profile is a finding, and a finding an automation
-    // can act on has to reach it through the exit code.
-    if (report.verdict === "refuted") process.exitCode = 1;
+    // can act on has to reach it through the exit code. A record the reader could
+    // not see at all exits the same way, and for a stronger reason: a sweep that
+    // reports a clean run over a subject it never read is worse than a red one.
+    if (report.verdict === "refuted" || report.shallow) process.exitCode = 1;
   });
 
 program

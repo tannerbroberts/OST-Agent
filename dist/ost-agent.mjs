@@ -41717,8 +41717,11 @@ function verdictFor(commits, prs) {
   if (share(commits) >= CLEAR_COMMIT_SHARE && (!prs.examined || share(prs) >= CLEAR_PR_SHARE)) return "clear";
   return "narrowed";
 }
-function coverageSentence(commits, prs, verdict) {
+function coverageSentence(commits, prs, verdict, shallow) {
   const over = `read from ${commits.legible} of ${commits.examined} commit(s) and ${prs.legible} of ${prs.examined} pull request(s) that named a capability at all`;
+  if (shallow) {
+    return `Unread: the clone is shallow, so ${over} is a share of whatever history happened to be fetched, not of the record. Deepen the clone (\`git fetch --unshallow\`, or \`fetch-depth: 0\`) and read it again.`;
+  }
   if (verdict === "refuted") {
     return `Refuted: ${over}. Below half the record is legible, so this profile is reading noise \u2014 do not act on it.`;
   }
@@ -41765,9 +41768,10 @@ function profileCommittedRecord(record2) {
     repo: record2.repo,
     commits,
     prs,
+    shallow: record2.shallow,
     builders: [...byBuilder.values()].sort((a, b2) => b2.attributed - a.attributed || a.builder.localeCompare(b2.builder)),
     verdict,
-    coverage: coverageSentence(commits, prs, verdict)
+    coverage: coverageSentence(commits, prs, verdict, record2.shallow)
   };
 }
 var DEFAULT_WINDOW = { commits: 100, prs: 30, scan: 500 };
@@ -41798,6 +41802,7 @@ async function readCommittedRecord(repoRoot, window2 = {}) {
   if (!await git2.checkIsRepo()) {
     throw new Error(`${repo} is not a git repository \u2014 there is no committed record to read`);
   }
+  const shallow = (await git2.raw(["rev-parse", "--is-shallow-repository"]).catch(() => "false")).trim() === "true";
   const format = `${RS}%H${FS}%an${FS}%ae${FS}%s${FS}%b${FS}`;
   const commits = parseLog(await git2.raw(["log", `-n${w.commits}`, `--format=${format}`, "--name-only"]));
   const scanned = parseLog(await git2.raw(["log", `-n${w.scan}`, `--format=${format}`, "--name-only"]));
@@ -41813,14 +41818,14 @@ async function readCommittedRecord(repoRoot, window2 = {}) {
     const commitSubjects = merged ? (await git2.raw(["log", "--format=%s", `${c3.ref}^1..${c3.ref}^2`]).catch(() => "")).split("\n").map((s) => s.trim()).filter(Boolean) : [];
     prs.push({ ...c3, kind: "pr", ref: `#${number3}`, commitSubjects });
   }
-  return { repo, commits, prs };
+  return { repo, commits, prs, shallow };
 }
 async function committedCapabilityProfile(repoRoot, window2 = {}) {
   return profileCommittedRecord(await readCommittedRecord(repoRoot, window2));
 }
 function formatCapabilityProfile(report) {
   const lines = [];
-  lines.push(`Capability profile for ${report.repo} \u2014 ${report.verdict.toUpperCase()}`);
+  lines.push(`Capability profile for ${report.repo} \u2014 ${report.shallow ? "UNREAD (shallow clone)" : report.verdict.toUpperCase()}`);
   lines.push(`  ${report.coverage}`);
   lines.push(
     `  commits: ${report.commits.legible} legible of ${report.commits.examined} examined (${report.commits.attributed} attributed) | pull requests: ${report.prs.legible} of ${report.prs.examined} (${report.prs.attributed} attributed)`
@@ -46763,7 +46768,7 @@ program2.command("stranded").description("evidence no node cites, split into wha
 program2.command("capability").description("what each builder demonstrably knows how to do, read off the commits and PRs already written \u2014 nothing is asked of anyone").option("--repo <dir>", "the repository whose committed record to read", ".").option("--commits <n>", "how many commits back to read", (v) => Number(v), 100).option("--prs <n>", "how many pull requests back to read", (v) => Number(v), 30).action(async (opts) => {
   const report = await committedCapabilityProfile(path33.resolve(opts.repo), { commits: opts.commits, prs: opts.prs });
   console.log(formatCapabilityProfile(report));
-  if (report.verdict === "refuted") process.exitCode = 1;
+  if (report.verdict === "refuted" || report.shallow) process.exitCode = 1;
 });
 program2.command("channels").description("list every commissioned channel, when it last delivered, and which ones are silent or unavailable (read-only)").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
   const dir = path33.resolve(opts.vault);

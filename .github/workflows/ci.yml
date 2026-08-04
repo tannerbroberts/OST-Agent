@@ -18,6 +18,17 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The default is a depth-1 checkout, and one test's SUBJECT is this
+          # repository's committed record: `test/product/committed-capability-profile.test.ts`
+          # takes a census over the last 100 commits and 30 pull requests to decide
+          # whether a capability profile can be inferred from them at all. Under
+          # depth 1 it read a record of one commit — the check that exists to say
+          # whether the history is legible could not see the history. It fails
+          # loudly rather than reporting a clean run on an empty subject (see
+          # `CapabilityProfileReport.shallow`), which is why the fix is here and
+          # not a skip in the test.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 20

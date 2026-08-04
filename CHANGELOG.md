@@ -28,6 +28,17 @@
   the profile still cannot do is stated on its face: it reads capability *exercised*, so
   what a builder was never asked to do is absent, and absent reads the same as unable.
 
+- **A shallow clone is refused rather than profiled.** Found by shipping the above:
+  `actions/checkout` clones at depth 1, and the first CI run of the census over the last
+  100 commits read a record of one commit and reported a share of it. Every number this
+  produces is a share of a denominator, and a denominator of 1 makes any share look
+  decisive — the exact shape of a sweep that cannot see its subject and reports a clean
+  result. `fetch-depth: 0` is now set on CI's `test` job so the subject is there, and
+  `CapabilityProfileReport.shallow` refuses the reading when it is not: the header reads
+  `UNREAD (shallow clone)`, the coverage sentence says so ahead of any verdict and names
+  the fix, and `ost-agent capability` exits non-zero. A skip in the test would have been
+  the other option, and would have made the missing subject invisible.
+
 - **The stranded-evidence census, computed instead of narrated.** An evidence record is
   mapped iff some node names its id in frontmatter `source`, and `source` is settable only
   at node creation — so an item that grounds a node written before the item arrived can be
