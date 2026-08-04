@@ -12,7 +12,7 @@ It cannot delete your data, rewrite history, force-push, run shell commands, or 
 
 That promise is about recovery, and restraint is now a separate mechanism rather than a rule the agent is asked to keep. The two writes the tree's gates read are refused at the boundary: `## Results` and `## Uncovered` are reserved headings that no argument on any tool can author, and `validated` is not a value `ost_set_status` or `ost_create_node` accepts — promotion is `ost-agent promote`, on your CLI (criteria **B1**, **B2**, **B10**). What is *not* yet proved is the general claim: nothing enumerates the whole surface to show that no single call can flip a gate, which is criterion **P10** and is still open. And a person editing the markdown by hand can write anything — that is the point, they are the actor the gate defers to.
 
-> **Status:** OST-Agent ships only as a Claude Code plugin — no npm package, no standalone runner, no code path that calls a model on its own. The local-inbox path works end-to-end: `/ost-setup` creates the vault, dropped notes are captured with `/ost-map` or the unattended `/ost-pass`, and every write lands as a committed, Obsidian-valid tree. Design & plan: [`docs/superpowers/`](docs/superpowers/).
+> **Status:** OST-Agent ships only as a Claude Code plugin — no npm package, no standalone runner, no code path that calls a model on its own. The ingestion path works end-to-end across six commissioned channels: `/ost-setup` creates the vault, evidence is captured with `/ost-map` or the unattended `/ost-pass`, and every write lands as a committed, Obsidian-valid tree. The project runs its own discovery on itself against a live vault, which is where most of the sharp edges below were found. Design & plan: [`docs/superpowers/`](docs/superpowers/); the running bar is [`docs/reference/v1-readiness.md`](docs/reference/v1-readiness.md).
 
 ---
 
@@ -43,10 +43,10 @@ Open the folder as an Obsidian vault and the tree is a navigable graph.
 
 The safety of OST-Agent does not depend on the agent behaving well. It depends on the agent **not having any dangerous capability in the first place**.
 
-- **Allowlist of tools, not a blocklist.** The connected Claude Code session gets an explicitly registered, append-only MCP tool set — `create node`, `append`, `link`, `set status`, `annotate`, and a handful of read-only reporting tools. There is **no** `bash`, **no** general file write, **no** delete or rename tool, and **no** tool that commits or pushes on the agent's own say-so. A destructive instruction maps to no available tool and simply fails.
+- **Allowlist of tools, not a blocklist.** The connected Claude Code session gets an explicitly registered MCP tool set — 22 tools today: the tree writers (`create node`, `append`, `link`, `set status`, `set evidence`, `set instrument`, `annotate`, `flag humans required`), three that walked back strict append-only under bounded conditions (`edit`, `detach`, `merge` — an edit takes prose and can neither author nor remove a reserved heading), the read-only reporters (`read tree`, `next work`, `check`, `debt`, `status`, `gate`), the ingest path (`ingest inbox`), and the outward senses (`search web`, `read web`, `read repo`, `rank source`). There is **no** `bash`, **no** general file write, **no** delete or rename tool, and **no** tool that commits or pushes on the agent's own say-so. A destructive instruction maps to no available tool and simply fails.
 - **Git is the safety net.** Every mutating tool call is auto-committed by the server itself as a *new commit*. History is never rewritten; there is no `reset --hard`, no `rm`, no force-push, no branch deletion. Anything the agent writes lands as a normal commit you can revert — nothing is ever lost. What git does *not* do is stop a write from being believed while it stands, so reversibility is the floor here rather than the guarantee. The two writes that used to clear a gate on the agent's own authority are now closed at the boundary: `## Results` and `## Uncovered` are reserved headings no tool argument can author, and `validated` is not a value `ost_set_status` or `ost_create_node` accepts (criteria **B1**, **B2**, **B10** in [`docs/reference/v1-readiness.md`](docs/reference/v1-readiness.md)). What remains is that a human with a text editor can write anything — which is the point, they are the actor the gate defers to.
 - **Untrusted input.** Content pulled into the tree (inbox notes, fetched web pages) is treated as *data, never instructions*. Nothing on the tool surface writes back to an outside system.
-- **Confined & bounded.** All writes stay inside the vault folder; filenames are sanitized. Outward web lookups share a per-session budget (`web.lookupBudget`) so "looking things up" stays easy to start and hard to binge.
+- **Confined & bounded.** All writes stay inside the vault folder; filenames are sanitized. Outward web lookups share one budget (`web.lookupBudget`) that is a **lifetime** total per process, not a rate — a refill paces bursts inside it rather than topping it up forever, so a long-lived session cannot spend ten an hour indefinitely. Failed lookups cannot refund their way past it either, which is criterion **P8** and was a real hole when the budget was first written: 10,000 outward attempts under a stated total of 10.
 - **Secrets stay out of the vault.** Tokens live in environment variables, never in commits.
 - **Failure is legible.** `ost-agent check` (also the `ost_check` MCP tool) reports every tree-invariant violation on demand — nothing carrying the `unvalidated` tag can also be marked `validated`, nothing can be an orphan — so a bad pass is visible the moment anyone asks, not discovered later.
 
@@ -58,7 +58,7 @@ Read the full model in [`docs/superpowers/specs`](docs/superpowers/specs).
 
 By design, OST-Agent:
 
-- **Does not run experiments** and **does not write implementation code** for solutions — it maintains the *knowledge tree* only.
+- **Does not write implementation code** for solutions, and **the agent runs no experiment** — the MCP surface maintains the *knowledge tree* only. The one thing that executes anything is `ost-agent verify`, which runs a test's declared spec command and records red or green; it is a CLI/wrapper call, absent from every agent tool surface, precisely because an observation the model could author is a permit it granted itself. Building *against* a permit is likewise out-of-band: [`examples/automation/build-pass.sh`](examples/automation/) is a worked example of a second, separately-capabilitied pass that may write the world and may not touch the tree — the mirror image of the discovery pass, which may write the tree and may not touch the world.
 - **Does not invent or change its own outcome.** The root mandate is human-set; you provide it at `init` and retune it with `ost-agent set-outcome "…"` (a human-only command — never an agent tool). Retuning edits the root node in place and preserves the prior mandate under a `## History` section, so the outcome is a tunable steering knob (like a prompt) whose evolution stays observable.
 - **Does not write back** to any external system it reads from.
 - **Never deletes, never rewrites history, never force-pushes.** Corrections are new commits.
@@ -68,7 +68,7 @@ By design, OST-Agent:
 
 ## How it runs
 
-There is no internal scheduler and no background process — OST-Agent runs only when a Claude Code session calls it, driven by the `opportunity-solution-tree` skill and the `/ost-*` slash commands. `ost_next_work` (the read-only tool every pass starts from) reports exactly what stage of continuous discovery is outstanding, and the session works through it step by step:
+OST-Agent starts no process of its own and holds no timer — it runs when a Claude Code session calls it, driven by the `opportunity-solution-tree` skill and the `/ost-*` slash commands. What it *does* ship is the bracket an external scheduler fires into (`ost-agent loop`, below), so an unattended run is paced, locked and recorded rather than merely repeated. `ost_next_work` (the read-only tool every pass starts from) reports exactly what stage of continuous discovery is outstanding, and the session works through it step by step:
 
 | Step | What it does | Driven by |
 |---|---|---|
@@ -80,6 +80,26 @@ There is no internal scheduler and no background process — OST-Agent runs only
 | **Tree hygiene** | Flags orphans, dangling links, and likely duplicates by *annotating* them (never deleting). | `/ost-hygiene` |
 
 `/ost-pass` runs all of the above in sequence, looping until `ost_next_work` reports `done: true` — the closest thing to "unattended," and still just a Claude Code session working through the same tools. Every write auto-commits; there is no push step (that stays a human or CI action on the vault's own remote). For scheduled/unattended operation — cron or GitHub Actions invoking `claude -p "/ost-pass"` headless — see [`docs/consuming-from-claude-code.md`](docs/consuming-from-claude-code.md).
+
+**The unattended pass can look outward.** `/ost-pass` holds three read-only senses — `ost_search_web`, `ost_read_web` and `ost_read_repo` — because a tree whose only inputs are what the operator carried in by hand and what the agent noticed about itself is a tree an agent is grading with its own homework. Three things bound it: lookups are *demanded by an open question, never scheduled*, so a pass cannot open with a crawl; the budget is small, shared and a **lifetime** total per process rather than a rate (`web.lookupBudget`, default 10); and everything brought back is data, entering at the `assertion` floor with source `WEB:<host>`. `ost_rank_source` — deciding how far a source should be believed — is deliberately **not** on that surface: an agent that can both find a source and promote it has written its own permit.
+
+### The firing bracket — what makes "unattended" safe to leave alone
+
+`ost-agent loop` is the bracket a cron or launchd job fires into, and it is a separate thing from the pass itself. It answers one question per tick and it fails closed:
+
+```bash
+ost-agent loop due   --vault .   # exit 0 fire · 10 not yet · 11 no cadence declared · 12/13 spend
+ost-agent loop start --vault . --holder-pid $$
+ost-agent loop seal  --vault .   # verdict computed from what was recorded, not chosen by the caller
+ost-agent loop health --vault .  # read-only: when it last fired, and what is blocking it
+```
+
+- **Cadence and spend ceiling have no defaults.** A vault that declares neither refuses to fire and says so, because a cadence nobody chose is a spend rate the tool picked on your behalf. The ceiling is weighted tokens over a rolling window, so exhaustion always clears itself — the cost of setting it too low is silence, not money.
+- **One firing at a time**, on a lock tied to the holder's pid, so a crash releases it rather than wedging the vault until a TTL expires.
+- **A firing that skipped a phase, or never sealed, is recorded unhealthy** — omission does not get to read as a clean run, which is the failure mode a scheduled job is most likely to hide.
+- **A run of dry firings escalates.** Three passes that changed nothing is a signal, not a steady state.
+
+Working examples of both halves live in [`examples/automation/`](examples/automation/) — a local shell wrapper and a GitHub Actions workflow, each carrying its own `--allowedTools`/`--disallowedTools` pair, kept in sync with `/ost-pass`'s own frontmatter by a test.
 
 ---
 
@@ -147,19 +167,34 @@ unattended/scheduled operation — an external cron or GitHub Actions job invoki
 [`docs/consuming-from-claude-code.md`](docs/consuming-from-claude-code.md).
 
 > Throughout the rest of this README, `ost-agent <command>` names the CLI the
-> plugin bundles (`init`, `set-outcome`, `result`, `friction`, `lane`, `lanes`,
-> `debt`, `gate`, `check`, `status`, `mcp`) — there is no binary on any PATH to
-> put it on. `check`, `debt`, `status`, and `gate` are also plain MCP tools
-> (`ost_check`, `ost_debt`, `ost_status`, `ost_gate`) a connected session can
-> call directly; `result` and `lane`/`lanes` are deliberately absent from the
-> tool surface (human calls only, by design). To actually run any of these,
-> ask Claude Code to invoke the bundle: `node "$CLAUDE_PLUGIN_ROOT/dist/ost-agent.mjs" <command> ...`.
+> plugin bundles — there is no binary on any PATH to put it on:
+>
+> | | |
+> |---|---|
+> | **Vault** | `init` · `set-outcome` · `status` · `rollup` · `lineage` · `check` |
+> | **Human-only verdicts** | `result` · `promote` · `retract` · `lane` · `lanes` |
+> | **What is owed** | `debt` · `gate` · `stranded` · `channels` |
+> | **Build permits** | `verify` · `buildable` |
+> | **Unattended firing** | `loop due` · `loop start` · `loop step` · `loop seal` · `loop health` |
+> | **Server** | `mcp` |
+>
+> `check`, `debt`, `status`, and `gate` are also plain MCP tools (`ost_check`,
+> `ost_debt`, `ost_status`, `ost_gate`) a connected session can call directly.
+> `result`, `promote`, `retract`, `lane`/`lanes` and `verify` are deliberately
+> absent from the tool surface — every one of them records a judgement that would
+> be a permit the agent granted itself, so they are human (or wrapper) calls only,
+> and tests guard each boundary. To run any of these, ask Claude Code to invoke the
+> bundle: `node "$CLAUDE_PLUGIN_ROOT/dist/ost-agent.mjs" <command> ...`.
 
 ### Configuration
 
 A `ost.config.yaml` in the vault declares the outcome, the local inbox path, the web-lookup budget, product repos to ground ideas in, and whether to push to a remote (off by default). See `src/config/schema.ts` for the authoritative field list.
 
-**Only the inbox is wired to an ingestion path today** — via `/ost-map`, `/ost-pass`, or the `ost_ingest_inbox` tool directly. The config schema still accepts `adapters.atlassian`, `adapters.slack`, and `adapters.transcript` blocks (read-only Jira/Confluence, Slack history, and Claude Code transcript harvesting, respectively), but nothing currently calls them — enabling one records nothing. They belonged to the standalone runner this project deleted; wiring any of them to the plugin's tool surface is unstarted work, not a configuration step you can complete today. The mechanical tool-invocation trace (`adapters.usage`) is still written to `.ost-agent/usage/events.jsonl` on every call regardless — only rolling it into evidence has the same gap.
+**Six channels are commissioned, and `ost_ingest_inbox` reads all of them in one call** — the two drop folders (`inbox`, `friction`) and four pipelines (`transcript`, `usage`, `atlassian`, `slack`). Each has a declared switch, a cursor file and a producer, so a channel that is off says *disabled* and a channel that is on but silent says so with the date it last delivered, rather than both looking alike. `ost-agent channels` prints that table and exits non-zero when a channel is past its declared cadence — the point being that a discovery loop starved of input should be loud, not quiet.
+
+`transcript` (harvesting the agent's own finished Claude Code sessions) and `usage` (rolling the mechanical tool-invocation trace into daily evidence) are the two that make the tool observable to itself, and both are live: the project's own meta vault is grounded in several hundred `TRANSCRIPT:` and `USAGE:` sourced items. Atlassian and Slack ship read-only and default off.
+
+The underlying trace is unconditional: every allowlisted tool invocation is appended to `.ost-agent/usage/events.jsonl` regardless of config (tool, outcome, duration, surface, input size — never content; fail-open, so telemetry can lose an event but never a mutation).
 
 ### Evidence debt
 
@@ -224,6 +259,27 @@ Four kinds, and they sum to the test count so you can see what it did with every
 
 It reports; it never refuses. The line between a threshold and an instruction to set one is fuzzy and this rule will be wrong at the edges — a report that is wrong is a nuisance, while a refusal that is wrong is a wall. Fixing a threshold is also exactly the decision that cannot be delegated to the party that wants to build the thing.
 
+### Two permits, and only one of them needs a human
+
+`ost-agent gate` above asks *is this worth building* — and it answers only from a human-recorded result. That is the right bar and it is also, on its own, a wedge: a tree can hold hundreds of solutions whose tests are all prose, so nothing is ever buildable and the gate never fires once. Being *worth* building and being *defined well enough to* build are different questions, and conflating them stalls the loop.
+
+So an `AssumptionTest` can name an **instrument**: one spec-file command in the product repo's own suite that fails today and passes when the solution is built.
+
+```bash
+ost-agent verify "<test>" --repo ~/my-product   # run it; record red or green as an observed fact
+ost-agent buildable                             # which solutions carry a red instrument, and what command
+```
+
+**Red-before-green is the validity rule.** An instrument that passes on its first run is refused, because a test that could never fail is not a definition of done — it is decoration. Swapping a test's instrument un-clears its permit, since an observation belongs to the command the node names *today*, not to whatever it named when the run happened.
+
+`verify` is on no agent tool surface, and an unattended build wrapper is told not to call it: an observation the model could author is a build permit it granted itself. A test must also name either an `instrument:` or a `humansRequired:` reason — `ost_create_node` refuses one that names neither, so "nobody can run this and nobody is assigned to it" stops being the silent default.
+
+### Retraction — a way to un-say a node
+
+Append-only means a claim cannot be deleted, which is right, and it used to mean a claim could not be *withdrawn* either — a node the tree had outgrown kept being read, counted and ideated under. `ost-agent retract "<node>" --by "<who>" --why "<why>"` appends a `## Retraction` (a reserved heading, CLI-only, exactly like `## Results`). The file, its prose, its history and the retraction line all stay on disk and in git; what changes is that every reader withholds it, because they all come through one census function rather than each remembering to check.
+
+`ost-agent stranded` is the other side of the same concern: evidence that no node cites, split by which fix would actually clear it — an item some live node's prose already quotes (an appendable `source` is enough) versus one nothing quotes at all (which needs a new node). Computed from the tree rather than counted by hand, because a hand census of this is what it was written to replace.
+
 ### Lanes — what each assumption test actually costs a person
 
 A backlog of assumption tests is not one queue. Some are replays and audits over artifacts already sitting on disk; some need a person for one keystroke; some are blocked on a credential nobody delegated; and some need real outside people and can never be anything else. Treated as one queue they all wait on the scarcest resource in the list — the operator — and the free ones never get run.
@@ -262,7 +318,7 @@ ost-agent friction "had to guess which vault to read" --kind guessed \
 # kinds: blocked, guessed, unclear-rule, missing-affordance, slow
 ```
 
-The **transcript** adapter (harvest the agent's own finished Claude Code sessions as usage evidence) and the **usage** adapter's rollup (turn the mechanical tool-invocation trace into daily evidence) are implemented and tested in isolation, but — like Atlassian and Slack above — have no current ingestion caller; enabling either in config records nothing yet. The underlying trace itself is unconditional: every allowlisted tool invocation is still appended to `.ost-agent/usage/events.jsonl` (tool, outcome, duration, surface, input size — never content; fail-open so telemetry can lose an event, never a mutation) regardless of config, it just is not yet turned into a tree node.
+Both of those channels feed the ladder from the bottom. A `USAGE:` item is a counted, unnarrated trace and cannot climb above `assertion` on its own; a `TRANSCRIPT:` item is a model's reading of a session, and what it can claim is bounded the same way. Nothing an agent produces about itself moves a node up the ladder — that is the point of having the rungs at all.
 
 ### Pointing a project at its tree
 
@@ -289,14 +345,27 @@ outcomeTitle: "OST-Agent"                     # stable label for the root node (
 remote:
   enabled: false                              # default: local-only, no push
 
-adapters:
-  inbox: { enabled: true, path: ".ost-agent/inbox" }   # the only adapter wired to ingestion today
+adapters:                                     # six commissioned channels; ost_ingest_inbox reads them all
+  inbox:      { enabled: true,  path: ".ost-agent/inbox" }
+  transcript: { enabled: true,  projectDir: "~/.claude/projects/<slug>" }  # the agent's own finished sessions
+  usage:      { enabled: true }                # the mechanical call trace, rolled into daily evidence
+  atlassian:  { enabled: false }               # read-only Jira/Confluence
+  slack:      { enabled: false }               # read-only history
 
 web:
-  lookupBudget: 10          # web lookups (search + page reads) one session may spend
+  lookupBudget: 10          # a LIFETIME total per process, not a rate — see P8
+  lookupRefillPerHour: 10   # paces bursts within that total; 0 = one burst per process
 
 product:
   repos: []                 # local repo paths the agent may READ (read-only) to ground ideas in what the product is
+
+loop:                       # absent ⇒ this vault never fires unattended, and says so
+  cadence: "6h"
+  lockTtlMinutes: 60
+  spend:
+    ceilingWeightedTokens: 4000000   # weighted tokens, not currency; rolling window
+    windowHours: 24
+    sessionsDir: "~/.claude/projects/<slug>"
 
 processes:
   P3_ideate:
