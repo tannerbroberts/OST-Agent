@@ -264,6 +264,22 @@ ost-agent friction "had to guess which vault to read" --kind guessed \
 
 The **transcript** adapter (harvest the agent's own finished Claude Code sessions as usage evidence) and the **usage** adapter's rollup (turn the mechanical tool-invocation trace into daily evidence) are implemented and tested in isolation, but — like Atlassian and Slack above — have no current ingestion caller; enabling either in config records nothing yet. The underlying trace itself is unconditional: every allowlisted tool invocation is still appended to `.ost-agent/usage/events.jsonl` (tool, outcome, duration, surface, input size — never content; fail-open so telemetry can lose an event, never a mutation) regardless of config, it just is not yet turned into a tree node.
 
+### Pointing a project at its tree
+
+A vault knows which product it serves — its Outcome says so. The product did not know which vault maps it, and discovery always starts from the code, so every session that wanted to run a pass first had to guess between candidate directories in `$HOME`. That is what the friction example above is quoting.
+
+`ost.vault.yaml`, committed at the project root, is that answer written down where the search actually begins:
+
+```yaml
+# Where this project's Opportunity Solution Tree lives.
+vault: ../my-product-tree     # relative to this file, or ~/…, or absolute
+outcome: Reach 10,000 daily active users
+```
+
+Every command that takes `--vault` reads it when no path is given, in one order: **`--vault` as typed** › **`ost.vault.yaml`, searched upward from the current directory** › **`$OST_VAULT`** › **the current directory**. The pointer outranks the environment because the plugin exports `OST_VAULT=${CLAUDE_PROJECT_DIR}` for every project alike — right whenever the vault *is* the project, wrong whenever it is not, and that second case is the only one in which anyone writes this file.
+
+It is only a string, so it goes stale when the vault moves. It says so rather than misdirecting silently: a pointer naming a directory that holds no `ost.config.yaml` gets named, with its own path, on stderr.
+
 A vault's `ost.config.yaml`, showing what is actually live today:
 
 ```yaml

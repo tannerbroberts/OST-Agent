@@ -2,6 +2,41 @@
 
 ## Unreleased
 
+- **A project can name its own vault.** A vault knows which product it serves; the
+  product never knew which vault mapped it, and discovery always starts from the code —
+  so finding this repository's own tree took six exploratory commands and a guess between
+  four candidate directories in `$HOME`. `ost.vault.yaml` at the project root is that
+  answer written where the search begins (`src/config/pointer.ts`): a `vault:` path
+  relative to the file, `~/…` or absolute, plus the outcome it serves, for the human who
+  opens it. It is a visible file rather than a dotfile because the assumption the whole
+  idea rests on is that something reads it *unprompted*, and `ls` does not show dotfiles.
+  Resolution order is **`--vault` as typed** › **the pointer, searched upward from the
+  cwd** › **`$OST_VAULT`** › **the cwd**; the pointer outranks the environment because
+  the plugin exports `OST_VAULT=${CLAUDE_PROJECT_DIR}` for every project alike, which is
+  right whenever the vault *is* the project and wrong in the only case where anyone
+  writes this file.
+
+- **The audit that made it one hook instead of twenty-two edits.** Twenty of the
+  twenty-two `--vault` declarations hard-coded `"."` and two read `OST_VAULT`, so the
+  environment variable the plugin sets for every session was honoured by two commands out
+  of twenty-two — `ost-agent status` run from a project directory looked in the project
+  directory no matter what anything had been told. None of them carry a default now; a
+  `preAction` hook on the root program fills the option in from one resolver
+  (`src/cli/vault-option.ts`), which reaches the `loop` commands registered from another
+  module for free. `test/config/vault-pointer-resolution.test.ts` reads the CLI sources
+  and fails on any `--vault` that brings its own default back, so the rule covers
+  commands nobody has written yet.
+
+- **The pointer says when it has gone stale.** Its one weakness is that it is only a
+  string: it goes stale the moment the vault moves. A pointer naming a directory with no
+  `ost.config.yaml` now names *itself*, with its path, on stderr — rather than leaving a
+  reader with `no ost.config.yaml in <a path they never chose>` and no way to know which
+  file sent them there. `ost-agent mcp` prints the same provenance in its startup banner,
+  which is where an agent-facing session finds out which tree it got. What none of this
+  settles is the assumption the node actually rests on: whether the readers *someone else*
+  wrote — editors, other agents, other people's scripts — look for the file at all. No
+  spec in this repository can speak for that.
+
 - **A conflict marker cannot reach a commit.** A merge conflict once got committed
   into a source file and the next run inherited a repository that could not build.
   `gitCommit` — the funnel every commit this product makes passes through — now scans

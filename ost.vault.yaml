@@ -1,0 +1,11 @@
+# Where this project's Opportunity Solution Tree lives.
+#
+# Read by every OST-Agent entry point that takes `--vault`, so `ost-agent status`
+# run from this directory reads the tree below rather than looking for one here.
+# A path relative to this file, `~/…`, or absolute. See src/config/pointer.ts.
+#
+# This is the maintainer's layout. Working from a clone, point it at your own
+# vault or delete it — every command says so by name when the path is not a vault,
+# rather than sending you somewhere silently.
+vault: ../../ost-agent-meta
+outcome: OST-Agent (meta)

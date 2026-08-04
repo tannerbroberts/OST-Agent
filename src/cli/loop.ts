@@ -32,6 +32,7 @@ import { acquireFiringLock, releaseFiringLock, stampFiringLock } from "../loop/l
 import { checkCeiling, measureFiring, type SpendCeiling } from "../loop/spend.js";
 import { gitHead, workingTreeStatus, type VaultTreeStatus } from "../loop/state.js";
 import { VERSION } from "../index.js";
+import { VAULT_OPTION_HELP } from "./vault-option.js";
 
 /**
  * Refusals, one code each. `notElapsed` is the only non-zero the caller should
@@ -263,7 +264,7 @@ export function registerLoopCommands(program: Command): void {
   loop
     .command("due")
     .description("may this vault fire now? (cadence + spend ceiling; both refuse when undeclared)")
-    .option("--vault <dir>", "vault directory", ".")
+    .option("--vault <dir>", VAULT_OPTION_HELP)
     .action((opts: { vault: string }) => {
       const config = loadConfig(opts.vault);
       const now = Date.now();
@@ -329,7 +330,7 @@ export function registerLoopCommands(program: Command): void {
     .description(
       "refuse a dirty working tree, take the overlap lock, open a health record (sweeps any crashed prior run first)",
     )
-    .option("--vault <dir>", "vault directory", ".")
+    .option("--vault <dir>", VAULT_OPTION_HELP)
     .option(
       "--holder-pid <pid>",
       "pid of the process that owns the whole firing (defaults to this command's parent)",
@@ -407,7 +408,7 @@ export function registerLoopCommands(program: Command): void {
     .command("step")
     .description("run one phase command and record the exit code it actually produced")
     .requiredOption("-p, --phase <id>", "phase id (pass, check, …)")
-    .option("--vault <dir>", "vault directory", ".")
+    .option("--vault <dir>", VAULT_OPTION_HELP)
     .argument("<command...>", "the command to run (after --)")
     .action((command: string[], opts: { phase: string; vault: string }) => {
       // Checked BEFORE anything runs and before anything is written. A command
@@ -447,7 +448,7 @@ export function registerLoopCommands(program: Command): void {
   loop
     .command("health")
     .description("report when this vault's loop last fired and what is holding it, if anything (read-only; decides nothing)")
-    .option("--vault <dir>", "vault directory", ".")
+    .option("--vault <dir>", VAULT_OPTION_HELP)
     .action((opts: { vault: string }) => {
       /*
        * A REPORTER, deliberately separate from `due`.
@@ -499,7 +500,7 @@ export function registerLoopCommands(program: Command): void {
   loop
     .command("seal")
     .description("compute the verdict from the recorded exits, append it to runs.jsonl, release the lock")
-    .option("--vault <dir>", "vault directory", ".")
+    .option("--vault <dir>", VAULT_OPTION_HELP)
     .action((opts: { vault: string }) => {
       const sealed = sealRun(opts.vault, { headAfter: gitHead(opts.vault) });
       const released = releaseFiringLock(opts.vault, { runId: sealed.runId });
