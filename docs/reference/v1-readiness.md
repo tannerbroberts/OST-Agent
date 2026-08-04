@@ -2953,7 +2953,12 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1749 tests across 153 files, verified 2026-08-04 (`npx vitest run`,
+> *Today:* **met** — 1754 tests across 153 files, verified 2026-08-04 (`npx vitest run`,
+> after `outcome-files-categories` made the bucket layer structural: only category
+> Opportunities (and Unknowns, which carry no work) attach to the Outcome, so the root
+> files categories instead of accumulating one edge per need — pinned in
+> `test/eval/clearability.test.ts` and `test/mcp/rule-parity.test.ts`, and green against
+> the real 566-node vault;
 > after `test/eval/rollup.test.ts` pinned that the tree's top-level view is DERIVED —
 > every figure read off an observed exit code, a human's recorded verdict, a stamped
 > `source` or a stated threshold, and none off a score an agent wrote about its own work;

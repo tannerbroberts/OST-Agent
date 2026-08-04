@@ -254,6 +254,25 @@ const SCENARIOS: Record<string, Scenario> = {
     expected: { mcp: { create: false, clear: true }, "ost-pass": { create: false, clear: true } },
   },
 
+  "outcome-files-categories": {
+    // `withSolution`, not `withOpportunity`: the violation is an edge to a
+    // Solution, so the Solution has to exist or the fixture plants a dangling
+    // link and trips a different rule instead.
+    setup: withSolution,
+    // NOT creatable, and the reason is older than this rule: `assertLinkAllowed`
+    // reads CHILD_HIERARCHY, which has always said a Solution attaches under an
+    // Opportunity. So the tool surface already refused the edge this rule
+    // objects to — the invariant catches the ones that arrive another way (a
+    // hand edit in Obsidian, a vault written before the rule), which is exactly
+    // what a structural check is for and why it is worth having anyway.
+    createPath: "ost_link_nodes, which refuses it — a Solution attaches under an Opportunity",
+    create: [{ tool: "ost_link_nodes", input: { parent: OUTCOME, child: SOLUTION } }],
+    plant: (v) => v.linkNodes(OUTCOME, SOLUTION),
+    clearPath: "ost_detach_nodes removing the edge, then linking it under the opportunity it serves",
+    clear: [{ tool: "ost_detach_nodes", input: { parent: OUTCOME, child: SOLUTION, why: "belongs under its opportunity" } }],
+    expected: { mcp: { create: false, clear: true }, "ost-pass": { create: false, clear: true } },
+  },
+
   "solution-mapped": {
     setup: withOpportunity,
     createPath: "ost_create_node, which attaches under its parent in the same call",

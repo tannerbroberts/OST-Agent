@@ -46,6 +46,37 @@ export function checkInvariants(tree: OstNode[]): Violation[] {
     }
   }
 
+  // The Outcome files categories, never the work itself.
+  //
+  // The bucket layer: the only children of the root are generic Opportunity
+  // nodes ("Tools fail"), and the specific needs hang beneath those. Without it
+  // the root accumulates an edge from every pass that ever touched it — 34 of
+  // them here, one per need, which is a list rather than a map and gives a
+  // reader no altitude to read from.
+  //
+  // Stated as an invariant rather than left to the rollup's advice because it is
+  // the one structural rule a single call can break and no later pass would
+  // notice: a Solution linked to the Outcome still satisfies `solution-mapped`
+  // as long as some Opportunity also holds it, so nothing else in this file
+  // would ever report it.
+  // `Unknown` is exempt and that is not a loophole. An Unknown is a question the
+  // tree cannot yet answer, not a piece of work: `CHILD_HIERARCHY` lets one hang
+  // off any layer including the Outcome, because a question about the mandate
+  // itself has nowhere else to live. It carries no solutions and no tests, so it
+  // does not put work at the root — which is the thing this rule is about.
+  for (const outcome of outcomes) {
+    for (const link of outcome.links) {
+      const child = index.get(link);
+      if (!child) continue; // dangling is the other rule's business
+      if (child.layer === "Opportunity" || child.layer === "Unknown") continue;
+      v.push({
+        rule: "outcome-files-categories",
+        node: outcome.title,
+        detail: `links [[${link}]], which is a ${child.layer} — only category Opportunities attach to the Outcome; put it under the opportunity it serves`,
+      });
+    }
+  }
+
   // every Opportunity is reachable from the outcome through Outcome/Opportunity edges
   const reachable = reachableOpportunities(tree, index);
   for (const n of tree) {
