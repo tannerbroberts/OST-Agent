@@ -2953,7 +2953,12 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1754 tests across 153 files, verified 2026-08-04 (`npx vitest run`,
+> *Today:* **met** — 1768 tests across 154 files, verified 2026-08-04 (`npx vitest run`,
+> after `test/eval/lineage.test.ts` pinned that a report's Outcome→node path is the
+> SHORTEST one with ties broken alphabetically — the graph is not a tree, so more than one
+> path exists and file order must not be what decides which the operator sees; and after
+> `build-pass-reports.test.ts` pinned that the arrow prefix appears only when the pass
+> actually touched a node, so it never names work the pass did not do;
 > after `outcome-files-categories` made the bucket layer structural: only category
 > Opportunities (and Unknowns, which carry no work) attach to the Outcome, so the root
 > files categories instead of accumulating one edge per need — pinned in

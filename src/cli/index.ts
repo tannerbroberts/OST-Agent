@@ -28,6 +28,7 @@ import { initVault } from "../runner/init.js";
 import { setOutcome } from "../runner/set-outcome.js";
 import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/render.js";
 import { renderRollup, rollupTree } from "../eval/rollup.js";
+import { lineageOf, renderLineage } from "../eval/lineage.js";
 import { BELIEVABILITY_LADDER, type RungId } from "../knowledge/believability.js";
 import { promoteNode, recordResult, VERDICTS, type Verdict } from "../ost/results.js";
 import { verifyInstrument } from "../ost/instrument.js";
@@ -527,6 +528,24 @@ program
     const census = ctx.vault.readTreeCensus();
     census.independent = await reconcileWithGit(ctx.dir, census);
     console.log(renderStatus(ctx, census));
+  });
+
+program
+  .command("lineage")
+  .argument("<node>", "the node to trace back to the Outcome")
+  .description("the path from the Outcome down to one node, arrow-separated (exits 1 if unreachable)")
+  .option("--vault <dir>", "vault directory", ".")
+  .action((node: string, opts: { vault: string }) => {
+    const path = lineageOf(buildPassContext(opts.vault).vault.readTree(), node);
+    if (!path) {
+      // Exit 1 rather than printing nothing: the one caller is a shell prepending
+      // this to a report, and an empty string that looks like success would put a
+      // bare arrow at the head of a notification.
+      console.error(`no path from the Outcome to "${node}" — it is unreachable, or this vault has no root`);
+      process.exitCode = 1;
+      return;
+    }
+    console.log(renderLineage(path));
   });
 
 program

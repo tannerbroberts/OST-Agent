@@ -196,3 +196,60 @@ describe("the loop runs the instruments, and the model does not", () => {
     expect(executable).not.toMatch(/git -C "\$VAULT_DIR" add -- '\*\.md'/);
   });
 });
+
+/**
+ * The arrow prefix, and the one thing it is allowed to mean.
+ *
+ * A build report opens with the Outcome→…→solution path, so the operator reads
+ * where the work sits before reading what happened to it. The design decision
+ * worth pinning is not that the prefix exists but that it is CONDITIONAL: most
+ * firings build nothing, and a root-only prefix on twenty reports out of
+ * twenty-one teaches the reader to skip the first line, after which the prefix
+ * is worth nothing on the firing that matters.
+ *
+ * So an arrow prefix means "this pass touched a specific node" and nothing else.
+ * The rejected alternative — prefixing idle reports with the next candidate —
+ * would put a node in the report that the pass never touched, which is the same
+ * defect as the "discovery is working through that queue" line that went out
+ * hourly for twenty-one hours against a loop that had not fired.
+ */
+describe("the lineage prefix means the pass touched a node", () => {
+  const script = fs.readFileSync(path.join(root, "examples/automation/build-pass.sh"), "utf8");
+
+  test("LINEAGE starts empty and is only filled once a target is chosen", () => {
+    expect(script).toMatch(/^LINEAGE=""$/m);
+    const init = script.search(/^LINEAGE=""$/m);
+    const target = script.indexOf('TARGET="$(head -1 "$BUILDABLE")"');
+    const filled = script.search(/^LINEAGE="\$\(node "\$CLI" lineage/m);
+    expect(target).toBeGreaterThan(init);
+    expect(filled).toBeGreaterThan(target);
+  });
+
+  test("every no-build branch returns before a target exists, so idle reports carry no prefix", () => {
+    // The structural guarantee, rather than a promise about the branches: the
+    // whole BUILD_COUNT-zero block exits before TARGET is read.
+    const zeroBranch = script.indexOf('if [ "$BUILD_COUNT" -eq 0 ]; then');
+    const target = script.indexOf('TARGET="$(head -1 "$BUILDABLE")"');
+    expect(zeroBranch).toBeGreaterThan(-1);
+    expect(target).toBeGreaterThan(zeroBranch);
+    expect(script.slice(zeroBranch, target)).toMatch(/^\s*exit 0$/m);
+  });
+
+  test("the model's own report gets the prefix too — it Writes the file itself", () => {
+    // `report()` cannot cover this: the prompt tells the model to Write $REPORT,
+    // which replaces whatever the shell put there.
+    expect(script).toMatch(/^prefix_lineage\(\)/m);
+    const call = script.lastIndexOf("\nprefix_lineage\n");
+    const claudeCall = script.indexOf('claude -p "$(cat "$PROMPT_FILE")"');
+    expect(claudeCall).toBeGreaterThan(-1);
+    expect(call).toBeGreaterThan(claudeCall);
+  });
+
+  test("prefixing is idempotent, because the postflight rewrites the report on one branch", () => {
+    expect(script).toMatch(/case "\$\(head -1 "\$REPORT"\)" in "\$LINEAGE"\) return 0/);
+  });
+
+  test("an unreachable node degrades to no prefix rather than a bare arrow", () => {
+    expect(script).toMatch(/lineage "\$TARGET" --vault \. 2>\/dev\/null \|\| true/);
+  });
+});

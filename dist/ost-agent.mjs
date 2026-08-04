@@ -41415,6 +41415,32 @@ function renderRollup(rollup) {
   return lines.join("\n");
 }
 
+// src/eval/lineage.ts
+function lineageOf(tree, target) {
+  const index = byTitle([...tree]);
+  const root = tree.find((n) => n.layer === "Outcome");
+  if (!root || !index.has(target)) return null;
+  if (root.title === target) return [root.title];
+  const seen = /* @__PURE__ */ new Set([root.title]);
+  const queue = [[root.title]];
+  while (queue.length > 0) {
+    const path31 = queue.shift();
+    const node = index.get(path31[path31.length - 1]);
+    if (!node) continue;
+    for (const child of [...node.links].sort()) {
+      if (seen.has(child) || !index.has(child)) continue;
+      const next = [...path31, child];
+      if (child === target) return next;
+      seen.add(child);
+      queue.push(next);
+    }
+  }
+  return null;
+}
+function renderLineage(path31) {
+  return path31.join(" \u2192 ");
+}
+
 // src/ost/results.ts
 import path20 from "node:path";
 function recordResult(vaultDir, filing) {
@@ -46272,6 +46298,15 @@ program2.command("status").option("--vault <dir>", "vault directory", ".").actio
   const census = ctx.vault.readTreeCensus();
   census.independent = await reconcileWithGit(ctx.dir, census);
   console.log(renderStatus(ctx, census));
+});
+program2.command("lineage").argument("<node>", "the node to trace back to the Outcome").description("the path from the Outcome down to one node, arrow-separated (exits 1 if unreachable)").option("--vault <dir>", "vault directory", ".").action((node, opts) => {
+  const path31 = lineageOf(buildPassContext(opts.vault).vault.readTree(), node);
+  if (!path31) {
+    console.error(`no path from the Outcome to "${node}" \u2014 it is unreachable, or this vault has no root`);
+    process.exitCode = 1;
+    return;
+  }
+  console.log(renderLineage(path31));
 });
 program2.command("rollup").description("the top-level view: what sits under each bucket, computed from the tree (no model needed)").option("--vault <dir>", "vault directory", ".").action((opts) => {
   const ctx = buildPassContext(opts.vault);
