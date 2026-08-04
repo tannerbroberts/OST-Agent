@@ -430,6 +430,29 @@ const ROWS: Record<string, Row> = {
     why: "free-text `issue` onto any node's body (B1 counted it as door four of six)",
     aim: () => ({ title: BLOCKED_TEST }),
   },
+  ost_detach_nodes: {
+    // Removal cannot forge a permit: every gate here clears on the PRESENCE of
+    // something (a recorded result, a tested child), so taking an edge away can
+    // block a solution but never clear one. Aimed at the cleared solution's own
+    // edge, which is the most it could possibly disturb.
+    why: "removes an edge; a gate that clears on presence cannot be cleared by taking something away",
+    aim: () => ({ parent: CLEARED, child: CLEARED_TEST }),
+  },
+  ost_edit_node: {
+    // The door worth aiming at: an edit replaces a body, and B1's whole argument
+    // is about what a body may claim. It takes prose only — the reserved blocks
+    // are held aside and reattached — so the sweep's forgery payloads land in a
+    // parameter that cannot become a `## Results` no matter what they contain.
+    why: "replaces a body wholesale — B1's door, reached by rewriting rather than appending",
+    aim: () => ({ title: BLOCKED_TEST }),
+  },
+  ost_merge_nodes: {
+    // The attack this row exists for, and it is R6's exactly: fold the sibling
+    // that HAS a recorded result into the blocked solution, inheriting both its
+    // tested child and its reserved sections. `assertMergeAllowed` refuses it.
+    why: "unions a node's children and carries its reserved sections — R6's borrowed-result flip, by another route",
+    aim: () => ({ from: CLEARED, into: BLOCKED }),
+  },
   ost_flag_humans_required: {
     // Aimed at the lane-free test rather than BLOCKED_TEST: R2 refuses the flag
     // on a test whose own prose names a different lane, and a row every shape of
@@ -748,10 +771,20 @@ describe("2 — no single call flips renderGate(tree, solution).cleared from fal
     // point of the row and the reason it cannot land. The landing it would
     // otherwise prove is asserted directly, on a legal edge, in the CLOSED_HOLES
     // test below; without that, "refused" and "broken" would look the same here.
+    //
+    // `ost_merge_nodes` is absent for the same reason and it is worth saying which
+    // one: its row aims the R6 attack through the merge path — fold the tested
+    // sibling into the blocked solution — and `assertMergeAllowed` refuses every
+    // shape of it. The two that DO land, `ost_detach_nodes` and `ost_edit_node`,
+    // land because neither can forge anything: every gate in this file clears on
+    // the presence of something, so removing an edge cannot clear one, and an
+    // edit takes prose that the reserved-heading funnel still scans.
     expect([...landers].sort()).toEqual([
       "ost_annotate",
       "ost_append_to_node",
       "ost_create_node",
+      "ost_detach_nodes",
+      "ost_edit_node",
       "ost_flag_humans_required",
       "ost_ingest_inbox",
       "ost_rank_source",

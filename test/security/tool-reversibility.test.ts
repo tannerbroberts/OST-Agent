@@ -39,11 +39,30 @@ describe("every built tool carries a resolved reversibility class", () => {
     }
   });
 
-  test("git_push is the one tool that is not cheaply reversible — it leaves the vault", () => {
-    const push = tools.find((t) => t.name === "git_push");
-    expect(push?.reversibility).toBe("costly");
+  test("exactly three tools besides git_push are costly to reverse, and each one can remove something", () => {
+    // This test used to read "git_push is the ONE tool that is not cheaply
+    // reversible", and that sentence was true for as long as the vault was
+    // append-only: undoing any vault write meant appending a correction, which
+    // costs what the original cost. Walking that back is what made the sentence
+    // false — `ost_edit_node` drops the previous prose from the file and
+    // `ost_merge_nodes` deletes a whole node, and neither is undone by writing
+    // more. Recovery is `git show`, which is a different price.
+    //
+    // The list is enumerated rather than counted so that a FOURTH costly tool
+    // has to be argued for here. That is the property worth pinning: the set of
+    // operations that can remove something is small, closed, and visible in one
+    // place — not that it is empty, which it no longer is.
+    const costly = tools.filter((t) => t.reversibility === "costly").map((t) => t.name).sort();
+    expect(costly).toEqual(["git_push", "ost_edit_node", "ost_merge_nodes"]);
+
+    // `ost_detach_nodes` is deliberately NOT among them. It removes an edge and
+    // `ost_link_nodes` puts the identical edge back, so it is a two-way door in
+    // the sense that matters — nothing it touches is unrecoverable from inside
+    // the vault. The child's file is not its business.
+    expect(tools.find((t) => t.name === "ost_detach_nodes")?.reversibility).toBe("reversible");
+
     for (const t of tools) {
-      if (t.name === "git_push") continue;
+      if (costly.includes(t.name)) continue;
       expect(t.reversibility, `${t.name} should be as cheap to undo as an append — check it wasn't reclassified`).toBe(
         "reversible",
       );

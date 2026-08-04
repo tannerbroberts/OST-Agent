@@ -2,7 +2,7 @@
 name: opportunity-solution-tree
 description: Maintain a Teresa Torres Opportunity Solution Tree (OST) — distill customer evidence into Opportunity nodes, ideate candidate Solutions, and surface Assumption Tests — as append-only Obsidian Markdown, driven through the ost-agent MCP tools. Use whenever asked to run product discovery, do opportunity mapping / solution ideation / assumption surfacing, or maintain an OST vault.
 when_to_use: The user wants to build or update an Opportunity Solution Tree, run continuous product discovery, map customer opportunities, ideate solutions, surface assumptions, or run an OST maintenance pass. Requires the ost-agent MCP server to be connected (its ost_* tools are present).
-allowed-tools: mcp__ost-agent__ost_ingest_inbox, mcp__ost-agent__ost_next_work, mcp__ost-agent__ost_read_tree, mcp__ost-agent__ost_create_node, mcp__ost-agent__ost_link_nodes, mcp__ost-agent__ost_append_to_node, mcp__ost-agent__ost_set_status, mcp__ost-agent__ost_set_evidence, mcp__ost-agent__ost_set_instrument, mcp__ost-agent__ost_annotate, mcp__ost-agent__ost_search_web, mcp__ost-agent__ost_read_web, mcp__ost-agent__ost_read_repo, mcp__ost-agent__ost_rank_source, mcp__ost-agent__ost_check, mcp__ost-agent__ost_debt, mcp__ost-agent__ost_status, mcp__ost-agent__ost_gate, mcp__ost-agent__ost_flag_humans_required
+allowed-tools: mcp__ost-agent__ost_ingest_inbox, mcp__ost-agent__ost_next_work, mcp__ost-agent__ost_read_tree, mcp__ost-agent__ost_create_node, mcp__ost-agent__ost_link_nodes, mcp__ost-agent__ost_append_to_node, mcp__ost-agent__ost_set_status, mcp__ost-agent__ost_set_evidence, mcp__ost-agent__ost_set_instrument, mcp__ost-agent__ost_annotate, mcp__ost-agent__ost_detach_nodes, mcp__ost-agent__ost_edit_node, mcp__ost-agent__ost_merge_nodes, mcp__ost-agent__ost_search_web, mcp__ost-agent__ost_read_web, mcp__ost-agent__ost_read_repo, mcp__ost-agent__ost_rank_source, mcp__ost-agent__ost_check, mcp__ost-agent__ost_debt, mcp__ost-agent__ost_status, mcp__ost-agent__ost_gate, mcp__ost-agent__ost_flag_humans_required
 ---
 
 # Maintaining an Opportunity Solution Tree
@@ -60,7 +60,8 @@ An unknown declares a contract in three body sections, and the sections are the 
 - Make each solution's underlying assumptions explicit and propose (never run) assumption tests.
 - Finish a solution by appending its test to the end of the solution node: the `[[wikilink]]` to the AssumptionTest on its own line, and beneath it the one command that will go green when the solution is built. A builder reads the solution, not the layer beneath it, and a definition of done kept one node away is a definition of done nobody reads.
 - Flag tree-hygiene issues: staleness, orphan solutions, duplicates, mislabeled nodes, and unbacked validity claims.
-- Preserve full provenance and append-only history for every node it touches.
+- Preserve full provenance for every node it touches: '## History' is append-only and every removal writes the line that explains it.
+- Resolve duplicates by merging them, not by annotating both. Two nodes making the same claim are a debt the tree pays on every future pass — each one re-read, re-counted, and re-ideated under. `ost_merge_nodes` folds one into the other, repoints every inbound edge, and deletes the loser's file; you choose the survivor and write the merged prose. Annotate instead only when you are unsure they are the same claim, and say what would settle it.
 - Keep every wikilink on one line. A hard-wrapped paragraph that breaks a [[Node title]] across two lines produces bracketed text and no edge: it reads correctly in the source, and the graph — the artifact this whole thing produces — simply lacks the line. Let the line run long rather than wrap inside the brackets. `check` fails on it (rule wrapped-wikilink) and the hygiene pass reports it, because discipline alone has repeatedly not been enough.
 - State a test's lane once, in one sentence, and let it name exactly one lane. `**Lane: compute-only.**` is a declaration a tool can read back; `**Lane: compute-only for the census, humans-required for the fixing.**` is two tests wearing one node, and the reader refuses it rather than picking a half. If a test really does split, split the test. A lane written in prose is still only a suggestion: `check` fails when it contradicts the `lane:` field (rule lane-conflict), and nothing ever promotes prose to a label — only a human's `ost-agent lane --set` moves what compute may run.
 - Raise a flag or proposal for a human whenever an action is ambiguous or would generate/validate knowledge.
@@ -70,7 +71,8 @@ An unknown declares a contract in three body sections, and the sections are the 
 - Run interviews, experiments, or assumption tests, or record synthetic results as evidence.
 - Write implementation code or build solutions.
 - Invent, edit, or change the desired outcome (may only flag a mis-formed outcome as a question for humans).
-- Delete or overwrite existing nodes or history; append, annotate, mark-stale, or propose-for-archive instead.
+- Remove or rewrite a '## Results', '## Uncovered' or '## Instrument Log' section. These record that something happened outside the tree — a human's finding, a stated limit, an observed exit code — and every gate reads one. Deleting one revokes a permit a human granted, which is the same act as authoring one. No tool can express it: an edit takes prose only, and a merge carries them across.
+- Rewrite a node's history. '## History' is append-only; a correction appends a new dated line rather than editing an old one.
 - Mark any opportunity, solution, or assumption as validated or confirmed.
 - Auto-select a target opportunity or declare a winning solution.
 - Phrase an opportunity as a solution, feature, or business metric.

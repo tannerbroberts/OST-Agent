@@ -32778,6 +32778,39 @@ function reservedHeadingIn(content) {
   return null;
 }
 
+// src/ost/sections.ts
+function isAnyHeading(line) {
+  return /^#{1,6}\s/.test(line.trim());
+}
+function startsReservedSection(line) {
+  return RESERVED_HEADINGS.some((h2) => isHeadingLine(line, h2));
+}
+function splitReservedSections(body) {
+  const lines = body.split("\n");
+  const prose = [];
+  const reserved = [];
+  let current = null;
+  for (const line of lines) {
+    if (isAnyHeading(line)) {
+      if (current) {
+        reserved.push(current.join("\n").trimEnd());
+        current = null;
+      }
+      if (startsReservedSection(line)) {
+        current = [line];
+        continue;
+      }
+    }
+    (current ?? prose).push(line);
+  }
+  if (current) reserved.push(current.join("\n").trimEnd());
+  return { prose: prose.join("\n").trimEnd(), reserved };
+}
+function joinReservedSections(prose, reserved) {
+  const parts = [prose.trimEnd(), ...reserved.map((r2) => r2.trimEnd())].filter((p2) => p2 !== "");
+  return parts.join("\n\n");
+}
+
 // src/ost/census.ts
 import fs11 from "node:fs";
 import path10 from "node:path";
@@ -38736,6 +38769,125 @@ var Vault = class {
     node.body = appendUnderHeading(node.body, "## Issues", `- ${isoToday()} ${issue2}`);
     fs12.writeFileSync(this.nodePath(title), serialize(node), "utf8");
   }
+  /**
+   * Remove one parent→child edge, recording the removal in the parent's History.
+   *
+   * The operation the root node needed and append-only could not express. A link
+   * written by mistake used to be permanent, and a tree whose outcome accumulated
+   * every edge any pass ever drew — 87 of them, a third pointing at Solutions and
+   * AssumptionTests that belong under an Opportunity — had no way back.
+   *
+   * Removing an edge cannot lose a node: the child's file is untouched and its
+   * other inbound edges are untouched. What it CAN do is orphan the child, which
+   * is `ost_check`'s business to report (`opportunity-connected`, `solution-mapped`)
+   * rather than this method's to prevent — a caller re-parenting a subtree unlinks
+   * before it links, and a writer that refused the first half could never do it.
+   */
+  detach(parent, child, why) {
+    assertWritableContent(`the reason for unlinking "${child}" from "${parent}"`, why);
+    const node = this.read(parent);
+    const target = sanitizeTitle(child);
+    if (!node.links.includes(target)) {
+      throw new Error(`"${parent}" does not link to "${child}" \u2014 nothing to unlink`);
+    }
+    node.links = node.links.filter((l) => l !== target);
+    const line = `- ${isoToday()} unlinked [[${target}]] \u2014 ${why}`;
+    node.body = appendUnderHeading(node.body, "## History", line);
+    fs12.writeFileSync(this.nodePath(parent), serialize(node), "utf8");
+    return line;
+  }
+  /**
+   * Replace a node's prose, keeping its reserved sections verbatim.
+   *
+   * `newProse` is the body MINUS every reserved block; this reattaches the ones
+   * the node already had. That is what makes an edit safe to hand an unattended
+   * pass: the agent's content is scanned and refused if it declares a reserved
+   * heading (it may not author a measurement), and it never sees the existing
+   * blocks in the first place, so it cannot drop one either. The argument is on
+   * {@link ./sections.ts} — deleting a `## Results` revokes a permit a human
+   * granted, which is the same act as authoring one, pointed the other way.
+   *
+   * Frontmatter is not touched. Status, evidence, lane and instrument each have
+   * their own writer because each records a typed transition in History, and an
+   * edit that could set them silently would launder those transitions.
+   */
+  editProse(title, newProse, why) {
+    assertWritableContent(`the new body of "${title}"`, newProse);
+    assertWritableContent(`the reason for editing "${title}"`, why);
+    const node = this.read(title);
+    const { reserved } = splitReservedSections(node.body);
+    node.body = joinReservedSections(newProse, reserved);
+    const line = `- ${isoToday()} body edited \u2014 ${why}`;
+    node.body = appendUnderHeading(node.body, "## History", line);
+    fs12.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+    return line;
+  }
+  /**
+   * Fold one node into another and delete the loser's file.
+   *
+   * The operation the overlap problem actually needed. A tree that may only
+   * append answers "these two nodes are the same need" with an annotation on
+   * both, which leaves two nodes and adds a third claim; the counters keep
+   * counting two, every future pass re-reads both, and the duplication compounds
+   * with every pass that cannot resolve it.
+   *
+   * The split of labour is the point. **Judgement is the caller's**: which node
+   * survives, and what the merged prose says, are decisions a program cannot
+   * make, so `prose` arrives from whoever called. **Mechanics are this method's**,
+   * because they are what a model gets wrong — every inbound edge in the tree is
+   * repointed at the survivor, the loser's outbound edges are unioned in, and its
+   * reserved blocks are carried across so no recorded result or observed exit
+   * code is lost in the fold.
+   *
+   * Refusals, each a way a merge destroys rather than consolidates:
+   *   - a node cannot merge into itself
+   *   - the two must share a layer, because an Opportunity folded into a Solution
+   *     is not a merge, it is a claim that a need and a way to meet it are one
+   *     thing — the confusion the tree exists to keep apart
+   *   - the Outcome is never a loser; the root's identity is the mandate
+   */
+  mergeNodes(from, into, opts) {
+    assertWritableContent(`the merged body of "${into}"`, opts.prose);
+    assertWritableContent(`the reason for merging "${from}" into "${into}"`, opts.why);
+    if (sanitizeTitle(from) === sanitizeTitle(into)) {
+      throw new Error(`refusing to merge "${from}" into itself`);
+    }
+    const loser = this.read(from);
+    const survivor = this.read(into);
+    if (loser.layer !== survivor.layer) {
+      throw new Error(
+        `refusing to merge a ${loser.layer} into a ${survivor.layer}: "${from}" and "${into}" are different kinds of claim, and folding one into the other would assert they are the same thing. Merge is for duplicates within a layer.`
+      );
+    }
+    if (loser.layer === "Outcome") {
+      throw new Error(`refusing to merge the Outcome node "${from}" \u2014 the root's identity is the mandate it carries`);
+    }
+    const loserTitle = sanitizeTitle(from);
+    const survivorTitle = sanitizeTitle(into);
+    const survivorReserved = splitReservedSections(survivor.body).reserved;
+    const loserReserved = splitReservedSections(loser.body).reserved;
+    survivor.body = joinReservedSections(opts.prose, [...survivorReserved, ...loserReserved]);
+    for (const link of loser.links) {
+      if (link !== survivorTitle && !survivor.links.includes(link)) survivor.links.push(link);
+    }
+    const line = `- ${isoToday()} merged [[${loserTitle}]] into this node and deleted its file \u2014 ${opts.why}` + (loserReserved.length > 0 ? ` (carried ${loserReserved.length} reserved section(s) across)` : "");
+    survivor.body = appendUnderHeading(survivor.body, "## History", line);
+    fs12.writeFileSync(this.nodePath(into), serialize(survivor), "utf8");
+    for (const n of this.readTree()) {
+      if (n.title === loserTitle || n.title === survivorTitle) continue;
+      if (!n.links.includes(loserTitle)) continue;
+      n.links = n.links.filter((l) => l !== loserTitle);
+      if (!n.links.includes(survivorTitle)) n.links.push(survivorTitle);
+      n.body = appendUnderHeading(
+        n.body,
+        "## History",
+        `- ${isoToday()} link [[${loserTitle}]] repointed to [[${survivorTitle}]] \u2014 that node was merged away`
+      );
+      fs12.writeFileSync(this.nodePath(n.title), serialize(n), "utf8");
+    }
+    fs12.unlinkSync(this.nodePath(from));
+    return line;
+  }
 };
 function appendUnderHeading(body, heading, line) {
   const trimmed2 = body.trimEnd();
@@ -39195,7 +39347,8 @@ var OST_RULESET = {
     "Make each solution's underlying assumptions explicit and propose (never run) assumption tests.",
     "Finish a solution by appending its test to the end of the solution node: the `[[wikilink]]` to the AssumptionTest on its own line, and beneath it the one command that will go green when the solution is built. A builder reads the solution, not the layer beneath it, and a definition of done kept one node away is a definition of done nobody reads.",
     "Flag tree-hygiene issues: staleness, orphan solutions, duplicates, mislabeled nodes, and unbacked validity claims.",
-    "Preserve full provenance and append-only history for every node it touches.",
+    "Preserve full provenance for every node it touches: '## History' is append-only and every removal writes the line that explains it.",
+    "Resolve duplicates by merging them, not by annotating both. Two nodes making the same claim are a debt the tree pays on every future pass \u2014 each one re-read, re-counted, and re-ideated under. `ost_merge_nodes` folds one into the other, repoints every inbound edge, and deletes the loser's file; you choose the survivor and write the merged prose. Annotate instead only when you are unsure they are the same claim, and say what would settle it.",
     "Keep every wikilink on one line. A hard-wrapped paragraph that breaks a [[Node title]] across two lines produces bracketed text and no edge: it reads correctly in the source, and the graph \u2014 the artifact this whole thing produces \u2014 simply lacks the line. Let the line run long rather than wrap inside the brackets. `check` fails on it (rule wrapped-wikilink) and the hygiene pass reports it, because discipline alone has repeatedly not been enough.",
     "State a test's lane once, in one sentence, and let it name exactly one lane. `**Lane: compute-only.**` is a declaration a tool can read back; `**Lane: compute-only for the census, humans-required for the fixing.**` is two tests wearing one node, and the reader refuses it rather than picking a half. If a test really does split, split the test. A lane written in prose is still only a suggestion: `check` fails when it contradicts the `lane:` field (rule lane-conflict), and nothing ever promotes prose to a label \u2014 only a human's `ost-agent lane --set` moves what compute may run.",
     "Raise a flag or proposal for a human whenever an action is ambiguous or would generate/validate knowledge."
@@ -39204,7 +39357,8 @@ var OST_RULESET = {
     "Run interviews, experiments, or assumption tests, or record synthetic results as evidence.",
     "Write implementation code or build solutions.",
     "Invent, edit, or change the desired outcome (may only flag a mis-formed outcome as a question for humans).",
-    "Delete or overwrite existing nodes or history; append, annotate, mark-stale, or propose-for-archive instead.",
+    "Remove or rewrite a '## Results', '## Uncovered' or '## Instrument Log' section. These record that something happened outside the tree \u2014 a human's finding, a stated limit, an observed exit code \u2014 and every gate reads one. Deleting one revokes a permit a human granted, which is the same act as authoring one. No tool can express it: an edit takes prose only, and a merge carries them across.",
+    "Rewrite a node's history. '## History' is append-only; a correction appends a new dated line rather than editing an old one.",
     "Mark any opportunity, solution, or assumption as validated or confirmed.",
     "Auto-select a target opportunity or declare a winning solution.",
     "Phrase an opportunity as a solution, feature, or business metric.",
@@ -39216,7 +39370,7 @@ var OST_RULESET = {
     "wikilinks": "A parent->child edge is a [[Child Title]] wikilink written in the parent note (outgoing link); the child sees its parent via the Backlinks pane. The built-in Graph view's Display 'Arrows' toggle renders link direction natively, no plugin required. Keep every wikilink on a single line: a hard-wrapped paragraph that breaks one across two lines produces bracketed text and no edge, which reads correctly in the source and is missing from the graph. Let the line run long instead of wrapping inside the brackets. `check` fails on it (rule wrapped-wikilink) and the hygiene pass reports it, because discipline alone has not been enough.",
     "frontmatter": "YAML frontmatter carries type (outcome|opportunity|solution|assumption_test), status, source/provenance, created (ISO date), and confidence (high|medium|low). Frontmatter is the machine-readable source of truth for state; inline tags drive graph coloring. Keep type in frontmatter in sync with the body tag.",
     "unvalidatedMarking": "Agent-ideated, not-yet-validated nodes carry a companion #unvalidated tag on the same first body line (e.g. '#Solution #unvalidated') plus status: unvalidated in frontmatter; a dedicated Graph group query tag:#unvalidated colors them in a warning color. Status vocabulary (unvalidated -> in-discovery -> validated -> shipped -> deferred) is a vault/tooling convention, not Torres canon.",
-    "provenance": "Every note ends with an append-only '## History' section of dated entries; existing lines are never edited or deleted. Corrections append a new entry and update frontmatter while leaving original provenance intact. Abandoned nodes are set status: deferred (or superseded via a wikilink), never deleted; renames are done inside Obsidian so inbound wikilinks auto-update."
+    "provenance": "Every note ends with an append-only '## History' section of dated entries; existing lines are never edited or deleted, and every removal elsewhere in the note writes a dated line here saying what went and why. Corrections append a new entry and update frontmatter while leaving original provenance intact. A node's PROSE may be rewritten (ost_edit_node) and a duplicate may be folded into the node that survives and its file deleted (ost_merge_nodes) \u2014 git is the recovery path, and the merge commit names what it removed. What no tool can touch either way are the reserved sections '## Results', '## Uncovered' and '## Instrument Log': an edit takes prose only and reattaches them verbatim, and a merge carries the loser's across onto the survivor. Abandoned nodes are still set status: deferred rather than merged away \u2014 deferred means 'not now', merged means 'this was the same claim'. Renames are done inside Obsidian so inbound wikilinks auto-update."
   },
   "glossary": [
     {
@@ -39346,6 +39500,20 @@ var OST_RULESET = {
     // and only `ost-agent verify` — CLI, off every allowlist — can record one.
     { "name": "ost_set_instrument", "grant": true },
     { "name": "ost_annotate", "grant": true },
+    // Granted together: the three that walked back append-only. A tree that may
+    // only grow cannot resolve its own overlap — annotating two duplicates leaves
+    // two nodes and adds a third claim, and every later pass re-reads both. This
+    // product's own vault reached 566 nodes and a root of 89KB that way.
+    //
+    // The bound is what they cannot reach, not who calls them. An edit takes
+    // PROSE, never a whole body; a merge carries the loser's reserved blocks onto
+    // the survivor. So `## Results`, `## Uncovered` and `## Instrument Log` became
+    // unremovable at the same moment bodies became rewritable — deleting a human's
+    // recorded result is the same act as authoring one, and the surface now
+    // refuses both directions.
+    { "name": "ost_detach_nodes", "grant": true },
+    { "name": "ost_edit_node", "grant": true },
+    { "name": "ost_merge_nodes", "grant": true },
     // Outward sensing: read-only, metered against one shared per-pass budget.
     { "name": "ost_search_web", "grant": true },
     { "name": "ost_read_web", "grant": true },
@@ -43440,6 +43608,22 @@ var ALLOWED_TOOL_NAMES = [
   // ost/lanes.ts `flagHumansRequired`.
   "ost_flag_humans_required",
   "ost_annotate",
+  // The three that walked back append-only, granted together because they answer
+  // one failure the old surface could only watch: a tree that may exclusively grow
+  // accumulates overlap it cannot resolve. Annotating two duplicates left two
+  // nodes and added a third claim, and every later pass re-read both.
+  //
+  // What bounds the grant is not who may call them but what they cannot reach.
+  // An edit takes PROSE, never a whole body: `ost/sections.ts` holds the reserved
+  // blocks aside and the writer puts them back, so `## Results`, `## Uncovered`
+  // and `## Instrument Log` are now unwritable AND unremovable through any tool.
+  // A merge carries the loser's reserved blocks onto the survivor for the same
+  // reason. Deleting a human's recorded result and authoring one are the same
+  // act — granting a permit on the agent's own authority — so the surface refuses
+  // both directions rather than only the one it used to.
+  "ost_detach_nodes",
+  "ost_edit_node",
+  "ost_merge_nodes",
   // Outward sensing (see docs/superpowers/specs/2026-07-26-web-lookup-and-trust-design.md):
   // read-only web lookups under a per-session budget, read-only product-repo
   // sight, and append-only publisher trust ranking capped at 'expert'.
@@ -43790,6 +43974,26 @@ function assertLinkAllowed(vault, parentTitle, childTitle) {
     throw new Error(
       `refusing to attach "${displaySafeTitle(childTitle)}" under "${displaySafeTitle(parentTitle)}": that test already records a result, and hanging it under a solution that did not commission it would clear that solution's evidence gate on a run that was about something else \u2014 in one call, with nothing in the tree to show for it. Surface an assumption test FOR this solution (ost_create_node, which attaches it in the same call) and let a human run it. If the two solutions genuinely rest on the same tested assumption, a human says so \u2014 in the note, or by linking it themselves.`
     );
+  }
+}
+function assertMergeAllowed(vault, from, into) {
+  const loser = vault.read(from);
+  const survivor = vault.read(into);
+  if (declaresHeading(loser.body, RESULTS_HEADING) && !declaresHeading(survivor.body, RESULTS_HEADING)) {
+    throw new Error(
+      `refusing to merge "${displaySafeTitle(from)}" into "${displaySafeTitle(into)}": the first records a result and the second does not, so this merge would hand "${displaySafeTitle(into)}" a run nobody performed on it \u2014 a gate cleared by the agent's judgement that two nodes are the same, in one call. If they really are the same claim, a human merges them and carries the finding across deliberately.`
+    );
+  }
+  if (survivor.layer !== "Solution") return;
+  for (const childTitle of loser.links) {
+    if (survivor.links.some((l) => titlesMatch(l, childTitle))) continue;
+    if (!vault.has(childTitle)) continue;
+    const child = vault.read(childTitle);
+    if (child.layer === "AssumptionTest" && hasRecordedResult(child)) {
+      throw new Error(
+        `refusing to merge "${displaySafeTitle(from)}" into "${displaySafeTitle(into)}": it would bring the tested assumption "${displaySafeTitle(childTitle)}" under "${displaySafeTitle(into)}", clearing that solution's evidence gate on a run commissioned for a different one. Same refusal as attaching the test directly (ost_link_nodes) \u2014 a human decides when two solutions rest on the same tested assumption.`
+      );
+    }
   }
 }
 var ATTRIBUTABLE_TOOLS = [
@@ -44203,6 +44407,65 @@ This is not a build permit. Nothing is buildable until \`ost-agent verify\` watc
       run: async (input) => {
         vault.annotate(input.title, input.issue);
         return `annotated "${input.title}"`;
+      }
+    }),
+    tool({
+      name: "ost_detach_nodes",
+      reversibility: "reversible",
+      description: "Remove one parent\u2192child edge, recording why in the parent's History. Reversible \u2014 `ost_link_nodes` restores it exactly. Use when re-parenting (unlink, then link under the new parent) or when an edge was drawn by mistake. This does NOT delete the child: its file and every other inbound edge are untouched. Unlinking can orphan the child, which `ost_check` will report \u2014 if you are re-parenting, do the link half too.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          parent: { type: "string", description: "The node holding the edge." },
+          child: { type: "string", description: "The node the edge points at." },
+          why: { type: "string", description: "Why this edge should not exist. Recorded in the parent's History." }
+        },
+        required: ["parent", "child", "why"]
+      },
+      run: async (input) => {
+        vault.detach(input.parent, input.child, input.why);
+        return `unlinked "${input.child}" from "${input.parent}"`;
+      }
+    }),
+    tool({
+      name: "ost_edit_node",
+      reversibility: "costly",
+      description: "Replace a node's prose. Costly to reverse \u2014 the previous wording leaves the file and survives only in git. Use to sharpen a framing, fold in what a duplicate said, or cut prose that has gone stale; use `ost_append_to_node` when you are ADDING to a node rather than rewriting it. `prose` is the body WITHOUT any reserved section: the node's existing `## Results`, `## Uncovered` and `## Instrument Log` blocks are reattached verbatim and are not yours to write or to drop. Frontmatter is untouched \u2014 status, evidence, lane and instrument each have their own tool because each records a typed transition.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          title: { type: "string" },
+          prose: { type: "string", description: "The node's new body, excluding reserved sections." },
+          why: { type: "string", description: "Why the previous wording was wrong or stale. Recorded in History." }
+        },
+        required: ["title", "prose", "why"]
+      },
+      run: async (input) => {
+        vault.editProse(input.title, input.prose, input.why);
+        return `edited the body of "${input.title}"`;
+      }
+    }),
+    tool({
+      name: "ost_merge_nodes",
+      reversibility: "costly",
+      description: "Fold a duplicate node into the one that survives, then DELETE the duplicate's file. Costly to reverse \u2014 recovery is `git show`. Use when two nodes make the same claim; annotating them both leaves two nodes and adds a third claim, which is how a tree accumulates overlap it cannot resolve. You decide which node survives and what the merged prose says; the tool does the mechanics \u2014 every inbound edge in the tree is repointed at the survivor, the loser's outbound edges are unioned in, and the loser's reserved sections are carried across so no recorded result or observed exit code is lost with the file. Refused if the two are different layers (an Opportunity folded into a Solution asserts a need and a way to meet it are one thing) or if the loser is the Outcome.",
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          from: { type: "string", description: "The duplicate. Its file is deleted." },
+          into: { type: "string", description: "The node that survives." },
+          prose: { type: "string", description: "The survivor's merged body, excluding reserved sections." },
+          why: { type: "string", description: "Why these are the same claim. Recorded in the survivor's History." }
+        },
+        required: ["from", "into", "prose", "why"]
+      },
+      run: async (input) => {
+        assertMergeAllowed(vault, input.from, input.into);
+        vault.mergeNodes(input.from, input.into, { prose: input.prose, why: input.why });
+        return `merged "${input.from}" into "${input.into}" and deleted its file`;
       }
     }),
     tool({
@@ -44714,6 +44977,9 @@ var MCP_TOOL_NAMES = [
   "ost_set_instrument",
   "ost_flag_humans_required",
   "ost_annotate",
+  "ost_detach_nodes",
+  "ost_edit_node",
+  "ost_merge_nodes",
   "ost_search_web",
   "ost_read_web",
   "ost_read_repo",

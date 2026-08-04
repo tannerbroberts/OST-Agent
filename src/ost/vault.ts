@@ -1,12 +1,36 @@
 /**
- * Append-only vault operations over the filesystem.
+ * Vault operations over the filesystem — mostly additive, and deliberately no
+ * longer only additive.
  *
- * Every method here is add-only by construction: it creates a new node, appends
- * to a node, adds a link/status-transition/annotation, or reads. There is NO
- * delete, NO rename, and NO truncating rewrite. All paths are confined to the
- * vault root. This class is the ONLY thing that touches node files on disk, and
- * it is what the allowlist tool registry wraps — so the agent cannot express a
- * destructive operation because none exists here to call.
+ * Most methods here are add-only by construction: they create a node, append to
+ * one, add a link/status-transition/annotation, or read. Three are not, and the
+ * reason they exist is worth stating because it overturns the sentence this file
+ * used to open with.
+ *
+ * **Append-only stopped scaling before it stopped being right.** A vault whose
+ * every operation grows a file accumulates overlap it has no way to resolve: the
+ * tree this product runs on itself reached 566 nodes with a root carrying twenty
+ * appended ledgers, 165 edges and 89KB of prose, and nothing in the surface could
+ * shrink any of it. Duplicates could be annotated but not merged; a link written
+ * by mistake was permanent. So {@link Vault.detach}, {@link Vault.editProse} and
+ * {@link Vault.mergeNodes} can remove things, and the guarantee changes shape
+ * rather than disappearing:
+ *
+ *   - Nothing is lost. The vault is a git repository and every mutation lands in
+ *     a commit that names what it removed, so recovery is `git show`, not a
+ *     backup nobody made.
+ *   - The measurements stay untouchable. An edit never takes a whole body — the
+ *     caller supplies prose, {@link ./sections.ts} holds the reserved blocks
+ *     aside, and the writer puts them back verbatim. A merge carries the loser's
+ *     reserved blocks onto the survivor for the same reason. So `## Results`,
+ *     `## Uncovered` and `## Instrument Log` are now neither writable nor
+ *     removable by any tool, which is strictly stronger than before.
+ *   - History still grows. Every removal appends the line that explains it, so a
+ *     node carries the account of what it absorbed and what was unlinked from it.
+ *
+ * There is still NO rename (Obsidian's, which rewrites inbound links, remains the
+ * right tool) and all paths are confined to the vault root. This class is the
+ * ONLY thing that touches node files on disk.
  *
  * It is also where the one thing the agent may never author is refused. Every
  * caller-supplied string funnels through `assertWritableContent`, and a reserved
@@ -34,6 +58,7 @@ import {
 } from "./node.js";
 import { fileNameForTitle, sanitizeTitle } from "./sanitize.js";
 import { isHeadingLine, reservedHeadingIn } from "./headings.js";
+import { joinReservedSections, splitReservedSections } from "./sections.js";
 import { ARCHIVE_DIRNAME, withoutRetiredNodes, type CensusDrop, type TreeCensus } from "./census.js";
 import type { RungId } from "../knowledge/believability.js";
 import type { LaneId } from "../knowledge/lanes.js";
@@ -507,6 +532,145 @@ export class Vault {
     const node = this.read(title);
     node.body = appendUnderHeading(node.body, "## Issues", `- ${isoToday()} ${issue}`);
     fs.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+  }
+
+  /**
+   * Remove one parent→child edge, recording the removal in the parent's History.
+   *
+   * The operation the root node needed and append-only could not express. A link
+   * written by mistake used to be permanent, and a tree whose outcome accumulated
+   * every edge any pass ever drew — 87 of them, a third pointing at Solutions and
+   * AssumptionTests that belong under an Opportunity — had no way back.
+   *
+   * Removing an edge cannot lose a node: the child's file is untouched and its
+   * other inbound edges are untouched. What it CAN do is orphan the child, which
+   * is `ost_check`'s business to report (`opportunity-connected`, `solution-mapped`)
+   * rather than this method's to prevent — a caller re-parenting a subtree unlinks
+   * before it links, and a writer that refused the first half could never do it.
+   */
+  detach(parent: string, child: string, why: string): string {
+    assertWritableContent(`the reason for unlinking "${child}" from "${parent}"`, why);
+    const node = this.read(parent);
+    const target = sanitizeTitle(child);
+    if (!node.links.includes(target)) {
+      throw new Error(`"${parent}" does not link to "${child}" — nothing to unlink`);
+    }
+    node.links = node.links.filter((l) => l !== target);
+    const line = `- ${isoToday()} unlinked [[${target}]] — ${why}`;
+    node.body = appendUnderHeading(node.body, "## History", line);
+    fs.writeFileSync(this.nodePath(parent), serialize(node), "utf8");
+    return line;
+  }
+
+  /**
+   * Replace a node's prose, keeping its reserved sections verbatim.
+   *
+   * `newProse` is the body MINUS every reserved block; this reattaches the ones
+   * the node already had. That is what makes an edit safe to hand an unattended
+   * pass: the agent's content is scanned and refused if it declares a reserved
+   * heading (it may not author a measurement), and it never sees the existing
+   * blocks in the first place, so it cannot drop one either. The argument is on
+   * {@link ./sections.ts} — deleting a `## Results` revokes a permit a human
+   * granted, which is the same act as authoring one, pointed the other way.
+   *
+   * Frontmatter is not touched. Status, evidence, lane and instrument each have
+   * their own writer because each records a typed transition in History, and an
+   * edit that could set them silently would launder those transitions.
+   */
+  editProse(title: string, newProse: string, why: string): string {
+    assertWritableContent(`the new body of "${title}"`, newProse);
+    assertWritableContent(`the reason for editing "${title}"`, why);
+    const node = this.read(title);
+    const { reserved } = splitReservedSections(node.body);
+    node.body = joinReservedSections(newProse, reserved);
+    const line = `- ${isoToday()} body edited — ${why}`;
+    node.body = appendUnderHeading(node.body, "## History", line);
+    fs.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+    return line;
+  }
+
+  /**
+   * Fold one node into another and delete the loser's file.
+   *
+   * The operation the overlap problem actually needed. A tree that may only
+   * append answers "these two nodes are the same need" with an annotation on
+   * both, which leaves two nodes and adds a third claim; the counters keep
+   * counting two, every future pass re-reads both, and the duplication compounds
+   * with every pass that cannot resolve it.
+   *
+   * The split of labour is the point. **Judgement is the caller's**: which node
+   * survives, and what the merged prose says, are decisions a program cannot
+   * make, so `prose` arrives from whoever called. **Mechanics are this method's**,
+   * because they are what a model gets wrong — every inbound edge in the tree is
+   * repointed at the survivor, the loser's outbound edges are unioned in, and its
+   * reserved blocks are carried across so no recorded result or observed exit
+   * code is lost in the fold.
+   *
+   * Refusals, each a way a merge destroys rather than consolidates:
+   *   - a node cannot merge into itself
+   *   - the two must share a layer, because an Opportunity folded into a Solution
+   *     is not a merge, it is a claim that a need and a way to meet it are one
+   *     thing — the confusion the tree exists to keep apart
+   *   - the Outcome is never a loser; the root's identity is the mandate
+   */
+  mergeNodes(from: string, into: string, opts: { prose: string; why: string }): string {
+    assertWritableContent(`the merged body of "${into}"`, opts.prose);
+    assertWritableContent(`the reason for merging "${from}" into "${into}"`, opts.why);
+    if (sanitizeTitle(from) === sanitizeTitle(into)) {
+      throw new Error(`refusing to merge "${from}" into itself`);
+    }
+    const loser = this.read(from);
+    const survivor = this.read(into);
+    if (loser.layer !== survivor.layer) {
+      throw new Error(
+        `refusing to merge a ${loser.layer} into a ${survivor.layer}: "${from}" and "${into}" are different ` +
+          `kinds of claim, and folding one into the other would assert they are the same thing. ` +
+          `Merge is for duplicates within a layer.`,
+      );
+    }
+    if (loser.layer === "Outcome") {
+      throw new Error(`refusing to merge the Outcome node "${from}" — the root's identity is the mandate it carries`);
+    }
+
+    const loserTitle = sanitizeTitle(from);
+    const survivorTitle = sanitizeTitle(into);
+
+    // The survivor's prose is the caller's; both nodes' reserved blocks are kept.
+    // The loser's go on last so a result it carried survives the file's deletion.
+    const survivorReserved = splitReservedSections(survivor.body).reserved;
+    const loserReserved = splitReservedSections(loser.body).reserved;
+    survivor.body = joinReservedSections(opts.prose, [...survivorReserved, ...loserReserved]);
+
+    // Outbound edges: union, minus any edge that would now point at the survivor
+    // itself (the loser linking to the survivor is the commonest duplicate shape).
+    for (const link of loser.links) {
+      if (link !== survivorTitle && !survivor.links.includes(link)) survivor.links.push(link);
+    }
+
+    const line =
+      `- ${isoToday()} merged [[${loserTitle}]] into this node and deleted its file — ${opts.why}` +
+      (loserReserved.length > 0 ? ` (carried ${loserReserved.length} reserved section(s) across)` : "");
+    survivor.body = appendUnderHeading(survivor.body, "## History", line);
+    fs.writeFileSync(this.nodePath(into), serialize(survivor), "utf8");
+
+    // Repoint every inbound edge in the tree. Done after the survivor is written
+    // so a crash between the two leaves edges pointing at a node that still
+    // exists, rather than at one that does not.
+    for (const n of this.readTree()) {
+      if (n.title === loserTitle || n.title === survivorTitle) continue;
+      if (!n.links.includes(loserTitle)) continue;
+      n.links = n.links.filter((l) => l !== loserTitle);
+      if (!n.links.includes(survivorTitle)) n.links.push(survivorTitle);
+      n.body = appendUnderHeading(
+        n.body,
+        "## History",
+        `- ${isoToday()} link [[${loserTitle}]] repointed to [[${survivorTitle}]] — that node was merged away`,
+      );
+      fs.writeFileSync(this.nodePath(n.title), serialize(n), "utf8");
+    }
+
+    fs.unlinkSync(this.nodePath(from));
+    return line;
   }
 }
 

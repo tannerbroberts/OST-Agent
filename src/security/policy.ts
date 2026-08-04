@@ -37,6 +37,22 @@ export const ALLOWED_TOOL_NAMES = [
   // ost/lanes.ts `flagHumansRequired`.
   "ost_flag_humans_required",
   "ost_annotate",
+  // The three that walked back append-only, granted together because they answer
+  // one failure the old surface could only watch: a tree that may exclusively grow
+  // accumulates overlap it cannot resolve. Annotating two duplicates left two
+  // nodes and added a third claim, and every later pass re-read both.
+  //
+  // What bounds the grant is not who may call them but what they cannot reach.
+  // An edit takes PROSE, never a whole body: `ost/sections.ts` holds the reserved
+  // blocks aside and the writer puts them back, so `## Results`, `## Uncovered`
+  // and `## Instrument Log` are now unwritable AND unremovable through any tool.
+  // A merge carries the loser's reserved blocks onto the survivor for the same
+  // reason. Deleting a human's recorded result and authoring one are the same
+  // act — granting a permit on the agent's own authority — so the surface refuses
+  // both directions rather than only the one it used to.
+  "ost_detach_nodes",
+  "ost_edit_node",
+  "ost_merge_nodes",
   // Outward sensing (see docs/superpowers/specs/2026-07-26-web-lookup-and-trust-design.md):
   // read-only web lookups under a per-session budget, read-only product-repo
   // sight, and append-only publisher trust ranking capped at 'expert'.

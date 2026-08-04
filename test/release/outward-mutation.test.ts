@@ -375,6 +375,14 @@ const AIM: Record<string, (n: number) => Record<string, unknown>> = {
   // writes nothing and the landing count would catch it.
   ost_set_instrument: (n) => ({ test: TEST, instrument: `npx vitest run test/driven-${n}.test.ts`, why: "a driven probe" }),
   ost_annotate: () => ({ title: TEST, issue: "worth a second look" }),
+  // The three mutations. Each is driven at a real target so it LANDS rather than
+  // being refused — a refused call proves nothing about whether the push path is
+  // reachable from inside it. `ost_merge_nodes` folds the second opportunity into
+  // the first: same layer, neither carries a recorded result, so
+  // `assertMergeAllowed` lets it through and the write actually happens.
+  ost_detach_nodes: () => ({ parent: OUTCOME, child: SECOND_OPPORTUNITY, why: "driven probe" }),
+  ost_edit_node: () => ({ title: TEST, prose: "A driven rewrite.", why: "driven probe" }),
+  ost_merge_nodes: () => ({ from: SECOND_OPPORTUNITY, into: OPPORTUNITY, prose: "One framing.", why: "driven probe" }),
   ost_flag_humans_required: () => ({ test: TEST, why: 'a person has to read it: "interview"' }),
   ost_rank_source: () => ({ kind: "web", id: "example.com", direction: "contradicted", reason: "a strike needs no citation" }),
   ost_search_web: () => ({ query: "prior art" }),
@@ -479,9 +487,16 @@ describe("(b) no tool the server exposes reaches gitPush", () => {
       "ost_annotate",
       "ost_append_to_node",
       "ost_create_node",
+      // The three that can remove something. They land here — unlike in P10's
+      // sweep, where the merge row aims the borrowed-result attack and is
+      // refused — because these targets are ordinary duplicates with no recorded
+      // result between them, which is the case the tool exists for.
+      "ost_detach_nodes",
+      "ost_edit_node",
       "ost_flag_humans_required",
       "ost_ingest_inbox",
       "ost_link_nodes",
+      "ost_merge_nodes",
       "ost_rank_source",
       "ost_set_evidence",
       "ost_set_instrument",

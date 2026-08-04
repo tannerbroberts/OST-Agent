@@ -2953,7 +2953,11 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1716 tests across 151 files, verified 2026-08-04 (`npx vitest run`,
+> *Today:* **met** — 1733 tests across 152 files, verified 2026-08-04 (`npx vitest run`,
+> after `test/ost/mutate.test.ts` pinned the three operations that walked back append-only
+> — `unlink`, `editProse` and `mergeNodes` — and, in particular, that a reserved section
+> survives both a rewrite of the prose around it and the deletion of the file it lived in:
+> an agent that may not author a `## Results` may not destroy one either;
 > after `test/git/conflict-marker-guard.test.ts` enumerated every route by which a commit
 > reaches this repository and pinned which of them refuse staged conflict markers — and
 > which two do not; and after instruments gave assumption tests a runnable half:

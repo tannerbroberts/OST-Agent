@@ -323,9 +323,9 @@ describe("the environment cannot author the trace's attribution", () => {
 });
 
 describe("attribution added no tool", () => {
-  test("the allowlist is the same 21 names and the MCP surface the same 19 — a marker is an argument, not a verb", () => {
-    expect(ALLOWED_TOOL_NAMES).toHaveLength(21);
-    expect(MCP_TOOL_NAMES).toHaveLength(19);
+  test("the allowlist is the same 24 names and the MCP surface the same 22 — a marker is an argument, not a verb", () => {
+    expect(ALLOWED_TOOL_NAMES).toHaveLength(24);
+    expect(MCP_TOOL_NAMES).toHaveLength(22);
     for (const name of [...ALLOWED_TOOL_NAMES, ...MCP_TOOL_NAMES]) {
       expect(name).not.toMatch(/unknown/i);
     }
