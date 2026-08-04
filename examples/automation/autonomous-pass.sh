@@ -110,11 +110,15 @@ if [ "$STARTED" -ne 0 ]; then exit "$STARTED"; fi
 # that an exit 1 before anything was logged, which is the least legible way for a
 # cron job to fail.
 MCP_CONFIG="$(mktemp "${TMPDIR:-/tmp}/ost-agent-mcp.XXXXXX")"
+# Same rule, same reason: created up here so the one trap below owns their cleanup
+# too. They hold the computed top-level view and the prompt it is prepended to.
+ROLLUP_FILE="$(mktemp "${TMPDIR:-/tmp}/ost-rollup.XXXXXX")"
+PROMPT_FILE="$(mktemp "${TMPDIR:-/tmp}/ost-pass-prompt.XXXXXX")"
 
 # Seal on every exit path, including a phase that aborted under `set -e`. The
 # verdict is computed from what was recorded, so an aborted firing seals unhealthy
 # rather than vanishing, and the lock is released either way.
-trap 'rm -f "$MCP_CONFIG"; node "$CLI" loop seal --vault . || true' EXIT
+trap 'rm -f "$MCP_CONFIG" "$ROLLUP_FILE" "$PROMPT_FILE"; node "$CLI" loop seal --vault . || true' EXIT
 
 # The MCP server is declared here rather than loaded as a plugin, and the pass
 # instructions are handed over as the prompt rather than invoked as `/ost-pass`.
@@ -149,8 +153,33 @@ JSON
 PASS_PROMPT="$(awk 'BEGIN{n=0} /^---$/{n++; next} n>=2' "$OST_AGENT_DIR/.claude/commands/ost-pass.md")"
 OST_SKILL="$(cat "$OST_AGENT_DIR/.claude/skills/opportunity-solution-tree/SKILL.md")"
 
+# The top-level view, computed here because the pass cannot compute it itself:
+# this surface denies Bash on purpose (discovery may write the tree and may not
+# touch the world), so `ost-agent rollup` has to be run by the shell and handed
+# over. It costs no model call and replaces the habit it is named after — a pass
+# that could not ask the tree how it was doing wrote a prose ledger onto the
+# Outcome instead, twenty times, until the root was 86KB nobody could read.
+#
+# Written to a FILE and interpolated by reading it back, never through
+# `$(cat <<PROMPT …)`: the rollup contains node titles, node titles contain
+# apostrophes, and inside command substitution bash parses a heredoc body for
+# quote pairs. That is the defect that killed build-pass.sh for hours on one
+# apostrophe, and this is the same shape.
+if ! node "$CLI" rollup --vault . >"$ROLLUP_FILE" 2>/dev/null; then
+  # A rollup that will not compute must not take the pass down with it. Say so in
+  # the prompt rather than silently handing over an empty view, which would read
+  # as a tree with nothing in it.
+  printf '(the top-level view could not be computed this firing — read the tree directly)\n' >"$ROLLUP_FILE"
+fi
+{
+  printf 'THE TREE AS IT STANDS (computed by `ost-agent rollup`, not written by anyone):\n\n'
+  cat "$ROLLUP_FILE"
+  printf '\n\n---\n\n'
+  printf '%s\n' "$PASS_PROMPT"
+} >"$PROMPT_FILE"
+
 node "$CLI" loop step --phase pass --vault . -- \
-  claude -p "$PASS_PROMPT" \
+  claude -p "$(cat "$PROMPT_FILE")" \
   --append-system-prompt "$OST_SKILL" \
   --mcp-config "$MCP_CONFIG" \
   --strict-mcp-config \

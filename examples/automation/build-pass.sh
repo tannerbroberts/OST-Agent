@@ -369,6 +369,15 @@ Vault (READ ONLY, for reference): $VAULT_DIR
 Code repository (where you work): $OST_AGENT_DIR
 Solution cleared by the gate: "$TARGET"
 
+THE TREE AS IT STANDS (computed by \`ost-agent rollup\`, not written by anyone):
+
+$(node "$CLI" rollup --vault . 2>/dev/null || printf '(the top-level view could not be computed this firing)')
+
+That is the whole tree, one line per category, so you can see where the thing you are
+about to build sits and how much of its neighbourhood is already standing. Every figure
+is read off the nodes — an exit code something watched, a result a human recorded — so
+none of it is anybody's opinion of the work, including yours.
+
 Work in the code repository. cwd is the vault, so cd to the repo first.
 
 1. Read the solution node "$TARGET" in the vault and the assumption test beneath it. It
