@@ -2953,7 +2953,10 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1733 tests across 152 files, verified 2026-08-04 (`npx vitest run`,
+> *Today:* **met** — 1749 tests across 153 files, verified 2026-08-04 (`npx vitest run`,
+> after `test/eval/rollup.test.ts` pinned that the tree's top-level view is DERIVED —
+> every figure read off an observed exit code, a human's recorded verdict, a stamped
+> `source` or a stated threshold, and none off a score an agent wrote about its own work;
 > after `test/ost/mutate.test.ts` pinned the three operations that walked back append-only
 > — `unlink`, `editProse` and `mergeNodes` — and, in particular, that a reserved section
 > survives both a rewrite of the prose around it and the deletion of the file it lived in:

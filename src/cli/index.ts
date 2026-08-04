@@ -27,6 +27,7 @@ import { ailingChannels, allChannels, channelHealth, renderChannels } from "../a
 import { initVault } from "../runner/init.js";
 import { setOutcome } from "../runner/set-outcome.js";
 import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/render.js";
+import { renderRollup, rollupTree } from "../eval/rollup.js";
 import { BELIEVABILITY_LADDER, type RungId } from "../knowledge/believability.js";
 import { promoteNode, recordResult, VERDICTS, type Verdict } from "../ost/results.js";
 import { verifyInstrument } from "../ost/instrument.js";
@@ -526,6 +527,15 @@ program
     const census = ctx.vault.readTreeCensus();
     census.independent = await reconcileWithGit(ctx.dir, census);
     console.log(renderStatus(ctx, census));
+  });
+
+program
+  .command("rollup")
+  .description("the top-level view: what sits under each bucket, computed from the tree (no model needed)")
+  .option("--vault <dir>", "vault directory", ".")
+  .action((opts: { vault: string }) => {
+    const ctx = buildPassContext(opts.vault);
+    console.log(renderRollup(rollupTree(ctx.vault.readTree())));
   });
 
 registerLoopCommands(program);
