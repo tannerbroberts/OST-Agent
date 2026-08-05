@@ -24,7 +24,8 @@ If any `ost_*` tool responds that the vault is **not initialized**, do not stop 
 - **#Outcome — Outcome**: The single desired outcome at the root that scopes all discovery; should be a product outcome (a customer behavior in the product or sentiment about it, within the team's control), not a business/financial metric or an output like 'ship feature X'.
 - **#Opportunity — Opportunity**: An unmet customer need, pain point, or desire, phrased from the customer's perspective and sourced from customer interviews; never a solution or feature. Opportunities nest into a multi-level sub-tree (an opportunity can parent other opportunities).
 - **#Solution — Solution**: A product, feature, service, workflow, process, documentation, or anything else offered to address a known opportunity. Attaches to the single target opportunity it addresses.
-- **#AssumptionTest — Assumption test**: A small, fast test of a single underlying assumption a solution depends on (desirability, viability, feasibility, or usability), used to choose among solutions rather than validate one whole idea.
+- **#Assumption — Assumption**: One belief a solution depends on, stated so that it could turn out to be false — 'operators will hand a secret to a broker', not 'the broker works'. Torres's four kinds are the vocabulary: desirability, viability, feasibility, usability. A solution rests on several, and they are what get compared when choosing between solutions.
+- **#AssumptionTest — Assumption test**: A small, fast test of ONE assumption, used to choose among solutions rather than validate one whole idea. It names either the command whose exit code answers it or the person who is irreducibly the measurement.
 
 ## The fifth layer — what the tree cannot see
 
@@ -57,8 +58,8 @@ An unknown declares a contract in three body sections, and the sections are the 
 - Reframe solution-shaped or business-shaped inputs into customer-need-shaped opportunities, or hold them for human review.
 - Keep opportunities laddered up to the outcome and propose (not silently impose) opportunity-space structure.
 - Append multiple unvalidated candidate solutions under a target opportunity for compare-and-contrast.
-- Make each solution's underlying assumptions explicit and propose (never run) assumption tests.
-- Finish a solution by appending its test to the end of the solution node: the `[[wikilink]]` to the AssumptionTest on its own line, and beneath it the one command that will go green when the solution is built. A builder reads the solution, not the layer beneath it, and a definition of done kept one node away is a definition of done nobody reads.
+- Make each solution's underlying assumptions explicit as #Assumption nodes beneath it — one belief per node, stated so it could be false — and propose (never run) an assumption test beneath each. A test attaches under the assumption it probes, not under the solution.
+- Finish a solution by appending its test to the end of the solution node: the `[[wikilink]]` to the AssumptionTest on its own line (the edge itself runs through the #Assumption between them; this line is for the reader), and beneath it the one command that will go green when the solution is built. A builder reads the solution, not the layer beneath it, and a definition of done kept one node away is a definition of done nobody reads.
 - Flag tree-hygiene issues: staleness, orphan solutions, duplicates, mislabeled nodes, and unbacked validity claims.
 - Preserve full provenance for every node it touches: '## History' is append-only and every removal writes the line that explains it.
 - Resolve duplicates by merging them, not by annotating both. Two nodes making the same claim are a debt the tree pays on every future pass — each one re-read, re-counted, and re-ideated under. `ost_merge_nodes` folds one into the other, repoints every inbound edge, and deletes the loser's file; you choose the survivor and write the merged prose. Annotate instead only when you are unsure they are the same claim, and say what would settle it.

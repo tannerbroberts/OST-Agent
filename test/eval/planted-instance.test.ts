@@ -137,12 +137,20 @@ describe("checkInvariants finds each planted violation", () => {
     expect(rules()).toContain("solution-mapped");
   });
 
-  test("assumption-mapped: an AssumptionTest under no Solution", () => {
+  test("assumption-mapped: an Assumption under no Solution", () => {
     write(
-      "A stranded test.md",
-      `---\ntype: AssumptionTest\nstatus: unvalidated\ncreated: '2026-07-27'\nevidence: assertion\n---\n#AssumptionTest #evidence/assertion\n\nNo solution links to this.\n`,
+      "A stranded belief.md",
+      `---\ntype: Assumption\nstatus: unvalidated\ncreated: '2026-07-27'\nevidence: assertion\n---\n#Assumption #evidence/assertion\n\nNo solution links to this.\n`,
     );
     expect(rules()).toContain("assumption-mapped");
+  });
+
+  test("test-mapped: an AssumptionTest under no Assumption", () => {
+    write(
+      "A stranded test.md",
+      `---\ntype: AssumptionTest\nstatus: unvalidated\ncreated: '2026-07-27'\nevidence: assertion\n---\n#AssumptionTest #evidence/assertion\n\nNo assumption links to this.\n`,
+    );
+    expect(rules()).toContain("test-mapped");
   });
 
   test("evidence-class: a node declaring nothing about what it rests on", () => {

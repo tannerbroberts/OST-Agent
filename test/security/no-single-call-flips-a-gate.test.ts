@@ -136,6 +136,11 @@ const UNFLAGGED_TEST = "Read the two manifests side by side";
 const CLEARED = "Ship a digest email";
 const CLEARED_TEST = "Mail fifty users and count the opens";
 
+// The beliefs the two solutions rest on. A test hangs under one of these now,
+// so the adoption R6 refuses arrives one layer down from where it used to.
+const BLOCKED_BELIEF = "Players would read a changelog if it existed";
+const CLEARED_BELIEF = "Players would open a digest email";
+
 /**
  * The recorded result lives in the fixture on purpose.
  *
@@ -168,19 +173,23 @@ function makeFixture(): Fixture {
 
   put(vault, BLOCKED, "Solution");
   vault.linkNodes(OPPORTUNITY, BLOCKED);
+  put(vault, BLOCKED_BELIEF, "Assumption");
+  vault.linkNodes(BLOCKED, BLOCKED_BELIEF);
   // The prose declares a lane and the frontmatter carries none — legal, and it
   // used to be one restrictive call away from `lane-conflict`, one of the two
   // rules the agent could author at all. R2 closed that call; part 3's
   // CLOSED_CREATES still fires it here and asserts the refusal.
   put(vault, BLOCKED_TEST, "AssumptionTest", "Compare two build manifests offline. Lane: compute-only.");
-  vault.linkNodes(BLOCKED, BLOCKED_TEST);
+  vault.linkNodes(BLOCKED_BELIEF, BLOCKED_TEST);
   put(vault, UNFLAGGED_TEST, "AssumptionTest", "Open both manifests and compare them.");
-  vault.linkNodes(BLOCKED, UNFLAGGED_TEST);
+  vault.linkNodes(BLOCKED_BELIEF, UNFLAGGED_TEST);
 
   put(vault, CLEARED, "Solution");
   vault.linkNodes(OPPORTUNITY, CLEARED);
+  put(vault, CLEARED_BELIEF, "Assumption");
+  vault.linkNodes(CLEARED, CLEARED_BELIEF);
   put(vault, CLEARED_TEST, "AssumptionTest", "Send the digest to fifty users and count opens.");
-  vault.linkNodes(CLEARED, CLEARED_TEST);
+  vault.linkNodes(CLEARED_BELIEF, CLEARED_TEST);
   vault.appendUnderSection(CLEARED_TEST, "## Results", RESULT_LINE);
 
   return { dir, vault };
@@ -392,7 +401,7 @@ const ROWS: Record<string, Row> = {
     // nothing — the failure mode the landing count exists to catch.
     aim: (n) => ({
       title: `A forged test ${n}`,
-      parent: BLOCKED,
+      parent: BLOCKED_BELIEF,
       layer: "AssumptionTest",
       evidence: "assertion",
       instrument: "npx vitest run test/forged.test.ts",
@@ -405,8 +414,8 @@ const ROWS: Record<string, Row> = {
   ost_link_nodes: {
     why: "re-points an edge; the gate reads which tests hang under a Solution",
     // The attack, and it is the one that works: hang the sibling's already-run
-    // test under the blocked Solution. See KNOWN_OPEN.
-    aim: () => ({ parent: BLOCKED, child: CLEARED_TEST }),
+    // test under the blocked Solution's belief. See KNOWN_OPEN.
+    aim: () => ({ parent: BLOCKED_BELIEF, child: CLEARED_TEST }),
   },
   ost_set_status: {
     why: "B2's door — `hasRecordedResult` returns true for status 'validated'",
@@ -436,7 +445,7 @@ const ROWS: Record<string, Row> = {
     // block a solution but never clear one. Aimed at the cleared solution's own
     // edge, which is the most it could possibly disturb.
     why: "removes an edge; a gate that clears on presence cannot be cleared by taking something away",
-    aim: () => ({ parent: CLEARED, child: CLEARED_TEST }),
+    aim: () => ({ parent: CLEARED_BELIEF, child: CLEARED_TEST }),
   },
   ost_edit_node: {
     // The door worth aiming at: an edit replaces a body, and B1's whole argument
@@ -594,7 +603,7 @@ const KNOWN_OPEN: Record<string, { call: Record<string, unknown>; note: string }
  */
 const CLOSED_HOLES: Record<string, { call: Record<string, unknown>; refusal: RegExp; note: string }> = {
   ost_link_nodes: {
-    call: { parent: BLOCKED, child: CLEARED_TEST },
+    call: { parent: BLOCKED_BELIEF, child: CLEARED_TEST },
     refusal: /already records a result/,
     note:
       "hanging an assumption test that already carries a human-recorded result under a second, untested " +
@@ -832,7 +841,7 @@ describe("2 — no single call flips renderGate(tree, solution).cleared from fal
         // lands is a tool this file would be saying nothing about. A LEGAL edge
         // has to still be written: the guard is narrow, not a wall.
         const before = vaultDigest(fresh.dir);
-        await fire(toolsFor(fresh), { tool: "ost_link_nodes", input: { parent: CLEARED, child: BLOCKED_TEST }, how: "a legal edge", reached: 0 });
+        await fire(toolsFor(fresh), { tool: "ost_link_nodes", input: { parent: CLEARED_BELIEF, child: BLOCKED_TEST }, how: "a legal edge", reached: 0 });
         expect(vaultDigest(fresh.dir), "ost_link_nodes refuses a legal edge — the guard is too broad").not.toEqual(before);
       } finally {
         fs.rmSync(fresh.dir, { recursive: true, force: true });
@@ -898,12 +907,14 @@ const AUTHORSHIP: Record<string, Authorship> = {
     escapes: [],
     why:
       "ost_link_nodes reads CHILD_HIERARCHY, which has always said a Solution attaches under an Opportunity " +
-      "and an AssumptionTest under a Solution, so no single call can draw the edge this rule objects to. " +
+      "and an AssumptionTest beneath one (under an Assumption since that layer existed), so no single call " +
+      "can draw the edge this rule objects to. " +
       "One arrives from a hand edit in Obsidian or from a vault written before the rule",
   },
   "opportunity-connected": { create: null, escapes: [], why: "ost_create_node attaches under its parent in the same call, so it cannot orphan one" },
   "solution-mapped": { create: null, escapes: [], why: "same — creation and attachment are one atomic call" },
   "assumption-mapped": { create: null, escapes: [], why: "same — creation and attachment are one atomic call" },
+  "test-mapped": { create: null, escapes: [], why: "same — creation and attachment are one atomic call" },
   "evidence-class": { create: null, escapes: [], why: "`evidence` is required on ost_create_node; a node with no rung predates the ladder" },
   "no-self-validation": { create: null, escapes: [], why: "B2 — `validated` is not a value either status argument accepts" },
   "lane-conflict": {

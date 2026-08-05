@@ -29,10 +29,16 @@ export const OST_RULESET = {
       "role": "Candidate to be compared and de-risked; generate multiple per target opportunity; enters the tree unvalidated."
     },
     {
+      "tag": "#Assumption",
+      "name": "Assumption",
+      "definition": "One belief a solution depends on, stated so that it could turn out to be false — 'operators will hand a secret to a broker', not 'the broker works'. Torres's four kinds are the vocabulary: desirability, viability, feasibility, usability. A solution rests on several, and they are what get compared when choosing between solutions.",
+      "role": "Sits between a solution and its tests; attaches beneath the solution whose risk it names. Keeping it separate is what stops a solution resting on four beliefs from reading as covered because one test passed."
+    },
+    {
       "tag": "#AssumptionTest",
       "name": "Assumption test",
-      "definition": "A small, fast test of a single underlying assumption a solution depends on (desirability, viability, feasibility, or usability), used to choose among solutions rather than validate one whole idea.",
-      "role": "Bottom layer; attaches beneath the specific solution whose assumption it probes; proposed by the agent, run only by humans."
+      "definition": "A small, fast test of ONE assumption, used to choose among solutions rather than validate one whole idea. It names either the command whose exit code answers it or the person who is irreducibly the measurement.",
+      "role": "Bottom layer; attaches beneath the specific assumption it probes, not directly under the solution; proposed by the agent, run only by humans."
     }
   ],
   "firstRun": [
@@ -113,8 +119,8 @@ export const OST_RULESET = {
     "Reframe solution-shaped or business-shaped inputs into customer-need-shaped opportunities, or hold them for human review.",
     "Keep opportunities laddered up to the outcome and propose (not silently impose) opportunity-space structure.",
     "Append multiple unvalidated candidate solutions under a target opportunity for compare-and-contrast.",
-    "Make each solution's underlying assumptions explicit and propose (never run) assumption tests.",
-    "Finish a solution by appending its test to the end of the solution node: the `[[wikilink]]` to the AssumptionTest on its own line, and beneath it the one command that will go green when the solution is built. A builder reads the solution, not the layer beneath it, and a definition of done kept one node away is a definition of done nobody reads.",
+    "Make each solution's underlying assumptions explicit as #Assumption nodes beneath it — one belief per node, stated so it could be false — and propose (never run) an assumption test beneath each. A test attaches under the assumption it probes, not under the solution.",
+    "Finish a solution by appending its test to the end of the solution node: the `[[wikilink]]` to the AssumptionTest on its own line (the edge itself runs through the #Assumption between them; this line is for the reader), and beneath it the one command that will go green when the solution is built. A builder reads the solution, not the layer beneath it, and a definition of done kept one node away is a definition of done nobody reads.",
     "Flag tree-hygiene issues: staleness, orphan solutions, duplicates, mislabeled nodes, and unbacked validity claims.",
     "Preserve full provenance for every node it touches: '## History' is append-only and every removal writes the line that explains it.",
     "Resolve duplicates by merging them, not by annotating both. Two nodes making the same claim are a debt the tree pays on every future pass — each one re-read, re-counted, and re-ideated under. `ost_merge_nodes` folds one into the other, repoints every inbound edge, and deletes the loser's file; you choose the survivor and write the merged prose. Annotate instead only when you are unsure they are the same claim, and say what would settle it.",
@@ -136,9 +142,9 @@ export const OST_RULESET = {
   ],
   "obsidianFormat": {
     "nodeFile": "One Markdown file per node; the filename minus .md is the node title. Filenames must be filesystem-safe (no / \\ : * ? etc.) and unique across the vault so wikilinks resolve by name.",
-    "tagLine": "The first body line carries the layer tag: #Outcome, #Opportunity, #Solution, or #AssumptionTest. Graph view Groups bind one color per layer via a tag:#... query.",
+    "tagLine": "The first body line carries the layer tag: #Outcome, #Opportunity, #Solution, #Assumption, or #AssumptionTest. Graph view Groups bind one color per layer via a tag:#... query.",
     "wikilinks": "A parent->child edge is a [[Child Title]] wikilink written in the parent note (outgoing link); the child sees its parent via the Backlinks pane. The built-in Graph view's Display 'Arrows' toggle renders link direction natively, no plugin required. Keep every wikilink on a single line: a hard-wrapped paragraph that breaks one across two lines produces bracketed text and no edge, which reads correctly in the source and is missing from the graph. Let the line run long instead of wrapping inside the brackets. `check` fails on it (rule wrapped-wikilink) and the hygiene pass reports it, because discipline alone has not been enough.",
-    "frontmatter": "YAML frontmatter carries type (outcome|opportunity|solution|assumption_test), status, source/provenance, created (ISO date), and confidence (high|medium|low). Frontmatter is the machine-readable source of truth for state; inline tags drive graph coloring. Keep type in frontmatter in sync with the body tag.",
+    "frontmatter": "YAML frontmatter carries type (outcome|opportunity|solution|assumption|assumption_test), status, source/provenance, created (ISO date), and confidence (high|medium|low). Frontmatter is the machine-readable source of truth for state; inline tags drive graph coloring. Keep type in frontmatter in sync with the body tag.",
     "unvalidatedMarking": "Agent-ideated, not-yet-validated nodes carry a companion #unvalidated tag on the same first body line (e.g. '#Solution #unvalidated') plus status: unvalidated in frontmatter; a dedicated Graph group query tag:#unvalidated colors them in a warning color. Status vocabulary (unvalidated -> in-discovery -> validated -> shipped -> deferred) is a vault/tooling convention, not Torres canon.",
     "provenance": "Every note ends with an append-only '## History' section of dated entries; existing lines are never edited or deleted, and every removal elsewhere in the note writes a dated line here saying what went and why. Corrections append a new entry and update frontmatter while leaving original provenance intact. A node's PROSE may be rewritten (ost_edit_node) and a duplicate may be folded into the node that survives and its file deleted (ost_merge_nodes) — git is the recovery path, and the merge commit names what it removed. What no tool can touch either way are the reserved sections '## Results', '## Uncovered', '## Instrument Log' and '## Retraction': an edit takes prose only and reattaches them verbatim, and a merge carries the loser's across onto the survivor — except a retraction, which no merge may carry, because copying one onto a live node would take that node out of every count and gate without anyone having retracted it. Abandoned nodes are still set status: deferred rather than merged away — deferred means 'not now', merged means 'this was the same claim'. A node that should never have been written at all is RETRACTED, and that is a human's call on the CLI (`ost-agent retract \"<node>\" -b \"<who>\" -w \"<why>\"`): a retracted node keeps its file, its history and the retraction line, and is returned by no read — no count, scan, gate, rollup or sweep — which is why the agent has no way to write one. Ask for it; do not attempt it. Renames are done inside Obsidian so inbound wikilinks auto-update."
   },

@@ -30,12 +30,28 @@ import { isLane, type LaneId } from "../knowledge/lanes.js";
 /** Tag form of the evidence class: `#evidence/observed`. */
 const EVIDENCE_TAG = /^evidence\/(.+)$/;
 
-export type Layer = "Outcome" | "Opportunity" | "Solution" | "AssumptionTest" | "Unknown";
+/**
+ * The OST layers, root-first.
+ *
+ * `Assumption` sits between a Solution and its tests: a solution depends on
+ * beliefs, and each belief is what a test is trying to falsify. Before it
+ * existed a solution linked its tests directly, which conflated the two — the
+ * belief being risked and the instrument measuring it were the same node, so a
+ * solution resting on four beliefs measured by one test looked identically
+ * covered to one resting on a single belief.
+ *
+ * Writes are strict (an AssumptionTest attaches under an Assumption) but reads
+ * are tolerant: `testsUnder` still resolves a legacy Solution→AssumptionTest
+ * edge, because vaults written before this layer existed must not go red on a
+ * shape nobody has migrated yet.
+ */
+export type Layer = "Outcome" | "Opportunity" | "Solution" | "Assumption" | "AssumptionTest" | "Unknown";
 
 export const LAYERS: readonly Layer[] = [
   "Outcome",
   "Opportunity",
   "Solution",
+  "Assumption",
   "AssumptionTest",
   "Unknown",
 ] as const;

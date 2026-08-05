@@ -62,6 +62,7 @@ const RULES: string[] = (() => {
 const OUTCOME = "Players keep playing";
 const OPPORTUNITY = "Players cannot tell what changed";
 const SOLUTION = "Ship a changelog";
+const BELIEF = "Churned players noticed nothing changed";
 const ASSUMPTION = "Interview five churned players";
 
 let dir: string;
@@ -84,11 +85,13 @@ function legalTree(): void {
   vault.linkNodes(OUTCOME, OPPORTUNITY);
   put({ title: SOLUTION, layer: "Solution" });
   vault.linkNodes(OPPORTUNITY, SOLUTION);
+  put({ title: BELIEF, layer: "Assumption" });
+  vault.linkNodes(SOLUTION, BELIEF);
   // Carries an instrument for the same reason it exists at all: the fixture has
   // to be `done` for an uninteresting reason, and a test nothing can run is now
   // one of the terms that blocks it.
   put({ title: ASSUMPTION, layer: "AssumptionTest", instrument: "npx vitest run test/fixture.test.ts" });
-  vault.linkNodes(SOLUTION, ASSUMPTION);
+  vault.linkNodes(BELIEF, ASSUMPTION);
 }
 
 /**
@@ -131,7 +134,9 @@ const PLANT: Record<string, () => void> = {
     });
     vault.linkNodes("Unmapped idea", "Whether anyone asked for it");
   },
-  "assumption-mapped": () => put({ title: "Unmapped test", layer: "AssumptionTest" }),
+  "assumption-mapped": () => put({ title: "Unmapped belief", layer: "Assumption" }),
+  "test-mapped": () =>
+    put({ title: "Unmapped test", layer: "AssumptionTest", instrument: "npx vitest run test/unmapped.test.ts" }),
   // Planted through the vault rather than the tool surface, because the tool
   // surface refuses it: `assertLinkAllowed` has always said a Solution attaches
   // under an Opportunity. The edge this rule objects to arrives by hand edit or
@@ -284,7 +289,7 @@ describe("the property: done implies every violation is declared or annotated", 
     expect(work().done).toBe(false);
 
     vault.setEvidence("A legacy gap", "assertion", "rests on founder theory");
-    vault.linkNodes(SOLUTION, "Unmapped test");
+    vault.linkNodes(SOLUTION, "Unmapped belief");
 
     expect(checkInvariants(vault.readTree())).toEqual([]);
     expect(work().done).toBe(true);

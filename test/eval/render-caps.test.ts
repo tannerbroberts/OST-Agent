@@ -229,7 +229,7 @@ describe("Z2 — renderCheck / renderStatus / renderDebt / renderGate on a 10,00
       }
     }
     // Non-vacuity for the branch above: this fixture really does carry both
-    // kinds of class — two that overflow the cap (`assumption-mapped`,
+    // kinds of class — two that overflow the cap (`test-mapped`,
     // `rung-unearned`) and one that fits inside it (`solution-mapped`, the one
     // unparented Solution). Without a class of each kind, one of the two
     // branches would never run.
@@ -638,7 +638,7 @@ describe("Z2 — the byte allowance, not the item cap, is what bounds long items
      * The byte allowance runs out mid-render, and the question is what a reader
      * sees of the rule classes below the line. `checkInvariants` emits in a fixed
      * order, so "below the line" is not hypothetical: on this tree the allowance
-     * is spent inside `solution-mapped`, and `assumption-mapped` — 40 real
+     * is spent inside `solution-mapped`, and `test-mapped` — 40 real
      * violations — gets zero lines.
      *
      * Zero lines is acceptable. Zero MENTION is not, and that is the difference
@@ -650,7 +650,7 @@ describe("Z2 — the byte allowance, not the item cap, is what bounds long items
      * item the allowance can afford — the natural way to write this, and the way
      * that loses a class entirely — fails the header assertion below with
      * "expected 'invariants: FAIL (200 violation(s) …' to contain
-     * '  [assumption-mapped] 40 violation(s):'", while every byte budget in this
+     * '  [test-mapped] 40 violation(s):'", while every byte budget in this
      * file stays green. (Merely *charging* the header does not discriminate: a
      * header is thirty-odd bytes and the allowance is still that far from spent
      * when the class is reached. It is the ordering, not the accounting, that
@@ -709,11 +709,11 @@ describe("Z2 — the byte allowance, not the item cap, is what bounds long items
     const starved = [...counts].filter(([r, n]) => shownFor(r) < Math.min(n, MAX_ITEMS_PER_LIST));
     expect(starved.length).toBeGreaterThan(0);
 
-    // `assumption-mapped` is the class that paid for it, and it is still named,
+    // `test-mapped` is the class that paid for it, and it is still named,
     // still counted, and still says how much of itself went unshown.
-    expect(shownFor("assumption-mapped")).toBe(0);
-    expect(out.text).toContain("  [assumption-mapped] 40 violation(s):");
-    expect(out.text).toContain("… 40 more [assumption-mapped] violation(s) not listed (showing 0 of 40).");
+    expect(shownFor("test-mapped")).toBe(0);
+    expect(out.text).toContain("  [test-mapped] 40 violation(s):");
+    expect(out.text).toContain("… 40 more [test-mapped] violation(s) not listed (showing 0 of 40).");
 
     // Every class that fired is named, and the headers sum back to the verdict.
     for (const rule of counts.keys()) expect(out.text).toContain(`  [${rule}] `);

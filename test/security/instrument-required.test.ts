@@ -33,6 +33,7 @@ import { verifyInstrument, observedRed } from "../../src/ost/instrument.js";
 const OUTCOME = "Retention";
 const OPPORTUNITY = "Users churn after week one";
 const SOLUTION = "Onboarding checklist";
+const BELIEF = "A checklist is what new users are missing";
 
 let dir: string;
 let repo: string;
@@ -50,6 +51,7 @@ beforeEach(async () => {
   ctx = buildPassContext(dir);
   await call("ost_create_node", { title: OPPORTUNITY, layer: "Opportunity", parent: OUTCOME, body: "b", evidence: "assertion" });
   await call("ost_create_node", { title: SOLUTION, layer: "Solution", parent: OPPORTUNITY, body: "b", evidence: "assertion" });
+  await call("ost_create_node", { title: BELIEF, layer: "Assumption", parent: SOLUTION, body: "b", evidence: "assertion" });
 });
 afterEach(() => {
   fs.rmSync(dir, { recursive: true, force: true });
@@ -67,7 +69,7 @@ function repoWithSpec(code: number) {
 describe("minting a test", () => {
   test("an AssumptionTest with neither a command nor a person is refused", async () => {
     await expect(
-      call("ost_create_node", { title: "Some hunch", layer: "AssumptionTest", parent: SOLUTION, body: "b", evidence: "assertion" }),
+      call("ost_create_node", { title: "Some hunch", layer: "AssumptionTest", parent: BELIEF, body: "b", evidence: "assertion" }),
     ).rejects.toThrow(/needs an `instrument`/);
     expect(ctx.vault.has("Some hunch")).toBe(false);
   });
@@ -76,7 +78,7 @@ describe("minting a test", () => {
     const err = await call("ost_create_node", {
       title: "Some hunch",
       layer: "AssumptionTest",
-      parent: SOLUTION,
+      parent: BELIEF,
       body: "b",
       evidence: "assertion",
     }).catch((e: Error) => e.message);
@@ -88,7 +90,7 @@ describe("minting a test", () => {
     await call("ost_create_node", {
       title: "The guard refuses a conflict marker",
       layer: "AssumptionTest",
-      parent: SOLUTION,
+      parent: BELIEF,
       body: "b",
       evidence: "assertion",
       instrument: "npx vitest run test/guard.test.ts",
@@ -100,7 +102,7 @@ describe("minting a test", () => {
     await call("ost_create_node", {
       title: "Ten buyers price it",
       layer: "AssumptionTest",
-      parent: SOLUTION,
+      parent: BELIEF,
       body: "b",
       evidence: "assertion",
       humansRequired: "ten buyers say what they would pay; their answer is the measurement",
@@ -117,7 +119,7 @@ describe("minting a test", () => {
     await call("ost_create_node", {
       title: "Ten buyers price it",
       layer: "AssumptionTest",
-      parent: SOLUTION,
+      parent: BELIEF,
       body: "b",
       evidence: "assertion",
       humansRequired: "ten buyers say what they would pay",
@@ -146,7 +148,7 @@ describe("re-writing a test that was born prose", () => {
       tags: [],
       links: [],
     });
-    ctx.vault.linkNodes(SOLUTION, "Whether the resolver finds it");
+    ctx.vault.linkNodes(BELIEF, "Whether the resolver finds it");
   }
 
   test("a pass can give an existing test a runnable command", async () => {
@@ -203,7 +205,7 @@ describe("a swapped instrument cannot inherit the old one's permit", () => {
     await call("ost_create_node", {
       title: "Resolver test",
       layer: "AssumptionTest",
-      parent: SOLUTION,
+      parent: BELIEF,
       body: "b",
       evidence: "assertion",
       instrument: "npx vitest run test/first.test.ts",
@@ -230,7 +232,7 @@ describe("a swapped instrument cannot inherit the old one's permit", () => {
     await call("ost_create_node", {
       title: "Resolver test",
       layer: "AssumptionTest",
-      parent: SOLUTION,
+      parent: BELIEF,
       body: "b",
       evidence: "assertion",
       instrument: "npx vitest run test/first.test.ts",
@@ -263,7 +265,7 @@ describe("a human-required test stays a human's", () => {
     await call("ost_create_node", {
       title: "Whether buyers pay",
       layer: "AssumptionTest",
-      parent: SOLUTION,
+      parent: BELIEF,
       body: "b",
       evidence: "assertion",
       humansRequired: "ten buyers say what they would pay",

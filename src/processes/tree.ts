@@ -240,3 +240,38 @@ export function byTitle(nodes: OstNode[]): Map<string, OstNode> {
 export function childrenOfLayer(node: OstNode, index: Map<string, OstNode>, layer: Layer): string[] {
   return node.links.filter((t) => index.get(t)?.layer === layer);
 }
+
+/**
+ * The AssumptionTests that answer for a Solution — through its Assumptions.
+ *
+ * **This is the one place the Solution→Assumption→AssumptionTest walk is
+ * written.** Six callers used to spell it as a direct-child filter, and six
+ * copies of a two-hop walk is how the gate (`buildable`) and the report
+ * (`debt`) end up disagreeing about whether a solution is tested.
+ *
+ * Reads are deliberately tolerant of the pre-Assumption shape: a legacy
+ * Solution→AssumptionTest edge still counts. Vaults written before the layer
+ * existed must not have every gate go red on a migration nobody asked them to
+ * run — the strictness lives on the WRITE side (`CHILD_HIERARCHY`), where it
+ * only constrains edges being drawn now.
+ *
+ * De-duplicated by title, because two Assumptions under one Solution may share
+ * a test and a solution should not read as twice-tested for it.
+ */
+export function testsUnderSolution(solution: OstNode, index: Map<string, OstNode>): OstNode[] {
+  const out = new Map<string, OstNode>();
+  for (const link of solution.links) {
+    const child = index.get(link);
+    if (!child) continue;
+    if (child.layer === "AssumptionTest") {
+      out.set(child.title, child); // legacy direct edge
+      continue;
+    }
+    if (child.layer !== "Assumption") continue;
+    for (const grand of child.links) {
+      const test = index.get(grand);
+      if (test?.layer === "AssumptionTest") out.set(test.title, test);
+    }
+  }
+  return [...out.values()];
+}

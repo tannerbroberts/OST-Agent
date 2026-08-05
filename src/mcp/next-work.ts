@@ -9,7 +9,7 @@
  * Purely a reader — it reads the tree + the `.ost-agent/` sidecar and reports.
  * It never mutates, so it carries no commit.
  */
-import { byTitle, childrenOfLayer, claimsStoredEvidence, readEvidence } from "../processes/tree.js";
+import { byTitle, childrenOfLayer, claimsStoredEvidence, readEvidence, testsUnderSolution } from "../processes/tree.js";
 import type { Actor } from "../adapters/source.js";
 import { checkInvariants } from "../eval/invariants.js";
 import { scanNearDuplicates } from "../ost/dedupe.js";
@@ -344,7 +344,8 @@ export const HYGIENE_LABELS: Readonly<Record<string, string>> = {
   "opportunity-connected": "orphan opportunity",
   "outcome-files-categories": "miscategorised outcome edge",
   "solution-mapped": "orphan solution",
-  "assumption-mapped": "orphan assumption test",
+  "assumption-mapped": "orphan assumption",
+  "test-mapped": "orphan assumption test",
   "evidence-class": "unclassed evidence",
   "no-self-validation": "self-validated",
   "lane-conflict": "lane conflict",
@@ -765,7 +766,7 @@ export function computeNextWork(vault: Vault, dir: string, min: number, now: () 
 
   const allSolutionsMissingAssumptions: BareSolution[] = tree
     .filter((n) => n.layer === "Solution")
-    .filter((s) => childrenOfLayer(s, index, "AssumptionTest").length === 0)
+    .filter((s) => testsUnderSolution(s, index).length === 0)
     .map((s) => ({ title: s.title, opportunity: firstOpportunityParent.get(s.title) ?? null }));
 
   // The ledger is read once, here, from the same `dir` the evidence came from —

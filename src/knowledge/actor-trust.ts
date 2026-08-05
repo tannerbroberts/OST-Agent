@@ -327,12 +327,39 @@ export function recordedVerdict(node: Pick<OstNode, "body">): Verdict | null {
 }
 
 /**
- * The tests, one level from a node citing `key`, that have recorded an outcome.
+ * The nodes close enough to a test that the test's outcome may score their source.
  *
  * "One level" is the relation `gateSolution` and `unearnedRung` already mean by "a
  * result for a node" — reused rather than deepened, so a grandchild's result cannot
  * launder standing two layers up. Both directions count: the citing node may be the
  * test itself, its parent, or its child.
+ *
+ * **An Assumption is transparent here, and that is not a widening.** Before the
+ * Assumption layer a Solution WAS the test's parent, so a solution citing a
+ * publisher was one level away by construction. Interposing the belief made the
+ * same pair two hops apart without changing what either node claims, so stepping
+ * through an Assumption restores the original relation rather than extending it.
+ * Nothing else is stepped through: an Opportunity above the Solution stays out of
+ * reach, which is the laundering this rule exists to refuse.
+ */
+function trustNeighbours(tree: readonly OstNode[], test: OstNode): (OstNode | undefined)[] {
+  const parents = tree.filter((n) => n.links.some((t) => titlesMatch(t, test.title)));
+  const throughAssumption = parents
+    .filter((p) => p.layer === "Assumption")
+    .flatMap((a) => tree.filter((n) => n.layer === "Solution" && n.links.some((t) => titlesMatch(t, a.title))));
+  return [
+    test,
+    ...test.links.map((t) => tree.find((n) => titlesMatch(n.title, t))),
+    ...parents,
+    ...throughAssumption,
+  ];
+}
+
+/**
+ * The tests, one level from a node citing `key`, that have recorded an outcome.
+ *
+ * See {@link trustNeighbours} for what "one level" means and why an Assumption
+ * does not count as one of the levels.
  */
 export function joinedTests(
   tree: readonly OstNode[],
@@ -348,12 +375,7 @@ export function joinedTests(
   const out: { test: OstNode; verdict: Verdict | null; cited: string }[] = [];
   for (const test of candidates) {
     if (!hasRecordedResult(test)) continue;
-    const neighbours = [
-      test,
-      ...test.links.map((t) => tree.find((n) => titlesMatch(n.title, t))),
-      ...tree.filter((n) => n.links.some((t) => titlesMatch(t, test.title))),
-    ];
-    const citing = neighbours.find(cites);
+    const citing = trustNeighbours(tree, test).find(cites);
     if (citing) out.push({ test, verdict: recordedVerdict(test), cited: citing.title });
   }
   return out;
@@ -674,11 +696,7 @@ export function resultObservations(
 ): NewObservation[] {
   const test = tree.find((n) => titlesMatch(n.title, filing.test));
   if (!test) return [];
-  const neighbours = [
-    test,
-    ...test.links.map((t) => tree.find((n) => titlesMatch(n.title, t))),
-    ...tree.filter((n) => n.links.some((t) => titlesMatch(t, test.title))),
-  ];
+  const neighbours = trustNeighbours(tree, test);
   const seen = new Set<string>();
   const out: NewObservation[] = [];
   for (const n of neighbours) {

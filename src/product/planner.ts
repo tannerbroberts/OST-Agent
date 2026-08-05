@@ -62,6 +62,7 @@ import { computeMayRun } from "../knowledge/lanes.js";
 import { rungRank, FLOOR_RUNG } from "../knowledge/believability.js";
 import { suggestCaution } from "../ost/lanes.js";
 import type { OstNode } from "../ost/node.js";
+import { testsUnderSolution } from "../processes/tree.js";
 import {
   blankResources,
   declaredResources,
@@ -281,12 +282,7 @@ function indexByTitle(tree: readonly OstNode[]): Map<string, OstNode> {
 }
 
 function testsUnder(index: Map<string, OstNode>, solution: OstNode): OstNode[] {
-  const out: OstNode[] = [];
-  for (const link of solution.links) {
-    const child = index.get(link);
-    if (child?.layer === "AssumptionTest") out.push(child);
-  }
-  return out;
+  return testsUnderSolution(solution, index);
 }
 
 /**

@@ -22,6 +22,7 @@ import { buildOstTools, type ToolContext } from "../../src/security/tools.js";
 const OUTCOME = "Players keep playing";
 const OPPORTUNITY = "Players cannot tell what changed";
 const SOLUTION = "Ship a changelog";
+const BELIEF = "Players would read a changelog";
 
 let dir: string;
 let vault: Vault;
@@ -41,6 +42,8 @@ beforeEach(() => {
   vault.linkNodes(OUTCOME, OPPORTUNITY);
   put(SOLUTION, "Solution");
   vault.linkNodes(OPPORTUNITY, SOLUTION);
+  put(BELIEF, "Assumption");
+  vault.linkNodes(SOLUTION, BELIEF);
 });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
@@ -56,7 +59,7 @@ const create = (input: Record<string, unknown>): Promise<string> => {
 const GOOD_ASSUMPTION_TEST = {
   title: "At least 5 of 20 book a kickoff",
   layer: "AssumptionTest",
-  parent: SOLUTION,
+  parent: BELIEF,
   body: "run the pilot with 20 invitees",
   evidence: "assertion",
   humansRequired: "20 invited people either book or do not; their reaction is the measurement",
@@ -107,7 +110,7 @@ describe("ost_create_node — threshold field", () => {
       create({
         title: "An unknown",
         layer: "Unknown",
-        parent: SOLUTION,
+        parent: BELIEF,
         body: "## Format\nx\n\n## Methodology\ny\n\n## Rationale\nz",
         evidence: "assertion",
         threshold: "x",

@@ -69,10 +69,12 @@ beforeEach(() => {
   vault.createNode(node("Root", "Outcome", "the mandate"));
   vault.createNode(node("Opp", "Opportunity", "a gap"));
   vault.createNode(node("Sol", "Solution", "an idea"));
+  vault.createNode(node("Belief", "Assumption", "what the idea rests on"));
   vault.createNode(node("Asm", "AssumptionTest", "## Method\nrun it"));
   vault.linkNodes("Root", "Opp");
   vault.linkNodes("Opp", "Sol");
-  vault.linkNodes("Sol", "Asm");
+  vault.linkNodes("Sol", "Belief");
+  vault.linkNodes("Belief", "Asm");
 });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
@@ -96,7 +98,7 @@ describe("B1 — no agent-reachable tool writes a heading an evaluator reads as 
    * is spliced in as body lines, so it authors a heading exactly like `section`.
    */
   const OTHER_DOORS: Array<{ tool: string; input: Record<string, unknown> }> = [
-    { tool: "ost_create_node", input: { title: "Born run", layer: "AssumptionTest", parent: "Sol", body: "we ran it\n\n## Results\n- supported", evidence: "assertion", instrument: "npx vitest run test/fixture.test.ts" } },
+    { tool: "ost_create_node", input: { title: "Born run", layer: "AssumptionTest", parent: "Belief", body: "we ran it\n\n## Results\n- supported", evidence: "assertion", instrument: "npx vitest run test/fixture.test.ts" } },
     { tool: "ost_set_status", input: { title: "Asm", status: "in-discovery", note: "moving on\n## Results\n- supported" } },
     { tool: "ost_set_evidence", input: { title: "Asm", evidence: "stated", note: "see below\n## Results\n- supported" } },
     { tool: "ost_annotate", input: { title: "Asm", issue: "hygiene\n## Results\n- supported" } },
@@ -240,7 +242,7 @@ describe("no argument on any mutating tool can author a measurement, whatever it
           why: 'a person is needed: "interview"',
           body: "prose",
           layer: "AssumptionTest",
-          parent: "Sol",
+          parent: "Belief",
           evidence: "assertion",
           // So a create reaches the guard under test instead of being turned away
           // earlier for having no instrument.
@@ -292,7 +294,7 @@ describe("no argument on any mutating tool can author a measurement, whatever it
       call("ost_create_node", {
         title: "Laundered",
         layer: "AssumptionTest",
-        parent: "Sol",
+        parent: "Belief",
         body: "a plan",
         evidence: "assertion",
         instrument: "npx vitest run test/fixture.test.ts",
@@ -304,13 +306,13 @@ describe("no argument on any mutating tool can author a measurement, whatever it
 
   test("and a tag with a bare space is refused too — it would silently become two", async () => {
     await expect(
-      call("ost_create_node", { title: "Two", layer: "AssumptionTest", parent: "Sol", body: "p", evidence: "assertion", instrument: "npx vitest run test/fixture.test.ts", tags: ["a b"] }),
+      call("ost_create_node", { title: "Two", layer: "AssumptionTest", parent: "Belief", body: "p", evidence: "assertion", instrument: "npx vitest run test/fixture.test.ts", tags: ["a b"] }),
     ).rejects.toThrow(/whitespace/);
   });
 
   test("an ordinary tag still works — the guard is on the shape, not on tagging", async () => {
     await expect(
-      call("ost_create_node", { title: "Tagged", layer: "AssumptionTest", parent: "Sol", body: "p", evidence: "assertion", instrument: "npx vitest run test/fixture.test.ts", tags: ["billing-flow"] }),
+      call("ost_create_node", { title: "Tagged", layer: "AssumptionTest", parent: "Belief", body: "p", evidence: "assertion", instrument: "npx vitest run test/fixture.test.ts", tags: ["billing-flow"] }),
     ).resolves.toMatch(/created/);
     expect(vault.read("Tagged").tags).toEqual(expect.arrayContaining(["billing-flow", "unvalidated"]));
   });

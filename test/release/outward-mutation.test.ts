@@ -281,6 +281,7 @@ describe("(b) the two names the server withholds", () => {
 const OUTCOME = "Ship the thing";
 const OPPORTUNITY = "Users cannot tell what changed";
 const SOLUTION = "Ship a changelog";
+const BELIEF = "Players would read a changelog if it existed";
 const TEST = "Diff two builds and count the deltas";
 const SECOND_OPPORTUNITY = "Nobody reads the release notes";
 
@@ -297,8 +298,10 @@ function makeVault(): { dir: string; vault: Vault } {
   vault.linkNodes(OUTCOME, OPPORTUNITY);
   put(vault, SOLUTION, "Solution");
   vault.linkNodes(OPPORTUNITY, SOLUTION);
+  put(vault, BELIEF, "Assumption");
+  vault.linkNodes(SOLUTION, BELIEF);
   put(vault, TEST, "AssumptionTest");
-  vault.linkNodes(SOLUTION, TEST);
+  vault.linkNodes(BELIEF, TEST);
   // Unattached on purpose, and the only node in this fixture that is. R6's guard
   // refuses a wrong-layer edge and an already-run test adopted by a new Solution,
   // so `ost_link_nodes` needs a target that is a LEGAL new edge or its row stops
@@ -373,7 +376,7 @@ const AIM: Record<string, (n: number) => Record<string, unknown>> = {
   // silently stops writing proves nothing about the push path it is testing.
   ost_create_node: (n) => ({
     title: `A new test ${n}`,
-    parent: SOLUTION,
+    parent: BELIEF,
     layer: "AssumptionTest",
     evidence: "assertion",
     instrument: "npx vitest run test/driven.test.ts",

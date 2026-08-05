@@ -2993,8 +2993,16 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1961 tests across 163 files, verified 2026-08-05 (`npx vitest run`,
-> after `test/security/credential-broker.test.ts` pinned the credential broker — the three
+> *Today:* **met** — 1980 tests across 164 files, verified 2026-08-05 (`npx vitest run`,
+> after `test/eval/assumption-layer.test.ts` pinned the Assumption layer between a Solution
+> and its tests. The migration is write-strict and read-tolerant, and the spec holds both
+> halves: `CHILD_HIERARCHY` refuses a new Solution→AssumptionTest edge, while
+> `testsUnderSolution` still resolves a legacy direct one, so a vault written before the
+> layer keeps a green `check` and a working gate. It also pins the hole the layer itself
+> opened — a solution's gate now clears on a run test two hops down, so an Assumption
+> already carrying one cannot be adopted by a second Solution, which is R6's forgery
+> arriving one layer up. Previously verified after
+> `test/security/credential-broker.test.ts` pinned the credential broker — the three
 > credentials this product reads from the environment are held in one process and handed to
 > nothing. An adapter is constructed with an opaque handle and a brokered fetch; the secret is
 > substituted into the outgoing header (including inside HTTP Basic's base64) only after the

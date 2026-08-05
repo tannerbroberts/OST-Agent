@@ -135,8 +135,9 @@ function oneLine(reason: unknown): string {
 const CHILD_HIERARCHY: Record<string, string[]> = {
   Opportunity: ["Outcome", "Opportunity"],
   Solution: ["Opportunity"],
-  AssumptionTest: ["Solution"],
-  Unknown: ["Outcome", "Opportunity", "Solution", "AssumptionTest"],
+  Assumption: ["Solution"],
+  AssumptionTest: ["Assumption"],
+  Unknown: ["Outcome", "Opportunity", "Solution", "Assumption", "AssumptionTest"],
 };
 
 /**
@@ -173,6 +174,31 @@ const CHILD_HIERARCHY: Record<string, string[]> = {
  * reaches `done`, and `ost_check` keeps reporting the orphan for the human who
  * can attach it. An interrupt, not a dead end — but a real cost, not none.
  */
+/**
+ * The layers whose gate a recorded result clears, and therefore the parents an
+ * edge can forge evidence onto: a Solution (via `buildable`/`gate`) and an
+ * Assumption (which is what a solution's gate now reads through).
+ */
+const GATE_BEARING_PARENT = new Set(["Solution", "Assumption"]);
+
+/**
+ * Does attaching this node hand its new parent a recorded result?
+ *
+ * True for a run AssumptionTest, and for an Assumption with a run test beneath
+ * it — the two shapes that move a gate. Deliberately ONE hop down from an
+ * Assumption rather than a full subtree walk: an Assumption's children are
+ * tests, so a deeper walk would only re-find the same nodes at more cost.
+ */
+function carriesRecordedResult(vault: Vault, node: OstNode): boolean {
+  if (node.layer === "AssumptionTest") return hasRecordedResult(node);
+  if (node.layer !== "Assumption") return false;
+  return node.links.some((t) => {
+    if (!vault.has(t)) return false;
+    const test = vault.read(t);
+    return test.layer === "AssumptionTest" && hasRecordedResult(test);
+  });
+}
+
 function assertLinkAllowed(vault: Vault, parentTitle: string, childTitle: string): void {
   const parent = vault.read(parentTitle); // "no such node: …" — the check that was already here
   if (!vault.has(childTitle)) {
@@ -219,8 +245,14 @@ function assertLinkAllowed(vault: Vault, parentTitle: string, childTitle: string
   // UNRUN test under a second Solution stays open, so two solutions can still
   // share an assumption a human later runs — the human's write is what moves
   // both gates, which is a human in the loop rather than a single agent call.
+  //
+  // The Assumption layer added a SECOND route to the same flip and it is closed
+  // by the same clause: a solution's gate is now cleared by a run test two hops
+  // down, so attaching an *Assumption* that already carries one is the identical
+  // forgery arriving one layer up. `carriesRecordedResult` is what makes the two
+  // cases one rule rather than two guards that could drift apart.
   const alreadyLinked = parent.links.some((l) => titlesMatch(l, childTitle));
-  if (!alreadyLinked && parent.layer === "Solution" && child.layer === "AssumptionTest" && hasRecordedResult(child)) {
+  if (!alreadyLinked && GATE_BEARING_PARENT.has(parent.layer) && carriesRecordedResult(vault, child)) {
     throw new Error(
       `refusing to attach "${displaySafeTitle(childTitle)}" under "${displaySafeTitle(parentTitle)}": that test already ` +
         `records a result, and hanging it under a solution that did not commission it would clear that solution's ` +
@@ -272,12 +304,15 @@ function assertMergeAllowed(vault: Vault, from: string, into: string): void {
     );
   }
 
-  if (survivor.layer !== "Solution") return;
+  // Both gate-bearing layers, for the reason spelled out on `assertLinkAllowed`:
+  // a merge into an Assumption can inherit a run test just as a merge into a
+  // Solution can inherit a run assumption.
+  if (!GATE_BEARING_PARENT.has(survivor.layer)) return;
   for (const childTitle of loser.links) {
     if (survivor.links.some((l) => titlesMatch(l, childTitle))) continue; // already ours — no gate moves
     if (!vault.has(childTitle)) continue; // dangling; the merge repoints nothing that exists
     const child = vault.read(childTitle);
-    if (child.layer === "AssumptionTest" && hasRecordedResult(child)) {
+    if (carriesRecordedResult(vault, child)) {
       throw new Error(
         `refusing to merge "${displaySafeTitle(from)}" into "${displaySafeTitle(into)}": it would bring the tested ` +
           `assumption "${displaySafeTitle(childTitle)}" under "${displaySafeTitle(into)}", clearing that solution's ` +
@@ -654,13 +689,13 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
       name: "ost_create_node",
       reversibility: "reversible",
       description:
-        "Create a NEW node AND attach it under an existing parent in one call. Everything that can be refused — the parent, the hierarchy, the evidence class, the title, the body — is checked BEFORE anything is written, so a refused call leaves nothing on disk; if the attach still fails after the file exists (a filesystem error, the one failure that cannot be checked in advance), the error names the node it created and tells you to link it, and ost_check reports it as unattached until you do. You CANNOT create an Outcome (there is exactly one, human-set at init). Hierarchy is enforced: an Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an AssumptionTest under a Solution; an Unknown (darkness, representing uncertainty) attaches under any layer. The type tag (#Opportunity / #Solution / #AssumptionTest / #Unknown) is applied automatically, and so is the #unvalidated marker: everything you create enters the tree unvalidated, and only a human can take that marker off (`ost-agent promote`). For an Unknown, write its body with three `## ` sections — `## Format` (the shape a valid answer would take), `## Methodology` (how it would be collected), and `## Rationale` (which node this darkens and what metric it serves) — because Format is the stopping condition: an unknown that cannot say what an answer looks like cannot know when it is done, and one lacking Methodology is worth commissioning observability for rather than chasing further.",
+        "Create a NEW node AND attach it under an existing parent in one call. Everything that can be refused — the parent, the hierarchy, the evidence class, the title, the body — is checked BEFORE anything is written, so a refused call leaves nothing on disk; if the attach still fails after the file exists (a filesystem error, the one failure that cannot be checked in advance), the error names the node it created and tells you to link it, and ost_check reports it as unattached until you do. You CANNOT create an Outcome (there is exactly one, human-set at init). Hierarchy is enforced: an Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an Assumption under a Solution; an AssumptionTest under an Assumption; an Unknown (darkness, representing uncertainty) attaches under any layer. An Assumption is the BELIEF a solution depends on, stated so it could be wrong ('operators will hand a secret to a broker'); the AssumptionTest beneath it is how you would find out. One assumption may carry several tests, and a solution resting on four beliefs is not covered by one test against one of them — which is the distinction this layer exists to keep. The type tag (#Opportunity / #Solution / #Assumption / #AssumptionTest / #Unknown) is applied automatically, and so is the #unvalidated marker: everything you create enters the tree unvalidated, and only a human can take that marker off (`ost-agent promote`). For an Unknown, write its body with three `## ` sections — `## Format` (the shape a valid answer would take), `## Methodology` (how it would be collected), and `## Rationale` (which node this darkens and what metric it serves) — because Format is the stopping condition: an unknown that cannot say what an answer looks like cannot know when it is done, and one lacking Methodology is worth commissioning observability for rather than chasing further.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
         properties: {
           title: { type: "string", description: "Node title; also the filename." },
-          layer: { type: "string", enum: ["Opportunity", "Solution", "AssumptionTest", "Unknown"], description: "Opportunity | Solution | AssumptionTest | Unknown (Outcome cannot be created here)" },
+          layer: { type: "string", enum: ["Opportunity", "Solution", "Assumption", "AssumptionTest", "Unknown"], description: "Opportunity | Solution | Assumption | AssumptionTest | Unknown (Outcome cannot be created here)" },
           parent: { type: "string", description: "Title of the existing parent node to attach under." },
           body: { type: "string", description: "Prose description of the node." },
           status: { type: "string", enum: AGENT_SETTABLE_STATUSES },
@@ -882,7 +917,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
       name: "ost_link_nodes",
       reversibility: "reversible",
       description:
-        "Add a parent->child edge (a [[wikilink]] in the parent). Idempotent. Use to connect an Opportunity under the Outcome, a Solution under an Opportunity, or an AssumptionTest under a Solution — the same hierarchy ost_create_node enforces, and it is enforced here too: the child must already exist and the layers must fit, so this tool cannot author a dangling or nonsensical edge. One further refusal: an AssumptionTest that already records a result cannot be attached to a new Solution, because that would clear that solution's evidence gate on a test it never commissioned.",
+        "Add a parent->child edge (a [[wikilink]] in the parent). Idempotent. Use to connect an Opportunity under the Outcome, a Solution under an Opportunity, an Assumption under a Solution, or an AssumptionTest under an Assumption — the same hierarchy ost_create_node enforces, and it is enforced here too: the child must already exist and the layers must fit, so this tool cannot author a dangling or nonsensical edge. One further refusal: a node that already carries a recorded result — a run AssumptionTest, or an Assumption holding one — cannot be attached to a new parent, because that would clear that parent's evidence gate on a test it never commissioned.",
       inputSchema: {
         type: "object",
         additionalProperties: false,

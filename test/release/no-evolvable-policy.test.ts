@@ -259,12 +259,18 @@ describe("the unattended surface writes no policy into the vault", () => {
       arguments: { title: "Daily streak", layer: "Solution", parent: "I want a reason to come back", body: "b", source: "WEB:example.com", evidence: "assertion" },
     },
     {
+      // The belief the solution rests on. A test attaches under one of these
+      // now, not under the solution directly.
+      name: "ost_create_node",
+      arguments: { title: "Streaks change return behaviour", layer: "Assumption", parent: "Daily streak", body: "b", source: "INBOX:x", evidence: "assertion" },
+    },
+    {
       name: "ost_create_node",
       // Carries an instrument because an AssumptionTest without one is refused at
       // the boundary now: a test nothing can run is a test the builder cannot use.
-      arguments: { title: "Streaks lift day-7 return", layer: "AssumptionTest", parent: "Daily streak", body: "## Format\nreturn rate", source: "INBOX:x", evidence: "stated", instrument: "npx vitest run test/streaks.test.ts" },
+      arguments: { title: "Streaks lift day-7 return", layer: "AssumptionTest", parent: "Streaks change return behaviour", body: "## Format\nreturn rate", source: "INBOX:x", evidence: "stated", instrument: "npx vitest run test/streaks.test.ts" },
     },
-    { name: "ost_link_nodes", arguments: { parent: "Daily streak", child: "Streaks lift day-7 return" } },
+    { name: "ost_link_nodes", arguments: { parent: "Streaks change return behaviour", child: "Streaks lift day-7 return" } },
     // Deliberately NOT "## Results". That heading is reserved
     // (`src/ost/headings.ts`, B1) — the agent may never author the section its
     // own gates read as proof a test was run, so a sequence that used one here

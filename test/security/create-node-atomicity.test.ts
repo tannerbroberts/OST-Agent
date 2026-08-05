@@ -109,7 +109,7 @@ describe("nothing is written until everything is checked", () => {
    */
   const REFUSALS: [string, Record<string, unknown>, RegExp][] = [
     ["parent does not exist", { ...GOOD, parent: "A parent nobody made" }, /does not exist/],
-    ["wrong layer for that parent", { ...GOOD, layer: "AssumptionTest", parent: OPPORTUNITY }, /must attach under Solution/],
+    ["wrong layer for that parent", { ...GOOD, layer: "AssumptionTest", parent: OPPORTUNITY }, /must attach under Assumption/],
     ["the Outcome layer", { ...GOOD, layer: "Outcome", parent: OUTCOME }, /cannot create layer/],
     ["no evidence class", { title: "A rungless idea", layer: "Solution", parent: OPPORTUNITY, body: "an idea" }, /evidence class/],
     ["an unearned measurement rung", { ...GOOD, evidence: "money" }, /cannot declare 'money'/],
