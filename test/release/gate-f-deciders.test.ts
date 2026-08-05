@@ -158,6 +158,22 @@ const TRACE_READER_MODULES: Record<string, string> = {
   "degraded.ts": "F4 / H1 / H4",
 };
 
+/**
+ * The fourth class: modules that open files and decide nothing.
+ *
+ * `questions.ts` reads the same session transcripts `spend.ts` does, but it
+ * produces a LINE, not a verdict — the question budget reports how much of the
+ * operator's attention a firing may cost and never refuses one, never touches an
+ * exit code. Filing it under `READER_MODULES` would have attributed it to a Gate F
+ * criterion it does not decide, and the enumeration's whole value is that the
+ * attribution is real.
+ *
+ * The property that keeps this class from being a hole is asserted below: no
+ * decider imports a reporter. The moment one does, its reads become decider inputs
+ * and this classification fails the build rather than silently going stale.
+ */
+const REPORTER_MODULES = ["questions.ts"];
+
 const FS_READ = /\bfs\.(readFileSync|readdirSync|existsSync|statSync|lstatSync|realpathSync|openSync)\b|\bspawnSync\b|\bexecFileSync\b/;
 
 describe("1 — the enumeration covers every module that can become a decider input", () => {
@@ -173,11 +189,13 @@ describe("1 — the enumeration covers every module that can become a decider in
         READER_MODULES[m] ? "reader" : null,
         TRACE_READER_MODULES[m] ? "trace-reader" : null,
         PURE_MODULES.includes(m) ? "pure" : null,
+        REPORTER_MODULES.includes(m) ? "reporter" : null,
       ].filter(Boolean);
       expect(
         classifications,
-        `src/loop/${m} is not classified — add it to READER_MODULES, TRACE_READER_MODULES or PURE_MODULES, ` +
-          "and if it opens a new file, add that file to the decider's reads so both surfaces below cover it",
+        `src/loop/${m} is not classified — add it to READER_MODULES, TRACE_READER_MODULES, PURE_MODULES or ` +
+          "REPORTER_MODULES, and if it opens a new file for a DECIDER, add that file to the decider's reads " +
+          "so both surfaces below cover it",
       ).toHaveLength(1);
     }
   });
@@ -215,6 +233,35 @@ describe("1 — the enumeration covers every module that can become a decider in
       expect(src, `src/loop/${m} is enumerated as a trace reader but does not read the trace`).toMatch(
         /readUsageEvents/,
       );
+    }
+  });
+
+  test("the modules declared reporters really do read something", () => {
+    // Same non-vacuity as the readers: a "reporter" that touches no file is just a
+    // pure module filed in the class with the weaker obligations.
+    for (const m of REPORTER_MODULES) {
+      const src = fs.readFileSync(path.join(loopDir, m), "utf8");
+      expect(FS_READ.test(src), `src/loop/${m} is filed as a reporter but reads nothing`).toBe(true);
+    }
+  });
+
+  test("no decider imports a reporter, so no verdict is computed from what one reads", () => {
+    // This is what makes the reporter class safe rather than an exemption. A
+    // reporter's files are NOT enumerated as decider inputs and are NOT covered by
+    // parts 2–4; that is only sound while no verdict can reach them.
+    const deciderModules = [
+      ...DECIDERS.map((d) => d.module),
+      ...Object.keys({ ...READER_MODULES, ...TRACE_READER_MODULES }).map((m) => `src/loop/${m}`),
+    ];
+    for (const decider of new Set(deciderModules)) {
+      const src = readRepoFile(decider);
+      for (const reporter of REPORTER_MODULES) {
+        expect(
+          src.includes(`./${reporter.replace(/\.ts$/, ".js")}`),
+          `${decider} imports the reporter src/loop/${reporter} — its reads are now decider inputs, ` +
+            "so move it to READER_MODULES and enumerate them",
+        ).toBe(false);
+      }
     }
   });
 

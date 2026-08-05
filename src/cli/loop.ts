@@ -31,6 +31,7 @@ import { appendStep, readOpenRun, readRuns, sealRun, startRun } from "../loop/he
 import { assessStall } from "../loop/stall.js";
 import { acquireFiringLock, releaseFiringLock, stampFiringLock } from "../loop/lock.js";
 import { checkCeiling, measureFiring, type SpendCeiling } from "../loop/spend.js";
+import { formatQuestionBudget, measureInterruptions, type QuestionBudget } from "../loop/questions.js";
 import { gitHead, workingTreeStatus, type VaultTreeStatus } from "../loop/state.js";
 import { VERSION } from "../index.js";
 import { VAULT_OPTION_HELP } from "./vault-option.js";
@@ -102,6 +103,22 @@ function ceilingOf(vaultDir: string, spend: LoopConfig["spend"]): SpendCeiling |
     windowHours,
     sessionsDir: resolveSessionsDir(vaultDir, sessionsDir),
   };
+}
+
+/**
+ * The declared question budget, or null for "unbounded".
+ *
+ * Same all-or-nothing shape as `ceilingOf` and for the same reason — a half-typed
+ * block must not be read as a bound nobody declared. `budget: 0` is a real and
+ * deliberate value (ask nothing, bank everything), so this checks for null rather
+ * than falsiness; an earlier draft's `!budget` would have silently turned the one
+ * setting that fully protects the operator's attention back into "unbounded".
+ */
+function questionBudgetOf(vaultDir: string, questions: LoopConfig["questions"]): QuestionBudget | null {
+  if (!questions) return null;
+  const { budget, windowHours, sessionsDir } = questions;
+  if (budget == null || windowHours == null || !sessionsDir) return null;
+  return { interruptions: budget, windowHours, sessionsDir: resolveSessionsDir(vaultDir, sessionsDir) };
 }
 
 /**
@@ -336,6 +353,23 @@ export function registerLoopCommands(program: Command): void {
 
       console.log(`due: ${cadence.reason}`);
       console.log(`  ${spend.reason}`);
+
+      // Stated at the point the operator decides whether to walk away, and stated
+      // whether or not it is declared — an unbounded budget is a fact about this
+      // firing, not an absence to pass over in silence. It never touches the exit
+      // code: this reports the attention a firing may cost, it does not refuse one.
+      const questions = questionBudgetOf(opts.vault, config.loop?.questions);
+      console.log(
+        `  ${formatQuestionBudget(
+          questions,
+          questions
+            ? measureInterruptions(questions.sessionsDir, {
+                vaultDir: opts.vault,
+                sinceMs: now - questions.windowHours * HOUR_MS,
+              })
+            : undefined,
+        )}`,
+      );
     });
 
   loop
