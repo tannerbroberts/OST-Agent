@@ -119,12 +119,13 @@ MCP_CONFIG="$(mktemp "${TMPDIR:-/tmp}/ost-agent-mcp.XXXXXX")"
 # Same rule, same reason: created up here so the one trap below owns their cleanup
 # too. They hold the computed top-level view and the prompt it is prepended to.
 ROLLUP_FILE="$(mktemp "${TMPDIR:-/tmp}/ost-rollup.XXXXXX")"
+CORRECTIONS_FILE="$(mktemp "${TMPDIR:-/tmp}/ost-corrections.XXXXXX")"
 PROMPT_FILE="$(mktemp "${TMPDIR:-/tmp}/ost-pass-prompt.XXXXXX")"
 
 # Seal on every exit path, including a phase that aborted under `set -e`. The
 # verdict is computed from what was recorded, so an aborted firing seals unhealthy
 # rather than vanishing, and the lock is released either way.
-trap 'rm -f "$MCP_CONFIG" "$ROLLUP_FILE" "$PROMPT_FILE"; node "$CLI" loop seal --vault . || true' EXIT
+trap 'rm -f "$MCP_CONFIG" "$ROLLUP_FILE" "$CORRECTIONS_FILE" "$PROMPT_FILE"; node "$CLI" loop seal --vault . || true' EXIT
 
 # The MCP server is declared here rather than loaded as a plugin, and the pass
 # instructions are handed over as the prompt rather than invoked as `/ost-pass`.
@@ -177,7 +178,25 @@ if ! node "$CLI" rollup --vault . >"$ROLLUP_FILE" 2>/dev/null; then
   # as a tree with nothing in it.
   printf '(the top-level view could not be computed this firing — read the tree directly)\n' >"$ROLLUP_FILE"
 fi
+# The corrections this workspace has already been given, harvested out of finished
+# session transcripts and deduplicated by the permitted form each guard named.
+#
+# It goes at the HEAD of the prompt, ahead of the tree, and that placement is the
+# whole mechanism. A refusal delivered as a tool-error message has no carrier out of
+# the session it was delivered in — seven sessions across four days hit the identical
+# `Blocked: sleep …` guard because nothing wrote it down, so the guard ended up being
+# the only memory in the system. Read here, the correction reaches the session before
+# it composes anything rather than after it has already reached for the wrong shape.
+#
+# Same failure discipline as the rollup: a ledger that cannot be read must not take
+# the firing down, and its absence must be visible in the prompt rather than being an
+# empty region the reader cannot distinguish from a clean workspace.
+if ! node "$CLI" corrections --vault . >"$CORRECTIONS_FILE"; then
+  printf '(the corrections ledger could not be read this firing)\n' >"$CORRECTIONS_FILE"
+fi
 {
+  cat "$CORRECTIONS_FILE"
+  printf '\n\n---\n\n'
   printf 'THE TREE AS IT STANDS (computed by `ost-agent rollup`, not written by anyone):\n\n'
   cat "$ROLLUP_FILE"
   printf '\n\n---\n\n'
