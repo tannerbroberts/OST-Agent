@@ -1,0 +1,152 @@
+[
+  {
+    "solution": "A broker holds the credential and answers scoped, audited requests from the run",
+    "title": "Operators will accept one process holding every secret, in exchange for never handing one to a run",
+    "body": "The broker's whole advantage is that the run never possesses the credential. Its cost is concentration: every secret the operator has, in one process on one machine. This solution is only worth building if operators will make that trade — and the node itself says that for some of them it is plainly unacceptable."
+  },
+  {
+    "solution": "A budget for questions, spent down across the run and visible to the operator",
+    "title": "A run can rank its own questions by consequence well enough that a spent budget buys the important ones",
+    "body": "A count of interruptions is only a good proxy for what the operator cares about if the run spends it in the right order. If the run cannot tell a structural question from a cheap one, the budget is exhausted on the cheap ones and the single question worth asking is the one that gets defaulted."
+  },
+  {
+    "solution": "A builder capability profile read off the work already committed, with no deposit asked for",
+    "title": "The commits and PRs already written are specific enough to name what their author can do",
+    "body": "Nobody is asked to deposit anything, so the profile is only as good as the existing record. If most commits carry no identifiable author, or bodies too thin for a reader to name one capability, there is nothing to read a profile off and the mechanism has no input."
+  },
+  {
+    "solution": "A cheap validating call the caller may make before committing to the real one",
+    "title": "A caller about to make a failing call usually already doubts it, so a validate-only twin gets reached for",
+    "body": "A validate-only twin only helps the caller who thinks to use it. If failed calls mostly come from callers with no prior sign of doubt, the twin sits unused beside exactly the calls it was built for."
+  },
+  {
+    "solution": "A check with an empty subject is a failure, not a pass",
+    "title": "Sweeps that found nothing were mostly looking at nothing at all, rather than at a subset",
+    "body": "Refusing a zero-subject sweep is worth doing if blindness is usually total. If past sweeps were mostly partly-blind — a real subject list with gaps in it — then the empty-subject case is rare and this catches the least common shape of the problem."
+  },
+  {
+    "solution": "A conflict marker cannot reach a commit, because the hook that would allow it refuses",
+    "title": "Every route a run commits by passes through a place a local hook can occupy",
+    "body": "A pre-commit hook is a guarantee only if there is no path around it. The node states its own doubt: a local hook is advisory, skippable with a flag, and absent from a fresh clone. If a run's real commit paths bypass it, the marker still reaches the commit."
+  },
+  {
+    "solution": "A Context node type for evidence that is true, useful, and not a customer need",
+    "title": "Enough true, useful, non-need evidence is being stranded to justify a layer of its own",
+    "body": "A new node type earns its complexity only if there is a real population for it. If the stranded items are few, or if they turn out to be opportunities written badly rather than genuinely need-shaped nothing, then the layer is machinery for a case that barely occurs."
+  },
+  {
+    "solution": "A corrections ledger in the workspace that every session reads before it composes",
+    "title": "A refusal written down once will actually be read before the next call that would repeat it",
+    "body": "The ledger only works if reading it precedes composing. The node names the risk itself: a reflex that survived seven explicit refusals may well survive a note about them, and a ledger that grows unbounded becomes another thing nobody reads."
+  },
+  {
+    "solution": "A declared resource manifest the planner must cite before it ranks anything",
+    "title": "Declaring the operator's real resources changes which work comes first",
+    "body": "The manifest is only worth its filling-in if it moves the order. If the top priorities are the same before and after an honest declaration, then the ranking was never actually conditioned on resources and the manifest is a form with no consequence."
+  },
+  {
+    "solution": "A degraded pass has its own name and is not allowed to report a clean run",
+    "title": "A pass can detect its own degradation, rather than being degraded in ways invisible from inside",
+    "body": "Naming the degraded state assumes the pass knows it is in one. A missing tool is detectable; a tool that is present but quietly answering less is not, and a pass that cannot see its own gap will report clean under a new name."
+  },
+  {
+    "solution": "A failed path lookup answers with the nearest thing that does exist",
+    "title": "The nearest existing path is usually the one the caller meant",
+    "body": "Suggesting a near match is helpful only if the match is usually right. The node states the cost of being wrong: a caller told 'did you mean this other directory' will sometimes say yes when the real answer is that something is broken further upstream, and the suggestion is how that goes unnoticed."
+  },
+  {
+    "solution": "A first-run branch that walks a stranger to a vault in one question",
+    "title": "One question is enough to get someone who knows nothing to a working vault",
+    "body": "The whole claim is that setup is a conversation rather than a wizard. If a stranger needs more than the outcome question — if they stall on where the vault goes, or what an outcome even is — then one question was the wrong size and the branch does not reach a working vault."
+  },
+  {
+    "solution": "A model reads the raw transcript and files what the pattern scan cannot see",
+    "title": "A model reading a whole session finds friction that a pattern scan structurally cannot",
+    "body": "This is only worth its cost if the model's reading contains something the cheaper scan misses. Changed minds, abandoned attempts and unnoticed repetition leave no error string — but a model may also simply produce plausible narrative about them, which is worse than finding nothing."
+  },
+  {
+    "solution": "A pointer file in the project root that names its vault, read by anything that opens the repo",
+    "title": "Something opening the repository will look for a pointer file without being told to",
+    "body": "The node names its own risk: a pointer nobody is required to read is a pointer that gets ignored. If cold sessions and tools do not check the root by convention, the information is present and changes nothing."
+  },
+  {
+    "solution": "A pull adapter per source the pass reads directly, on its own schedule",
+    "title": "An adapter against a passive source can be built quickly and keeps working without attention",
+    "body": "Adapters earn their keep where the source is passive and cannot push. They stop earning it if each one is slow to write or needs regular repair — at which point the human's job has not shrunk, it has changed shape."
+  },
+  {
+    "solution": "A push channel the operator subscribes to, applied at the next safe checkpoint",
+    "title": "Operators will let a channel change an agent that is running while nobody is watching",
+    "body": "The mechanism requires consent to unattended change. Told plainly what the channel can do, an operator may decide that an agent which can be altered mid-run is exactly the thing they were not willing to leave alone — which would make the channel unshippable rather than merely unpopular."
+  },
+  {
+    "solution": "A quarantine list committed to the repo, so the exclusion is declared once instead of retyped",
+    "title": "Enough distinct files get hand-excluded that declaring them once beats retyping",
+    "body": "A committed list pays for itself across repetition and breadth. At one or two distinct files it is over-engineering — the retyping was cheap and the list is a second place for the truth to live."
+  },
+  {
+    "solution": "A question queue the run banks and works around, instead of stopping at the fork",
+    "title": "Most of what a run stops for is independent of the answer, so it could have carried on",
+    "body": "Banking the question only helps if there is work left that does not depend on it. If the stops are mostly genuine forks — where everything downstream changes with the answer — then working around them produces output that has to be thrown away."
+  },
+  {
+    "solution": "A result carries its own exclusion set, so a gate cannot read it as full coverage",
+    "title": "Few enough consumers read a suite result as a boolean that they can all be migrated at once",
+    "body": "Changing what a result IS only works if every reader changes with it. A partial migration is worse than none: some gates would honour the exclusion set while others keep reading the same green as full coverage, and which is which becomes invisible."
+  },
+  {
+    "solution": "A result must state what it did not cover",
+    "title": "Making a result state its gaps changes what a second reader concludes from it",
+    "body": "The field is only worth forcing if it moves belief. If a reader draws the same conclusion with and without the uncovered section, then the section is documentation rather than a guard, and the gate it was meant to inform is unchanged."
+  },
+  {
+    "solution": "A retraction append that supersedes an earlier node, which every reader and gate honours",
+    "title": "Every reader of the tree can be made to honour a retraction, and there are few enough to do it",
+    "body": "A retraction that some consumers honour and others ignore is worse than no retraction: the node is live in some counts and gone from others. This requires an exhaustive, and small, set of readers."
+  },
+  {
+    "solution": "A run checks that the tree it inherited actually builds before it plans any work on it",
+    "title": "Broken inherited trees are common enough, and the check cheap enough, to pay for it every run",
+    "body": "A preflight build check is a tax on every run to catch a rare state. It is worth it only if broken starts actually occur at some rate and the check stays fast enough not to matter."
+  },
+  {
+    "solution": "A run declares the tools it needs and halts loudly when they are absent",
+    "title": "A session missing its tools still has enough surface left to run the check that says so",
+    "body": "The check has to execute in the exact environment it is diagnosing. If the missing tools include whatever the check itself needs, then the toolless session fails silently in the same way it already does and the declaration never runs."
+  },
+  {
+    "solution": "A run journal written as it goes, so an interrupted run reads as a list of finished steps",
+    "title": "A journal written per completed step never overstates what a killed run finished",
+    "body": "The value is entirely in the last line being trustworthy. The node names the hard case: a step that half-finished either logs before completion and overstates, or after and understates, and only one of those is safe to build a reader on."
+  },
+  {
+    "solution": "A runner that executes instruments and records exit codes only, judging nothing",
+    "title": "An observation can be recorded without becoming a verdict that clears a gate",
+    "body": "The split holds only if the recorded exit code stays inert — written to the instrument log, never to Results, never moving a status. If anything downstream reads an exit code as evidence, the runner has quietly granted itself the authority the split exists to withhold."
+  },
+  {
+    "solution": "A setup check that names the missing file and the exact line to add",
+    "title": "The configuration gap that makes a session toolless is mechanically identifiable",
+    "body": "The observed case took four passes and a comparison against a sibling vault to find. This is worth building if that diagnosis is reducible to a mechanical check — and worth abandoning if the gap is different each time, or if the check accuses correctly-configured sessions."
+  },
+  {
+    "solution": "A shell-agnostic execution path that never hands a string to a shell at all",
+    "title": "Most real commands need no shell feature, so removing the shell costs little",
+    "body": "Removing the shell removes a class of quoting bug. It also removes pipelines, redirection and substitution. That trade is only good if the commands actually run rarely need those — otherwise composition gets rebuilt above the exec, badly, with new quoting rules to get wrong."
+  },
+  {
+    "solution": "A spend ceiling per period that stops the loop dead, whatever it thinks it is doing",
+    "title": "Spending more does not buy proportionally more worth having, so a hard stop costs little",
+    "body": "A ceiling that cannot be argued with is safe if the marginal spend was buying little. If useful output scales with spend, the ceiling is not a backstop but a cap on the work itself, and it makes the tree's freshness a function of budget rather than of need."
+  },
+  {
+    "solution": "A standing authority contract naming which classes of decision compute may take alone",
+    "title": "The decisions a run stops for fall into stable classes that can be settled in advance",
+    "body": "Delegating by class only works if the classes generalise. If held-out questions keep needing a new class invented, then the contract is being written after the fact for each case, which is the per-question approval it was meant to replace."
+  },
+  {
+    "solution": "A standing briefing that teaches the tree back, rather than reporting what changed in it",
+    "title": "A briefing written for comprehension leaves the operator able to check the agent's own reading",
+    "body": "The briefing is written by the agent whose judgement it is meant to keep checkable. If the agent has misread the tree, the briefing misreads it identically and confidently — so the test is whether an operator reading it can still catch a seeded error."
+  }
+]

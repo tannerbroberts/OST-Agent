@@ -1,0 +1,172 @@
+[
+  {
+    "solution": "Keep the goal I actually want as the outcome, and hang the affordable one beneath it as a milestone",
+    "title": "A real goal left at the root keeps attracting work, rather than being ignored in favour of the milestone",
+    "body": "Keeping the distance visible only helps if it resists the substitution. A root nothing can reach may simply be ignored, and a milestone that absorbs all the attention is functionally the outcome regardless of where it is filed — the label recording the substitution without doing anything about it."
+  },
+  {
+    "solution": "Lead with what this refuses to do, because the funded tools will not refuse it",
+    "title": "Buyers treat refusals as trustworthiness rather than as the product being worse",
+    "body": "The whole position rests on buyers punishing overclaiming. They may instead prefer the tool that says yes, and experience every refusal as a missing feature — which is the desirability assumption under the entire strategy, and it is untested."
+  },
+  {
+    "solution": "Least-privilege read-only tokens, GET-only clients",
+    "title": "Read-only access is enough to gather the evidence the tree needs",
+    "body": "Structural inability to write back is the safety guarantee. It costs nothing only if GET-only access actually reaches the evidence — if the useful data sits behind a search or an export that needs a write, the guarantee has been bought by making the integration useless."
+  },
+  {
+    "solution": "Leave a permanent test behind instead of a one-off verdict draft",
+    "title": "A committed test outlives and outperforms a verdict draft as the artefact of a pass",
+    "body": "The draft is still written and a human still records the verdict; what changes is which artefact survives. That is worth the change only if the test is genuinely more useful later — a cold reader should get more from the executable thing than from the prose."
+  },
+  {
+    "solution": "Let a pass mark evidence acknowledged, with a reason, without inventing an opportunity",
+    "title": "A pass's decision not to distil an opportunity is a judgement worth recording",
+    "body": "The ledger stops proxying 'an Opportunity cites this' and starts recording an actual call. That is an improvement only if the calls are sound — a blind review of acknowledge-or-map decisions is what separates judgement from a convenient way to clear the list."
+  },
+  {
+    "solution": "Let the run declare a symbol it intends to add, so calling it early is a record rather than a break",
+    "title": "A meaningful share of these failures are dropped intentions rather than wrong names",
+    "body": "Declaring an intended symbol only helps the case where the symbol was genuinely planned and then forgotten. If the failures are mostly wrong names — the symbol existed under another spelling — a declaration mechanism addresses a case that barely occurs."
+  },
+  {
+    "solution": "Local read-only mirror of source systems",
+    "title": "A mirror can be stale and still be good enough to read discovery evidence from",
+    "body": "Never holding live write-capable credentials during a pass is the safety win. It costs correctness in proportion to staleness — so the question is whether discovery evidence ages slowly enough that yesterday's replica answers the same as today's system."
+  },
+  {
+    "solution": "Make the refusal show the text that is actually there now",
+    "title": "The text at the intended site contains what a correct retry needs",
+    "body": "Making one failure enough is cheaper than detecting drift. It works only if the near-miss carries the correction — if the agent still has to re-read the file to re-anchor, the richer refusal has saved nothing."
+  },
+  {
+    "solution": "Make the threshold a field the node carries, not a sentence in its prose",
+    "title": "Moving the threshold into a field gets a bound written, rather than the same prose relocated",
+    "body": "A named field the tool reads rather than finds makes an incomplete test visible from creation. The failure mode is that the field fills with the same unbounded sentence — at which point the structure improved and the commitment did not."
+  },
+  {
+    "solution": "Mark what the machine chose differently from what a human wrote",
+    "title": "A provenance marker keeps being read once it is on everything",
+    "body": "Distinguishing selected from authored means the quote earns the selector's trust rather than the source's. Universal markers tend to become invisible — a register on every excerpt may be read as decoration within a fortnight."
+  },
+  {
+    "solution": "Mechanical tool-invocation trace with daily evidence rollup",
+    "title": "A trace of calls, outcomes and durations carries the defects a session actually had",
+    "body": "The trace records no content, which is what makes it safe to keep. The question is whether the shape alone — tool, outcome, duration, size — is enough to recognise a known-bad session, or whether the defect only shows in what was said."
+  },
+  {
+    "solution": "Migrate the old accounting into the new ledger on first run, and record that it happened",
+    "title": "The old accounting can be reconstructed accurately enough to migrate without inventing done-ness",
+    "body": "A one-time reconstruction avoids a permanent compatibility path. The dangerous direction is asymmetric: marking something done that the old build called outstanding silently closes real work, and no later check would catch it."
+  },
+  {
+    "solution": "Mine tool errors and retries from run logs",
+    "title": "The existing logs already contain enough friction signal to be worth aggregating",
+    "body": "Deriving friction from machine records instead of prose means no new instrumentation. It pays only if the signal is there — thirty days of logs either show recurring failures worth surfacing, or show that the interesting friction never reached a log."
+  },
+  {
+    "solution": "Name the specific mechanisms a hand process structurally cannot have",
+    "title": "Practitioners recognise their own discipline as something that has failed them",
+    "body": "The pitch describes a weakness the listener has to see as theirs. Nobody thinks they are the one who overclaims — so the framing risk, not the existence of the mechanisms, is what decides whether this lands."
+  },
+  {
+    "solution": "Nested sub-outcomes between the distant goal and the opportunity space",
+    "title": "Two practitioners place the same opportunity under the same sub-outcome",
+    "body": "Making altitude explicit structure only helps if the structure is stable across readers. If placement is a judgement each person re-makes differently, the sub-outcome layer has moved the ambiguity rather than removed it."
+  },
+  {
+    "solution": "New rules apply forward only, and existing nodes are marked as predating them",
+    "title": "A grandfathered backlog actually gets cleared rather than becoming permanent",
+    "body": "Grandfathering is how a codebase ends up with three generations of conventions, all live. If the point of tightening was that old nodes were genuinely a problem, exempting them by date answers the wrong complaint — unless the backlog is really worked down."
+  },
+  {
+    "solution": "No agent resolves a conflict it did not create; the merge is handed back to a human",
+    "title": "Conflicts are rare and contested enough that human-only resolution does not flood the operator",
+    "body": "Most conflicts in an append-only Markdown vault are mechanical and safely resolved. A rule treating all of them as human-only sends a great deal of trivia to the operator — and an operator sent enough trivia stops reading any of it."
+  },
+  {
+    "solution": "Non-interactive is the default, and any tool that would prompt is made to fail loudly instead",
+    "title": "The tools that actually stalled honour the non-interactive convention",
+    "body": "This relies on every invoked tool respecting the declaration, and the ones that ignore it are exactly the ones that caused the problem. A git that prompts despite a non-interactive environment hangs as before — and the run now believes it cannot."
+  },
+  {
+    "solution": "Nonzero exit code and failure summary when a pass errors",
+    "title": "The schedulers already watching this speak exit codes, and will notice",
+    "body": "The smallest honest contract only works if something is listening. Cron, launchd and CI all claim to speak this protocol — whether a broken pass actually produces a noticed failure within a cycle is the thing to check rather than assume."
+  },
+  {
+    "solution": "npm setup wizard that scaffolds the vault first and asks for a key last",
+    "title": "A postinstall step gets to run and speak on a stock setup",
+    "body": "The whole experience hinges on postinstall executing and being seen. Package managers increasingly suppress or skip these — if it never speaks, the wizard is unreachable and the promise 'do you have npm?' is not kept."
+  },
+  {
+    "solution": "Offer the permitted form at the moment of reach, so the wrong reflex is never the cheapest thing to write",
+    "title": "The permitted form is genuinely no more expensive to write than the blocked reflex",
+    "body": "Making the right thing the easy thing dissolves the memory problem only if it really is easier. If the permitted primitive is longer or less obvious to reach for, the reflex survives — and the node also notes this generalises poorly: one affordance per class of mistake."
+  },
+  {
+    "solution": "Offer three routes at different risk levels and say what each one forecloses",
+    "title": "Three routes differ enough in kind that a reader can rank them without the labels",
+    "body": "If two routes are obviously worse, this is a recommendation wearing a costume at three times the cost. It is also the option most likely to be produced by a model with no real basis for the risk levels it assigned — in which case the operator chooses between three guesses."
+  },
+  {
+    "solution": "Offer to run one free tree for a stranger's product and let the result travel",
+    "title": "A recipient of a free tree cares enough to show it to someone else",
+    "body": "The reach comes entirely from what happens after delivery. Free work landing with a busy team often goes unread, and an unread tree travels nowhere — the step this depends on is the one furthest outside anyone's control."
+  },
+  {
+    "solution": "One cheap blocking wait replaces the poll-and-retry loop",
+    "title": "A blocking wait removes the refusals without costing wall-clock time",
+    "body": "The affordance already exists and the loop simply is not reaching for it. Adopting it is only strictly better if waiting once is no slower than polling — otherwise the refusals were buying something."
+  },
+  {
+    "solution": "One sweep per pass by contract, and a pass that re-reads must say what changed",
+    "title": "The re-reads this would remove were mostly not learning anything",
+    "body": "Constraining reads makes a pass less careful. Trading correctness for a cheaper trace is the wrong direction if the re-reads were doing real work — and nothing yet establishes that they were not."
+  },
+  {
+    "solution": "One workspace-state probe the run makes before it plans, not one failing command at a time",
+    "title": "A small fixed set of state questions covers the environment failures that actually occur",
+    "body": "One probe replaces many failing commands only if the questions are enumerable in advance. If the captured failures need a seventh question, and the next batch an eighth, the probe is a growing guess rather than a preflight."
+  },
+  {
+    "solution": "One writer at a time, enforced by a lock the second agent waits on rather than ignores",
+    "title": "A stale lock can be recovered quickly without ever releasing a live one",
+    "body": "Locks and unattended runs are an uncomfortable pairing. Every recovery policy is either too eager, defeating the lock, or too patient, so a Friday crash costs the weekend — and the unsafe direction, releasing a lock someone still holds, must never happen."
+  },
+  {
+    "solution": "Only a human may change what a gate covers, and the change is a separate commit",
+    "title": "Gate narrowings are rare enough that routing each through a person is not the bottleneck",
+    "body": "If narrowings are frequent and mostly reasonable, the person becomes the constraint — and the pressure will be to set gates loosely from the start so they never need narrowing. That is a worse outcome reached by a respectable-looking route."
+  },
+  {
+    "solution": "Only friction touching the product's own surface is filed; the rest is counted",
+    "title": "What the failing call was against separates product friction from everything else",
+    "body": "The surface of the call is a cheap mechanical proxy for relevance. It is the right filter only if product needs really do arrive through product tools — a genuine need that surfaced as a shell error would be counted and never read."
+  },
+  {
+    "solution": "Operator-owned local event log with consented raw export",
+    "title": "Operators will consent to shipping raw usage out of their own vault",
+    "body": "Local-first by default, full fidelity from those who opt in. The whole design chooses depth over breadth — so it is worth nothing if the opt-in rate is zero, and the question is consent to raw data specifically, not to telemetry in general."
+  },
+  {
+    "solution": "Optional bring-your-own-key, off by default",
+    "title": "A user can complete a first run without ever supplying a key",
+    "body": "Opt-in only works if the default path is genuinely complete. If any part of the first run needs a key, the option is not optional and the promise that you can try it without one is false at the first obstacle."
+  },
+  {
+    "solution": "Order the frontier by what each step unblocks, not by what it costs",
+    "title": "Unblocking order produces choices a builder prefers to the ones they were making",
+    "body": "The ordering rewards whatever the tree has recorded most densely: a branch well-mapped because it was easy to map will outrank a sparse branch that matters more, and it will look rigorous while doing it. It has to both diverge from what the builder picked and win when it does."
+  },
+  {
+    "solution": "Outside lookups are demanded by an open assumption, never scheduled on their own",
+    "title": "Enough open assumptions in the tree could be moved by public information to be worth the channel",
+    "body": "Spending lookups only against stated questions makes every finding arrive attached to what it bears on. Its limit is structural: it can only ask what the tree already knows to ask, so a vault whose blind spots are its problem gets efficient answers to the wrong questions."
+  },
+  {
+    "solution": "Outside-in candidates drawn from how other products solved the same opportunity",
+    "title": "An operator will adopt an outside-sourced candidate into their real consideration set",
+    "body": "Seeding from other products and non-software processes widens the set beyond what the current context could produce. Width is only valuable if the imported candidates are taken seriously rather than read as interesting and irrelevant."
+  }
+]
