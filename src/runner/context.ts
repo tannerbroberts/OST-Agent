@@ -37,15 +37,40 @@ import { wikipediaSource, hackerNewsSource, discourseSource } from "../web/sourc
 import type { Config } from "../config/schema.js";
 import { OST_RULESET } from "../knowledge/ruleset.js";
 import type { PassContext, UnavailableSource } from "../processes/types.js";
+import { brokeredFetch } from "../security/brokered-fetch.js";
+import { fileAuditSink } from "../security/credential-audit.js";
+import {
+  ASKER_ATLASSIAN,
+  ASKER_SEARCH,
+  ASKER_SLACK,
+  CREDENTIAL_ATLASSIAN,
+  CREDENTIAL_SEARCH,
+  CREDENTIAL_SLACK,
+  credentialBrokerFromEnv,
+  type EnvBroker,
+} from "./credentials.js";
 
 /**
- * Brave if a key is set, else the keyless federated sources if they are turned
+ * Brave if a key is held, else the keyless federated sources if they are turned
  * on, else nothing — in which case ost_search_web tells the agent to use its
  * host's own search, which is the normal path in Claude Code.
+ *
+ * The provider is built over the broker's HANDLE, never the key: `braveProvider`
+ * puts what it is given into `X-Subscription-Token`, and what it is given now
+ * names a secret instead of being one.
  */
-function resolveSearchProvider(config: Config): SearchProvider | undefined {
-  const key = process.env.BRAVE_SEARCH_API_KEY;
-  if (key) return braveProvider(key);
+function resolveSearchProvider(config: Config, credentials: EnvBroker): SearchProvider | undefined {
+  if (credentials.broker.holds(CREDENTIAL_SEARCH)) {
+    // The brokered transport is bound INTO the provider rather than left on
+    // `ctx.web.fetchFn`, because that field is also what `ost_read_web` reads
+    // pages with: routing every page read through the search credential's grant
+    // would deny every URL that is not Brave. A credential's transport belongs
+    // to the credential.
+    return braveProvider(
+      credentials.broker.handle(CREDENTIAL_SEARCH),
+      brokeredFetch(credentials.broker, ASKER_SEARCH),
+    );
+  }
   if (!config.web.search.federated.enabled) return undefined;
   const sources = [
     wikipediaSource(),
@@ -114,7 +139,7 @@ interface AssembledSources {
  * one of them, always. Dropping a channel from both lists is how "0 new items" and
  * "never looked" became the same sentence.
  */
-function buildSources(dir: string, config: Config): AssembledSources {
+function buildSources(dir: string, config: Config, credentials: EnvBroker): AssembledSources {
   const sources: Source[] = [];
   const unavailableSources: UnavailableSource[] = [];
 
@@ -200,17 +225,29 @@ function buildSources(dir: string, config: Config): AssembledSources {
     () => {
       const baseUrl = process.env.ATLASSIAN_BASE_URL;
       const email = process.env.ATLASSIAN_EMAIL;
-      const apiToken = process.env.ATLASSIAN_API_TOKEN;
-      if (!baseUrl || !email || !apiToken) {
+      if (!baseUrl || !email || !credentials.broker.holds(CREDENTIAL_ATLASSIAN)) {
+        const why = credentials.problems[CREDENTIAL_ATLASSIAN];
         throw new Error(
-          "adapters.atlassian is enabled but ATLASSIAN_BASE_URL / ATLASSIAN_EMAIL / ATLASSIAN_API_TOKEN are not all set. " +
-            "Use a read-only API token (id.atlassian.com → API tokens).",
+          "adapters.atlassian is enabled but ATLASSIAN_BASE_URL / ATLASSIAN_EMAIL / ATLASSIAN_API_TOKEN are not all set" +
+            `${why ? ` — ${why}` : ""}. Use a read-only API token (id.atlassian.com → API tokens).`,
         );
       }
-      return new AtlassianSource(new HttpAtlassianClient({ baseUrl, email, apiToken }), {
-        projects: config.adapters.atlassian.projects,
-        spaces: config.adapters.atlassian.spaces,
-      });
+      // The client composes the same Basic header it always did, over a HANDLE
+      // rather than the token. The broker substitutes the secret at the last
+      // moment — after the URL has been checked against the grant and the
+      // request has been written to the vault's credential log.
+      return new AtlassianSource(
+        new HttpAtlassianClient({
+          baseUrl,
+          email,
+          apiToken: credentials.broker.handle(CREDENTIAL_ATLASSIAN),
+          fetchFn: brokeredFetch(credentials.broker, ASKER_ATLASSIAN),
+        }),
+        {
+          projects: config.adapters.atlassian.projects,
+          spaces: config.adapters.atlassian.spaces,
+        },
+      );
     },
   );
 
@@ -218,14 +255,19 @@ function buildSources(dir: string, config: Config): AssembledSources {
     "slack",
     config.adapters.slack.enabled ? null : `turned off in ${CONFIG_FILENAME} (adapters.slack.enabled: false)`,
     () => {
-      const token = process.env.SLACK_BOT_TOKEN;
-      if (!token) {
+      if (!credentials.broker.holds(CREDENTIAL_SLACK)) {
         throw new Error(
-          "adapters.slack is enabled but SLACK_BOT_TOKEN is not set. " +
+          `adapters.slack is enabled but ${credentials.problems[CREDENTIAL_SLACK] ?? "SLACK_BOT_TOKEN is not set"}. ` +
             "Use a least-privilege bot token (scopes: channels:history, channels:read); it is never written into the vault.",
         );
       }
-      return new SlackSource(new HttpSlackClient({ token }), { channels: config.adapters.slack.channels });
+      return new SlackSource(
+        new HttpSlackClient({
+          token: credentials.broker.handle(CREDENTIAL_SLACK),
+          fetchFn: brokeredFetch(credentials.broker, ASKER_SLACK),
+        }),
+        { channels: config.adapters.slack.channels },
+      );
     },
   );
 
@@ -243,9 +285,15 @@ export function buildPassContext(vaultDir: string, opts: BuildPassContextOptions
   const config = loaded.config;
   const skipSources = opts.skipSources === true || opts.listingOnly === true;
 
+  // Every secret this process will use is read once, here, and never again. What
+  // travels onward — to the adapters, onto this context, into a tool — is a
+  // handle and a brokered fetch. The audit sink writes into the vault, which is
+  // the thing an operator already backs up and already reads.
+  const credentials = credentialBrokerFromEnv({ audit: fileAuditSink(dir) });
+
   const { sources, unavailableSources } = skipSources
     ? { sources: [] as Source[], unavailableSources: [] as UnavailableSource[] }
-    : buildSources(dir, config);
+    : buildSources(dir, config, credentials);
 
   return {
     vault: new Vault(dir, { create: !opts.listingOnly }),
@@ -259,9 +307,18 @@ export function buildPassContext(vaultDir: string, opts: BuildPassContextOptions
     // The key is optional: ost_read_web works without it, and ost_search_web
     // answers at call time — with results if a provider resolved, otherwise
     // with the delegation instruction.
+    //
+    // `searchApiKey` is a HANDLE now, not a key. This field is on the object every
+    // tool is built with, so for as long as it carried the real thing the search
+    // credential was readable by every code path that could reach a context — a
+    // containment hole nothing was watching. The handle keeps the field's one
+    // remaining job (does search have a credential at all?) and is worth nothing
+    // to anyone who reads it.
     web: {
-      searchApiKey: process.env.BRAVE_SEARCH_API_KEY,
-      provider: resolveSearchProvider(config),
+      searchApiKey: credentials.broker.holds(CREDENTIAL_SEARCH)
+        ? credentials.broker.handle(CREDENTIAL_SEARCH)
+        : undefined,
+      provider: resolveSearchProvider(config, credentials),
       // The operator's number governs unless the genome explicitly overrides
       // it — one budget, never two that can disagree. The refill rate stays
       // the operator's alone: it is what makes a weeks-long session workable,

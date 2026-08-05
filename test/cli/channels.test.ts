@@ -359,7 +359,7 @@ describe("the report's verdict agrees with what a pass can actually build", () =
     { channel: "usage", adapters: "  usage:\n    enabled: true\n", expect: "available" },
     { channel: "slack", adapters: "  slack:\n    enabled: false\n", expect: "disabled" },
     { channel: "slack", adapters: "  slack:\n    enabled: true\n", expect: "unavailable" },
-    { channel: "slack", adapters: "  slack:\n    enabled: true\n", env: { SLACK_BOT_TOKEN: "xoxb-x" }, expect: "available" },
+    { channel: "slack", adapters: "  slack:\n    enabled: true\n", env: { SLACK_BOT_TOKEN: "xoxb-token-fixture" }, expect: "available" },
     { channel: "atlassian", adapters: "  atlassian:\n    enabled: false\n", expect: "disabled" },
     { channel: "atlassian", adapters: "  atlassian:\n    enabled: true\n", expect: "unavailable" },
     // Two of three set is still unavailable — the probe must read the same
@@ -373,7 +373,7 @@ describe("the report's verdict agrees with what a pass can actually build", () =
     {
       channel: "atlassian",
       adapters: "  atlassian:\n    enabled: true\n",
-      env: { ATLASSIAN_BASE_URL: "https://x.atlassian.net", ATLASSIAN_EMAIL: "a@b.c", ATLASSIAN_API_TOKEN: "t" },
+      env: { ATLASSIAN_BASE_URL: "https://x.atlassian.net", ATLASSIAN_EMAIL: "a@b.c", ATLASSIAN_API_TOKEN: "atlassian-token-fixture" },
       expect: "available",
     },
   ];

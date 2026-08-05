@@ -185,7 +185,7 @@ describe("S5 — the construction really happens, not just the text", () => {
     writeConfig(true);
     process.env.ATLASSIAN_BASE_URL = "https://x.atlassian.net";
     process.env.ATLASSIAN_EMAIL = "me@x.com";
-    process.env.ATLASSIAN_API_TOKEN = "tok";
+    process.env.ATLASSIAN_API_TOKEN = "atlassian-api-token-fixture";
     process.env.SLACK_BOT_TOKEN = "xoxb-not-a-real-token";
 
     const ctx = buildPassContext(dir);

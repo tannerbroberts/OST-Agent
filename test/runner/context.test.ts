@@ -103,7 +103,7 @@ describe("buildPassContext adapter wiring", () => {
     // disappearing, so the equality above is tracking config and env, not a constant.
     process.env.ATLASSIAN_BASE_URL = "https://x.atlassian.net";
     process.env.ATLASSIAN_EMAIL = "me@x.com";
-    process.env.ATLASSIAN_API_TOKEN = "tok";
+    process.env.ATLASSIAN_API_TOKEN = "atlassian-api-token-fixture";
     const withCreds = buildPassContext(dir);
     expect(accountedFor(withCreds)).toEqual(["atlassian", "friction", "inbox", "slack", "transcript", "usage"]);
     expect(withCreds.sources.map((s) => s.name)).toContain("atlassian");
@@ -113,7 +113,7 @@ describe("buildPassContext adapter wiring", () => {
     enableAtlassian();
     process.env.ATLASSIAN_BASE_URL = "https://x.atlassian.net";
     process.env.ATLASSIAN_EMAIL = "me@x.com";
-    process.env.ATLASSIAN_API_TOKEN = "tok";
+    process.env.ATLASSIAN_API_TOKEN = "atlassian-api-token-fixture";
     const ctx = buildPassContext(dir);
     expect(ctx.sources.map((s) => s.name).sort()).toEqual(["atlassian", "friction", "inbox", "usage"]);
   });
@@ -168,7 +168,7 @@ describe("search provider resolution", () => {
   });
 
   test("a Brave key wins over the keyless fallback", () => {
-    process.env.BRAVE_SEARCH_API_KEY = "k";
+    process.env.BRAVE_SEARCH_API_KEY = "brave-key-fixture";
     enableFederated();
     expect(buildPassContext(dir).web?.provider?.name).toBe("brave");
   });

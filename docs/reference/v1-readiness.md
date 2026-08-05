@@ -1373,17 +1373,23 @@ not.**
 > separate measurement and still open.
 
 **P6 — No tool ships an outward mutation.**
-> *Check:* (a) `grep -rn 'method: *"' src/web src/adapters | grep -v '"GET"'` is
-> empty. (b) a committed test asserts `ALLOWED_TOOL_NAMES \ MCP_TOOL_NAMES ===
-> {git_commit, git_push}` and that `buildOstTools(ctx, MCP_TOOL_NAMES)` produces
-> no tool whose `run` reaches `gitPush`.
-> *Today:* **met** (2026-07-30), both halves, in
+> *Check:* (a) `grep -rn 'method: *"' src/web src/adapters src/security | grep -v
+> '"GET"'` is empty. (b) a committed test asserts `ALLOWED_TOOL_NAMES \
+> MCP_TOOL_NAMES === {git_commit, git_push}` and that `buildOstTools(ctx,
+> MCP_TOOL_NAMES)` produces no tool whose `run` reaches `gitPush`.
+> *Today:* **met** (2026-08-05), both halves, in
 > `test/release/outward-mutation.test.ts`. (a) was already true and is now
 > asserted rather than grepped, and converting it tightened it three ways: the
-> verdict runs over **all** of `src/` rather than the two directories the check
-> named, the fact that every match *lands* in `src/web` and `src/adapters` is
-> itself asserted so the scope is falsifiable, and the five call sites are pinned
-> as a set — a move does not fail it, a sixth does. The document's warning about
+> verdict runs over **all** of `src/` rather than the directories the check
+> named, the fact that every match *lands* in `src/web`, `src/adapters` and
+> `src/security/brokered-fetch.ts` is itself asserted so the scope is falsifiable,
+> and the six call sites are pinned
+> as a set — a move does not fail it, a seventh does. `src/security/brokered-fetch.ts`
+> is the third directory and it arrived on 2026-08-05 with the credential broker: it
+> is the transport the Slack and Atlassian adapters now read through, so that they
+> hold a handle rather than a token. It carries no new capability — the same GETs
+> leave the machine — and the check grew to name it rather than being widened to
+> ignore it. The document's warning about
 > the looser `grep -rn 'method:'` is now a check too: it matches strictly more,
 > and every extra is a `method: string` type declaration that forbids nothing.
 > (b) held in fact and was pinned by nothing, which is the configuration G3 and
@@ -2987,7 +2993,19 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1931 tests across 162 files, verified 2026-08-05 (`npx vitest run`,
+> *Today:* **met** — 1961 tests across 163 files, verified 2026-08-05 (`npx vitest run`,
+> after `test/security/credential-broker.test.ts` pinned the credential broker — the three
+> credentials this product reads from the environment are held in one process and handed to
+> nothing. An adapter is constructed with an opaque handle and a brokered fetch; the secret is
+> substituted into the outgoing header (including inside HTTP Basic's base64) only after the
+> URL has been matched against a written grant and the request has been appended to the vault's
+> credential log. The property that costs something is the log: **no record, no action** — an
+> unwritable audit sink denies the request before the credential is touched, and a sink that
+> fails *after* the action returns the result flagged `auditIncomplete` rather than clean, since
+> an action already performed cannot be un-performed by a failed write. `web.searchApiKey`, on
+> the context object every tool is built with, now carries a handle instead of the search key.
+> What no green here settles is whether an operator would put a long-lived secret in a broker at
+> all; that is the desirability question the assumption test still owns;
 > after `test/cli/path-near-miss.test.ts` pinned the near-miss answer — a failed path lookup
 > reports how far down the path was real, what is present at that point, and the one obvious
 > correction, replayed against the five lookups that actually failed in this project's own
