@@ -32,6 +32,10 @@
  *    denies every built-in that can write an arbitrary path.
  * 4. **The join** — the two surfaces above are the whole grant, so a decider
  *    file no tool on either can write is a decider the agent cannot forge.
+ * 5. **The one input that breaks the pattern, named rather than hidden** — the
+ *    `degraded` verdict reads the vault's own tool trace, and the surface writes
+ *    that file on every call. Part 5 states what holds there instead, and is
+ *    deliberately a weaker claim than parts 2–4 make about everything else.
  */
 import { execFileSync } from "node:child_process";
 import crypto from "node:crypto";
@@ -129,6 +133,31 @@ const READER_MODULES: Record<string, string> = {
  */
 const PURE_MODULES = ["cadence.ts", "exitLaundering.ts", "stall.ts"];
 
+/**
+ * The third class, and the reason it exists rather than being folded into the
+ * second.
+ *
+ * `degraded.ts` decides whether a firing may report a clean run, and one of its
+ * inputs is `.ost-agent/usage/events.jsonl` — the trace `withUsageTracing` writes
+ * on every allowlisted call. So the surface CAN move this decider, which is the
+ * property parts 2–4 exist to refuse everywhere else, and filing it under
+ * `READER_MODULES` would have made part 2 fail for a true reason with a
+ * misleading message.
+ *
+ * **What holds instead, and it is genuinely weaker.** The agent cannot forge a
+ * trace line; it can only cause one by actually invoking a tool, because the line
+ * is written by the dispatcher inside the call. And it cannot remove one: the
+ * allowlist has no tool that deletes, truncates or rewrites a file. So the single
+ * direction the surface can move this verdict is *out* of `degraded`, by really
+ * using the tools it is being asked whether it had — which is the behaviour the
+ * verdict exists to elicit. The honest limit follows from the same sentence: this
+ * detects a firing whose surface was ABSENT, not one whose surface was present and
+ * unused past the first call. Part 5 pins both halves.
+ */
+const TRACE_READER_MODULES: Record<string, string> = {
+  "degraded.ts": "F4 / H1 / H4",
+};
+
 const FS_READ = /\bfs\.(readFileSync|readdirSync|existsSync|statSync|lstatSync|realpathSync|openSync)\b|\bspawnSync\b|\bexecFileSync\b/;
 
 describe("1 — the enumeration covers every module that can become a decider input", () => {
@@ -142,11 +171,12 @@ describe("1 — the enumeration covers every module that can become a decider in
     for (const m of modules) {
       const classifications = [
         READER_MODULES[m] ? "reader" : null,
+        TRACE_READER_MODULES[m] ? "trace-reader" : null,
         PURE_MODULES.includes(m) ? "pure" : null,
       ].filter(Boolean);
       expect(
         classifications,
-        `src/loop/${m} is not classified — add it to READER_MODULES or PURE_MODULES, ` +
+        `src/loop/${m} is not classified — add it to READER_MODULES, TRACE_READER_MODULES or PURE_MODULES, ` +
           "and if it opens a new file, add that file to the decider's reads so both surfaces below cover it",
       ).toHaveLength(1);
     }
@@ -154,7 +184,7 @@ describe("1 — the enumeration covers every module that can become a decider in
 
   test("every reader is attributed to a decider this file enumerates", () => {
     const known = new Set(DECIDERS.map((d) => d.criterion));
-    for (const [m, criterion] of Object.entries(READER_MODULES)) {
+    for (const [m, criterion] of Object.entries({ ...READER_MODULES, ...TRACE_READER_MODULES })) {
       expect(known.has(criterion), `src/loop/${m} is attributed to "${criterion}", which is not in DECIDERS`).toBe(true);
     }
   });
@@ -172,6 +202,19 @@ describe("1 — the enumeration covers every module that can become a decider in
     for (const m of Object.keys(READER_MODULES)) {
       const src = fs.readFileSync(path.join(loopDir, m), "utf8");
       expect(FS_READ.test(src), `src/loop/${m} is enumerated as reading files but does not`).toBe(true);
+    }
+  });
+
+  test("the trace readers really do read the trace", () => {
+    // Same non-vacuity, spelled differently because these modules read through
+    // the shared helpers rather than through `fs` — a module filed here that
+    // stopped touching the trace would be claiming an exemption it no longer
+    // needs, and part 5's weaker property would be covering nothing.
+    for (const m of Object.keys(TRACE_READER_MODULES)) {
+      const src = fs.readFileSync(path.join(loopDir, m), "utf8");
+      expect(src, `src/loop/${m} is enumerated as a trace reader but does not read the trace`).toMatch(
+        /readUsageEvents/,
+      );
     }
   });
 
@@ -395,6 +438,72 @@ describe("2 — the MCP surface cannot write a Gate F decider", () => {
         expect(tracked, `${rel} is reachable by \`git add -A\``).toBe("");
       }
     }
+  });
+});
+
+/**
+ * 5 — the one decider input the surface writes, and the weaker thing that holds.
+ *
+ * The `degraded` verdict asks whether a firing had the means to do its job, and
+ * its evidence is the vault's own tool trace. That file is written by the surface
+ * being judged, which parts 2–4 refuse everywhere else — so the claim here is
+ * smaller and is stated as such: the surface can only ADD to the trace, only by
+ * really invoking a tool, and never by removing what is already there. A verdict
+ * built on that can be moved out of `degraded` by doing the work, and in no other
+ * direction.
+ */
+describe("5 — the trace the degraded verdict reads is append-only under the whole surface", () => {
+  const tracePath = (v: string) => path.join(v, ".ost-agent", "usage", "events.jsonl");
+
+  test("a tool call really does append to it — the trace is the surface's own record", async () => {
+    // Non-vacuity first, and it is the whole reason this input is exempt from
+    // part 2: if the surface could NOT write here, there would be nothing to
+    // carve out and no evidence a pass ever reached the tree.
+    const append = mutatingTools().find((t) => t.name === "ost_append_to_node")!;
+    await append.run({ title: "Users churn", section: "## Notes\nreached the tool" });
+
+    const lines = fs.readFileSync(tracePath(vault), "utf8").trim().split("\n");
+    expect(lines.length).toBeGreaterThan(0);
+    expect(JSON.parse(lines[lines.length - 1]).tool).toBe("ost_append_to_node");
+  });
+
+  test("no tool on the allowlist can shorten or rewrite what is already recorded", async () => {
+    const trace = tracePath(vault);
+    fs.mkdirSync(path.dirname(trace), { recursive: true });
+    const planted =
+      JSON.stringify({ ts: "2026-07-01T00:00:00.000Z", tool: "ost_read_tree", ok: true, ms: 1, surface: "mcp", argBytes: 2 }) +
+      "\n";
+    fs.writeFileSync(trace, planted, "utf8");
+
+    // The same driver as part 2, aimed at the trace in every spelling.
+    for (const attack of [path.relative(vault, trace), trace, `./${path.relative(vault, trace)}`]) {
+      for (const tool of mutatingTools()) {
+        await tool.run(attackInput(tool.input_schema, attack)).catch(() => undefined);
+      }
+    }
+
+    // Append-only: whatever the surface added, the earlier record is still there,
+    // byte for byte, at the front. A verdict read off this file cannot be moved
+    // by erasing the evidence that the pass DID reach the tree either.
+    const after = fs.readFileSync(trace, "utf8");
+    expect(after.startsWith(planted)).toBe(true);
+  });
+
+  test("the limit is stated where the verdict is computed, not only here", () => {
+    // The property this file can prove is narrower than the verdict's name
+    // suggests, and a limit recorded only in a test is a limit the next reader of
+    // the module will not meet. So the module has to say it too.
+    // Comment markers stripped and whitespace normalised, because a sentence that
+    // wraps across two comment lines is the same sentence — a check that missed it
+    // would be arguing with the formatter rather than with the author.
+    const prose = readRepoFile("src/loop/degraded.ts")
+      .replace(/^\s*\*\s?/gm, "")
+      .replace(/\s+/g, " ");
+    expect(prose.includes("cannot make zero tool calls"), "the inference the verdict rests on is not stated").toBe(true);
+    expect(
+      prose.includes("does not separate work done from work shirked"),
+      "the limit of that inference is not stated",
+    ).toBe(true);
   });
 });
 

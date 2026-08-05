@@ -20,8 +20,21 @@
 import fs from "node:fs";
 import path from "node:path";
 import { requireLoopStateDir, loopStateDir } from "./state.js";
+// Type-only, so nothing at runtime imports back into this file: `degraded.ts`
+// reads the run record it classifies, and this file only needs the shape of what
+// it hands back.
+import type { Degradation } from "./degraded.js";
 
-export type LoopVerdict = "healthy" | "unhealthy" | "no-op" | "crashed";
+/**
+ * `degraded` is the newest and the only one that is not about the tree.
+ *
+ * The other four answer "what did this firing do to the vault?" — it advanced it,
+ * it broke, it died, it found nothing to do. `degraded` answers "could this firing
+ * have done anything at all?", and it exists because for twenty-two consecutive
+ * firings the answer was no and the record said `no-op`, which a reader correctly
+ * takes to mean the tree was already fine. See `degraded.ts`.
+ */
+export type LoopVerdict = "healthy" | "unhealthy" | "no-op" | "crashed" | "degraded";
 
 export interface LoopStepRecord {
   phase: string;
@@ -58,6 +71,16 @@ export interface LoopRunRecord {
   headAfter?: string;
   steps: LoopStepRecord[];
   verdict?: LoopVerdict;
+  /**
+   * What this firing could not attempt, observed from outside it and stamped at
+   * seal.
+   *
+   * Carried in the record rather than only printed, because the reader this is for
+   * is the one who was not there: a `degraded` verdict with no list beside it is a
+   * second way of saying nothing. Absent on a firing that was not degraded, and on
+   * every record written before this field existed.
+   */
+  degradations?: Degradation[];
 }
 
 /**
@@ -189,18 +212,38 @@ export function appendStep(dir: string, step: Omit<LoopStepRecord, "at">): LoopR
  * distinction S1 says the steady state hides: a dry pass over an already-clean
  * tree exits 0 and pushes nothing, and until now was indistinguishable from a
  * productive one.
+ *
+ * **Where `degraded` sits in the order, and why there.** Below `unhealthy` and
+ * `crashed`: those are firings that failed, and softening a red step into
+ * "degraded" would launder a failure into an excuse. Above `healthy` AND above
+ * `no-op`, which is the half that matters — a firing that could not do its job
+ * may not report either that it did (`healthy`) or that there was nothing to do
+ * (`no-op`). Both of those are claims about the tree, and a degraded firing has
+ * no standing to make one. That is the whole of "not allowed to report a clean
+ * run", expressed where a caller cannot route around it.
  */
 export function computeVerdict(run: LoopRunRecord): LoopVerdict {
   if (run.steps.some((s) => s.exit !== 0)) return "unhealthy";
   const phases = new Set(run.steps.map((s) => s.phase));
   if (!REQUIRED_PHASES.every((p) => phases.has(p))) return "unhealthy";
+  if (run.degradations && run.degradations.length > 0) return "degraded";
   if (!run.headBefore || !run.headAfter || run.headBefore === run.headAfter) return "no-op";
   return "healthy";
 }
 
-export function sealRun(dir: string, meta: { headAfter?: string } = {}): LoopRunRecord {
+export function sealRun(
+  dir: string,
+  meta: { headAfter?: string; degradations?: readonly Degradation[] } = {},
+): LoopRunRecord {
   const open = requireOpenRun(dir);
-  const withHead: LoopRunRecord = { ...open, ...(meta.headAfter ? { headAfter: meta.headAfter } : {}) };
+  const withHead: LoopRunRecord = {
+    ...open,
+    ...(meta.headAfter ? { headAfter: meta.headAfter } : {}),
+    // Stamped before the verdict is computed, so the verdict is derived from the
+    // same list the record carries — a reader can always re-run `computeVerdict`
+    // over a sealed line and get the verdict it was sealed with.
+    ...(meta.degradations && meta.degradations.length > 0 ? { degradations: [...meta.degradations] } : {}),
+  };
   const sealed: LoopRunRecord = {
     ...withHead,
     endedAt: new Date().toISOString(),
@@ -211,7 +254,7 @@ export function sealRun(dir: string, meta: { headAfter?: string } = {}): LoopRun
   return sealed;
 }
 
-const VERDICTS = new Set<LoopVerdict>(["healthy", "unhealthy", "no-op", "crashed"]);
+const VERDICTS = new Set<LoopVerdict>(["healthy", "unhealthy", "no-op", "crashed", "degraded"]);
 
 /**
  * Every readable run, newest first. A corrupt line is skipped, never thrown on.
@@ -240,6 +283,11 @@ export function readRuns(dir: string): LoopRunRecord[] {
       if (typeof parsed?.startedAt !== "string" || !Number.isFinite(Date.parse(parsed.startedAt))) continue;
       if (parsed.verdict !== undefined && !VERDICTS.has(parsed.verdict)) delete parsed.verdict;
       if (!Array.isArray(parsed.steps)) parsed.steps = [];
+      // Same rule as `steps`: a field a reader folds over must be an array or
+      // absent, never a shape that throws in the fold. A malformed list is
+      // dropped rather than repaired — the verdict on the line stands, because
+      // it was computed at seal by the process that observed the firing.
+      if (parsed.degradations !== undefined && !Array.isArray(parsed.degradations)) delete parsed.degradations;
       runs.push(parsed);
     } catch {
       /* corrupt line — skip it, never let it hide the runs around it */

@@ -46445,6 +46445,72 @@ function launderedExitMessage(d) {
   ].join("\n");
 }
 
+// src/loop/degraded.ts
+var PASS_PHASE = "pass";
+function assessDegradation(run, observed) {
+  const degradations = [];
+  if (observed.observationFailure !== void 0) {
+    degradations.push({
+      kind: "unobservable-surface",
+      detail: `this firing's tool surface could not be inspected (${observed.observationFailure}) \u2014 what it was able to attempt is unknown, and unknown is not clean.`
+    });
+  }
+  if (run.steps.some((s) => s.phase === PASS_PHASE) && observed.toolCalls === 0) {
+    degradations.push({
+      kind: "no-tool-calls",
+      detail: `the ${PASS_PHASE} phase ran and not one tool invocation was traced while it did \u2014 the mapping, ideation and assumption work this pass exists for did not happen.`
+    });
+  }
+  for (const source of observed.unreadableSources) {
+    degradations.push({
+      kind: "unreadable-source",
+      detail: `the declared source \`${source.name}\` could not be read this firing: ${source.reason}`
+    });
+  }
+  if (observed.configProblem !== void 0) {
+    degradations.push({
+      kind: "config-fallback",
+      detail: `this firing ran on default configuration because the vault's own could not be read: ${observed.configProblem}`
+    });
+  }
+  return degradations;
+}
+function oneLine3(e) {
+  return (e instanceof Error ? e.message : String(e)).replace(/\s+/g, " ").trim();
+}
+function countToolCallsSince(vaultDir, startedAt) {
+  const from = Date.parse(startedAt);
+  if (!Number.isFinite(from)) return 0;
+  return readUsageEvents(vaultDir).filter((e) => {
+    const at = Date.parse(e.ts);
+    return Number.isFinite(at) && at >= from;
+  }).length;
+}
+function observeSurface(vaultDir, run) {
+  const toolCalls = countToolCallsSince(vaultDir, run.startedAt);
+  try {
+    const ctx = buildPassContext(vaultDir, { tolerateInvalidConfig: true });
+    return {
+      toolCalls,
+      unreadableSources: ctx.unavailableSources.filter((s) => s.kind === "unavailable").map((s) => ({ name: s.name, reason: s.reason })),
+      ...ctx.configProblem ? { configProblem: oneLine3(ctx.configProblem) } : {}
+    };
+  } catch (e) {
+    return { toolCalls, unreadableSources: [], observationFailure: oneLine3(e) };
+  }
+}
+function observeDegradation(vaultDir, run) {
+  return assessDegradation(run, observeSurface(vaultDir, run));
+}
+function degradedReport(degradations) {
+  if (degradations.length === 0) return [];
+  return [
+    `\u26A0 degraded: this firing did not have what it needed to do its job.`,
+    ...degradations.map((d) => `  - ${d.kind}: ${d.detail}`),
+    `  A degraded firing reports only what it verified. It is not evidence that the tree is fine.`
+  ];
+}
+
 // src/loop/health.ts
 import fs26 from "node:fs";
 import path29 from "node:path";
@@ -46527,12 +46593,20 @@ function computeVerdict(run) {
   if (run.steps.some((s) => s.exit !== 0)) return "unhealthy";
   const phases = new Set(run.steps.map((s) => s.phase));
   if (!REQUIRED_PHASES.every((p2) => phases.has(p2))) return "unhealthy";
+  if (run.degradations && run.degradations.length > 0) return "degraded";
   if (!run.headBefore || !run.headAfter || run.headBefore === run.headAfter) return "no-op";
   return "healthy";
 }
 function sealRun(dir, meta = {}) {
   const open = requireOpenRun(dir);
-  const withHead = { ...open, ...meta.headAfter ? { headAfter: meta.headAfter } : {} };
+  const withHead = {
+    ...open,
+    ...meta.headAfter ? { headAfter: meta.headAfter } : {},
+    // Stamped before the verdict is computed, so the verdict is derived from the
+    // same list the record carries — a reader can always re-run `computeVerdict`
+    // over a sealed line and get the verdict it was sealed with.
+    ...meta.degradations && meta.degradations.length > 0 ? { degradations: [...meta.degradations] } : {}
+  };
   const sealed = {
     ...withHead,
     endedAt: (/* @__PURE__ */ new Date()).toISOString(),
@@ -46542,7 +46616,7 @@ function sealRun(dir, meta = {}) {
   fs26.rmSync(openRunPath(dir), { force: true });
   return sealed;
 }
-var VERDICTS2 = /* @__PURE__ */ new Set(["healthy", "unhealthy", "no-op", "crashed"]);
+var VERDICTS2 = /* @__PURE__ */ new Set(["healthy", "unhealthy", "no-op", "crashed", "degraded"]);
 function readRuns(dir) {
   const state = loopStateDir(dir);
   if (state === null) return [];
@@ -46557,6 +46631,7 @@ function readRuns(dir) {
       if (typeof parsed?.startedAt !== "string" || !Number.isFinite(Date.parse(parsed.startedAt))) continue;
       if (parsed.verdict !== void 0 && !VERDICTS2.has(parsed.verdict)) delete parsed.verdict;
       if (!Array.isArray(parsed.steps)) parsed.steps = [];
+      if (parsed.degradations !== void 0 && !Array.isArray(parsed.degradations)) delete parsed.degradations;
       runs.push(parsed);
     } catch {
     }
@@ -46926,7 +47001,19 @@ var LOOP_EXIT = {
   ceilingBlocked: 13,
   dirtyTree: 14,
   locked: 15,
-  treeUnreadable: 16
+  treeUnreadable: 16,
+  /**
+   * `loop seal` only: this firing ran without the means to do its job.
+   *
+   * The odd one out — every code above is a firing that did not start, and this
+   * is one that finished. It is here rather than folded into seal's `1` for the
+   * reason the table exists at all: a wrapper that cannot tell "the tree came
+   * back red" from "the pass never reached the tree" will treat one as the other,
+   * and the whole point of the degraded verdict is that those are different
+   * events with different fixes. Non-zero because exit 0 is the one word an
+   * unattended caller reads as clean.
+   */
+  degraded: 17
 };
 var HOUR_MS = 60 * 60 * 1e3;
 function resolveSessionsDir(vaultDir, declared) {
@@ -47110,6 +47197,7 @@ function registerLoopCommands(program3) {
     } else {
       const ageMin = Math.floor((now - new Date(last2.startedAt).getTime()) / 6e4);
       console.log(`last-fired: ${last2.startedAt} (${ageMin} minute(s) ago, ${last2.verdict ?? "unsealed"})`);
+      for (const line of degradedReport(last2.degradations ?? [])) console.log(line);
     }
     const stall = assessStall(runs);
     if (stall.stalled) console.log(`stalled: ${stall.reason}`);
@@ -47121,16 +47209,20 @@ function registerLoopCommands(program3) {
     console.log(spend.ok ? "blocking: none" : `blocked: ${spend.reason}`);
   });
   loop.command("seal").description("compute the verdict from the recorded exits, append it to runs.jsonl, release the lock").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
-    const sealed = sealRun(opts.vault, { headAfter: gitHead(opts.vault) });
+    const open = readOpenRun(opts.vault);
+    const degradations = open ? observeDegradation(opts.vault, open) : [];
+    const sealed = sealRun(opts.vault, { headAfter: gitHead(opts.vault), degradations });
     const released = releaseFiringLock(opts.vault, { runId: sealed.runId });
     console.log(`loop run ${sealed.runId} sealed: ${sealed.verdict}`);
     for (const s of sealed.steps) console.log(`  ${s.exit === 0 ? "\u2713" : "\u2717"} ${s.phase} (exit ${s.exit})`);
+    for (const line of degradedReport(degradations)) console.error(line);
     if (!released) {
       console.error("note: the firing lock is no longer this run's \u2014 it was broken as stale and retaken. Left alone.");
     }
     const stall = assessStall(readRuns(opts.vault));
     if (stall.stalled) console.error(`\u26A0 stalled: ${stall.reason}`);
     if (sealed.verdict === "unhealthy" || sealed.verdict === "crashed") process.exitCode = 1;
+    else if (sealed.verdict === "degraded") process.exitCode = LOOP_EXIT.degraded;
   });
 }
 
