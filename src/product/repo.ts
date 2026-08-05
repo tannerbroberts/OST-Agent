@@ -17,6 +17,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { redactSecrets } from "../adapters/transcript.js";
+import { nearMiss, renderNearMiss } from "../fs/near-miss.js";
 import { DATA_FRAME, frameData } from "../security/framing.js";
 
 export const MAX_FILE_CHARS = 20_000;
@@ -87,6 +88,38 @@ function refuseVaultSidecar(candidate: string, rel: string): void {
       `Evidence is retrieved one record at a time, framed as data, with ost_next_work({ evidence: "<id>" }); ` +
       `the ids are in that tool's unmappedEvidence list. Cursors and state files are not readable through any tool.`,
   );
+}
+
+/**
+ * What a missing path answers with — how far down the request was real, what is
+ * actually there, and the correction if one is obvious.
+ *
+ * This used to be `"<rel>" does not exist in <repo>`, and every recorded instance
+ * of it was followed immediately by a listing call that the reader could have
+ * answered itself. Everything is named repo-relative and the ancestor search is
+ * confined to the root, so a miss stays inside the same boundary a successful
+ * read would have: the other *declared* repos may be named, nothing else can be.
+ */
+function missingPathMessage(roots: readonly string[], root: string, rel: string): string {
+  const miss = nearMiss(rel, {
+    cwd: root,
+    roots: roots.filter((r) => r !== root),
+    confineTo: root,
+    hide: (name) => SKIP_DIRS.has(name) || isSidecarName(name),
+  });
+  const inRepo = (p: string) => {
+    const owner = roots.find((r) => p === r || p.startsWith(r + path.sep));
+    if (!owner) return p;
+    const within = path.relative(owner, p);
+    return within ? `${path.basename(owner)}/${within}` : path.basename(owner);
+  };
+  const where = miss.present.length
+    ? `${inRepo(miss.reached)} exists and contains ${miss.present.join(", ")}${miss.truncated ? ", …" : ""}`
+    : `${inRepo(miss.reached)} exists and is empty`;
+  const then = miss.suggestion
+    ? `did you mean ${inRepo(path.resolve(root, miss.suggestion.path))}?`
+    : "nothing there is close enough to name, so this is not a typo to correct";
+  return `"${rel}" does not exist in ${path.basename(root)} — ${where}; ${then}`;
 }
 
 export interface RepoEntry {
@@ -162,7 +195,7 @@ export function readProductRepo(repos: readonly string[], input: { repo?: string
   try {
     real = fs.realpathSync(joined);
   } catch {
-    throw new Error(`"${rel}" does not exist in ${path.basename(root)}`);
+    throw new Error(missingPathMessage(roots, root, rel));
   }
   if (real !== root && !real.startsWith(root + path.sep)) {
     throw new Error(`"${rel}" is a symlink escaping the repo — reads are confined to ${path.basename(root)}`);
