@@ -143,6 +143,14 @@ const PLANT: Record<string, () => void> = {
   // from a vault written before the rule, which is what a structural check is
   // for — so the fixture has to arrive the same way.
   "outcome-files-categories": () => vault.linkNodes(OUTCOME, SOLUTION),
+  // Also planted through the vault — `assertLinkAllowed` refuses a second edge
+  // onto an already-parented node, so this arrives by hand edit or from a vault
+  // written before the rule.
+  "single-parent": () => {
+    put({ title: "A rival opportunity", layer: "Opportunity" });
+    vault.linkNodes(OUTCOME, "A rival opportunity");
+    vault.linkNodes("A rival opportunity", SOLUTION);
+  },
   "evidence-class": () => {
     put({ title: "A legacy gap", layer: "Opportunity", evidence: undefined });
     vault.linkNodes(OUTCOME, "A legacy gap");

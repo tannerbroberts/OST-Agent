@@ -191,18 +191,82 @@ describe("R6 still refuses a borrowed result, one layer down", () => {
     await expect(link(SOLUTION, "Players would open a digest")).rejects.toThrow(/already records a result/);
   });
 
-  test("NON-VACUITY: an UNRUN assumption may still be shared between solutions", async () => {
+  /**
+   * NON-VACUITY for R6 specifically, and it has to be an edge R6 would allow
+   * that `single-parent` also allows — otherwise this file cannot tell "R6 is
+   * narrow" from "everything is refused for some other reason".
+   *
+   * An UNRUN test with no parent at all is that edge: R6 objects only to a
+   * recorded result changing hands, and an orphan has no parent to lose.
+   */
+  test("NON-VACUITY: an unparented, unrun test still attaches", async () => {
     put(BELIEF, "Assumption");
     vault.linkNodes(SOLUTION, BELIEF);
-    put(TEST, "AssumptionTest");
-    vault.linkNodes(BELIEF, TEST);
+    put("An orphan test", "AssumptionTest");
+    withRunSibling();
+
+    await link(BELIEF, "An orphan test");
+    expect(vault.read(BELIEF).links).toContain("An orphan test");
+    // It lends nothing: an unrun test moves no gate.
+    expect(buildPermit(vault.readTree(), SOLUTION).cleared).toBe(false);
+  });
+});
+
+/**
+ * One parent per node.
+ *
+ * The hierarchy rules all ask whether a node has *at least one* correctly-layered
+ * parent; none of them ever asked how many. A vault could satisfy every one of
+ * them and still be a DAG — which the meta vault was, with three solutions under
+ * two opportunities each.
+ */
+describe("a node belongs under exactly one parent", () => {
+  test("a second parent is refused, and the refusal says how to move it instead", async () => {
+    put(BELIEF, "Assumption");
+    vault.linkNodes(SOLUTION, BELIEF);
     put("Ship a digest email", "Solution");
     vault.linkNodes(OPPORTUNITY, "Ship a digest email");
 
+    await expect(link("Ship a digest email", BELIEF)).rejects.toThrow(/belongs under exactly one parent/);
+    await expect(link("Ship a digest email", BELIEF)).rejects.toThrow(/ost_detach_nodes/);
+    expect(vault.read("Ship a digest email").links).not.toContain(BELIEF);
+  });
+
+  test("re-issuing the edge a node already has is still a no-op, not a refusal", async () => {
+    // The idempotent call must survive: the child's only parent IS this parent,
+    // so there is no second parent to object to.
+    put(BELIEF, "Assumption");
+    vault.linkNodes(SOLUTION, BELIEF);
+    await expect(link(SOLUTION, BELIEF)).resolves.toBeDefined();
+    expect(vault.read(SOLUTION).links.filter((l) => l === BELIEF)).toHaveLength(1);
+  });
+
+  test("re-parenting is the way through: detach, then link", async () => {
+    put(BELIEF, "Assumption");
+    vault.linkNodes(SOLUTION, BELIEF);
+    put("Ship a digest email", "Solution");
+    vault.linkNodes(OPPORTUNITY, "Ship a digest email");
+
+    vault.detach(SOLUTION, BELIEF, "it answers the digest better");
     await link("Ship a digest email", BELIEF);
+
     expect(vault.read("Ship a digest email").links).toContain(BELIEF);
-    // Both rest on it; neither gate moved, because there is no result to lend.
-    expect(buildPermit(vault.readTree(), SOLUTION).cleared).toBe(false);
-    expect(buildPermit(vault.readTree(), "Ship a digest email").cleared).toBe(false);
+    expect(vault.read(SOLUTION).links).not.toContain(BELIEF);
+    expect(checkInvariants(vault.readTree()).map((v) => v.rule)).not.toContain("single-parent");
+  });
+
+  test("checkInvariants reports a two-parent node, naming both parents", () => {
+    // Planted through the vault, not the tool surface — the surface refuses it,
+    // so this shape arrives from a hand edit or a vault predating the rule.
+    put(BELIEF, "Assumption");
+    vault.linkNodes(SOLUTION, BELIEF);
+    put("Ship a digest email", "Solution");
+    vault.linkNodes(OPPORTUNITY, "Ship a digest email");
+    vault.linkNodes("Ship a digest email", BELIEF);
+
+    const violation = checkInvariants(vault.readTree()).find((v) => v.rule === "single-parent");
+    expect(violation?.node).toBe(BELIEF);
+    expect(violation?.detail).toContain(SOLUTION);
+    expect(violation?.detail).toContain("Ship a digest email");
   });
 });

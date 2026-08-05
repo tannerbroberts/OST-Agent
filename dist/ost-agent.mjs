@@ -39737,12 +39737,12 @@ var OST_RULESET = {
   ],
   "treeRules": [
     "Exactly one desired outcome sits at the root; multiple outcomes mean multiple trees.",
-    "The tree flows strictly downward: Outcome -> Opportunities (nested) -> Solutions -> Assumption Tests, with each node mapping to its parent.",
-    "Place each node under its single best-fit parent; if an opportunity plausibly fits two parents, flag for human review rather than duplicating or double-linking.",
+    "The tree flows strictly downward: Outcome -> Opportunities (nested) -> Solutions -> Assumptions -> Assumption Tests, with each node mapping to its parent.",
+    "Place each node under its single best-fit parent. This is enforced, not advised: a node has exactly one parent, `ost_link_nodes` refuses a second edge onto an already-parented node, and `check` fails on one (rule single-parent). If a node plausibly fits two parents, that is a judgement about which it serves best and the tree records one answer \u2014 flag it for human review rather than double-linking. To move a node, detach it from the old parent and then link it under the new one.",
     "Opportunities form a multi-level sub-tree: an opportunity node may be the parent of other opportunity nodes; the tree is not four flat levels.",
     "Parent-child opportunity relationships represent subsets; sibling relationships represent distinct alternatives at the same level.",
     "Every solution must address at least one opportunity in the tree; no orphan solutions.",
-    "Every assumption test must map to exactly one specific solution.",
+    "Every assumption test maps to exactly one assumption, and every assumption to exactly one solution.",
     "Sibling opportunities should be distinct from one another; the tree is deliberately incomplete and evolving, and siblings need not be collectively exhaustive.",
     "The tree is a living artifact: when evidence invalidates a branch, re-chart it (evolve the solution, pick a different opportunity, or flag the outcome) rather than discarding the rest of the tree."
   ],
@@ -40937,6 +40937,24 @@ function checkInvariants(tree) {
         (p2) => (p2.layer === "Assumption" || p2.layer === "Solution") && p2.links.includes(n.title)
       );
       if (parents.length === 0) v.push({ rule: "test-mapped", node: n.title, detail: "not linked under any Assumption" });
+    }
+  }
+  const parentsOf = /* @__PURE__ */ new Map();
+  for (const p2 of tree) {
+    for (const child of p2.links) {
+      const list = parentsOf.get(child);
+      if (list) list.push(p2.title);
+      else parentsOf.set(child, [p2.title]);
+    }
+  }
+  for (const n of tree) {
+    const held = parentsOf.get(n.title);
+    if (held && held.length > 1) {
+      v.push({
+        rule: "single-parent",
+        node: n.title,
+        detail: `has ${held.length} parents (${held.join("; ")}) \u2014 a node belongs under its single best-fit parent`
+      });
     }
   }
   for (const n of tree) {
@@ -45134,7 +45152,8 @@ var HYGIENE_LABELS = {
   "evidence-class": "unclassed evidence",
   "no-self-validation": "self-validated",
   "lane-conflict": "lane conflict",
-  "rung-unearned": "unearned rung"
+  "rung-unearned": "unearned rung",
+  "single-parent": "two parents"
 };
 var UNRESOLVED_CITATION_RULE = "unresolved-citation";
 function detectHygiene(tree, live, limit, storedEvidenceIds, standing) {
@@ -45767,6 +45786,12 @@ function assertLinkAllowed(vault, parentTitle, childTitle) {
   if (!alreadyLinked && GATE_BEARING_PARENT.has(parent.layer) && carriesRecordedResult(vault, child)) {
     throw new Error(
       `refusing to attach "${displaySafeTitle(childTitle)}" under "${displaySafeTitle(parentTitle)}": that test already records a result, and hanging it under a solution that did not commission it would clear that solution's evidence gate on a run that was about something else \u2014 in one call, with nothing in the tree to show for it. Surface an assumption test FOR this solution (ost_create_node, which attaches it in the same call) and let a human run it. If the two solutions genuinely rest on the same tested assumption, a human says so \u2014 in the note, or by linking it themselves.`
+    );
+  }
+  const existingParents = vault.readTree().filter((n) => !titlesMatch(n.title, parentTitle) && n.links.some((l) => titlesMatch(l, childTitle))).map((n) => n.title);
+  if (existingParents.length > 0) {
+    throw new Error(
+      `refusing to attach "${displaySafeTitle(childTitle)}" under "${displaySafeTitle(parentTitle)}": it already sits under ${existingParents.map((p2) => `"${displaySafeTitle(p2)}"`).join(", ")}, and a node belongs under exactly one parent. If this is the better home, MOVE it \u2014 ost_detach_nodes from the old parent, then link here. If it genuinely serves both, that is a judgement about which one it serves best, and the tree records one answer.`
     );
   }
 }

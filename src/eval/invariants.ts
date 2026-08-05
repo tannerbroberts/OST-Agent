@@ -119,6 +119,41 @@ export function checkInvariants(tree: OstNode[]): Violation[] {
     }
   }
 
+  // no node has two parents — the tree is a tree, not a DAG
+  //
+  // Every rule above asks whether a node has *at least one* correctly-layered
+  // parent. None of them ever asked how many, so a vault could satisfy the whole
+  // hierarchy and still be a graph: the meta vault had three solutions hanging
+  // under two opportunities each, and every walk that "handles" multi-parenting
+  // (`subtree`, `rollupTree`) was really working around a shape nobody had
+  // decided to allow.
+  //
+  // The ruleset already said this in prose — "place each node under its single
+  // best-fit parent; if it plausibly fits two, flag for human review rather than
+  // duplicating or double-linking" — so this is that sentence acquiring a check.
+  // Counting is deliberately over ALL inbound edges rather than only
+  // correctly-layered ones: two parents is two parents, and a node reached by one
+  // legal and one illegal edge should report both problems, not have this one
+  // hidden by the other.
+  const parentsOf = new Map<string, string[]>();
+  for (const p of tree) {
+    for (const child of p.links) {
+      const list = parentsOf.get(child);
+      if (list) list.push(p.title);
+      else parentsOf.set(child, [p.title]);
+    }
+  }
+  for (const n of tree) {
+    const held = parentsOf.get(n.title);
+    if (held && held.length > 1) {
+      v.push({
+        rule: "single-parent",
+        node: n.title,
+        detail: `has ${held.length} parents (${held.join("; ")}) — a node belongs under its single best-fit parent`,
+      });
+    }
+  }
+
   // every node declares what it rests on — an unlabelled node lets a reader
   // over-trust founder theory by mistaking it for evidence
   for (const n of tree) {

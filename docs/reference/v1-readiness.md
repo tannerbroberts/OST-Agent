@@ -1685,6 +1685,7 @@ agent can also clear.**
 > | `solution-mapped` | no | yes | no | yes |
 > | `assumption-mapped` | no | yes | no | yes |
 > | `test-mapped` | no | yes | no | yes |
+> | `single-parent` | **no** (create attaches a new node; link refuses a second edge) | yes (detach the surplus edge) | no | yes |
 > | `evidence-class` | no | yes | no | yes (R7 granted it, 2026-07-29) |
 > | `no-self-validation` | no | yes | no | yes |
 > | `lane-conflict` | **no** (R2 closed it, 2026-07-30) | no | no | no |
@@ -2994,8 +2995,17 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 2004 tests across 166 files, verified 2026-08-05 (`npx vitest run`,
-> after `test/loop/question-budget-ordering.test.ts` replayed four harvested sessions against
+> *Today:* **met** — 2014 tests across 166 files, verified 2026-08-05 (`npx vitest run`,
+> after `single-parent` made the tree a tree. Every hierarchy rule asked whether a node had
+> *at least one* correctly-layered parent and none ever asked how many, so a vault could
+> satisfy all of them and still be a DAG — the meta vault was, with three solutions under two
+> opportunities each. `ost_link_nodes` now refuses a second edge onto an already-parented node
+> and `check` fails on one. The write-side refusal sits deliberately AFTER R6's borrowed-result
+> guard: every adoption attack is also a second-parent attempt, so ordering it first would
+> swallow R6's refusal and leave R6's own tests passing on the wrong message. Its cost is
+> stated rather than hidden — two solutions may no longer share one assumption, which was
+> legal before and was R6's non-vacuity control; that control is now an unparented node, which
+> both rules permit. Before that, `test/loop/question-budget-ordering.test.ts` replayed four harvested sessions against
 > the question budget's ranking function. It is green at 3 of 4 and prints three numbers that
 > qualify it: plain arrival order scores the same 3 of 4, the other rounding of "half" scores
 > 2 of 4, and the wider eleven-session corpus scores 6 of 11. The spec's threshold is met; what

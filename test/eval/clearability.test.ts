@@ -414,6 +414,29 @@ const SCENARIOS: Record<string, Scenario> = {
     createRefusal: /already declares a lane|is not granted on this surface/,
   },
 
+  "single-parent": {
+    setup: withSolution,
+    createPath: "ost_create_node, which attaches a NEW node under one parent",
+    create: [
+      {
+        tool: "ost_create_node",
+        input: { title: "A fresh belief", layer: "Assumption", parent: SOLUTION, body: "a belief", evidence: "assertion" },
+      },
+    ],
+    // Planted through the vault: the tool surface refuses the second edge, so
+    // this shape arrives from a hand edit or a vault predating the rule.
+    plant: (v) => {
+      put(v, { title: "A second idea", layer: "Solution" });
+      v.linkNodes(OPPORTUNITY, "A second idea");
+      put(v, { title: "A shared belief", layer: "Assumption" });
+      v.linkNodes(SOLUTION, "A shared belief");
+      v.linkNodes("A second idea", "A shared belief");
+    },
+    clearPath: "ost_detach_nodes removing the surplus edge — re-parenting, not deleting",
+    clear: [{ tool: "ost_detach_nodes", input: { parent: "A second idea", child: "A shared belief", why: "it answers the first better" } }],
+    expected: { mcp: { create: false, clear: true }, "ost-pass": { create: false, clear: true } },
+  },
+
   "rung-unearned": {
     setup: withSolution,
     createPath: "ost_create_node declaring 'money' with no result anywhere beneath it",

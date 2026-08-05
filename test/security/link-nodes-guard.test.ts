@@ -220,20 +220,36 @@ describe("R6(b) — an already-run assumption test cannot be adopted by a second
     expect(gate(BLOCKED)).toBe(false);
     vault.linkNodes(BLOCKED, CLEARED_TEST);
     expect(gate(BLOCKED)).toBe(true);
-    // …and silently: nothing in the tree says the run was about something else.
-    expect(checkInvariants(vault.readTree())).toEqual([]);
+    // …and near-silently. `single-parent` now notices the shape (the test hangs
+    // under two parents), but nothing says the RUN was about something else —
+    // which is the forgery R6 exists for and which no invariant can see.
+    const rules = checkInvariants(vault.readTree()).map((v) => v.rule);
+    expect(rules).toEqual(["single-parent"]);
   });
 
-  test("an UNRUN test may still be shared between solutions — the refusal is retroactive-only", async () => {
-    // Two solutions resting on the same open assumption is ordinary discovery,
-    // and the gate does not move: the test has no result to lend. When a human
-    // later records one, it is their write that clears both — a person in the
-    // loop, not a single agent call.
-    await link(CLEARED_BELIEF, BLOCKED_TEST);
+  /**
+   * Sharing an unrun test between two solutions USED to be legal here, and was
+   * this row's non-vacuity control: R6's refusal is retroactive-only, so a test
+   * with no result could be adopted freely.
+   *
+   * `single-parent` closed that, and the two rules cannot both hold — under a
+   * strict tree a shared node is a second parent like any other. The control is
+   * therefore an orphan instead: a node with no parent to lose is one R6 permits
+   * and `single-parent` permits, which is what makes it a control rather than a
+   * second way of being refused.
+   */
+  test("NON-VACUITY: an unparented, unrun test still attaches", async () => {
+    put("An unclaimed test", "AssumptionTest");
+    await link(CLEARED_BELIEF, "An unclaimed test");
 
-    expect(linksOf(CLEARED_BELIEF)).toContain(BLOCKED_TEST);
+    expect(linksOf(CLEARED_BELIEF)).toContain("An unclaimed test");
     expect(gate(CLEARED)).toBe(true); // unchanged: its own test was already run
     expect(gate(BLOCKED)).toBe(false);
+  });
+
+  test("a test already under one assumption cannot be hung under a second", async () => {
+    await expect(link(CLEARED_BELIEF, BLOCKED_TEST)).rejects.toThrow(/belongs under exactly one parent/);
+    expect(linksOf(CLEARED_BELIEF)).not.toContain(BLOCKED_TEST);
   });
 
   test("re-issuing an edge that already exists is not refused — it writes nothing and clears nothing", async () => {

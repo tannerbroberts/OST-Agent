@@ -53,12 +53,12 @@ export const OST_RULESET = {
   ],
   "treeRules": [
     "Exactly one desired outcome sits at the root; multiple outcomes mean multiple trees.",
-    "The tree flows strictly downward: Outcome -> Opportunities (nested) -> Solutions -> Assumption Tests, with each node mapping to its parent.",
-    "Place each node under its single best-fit parent; if an opportunity plausibly fits two parents, flag for human review rather than duplicating or double-linking.",
+    "The tree flows strictly downward: Outcome -> Opportunities (nested) -> Solutions -> Assumptions -> Assumption Tests, with each node mapping to its parent.",
+    "Place each node under its single best-fit parent. This is enforced, not advised: a node has exactly one parent, `ost_link_nodes` refuses a second edge onto an already-parented node, and `check` fails on one (rule single-parent). If a node plausibly fits two parents, that is a judgement about which it serves best and the tree records one answer — flag it for human review rather than double-linking. To move a node, detach it from the old parent and then link it under the new one.",
     "Opportunities form a multi-level sub-tree: an opportunity node may be the parent of other opportunity nodes; the tree is not four flat levels.",
     "Parent-child opportunity relationships represent subsets; sibling relationships represent distinct alternatives at the same level.",
     "Every solution must address at least one opportunity in the tree; no orphan solutions.",
-    "Every assumption test must map to exactly one specific solution.",
+    "Every assumption test maps to exactly one assumption, and every assumption to exactly one solution.",
     "Sibling opportunities should be distinct from one another; the tree is deliberately incomplete and evolving, and siblings need not be collectively exhaustive.",
     "The tree is a living artifact: when evidence invalidates a branch, re-chart it (evolve the solution, pick a different opportunity, or flag the outcome) rather than discarding the rest of the tree."
   ],
