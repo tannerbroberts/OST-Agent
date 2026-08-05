@@ -57,6 +57,7 @@ import {
   type OstNode,
   LAYERS,
 } from "./node.js";
+import { parseFrontmatter } from "./frontmatter.js";
 import { canonicalTitle, fileNameForTitle, sanitizeTitle } from "./sanitize.js";
 import { isHeadingLine, reservedHeadingIn } from "./headings.js";
 import { joinReservedSections, splitReservedSections } from "./sections.js";
@@ -319,7 +320,7 @@ export class Vault {
 
       let type: unknown;
       try {
-        type = (matter(raw).data as Record<string, unknown>).type;
+        type = (parseFrontmatter(raw).data as Record<string, unknown>).type;
       } catch (err) {
         // Frontmatter that will not parse. Before the census this threw out of
         // readTree and took every command down with a stack trace that named no

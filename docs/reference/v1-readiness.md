@@ -2996,7 +2996,7 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 2024 tests across 166 files, verified 2026-08-05 (`npx vitest run`,
+> *Today:* **met** — 2042 tests across 167 files, verified 2026-08-05 (`npx vitest run`,
 > after `single-backlink` finished what `single-parent` started. `single-parent` counts
 > EDGES — the contiguous `[[…]]` lines under the tag line, which is all `links` holds — so a
 > wikilink inside a paragraph is not an edge by that definition and the tree could be a
