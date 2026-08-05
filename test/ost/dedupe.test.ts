@@ -50,7 +50,10 @@ describe("findNearDuplicateIssues", () => {
     expect(issues).toHaveLength(1);
     // direction is the alphabetically-later title flagged as a dup of the earlier one
     expect(issues[0].title).toBe("I want a reason to return every day");
-    expect(issues[0].issue).toContain("possible duplicate of [[I want a reason to come back every day]]");
+    expect(issues[0].issue).toContain('possible duplicate of "I want a reason to come back every day"');
+    // The annotation lands in another node's `## Issues`; a wikilink there would
+    // be a second backlink to a node that already has a parent.
+    expect(issues[0].issue).not.toContain("[[");
     expect(issues[0].issue).toMatch(/similarity 0\.\d\d/);
   });
 

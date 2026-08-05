@@ -166,7 +166,9 @@ function* scanLayer(titles: readonly string[], threshold: number): Generator<Dup
   const flag = (i: number, j: number): DuplicateIssue | null => {
     const score = jaccard(sets[i], sets[j], sorted[i], sorted[j]);
     if (score < threshold) return null;
-    return { title: sorted[j], issue: `possible duplicate of [[${sorted[i]}]] (similarity ${score.toFixed(2)})` };
+    // Named, not linked: this annotation lands in another node's `## Issues`, and
+    // a wikilink there is a second backlink to a node that already has a parent.
+    return { title: sorted[j], issue: `possible duplicate of "${sorted[i]}" (similarity ${score.toFixed(2)})` };
   };
 
   // The prefix filter below is derived from `J(A,B) >= t`, so it says nothing at

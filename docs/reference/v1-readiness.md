@@ -2996,8 +2996,19 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 2042 tests across 167 files, verified 2026-08-05 (`npx vitest run`,
-> after `single-backlink` finished what `single-parent` started. `single-parent` counts
+> *Today:* **met** — 2045 tests across 167 files, verified 2026-08-05 (`npx vitest run`,
+> after the PRODUCT was made to obey `single-backlink` too. The rule was enforced on the
+> agent and stated in the ruleset, but `Vault.detach`, `Vault.mergeNodes` and the duplicate
+> scanner each wrote a `[[wikilink]]` into a `## History` or `## Issues` section — a second
+> link to a node that already has a parent. Not hypothetical: this repository's own
+> re-parenting migrations produced 272 of them in its own vault, in the same week the rule
+> was authored. A rule the product breaks on its own writes un-fixes itself on the next pass.
+> All four writes now name the node in quotes, and `assumption-layer.test.ts` runs the exact
+> detach-then-link sequence the migrations ran, asserting `check` is as clean afterwards as
+> before. One bracketed title survives on purpose and says why in a comment: `ost_rank_source`'s
+> `reason` is appended to `.ost-agent/trust.jsonl`, never to a node body, and `namedNodes()`
+> parses those brackets to resolve which test is cited (B4). Before that,
+> `single-backlink` finished what `single-parent` started. `single-parent` counts
 > EDGES — the contiguous `[[…]]` lines under the tag line, which is all `links` holds — so a
 > wikilink inside a paragraph is not an edge by that definition and the tree could be a
 > perfect one-parent tree while a node stayed linked from fifteen other bodies. Obsidian

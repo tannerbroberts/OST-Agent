@@ -39250,7 +39250,7 @@ var Vault = class {
       throw new Error(`"${parent}" does not link to "${child}" \u2014 nothing to unlink`);
     }
     node.links = node.links.filter((l) => l !== target);
-    const line = `- ${isoToday()} unlinked [[${target}]] \u2014 ${why}`;
+    const line = `- ${isoToday()} unlinked "${target}" \u2014 ${why}`;
     node.body = appendUnderHeading(node.body, "## History", line);
     fs13.writeFileSync(this.nodePath(parent), serialize(node), "utf8");
     return line;
@@ -39335,7 +39335,7 @@ var Vault = class {
     for (const link of loser.links) {
       if (link !== survivorTitle && !survivor.links.includes(link)) survivor.links.push(link);
     }
-    const line = `- ${isoToday()} merged [[${loserTitle}]] into this node and deleted its file \u2014 ${opts.why}` + (loserReserved.length > 0 ? ` (carried ${loserReserved.length} reserved section(s) across)` : "");
+    const line = `- ${isoToday()} merged "${loserTitle}" into this node and deleted its file \u2014 ${opts.why}` + (loserReserved.length > 0 ? ` (carried ${loserReserved.length} reserved section(s) across)` : "");
     survivor.body = appendUnderHeading(survivor.body, "## History", line);
     fs13.writeFileSync(this.nodePath(into), serialize(survivor), "utf8");
     for (const n of this.readTree()) {
@@ -39346,7 +39346,7 @@ var Vault = class {
       n.body = appendUnderHeading(
         n.body,
         "## History",
-        `- ${isoToday()} link [[${loserTitle}]] repointed to [[${survivorTitle}]] \u2014 that node was merged away`
+        `- ${isoToday()} link "${loserTitle}" repointed to "${survivorTitle}" \u2014 that node was merged away`
       );
       fs13.writeFileSync(this.nodePath(n.title), serialize(n), "utf8");
     }
@@ -45277,7 +45277,7 @@ function* scanLayer(titles, threshold) {
   const flag = (i2, j2) => {
     const score = jaccard(sets[i2], sets[j2], sorted2[i2], sorted2[j2]);
     if (score < threshold) return null;
-    return { title: sorted2[j2], issue: `possible duplicate of [[${sorted2[i2]}]] (similarity ${score.toFixed(2)})` };
+    return { title: sorted2[j2], issue: `possible duplicate of "${sorted2[i2]}" (similarity ${score.toFixed(2)})` };
   };
   if (!(threshold > 0)) {
     for (let i2 = 0; i2 < n; i2++) {
@@ -46634,6 +46634,12 @@ This is not a build permit. Nothing is buildable until \`ost-agent verify\` watc
             enum: [...RANK_DIRECTIONS],
             description: "corroborated (gated: cite the test) | contradicted (free: records a strike)."
           },
+          // The `[[wikilink]]` this asks for is CORRECT and is the one place a
+          // bracketed title is still required outside an edge: `reason` is
+          // appended to `.ost-agent/trust.jsonl`, never to a node body, so it
+          // creates no backlink and `single-backlink` never sees it. The
+          // brackets are load-bearing — `namedNodes()` parses them to resolve
+          // which test is being cited (B4), so a quoted title would not resolve.
           reason: {
             type: "string",
             description: "What happened. For 'corroborated' it must name the first-party result as a [[wikilink]]; for 'contradicted' any honest sentence \u2014 say what failed to replicate."

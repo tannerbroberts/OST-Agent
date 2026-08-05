@@ -54,7 +54,10 @@ describe("detach", () => {
 
     const root = vault.read("Root");
     expect(root.links).not.toContain("A need");
-    expect(root.body).toContain("unlinked [[A need]]");
+    expect(root.body).toContain('unlinked "A need"');
+    // Quoted, not linked: a History line naming the node in brackets would be a
+    // second wikilink to it (`single-backlink`).
+    expect(root.body).not.toContain("[[A need]]");
     expect(root.body).toContain("re-parented under a bucket");
   });
 
@@ -236,7 +239,8 @@ describe("mergeNodes", () => {
       why: "same need, said twice",
     });
     const body = vault.read("Tools break on my machine").body;
-    expect(body).toContain("merged [[My tools fail locally]]");
+    expect(body).toContain('merged "My tools fail locally"');
+    expect(body).not.toContain("[[My tools fail locally]]");
     expect(body).toContain("same need, said twice");
   });
 });
