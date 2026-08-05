@@ -627,7 +627,11 @@ export class Vault {
       throw new Error(`"${parent}" does not link to "${child}" — nothing to unlink`);
     }
     node.links = node.links.filter((l) => l !== target);
-    const line = `- ${isoToday()} unlinked [[${target}]] — ${why}`;
+    // Quoted, not linked. A History line naming the node in brackets is a second
+    // wikilink to it, so the very act of recording a re-parenting used to violate
+    // `single-backlink` — and it did, 272 times, in this repository's own vault.
+    // The record keeps every word; only the syntax changes.
+    const line = `- ${isoToday()} unlinked "${target}" — ${why}`;
     node.body = appendUnderHeading(node.body, "## History", line);
     fs.writeFileSync(this.nodePath(parent), serialize(node), "utf8");
     return line;
@@ -745,7 +749,7 @@ export class Vault {
     }
 
     const line =
-      `- ${isoToday()} merged [[${loserTitle}]] into this node and deleted its file — ${opts.why}` +
+      `- ${isoToday()} merged "${loserTitle}" into this node and deleted its file — ${opts.why}` +
       (loserReserved.length > 0 ? ` (carried ${loserReserved.length} reserved section(s) across)` : "");
     survivor.body = appendUnderHeading(survivor.body, "## History", line);
     fs.writeFileSync(this.nodePath(into), serialize(survivor), "utf8");
@@ -761,7 +765,7 @@ export class Vault {
       n.body = appendUnderHeading(
         n.body,
         "## History",
-        `- ${isoToday()} link [[${loserTitle}]] repointed to [[${survivorTitle}]] — that node was merged away`,
+        `- ${isoToday()} link "${loserTitle}" repointed to "${survivorTitle}" — that node was merged away`,
       );
       fs.writeFileSync(this.nodePath(n.title), serialize(n), "utf8");
     }

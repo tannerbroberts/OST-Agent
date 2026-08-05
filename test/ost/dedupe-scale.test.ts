@@ -75,7 +75,7 @@ function referenceScan(
       for (let j = i + 1; j < sorted.length; j++) {
         const score = referenceSimilarity(sorted[i], sorted[j]);
         if (score >= threshold) {
-          issues.push({ title: sorted[j], issue: `possible duplicate of [[${sorted[i]}]] (similarity ${score.toFixed(2)})` });
+          issues.push({ title: sorted[j], issue: `possible duplicate of "${sorted[i]}" (similarity ${score.toFixed(2)})` });
         }
       }
     }

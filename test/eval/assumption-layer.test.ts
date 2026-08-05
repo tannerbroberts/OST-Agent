@@ -329,3 +329,56 @@ describe("a title is wikilinked exactly once, by its parent", () => {
     expect(violation?.detail).toContain("Second citer (prose)");
   });
 });
+
+/**
+ * The product must obey its own rule.
+ *
+ * `single-backlink` is enforced by `check` and stated in the ruleset, but the
+ * agent is not the only thing that writes into node bodies — the product does
+ * too, from `Vault.detach`, `Vault.merge` and the duplicate scanner. Every one
+ * of those wrote a `[[wikilink]]` into a `## History` or `## Issues` section,
+ * which is a second link to a node that already has a parent.
+ *
+ * That is not hypothetical: the re-parenting migrations in this repository
+ * produced 272 of them in its own vault, and the rule was authored in the same
+ * week. A rule the product breaks on its own writes is a rule that un-fixes
+ * itself on the next pass.
+ */
+describe("the product's own writes obey single-backlink", () => {
+  test("detach records the unlink without linking the node it unlinked", () => {
+    put(BELIEF, "Assumption");
+    vault.linkNodes(SOLUTION, BELIEF);
+    vault.detach(SOLUTION, BELIEF, "it answers a different need");
+
+    expect(vault.read(SOLUTION).body).toContain(`unlinked "${BELIEF}"`);
+    expect(checkInvariants(vault.readTree()).map((v) => v.rule)).not.toContain("single-backlink");
+  });
+
+  test("merge records the fold without linking the node it deleted", () => {
+    put(BELIEF, "Assumption");
+    vault.linkNodes(SOLUTION, BELIEF);
+    put("A twin belief", "Assumption");
+    vault.linkNodes(SOLUTION, "A twin belief");
+
+    vault.mergeNodes("A twin belief", BELIEF, { prose: "one belief covering both", why: "the same claim, written twice" });
+
+    expect(vault.read(BELIEF).body).toContain('merged "A twin belief"');
+    expect(vault.read(BELIEF).body).not.toContain("[[A twin belief]]");
+  });
+
+  test("a re-parenting round trip leaves the tree clean, not one link dirtier", async () => {
+    // The exact sequence the migrations ran, and the one that produced 272
+    // violations before this was fixed: detach from the old parent, link under
+    // the new one. `check` must be as clean afterwards as it was before.
+    put(BELIEF, "Assumption");
+    vault.linkNodes(SOLUTION, BELIEF);
+    put("Ship a digest email", "Solution");
+    vault.linkNodes(OPPORTUNITY, "Ship a digest email");
+    expect(checkInvariants(vault.readTree())).toEqual([]);
+
+    vault.detach(SOLUTION, BELIEF, "it answers the digest better");
+    await link("Ship a digest email", BELIEF);
+
+    expect(checkInvariants(vault.readTree())).toEqual([]);
+  });
+});

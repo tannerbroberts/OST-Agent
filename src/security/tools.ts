@@ -1351,6 +1351,12 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
             enum: [...RANK_DIRECTIONS],
             description: "corroborated (gated: cite the test) | contradicted (free: records a strike).",
           },
+          // The `[[wikilink]]` this asks for is CORRECT and is the one place a
+          // bracketed title is still required outside an edge: `reason` is
+          // appended to `.ost-agent/trust.jsonl`, never to a node body, so it
+          // creates no backlink and `single-backlink` never sees it. The
+          // brackets are load-bearing — `namedNodes()` parses them to resolve
+          // which test is being cited (B4), so a quoted title would not resolve.
           reason: {
             type: "string",
             description:
