@@ -382,6 +382,10 @@ loop:                       # absent ⇒ this vault never fires unattended, and 
     ceilingWeightedTokens: 4000000   # weighted tokens, not currency; rolling window
     windowHours: 24
     sessionsDir: "~/.claude/projects/<slug>"
+  questions:                # the ceiling on your ATTENTION; absent ⇒ unbounded, and `loop due` says so
+    budget: 3               # times this vault may interrupt you; 0 ⇒ ask nothing, bank everything
+    windowHours: 24
+    sessionsDir: "~/.claude/projects/<slug>"
 
 processes:
   P3_ideate:

@@ -253,6 +253,21 @@ const LoopSpendSchema = z.object({
   sessionsDir: z.string().min(1).nullish(),
 });
 
+// The ceiling on the operator's ATTENTION, as `loop.spend` is the ceiling on their
+// account. Unlike spend, an absent block does NOT refuse to fire: an unbounded
+// question budget is exactly today's behaviour, and refusing every vault that
+// predates this key would be a stopping state with a human-only way out. It is
+// printed as UNBOUNDED instead, because "the operator knows the upper bound before
+// the run begins" is the claim and "there isn't one" is an answer to it.
+const LoopQuestionsSchema = z.object({
+  /** `AskUserQuestion` calls, not questions inside them — one ask is one interruption. */
+  budget: z.number().int().nonnegative().nullish(),
+  /** The rolling window the budget applies to. Required alongside `budget`. */
+  windowHours: z.number().positive().nullish(),
+  /** Where Claude Code writes this vault's session transcripts. Declared, never derived. */
+  sessionsDir: z.string().min(1).nullish(),
+});
+
 const LoopSchema = z
   .object({
     /** How often this vault may fire: `"30m"`, `"6h"`, `"1d"`. Absent ⇒ never. */
@@ -260,6 +275,7 @@ const LoopSchema = z
     /** How long a firing lock may be held before it is assumed dead and broken. */
     lockTtlMinutes: z.number().int().positive().default(60),
     spend: LoopSpendSchema.nullish(),
+    questions: LoopQuestionsSchema.nullish(),
   })
   .nullish();
 

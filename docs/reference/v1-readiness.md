@@ -2994,8 +2994,14 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1980 tests across 164 files, verified 2026-08-05 (`npx vitest run`,
-> after `test/eval/assumption-layer.test.ts` pinned the Assumption layer between a Solution
+> *Today:* **met** — 2004 tests across 166 files, verified 2026-08-05 (`npx vitest run`,
+> after `test/loop/question-budget-ordering.test.ts` replayed four harvested sessions against
+> the question budget's ranking function. It is green at 3 of 4 and prints three numbers that
+> qualify it: plain arrival order scores the same 3 of 4, the other rounding of "half" scores
+> 2 of 4, and the wider eleven-session corpus scores 6 of 11. The spec's threshold is met; what
+> it establishes is narrower than the solution node claims, and the test says so in its own
+> output rather than in a comment. Before that,
+> `test/eval/assumption-layer.test.ts` pinned the Assumption layer between a Solution
 > and its tests. The migration is write-strict and read-tolerant, and the spec holds both
 > halves: `CHILD_HIERARCHY` refuses a new Solution→AssumptionTest edge, while
 > `testsUnderSolution` still resolves a legacy direct one, so a vault written before the
