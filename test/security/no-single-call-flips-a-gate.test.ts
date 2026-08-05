@@ -138,6 +138,7 @@ const CLEARED_TEST = "Mail fifty users and count the opens";
 
 // The beliefs the two solutions rest on. A test hangs under one of these now,
 // so the adoption R6 refuses arrives one layer down from where it used to.
+const ORPHAN_TEST = "Count the deltas by hand";
 const BLOCKED_BELIEF = "Players would read a changelog if it existed";
 const CLEARED_BELIEF = "Players would open a digest email";
 
@@ -840,8 +841,15 @@ describe("2 — no single call flips renderGate(tree, solution).cleared from fal
         // longer appears in the `landers` list below — and a tool that never
         // lands is a tool this file would be saying nothing about. A LEGAL edge
         // has to still be written: the guard is narrow, not a wall.
+        // Created here rather than in the fixture: an unattached node is itself
+        // a `test-mapped` violation, and the fixture has to start clean for the
+        // rows above. It exists only to be the child of the legal edge below —
+        // since `single-parent`, a node that already has a parent is refused a
+        // second one, so the old control (re-hanging BLOCKED_TEST) stopped being
+        // a legal edge and became a second way of being refused.
+        put(fresh.vault, ORPHAN_TEST, "AssumptionTest", "Count the deltas by hand.");
         const before = vaultDigest(fresh.dir);
-        await fire(toolsFor(fresh), { tool: "ost_link_nodes", input: { parent: CLEARED_BELIEF, child: BLOCKED_TEST }, how: "a legal edge", reached: 0 });
+        await fire(toolsFor(fresh), { tool: "ost_link_nodes", input: { parent: CLEARED_BELIEF, child: ORPHAN_TEST }, how: "a legal edge", reached: 0 });
         expect(vaultDigest(fresh.dir), "ost_link_nodes refuses a legal edge — the guard is too broad").not.toEqual(before);
       } finally {
         fs.rmSync(fresh.dir, { recursive: true, force: true });
@@ -926,6 +934,13 @@ const AUTHORSHIP: Record<string, Authorship> = {
       "shrink the sentence, so nothing the agent held could clear it. A human's `ost-agent lane --set` still can",
   },
   "rung-unearned": { create: null, escapes: [], why: "B3 — a measurement rung is refused when provenance cannot carry it" },
+  "single-parent": {
+    create: null,
+    escapes: [],
+    why:
+      "ost_create_node attaches a NEW node, which has no other parent, and ost_link_nodes refuses a second edge onto " +
+      "an already-parented node. One arrives from a hand edit or from a vault written before the rule",
+  },
 };
 
 /**

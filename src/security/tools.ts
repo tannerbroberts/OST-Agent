@@ -262,6 +262,40 @@ function assertLinkAllowed(vault: Vault, parentTitle: string, childTitle: string
         `note, or by linking it themselves.`,
     );
   }
+
+  // One parent per node — the write-side half of the `single-parent` invariant.
+  //
+  // `ost_create_node` cannot reach this: it creates and attaches in one call, so
+  // its child is new and has no other parent. Only a SECOND edge onto an
+  // already-parented node can violate it, which is exactly this tool — so the
+  // whole-tree scan is paid on the rare call rather than on every write.
+  //
+  // **Deliberately AFTER the R6 adoption guard above, and it must stay there.**
+  // Every borrowed-result attack is also a second-parent attempt, so putting
+  // this first would swallow R6's refusal and R6's tests would go green on this
+  // message instead — meaning a change that deleted R6 entirely would still pass
+  // them. The specific refusal has to be the one that fires.
+  //
+  // **This closes a door the product previously held open on purpose**, and the
+  // reason is that the door and the invariant cannot both exist. Two solutions
+  // resting on one shared assumption test used to be legal (it was the
+  // non-vacuity control on R6's guard: the refusal was retroactive-only, so an
+  // UNRUN test could be adopted by a second solution). Under a strict tree that
+  // is a second parent like any other. Re-parenting is still available and is
+  // what this leaves: `ost_detach_nodes` then `ost_link_nodes`. What is gone is
+  // holding a node under two parents at once.
+  const existingParents = vault
+    .readTree()
+    .filter((n) => !titlesMatch(n.title, parentTitle) && n.links.some((l) => titlesMatch(l, childTitle)))
+    .map((n) => n.title);
+  if (existingParents.length > 0) {
+    throw new Error(
+      `refusing to attach "${displaySafeTitle(childTitle)}" under "${displaySafeTitle(parentTitle)}": it already sits ` +
+        `under ${existingParents.map((p) => `"${displaySafeTitle(p)}"`).join(", ")}, and a node belongs under exactly ` +
+        `one parent. If this is the better home, MOVE it — ost_detach_nodes from the old parent, then link here. If it ` +
+        `genuinely serves both, that is a judgement about which one it serves best, and the tree records one answer.`,
+    );
+  }
 }
 
 /**
