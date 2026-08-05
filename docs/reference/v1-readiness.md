@@ -1686,6 +1686,7 @@ agent can also clear.**
 > | `assumption-mapped` | no | yes | no | yes |
 > | `test-mapped` | no | yes | no | yes |
 > | `single-parent` | **no** (create attaches a new node; link refuses a second edge) | yes (detach the surplus edge) | no | yes |
+> | `single-backlink` | **no** (create links its own node once; link writes edges, not prose) | yes (edit the prose to a plain mention) | no | yes |
 > | `evidence-class` | no | yes | no | yes (R7 granted it, 2026-07-29) |
 > | `no-self-validation` | no | yes | no | yes |
 > | `lane-conflict` | **no** (R2 closed it, 2026-07-30) | no | no | no |
@@ -2995,8 +2996,17 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 2014 tests across 166 files, verified 2026-08-05 (`npx vitest run`,
-> after `single-parent` made the tree a tree. Every hierarchy rule asked whether a node had
+> *Today:* **met** — 2024 tests across 166 files, verified 2026-08-05 (`npx vitest run`,
+> after `single-backlink` finished what `single-parent` started. `single-parent` counts
+> EDGES — the contiguous `[[…]]` lines under the tag line, which is all `links` holds — so a
+> wikilink inside a paragraph is not an edge by that definition and the tree could be a
+> perfect one-parent tree while a node stayed linked from fifteen other bodies. Obsidian
+> draws every wikilink wherever it sits, so by the only measure a reader has those were
+> inbound edges and the graph was a web: 2,214 links across 920 nodes. A title is now linked
+> exactly once, by its parent, and named in plain quoted text everywhere else — nothing was
+> deleted, 1,295 links became mentions. The ruleset changed with it: the definition-of-done
+> line that used to REQUIRE a `[[wikilink]]` to the test now requires the title in quotes.
+> Before that, `single-parent` made the tree a tree. Every hierarchy rule asked whether a node had
 > *at least one* correctly-layered parent and none ever asked how many, so a vault could
 > satisfy all of them and still be a DAG — the meta vault was, with three solutions under two
 > opportunities each. `ost_link_nodes` now refuses a second edge onto an already-parented node

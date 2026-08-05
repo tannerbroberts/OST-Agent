@@ -224,7 +224,7 @@ describe("R6(b) — an already-run assumption test cannot be adopted by a second
     // under two parents), but nothing says the RUN was about something else —
     // which is the forgery R6 exists for and which no invariant can see.
     const rules = checkInvariants(vault.readTree()).map((v) => v.rule);
-    expect(rules).toEqual(["single-parent"]);
+    expect(rules).toEqual(["single-parent", "single-backlink"]);
   });
 
   /**
