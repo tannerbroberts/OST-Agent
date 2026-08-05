@@ -274,6 +274,22 @@ ost-agent buildable                             # which solutions carry a red in
 
 `verify` is on no agent tool surface, and an unattended build wrapper is told not to call it: an observation the model could author is a build permit it granted itself. A test must also name either an `instrument:` or a `humansRequired:` reason — `ost_create_node` refuses one that names neither, so "nobody can run this and nobody is assigned to it" stops being the silent default.
 
+### The resource manifest — what the order is conditioned on
+
+`ost-agent buildable` with no argument prints a priority order, and an unattended loop reads it top-down. That order used to be tree order: it conditioned on nothing about the operator and admitted to nothing. It was still *using* a picture of them — a cold-offer test was sequenced first on 2026-07-24 and killed the next day with "that isn't going to fly", a day spent drafting outreach for someone who was never going to send it and had never been asked.
+
+An optional `ost.resources.yaml` beside `ost.config.yaml` lets the operator declare that picture once — capital and its deadline, human hours and appetite, whether they will contact strangers at all, the token budget and its reset, and which credentials an unattended run may hold:
+
+```yaml
+hours: { perWeek: 0 }
+socialReach: { contactStrangers: false }
+credentials: { withheld: [publish] }
+```
+
+Work whose declared resources are all present is ranked ahead of work that needs something the operator says they do not have, and every deferral quotes the phrase that caused it beside the declared fact that blocked it. **The citation is not optional, and it names the blanks too.** A vault with no manifest gets exactly the order it got before, and is told on stderr which five facts about its operator that order is guessing at — a resource nobody declared is a visible blank, never a silent zero.
+
+Two limits, stated where the feature is: it holds only what the operator thought to declare, and **it decays silently** — nothing here can tell whether a manifest is still true, and a stale manifest the planner is required to cite is worse than none, because it launders a guess into a citation.
+
 ### Retraction — a way to un-say a node
 
 Append-only means a claim cannot be deleted, which is right, and it used to mean a claim could not be *withdrawn* either — a node the tree had outgrown kept being read, counted and ideated under. `ost-agent retract "<node>" --by "<who>" --why "<why>"` appends a `## Retraction` (a reserved heading, CLI-only, exactly like `## Results`). The file, its prose, its history and the retraction line all stay on disk and in git; what changes is that every reader withholds it, because they all come through one census function rather than each remembering to check.
