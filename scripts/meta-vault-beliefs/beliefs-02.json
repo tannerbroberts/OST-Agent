@@ -1,0 +1,172 @@
+[
+  {
+    "solution": "A standing Next Build node the agent rewrites every pass",
+    "title": "A briefing at a fixed address changes which node a builder actually opens first",
+    "body": "The node is a briefing rather than a decision, so its only effect is on where attention lands. If builders open whatever they were going to open anyway, the node is a well-maintained document with no consequence."
+  },
+  {
+    "solution": "A standing queue of pending asks the operator clears at whatever cadence suits them",
+    "title": "An operator will actually visit a queue that never chases them",
+    "body": "Nothing pursues the operator, which is the point and the risk. The node names it: if the ask rate exceeds the visit rate for long, the queue becomes furniture — a monument to blocked work where there used to be a small surprise."
+  },
+  {
+    "solution": "A tightening ships with the migration that brings the existing tree with it",
+    "title": "A migration can bring old nodes into compliance without changing what any of them means",
+    "body": "This is a bulk rewrite of a record whose whole claim is a trustworthy append-only history. It is acceptable only if a script can be shown to have changed no node's meaning — and for a vault built on provenance, that may be too much to hand to a script at all."
+  },
+  {
+    "solution": "A whole-tree ranked ledger that refuses to publish a row without its reason",
+    "title": "Written reasons get argued with, rather than read and accepted",
+    "body": "Forcing a citation on every row is worth its cost only if the reasons are load-bearing for readers. If people read the rank and skip the reason, the requirement is ceremony and the ledger is just an ordered list with extra text."
+  },
+  {
+    "solution": "Accept the credential in whatever form the operator already has it, and adapt internally",
+    "title": "The credential forms in play are few enough and stable enough to adapt to all of them",
+    "body": "Accepting many forms means handling many forms, and the safest thing a tool can do with a secret is not touch it. The trade only works if the set is small and does not churn — otherwise this maximises exposure in exchange for convenience that keeps breaking."
+  },
+  {
+    "solution": "Adopt session transcripts as the trace source instead of new instrumentation",
+    "title": "Transcripts already contain every call an in-band trace would have recorded",
+    "body": "The whole appeal is adopting something that exists instead of instrumenting. If transcript-derived calls diverge from what actually happened — missing blocks, truncation, calls made outside the session — then the free trace is an incomplete one and the instrumentation was not avoidable."
+  },
+  {
+    "solution": "Adversarial grounding judge",
+    "title": "An attack-only pass produces criticism specific enough to act on",
+    "body": "A critic that never writes opportunities and never removes anything is only useful if what it does write is actionable. Generic doubt lowers confidence without telling anyone what to do, which leaves the tree less certain and no better informed."
+  },
+  {
+    "solution": "Agent proposes its own workflow changes for one-click adoption",
+    "title": "The changes an agent drafts for its own ruleset are ones a human would accept",
+    "body": "The agent keeps running the old workflow until a human accepts, so the cost of a bad proposal is only review time — but a stream of rejected proposals is review time spent for nothing, and would mean the agent cannot tell which of its frictions is worth a rule."
+  },
+  {
+    "solution": "Allowlist Tool Runner registers only OST tools",
+    "title": "Trust can rest on absence of capability, with no general-purpose tool ever registered",
+    "body": "The claim is safety by absence rather than by blocklist. It holds only if nothing outside the allowlist is ever registered — one general-purpose tool arriving through a dependency or a default undoes the entire argument, silently."
+  },
+  {
+    "solution": "Ambient session agent drives the append-only tools",
+    "title": "An agent already in the operator's session can run a pass as well as a dedicated API driver",
+    "body": "This removes the second credential entirely by reusing the session's own reasoning. It fails if the ambient agent, with its own context and interruptions, produces materially worse passes than a driver built for the job."
+  },
+  {
+    "solution": "An acknowledgement that records a decision not to act, and takes the item off the sweep",
+    "title": "A pass that can dismiss its own backlog will not use it to avoid work that mattered",
+    "body": "The node names this as its own risk: a pass that can acknowledge will eventually acknowledge something important, and the reason it writes will sound entirely reasonable. Whether acknowledgements are honest is the thing that has to be checked by someone other than the pass."
+  },
+  {
+    "solution": "An agent-side convention that finds the vault by searching upward, so nothing needs recording",
+    "title": "There is exactly one plausible vault above any given directory",
+    "body": "Discovery by convention works when there is one answer and badly when there are two. It also cannot express intent — a project that deliberately has no vault looks identical to one whose vault has not been found — so ambiguity must resolve to nothing rather than to a guess."
+  },
+  {
+    "solution": "An end-of-session deposit prompt in the surface the collaborator is already in",
+    "title": "Asked at the moment the reasoning is still in their head, a collaborator will deposit it — and come back unasked",
+    "body": "One question in a surface they already use is the cheapest possible ask. The real test is not the first deposit, which politeness can produce, but a second one nobody prompted — that is the difference between a channel and a favour."
+  },
+  {
+    "solution": "An independent judge names the riskiest assumption, and disagreement with the author is the signal",
+    "title": "Independent judges converge on the same riskiest assumption, so agreement means something",
+    "body": "The mechanism reads agreement as corroboration. If judges scatter — each naming a different risk — then agreement when it occurs is coincidence, and a second model with no independent grounding produces the appearance of corroboration, which is more dangerous than an openly self-assessed gate."
+  },
+  {
+    "solution": "Announce the wait on a channel the operator already watches, the moment it starts",
+    "title": "An operator notified at every block keeps acting on the notifications rather than tuning them out",
+    "body": "Immediate announcement puts the operator on call. A person messaged every time an unattended run needs them has not been freed by automation, and the failure mode is not refusal but attrition — week two's notifications quietly going unread."
+  },
+  {
+    "solution": "Append-only audit trail the operator can replay",
+    "title": "Operators actually replay a history to rebuild trust, rather than just wanting one to exist",
+    "body": "The trail's value is entirely in being read. Operators may well want the guarantee that it exists and never spend the time to walk a diff history — in which case trust is coming from somewhere else and the replayability is not what is buying it."
+  },
+  {
+    "solution": "Append-only tool surface with no delete or shell tool",
+    "title": "A full discovery pass can be completed with no delete and no edit tool",
+    "body": "Safety here comes from the capability being absent. That is only viable if the work is actually doable without it — if a pass regularly needs to remove or rewrite something, the missing tools become a wall rather than a guarantee."
+  },
+  {
+    "solution": "Ask the host for the credential it already holds, instead of asking the operator for a second one",
+    "title": "The hosts this runs under expose a delegable capability, on enough of the real runs to matter",
+    "body": "Borrowing the host's authority also inherits its scope, which is usually far wider than needed. An operator happy to issue a narrow token may be much less happy to let a background pass act as their whole signed-in self — and that is before asking whether the hosts expose delegation at all."
+  },
+  {
+    "solution": "Ask the open question first, and offer options only once the frame is agreed",
+    "title": "The run's proposed options are wrong often enough that framing first saves turns rather than costing them",
+    "body": "Two-stage asking is a routine tax to avoid a rare failure. The node is explicit that the base rate is unmeasured: the record shows two questions rejected and says nothing about how many were accepted, which is exactly the number this depends on."
+  },
+  {
+    "solution": "Ask-anything conversational status",
+    "title": "Free-form questions about the tree can be answered faithfully from the tree",
+    "body": "The value is in grounded answers with links back to nodes. The failure is fluent answers that are not grounded — which is worse than no answer, because a stakeholder cannot tell the difference and will act on it."
+  },
+  {
+    "solution": "Assert on work units instead of milliseconds",
+    "title": "Work count tracks elapsed time closely enough to catch the regressions a clock would",
+    "body": "Counting work removes machine-load flakiness. It only preserves the guarantee if a regression that makes the operation slow also makes it do more countable work — a change that is slower per unit would pass a work-count ceiling untouched."
+  },
+  {
+    "solution": "Attempt ledger of what was already tried",
+    "title": "Knowing what was already ruled out changes what an ideation pass produces",
+    "body": "The ledger costs a read before every ideation. It pays only if ideation actually repeats itself — if a pass with the ledger produces materially different candidates than one without, rather than the same ones plus a citation."
+  },
+  {
+    "solution": "Autonomous web-research loop that files findings into the inbox",
+    "title": "An autonomous web loop finds things that bear on assumptions the tree actually holds open",
+    "body": "Filing into the existing inbox means no new pipeline, so the cost is low and the risk is relevance. A loop that reliably returns true, interesting, unrelated material fills the evidence channel with noise the mapping pass then has to work through."
+  },
+  {
+    "solution": "Backpressure-tolerant ingest channel that preserves provenance under load",
+    "title": "Provenance survives a burst, so a flood produces a backlog rather than a silent hole",
+    "body": "Degrading by slowing rather than dropping is the whole design. It fails if identity is what gets lost under load — events that arrive but can no longer say where they came from are worse than events that never arrived, because nothing reports them missing."
+  },
+  {
+    "solution": "Bank each question, proceed on a stated default, and present the banked set at the end",
+    "title": "The forks a run meets are mostly cheap to reverse, and the expensive ones are recognisable in advance",
+    "body": "Taking a default and reporting later is safe only for reversible decisions. Several of the recorded forks were structural — deleting a command, deprecating a published package — and a run that defaulted wrongly on one of those has destroyed more than it saved."
+  },
+  {
+    "solution": "Bank the blocked item, carry on with everything independent of it, and present the block at the end",
+    "title": "Enough of a run's remaining work sits independent of whatever blocked it",
+    "body": "Carrying on requires something to carry on with. If most of the run is downstream of the blocked step there is nothing independent left, and the operator now hears about the block later than they would have."
+  },
+  {
+    "solution": "Be found through the agent ecosystem's own directories rather than through product channels",
+    "title": "The agent directories carry enough traffic to be a distribution channel worth packaging for",
+    "body": "Meeting people at the moment they are already deciding what to give their agent is the right moment. The directories themselves are new, their traffic unproven and their ranking opaque — so this is real packaging work spent on channels that may have no users a year out."
+  },
+  {
+    "solution": "Believability ladder required on every node",
+    "title": "A visible evidence class changes how much a reader trusts the node carrying it",
+    "body": "The ladder's cost is a required field on every node forever. It earns that only if labelling changes behaviour — if a reader treats a labelled assertion differently from an unlabelled one, rather than reading past the label to the prose."
+  },
+  {
+    "solution": "Budget against a same-run baseline instead of against the clock",
+    "title": "A same-run baseline rises with load in step with the thing it is normalising",
+    "body": "The ratio holds only if contention affects the reference operation and the measured one proportionally. If they respond differently to load, the ratio is a new source of flakiness rather than a cure for the old one — and it must still catch a planted regression."
+  },
+  {
+    "solution": "Bundled local model for zero-credential trial",
+    "title": "A small bundled model is good enough for a routine maintenance pass",
+    "body": "Zero-credential trial is only real if the bundled model can actually do the work. A model that produces a visibly worse tree makes the first run an argument against the product rather than for it."
+  },
+  {
+    "solution": "Canary the changed process against the old one",
+    "title": "A side-by-side comparison of two processes' output is judgeable in reasonable time",
+    "body": "The old process never stops, so there is no interruption — the cost is entirely the human's comparison. That only works if the difference between two runs is legible quickly; if judging takes as long as the run, the canary is not adopted."
+  },
+  {
+    "solution": "Candidate tournament that eliminates on grounded evidence rather than promoting on vibes",
+    "title": "An operator shown the evidence will accept an elimination they initially disagreed with",
+    "body": "Elimination-by-evidence produces a shrinking consideration set without crowning anything, which fits the ruleset. It depends on the evidence being persuasive against a prior — if operators re-add what the tournament removed, the rounds have done nothing but add ceremony."
+  },
+  {
+    "solution": "Capability estimated from what each collaborator was asked to do and what came back",
+    "title": "Work classes have been routed to more than one collaborator, so the record can compare them",
+    "body": "A running ledger of assignments and outcomes is only a capability estimate if there is variation to read. If each class of work has only ever gone to one person, the ledger records who did what and can say nothing about who is better at it."
+  },
+  {
+    "solution": "Carry a content hash from read to write and refuse on drift, naming what drifted",
+    "title": "A hash guard refuses almost no good writes while correctly naming the ones that were drift",
+    "body": "A drift guard is worth having if false refusals are rare — a guard that blocks legitimate writes gets disabled, and then protects nothing. The second half matters as much: it must re-label the recorded failures as drift or not-drift correctly, or it is only changing the error message."
+  }
+]

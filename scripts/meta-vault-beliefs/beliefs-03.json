@@ -1,0 +1,162 @@
+[
+  {
+    "solution": "Charge for the maintained tree, not the tool that maintains it",
+    "title": "Teams will pay a monthly fee for an artefact whose best months look like its worst",
+    "body": "Selling the state of the tree rather than the tool means selling maintenance. The node names the difficulty: most teams have one product and would buy one tree, and the value is least visible in exactly the months when nothing much happened — which is a hard subscription to keep."
+  },
+  {
+    "solution": "Charge nothing for the tool and sell the discovery engagement it produces",
+    "title": "The engagement can be priced so the fee covers the hours, with the tool doing real work in them",
+    "body": "This answers 'what would anyone pay for' with 'my time', which may be true and is not an answer about the product. It only points toward a product business if a meaningful share of the engagement was tool-enabled rather than hand-done."
+  },
+  {
+    "solution": "Charge per assumption test designed and run to a pre-committed threshold",
+    "title": "Buyers value the design of a test, not just the running of it",
+    "body": "Pricing per tested assumption assumes the buyer is paying for the whole unit. If they see design as the cheap part and execution as the expensive part, the price is attached to the half they do not value and the unit is wrong."
+  },
+  {
+    "solution": "Cheapest-disconfirmer first — rank tests by how fast they could kill the idea",
+    "title": "Ordering by time-to-kill eliminates more candidates per hour than ordering by importance",
+    "body": "The claim is that shrinking the consideration set fast beats building confidence in a favourite. It fails if the cheap disconfirmers mostly fail to disconfirm — then the queue has spent its early hours on tests that killed nothing."
+  },
+  {
+    "solution": "Compare against the recent history of this same gate on this same machine",
+    "title": "The stored measurements came from comparable enough conditions to be a distribution",
+    "body": "A history-based gate is only as good as its history's provenance. If the measurements mix machines and load conditions, the distribution is noise with a confidence interval drawn around it — and the gate goes quietest exactly when the data is worst."
+  },
+  {
+    "solution": "Compare what the run attempted against what it set out to do, and report the shortfall",
+    "title": "A justified narrowing and an evasive one are distinguishable in the report",
+    "body": "Narrowing is often correct. A run that reasonably drops an irrelevant branch produces the same shortfall as one that dropped it to get past a gate — and a report that cannot separate them will be read as noise within a fortnight."
+  },
+  {
+    "solution": "Compete on the vault being plain files the customer keeps, not a tree inside someone's product",
+    "title": "Buyers have been burned by lock-in recently enough to pay for portability",
+    "body": "Portability may be a real advantage nobody pays for, which is a different failure from not having one. The question is whether buyers have a live memory of losing something to a shutdown — because they do not price this until they need it, and by then they are not shopping."
+  },
+  {
+    "solution": "Concierge design-partner cohort",
+    "title": "Outside teams will hand over real discovery work to a stranger running it for them",
+    "body": "The concierge model needs teams willing to give up their actual evidence and their actual decisions. A cold offer is the cheapest place to find out whether that willingness exists at all, before any of the manual work is done."
+  },
+  {
+    "solution": "Confidence propagation with founder-theory warnings",
+    "title": "A branch reading as only as strong as its weakest input changes what people act on",
+    "body": "Rolling believability up is worth its complexity only if the rolled-up number is used. If readers act on the branch's content and ignore 'this rests on founder theory', the propagation is arithmetic nobody consults."
+  },
+  {
+    "solution": "Constraint profile mined from what actually blocked the loop",
+    "title": "The loop's recorded stalls name a resource early enough to be a planner input",
+    "body": "Nobody is asked anything, so the profile is only as good as what the stalls already record. A blocker that is only nameable after the pass it killed is a post-mortem, not a constraint the planner could have used."
+  },
+  {
+    "solution": "Continuous story-based interview habit",
+    "title": "A standing recruiting channel can supply interviewees without anyone remembering to schedule",
+    "body": "The cadence only survives if supply is automatic. If recruiting depends on someone reaching out each week, the habit decays to nothing the first busy fortnight and the inbox stops receiving transcripts."
+  },
+  {
+    "solution": "Contribution estimates that ladder a local metric to the distant goal",
+    "title": "A written estimate of how much a branch moves the goal survives contact with real movement",
+    "body": "Each rung stating its claimed contribution makes unconnected branches visible. It is worth the writing only if the estimates hold up — if a month of real movement makes all of them wrong, they were a way of feeling connected rather than being connected."
+  },
+  {
+    "solution": "Cost the chart before choosing the goal, so the substitution is a decision and not a drift",
+    "title": "Charting cost can be estimated well enough in advance to inform the choice",
+    "body": "The node names the trap: a bad estimate is worse than none, because it will be wrong in the direction that justifies whatever was already wanted, and there is no obvious way to calibrate it before the fact."
+  },
+  {
+    "solution": "Creating a vault writes the tool-enabling config into the project beside it",
+    "title": "The enabling config can be merged into a real project's settings without losing anything already there",
+    "body": "Making vault-creation and tool-enablement one event means writing into a file the operator already owns. That is only safe if the merge is non-destructive across the shapes those files actually take in the wild."
+  },
+  {
+    "solution": "Declare the distance to the real goal as named darkness, so the gap is inventory",
+    "title": "What stands between here and the real goal is missing knowledge rather than missing resources",
+    "body": "Framing the gap as darkness requires it to be an unknown. If the reason the real goal cannot be charted is money or time, a constraint has been dressed as an unknown — which buys a tidy entry and no progress. Whether a Format can be stated without reducing to a resource claim is the test of which it is."
+  },
+  {
+    "solution": "Declare the tool surface a pass requires and abort in the first second if it is absent",
+    "title": "A tool surface can be confirmed without invoking any of the tools on it",
+    "body": "The check must run before any work, on every surface the pass runs on. If confirming a tool requires calling it, the check either has side effects or cannot be made — and a single surface where that holds defeats the guarantee."
+  },
+  {
+    "solution": "Derive the next version from the registry, never from the local file",
+    "title": "The registry and the origin tags together always know the true current version",
+    "body": "Making the local file an output rather than an input removes one class of collision. It assumes the external sources are authoritative and available — a release path that cannot reach the registry has no number at all, which is a different failure from a wrong one."
+  },
+  {
+    "solution": "Derive the whole consequence set from the premise and ask about all of it at once",
+    "title": "The decisions a run will face are mostly derivable from its premise before it starts",
+    "body": "Asking once, up front, only works for questions that exist up front. The node is explicit that several of the recorded seven only became visible after work was done — and against genuinely emergent questions this offers nothing at all."
+  },
+  {
+    "solution": "Detect drift at write time and refuse, naming what changed since the read",
+    "title": "Refusing the colliding write leaves the tree coherent, not half-applied",
+    "body": "Detection catches the write and not the reasoning. An agent whose premise was invalidated will have most of its writes accepted and one refused — leaving a partially-applied plan built on something no longer true, which is worse than colliding cleanly or waiting."
+  },
+  {
+    "solution": "Detect renames from link topology and repair the edge",
+    "title": "Rename-shaped link breaks are common enough in the histories to be worth detecting",
+    "body": "Recognising a rename as one event rather than a deletion plus a creation is only worth building if it happens. The vault histories are the record that would say so, and a handful of instances would make this machinery for a rarity."
+  },
+  {
+    "solution": "Detect that no terminal is attached and answer the prompt from a stated policy",
+    "title": "Safe-to-default prompts separate from must-stop ones by a rule someone can write down",
+    "body": "Answering on the operator's behalf is a standing grant of authority whose boundary is theirs to set. Some prompts — a destructive overwrite, a force push — must stop the run whatever the policy says, so the whole mechanism rests on that line being statable and reproducible."
+  },
+  {
+    "solution": "Detect the authentication that already exists and say exactly which one will be used",
+    "title": "Operators consent to a probe that looks in the places their credentials live",
+    "body": "Probing for credentials means touching where credentials are kept, and a tool that enumerates an operator's secrets to be helpful has done something they may not have wanted. Reporting why each was rejected can leak more than the rejection did."
+  },
+  {
+    "solution": "Detect the dead ends from the artifact trail rather than from the session",
+    "title": "Reverted commits and discarded branches carry the dead ends a transcript would have shown",
+    "body": "Never reading a transcript is the appeal — the artefacts are already there and already durable. It fails if the wrong turns that cost the most left no artefact behind, in which case the scan is cheap and blind to the expensive cases."
+  },
+  {
+    "solution": "Do everything that needs no credential first, and bank the rest into one approval",
+    "title": "Credentialed steps sit late in a run rather than upstream of everything else",
+    "body": "The classification is right and useless if the secret is needed early. Whether credentialed work is terminal or load-bearing is answerable from real run journals before any of this is built."
+  },
+  {
+    "solution": "Each agent writes on its own branch, and merging is a deliberate, reviewable step",
+    "title": "An unattended pass can resolve the merges this creates without corrupting the tree",
+    "body": "Branching moves the problem to whoever merges. If that is an unattended pass, a collision the tree could detect has been swapped for a resolution nobody checks — and the second failure is much harder to notice."
+  },
+  {
+    "solution": "Each instance publishes only its refusals and dead ends, and nothing about its subject",
+    "title": "A refusal can be reported without carrying any of the content it refused",
+    "body": "The narrow slice is the whole guarantee. Refusal text carries content — a refusal naming a node title leaks the node title — so this is a redaction problem, and getting it wrong once destroys the trust the arrangement depends on."
+  },
+  {
+    "solution": "Each write returns the delta it caused, so the sweep updates in the caller's hands",
+    "title": "A sweep maintained from returned deltas stays exactly in step with a fresh read",
+    "body": "This is correct only while the caller is the sole writer. In a shared vault a locally maintained picture drifts silently — and the re-read it replaces was the thing that would have caught the drift."
+  },
+  {
+    "solution": "Echo the written line back so a bad write is visible immediately",
+    "title": "An operator shown the line that was actually written notices when it is wrong",
+    "body": "Returning the content rather than a confirmation puts the error in front of the person. It only helps if they read it — an echo scrolled past is the same as a confirmation, and the destroyed note is still destroyed."
+  },
+  {
+    "solution": "End-of-session retrospective the agent must write before the session closes",
+    "title": "An agent can identify its own wrong turn well enough for the retrospective to be worth reading",
+    "body": "A confession of confusion is more useful than a summary of work. It requires the agent to have noticed — and the wrong turns worth recording may be exactly the ones it did not notice, which is why past pass notes are the place to check."
+  },
+  {
+    "solution": "Errors the session corrected itself collapse into a counted summary",
+    "title": "What happened next separates a typo from real friction reliably",
+    "body": "Judging an error by its recovery is a cheap mechanical rule. It is wrong wherever a session recovered smoothly from something that mattered, or thrashed over something trivial — and the dangerous direction is scoring an abandoned goal as a clean recovery."
+  },
+  {
+    "solution": "Every count states the denominator it was taken over",
+    "title": "A stated denominator makes a reader notice a drop they would otherwise have missed",
+    "body": "Reporting 'N over M examined, K unreadable' costs almost nothing. It earns its place only if the ratio actually changes what a reader concludes — a denominator nobody looks at is a longer sentence with the same effect."
+  },
+  {
+    "solution": "Every forced choice carries an open field, and a written answer is first-class",
+    "title": "A run can act on a sentence the operator wrote, without asking again",
+    "body": "The node names the failure precisely: if the run cannot parse a decision out of prose, the open field is theatre — the operator writes their answer, the run asks again, and the observed failure has gained a step."
+  }
+]

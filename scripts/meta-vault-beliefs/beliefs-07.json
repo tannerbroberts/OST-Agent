@@ -1,0 +1,172 @@
+[
+  {
+    "solution": "Route view showing the shortest credible path from here to goal-achieved",
+    "title": "Seeing a path instead of a taxonomy changes which work a builder starts on",
+    "body": "The nodes are unchanged; only the rendering differs. That is worth building if the presentation moves decisions — if builders pick the same work from a route as from a hierarchy, the view is a nicer picture of the same choice."
+  },
+  {
+    "solution": "Run both for two weeks on the same evidence and publish what diverged",
+    "title": "Someone outside the project will run the hand arm, so the comparison is not built by its own author",
+    "body": "The operator running both arms built one of them, and there is no version of this where that bias is absent. The result is worth roughly what an outside reader thinks that bias is worth — which is why an independent hand arm is the thing that has to exist first."
+  },
+  {
+    "solution": "Run the same evidence through both and publish the diff as the pitch",
+    "title": "A blind reader given both trees picks this one to act on",
+    "body": "Publishing a comparison means not controlling its interpretation. The funded tools may well produce richer, more confident, better-written trees, and a reader who does not already care about grounding will read that as this tool losing."
+  },
+  {
+    "solution": "Run the timed check under isolation, or do not let it fail the build at all",
+    "title": "Enough timed-check runs happen somewhere isolation can be guaranteed",
+    "body": "Removing the contention instead of tolerating it makes the check meaningful where it can fail. If most runs happen where isolation cannot be promised, the check is advisory almost everywhere — and advisory numbers get scrolled past for months while the regression they watched for arrives."
+  },
+  {
+    "solution": "Scaffolding initialises unconditionally, so the state is never in question",
+    "title": "Initialising only tool-created directories still covers every failure that occurred",
+    "body": "Removing the variance is cleaner than detecting it, but unconditional `git init` reaches directories the tool did not make. The narrowed rule is safe only if no scaffold target in the record sits inside an existing repository — and it still has to cover the captured failures."
+  },
+  {
+    "solution": "Scheduled ambient passes that page the operator only at hard gates",
+    "title": "Two unattended weeks produce few enough pages, and little enough grind, to be worth the spend",
+    "body": "Inverting who initiates only helps if the operator is genuinely left alone. Three numbers decide it together: how often it pages, how much of its work is grind, and what it cost — any one of them being wrong makes the inversion a worse arrangement than being asked."
+  },
+  {
+    "solution": "Scheduled re-synthesis of the whole tree",
+    "title": "Reading the whole tree at once yields reorganisations a human accepts",
+    "body": "Proposals only, with a human confirming structural change, keeps this safe. It is only useful if the proposals are good — a pass whose merges and re-parentings are mostly rejected has spent a whole-tree read to generate review work."
+  },
+  {
+    "solution": "Secrets never stored in the vault",
+    "title": "No secret ever lands in the vault or its history, and a scan can confirm it",
+    "body": "Excluding tokens from the blast radius of a compromised vault is only real if the exclusion holds everywhere — git history, a synced remote, a node body. One leaked credential in history is permanent, so the guarantee is all-or-nothing and has to be checkable."
+  },
+  {
+    "solution": "Seed every sweep with a known-present instance it must find",
+    "title": "A positive control would actually fire on the sweeps that shipped",
+    "body": "A planted instance turns 'found nothing' into a checkable claim. It is only worth adding if the shipped sweeps would really find it — a control that passes trivially proves the sweep can find plants, not that it can find anything else."
+  },
+  {
+    "solution": "Settle the standing answers once, in committed configuration the run inherits",
+    "title": "The prompts a run meets are a stable set, so settling them once mostly ends them",
+    "body": "Pre-answering is pre-committing to defaults, and a default committed once will eventually apply where it is wrong — silently reconciling divergent branches the same way every time is convenient until the once it should have stopped. It also only pays if new prompts are rare."
+  },
+  {
+    "solution": "Ship a starter vault whose outcome is a placeholder the human must replace",
+    "title": "A loudly-marked placeholder outcome gets replaced rather than becoming the tree's real root",
+    "body": "Scaffolding immediately removes the first obstacle, at the cost of a root nobody chose. The whole design rests on the placeholder being uncomfortable enough to fix — if it survives, every node below it ladders to a mandate no human ever set."
+  },
+  {
+    "solution": "Ship it as something that grades a hand-built tree rather than replacing the hand",
+    "title": "Checks over a hand-built vault surface findings its owner did not already know",
+    "body": "Conceding the generation makes for an easier sale and possibly a worse business. It also does not answer the opportunity as written — it makes the question go away rather than answering it — so the checks have to earn their place by finding real things their owner had missed."
+  },
+  {
+    "solution": "Ship the helper with its own runtime rather than borrowing the machine's",
+    "title": "A helper rewritten against the bundled runtime stays short enough that the operator would still edit it",
+    "body": "Making the version a property of the project rather than the OS removes the compatibility problem. Some helpers exist precisely because they are five readable lines of shell — and a rewrite that costs their transparency may cost more than the compatibility was worth."
+  },
+  {
+    "solution": "Ship the vault and its tools as one unit, so there is no second step to miss",
+    "title": "A vault opened from an unrelated directory can yield its own tools",
+    "body": "Changing the packaging rather than the configuration removes the missable step entirely. It rests on a mechanism actually existing for a vault to carry its tools — if the surface only loads from a config in the working directory, there is no packaging that fixes it."
+  },
+  {
+    "solution": "Short-lived scoped tokens minted at run start, expiring with the run",
+    "title": "A run's credential needs are predictable enough to scope in advance",
+    "body": "This requires predicting what the run will need before it starts, and an autonomous discovery pass is close to the worst case for that. Scopes end up either too narrow to help or so wide that they are the original credential wearing an expiry date."
+  },
+  {
+    "solution": "Show the whole write, exactly as it will land, and require a confirm before it does",
+    "title": "A caller shown the exact bytes will sometimes change the write before confirming",
+    "body": "If the caller composing the write is the same one confirming it, the confirm is a formality and the whole cost is pure overhead. That is the assumption to test first, and the node says plainly it is not obviously true."
+  },
+  {
+    "solution": "Snapshot the resolved environment, but only for the step that failed",
+    "title": "A small fixed set of fields explains most recorded failures",
+    "body": "Capturing only on failure keeps the cost proportionate. The fields have to be chosen in advance, so this only works if working directory, argv, tool versions and git SHA really do account for most of what makes a failure reproducible."
+  },
+  {
+    "solution": "Split the cartographer loop from the builder loop",
+    "title": "A builder can work from the map without ideating on it",
+    "body": "The separation puts hunger in one loop and hands in the other. It holds only if the map is sufficient to build from — a builder that has to ideate to fill gaps has recreated the single loop, with a handoff in the middle."
+  },
+  {
+    "solution": "Split the outstanding list by who may act on it, and report only this actor's share",
+    "title": "Partitioning by actor leaves an unattended pass a reachable share and nobody's pile empty",
+    "body": "A pass that only sees its own share loses sight of what it is blocked behind — there is a real risk of a loop reporting done cheerfully while the human partition grows unread, and nothing here creates pressure to look at it. The nobody-may-act bucket is where that failure shows first."
+  },
+  {
+    "solution": "Staleness decay that surfaces nodes for refresh",
+    "title": "A decay rule surfaces the nodes that have actually gone out of date",
+    "body": "Ageing evidence by time is a proxy for ageing in fact. A half-life comparison against backdated nodes is what says whether the proxy tracks reality — if it does not, the tree surfaces fresh-but-old nodes and leaves stale-but-recent ones alone."
+  },
+  {
+    "solution": "State the decision the run is about to take and invite correction, instead of enumerating choices",
+    "title": "Operators will let a stated default stand while they are away, for a class of decision they can name",
+    "body": "Making the operator's cheapest action doing nothing requires their consent to silence-as-consent. The boundary between what may proceed on a default and what may not is the hard problem, and it is only tractable if operators name overlapping boundaries rather than five different ones."
+  },
+  {
+    "solution": "Status and digest lead with the last failed run",
+    "title": "Putting the failure first makes a human see it in a glance",
+    "body": "Reordering costs nothing and changes what is noticed. The claim is specifically about a five-second glance — if a reader still has to look for the failure, the reorder has moved a JSON spelunk to a slightly shorter one."
+  },
+  {
+    "solution": "Stop counting an unrun test as progress, and report execution as the only number that moves",
+    "title": "Honest accounting is worth having even though it builds nothing and moves no test",
+    "body": "A tree that reports its stall accurately and then does nothing about it for another 255 tests has converted a hidden problem into a well-documented one, and the operator whose hours do not exist is no better off. Its honest role is as a companion to a mechanism that executes, not a substitute."
+  },
+  {
+    "solution": "Subscribe to a short list of sources and let arrivals wake the tree",
+    "title": "A chosen source list delivers items that bear on something actually open",
+    "body": "Watching is cheaper than searching. The list is chosen by the same person whose blind spots are the problem and it hardens over time — a subscription set assembled a year ago is an efficient way to keep reading the wrong people, and nothing in the mechanism will say so."
+  },
+  {
+    "solution": "Supervisor heartbeat consumes run journals and alerts on error",
+    "title": "The run journals already contain what an alerting rule needs",
+    "body": "Making the journal the protocol avoids inventing a failure channel. It only works if the recorded failures are legible as failures — replaying the ones that already happened is what shows whether the `error` field is set when it should be."
+  },
+  {
+    "solution": "Supervisor heartbeat with automatic restart",
+    "title": "A stall is definable well enough for a watchdog to act on it",
+    "body": "Publishing liveness and last-progress makes 'is it still running?' answerable without inspection. Restarting on that signal needs a stall definition that historical runs would not have tripped — a watchdog that restarts healthy long passes is worse than none."
+  },
+  {
+    "solution": "Take the fork, state the assumption, and price the reversal",
+    "title": "Decisions taken on a stated assumption are mostly accepted, and the review is short enough to happen",
+    "body": "Authority is taken by the run and returned at review, so the arrangement collapses if the review does not happen. Both halves matter: enough decisions accepted that reversal is rare, and a review small enough to fit one sitting rather than being deferred indefinitely."
+  },
+  {
+    "solution": "Take up independent work while a check is outstanding",
+    "title": "Work done while a check is pending survives that check failing",
+    "body": "Treating an outstanding check as a background fact is only free if a failing verdict does not invalidate what was done meanwhile. If most of the independent work has to be discarded when the check goes red, the parallelism was borrowing against a result."
+  },
+  {
+    "solution": "Test the assumption that killed the last comparable idea, before anything else",
+    "title": "What kills solutions in this tree repeats by category, often enough to infer risk from",
+    "body": "Using the tree's history instead of judgement looks backward by construction. A genuinely novel solution whose fatal assumption resembles nothing in the record gets gated against the wrong thing and passes — with the gate reporting more confidence than a self-nomination would have."
+  },
+  {
+    "solution": "The agent asks the operator to make the calls it could have made itself",
+    "title": "An operator consents to being asked, and finds the questions worth their time",
+    "body": "An agent withholding its answer to test its operator is doing something the operator has to have agreed to. An operator in a hurry experiences it as being quizzed by their own tooling — so consent and frequency both have to be theirs, and the questions have to be ones they are glad were asked."
+  },
+  {
+    "solution": "The agent proposes and never files, so every node enters the tree through the operator's hand",
+    "title": "An operator facing a queue of drafts keeps reading them rather than approving in bulk",
+    "body": "Bulk approval is indistinguishable from automation while feeling like oversight — which is worse than automating openly, because the operator now believes they understand a tree they skimmed. Whether attention holds across forty drafts is the whole question."
+  },
+  {
+    "solution": "The buyer is not a person but another agent, and the tree is the memory it lacks",
+    "title": "A cold session given only the tree can say why the work exists",
+    "body": "The tree as durable memory for a long-running agent is the most flattering hypothesis available to an author who has been building exactly this, which is reason enough to hold it loosely. It is checkable directly: hand a cold session the tree and nothing else."
+  },
+  {
+    "solution": "The buyer is the PM who has to defend a roadmap to people who did not attend the interviews",
+    "title": "A PM defending a roadmap would show an honestly weak rung rather than hide it",
+    "body": "This buyer may want the record to support a decision already made rather than to test it. A tool that refuses to mark things validated is actively unhelpful for that — so the segment could reject it for exactly the property that makes it good."
+  },
+  {
+    "solution": "The buyer is the solo builder with no research function and no one to argue with",
+    "title": "Solo builders experience the absence of anyone to check them as a problem they feel",
+    "body": "The tool's own vault is n=1 and that one is the author, so generalising from it is precisely the move the tool exists to prevent. What they lack is friction rather than intelligence — but only if they would say so themselves, unprompted."
+  }
+]

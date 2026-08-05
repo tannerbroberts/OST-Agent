@@ -1,0 +1,152 @@
+[
+  {
+    "solution": "The gate records the capability it was set against, and refuses to pass a smaller one",
+    "title": "A gate's intended scope can be written down without a clause that satisfies itself vacuously",
+    "body": "Passing must require covering the scope the gate was set against. A scope written once and enforced forever will eventually be wrong, and the pressure will be to widen it rather than meet it — so if widening is as easy as narrowing was, the evasion has changed shape rather than stopped."
+  },
+  {
+    "solution": "The guard turns each correction into a workspace constraint, so the wrong call stops being expressible",
+    "title": "A deny rule derived from one refusal does not eat the legitimate uses of the same verb",
+    "body": "`sleep` before a poll is wrong; `sleep` in a fixture that needs a real delay is not, and a rule derived from the first will eat the second. Narrowing the environment is only safe if the inferred class matches the class that was actually wrong — and every derived rule stays reversible by a human."
+  },
+  {
+    "solution": "The log is the agent an event-sourced graph the whole tree is projected from",
+    "title": "The vault's whole history expresses as events with no residue, and the projection reproduces it exactly",
+    "body": "Making the log the system of record requires the projection to be lossless. Anything that cannot be expressed as an event, or any node the projection cannot reproduce, means the tree is not actually derived from the log — it is stored twice and one copy is authoritative for reasons nobody has written down."
+  },
+  {
+    "solution": "The loop proposes a release and a human tags it",
+    "title": "A human-gated release is tagged promptly enough not to become the bottleneck",
+    "body": "One train with two contributors is simpler than two trains. It only works if the human half happens — a prepared release that waits days for someone to paste a command has traded a collision for a queue."
+  },
+  {
+    "solution": "The loop sleeps on a signal and is woken by the event, instead of deciding when to look",
+    "title": "Every source of new work in this vault can be watched as an event",
+    "body": "Nothing arriving costs nothing, which is the appeal. The failure is quiet: if some triggers cannot be watched, a woken loop sleeps through real work and looks perfectly healthy doing it — harder to notice than idling."
+  },
+  {
+    "solution": "The pass ends at the handoff, and the finished check wakes the next one",
+    "title": "A pass can record enough state to be resumed without repeating work or inventing any",
+    "body": "Exiting at the wait rather than holding it open is only free if the handoff is complete. A resumed pass that takes a different next action, redoes work, or fills a gap by guessing has lost more than the wait would have cost."
+  },
+  {
+    "solution": "The refusal states the value that would have worked, not just the one that did not",
+    "title": "Naming the acceptable value does not become a way to take it without grounds",
+    "body": "Since the tool knows enough to refuse, it usually knows enough to say what would pass. But a rung refusal that names the ceiling is one keystroke from a caller declaring the ceiling reflexively — the ladder climbed by autocomplete rather than by evidence."
+  },
+  {
+    "solution": "The scaffolder writes a manifest of what it did and did not initialise",
+    "title": "The failures this would prevent happened in directories this tool actually created",
+    "body": "A manifest can only speak for workspaces the tool made. If the captured failures mostly happened in directories it never touched, the manifest cannot be the primary mechanism however well it works where it applies."
+  },
+  {
+    "solution": "The second identical failure is answered differently from the first",
+    "title": "Two failures being the same class is decidable by a rule that matches hand grouping",
+    "body": "Everything rests on the classification. Grouping too tightly catches nothing; too loosely and it starts objecting to routes that merely rhyme, which is worse than the original problem."
+  },
+  {
+    "solution": "The solution names its own riskiest assumption, and the gate checks that one was tested",
+    "title": "Authors nominate a riskiest assumption other than the one they were already going to test",
+    "body": "If nominations reliably match the existing test, the gate has a better name and changes nothing. Whether the nominations are honest is the assumption underneath this whole mechanism, and it needs settling before a gate is built on it."
+  },
+  {
+    "solution": "The source pushes to a receiving endpoint that writes straight into the inbox",
+    "title": "The operator's real experiment sources can push anywhere at all",
+    "body": "Push removes the carrying and adds a listening service, with the reachability, authentication and replay problems that come with one — and a missed delivery is invisible, where a failed pull at least reports that it could not read. None of that matters if the sources cannot push in the first place."
+  },
+  {
+    "solution": "The source writes a standing export to a watched folder, so carrying becomes a scheduled job",
+    "title": "A scheduled export keeps arriving, and a stopped one does not look like an empty experiment",
+    "body": "This relocates the fragility rather than removing it. An export that silently stops — expired link, renamed sheet, a source that just stops sending — looks exactly like an experiment that produced no results, and the vault cannot tell them apart. That is worse than a human forgetting, because nobody is waiting."
+  },
+  {
+    "solution": "The surface publishes its accepted grammar where a composer can read it before writing",
+    "title": "Every construct the parser rejects appears in a grammar obtainable without submitting anything",
+    "body": "Readable-instead-of-discoverable-by-violation only works if the published grammar is complete and reachable in advance. Its deeper limit is stated too: writing the wrong dialect is usually a habit rather than a knowledge gap, and habits do not consult references."
+  },
+  {
+    "solution": "The sweep returns a version, and re-asking an unchanged tree costs nothing",
+    "title": "A tree version can be computed cheaply and still detect every change",
+    "body": "The whole difficulty is a version that is both cheap and honest. If deriving it costs as much as the sweep, nothing is saved; if it is cheap but coarse, a caller is told it is current when it is not — which is worse than re-reading."
+  },
+  {
+    "solution": "The tally is kept and the second occurrence is met with the count, not the correction",
+    "title": "Error classes can be grouped so the counter fires on the second real repeat and changes behaviour",
+    "body": "Two zsh failures with different messages are the same class, and two identical messages from different causes are not. Get that wrong and the counter either never fires or cries wolf — and a wolf-crying counter is quickly ignored. Firing is also not enough: the session has to change approach."
+  },
+  {
+    "solution": "The tool surface offers the correct form so prominently that the failing form is not reached for",
+    "title": "A curated set of safe forms covers enough of what callers actually need",
+    "body": "Callers reach for shell because shell does everything. A curated set that misses the case in hand sends the caller back to the failing form, having now paid for both — so coverage of the failing commands specifically is what decides this."
+  },
+  {
+    "solution": "The tree declares which ruleset version it was built under, and checks run against that",
+    "title": "Supporting two live ruleset versions costs few enough conditionals to stay maintainable",
+    "body": "Versioned rules multiply: every rule must keep working under every version anyone is still on, and the checking code accumulates conditionals for standards nobody has used in months. That is a cost paid forever against a disruption that happens occasionally."
+  },
+  {
+    "solution": "The uncovered statement printed next to what the test asked for",
+    "title": "Putting the uncovered statement beside the threshold changes what a reviewer does",
+    "body": "The side-by-side is a presentation change over information that already exists. It earns its place only if proximity changes the reviewer's action on the threshold — otherwise both facts were already available and both were already ignored."
+  },
+  {
+    "solution": "The vault carries the agent it runs, upgraded by an ordinary git pull",
+    "title": "Operators will accept the agent living inside the vault it maintains",
+    "body": "Upgrading by git pull is only simple if committing the agent into a repository the operator keeps is acceptable to them. If it is not — and for a repository they treat as their record, it may well not be — the mechanism is elegant and unusable."
+  },
+  {
+    "solution": "The vault lives inside the repository it maps, so there is nothing to point at",
+    "title": "A vault could live in a shared repository with little enough redaction, decided by a stated rule",
+    "body": "Putting the tree in the project makes the question stop existing. It also puts customer evidence in a repository other people read — so this only works if what must be redacted is a small class a rule can identify, rather than a per-node judgement."
+  },
+  {
+    "solution": "Tool layer forbids the agent from setting validated",
+    "title": "Humans can still promote a node while the agent is structurally blocked from it",
+    "body": "Structural inability to self-certify is the guarantee. It is only shippable if the human path stays open and usable — a block that also stops people promoting has made the tree unable to record what it learns."
+  },
+  {
+    "solution": "Trace-vs-narrative reconciler that files disagreements as friction",
+    "title": "A session's narrative and its trace disagree often enough, and materially enough, to be evidence",
+    "body": "The disagreement set is precisely where self-report fails, which is what makes it the highest-value dogfood evidence there is. It is worth building only if the disagreements exist — three sessions diffed by hand either produce them or show that the narrative tracks the trace."
+  },
+  {
+    "solution": "Triage every assumption test by the human-minutes it actually needs, and let compute run the zero-minute lane",
+    "title": "A real share of the backlog is compute-only and yields decisive verdict drafts",
+    "body": "Lanes only unblock the queue if the zero-minute lane is genuinely populated. Running the compute-only backlog is the direct check — and 'decisive' is the bar, because a draft that still needs a person to interpret it was never zero-minute."
+  },
+  {
+    "solution": "Typecheck the files just touched, at the moment they are touched",
+    "title": "A narrow check catches the same diagnostic far faster than the whole-project run",
+    "body": "Moving the check earlier is only worth it if it is both quick and complete enough. It has to report the same error the batch-end run would have, and be fast enough that running it every edit is affordable."
+  },
+  {
+    "solution": "Validate every tool call against the schema the tool already declares",
+    "title": "Enough failed calls are shape errors that schema validation catches a real share of them",
+    "body": "Checking against the published schema is free in the sense that the schema exists. It only prevents damage if the failures are shape errors — a call that is well-formed and means the wrong thing passes validation and destroys the note anyway."
+  },
+  {
+    "solution": "Validate incrementally as the artifact is built, so the rejection arrives at line three",
+    "title": "Artifacts are composed incrementally, so there is a line three at which to check",
+    "body": "If artifacts are genuinely written whole in a single act, there is no intermediate state to validate and this reduces to a dry-run before submission — a smaller and different idea. Whether the composer can be observed mid-composition is what has to be settled first."
+  },
+  {
+    "solution": "Versioned workflow with scheduled hot-swap and rollback",
+    "title": "Operators will accept an agent that modifies itself while unattended",
+    "body": "Hot-swap at a safe checkpoint with automatic rollback is technically the tidiest answer. It asks the operator to accept that the thing they left running may not be the thing they left — which is exactly the anxiety the unattended branch is about."
+  },
+  {
+    "solution": "Watch the working tree and invalidate the agent's copy the moment an external write lands",
+    "title": "Meaningful external writes are separable from churn by a rule fixed in advance",
+    "body": "Immediate in-band invalidation is only usable if it is rare and right. A watcher that fires on every build artefact and editor swap file invalidates constantly, and an agent invalidated constantly stops believing it."
+  },
+  {
+    "solution": "Weekly ten-minute docket - every pending decision arrives prepared as one yes or no",
+    "title": "A week of real decisions fits in ten minutes once each is pre-chewed to a yes or no",
+    "body": "The docket's promise is that the operator's entire weekly involvement is short and portable. That holds only if decisions really do reduce to one binary each with three sentences of context — anything needing exploration breaks the format and the ten minutes with it."
+  },
+  {
+    "solution": "Weekly what-changed-and-why digest",
+    "title": "A weekly digest is enough to make an operator willing to walk away",
+    "body": "The digest substitutes for reading the tree. Whether that substitution is trusted is the question: an operator may read every digest and still not leave the agent running, because what they wanted was not a summary but a guarantee."
+  }
+]

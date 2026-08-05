@@ -1,0 +1,223 @@
+[
+  {
+    "solution": "Every instance reports to a central telemetry inbox the meta-OST parses and ideates from",
+    "title": "Operators will let their vault report outward at all",
+    "body": "Fleet experience becoming discovery input requires consent from the operators whose instances would report. This is the desirability half, and it gates everything: a mechanism nobody enables gathers nothing however well it works.",
+    "tests": ["Ask five prospective operators whether they would let their vault report outward"]
+  },
+  {
+    "solution": "Every instance reports to a central telemetry inbox the meta-OST parses and ideates from",
+    "title": "An instance can deliver to the central inbox on what it already holds, with its provenance intact",
+    "body": "The feasibility half, separate from consent. If reaching the inbox needs a new credential the operator has to obtain, the cost lands exactly where the fleet is widest; and if items lose their attribution in the merge, the inbox holds a pile nobody can trace back to the instance that produced it.",
+    "tests": ["A fleet instance reaches the inbox with no new credential, and its provenance survives the trip"]
+  },
+  {
+    "solution": "Every machine-selected quote carries the sentence it was cut from",
+    "title": "Seeing the whole sentence changes what a reader does with the fragment",
+    "body": "Rendering the elision instead of leaving it to be suspected is only worth the space if it changes behaviour. If readers act identically on the fragment with and without its sentence, the extra context is decoration around the same mistake.",
+    "tests": ["Does showing the whole sentence change what a reader does with a paste-ready command"]
+  },
+  {
+    "solution": "Every machine-selected quote carries the sentence it was cut from",
+    "title": "Every surface that quotes a source can be made to render the sentence, not just the one that already does",
+    "body": "A guarantee that holds on one detector and not the others is not a guarantee — a reader who learns to trust the full-sentence rendering will extend that trust to surfaces that never adopted it. The property has to be universal across quoting surfaces or it is worse than absent.",
+    "tests": ["Every quoting surface renders the whole sentence, not just the detector that already does"]
+  },
+  {
+    "solution": "Every recorded step carries the directory and argv it actually ran with",
+    "title": "cwd and resolved argv are enough to re-run a recorded failure verbatim",
+    "body": "Reproducibility is the whole point. If a failure also depended on environment variables, prior state, or a file that has since moved, then the record names the command and still cannot reproduce the result."
+  },
+  {
+    "solution": "Every regretted write becomes a new pre-write invariant, so the class cannot recur",
+    "title": "Most regretted writes could have been refused by a check needing no judgement",
+    "body": "Turning the backlog of regrets into the refusal set works only for mechanically expressible regrets. The node also names the accumulating cost: invariants are permanent, and a set grown one regret at a time eventually refuses something legitimate for reasons nobody hitting it can see."
+  },
+  {
+    "solution": "Every row shows the named factors behind its rank, with no composite score",
+    "title": "The factors behind a rank can be detected mechanically, agreeing with a hand labelling",
+    "body": "Rendering inputs instead of a score requires those inputs to be computable. If a mechanical detector disagrees with careful hand labelling on the rows that matter, the visible factors are wrong values presented with more authority than a score would have carried.",
+    "tests": ["Hand-label the gated rows and check whether a detector agrees"]
+  },
+  {
+    "solution": "Every row shows the named factors behind its rank, with no composite score",
+    "title": "A row can carry every factor separately without a composite number reappearing anywhere",
+    "body": "The design's whole discipline is refusing to collapse the factors into one number. That is only kept if no surface quietly reintroduces a score — including for the rows where one factor cannot be computed, which are exactly where a fallback number is tempting.",
+    "tests": ["The row renders four factor values and emits no composite number anywhere"]
+  },
+  {
+    "solution": "Every run records the tool surface it actually had",
+    "title": "A reader given run records can tell which passes actually did their job",
+    "body": "Nothing is blocked and nothing halts — the record's only effect is on what a reader concludes. If five records do not let someone separate the complete passes from the degraded ones, the tool surface has been written down and still is not legible.",
+    "tests": ["Hand a reader five run records and ask which passes did their job"]
+  },
+  {
+    "solution": "Every run records the tool surface it actually had",
+    "title": "A pass can name the tools it expected and did not get, not merely the ones it had",
+    "body": "Recording what was present is easy; recording what was absent requires the pass to know what it expected. Without the expectation half, a degraded record and a complete one differ only by a shorter list, which is exactly the ambiguity this exists to remove.",
+    "tests": ["The run record names the tools it had and the ones it expected and did not get"]
+  },
+  {
+    "solution": "Evidence-debt gate before building",
+    "title": "Whether the riskiest assumption has been tested can be judged mechanically",
+    "body": "The gate holds work back until evidence exists, so it must be able to decide. If naming the riskiest assumption needs judgement, the gate either asks a human every time — which is not a gate — or guesses, and blocks the wrong work."
+  },
+  {
+    "solution": "Expiring resource questions asked at a fixed cadence",
+    "title": "The resource questions are quick to answer and ask for facts the vault does not already hold",
+    "body": "A recurring cadence is only justified if it is cheap and if it learns something. Questions the vault could answer itself are a tax on the operator, and a set that takes long enough to resent will be skipped — at which point every field ages into unknown."
+  },
+  {
+    "solution": "Fall back to the command-line path automatically when the MCP tools are absent",
+    "title": "Readers notice a degraded run without being told to look",
+    "body": "Falling back rather than stopping is only safe if the degradation is visible in the report. A fallback that quietly produces a plausible-looking run is the toolless-pass failure with better output — the thing that made it dangerous was that nobody could tell.",
+    "tests": ["Show readers a degraded run report and see whether they notice"]
+  },
+  {
+    "solution": "Fall back to the command-line path automatically when the MCP tools are absent",
+    "title": "The CLI fallback reaches the same vault and refuses everything the read path should not do",
+    "body": "The fallback is only a fallback if it operates on the same tree and produces the same readings. It becomes a hazard the moment it can write: a degraded pass with write access is doing unattended work through a path nobody designed for it.",
+    "tests": ["The CLI fallback reaches the same vault, and refuses the write half"]
+  },
+  {
+    "solution": "Flag a threshold that is still an instruction to choose one",
+    "title": "Naming an unfixed threshold is enough to get it fixed",
+    "body": "The mechanism blocks nothing and rewrites nothing, so its entire effect is social. If named thresholds go on sitting unfixed pass after pass, the report is an accurate census of a problem nobody is acting on.",
+    "tests": ["Do named unfixed thresholds actually get fixed"]
+  },
+  {
+    "solution": "Flag a threshold that is still an instruction to choose one",
+    "title": "The classifier reads a pre-commitment the same way however the text happens to be wrapped",
+    "body": "A count that changes with formatting is not measuring what it claims. If a line break in the lead-in moves a threshold between 'bound' and 'absent', then the census reflects the editor as much as the commitment.",
+    "tests": ["A wrapped pre-commitment lead-in is read, so the absent count stops being a formatting artefact"]
+  },
+  {
+    "solution": "Forced-variation prompts that require candidates to differ on a named dimension",
+    "title": "Requiring difference along a named dimension raises distinctness without lowering quality",
+    "body": "Making distinctness a stated property of the set fixes the variations-on-candidate-one problem. It fails if the constraint forces candidates into shapes nobody would have proposed — trading three similar good ideas for three different weak ones."
+  },
+  {
+    "solution": "Full builder thinking-trace visibility with a self-reflection communication gauge",
+    "title": "Three reflection questions against a builder's trace catch misunderstandings the pass output missed",
+    "body": "The trace is fully visible, so the constraint is what gets asked of it. A fixed set of self-reflection questions only earns its place if it surfaces a misunderstanding that reading the builder's output would not have."
+  },
+  {
+    "solution": "Gate on a ratio against a calibration run taken on the same machine at the same time",
+    "title": "The calibration workload and the measured one respond to contention the same way",
+    "body": "The ratio is stable only if load moves both numbers together. If they respond differently, the gate now fails unpredictably instead of predictably — a worse position than an absolute number, which is at least wrong in a direction people understand."
+  },
+  {
+    "solution": "Git-only substrate that makes every change revertible",
+    "title": "Git auto-init and one-command revert work on the machines this will actually run on",
+    "body": "Safety by revertibility assumes git is there or can be created, and that the worst case really is one command away. A machine where init fails, or where the revert is not a single obvious command, has none of the guarantee the design is selling."
+  },
+  {
+    "solution": "Golden-set evaluation harness",
+    "title": "A curated golden set discriminates a good tree from a bad one",
+    "body": "Turning efficacy into a regression signal requires the fixtures to separate quality. If good and bad trees score alike, the harness is expensive infrastructure producing a number that moves for other reasons."
+  },
+  {
+    "solution": "Guided dry-run mode before unattended operation",
+    "title": "Watching one supervised pass raises an operator's willingness to enable unattended runs",
+    "body": "Confidence earned interactively is the whole mechanism. It fails if watching a pass does not move the decision — either because the pass looks fine and they still will not leave it, or because what worries them is not visible in a single supervised run."
+  },
+  {
+    "solution": "Hand the composer a legal skeleton, so the default shape is already in the accepted dialect",
+    "title": "The skeleton stays valid against the same parser that accepts submissions",
+    "body": "Starting from something valid only works while it is still valid. A stale skeleton is worse than none — it teaches the wrong dialect with authority — so the two have to be pinned together rather than kept in step by hand."
+  },
+  {
+    "solution": "Hand the run a layout of the workspace before it takes its first action",
+    "title": "A map small enough to carry answers most of the lookups that were failing",
+    "body": "The node names the squeeze exactly: a map large enough to answer everything is too large to hold, and one small enough to hold will miss the thing being looked for often enough that the probing habit survives — costing the old failures plus the map."
+  },
+  {
+    "solution": "Hand the run the project's symbol surface before it writes, not after it compiles",
+    "title": "An index built from the repository state would have named the right symbol before the compile did",
+    "body": "The compiler already knew — the argument is that the knowledge can be moved earlier. This holds only if the index, built at the failing commit, gets every part of the case right; a mostly-correct symbol surface is one that will be trusted and occasionally wrong."
+  },
+  {
+    "solution": "Have the scheduler verify the environment before it dispatches a run at all",
+    "title": "The scheduler's view of the environment matches what the run itself would see",
+    "body": "Moving readiness to the dispatcher only helps if the dispatcher sees the same world. A preflight that passes where the run then fails has added a check and changed nothing, and it reports the skip against the wrong thing."
+  },
+  {
+    "solution": "Helpers are written against the lowest version actually present, and a check enforces it",
+    "title": "A floor can be picked that a linter can enforce and that covers the machines in play",
+    "body": "Choosing the floor is a guess about every machine the helper will ever run on. Too low and the code is worse than it needs to be forever; set where the evidence pointed and the first container with a different shell is outside the guarantee entirely."
+  },
+  {
+    "solution": "Human review sampling with a faithfulness rubric",
+    "title": "A ten percent sample estimates whole-tree quality closely enough to act on",
+    "body": "Sampling is what makes human ground truth affordable. It only works if the sample generalises — if quality varies by branch or by age, a tenth of the nodes gives a number that moves for sampling reasons rather than quality ones."
+  },
+  {
+    "solution": "Idle down when a pass produces commentary instead of structure",
+    "title": "Structure and commentary are separable from the shape of the output alone",
+    "body": "Detecting diminishing returns avoids ever defining 'done'. The whole mechanism rests on the two being distinguishable mechanically — if commentary-heavy passes look like structural ones from outside, the loop either idles while still learning or keeps paying after it stopped."
+  },
+  {
+    "solution": "Immutable goal contract",
+    "title": "A locked outcome addresses what operators are actually afraid of when they leave it running",
+    "body": "The contract answers goal drift specifically. Whether that is the fear worth answering is a question for the operators — unprompted, so the answer is theirs rather than a reaction to the mechanism being described to them.",
+    "tests": ["Unprompted-fear interviews about leaving it running"]
+  },
+  {
+    "solution": "Immutable goal contract",
+    "title": "Drift is auditable after the fact from the pass records alone",
+    "body": "The audit half only works if each pass carries the outcome it ran against, in its own record. If distinguishing two passes requires consulting the vault's current outcome, then the record cannot show what changed — which is precisely the case where it is needed.",
+    "tests": ["Every pass records the outcome text it ran against, and a changed outcome is visible as a change"]
+  },
+  {
+    "solution": "In-the-moment friction events filed by the agent",
+    "title": "An agent given a one-line channel at the point of pain will actually file",
+    "body": "Filing has to happen while the context is live, which means it competes with the work the agent is trying to do. A channel that exists and goes unused produces the same silence as no channel, and five passes is enough to see which."
+  },
+  {
+    "solution": "Independent ideators that never see each other's candidates",
+    "title": "Blind parallel ideators produce more distinct candidates than one agent asked for three",
+    "body": "Removing the anchoring is the claim. It fails if separate contexts converge anyway — drawn to the same obvious answers by the same evidence — in which case the parallelism costs several times the tokens for the same consideration set."
+  },
+  {
+    "solution": "Independent judge separate from the proposer",
+    "title": "Splitting proposer from judge raises trust more than a proposer's own sign-off",
+    "body": "The proposer can never sign off on its own output, which is structurally cleaner. Whether it is worth a second model depends on the judgement being genuinely different — a judge that agrees with the proposer by construction has changed the org chart and nothing else."
+  },
+  {
+    "solution": "Independent LLM judge scores faithfulness to evidence",
+    "title": "An LLM judge's faithfulness ratings agree with a human's",
+    "body": "Producing a per-run score without hand-built fixtures is the appeal. The score is only worth having if it tracks human judgement — otherwise it is a stable number measuring something nobody has identified."
+  },
+  {
+    "solution": "Installation runs the helper's own preflight and refuses to install what cannot run here",
+    "title": "A helper's declared requirements stay true as the helper changes",
+    "body": "Requirement declarations rot. A script that grows a `mapfile` six months after its manifest was written installs cleanly and fails at line 21 — the original problem, with an extra file to maintain."
+  },
+  {
+    "solution": "Instances federate by exchanging trees with each other, with no centre at all",
+    "title": "Two real vaults can be merged with few enough conflicts for a person to settle them",
+    "body": "Peer exchange keeps every operator in control and gives the tool's author nothing — so it can only be judged on whether it serves the operators. If merging two trees is a wall of conflicts, it does not serve them either."
+  },
+  {
+    "solution": "Instrumented public trial with a willingness-to-pay probe",
+    "title": "Someone will pay before the tree has proved itself to them",
+    "body": "Putting a real price in the path is what turns assertion into observable money. The probe is deliberately early — a pre-order tests whether the promise sells, which is a different and harder question than whether the delivered artefact does."
+  },
+  {
+    "solution": "Items age out of the default view into a backlog that is counted but not reported",
+    "title": "What ages out is mostly work that genuinely did not matter",
+    "body": "Ageing rewards neglect: the surest way out of the outstanding list becomes being ignored long enough, and the items most likely to be ignored are the difficult ones. A backlog assembled that way is a list of exactly the work that most needed attention."
+  },
+  {
+    "solution": "Keep reading the legacy signal as a fallback so old work still counts",
+    "title": "The items the legacy signal keeps counted were genuinely finished",
+    "body": "Reading the old signal as a second source stops a vault reopening work it already did. It is only right if that work was actually done — a reader blind to which build flagged them is the way to find out whether the fallback is preserving truth or preserving a mistake.",
+    "tests": ["Judge the eighteen reopened items — were they genuinely finished"]
+  },
+  {
+    "solution": "Keep reading the legacy signal as a fallback so old work still counts",
+    "title": "The fallback can be bounded so it does not become permanent",
+    "body": "A compatibility path with no end date is a second source of truth forever. Bounding it by the version boundary and a named release is what keeps it a migration aid rather than a permanent second reading nobody dares remove.",
+    "tests": ["The fallback is bounded by the version boundary and goes inert at a stated release"]
+  }
+]

@@ -1,0 +1,187 @@
+[
+  {
+    "solution": "Post-session transcript harvester",
+    "title": "A session transcript contains distillable stalls and dead ends worth the next pass's attention",
+    "body": "Reading the agent's own chat after each run costs nothing to collect and something to process. It pays only if the transcript holds friction that would otherwise be lost — hand-distilling a few past sessions is the cheapest way to find out whether there is anything there."
+  },
+  {
+    "solution": "Pre-committed kill criteria attached to every candidate at birth",
+    "title": "A kill criterion written when a candidate was cheap actually gets honoured when it is expensive",
+    "body": "The whole mechanism is making the killing decision at the moment nobody is attached. It fails if the commitment is renegotiated later — at which point the criterion recorded an intention and the argument happens anyway."
+  },
+  {
+    "solution": "Prerequisite edges between assumption tests",
+    "title": "Real prerequisite relationships exist between the tests already in the tree",
+    "body": "Ordering falling out of a dependency graph beats ordering falling out of opinion — if the dependencies are there. A paper mapping over the existing tests either finds pairs or shows that the tree is genuinely flat and the edges would be invented."
+  },
+  {
+    "solution": "Prompt-injection red-team harness in CI",
+    "title": "An adversarial suite catches the injection attacks that would actually be attempted",
+    "body": "Continuous proof beats a one-time audit. It proves only as much as the suite covers — a harness that passes on known attacks and misses the shape someone actually uses gives continuous confidence in a boundary nobody has probed."
+  },
+  {
+    "solution": "Protected discovery budget",
+    "title": "Discovery done because the budget exists is as useful as discovery done because someone chose it",
+    "body": "Reserving compute makes discovery happen regardless of anyone's appetite for it. The risk is that unchosen work is unmotivated work — reserved passes that produce output nobody wanted would make the budget a way of spending money on schedule."
+  },
+  {
+    "solution": "Publish a stop condition the loop can evaluate, and make idling the honest default",
+    "title": "Whether an item is actionable is decidable mechanically, not case by case",
+    "body": "If 'actionable' needs a judgement per item, the predicate becomes a place to hide the same ambiguity — and a loop reading it will be exactly as confused as before, with more confidence. Two people labelling the same sweep independently is the test of whether the line is real."
+  },
+  {
+    "solution": "Publish the preconditions of every call so they can be checked before it is made",
+    "title": "Most refusals are expressible as conditions knowable before the call",
+    "body": "Published preconditions are a second copy of the rules, and a second copy drifts. A caller checking against a stale description is confidently wrong, which is worse than being told no — so the coverage has to be high enough to justify carrying the copy at all."
+  },
+  {
+    "solution": "Publish where the operator is already asking the question, in public, with the tree attached",
+    "title": "Publishing real discovery work brings strangers who try it",
+    "body": "The artefact is the marketing and costs nothing extra, since the work is happening anyway. The route has a stated expiry: publishing a real vault means publishing real evidence, which works for exactly as long as the author is the only customer."
+  },
+  {
+    "solution": "Published capability manifest with signed build",
+    "title": "An inspectable manifest raises operator trust more than an assertion does",
+    "body": "Proof that can be checked is different in kind from proof that is claimed. Its value depends on operators caring about the difference — a manifest nobody verifies buys the same trust as the assertion, at more cost."
+  },
+  {
+    "solution": "Push digest where stakeholders already are",
+    "title": "A digest arriving where stakeholders already read gets read",
+    "body": "No new place to visit is the whole appeal. Engagement is the thing to measure rather than delivery — a digest that arrives reliably and goes unopened has moved the problem into someone's unread messages."
+  },
+  {
+    "solution": "Quarantine entries expire, so a workaround cannot become permanent by inattention",
+    "title": "One expiry period fits the real flake timeline without firing on unresolved flakes",
+    "body": "Expiry stops a workaround becoming permanent by inattention. It only works if a single period can sit after flakes get resolved and before they get forgotten — otherwise it either fires against live problems or expires too late to matter."
+  },
+  {
+    "solution": "Quarantine unknown node types instead of dropping them",
+    "title": "A node returned as unrecognised makes the agent notice the hole it would otherwise miss",
+    "body": "Silence is the bug; the unknown type is only the trigger. Marking rather than omitting helps only if the marker changes behaviour — an agent that reads 'unrecognised' and carries on has the same hole with a label on it."
+  },
+  {
+    "solution": "Rank every node by how many blocked tests one build would unblock",
+    "title": "Unblock count changes which node an operator actually picks",
+    "body": "Making the ratio the primary ordering is a strong claim: not importance, not effort, not confidence. It has to move real choices — an ordering that agrees with what the operator was going to do anyway has cost computation and changed nothing."
+  },
+  {
+    "solution": "Rank only what a recorded decision already ordered, and leave the rest unranked",
+    "title": "Enough of the tree is already ordered by a recorded human decision to rank from",
+    "body": "The agent never authors a priority, so coverage is everything. If only a fraction of rows trace to a recorded decision, most of the tree stays unranked — which is honest, and may be too little ordering to be useful."
+  },
+  {
+    "solution": "Ration instrumenting against the rate results are recorded, so readiness cannot outrun execution",
+    "title": "Backpressure on instrumenting pushes results to be recorded, rather than just stopping work",
+    "body": "If instrumenting is the cheap valuable half and execution is blocked on something structural — a permission, a missing runner, a person's availability — then rationing punishes the part that works to protest the part that does not."
+  },
+  {
+    "solution": "Raw-first telemetry store with summaries as derived views",
+    "title": "Keeping the raw stream lets new questions be asked of history already collected",
+    "body": "Never discarding events is what makes summaries recomputable. The value is in questions not yet thought of — so the test is whether a week of raw events can answer things the rollup structurally cannot, rather than whether it can reproduce the rollup."
+  },
+  {
+    "solution": "Re-run once and report the disagreement rather than the first result",
+    "title": "Isolation acquits a flake and convicts a real regression",
+    "body": "The verdict carries its own attribution, which is what makes the second run worth its cost. It fails in both directions: a real regression that only shows under contention gets acquitted, and a flake that reproduces in isolation gets convicted."
+  },
+  {
+    "solution": "Real-world signal gates outcome achievement",
+    "title": "Teams can define an external signal that decides whether their outcome was met",
+    "body": "Closing the circularity at the top of the tree requires something outside the tree to close it with. If a team cannot name a real-world metric or behaviour, the gate has no input and outcome achievement stays a judgement — just a human's rather than the agent's."
+  },
+  {
+    "solution": "Reconcile hand-edits and report drift at the start of every pass",
+    "title": "A pass can tell a human's edit from its own using git alone",
+    "body": "Treating hand-edits as the highest-priority evidence requires recognising them. If the two are indistinguishable in the history — same author, same commit shape — the pass reports its own writes back to itself as human signal."
+  },
+  {
+    "solution": "Reconstruct what finished from the commit history, so no run has to be trusted to report",
+    "title": "A run's boundaries and work are recoverable from the commits alone",
+    "body": "The history exists whether or not the run survived to speak. Its blind spot is real: much of what a run does is reading, deciding, and declining to act — so a run that spent an hour correctly concluding nothing needed doing reads as a run that did nothing."
+  },
+  {
+    "solution": "Recurrence across sessions files a record, a single incident does not",
+    "title": "Repetition across sessions is a good enough filter for what deserves a record",
+    "body": "Making repetition the criterion suppresses one-offs cheaply and mechanically. It is wrong for the expensive single incident — something that happened once and cost a day would be counted and never filed."
+  },
+  {
+    "solution": "Refusals are written back as a standing corrections file every session reads first",
+    "title": "The corrections worth inheriting fit in a session's opening context",
+    "body": "A file long enough to contain every lesson is one nobody reads, and it competes for the same context as everything else. There is no natural expiry either: a refusal that stopped happening because the file fixed it looks identical to one that stopped mattering."
+  },
+  {
+    "solution": "Refusals the tool can prevent become refusals the tool never issues",
+    "title": "Enough refusal classes are safe to absorb that removing the occasion is worth doing",
+    "body": "Some refusals are load-bearing safety, and accommodating the wrong form is how a guardrail becomes decorative. Which classes are safe to absorb is a human's call — and there have to be enough of them, covering enough of the volume, to justify the work."
+  },
+  {
+    "solution": "Refuse a proving command whose exit code cannot report failure",
+    "title": "The guard catches real laundering without refusing honest commands",
+    "body": "A command whose exit code cannot fail proves nothing. The guard is only shippable if it separates that from the ordinary commands people legitimately write — a refusal that fires on honest work gets worked around and stops guarding anything."
+  },
+  {
+    "solution": "Refuse a wiki-link that contains a newline",
+    "title": "A newline inside a wiki-link catches breaks that nothing else catches",
+    "body": "One mechanical rule with no judgement and no false positives is cheap to add. It earns its place only if it finds a real class — if every wrapped link was already caught by another check, this is a second alarm on the same door."
+  },
+  {
+    "solution": "Refuse a write whose content is empty or literally undefined",
+    "title": "Empty and undefined writes actually landed in the vault histories",
+    "body": "Putting the guard at the vault rather than the call catches whatever produced the bad content. Whether it is worth having is answered by the histories: a sweep either finds writes that landed as undefined or shows the class is theoretical."
+  },
+  {
+    "solution": "Refuse to recommend when the source does not read cleanly",
+    "title": "Going silent on ambiguous sources costs few enough recommendations to be affordable",
+    "body": "Silence instead of a confident half-reading is the right trade if ambiguity is rare. If most sources do not read into exactly one answer, the rule removes most recommendations and the tool stops being useful in the name of being careful."
+  },
+  {
+    "solution": "Refuse to record a result against a threshold that was never fixed",
+    "title": "Refusing an unfixed threshold blocks few enough filings to be a guard rather than a wall",
+    "body": "A result recorded against 'decide a threshold before starting' cannot be refuted, and an irrefutable result is not evidence. The question is scale: if a refusal would have blocked most existing tests, it is a migration rather than a guard."
+  },
+  {
+    "solution": "Refuse to record a step whose context could not be determined",
+    "title": "Refusing on unknown context deletes almost no signal anyone would have used",
+    "body": "The stated cost is not missing context but a record that looks complete. Fixing the looking-complete part is only affordable if the refused records are few — and none of them a failure someone later acted on."
+  },
+  {
+    "solution": "Refuse to release from history that has not been pushed",
+    "title": "A push-first rule would have blocked few enough past releases to be adoptable",
+    "body": "A precondition checked before anything is built is cheap and absolute. Whether it is tolerable depends on the history: if most past releases went out from unpushed trees, the rule changes the release process rather than guarding it."
+  },
+  {
+    "solution": "Remote push optional and off by default",
+    "title": "Operators get real value with the vault staying entirely local",
+    "body": "Local-only confines the blast radius of any bad commit or injection to a folder under version control. It is only a viable default if the local experience is complete — if the value needs the remote, off-by-default just means everyone turns it on."
+  },
+  {
+    "solution": "Rendered tree view with diff since last visit",
+    "title": "A rendered tree orients a reader faster than the files do",
+    "body": "Sizing and colouring by evidence strength, with changes highlighted, is a bet on visual comprehension. A five-minute orientation task against a static mock says whether the rendering carries the tree — before any of it is built."
+  },
+  {
+    "solution": "Replay a recorded failure in its recorded context on demand",
+    "title": "Enough recorded steps are side-effect-free to be safely replayable by a fixed rule",
+    "body": "Making the record executable answers 'does this still fail?' directly. It requires deciding safety mechanically — a replay that reruns something with side effects is worse than an unanswerable question, and case-by-case judgement is not available here."
+  },
+  {
+    "solution": "Report the accounting change explicitly instead of folding it into the counts",
+    "title": "The version that wrote a vault is recoverable from the vault itself",
+    "body": "Naming the reopened class requires knowing which accounting produced it. If the writing version cannot be recovered from vault state, the build cannot say '18 of these were counted done under the previous version' and the reinterpretation stays invisible."
+  },
+  {
+    "solution": "Resolve every path against a declared root, so a wrong prefix cannot be constructed",
+    "title": "Most failed paths fall under a small set of nameable roots",
+    "body": "Named roots are another thing to keep current, and a root pointing somewhere wrong produces confident, uniform, wrong paths everywhere at once — worse than scattered bad guesses because it looks systematic. It only pays if a few roots cover most of the failures."
+  },
+  {
+    "solution": "Resolve the newest published version at pass start and refuse to run silently on a stale one",
+    "title": "The registry is a path improvements actually travel down, promptly",
+    "body": "Pulling at pass start only helps if what is published is current. If versions cut on main take days to become resolvable, or never do, then an instance faithfully checking the registry is faithfully receiving stale software."
+  },
+  {
+    "solution": "Resumable append-only process journal",
+    "title": "Killing the process at any instant leaves a state a restart can resume from",
+    "body": "Atomic writes plus an intent-and-completion journal is the claim that there is no unsafe moment. The whole guarantee lives in the instants between — a kill-at-random-points test is what distinguishes a real invariant from one that holds at the points anyone thought to check."
+  }
+]
