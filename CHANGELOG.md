@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+- **A credential broker holds the secrets, and the run holds a handle.** `SLACK_BOT_TOKEN`,
+  `ATLASSIAN_API_TOKEN` and `BRAVE_SEARCH_API_KEY` used to be read from the environment and
+  handed, in full, to the client that would use them — and in the search case onto
+  `PassContext.web.searchApiKey`, the object every tool is built with. They now stop in one
+  place (`src/security/broker.ts`). An adapter is constructed with an opaque handle
+  (`ost-credential:slack`) and a brokered fetch; the secret is substituted into the outgoing
+  header — including inside HTTP Basic's base64 — only after the URL has been matched against
+  a written grant and the request has been appended to the vault's credential log at
+  `.ost-agent/credentials/audit.jsonl`. A code path that keeps its own `fetch` sends the handle
+  and gets a 401, which is a loud failure where a leaked token would have been a quiet success.
+
+- **No record, no action.** The broker's one advantage over a short-lived scoped token is the
+  log, so an unwritable audit sink DENIES the request before the credential is touched rather
+  than degrading to best-effort. A sink that fails after the action has run returns the result
+  flagged `auditIncomplete` — an action already performed cannot be un-performed by a failed
+  write, and the one thing the broker will not do is hand it back looking clean. Grants use a
+  deliberately tiny pattern language (exact, or a trailing `/*`); anything ambiguous throws
+  when the broker is built rather than resolving itself at request time.
+
+- **A credential under 8 characters is refused rather than held.** Scrubbing is substring
+  replacement, so a secret that short cannot be redacted from a log or a result without
+  mangling unrelated text. `ost-agent channels` and `buildPassContext` share one definition of
+  usable (`usableSecret`), so the health report and what a pass can actually build cannot
+  disagree about it.
+
 - **The preflight-uncertainty census: did the callers whose calls failed already know they
   were unsure?** A validate-only twin of every mutating tool — same arguments, every check
   run, nothing written, a verdict returned — helps exactly one caller: the one who thinks

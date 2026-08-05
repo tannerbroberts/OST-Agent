@@ -82,12 +82,22 @@ export interface SearchProvider {
   search(query: string, count: number, fetchFn?: WebFetchFn): Promise<SearchOutcome>;
 }
 
-/** The Brave-backed provider. Requires a key; the key never leaves the header. */
-export function braveProvider(apiKey: string): SearchProvider {
+/**
+ * The Brave-backed provider. Requires a key; the key never leaves the header.
+ *
+ * `transport`, when given, WINS over the `fetchFn` the caller passes to
+ * `search`. In production what is passed here is the credential broker's fetch
+ * and what `apiKey` holds is a handle rather than a key — so letting a caller's
+ * argument replace the transport would send the handle out through an unbrokered
+ * path, which is to say a request that is neither scoped nor recorded. The
+ * credential's transport belongs to the credential; the caller's `fetchFn` stays
+ * the injection point for the keyless providers and for tests.
+ */
+export function braveProvider(apiKey: string, transport?: WebFetchFn): SearchProvider {
   return {
     name: "brave",
     search: async (query, count, fetchFn) => ({
-      results: await searchWeb(query, { apiKey, count, fetchFn }),
+      results: await searchWeb(query, { apiKey, count, fetchFn: transport ?? fetchFn }),
       failures: [],
     }),
   };

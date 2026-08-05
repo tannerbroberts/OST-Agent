@@ -85,6 +85,19 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../
  * (a) every HTTP call site is a GET
  * ------------------------------------------------------------------ */
 
+/**
+ * Every file in `src/` from which a request may leave the machine — named once,
+ * because two lists that must agree are a list that will not.
+ */
+const OUTWARD_FILES = [
+  "src/adapters/atlassian.ts",
+  "src/adapters/slack.ts",
+  "src/security/brokered-fetch.ts",
+  "src/web/federated.ts",
+  "src/web/reader.ts",
+  "src/web/search.ts",
+];
+
 /** A `method:` whose value is a string literal — a call site, not a declaration. */
 const LITERAL_METHOD = /method:\s*"([^"]*)"/g;
 /** Every `method:` at all — the loose pattern the document warns against. */
@@ -159,28 +172,32 @@ describe("(a) every HTTP call site in the shipped source declares GET", () => {
     expect(outwardMutations(literalMethods('{ method: "GET" }'))).toEqual([]);
   });
 
-  test("the call sites live only in src/web and src/adapters, so the document's scope is earned", () => {
-    // The readiness check greps two directories. That is a claim about where
+  test("the call sites live only in src/web, src/adapters and the broker's transport", () => {
+    // The readiness check greps these directories. That is a claim about where
     // outward calls can be, and it is asserted here rather than assumed: a new
     // module elsewhere that makes an HTTP call fails this and has to be
     // considered.
-    const stray = hits.filter((h) => !h.file.startsWith("src/web/") && !h.file.startsWith("src/adapters/"));
+    //
+    // `src/security/brokered-fetch.ts` is the third, added deliberately when the
+    // credential broker landed. It carries the SAME reads the two adapter files
+    // already made — what changed is that they no longer hold the token — so the
+    // scope grew by one file without the surface growing by one capability.
+    const stray = hits.filter(
+      (h) =>
+        !h.file.startsWith("src/web/") &&
+        !h.file.startsWith("src/adapters/") &&
+        h.file !== "src/security/brokered-fetch.ts",
+    );
     expect(stray.map((h) => `${h.file}:${h.line}`)).toEqual([]);
   });
 
-  test("the five call sites are named, so a sixth is a deliberate commit", () => {
+  test("the six call sites are named, so a seventh is a deliberate commit", () => {
     // Pinned as a set rather than a count: a call site that MOVES should not fail
     // this, and a call site that APPEARS should.
-    expect([...new Set(hits.map((h) => h.file))].sort()).toEqual([
-      "src/adapters/atlassian.ts",
-      "src/adapters/slack.ts",
-      "src/web/federated.ts",
-      "src/web/reader.ts",
-      "src/web/search.ts",
-    ]);
+    expect([...new Set(hits.map((h) => h.file))].sort()).toEqual(OUTWARD_FILES);
   });
 
-  test("and there is no outward transport outside those five files — the check the method scan cannot make", () => {
+  test("and there is no outward transport outside those six files — the check the method scan cannot make", () => {
     // The gap this closes, stated plainly. Everything above reasons about the
     // string `method: "…"`. A POST written any other way is invisible to it:
     //
@@ -206,7 +223,7 @@ describe("(a) every HTTP call site in the shipped source declares GET", () => {
     });
     expect(sites.length, "the transport pattern matched nothing — it has stopped deciding anything").toBeGreaterThan(5);
 
-    const allowed = ["src/adapters/atlassian.ts", "src/adapters/slack.ts", "src/web/federated.ts", "src/web/reader.ts", "src/web/search.ts"];
+    const allowed = OUTWARD_FILES;
     expect(
       sites.filter((s) => !allowed.includes(s.file)).map((s) => `${s.file}:${s.line}`),
       "a request leaves the machine from a file the GET scan above never reads",
