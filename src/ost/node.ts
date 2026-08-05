@@ -24,6 +24,7 @@
  * remainder is the prose body (which may contain its own sections/links).
  */
 import matter from "gray-matter";
+import { parseFrontmatter } from "./frontmatter.js";
 import { isRung, type RungId } from "../knowledge/believability.js";
 import { isLane, type LaneId } from "../knowledge/lanes.js";
 
@@ -190,7 +191,7 @@ export function serialize(node: OstNode): string {
 
 /** Parse Markdown file contents (with the given title) back into an {@link OstNode}. */
 export function deserialize(title: string, markdown: string): OstNode {
-  const parsed = matter(markdown);
+  const parsed = parseFrontmatter(markdown);
   const data = parsed.data as Record<string, unknown>;
 
   const layer = data.type as Layer;

@@ -43,6 +43,7 @@ import { verifyInstrument } from "../ost/instrument.js";
 import { buildableSolutions, buildPermit, testsAwaitingVerification } from "../eval/buildable.js";
 import { formatCensus, reconcileWithGit, reconcileWithUsage } from "../ost/census.js";
 import { formatStrandedCensus, strandedEvidenceCensus } from "../ost/stranded.js";
+import { blindnessCensus, formatBlindnessCensus, readSweepRuns, recordSweepRun } from "../ost/sweep.js";
 import { committedCapabilityProfile, formatCapabilityProfile } from "../product/capability.js";
 import { readResourceManifest } from "../product/manifest.js";
 import { formatPriorityOrder, rankBuildableWork } from "../product/planner.js";
@@ -552,7 +553,48 @@ program
     // them. A context per vault would construct adapters and create any directory
     // that was mistyped.
     const dirs = [opts.vault, ...opts.also].map((d) => path.resolve(d));
-    console.log(formatStrandedCensus(strandedEvidenceCensus(dirs, { excludeCiters: opts.ignoreCiter })));
+    const census = strandedEvidenceCensus(dirs, { excludeCiters: opts.ignoreCiter });
+    const blind = census.blindness === "totally-blind";
+    // The subject count goes into the ledger on every run, blind or not. That is
+    // the only thing that will ever let anyone replay these and say how many were
+    // blind all the way rather than partly (`ost-agent sweeps`), and a ledger
+    // written only on the bad runs measures nothing.
+    try {
+      recordSweepRun(dirs[0], {
+        sweep: "stranded",
+        at: new Date().toISOString(),
+        subject: census.subject,
+        findings: census.stranded.length,
+        outcome: blind ? "blind" : census.stranded.length > 0 ? "findings" : "clean",
+      });
+    } catch (e) {
+      // Never costs the census. But it is said out loud rather than swallowed:
+      // an unrecorded run is one more run nobody can classify later.
+      console.error(`(this run was not recorded: ${e instanceof Error ? e.message : String(e)})`);
+    }
+    const text = formatStrandedCensus(census);
+    if (blind) {
+      console.error(text);
+      process.exitCode = 1;
+      return;
+    }
+    console.log(text);
+  });
+
+program
+  .command("sweeps")
+  .description("replay the recorded sweep runs and report how many were blind all the way rather than partly")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((opts: { vault: string }) => {
+    const runs = readSweepRuns(path.resolve(opts.vault));
+    if (runs.length === 0) {
+      // Its own rule, applied to itself: a replay with nothing to replay has not
+      // found that no sweep was ever blind.
+      console.error("no sweep runs recorded in this vault — there is nothing to replay, which is not the same as no blindness.");
+      process.exitCode = 1;
+      return;
+    }
+    console.log(formatBlindnessCensus(blindnessCensus(runs)));
   });
 
 program

@@ -21,6 +21,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
+import { parseFrontmatter } from "../ost/frontmatter.js";
 import { redactSecrets } from "../adapters/transcript.js";
 import { isActor, UNKNOWN_ACTOR, type Actor } from "../adapters/source.js";
 import type { Layer, OstNode } from "../ost/node.js";
@@ -53,7 +54,7 @@ function safeName(id: string): string {
 /** The `id` a stored record claims, or null if the file cannot be read as one. */
 function storedId(file: string): string | null {
   try {
-    const value = matter(fs.readFileSync(file, "utf8")).data.id;
+    const value = parseFrontmatter(fs.readFileSync(file, "utf8")).data.id;
     return typeof value === "string" ? value : null;
   } catch {
     return null;
@@ -152,16 +153,43 @@ export function writeEvidence(dir: string, rec: UnstampedEvidence, actor: Actor)
   return true;
 }
 
+/**
+ * What a read of the evidence directory was offered and what it came back with.
+ *
+ * The two numbers are not the same and the gap between them is silent: the loop
+ * below drops a file whose frontmatter will not parse, on purpose (see the catch),
+ * so a caller holding only the records has no way to know that four of three
+ * hundred never made it. Every count taken over `records` is a count over a
+ * subject that may have shrunk — which is exactly the partly-blind sweep this
+ * shape exists to make visible. `offered` is the denominator; `unreadable` names
+ * the difference.
+ */
+export interface EvidenceScan {
+  /** `.md` files present in the evidence directory — the subject as it was found. */
+  readonly offered: number;
+  readonly records: EvidenceRecord[];
+  /** Filenames that would not parse and are therefore absent from `records`. */
+  readonly unreadable: string[];
+}
+
 /** Read all captured evidence records. */
 export function readEvidence(dir: string): EvidenceRecord[] {
+  return readEvidenceScan(dir).records;
+}
+
+/** Read the evidence directory and report what it could not read as well as what it could. */
+export function readEvidenceScan(dir: string): EvidenceScan {
   const d = evidenceDir(dir);
-  if (!fs.existsSync(d)) return [];
+  if (!fs.existsSync(d)) return { offered: 0, records: [], unreadable: [] };
   const out: EvidenceRecord[] = [];
+  const unreadable: string[] = [];
+  let offered = 0;
   for (const name of fs.readdirSync(d)) {
     if (!name.endsWith(".md")) continue;
+    offered++;
     let parsed: ReturnType<typeof matter>;
     try {
-      parsed = matter(fs.readFileSync(path.join(d, name), "utf8"));
+      parsed = parseFrontmatter(fs.readFileSync(path.join(d, name), "utf8"));
     } catch {
       // One unparseable file costs one record, never the read. Missing frontmatter
       // already degrades to defaults below; unparseable frontmatter used to throw out
@@ -171,6 +199,10 @@ export function readEvidence(dir: string): EvidenceRecord[] {
       //
       // The file itself is untouched and still in git: what is dropped is its
       // appearance in this list, not the record.
+      //
+      // It is named in `unreadable` rather than only dropped, because a skip
+      // nobody counts is how a sweep goes partly blind and still reports clean.
+      unreadable.push(name);
       continue;
     }
     const data = parsed.data as Record<string, unknown>;
@@ -187,7 +219,7 @@ export function readEvidence(dir: string): EvidenceRecord[] {
       actor: isActor(data.actor) ? data.actor : UNKNOWN_ACTOR,
     });
   }
-  return out;
+  return { offered, records: out, unreadable };
 }
 
 /**

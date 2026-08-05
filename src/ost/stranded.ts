@@ -32,9 +32,10 @@
  * anything — see {@link StrandedItem.citedBy}, which reports the citers rather
  * than only the verdict, so the verdict can be checked.
  */
-import { readEvidence, type EvidenceRecord } from "../processes/tree.js";
+import { readEvidenceScan, type EvidenceRecord, type EvidenceScan } from "../processes/tree.js";
 import type { Actor } from "../adapters/source.js";
 import type { OstNode } from "./node.js";
+import { classifySubject, type Blindness, type SweepSubject } from "./sweep.js";
 import { Vault } from "./vault.js";
 
 /**
@@ -64,6 +65,17 @@ export interface VaultStrandedCensus {
   vault: string;
   /** Evidence records read. The denominator every count below is taken over. */
   examined: number;
+  /**
+   * What this vault's read was offered against what it examined.
+   *
+   * `subject.read` is `examined`; `subject.offered` is how many evidence files
+   * were there to be read. They diverge when a file will not parse, and the
+   * divergence is the whole reason this field exists — `examined` alone reads
+   * like a complete denominator whether or not it is one.
+   */
+  subject: SweepSubject;
+  /** Evidence files present that could not be parsed, and are absent from `examined`. */
+  unreadable: string[];
   /** Records some node names in frontmatter `source` — mapped, therefore not stranded. */
   mapped: number;
   stranded: StrandedItem[];
@@ -78,6 +90,18 @@ export interface StrandedCensus {
   /** The two halves of `stranded`, which is the whole point of taking it. */
   attachable: StrandedItem[];
   homeless: StrandedItem[];
+  /** The subject across every vault, summed. */
+  subject: SweepSubject;
+  /**
+   * How much of its subject this census reached.
+   *
+   * `totally-blind` is the case the guard is for: a census over a mistyped path,
+   * or over a directory whose contents moved, examines nothing and would
+   * otherwise report "0 stranded of 0" — a clean-looking sentence that means
+   * nobody looked. {@link formatStrandedCensus} refuses to print it as a result,
+   * and `ost-agent stranded` exits non-zero on it.
+   */
+  blindness: Blindness;
 }
 
 export interface StrandedOptions {
@@ -130,9 +154,17 @@ export function quotesEvidenceId(text: string, id: string): boolean {
 export function strandedEvidence(
   vault: string,
   tree: readonly OstNode[],
-  evidence: readonly EvidenceRecord[],
+  evidence: readonly EvidenceRecord[] | EvidenceScan,
   opts: StrandedOptions = {},
 ): VaultStrandedCensus {
+  // A bare array is still accepted — a caller that already holds records and is
+  // asking only about the classification should not have to invent a denominator.
+  // What it gets is `offered === read`, which is the truthful reading of "these
+  // are the records, I am not telling you what they were drawn from".
+  const scan: EvidenceScan = Array.isArray(evidence)
+    ? { offered: evidence.length, records: evidence as EvidenceRecord[], unreadable: [] }
+    : (evidence as EvidenceScan);
+  const records = scan.records;
   const excluded = new Set(opts.excludeCiters ?? []);
   // The one derivation of mapped-ness, copied from nowhere: frontmatter `source`
   // is the field the ledger counts, and this census exists to describe what that
@@ -141,7 +173,7 @@ export function strandedEvidence(
   const citers = tree.filter((n) => !excluded.has(n.title));
 
   const stranded: StrandedItem[] = [];
-  for (const record of evidence) {
+  for (const record of records) {
     if (citedSources.has(record.id)) continue;
     const citedBy = citers.filter((n) => quotesEvidenceId(n.body, record.id)).map((n) => n.title);
     stranded.push({
@@ -154,7 +186,14 @@ export function strandedEvidence(
     });
   }
 
-  return { vault, examined: evidence.length, mapped: evidence.length - stranded.length, stranded };
+  return {
+    vault,
+    examined: records.length,
+    subject: { offered: scan.offered, read: records.length },
+    unreadable: [...scan.unreadable],
+    mapped: records.length - stranded.length,
+    stranded,
+  };
 }
 
 /**
@@ -165,8 +204,12 @@ export function strandedEvidence(
  * a second tree that never heard of the first is the part that is evidence.
  */
 export function strandedEvidenceCensus(dirs: readonly string[], opts: StrandedOptions = {}): StrandedCensus {
-  const vaults = dirs.map((dir) => strandedEvidence(dir, new Vault(dir).readTree(), readEvidence(dir), opts));
+  const vaults = dirs.map((dir) => strandedEvidence(dir, new Vault(dir).readTree(), readEvidenceScan(dir), opts));
   const stranded = vaults.flatMap((v) => v.stranded);
+  const subject: SweepSubject = {
+    offered: vaults.reduce((n, v) => n + v.subject.offered, 0),
+    read: vaults.reduce((n, v) => n + v.subject.read, 0),
+  };
   return {
     vaults,
     examined: vaults.reduce((n, v) => n + v.examined, 0),
@@ -174,18 +217,56 @@ export function strandedEvidenceCensus(dirs: readonly string[], opts: StrandedOp
     stranded,
     attachable: stranded.filter((i) => i.kind === "attachable"),
     homeless: stranded.filter((i) => i.kind === "homeless"),
+    subject,
+    blindness: classifySubject(subject),
   };
 }
 
-/** The census as an operator reads it: the split first, then what it was taken over. */
+/**
+ * The census as an operator reads it: the split first, then what it was taken over.
+ *
+ * Except when it was taken over nothing. A census that examined no record has no
+ * split to report and is printed as a failure instead — the sentence
+ * "0 stranded of 0 records" is true, reads as a clean result, and is what a
+ * mistyped `--also` path produces.
+ */
 export function formatStrandedCensus(census: StrandedCensus): string {
   const lines: string[] = [];
+  if (census.blindness === "totally-blind") {
+    lines.push(
+      `Stranded evidence: BLIND — read 0 of ${census.subject.offered} evidence record(s) across ` +
+        `${census.vaults.length} vault(s). This is not a clean census; nothing was examined.`,
+    );
+    for (const v of census.vaults) {
+      lines.push(`  ${v.vault}: read ${v.subject.read} of ${v.subject.offered} offered`);
+    }
+    lines.push("");
+    lines.push(
+      "A sweep with an empty subject is a failure, not a pass. Check that each path above is a vault " +
+        "with an `.ost-agent/evidence/` directory in it.",
+    );
+    return lines.join("\n");
+  }
   lines.push(
     `Stranded evidence: ${census.stranded.length} of ${census.examined} record(s) across ${census.vaults.length} vault(s) — ` +
       `${census.attachable.length} an existing node already cites, ${census.homeless.length} nothing in the tree cites.`,
   );
   for (const v of census.vaults) {
     lines.push(`  ${v.vault}: ${v.stranded.length} stranded of ${v.examined} examined (${v.mapped} mapped)`);
+  }
+  // Partial blindness is reported, not fired on. The guard above is a floor and
+  // the solution that asked for it says so: the failure that motivated it read
+  // 302 of 306 records. What this line buys is that the shortfall is in front of
+  // the reader beside the count it silently shrank.
+  if (census.blindness === "partly-blind") {
+    const shortfall = census.subject.offered - census.subject.read;
+    lines.push(
+      `  ⚠ partly blind: ${shortfall} evidence file(s) present could not be read, so every count above is ` +
+        `over ${census.subject.read} of ${census.subject.offered}.`,
+    );
+    for (const v of census.vaults) {
+      for (const name of v.unreadable) lines.push(`    unreadable: ${v.vault}/${name}`);
+    }
   }
 
   // The half a new node type would be for, named individually — it is the small
