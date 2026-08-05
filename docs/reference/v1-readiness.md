@@ -2987,7 +2987,14 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1918 tests across 161 files, verified 2026-08-05 (`npx vitest run`,
+> *Today:* **met** — 1931 tests across 162 files, verified 2026-08-05 (`npx vitest run`,
+> after `test/cli/path-near-miss.test.ts` pinned the near-miss answer — a failed path lookup
+> reports how far down the path was real, what is present at that point, and the one obvious
+> correction, replayed against the five lookups that actually failed in this project's own
+> session transcripts. The half that decides it is what it refuses: a numbered sibling, a tie,
+> and a two-character segment each yield silence, because the recorded `report2.txt` miss had
+> the previous run's output sitting one character away in the same directory, and naming it
+> would have made a stale artefact read as that run's result;
 > after `test/loop/degraded-pass-reporting.test.ts` pinned the degraded verdict — a firing that
 > ran without the means to do its job now has a name of its own and may not seal `healthy` or
 > `no-op`, the two words a reader takes to mean the tree is fine. The evidence is the vault's

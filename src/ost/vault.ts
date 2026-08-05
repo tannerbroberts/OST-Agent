@@ -45,6 +45,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
+import { nearestName } from "../fs/near-miss.js";
 import { noteNodeFileCreated } from "../telemetry/usage.js";
 import {
   AGENT_IDEATED_TAG,
@@ -56,7 +57,7 @@ import {
   type OstNode,
   LAYERS,
 } from "./node.js";
-import { fileNameForTitle, sanitizeTitle } from "./sanitize.js";
+import { canonicalTitle, fileNameForTitle, sanitizeTitle } from "./sanitize.js";
 import { isHeadingLine, reservedHeadingIn } from "./headings.js";
 import { joinReservedSections, splitReservedSections } from "./sections.js";
 import {
@@ -212,6 +213,40 @@ export class Vault {
     return fs.existsSync(this.nodePath(title));
   }
 
+  /**
+   * The one title a miss is plausibly a misspelling of, or undefined.
+   *
+   * A node lookup is a path lookup with the directory hidden — every title is a
+   * file at the vault root — so the same discipline applies, including the refusal
+   * to name anything when two titles are equally close. A caller handed the wrong
+   * node writes to the wrong node, so a tie here is worse than silence.
+   */
+  nearestTitle(title: string): string | undefined {
+    let titles: string[];
+    try {
+      titles = fs
+        .readdirSync(this.root)
+        .filter((n) => n.endsWith(".md"))
+        .map((n) => n.slice(0, -3));
+    } catch {
+      return undefined;
+    }
+    const wanted = canonicalTitle(title);
+    return wanted ? nearestName(wanted, titles) : undefined;
+  }
+
+  /**
+   * `no such node`, plus the nearest real title when there is an obvious one.
+   *
+   * A shell that ran a title together with two others, or dropped an apostrophe
+   * out of one, is the recorded shape of this miss — both are a few characters
+   * away from a title that is right there on disk.
+   */
+  private noSuchNode(title: string): Error {
+    const near = this.nearestTitle(title);
+    return new Error(`no such node: ${title}${near ? ` — did you mean "${near}"?` : ""}`);
+  }
+
   /** Read all node files at the vault root (skips non-node files and subdirs). */
   readTree(): OstNode[] {
     return this.readTreeCensus().nodes;
@@ -362,7 +397,7 @@ export class Vault {
 
   read(title: string): OstNode {
     const p = this.nodePath(title);
-    if (!fs.existsSync(p)) throw new Error(`no such node: ${title}`);
+    if (!fs.existsSync(p)) throw this.noSuchNode(title);
     return deserialize(title, fs.readFileSync(p, "utf8"));
   }
 
@@ -389,7 +424,7 @@ export class Vault {
   appendToNode(title: string, section: string): void {
     assertWritableContent(`a section of "${title}"`, section);
     const p = this.nodePath(title);
-    if (!fs.existsSync(p)) throw new Error(`no such node: ${title}`);
+    if (!fs.existsSync(p)) throw this.noSuchNode(title);
     const prev = fs.readFileSync(p, "utf8");
     const sep = prev.endsWith("\n") ? "\n" : "\n\n";
     fs.writeFileSync(p, prev + sep + section.trim() + "\n", "utf8");

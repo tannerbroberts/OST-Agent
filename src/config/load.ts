@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
 import { ConfigSchema, type Config } from "./schema.js";
+import { nearMiss, renderNearMiss } from "../fs/near-miss.js";
 
 export const CONFIG_FILENAME = "ost.config.yaml";
 
@@ -74,6 +75,16 @@ export function readConfig(vaultDir: string, opts: LoadConfigOptions = {}): Conf
   const p = configPath(vaultDir);
   if (!fs.existsSync(p)) {
     if (opts.missing === "defaults") return { config: defaultConfig() };
+    // A directory that is not there and a directory that is there but holds no
+    // config are different mistakes with different fixes, and saying `run
+    // ost-agent init` to the first one is the worse of the two answers: the
+    // recorded miss is `--vault /Users/tanner/dev/ost-agent-meta` when the vault
+    // is at `/Users/tanner/ost-agent-meta`, where following the advice would have
+    // created a second, empty tree at the typo.
+    const dir = path.resolve(vaultDir);
+    if (!fs.existsSync(dir)) {
+      throw new Error(`no vault at ${dir} — that directory does not exist; ${renderNearMiss(nearMiss(dir))}`);
+    }
     throw new Error(`no ${CONFIG_FILENAME} in ${vaultDir} — run \`ost-agent init\` first`);
   }
   let raw: unknown;
