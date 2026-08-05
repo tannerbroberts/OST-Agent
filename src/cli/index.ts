@@ -44,6 +44,8 @@ import { buildableSolutions, buildPermit, testsAwaitingVerification } from "../e
 import { formatCensus, reconcileWithGit, reconcileWithUsage } from "../ost/census.js";
 import { formatStrandedCensus, strandedEvidenceCensus } from "../ost/stranded.js";
 import { committedCapabilityProfile, formatCapabilityProfile } from "../product/capability.js";
+import { readResourceManifest } from "../product/manifest.js";
+import { formatPriorityOrder, rankBuildableWork } from "../product/planner.js";
 import {
   formatPreflightCensus, preflightUncertaintyCensus, readTranscriptSessions, readUsageEvents,
 } from "../telemetry/preflight.js";
@@ -497,22 +499,31 @@ program
       return;
     }
     if (!solution) {
-      const all = buildableSolutions(tree);
+      // THIS is the priority order — the list an unattended loop reads top-down
+      // to decide what to build next. It used to be tree order, which conditions
+      // on nothing and admits to nothing. It is now ranked against what the
+      // operator declared in `ost.resources.yaml`, and the citation naming every
+      // declared field AND every blank goes to stderr beside it. A vault with no
+      // manifest gets exactly the order it got before, and is told, out loud,
+      // which five facts about its operator this order is guessing at.
+      const load = readResourceManifest(opts.vault);
+      const order = rankBuildableWork(tree, load.manifest, load.problem);
       // stdout carries solution titles and NOTHING else, because an unattended
       // loop reads this list to decide what to build. The advisory below went to
       // stdout once: the build script filtered out the indented detail lines,
       // kept the unindented "nothing is buildable…" sentence, and handed that
       // sentence to the model as the solution it had been cleared to build. An
       // empty list has to BE empty, not a paragraph explaining that it is.
-      if (all.length === 0) {
+      if (order.ranked.length === 0) {
         console.error("nothing is buildable: no solution carries an instrument that has been observed red.");
         console.error("  `ost-agent debt` says which solutions still owe a test; a test owes an `instrument:` field.");
         return;
       }
-      for (const b of all) {
-        console.log(b.solution);
-        console.error(`  ${b.instrument}  (${b.test})`);
-      }
+      // The citation first and in full, on stderr, because an order presented
+      // before its conditions reads as arithmetic rather than as a judgement
+      // made under stated assumptions.
+      for (const line of formatPriorityOrder(order).split("\n")) console.error(line);
+      for (const r of order.ranked) console.log(r.solution);
       return;
     }
     const permit = buildPermit(tree, solution);

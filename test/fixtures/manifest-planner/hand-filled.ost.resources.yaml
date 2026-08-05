@@ -1,0 +1,36 @@
+# The manifest, hand-filled for the `ost-agent-meta` vault on 2026-08-04 from facts
+# already recorded in it. Nothing here was invented for the spec; each field cites the
+# node or the observation it was read off, and `PROVENANCE.md` repeats the same list so
+# the fill can be argued with.
+declaredOn: '2026-08-04'
+
+# "The goal I care about is too far from anything I can act on this week" and
+# "I need the tree's output to be actionable by compute alone, because my hours don't
+# exist" — the operator's hours are the resource the tree says does not exist.
+hours:
+  perWeek: 0
+  appetite: what compute can finish unattended between token resets
+
+# "the cold-offer test was sequenced RUN FIRST on 2026-07-24 and killed on 2026-07-25
+# with 'that isn't going to fly'" — recorded on the solution this manifest was built for.
+socialReach:
+  contactStrangers: false
+  audience: 0
+
+# "no publish credential reachable from the container" — the test's own words. One name,
+# because one is what the operator would write: the word the work uses for the thing.
+credentials:
+  granted: []
+  withheld:
+    - publish
+
+# "a token budget with a reset schedule" — the shape is declared; the numbers are the
+# operator's plan, not a measurement, and nothing in this repo reads them yet.
+compute:
+  tokensPerWindow: 1000000
+  resetEvery: 5h
+
+# "no capital" — the same test's words.
+capital:
+  amount: 0
+  currency: USD

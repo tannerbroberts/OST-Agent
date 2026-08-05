@@ -2953,7 +2953,22 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1882 tests across 159 files, verified 2026-08-04 (`npx vitest run`,
+> *Today:* **met** — 1898 tests across 160 files, verified 2026-08-04 (`npx vitest run`,
+> after `test/product/manifest-ranking-shift.test.ts` pinned the declared resource manifest —
+> the operator states what they have, and the planner may not emit a priority order without
+> naming which declared resources conditioned it and which are blank. What the spec settles is
+> narrow and was pre-committed on the assumption test before anything was measured: ranking the
+> corpus with the manifest absent and again with it hand-filled must move at least two of the
+> top five, or an item must enter or leave it. Over the 39 buildable solutions of this
+> product's own vault, all five top-five positions change and two items are replaced. Three
+> assertions carry the file rather than that one: the manifest-absent order is asserted equal
+> to what `ost-agent buildable` prints today, so the baseline is the product's real order and
+> not a strawman; each detector is held to a control that forces it to find nothing; and the
+> per-field conditioning counts are pinned, which is where the finding lives — of five declared
+> fields, `capital` and `compute` deferred nothing, `hours` deferred all 39 and so reordered
+> nothing, and the entire movement comes from `social-reach` (4) and `credentials` (1). It does
+> not show the new order is better, and nothing here measures whether an operator would keep a
+> manifest true;
 > after `test/telemetry/preflight-uncertainty-census.test.ts` pinned the preflight-uncertainty
 > census — how often a call that failed came from a caller already showing doubt, which is the
 > assumption a validate-only twin of every mutating tool rests on. The classifier is committed
