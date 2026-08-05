@@ -32994,6 +32994,7 @@ var LAYERS = [
   "Outcome",
   "Opportunity",
   "Solution",
+  "Assumption",
   "AssumptionTest",
   "Unknown"
 ];
@@ -38231,18 +38232,33 @@ function byTitle(nodes) {
 function childrenOfLayer(node, index, layer) {
   return node.links.filter((t2) => index.get(t2)?.layer === layer);
 }
+function testsUnderSolution(solution, index) {
+  const out = /* @__PURE__ */ new Map();
+  for (const link of solution.links) {
+    const child = index.get(link);
+    if (!child) continue;
+    if (child.layer === "AssumptionTest") {
+      out.set(child.title, child);
+      continue;
+    }
+    if (child.layer !== "Assumption") continue;
+    for (const grand of child.links) {
+      const test = index.get(grand);
+      if (test?.layer === "AssumptionTest") out.set(test.title, test);
+    }
+  }
+  return [...out.values()];
+}
 
 // src/eval/evidence-debt.ts
 function hasRecordedResult(test) {
   if (test.status === "validated") return true;
   return declaresHeading(test.body, RESULTS_HEADING);
 }
-function testsUnder(tree, solution) {
-  return tree.filter((n) => n.layer === "AssumptionTest" && solution.links.includes(n.title));
-}
 function computeEvidenceDebt(tree) {
+  const index = byTitle([...tree]);
   const solutions = tree.filter((n) => n.layer === "Solution").map((sol) => {
-    const tests = testsUnder(tree, sol);
+    const tests = testsUnderSolution(sol, index);
     const run = tests.filter(hasRecordedResult);
     const state = tests.length === 0 ? "untested" : run.length === 0 ? "proposed" : "tested";
     return {
@@ -38434,6 +38450,16 @@ function recordedVerdict(node) {
   }
   return latest;
 }
+function trustNeighbours(tree, test) {
+  const parents = tree.filter((n) => n.links.some((t2) => titlesMatch(t2, test.title)));
+  const throughAssumption = parents.filter((p2) => p2.layer === "Assumption").flatMap((a) => tree.filter((n) => n.layer === "Solution" && n.links.some((t2) => titlesMatch(t2, a.title))));
+  return [
+    test,
+    ...test.links.map((t2) => tree.find((n) => titlesMatch(n.title, t2))),
+    ...parents,
+    ...throughAssumption
+  ];
+}
 function joinedTests(tree, key, actors, candidates) {
   const cites = (n) => {
     if (!n) return false;
@@ -38443,12 +38469,7 @@ function joinedTests(tree, key, actors, candidates) {
   const out = [];
   for (const test of candidates) {
     if (!hasRecordedResult(test)) continue;
-    const neighbours = [
-      test,
-      ...test.links.map((t2) => tree.find((n) => titlesMatch(n.title, t2))),
-      ...tree.filter((n) => n.links.some((t2) => titlesMatch(t2, test.title)))
-    ];
-    const citing = neighbours.find(cites);
+    const citing = trustNeighbours(tree, test).find(cites);
     if (citing) out.push({ test, verdict: recordedVerdict(test), cited: citing.title });
   }
   return out;
@@ -39683,10 +39704,16 @@ var OST_RULESET = {
       "role": "Candidate to be compared and de-risked; generate multiple per target opportunity; enters the tree unvalidated."
     },
     {
+      "tag": "#Assumption",
+      "name": "Assumption",
+      "definition": "One belief a solution depends on, stated so that it could turn out to be false \u2014 'operators will hand a secret to a broker', not 'the broker works'. Torres's four kinds are the vocabulary: desirability, viability, feasibility, usability. A solution rests on several, and they are what get compared when choosing between solutions.",
+      "role": "Sits between a solution and its tests; attaches beneath the solution whose risk it names. Keeping it separate is what stops a solution resting on four beliefs from reading as covered because one test passed."
+    },
+    {
       "tag": "#AssumptionTest",
       "name": "Assumption test",
-      "definition": "A small, fast test of a single underlying assumption a solution depends on (desirability, viability, feasibility, or usability), used to choose among solutions rather than validate one whole idea.",
-      "role": "Bottom layer; attaches beneath the specific solution whose assumption it probes; proposed by the agent, run only by humans."
+      "definition": "A small, fast test of ONE assumption, used to choose among solutions rather than validate one whole idea. It names either the command whose exit code answers it or the person who is irreducibly the measurement.",
+      "role": "Bottom layer; attaches beneath the specific assumption it probes, not directly under the solution; proposed by the agent, run only by humans."
     }
   ],
   "firstRun": [
@@ -39767,8 +39794,8 @@ var OST_RULESET = {
     "Reframe solution-shaped or business-shaped inputs into customer-need-shaped opportunities, or hold them for human review.",
     "Keep opportunities laddered up to the outcome and propose (not silently impose) opportunity-space structure.",
     "Append multiple unvalidated candidate solutions under a target opportunity for compare-and-contrast.",
-    "Make each solution's underlying assumptions explicit and propose (never run) assumption tests.",
-    "Finish a solution by appending its test to the end of the solution node: the `[[wikilink]]` to the AssumptionTest on its own line, and beneath it the one command that will go green when the solution is built. A builder reads the solution, not the layer beneath it, and a definition of done kept one node away is a definition of done nobody reads.",
+    "Make each solution's underlying assumptions explicit as #Assumption nodes beneath it \u2014 one belief per node, stated so it could be false \u2014 and propose (never run) an assumption test beneath each. A test attaches under the assumption it probes, not under the solution.",
+    "Finish a solution by appending its test to the end of the solution node: the `[[wikilink]]` to the AssumptionTest on its own line (the edge itself runs through the #Assumption between them; this line is for the reader), and beneath it the one command that will go green when the solution is built. A builder reads the solution, not the layer beneath it, and a definition of done kept one node away is a definition of done nobody reads.",
     "Flag tree-hygiene issues: staleness, orphan solutions, duplicates, mislabeled nodes, and unbacked validity claims.",
     "Preserve full provenance for every node it touches: '## History' is append-only and every removal writes the line that explains it.",
     "Resolve duplicates by merging them, not by annotating both. Two nodes making the same claim are a debt the tree pays on every future pass \u2014 each one re-read, re-counted, and re-ideated under. `ost_merge_nodes` folds one into the other, repoints every inbound edge, and deletes the loser's file; you choose the survivor and write the merged prose. Annotate instead only when you are unsure they are the same claim, and say what would settle it.",
@@ -39790,9 +39817,9 @@ var OST_RULESET = {
   ],
   "obsidianFormat": {
     "nodeFile": "One Markdown file per node; the filename minus .md is the node title. Filenames must be filesystem-safe (no / \\ : * ? etc.) and unique across the vault so wikilinks resolve by name.",
-    "tagLine": "The first body line carries the layer tag: #Outcome, #Opportunity, #Solution, or #AssumptionTest. Graph view Groups bind one color per layer via a tag:#... query.",
+    "tagLine": "The first body line carries the layer tag: #Outcome, #Opportunity, #Solution, #Assumption, or #AssumptionTest. Graph view Groups bind one color per layer via a tag:#... query.",
     "wikilinks": "A parent->child edge is a [[Child Title]] wikilink written in the parent note (outgoing link); the child sees its parent via the Backlinks pane. The built-in Graph view's Display 'Arrows' toggle renders link direction natively, no plugin required. Keep every wikilink on a single line: a hard-wrapped paragraph that breaks one across two lines produces bracketed text and no edge, which reads correctly in the source and is missing from the graph. Let the line run long instead of wrapping inside the brackets. `check` fails on it (rule wrapped-wikilink) and the hygiene pass reports it, because discipline alone has not been enough.",
-    "frontmatter": "YAML frontmatter carries type (outcome|opportunity|solution|assumption_test), status, source/provenance, created (ISO date), and confidence (high|medium|low). Frontmatter is the machine-readable source of truth for state; inline tags drive graph coloring. Keep type in frontmatter in sync with the body tag.",
+    "frontmatter": "YAML frontmatter carries type (outcome|opportunity|solution|assumption|assumption_test), status, source/provenance, created (ISO date), and confidence (high|medium|low). Frontmatter is the machine-readable source of truth for state; inline tags drive graph coloring. Keep type in frontmatter in sync with the body tag.",
     "unvalidatedMarking": "Agent-ideated, not-yet-validated nodes carry a companion #unvalidated tag on the same first body line (e.g. '#Solution #unvalidated') plus status: unvalidated in frontmatter; a dedicated Graph group query tag:#unvalidated colors them in a warning color. Status vocabulary (unvalidated -> in-discovery -> validated -> shipped -> deferred) is a vault/tooling convention, not Torres canon.",
     "provenance": `Every note ends with an append-only '## History' section of dated entries; existing lines are never edited or deleted, and every removal elsewhere in the note writes a dated line here saying what went and why. Corrections append a new entry and update frontmatter while leaving original provenance intact. A node's PROSE may be rewritten (ost_edit_node) and a duplicate may be folded into the node that survives and its file deleted (ost_merge_nodes) \u2014 git is the recovery path, and the merge commit names what it removed. What no tool can touch either way are the reserved sections '## Results', '## Uncovered', '## Instrument Log' and '## Retraction': an edit takes prose only and reattaches them verbatim, and a merge carries the loser's across onto the survivor \u2014 except a retraction, which no merge may carry, because copying one onto a live node would take that node out of every count and gate without anyone having retracted it. Abandoned nodes are still set status: deferred rather than merged away \u2014 deferred means 'not now', merged means 'this was the same claim'. A node that should never have been written at all is RETRACTED, and that is a human's call on the CLI (\`ost-agent retract "<node>" -b "<who>" -w "<why>"\`): a retracted node keeps its file, its history and the retraction line, and is returned by no read \u2014 no count, scan, gate, rollup or sweep \u2014 which is why the agent has no way to write one. Ask for it; do not attempt it. Renames are done inside Obsidian so inbound wikilinks auto-update.`
   },
@@ -40890,9 +40917,17 @@ function checkInvariants(tree) {
     }
   }
   for (const n of tree) {
-    if (n.layer === "AssumptionTest") {
+    if (n.layer === "Assumption") {
       const parents = tree.filter((p2) => p2.layer === "Solution" && p2.links.includes(n.title));
       if (parents.length === 0) v.push({ rule: "assumption-mapped", node: n.title, detail: "not linked under any Solution" });
+    }
+  }
+  for (const n of tree) {
+    if (n.layer === "AssumptionTest") {
+      const parents = tree.filter(
+        (p2) => (p2.layer === "Assumption" || p2.layer === "Solution") && p2.links.includes(n.title)
+      );
+      if (parents.length === 0) v.push({ rule: "test-mapped", node: n.title, detail: "not linked under any Assumption" });
     }
   }
   for (const n of tree) {
@@ -41327,13 +41362,8 @@ function indexByTitle(tree) {
   for (const n of tree) index.set(n.title, n);
   return index;
 }
-function testsUnder2(index, solution) {
-  const out = [];
-  for (const link of solution.links) {
-    const child = index.get(link);
-    if (child?.layer === "AssumptionTest") out.push(child);
-  }
-  return out;
+function testsUnder(index, solution) {
+  return testsUnderSolution(solution, index);
 }
 function buildPermit(tree, title) {
   return permitFrom(indexByTitle(tree), title);
@@ -41343,7 +41373,7 @@ function permitFrom(index, title) {
   if (!solution || solution.layer !== "Solution") {
     return { cleared: false, reason: `no Solution node titled "${title}"` };
   }
-  const tests = testsUnder2(index, solution);
+  const tests = testsUnder(index, solution);
   if (tests.length === 0) {
     return {
       cleared: false,
@@ -41408,7 +41438,7 @@ function solutionsMissingInstruments(tree) {
   const out = [];
   for (const n of tree) {
     if (n.layer !== "Solution") continue;
-    const tests = testsUnder2(index, n);
+    const tests = testsUnder(index, n);
     if (tests.length === 0) continue;
     if (tests.some((t2) => nodeInstrument(t2))) continue;
     out.push(n.title);
@@ -42630,20 +42660,15 @@ function indexByTitle2(tree) {
   for (const n of tree) index.set(n.title, n);
   return index;
 }
-function testsUnder3(index, solution) {
-  const out = [];
-  for (const link of solution.links) {
-    const child = index.get(link);
-    if (child?.layer === "AssumptionTest") out.push(child);
-  }
-  return out;
+function testsUnder2(index, solution) {
+  return testsUnderSolution(solution, index);
 }
 function rankBuildableWork(tree, m, problem) {
   const index = indexByTitle2(tree);
   const candidates = buildableSolutions(tree);
   const scored = candidates.map((c3, treeOrder) => {
     const solution = index.get(c3.solution);
-    const tests = testsUnder3(index, solution);
+    const tests = testsUnder2(index, solution);
     return {
       treeOrder,
       candidate: c3,
@@ -45095,7 +45120,8 @@ var HYGIENE_LABELS = {
   "opportunity-connected": "orphan opportunity",
   "outcome-files-categories": "miscategorised outcome edge",
   "solution-mapped": "orphan solution",
-  "assumption-mapped": "orphan assumption test",
+  "assumption-mapped": "orphan assumption",
+  "test-mapped": "orphan assumption test",
   "evidence-class": "unclassed evidence",
   "no-self-validation": "self-validated",
   "lane-conflict": "lane conflict",
@@ -45232,7 +45258,7 @@ function computeNextWork(vault, dir, min, now = () => /* @__PURE__ */ new Date()
       existingSolutions: existing.slice(0, MAX_LISTED_CHILDREN)
     };
   }).filter((o2) => o2.solutions < min);
-  const allSolutionsMissingAssumptions = tree.filter((n) => n.layer === "Solution").filter((s) => childrenOfLayer(s, index, "AssumptionTest").length === 0).map((s) => ({ title: s.title, opportunity: firstOpportunityParent.get(s.title) ?? null }));
+  const allSolutionsMissingAssumptions = tree.filter((n) => n.layer === "Solution").filter((s) => testsUnderSolution(s, index).length === 0).map((s) => ({ title: s.title, opportunity: firstOpportunityParent.get(s.title) ?? null }));
   const standing = reconcileWithTrust(dir, census);
   const hygiene = detectHygiene(tree, liveCensus.nodes, MAX_ITEMS_PER_LIST2, storedEvidenceIds, standing);
   const allOpenUnknowns = tree.filter((n) => n.layer === "Unknown" && resolutionState(n) === "open").map((u) => ({
@@ -45695,9 +45721,20 @@ function oneLine2(reason) {
 var CHILD_HIERARCHY = {
   Opportunity: ["Outcome", "Opportunity"],
   Solution: ["Opportunity"],
-  AssumptionTest: ["Solution"],
-  Unknown: ["Outcome", "Opportunity", "Solution", "AssumptionTest"]
+  Assumption: ["Solution"],
+  AssumptionTest: ["Assumption"],
+  Unknown: ["Outcome", "Opportunity", "Solution", "Assumption", "AssumptionTest"]
 };
+var GATE_BEARING_PARENT = /* @__PURE__ */ new Set(["Solution", "Assumption"]);
+function carriesRecordedResult(vault, node) {
+  if (node.layer === "AssumptionTest") return hasRecordedResult(node);
+  if (node.layer !== "Assumption") return false;
+  return node.links.some((t2) => {
+    if (!vault.has(t2)) return false;
+    const test = vault.read(t2);
+    return test.layer === "AssumptionTest" && hasRecordedResult(test);
+  });
+}
 function assertLinkAllowed(vault, parentTitle, childTitle) {
   const parent = vault.read(parentTitle);
   if (!vault.has(childTitle)) {
@@ -45718,7 +45755,7 @@ function assertLinkAllowed(vault, parentTitle, childTitle) {
     );
   }
   const alreadyLinked = parent.links.some((l) => titlesMatch(l, childTitle));
-  if (!alreadyLinked && parent.layer === "Solution" && child.layer === "AssumptionTest" && hasRecordedResult(child)) {
+  if (!alreadyLinked && GATE_BEARING_PARENT.has(parent.layer) && carriesRecordedResult(vault, child)) {
     throw new Error(
       `refusing to attach "${displaySafeTitle(childTitle)}" under "${displaySafeTitle(parentTitle)}": that test already records a result, and hanging it under a solution that did not commission it would clear that solution's evidence gate on a run that was about something else \u2014 in one call, with nothing in the tree to show for it. Surface an assumption test FOR this solution (ost_create_node, which attaches it in the same call) and let a human run it. If the two solutions genuinely rest on the same tested assumption, a human says so \u2014 in the note, or by linking it themselves.`
     );
@@ -45732,12 +45769,12 @@ function assertMergeAllowed(vault, from, into) {
       `refusing to merge "${displaySafeTitle(from)}" into "${displaySafeTitle(into)}": the first records a result and the second does not, so this merge would hand "${displaySafeTitle(into)}" a run nobody performed on it \u2014 a gate cleared by the agent's judgement that two nodes are the same, in one call. If they really are the same claim, a human merges them and carries the finding across deliberately.`
     );
   }
-  if (survivor.layer !== "Solution") return;
+  if (!GATE_BEARING_PARENT.has(survivor.layer)) return;
   for (const childTitle of loser.links) {
     if (survivor.links.some((l) => titlesMatch(l, childTitle))) continue;
     if (!vault.has(childTitle)) continue;
     const child = vault.read(childTitle);
-    if (child.layer === "AssumptionTest" && hasRecordedResult(child)) {
+    if (carriesRecordedResult(vault, child)) {
       throw new Error(
         `refusing to merge "${displaySafeTitle(from)}" into "${displaySafeTitle(into)}": it would bring the tested assumption "${displaySafeTitle(childTitle)}" under "${displaySafeTitle(into)}", clearing that solution's evidence gate on a run commissioned for a different one. Same refusal as attaching the test directly (ost_link_nodes) \u2014 a human decides when two solutions rest on the same tested assumption.`
       );
@@ -45865,13 +45902,13 @@ function buildOstTools(ctx, allowedNames) {
     tool({
       name: "ost_create_node",
       reversibility: "reversible",
-      description: "Create a NEW node AND attach it under an existing parent in one call. Everything that can be refused \u2014 the parent, the hierarchy, the evidence class, the title, the body \u2014 is checked BEFORE anything is written, so a refused call leaves nothing on disk; if the attach still fails after the file exists (a filesystem error, the one failure that cannot be checked in advance), the error names the node it created and tells you to link it, and ost_check reports it as unattached until you do. You CANNOT create an Outcome (there is exactly one, human-set at init). Hierarchy is enforced: an Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an AssumptionTest under a Solution; an Unknown (darkness, representing uncertainty) attaches under any layer. The type tag (#Opportunity / #Solution / #AssumptionTest / #Unknown) is applied automatically, and so is the #unvalidated marker: everything you create enters the tree unvalidated, and only a human can take that marker off (`ost-agent promote`). For an Unknown, write its body with three `## ` sections \u2014 `## Format` (the shape a valid answer would take), `## Methodology` (how it would be collected), and `## Rationale` (which node this darkens and what metric it serves) \u2014 because Format is the stopping condition: an unknown that cannot say what an answer looks like cannot know when it is done, and one lacking Methodology is worth commissioning observability for rather than chasing further.",
+      description: "Create a NEW node AND attach it under an existing parent in one call. Everything that can be refused \u2014 the parent, the hierarchy, the evidence class, the title, the body \u2014 is checked BEFORE anything is written, so a refused call leaves nothing on disk; if the attach still fails after the file exists (a filesystem error, the one failure that cannot be checked in advance), the error names the node it created and tells you to link it, and ost_check reports it as unattached until you do. You CANNOT create an Outcome (there is exactly one, human-set at init). Hierarchy is enforced: an Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an Assumption under a Solution; an AssumptionTest under an Assumption; an Unknown (darkness, representing uncertainty) attaches under any layer. An Assumption is the BELIEF a solution depends on, stated so it could be wrong ('operators will hand a secret to a broker'); the AssumptionTest beneath it is how you would find out. One assumption may carry several tests, and a solution resting on four beliefs is not covered by one test against one of them \u2014 which is the distinction this layer exists to keep. The type tag (#Opportunity / #Solution / #Assumption / #AssumptionTest / #Unknown) is applied automatically, and so is the #unvalidated marker: everything you create enters the tree unvalidated, and only a human can take that marker off (`ost-agent promote`). For an Unknown, write its body with three `## ` sections \u2014 `## Format` (the shape a valid answer would take), `## Methodology` (how it would be collected), and `## Rationale` (which node this darkens and what metric it serves) \u2014 because Format is the stopping condition: an unknown that cannot say what an answer looks like cannot know when it is done, and one lacking Methodology is worth commissioning observability for rather than chasing further.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
         properties: {
           title: { type: "string", description: "Node title; also the filename." },
-          layer: { type: "string", enum: ["Opportunity", "Solution", "AssumptionTest", "Unknown"], description: "Opportunity | Solution | AssumptionTest | Unknown (Outcome cannot be created here)" },
+          layer: { type: "string", enum: ["Opportunity", "Solution", "Assumption", "AssumptionTest", "Unknown"], description: "Opportunity | Solution | Assumption | AssumptionTest | Unknown (Outcome cannot be created here)" },
           parent: { type: "string", description: "Title of the existing parent node to attach under." },
           body: { type: "string", description: "Prose description of the node." },
           status: { type: "string", enum: AGENT_SETTABLE_STATUSES },
@@ -46005,7 +46042,7 @@ A person outside the building is the measurement here: ${input.humansRequired.tr
     tool({
       name: "ost_link_nodes",
       reversibility: "reversible",
-      description: "Add a parent->child edge (a [[wikilink]] in the parent). Idempotent. Use to connect an Opportunity under the Outcome, a Solution under an Opportunity, or an AssumptionTest under a Solution \u2014 the same hierarchy ost_create_node enforces, and it is enforced here too: the child must already exist and the layers must fit, so this tool cannot author a dangling or nonsensical edge. One further refusal: an AssumptionTest that already records a result cannot be attached to a new Solution, because that would clear that solution's evidence gate on a test it never commissioned.",
+      description: "Add a parent->child edge (a [[wikilink]] in the parent). Idempotent. Use to connect an Opportunity under the Outcome, a Solution under an Opportunity, an Assumption under a Solution, or an AssumptionTest under an Assumption \u2014 the same hierarchy ost_create_node enforces, and it is enforced here too: the child must already exist and the layers must fit, so this tool cannot author a dangling or nonsensical edge. One further refusal: a node that already carries a recorded result \u2014 a run AssumptionTest, or an Assumption holding one \u2014 cannot be attached to a new parent, because that would clear that parent's evidence gate on a test it never commissioned.",
       inputSchema: {
         type: "object",
         additionalProperties: false,

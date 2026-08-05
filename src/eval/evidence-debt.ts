@@ -14,6 +14,7 @@
 import type { OstNode } from "../ost/node.js";
 import { titlesMatch } from "../ost/sanitize.js";
 import { declaresHeading, RESULTS_HEADING } from "../ost/headings.js";
+import { byTitle, testsUnderSolution } from "../processes/tree.js";
 
 export type DebtState = "untested" | "proposed" | "tested";
 
@@ -48,16 +49,16 @@ export function hasRecordedResult(test: OstNode): boolean {
   return declaresHeading(test.body, RESULTS_HEADING);
 }
 
-function testsUnder(tree: readonly OstNode[], solution: OstNode): OstNode[] {
-  return tree.filter((n) => n.layer === "AssumptionTest" && solution.links.includes(n.title));
-}
-
 /** Per-solution debt across the whole tree, plus totals. */
 export function computeEvidenceDebt(tree: readonly OstNode[]): EvidenceDebt {
+  // Indexed once, not once per solution: the walk is two hops now, and doing it
+  // as a whole-tree filter per solution is the O(solutions × nodes) shape that
+  // `buildable.ts` already had to undo after it blew the wall-clock budget.
+  const index = byTitle([...tree]);
   const solutions = tree
     .filter((n) => n.layer === "Solution")
     .map((sol) => {
-      const tests = testsUnder(tree, sol);
+      const tests = testsUnderSolution(sol, index);
       const run = tests.filter(hasRecordedResult);
       const state: DebtState = tests.length === 0 ? "untested" : run.length === 0 ? "proposed" : "tested";
       return {

@@ -24,6 +24,7 @@
 import { nodeInstrument, observedGreen, observedRed } from "../ost/instrument.js";
 import { CAUTIOUS_LANE } from "../knowledge/lanes.js";
 import type { OstNode } from "../ost/node.js";
+import { testsUnderSolution } from "../processes/tree.js";
 
 export interface BuildPermit {
   cleared: boolean;
@@ -50,12 +51,7 @@ function indexByTitle(tree: readonly OstNode[]): Map<string, OstNode> {
 }
 
 function testsUnder(index: Map<string, OstNode>, solution: OstNode): OstNode[] {
-  const out: OstNode[] = [];
-  for (const link of solution.links) {
-    const child = index.get(link);
-    if (child?.layer === "AssumptionTest") out.push(child);
-  }
-  return out;
+  return testsUnderSolution(solution, index);
 }
 
 /**

@@ -67,8 +67,27 @@ describe("checkInvariants", () => {
   });
 
   test("flags an assumption not under any solution", () => {
-    const tree = [node(OUT, "Outcome", ["Opp"]), node("Opp", "Opportunity"), node("Asm", "AssumptionTest")];
+    const tree = [node(OUT, "Outcome", ["Opp"]), node("Opp", "Opportunity"), node("Belief", "Assumption")];
     expect(checkInvariants(tree).some((v) => v.rule === "assumption-mapped")).toBe(true);
+  });
+
+  test("flags an assumption test not under any assumption", () => {
+    const tree = [node(OUT, "Outcome", ["Opp"]), node("Opp", "Opportunity"), node("Asm", "AssumptionTest")];
+    expect(checkInvariants(tree).some((v) => v.rule === "test-mapped")).toBe(true);
+  });
+
+  // The read-tolerance `testsUnderSolution` documents, asserted rather than
+  // assumed: a vault written before the Assumption layer keeps a green `check`,
+  // because making every un-migrated vault red is what would turn a schema
+  // addition into an outage for people who did not ask for one.
+  test("a legacy Solution→AssumptionTest edge still counts as mapped", () => {
+    const tree = [
+      node(OUT, "Outcome", ["Opp"]),
+      node("Opp", "Opportunity", ["Sol"]),
+      node("Sol", "Solution", ["Asm"]),
+      node("Asm", "AssumptionTest"),
+    ];
+    expect(checkInvariants(tree).some((v) => v.rule === "test-mapped")).toBe(false);
   });
 
   test("flags a node that is both unvalidated-tagged and status validated", () => {

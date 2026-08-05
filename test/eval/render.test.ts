@@ -132,7 +132,7 @@ describe("renderStatus — the attention section", () => {
       [
         `Vault: ${ctx.dir}`,
         "Outcome: Reach ten returning operators.",
-        "Nodes: 1  (Outcome 1, Opportunity 0, Solution 0, AssumptionTest 0, Unknown 0)",
+        "Nodes: 1  (Outcome 1, Opportunity 0, Solution 0, Assumption 0, AssumptionTest 0, Unknown 0)",
         "Unvalidated (agent-ideated, awaiting review): 0",
         "Believability: money 0, observed 0, stated 0, expert 0, assertion 1",
         "  the tree as a whole rests on its weakest rung: assertion",

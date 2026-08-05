@@ -93,11 +93,29 @@ export function checkInvariants(tree: OstNode[]): Violation[] {
     }
   }
 
-  // every AssumptionTest sits under at least one Solution
+  // every Assumption sits under at least one Solution
   for (const n of tree) {
-    if (n.layer === "AssumptionTest") {
+    if (n.layer === "Assumption") {
       const parents = tree.filter((p) => p.layer === "Solution" && p.links.includes(n.title));
       if (parents.length === 0) v.push({ rule: "assumption-mapped", node: n.title, detail: "not linked under any Solution" });
+    }
+  }
+
+  // every AssumptionTest sits under at least one Assumption — or, in a vault
+  // written before that layer existed, directly under a Solution.
+  //
+  // The legacy parent is accepted for the reason `testsUnderSolution` spells
+  // out: `check` is what CI and the loop gate on, so making it red on every
+  // un-migrated vault would convert a schema addition into an outage for
+  // everyone who did not ask for it. What is NOT tolerated is the shape being
+  // written today — `CHILD_HIERARCHY` refuses a new Solution→AssumptionTest
+  // edge, so the legacy branch can only ever shrink.
+  for (const n of tree) {
+    if (n.layer === "AssumptionTest") {
+      const parents = tree.filter(
+        (p) => (p.layer === "Assumption" || p.layer === "Solution") && p.links.includes(n.title),
+      );
+      if (parents.length === 0) v.push({ rule: "test-mapped", node: n.title, detail: "not linked under any Assumption" });
     }
   }
 

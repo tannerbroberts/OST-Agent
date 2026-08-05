@@ -116,6 +116,7 @@ interface Scenario {
 const OUTCOME = "Players keep playing";
 const OPPORTUNITY = "Players cannot tell what changed";
 const SOLUTION = "Ship a changelog";
+const BELIEF = "Players would read a changelog if it existed";
 const ASSUMPTION = "Diff two builds and count the deltas";
 
 /** Direct vault writes — the fixture's way in, deliberately not the agent's. */
@@ -145,19 +146,26 @@ function withSolution(v: Vault): void {
   v.linkNodes(OPPORTUNITY, SOLUTION);
 }
 
+/** …and the belief beneath it, which is what an AssumptionTest attaches under. */
+function withBelief(v: Vault): void {
+  withSolution(v);
+  put(v, { title: BELIEF, layer: "Assumption" });
+  v.linkNodes(SOLUTION, BELIEF);
+}
+
 /**
  * A tree whose assumption test declares `compute-only` in its own prose and
  * carries no lane in frontmatter — legal, and one restrictive call away from a
  * contradiction.
  */
 function withProseLane(v: Vault): void {
-  withSolution(v);
+  withBelief(v);
   put(v, {
     title: ASSUMPTION,
     layer: "AssumptionTest",
     body: "Compare two build manifests offline. Lane: compute-only.",
   });
-  v.linkNodes(SOLUTION, ASSUMPTION);
+  v.linkNodes(BELIEF, ASSUMPTION);
 }
 
 const SCENARIOS: Record<string, Scenario> = {
@@ -294,12 +302,34 @@ const SCENARIOS: Record<string, Scenario> = {
     create: [
       {
         tool: "ost_create_node",
-        input: { title: "A fresh test", layer: "AssumptionTest", parent: SOLUTION, body: "a test", evidence: "assertion" },
+        input: { title: "A fresh belief", layer: "Assumption", parent: SOLUTION, body: "a belief", evidence: "assertion" },
+      },
+    ],
+    plant: (v) => put(v, { title: "Unmapped belief", layer: "Assumption" }),
+    clearPath: "ost_link_nodes attaching it under a Solution",
+    clear: [{ tool: "ost_link_nodes", input: { parent: SOLUTION, child: "Unmapped belief" } }],
+    expected: { mcp: { create: false, clear: true }, "ost-pass": { create: false, clear: true } },
+  },
+
+  "test-mapped": {
+    setup: withBelief,
+    createPath: "ost_create_node, which attaches under its parent in the same call",
+    create: [
+      {
+        tool: "ost_create_node",
+        input: {
+          title: "A fresh test",
+          layer: "AssumptionTest",
+          parent: BELIEF,
+          body: "a test",
+          evidence: "assertion",
+          instrument: "npx vitest run test/fresh.test.ts",
+        },
       },
     ],
     plant: (v) => put(v, { title: "Unmapped test", layer: "AssumptionTest" }),
-    clearPath: "ost_link_nodes attaching it under a Solution",
-    clear: [{ tool: "ost_link_nodes", input: { parent: SOLUTION, child: "Unmapped test" } }],
+    clearPath: "ost_link_nodes attaching it under an Assumption",
+    clear: [{ tool: "ost_link_nodes", input: { parent: BELIEF, child: "Unmapped test" } }],
     expected: { mcp: { create: false, clear: true }, "ost-pass": { create: false, clear: true } },
   },
 

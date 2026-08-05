@@ -140,6 +140,8 @@ async function refusal(name: string, input: Record<string, unknown>): Promise<st
  * the outcome. `## Results` is a reserved heading — no agent-reachable parameter authors
  * it (B1) — so this is written through the section API the CLI's `recordResult` uses.
  */
+const SETUP_BELIEF = "Setup is what the hour goes on";
+
 async function humanRecordsResult(testTitle: string, parent: string): Promise<void> {
   await call("ost_create_node", {
     title: testTitle,
@@ -220,6 +222,17 @@ test("a dropped note is ranked by the channel it arrived on, all the way to the 
     source: "INBOX:note.md",
     evidence: "assertion",
   });
+  // The belief the solution rests on — an AssumptionTest attaches under one of
+  // these, not under the solution. The solution is still what cites the channel,
+  // and `trustNeighbours` steps through an Assumption for exactly that reason.
+  await call("ost_create_node", {
+    title: SETUP_BELIEF,
+    layer: "Assumption",
+    parent: "Guided setup",
+    body: "Setup is what the hour goes on.",
+    source: "INBOX:note.md",
+    evidence: "assertion",
+  });
 
   /* ---------------------------------------------------------------- *
    * LINK 3 (B3) — the write boundary refuses above that ceiling, and names it.
@@ -277,7 +290,7 @@ test("a dropped note is ranked by the channel it arrived on, all the way to the 
    * ---------------------------------------------------------------- */
   const inbox = actorKey("channel", "inbox");
   for (const n of [1, 2, 3]) {
-    await humanRecordsResult(`The hour-long setup claim held ${n}`, "Guided setup");
+    await humanRecordsResult(`The hour-long setup claim held ${n}`, SETUP_BELIEF);
     await call("ost_rank_source", {
       kind: "channel",
       id: "inbox",
@@ -298,7 +311,7 @@ test("a dropped note is ranked by the channel it arrived on, all the way to the 
    * measurement rung, which is what keys the row on the ACTOR KIND rather than on a
    * host that would have carried `expert`.
    * ---------------------------------------------------------------- */
-  await humanRecordsResult("The hour-long setup claim held 4", "Guided setup");
+  await humanRecordsResult("The hour-long setup claim held 4", SETUP_BELIEF);
   await call("ost_rank_source", {
     kind: "channel",
     id: "inbox",

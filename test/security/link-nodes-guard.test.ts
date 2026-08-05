@@ -75,6 +75,10 @@ const BLOCKED_TEST = "Diff two builds and count the deltas";
 const CLEARED = "Ship a digest email";
 const CLEARED_TEST = "Mail fifty users and count the opens";
 
+/** The beliefs the two solutions rest on — an AssumptionTest attaches under one. */
+const BLOCKED_BELIEF = "Players would read a changelog if it existed";
+const CLEARED_BELIEF = "Players would open a digest email";
+
 const RESULT_LINE = "- 2026-01-04 — supported — by Ana Ruiz — uncovered: retention past week one";
 
 let dir: string;
@@ -101,12 +105,16 @@ beforeEach(() => {
   vault.linkNodes(OUTCOME, OPPORTUNITY);
   put(BLOCKED, "Solution");
   vault.linkNodes(OPPORTUNITY, BLOCKED);
+  put(BLOCKED_BELIEF, "Assumption");
+  vault.linkNodes(BLOCKED, BLOCKED_BELIEF);
   put(BLOCKED_TEST, "AssumptionTest");
-  vault.linkNodes(BLOCKED, BLOCKED_TEST);
+  vault.linkNodes(BLOCKED_BELIEF, BLOCKED_TEST);
   put(CLEARED, "Solution");
   vault.linkNodes(OPPORTUNITY, CLEARED);
+  put(CLEARED_BELIEF, "Assumption");
+  vault.linkNodes(CLEARED, CLEARED_BELIEF);
   put(CLEARED_TEST, "AssumptionTest");
-  vault.linkNodes(CLEARED, CLEARED_TEST);
+  vault.linkNodes(CLEARED_BELIEF, CLEARED_TEST);
   // The human's write path — `appendUnderSection` names the heading as its own
   // argument, the one position no tool call reaches (B1).
   vault.appendUnderSection(CLEARED_TEST, "## Results", RESULT_LINE);
@@ -123,7 +131,7 @@ const gate = (solution: string): boolean => renderGate(vault.readTree(), solutio
 describe("R6(a) — the hierarchy and the child are checked, as they are on create", () => {
   test("an Opportunity is refused as the child of a Solution — the criterion's own case", async () => {
     await expect(link(BLOCKED, OPPORTUNITY)).rejects.toThrow(/must attach under Outcome or Opportunity/);
-    expect(linksOf(BLOCKED)).toEqual([BLOCKED_TEST]);
+    expect(linksOf(BLOCKED)).toEqual([BLOCKED_BELIEF]);
   });
 
   test("a child that does not exist is refused, rather than written as a dangling edge", async () => {
@@ -140,7 +148,7 @@ describe("R6(a) — the hierarchy and the child are checked, as they are on crea
   test("a Solution under the Outcome, and an AssumptionTest under an Opportunity, are both refused", async () => {
     // The two off-by-one-layer mistakes an eager agent actually makes.
     await expect(link(OUTCOME, BLOCKED)).rejects.toThrow(/must attach under Opportunity/);
-    await expect(link(OPPORTUNITY, BLOCKED_TEST)).rejects.toThrow(/must attach under Solution/);
+    await expect(link(OPPORTUNITY, BLOCKED_TEST)).rejects.toThrow(/must attach under Assumption/);
   });
 
   test("the parent still has to exist — the one check that was already here", async () => {
@@ -154,18 +162,21 @@ describe("R6(a) — the hierarchy and the child are checked, as they are on crea
     put("A second gap", "Opportunity");
     put("A sub-gap", "Opportunity");
     put("An unmapped idea", "Solution");
+    put("An unmapped belief", "Assumption");
     put("An unmapped test", "AssumptionTest");
     put("Darkness", "Unknown");
 
     await link(OUTCOME, "A second gap"); // Opportunity under Outcome
     await link(OPPORTUNITY, "A sub-gap"); // Opportunity under Opportunity
     await link(OPPORTUNITY, "An unmapped idea"); // Solution under Opportunity
-    await link(BLOCKED, "An unmapped test"); // AssumptionTest under Solution
+    await link(BLOCKED, "An unmapped belief"); // Assumption under Solution
+    await link(BLOCKED_BELIEF, "An unmapped test"); // AssumptionTest under Assumption
     await link(BLOCKED_TEST, "Darkness"); // Unknown under anything
 
     expect(linksOf(OUTCOME)).toContain("A second gap");
     expect(linksOf(OPPORTUNITY)).toEqual(expect.arrayContaining(["A sub-gap", "An unmapped idea"]));
-    expect(linksOf(BLOCKED)).toContain("An unmapped test");
+    expect(linksOf(BLOCKED)).toContain("An unmapped belief");
+    expect(linksOf(BLOCKED_BELIEF)).toContain("An unmapped test");
     expect(linksOf(BLOCKED_TEST)).toContain("Darkness");
   });
 
@@ -178,11 +189,11 @@ describe("R6(a) — the hierarchy and the child are checked, as they are on crea
     put("Unmapped idea", "Solution");
     put("Unmapped test", "AssumptionTest");
     const rules = () => checkInvariants(vault.readTree()).map((v) => v.rule);
-    expect(rules()).toEqual(expect.arrayContaining(["opportunity-connected", "solution-mapped", "assumption-mapped"]));
+    expect(rules()).toEqual(expect.arrayContaining(["opportunity-connected", "solution-mapped", "test-mapped"]));
 
     await link(OUTCOME, "Adrift");
     await link(OPPORTUNITY, "Unmapped idea");
-    await link(BLOCKED, "Unmapped test");
+    await link(BLOCKED_BELIEF, "Unmapped test");
 
     expect(checkInvariants(vault.readTree())).toEqual([]);
   });
@@ -196,10 +207,10 @@ describe("R6(b) — an already-run assumption test cannot be adopted by a second
   });
 
   test("the single call that used to flip the gate is refused, and the gate stays blocked", async () => {
-    await expect(link(BLOCKED, CLEARED_TEST)).rejects.toThrow(/already records a result/);
+    await expect(link(BLOCKED_BELIEF, CLEARED_TEST)).rejects.toThrow(/already records a result/);
 
     expect(gate(BLOCKED)).toBe(false);
-    expect(linksOf(BLOCKED)).toEqual([BLOCKED_TEST]);
+    expect(linksOf(BLOCKED)).toEqual([BLOCKED_BELIEF]);
   });
 
   test("PROOF THE REFUSAL IS ABOUT SOMETHING: the same edge, written by the vault, does flip it", () => {
@@ -218,9 +229,9 @@ describe("R6(b) — an already-run assumption test cannot be adopted by a second
     // and the gate does not move: the test has no result to lend. When a human
     // later records one, it is their write that clears both — a person in the
     // loop, not a single agent call.
-    await link(CLEARED, BLOCKED_TEST);
+    await link(CLEARED_BELIEF, BLOCKED_TEST);
 
-    expect(linksOf(CLEARED)).toContain(BLOCKED_TEST);
+    expect(linksOf(CLEARED_BELIEF)).toContain(BLOCKED_TEST);
     expect(gate(CLEARED)).toBe(true); // unchanged: its own test was already run
     expect(gate(BLOCKED)).toBe(false);
   });
@@ -232,8 +243,8 @@ describe("R6(b) — an already-run assumption test cannot be adopted by a second
     vault.appendUnderSection(BLOCKED_TEST, "## Results", RESULT_LINE);
     expect(gate(BLOCKED)).toBe(true);
 
-    await expect(link(BLOCKED, BLOCKED_TEST)).resolves.toContain("linked");
-    expect(linksOf(BLOCKED)).toEqual([BLOCKED_TEST]);
+    await expect(link(BLOCKED_BELIEF, BLOCKED_TEST)).resolves.toContain("linked");
+    expect(linksOf(BLOCKED)).toEqual([BLOCKED_BELIEF]);
   });
 
   test("the ordinary flow is untouched: create the test, then a human records the result", async () => {
@@ -244,12 +255,12 @@ describe("R6(b) — an already-run assumption test cannot be adopted by a second
     await (create as unknown as { run: (i: unknown) => Promise<string> }).run({
       title: "Count the diffs by hand",
       layer: "AssumptionTest",
-      parent: BLOCKED,
+      parent: BLOCKED_BELIEF,
       body: "read two manifests",
       evidence: "assertion",
       humansRequired: "a person reads both manifests and counts the differences",
     });
-    expect(linksOf(BLOCKED)).toContain("Count the diffs by hand");
+    expect(linksOf(BLOCKED_BELIEF)).toContain("Count the diffs by hand");
 
     vault.appendUnderSection("Count the diffs by hand", "## Results", RESULT_LINE);
     expect(gate(BLOCKED)).toBe(true);
@@ -259,8 +270,8 @@ describe("R6(b) — an already-run assumption test cannot be adopted by a second
     // R6's guard is narrow, but it is not free, and the boundary was missing from
     // both this file and `assertLinkAllowed`'s comment when they were written.
     //
-    // `assumption-mapped` is cleared by linking an unattached AssumptionTest under
-    // a Solution — and that repair is now REFUSED for exactly one shape of orphan:
+    // `test-mapped` is cleared by linking an unattached AssumptionTest under
+    // an Assumption — and that repair is now REFUSED for exactly one shape of orphan:
     // one that already records a result. The clearability table cannot see it: its
     // `assumption-mapped` plant is an orphan with no result, so the row stays green
     // while this shape is unclearable by the agent.
@@ -278,18 +289,18 @@ describe("R6(b) — an already-run assumption test cannot be adopted by a second
     put("An orphan test", "AssumptionTest");
     vault.appendUnderSection("An orphan test", "## Results", RESULT_LINE);
     const rules = () => checkInvariants(vault.readTree()).map((v) => v.rule);
-    expect(rules()).toContain("assumption-mapped");
+    expect(rules()).toContain("test-mapped");
 
-    await expect(link(BLOCKED, "An orphan test")).rejects.toThrow(/already records a result/);
-    expect(rules()).toContain("assumption-mapped");
+    await expect(link(BLOCKED_BELIEF, "An orphan test")).rejects.toThrow(/already records a result/);
+    expect(rules()).toContain("test-mapped");
     // …and the gate the refusal is protecting did not move.
     expect(gate(BLOCKED)).toBe(false);
 
     // NON-VACUITY for "it is the result that is refused, not the repair": the same
     // repair on an orphan with no result lands, and clears its violation.
     put("A second orphan test", "AssumptionTest");
-    await link(BLOCKED, "A second orphan test");
-    expect(linksOf(BLOCKED)).toContain("A second orphan test");
+    await link(BLOCKED_BELIEF, "A second orphan test");
+    expect(linksOf(BLOCKED_BELIEF)).toContain("A second orphan test");
 
     // What the sweep does instead, and that it is enough to reach `done`. The
     // issue string comes from `next_work` itself, because that is the move the
@@ -297,7 +308,7 @@ describe("R6(b) — an already-run assumption test cannot be adopted by a second
     // annotation in the tester's own words would leave `done` false and this test
     // would then be reporting a wedge that the real sweep does not hit.
     const outstanding = computeNextWork(vault, dir, 1).hygieneIssues.find((h) => h.title === "An orphan test")!;
-    expect(outstanding.rule).toBe("assumption-mapped");
+    expect(outstanding.rule).toBe("test-mapped");
     const annotate = buildOstTools(ctx, MCP_TOOL_NAMES).find((t) => t.name === "ost_annotate")!;
     await (annotate as unknown as { run: (i: unknown) => Promise<string> }).run({
       title: "An orphan test",
@@ -305,7 +316,7 @@ describe("R6(b) — an already-run assumption test cannot be adopted by a second
     });
     expect(computeNextWork(vault, dir, 1).done).toBe(true);
     // The violation is still reported to the human. Suppressed in `done`, never in `check`.
-    expect(rules()).toContain("assumption-mapped");
+    expect(rules()).toContain("test-mapped");
   });
 
   test("a Solution's gate is ADVISORY — a refusal here cannot wedge an unattended pass", async () => {
