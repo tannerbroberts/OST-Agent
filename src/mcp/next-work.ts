@@ -351,6 +351,7 @@ export const HYGIENE_LABELS: Readonly<Record<string, string>> = {
   "lane-conflict": "lane conflict",
   "rung-unearned": "unearned rung",
   "single-parent": "two parents",
+  "single-backlink": "linked more than once",
 };
 
 /**

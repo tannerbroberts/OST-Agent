@@ -270,3 +270,62 @@ describe("a node belongs under exactly one parent", () => {
     expect(violation?.detail).toContain("Ship a digest email");
   });
 });
+
+/**
+ * One backlink per node.
+ *
+ * `single-parent` counts EDGES — the contiguous `[[…]]` lines under the tag
+ * line, which is all `links` holds. A wikilink inside a paragraph is not an edge
+ * by that definition, so a tree can be a perfect one-parent tree and still have
+ * a node linked from fifteen other bodies. Obsidian draws every wikilink it
+ * finds regardless of where it sits, so by the only measure a reader has, those
+ * are inbound edges and the graph is not a tree.
+ */
+describe("a title is wikilinked exactly once, by its parent", () => {
+  test("a prose citation of an already-parented node is a violation", () => {
+    put(BELIEF, "Assumption");
+    vault.linkNodes(SOLUTION, BELIEF);
+    put("A citing opportunity", "Opportunity", { body: `see [[${BELIEF}]] for the shape of it` });
+    vault.linkNodes(OUTCOME, "A citing opportunity");
+
+    const violation = checkInvariants(vault.readTree()).find((v) => v.rule === "single-backlink");
+    expect(violation?.node).toBe(BELIEF);
+    // Names both, and says which is the edge — the edge is the one to keep.
+    expect(violation?.detail).toContain(`${SOLUTION} (edge)`);
+    expect(violation?.detail).toContain("A citing opportunity (prose)");
+  });
+
+  test("naming the node in plain text instead is clean — a mention is not a link", () => {
+    put(BELIEF, "Assumption");
+    vault.linkNodes(SOLUTION, BELIEF);
+    put("A citing opportunity", "Opportunity", { body: `see "${BELIEF}" for the shape of it` });
+    vault.linkNodes(OUTCOME, "A citing opportunity");
+
+    expect(checkInvariants(vault.readTree()).map((v) => v.rule)).not.toContain("single-backlink");
+  });
+
+  test("the edge itself is not a violation — one link is the point, not zero", () => {
+    put(BELIEF, "Assumption");
+    vault.linkNodes(SOLUTION, BELIEF);
+    expect(checkInvariants(vault.readTree()).map((v) => v.rule)).not.toContain("single-backlink");
+  });
+
+  test("the Outcome is linked by nobody, and that is not a violation either", () => {
+    // It is the root. `single-backlink` only ever objects to a SURPLUS link;
+    // a node linked zero times is the *-mapped rules' business, not this one.
+    const violations = checkInvariants(vault.readTree()).filter((v) => v.rule === "single-backlink");
+    expect(violations).toEqual([]);
+  });
+
+  test("two prose citations of the same node report both, not just the first", () => {
+    put(BELIEF, "Assumption");
+    vault.linkNodes(SOLUTION, BELIEF);
+    for (const n of ["First citer", "Second citer"]) {
+      put(n, "Opportunity", { body: `compare against [[${BELIEF}]]` });
+      vault.linkNodes(OUTCOME, n);
+    }
+    const violation = checkInvariants(vault.readTree()).find((v) => v.rule === "single-backlink");
+    expect(violation?.detail).toContain("First citer (prose)");
+    expect(violation?.detail).toContain("Second citer (prose)");
+  });
+});

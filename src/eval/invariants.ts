@@ -154,6 +154,47 @@ export function checkInvariants(tree: OstNode[]): Violation[] {
     }
   }
 
+  // a title is wikilinked exactly once in the whole vault — by its parent
+  //
+  // `single-parent` counts EDGES: the contiguous `[[…]]` lines under the tag
+  // line, which is all `links` holds. A wikilink inside a paragraph is not an
+  // edge by that definition, so the tree can be a perfect one-parent tree while
+  // a node is still linked from fifteen other bodies. Obsidian does not make
+  // that distinction — it draws every wikilink it finds, wherever it sits — so
+  // by the only measure a reader has, those are inbound edges and the graph is
+  // not a tree. The meta vault had 2,214 of them across 920 nodes.
+  //
+  // A mention is not forbidden; a LINK is. "Some node" in prose costs nothing
+  // and says the same thing, which is why the migration de-linked rather than
+  // deleted.
+  const linkedFrom = new Map<string, string[]>();
+  for (const p of tree) {
+    for (const child of p.links) {
+      const list = linkedFrom.get(child);
+      if (list) list.push(`${p.title} (edge)`);
+      else linkedFrom.set(child, [`${p.title} (edge)`]);
+    }
+    for (const m of (p.body ?? "").matchAll(/\[\[([^\]|#]+?)(?:[|#][^\]]*)?\]\]/g)) {
+      const target = m[1].trim();
+      const list = linkedFrom.get(target);
+      if (list) list.push(`${p.title} (prose)`);
+      else linkedFrom.set(target, [`${p.title} (prose)`]);
+    }
+  }
+  for (const n of tree) {
+    // The Outcome is the root and is linked by nobody; every other node is
+    // linked exactly once. A node linked zero times is already reported by the
+    // *-mapped rules, so this one only speaks to the surplus.
+    const from = linkedFrom.get(n.title) ?? [];
+    if (from.length > 1) {
+      v.push({
+        rule: "single-backlink",
+        node: n.title,
+        detail: `is wikilinked ${from.length} times (${from.join("; ")}) — exactly one link, from its parent; mention it elsewhere as plain text`,
+      });
+    }
+  }
+
   // every node declares what it rests on — an unlabelled node lets a reader
   // over-trust founder theory by mistaking it for evidence
   for (const n of tree) {

@@ -146,6 +146,12 @@ const PLANT: Record<string, () => void> = {
   // Also planted through the vault — `assertLinkAllowed` refuses a second edge
   // onto an already-parented node, so this arrives by hand edit or from a vault
   // written before the rule.
+  // Prose, not an edge — `ost_link_nodes` writes edges and cannot author this.
+  // It arrives from a body someone wrote citing a node that already has a parent.
+  "single-backlink": () => {
+    put({ title: "A citing note", layer: "Opportunity", body: `see [[${SOLUTION}]] for the shape of it` });
+    vault.linkNodes(OUTCOME, "A citing note");
+  },
   "single-parent": () => {
     put({ title: "A rival opportunity", layer: "Opportunity" });
     vault.linkNodes(OUTCOME, "A rival opportunity");

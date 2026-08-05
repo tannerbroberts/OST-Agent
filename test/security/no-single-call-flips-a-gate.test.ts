@@ -934,6 +934,14 @@ const AUTHORSHIP: Record<string, Authorship> = {
       "shrink the sentence, so nothing the agent held could clear it. A human's `ost-agent lane --set` still can",
   },
   "rung-unearned": { create: null, escapes: [], why: "B3 — a measurement rung is refused when provenance cannot carry it" },
+  "single-backlink": {
+    create: null,
+    escapes: [],
+    why:
+      "ost_create_node writes the node's own body, not another node's, and its body cannot contain a link TO itself " +
+      "that counts; ost_link_nodes writes the one edge. A second link arrives from prose someone wrote — a hand edit, " +
+      "an append, or a vault written before the rule",
+  },
   "single-parent": {
     create: null,
     escapes: [],

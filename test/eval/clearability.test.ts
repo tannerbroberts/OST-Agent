@@ -414,6 +414,33 @@ const SCENARIOS: Record<string, Scenario> = {
     createRefusal: /already declares a lane|is not granted on this surface/,
   },
 
+  "single-backlink": {
+    setup: withSolution,
+    // The agent writes bodies constantly; what it cannot do in ONE call is make
+    // a body the second link to a node, because creating a node and linking it
+    // are the same call and that call writes the edge, not a citation.
+    createPath: "ost_create_node writes a body, but the node it creates is linked once — by the same call",
+    create: [
+      {
+        tool: "ost_create_node",
+        input: { title: "A plain-spoken idea", layer: "Solution", parent: OPPORTUNITY, body: `compare against "${SOLUTION}"`, evidence: "assertion" },
+      },
+    ],
+    // Planted through the vault: prose citing a node that already has a parent.
+    plant: (v) => {
+      put(v, { title: "A citing gap", layer: "Opportunity", body: `see [[${SOLUTION}]] for the shape of it` });
+      v.linkNodes(OUTCOME, "A citing gap");
+    },
+    clearPath: "ost_edit_node rewriting the prose to name the node instead of linking it",
+    clear: [
+      {
+        tool: "ost_edit_node",
+        input: { title: "A citing gap", prose: `see "${SOLUTION}" for the shape of it`, why: "a title is linked once, by its parent" },
+      },
+    ],
+    expected: { mcp: { create: false, clear: true }, "ost-pass": { create: false, clear: true } },
+  },
+
   "single-parent": {
     setup: withSolution,
     createPath: "ost_create_node, which attaches a NEW node under one parent",

@@ -39738,6 +39738,7 @@ var OST_RULESET = {
   "treeRules": [
     "Exactly one desired outcome sits at the root; multiple outcomes mean multiple trees.",
     "The tree flows strictly downward: Outcome -> Opportunities (nested) -> Solutions -> Assumptions -> Assumption Tests, with each node mapping to its parent.",
+    'Write a `[[wikilink]]` to a node ONLY as its parent\'s child edge. A title is wikilinked exactly once in the whole vault, so anywhere else \u2014 a cross-reference in prose, a duplicate flagged under `## Issues`, a definition of done, a line in `## History` \u2014 name the node in plain quoted text instead: "Some node". A mention costs nothing and says the same thing; a link makes the graph a web. `check` fails on a second link (rule single-backlink). This is why an edge is the only place brackets belong.',
     "Place each node under its single best-fit parent. This is enforced, not advised: a node has exactly one parent, `ost_link_nodes` refuses a second edge onto an already-parented node, and `check` fails on one (rule single-parent). If a node plausibly fits two parents, that is a judgement about which it serves best and the tree records one answer \u2014 flag it for human review rather than double-linking. To move a node, detach it from the old parent and then link it under the new one.",
     "Opportunities form a multi-level sub-tree: an opportunity node may be the parent of other opportunity nodes; the tree is not four flat levels.",
     "Parent-child opportunity relationships represent subsets; sibling relationships represent distinct alternatives at the same level.",
@@ -39804,7 +39805,7 @@ var OST_RULESET = {
     "Keep opportunities laddered up to the outcome and propose (not silently impose) opportunity-space structure.",
     "Append multiple unvalidated candidate solutions under a target opportunity for compare-and-contrast.",
     "Make each solution's underlying assumptions explicit as #Assumption nodes beneath it \u2014 one belief per node, stated so it could be false \u2014 and propose (never run) an assumption test beneath each. A test attaches under the assumption it probes, not under the solution.",
-    "Finish a solution by appending its test to the end of the solution node: the `[[wikilink]]` to the AssumptionTest on its own line (the edge itself runs through the #Assumption between them; this line is for the reader), and beneath it the one command that will go green when the solution is built. A builder reads the solution, not the layer beneath it, and a definition of done kept one node away is a definition of done nobody reads.",
+    'Finish a solution by appending its definition of done to the end of the solution node: the AssumptionTest\'s title in PLAIN QUOTED TEXT on its own line \u2014 "Some test title", never `[[Some test title]]` \u2014 and beneath it the one command that will go green when the solution is built. A builder reads the solution, not the layer beneath it, and a definition of done kept one node away is a definition of done nobody reads. It is quoted rather than linked because a title is wikilinked exactly ONCE in the whole vault, by its parent; see the one-backlink rule below.',
     "Flag tree-hygiene issues: staleness, orphan solutions, duplicates, mislabeled nodes, and unbacked validity claims.",
     "Preserve full provenance for every node it touches: '## History' is append-only and every removal writes the line that explains it.",
     "Resolve duplicates by merging them, not by annotating both. Two nodes making the same claim are a debt the tree pays on every future pass \u2014 each one re-read, re-counted, and re-ideated under. `ost_merge_nodes` folds one into the other, repoints every inbound edge, and deletes the loser's file; you choose the survivor and write the merged prose. Annotate instead only when you are unsure they are the same claim, and say what would settle it.",
@@ -40954,6 +40955,30 @@ function checkInvariants(tree) {
         rule: "single-parent",
         node: n.title,
         detail: `has ${held.length} parents (${held.join("; ")}) \u2014 a node belongs under its single best-fit parent`
+      });
+    }
+  }
+  const linkedFrom = /* @__PURE__ */ new Map();
+  for (const p2 of tree) {
+    for (const child of p2.links) {
+      const list = linkedFrom.get(child);
+      if (list) list.push(`${p2.title} (edge)`);
+      else linkedFrom.set(child, [`${p2.title} (edge)`]);
+    }
+    for (const m of (p2.body ?? "").matchAll(/\[\[([^\]|#]+?)(?:[|#][^\]]*)?\]\]/g)) {
+      const target = m[1].trim();
+      const list = linkedFrom.get(target);
+      if (list) list.push(`${p2.title} (prose)`);
+      else linkedFrom.set(target, [`${p2.title} (prose)`]);
+    }
+  }
+  for (const n of tree) {
+    const from = linkedFrom.get(n.title) ?? [];
+    if (from.length > 1) {
+      v.push({
+        rule: "single-backlink",
+        node: n.title,
+        detail: `is wikilinked ${from.length} times (${from.join("; ")}) \u2014 exactly one link, from its parent; mention it elsewhere as plain text`
       });
     }
   }
@@ -45153,7 +45178,8 @@ var HYGIENE_LABELS = {
   "no-self-validation": "self-validated",
   "lane-conflict": "lane conflict",
   "rung-unearned": "unearned rung",
-  "single-parent": "two parents"
+  "single-parent": "two parents",
+  "single-backlink": "linked more than once"
 };
 var UNRESOLVED_CITATION_RULE = "unresolved-citation";
 function detectHygiene(tree, live, limit, storedEvidenceIds, standing) {
