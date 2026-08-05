@@ -1684,6 +1684,7 @@ agent can also clear.**
 > | `opportunity-connected` | no | yes | no | yes |
 > | `solution-mapped` | no | yes | no | yes |
 > | `assumption-mapped` | no | yes | no | yes |
+> | `test-mapped` | no | yes | no | yes |
 > | `evidence-class` | no | yes | no | yes (R7 granted it, 2026-07-29) |
 > | `no-self-validation` | no | yes | no | yes |
 > | `lane-conflict` | **no** (R2 closed it, 2026-07-30) | no | no | no |
