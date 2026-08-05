@@ -2150,6 +2150,24 @@ the vault declares, and a vault declaring none never fires.**
 > on stderr and leaves the firing's own exit code unchanged; the next healthy firing
 > clears the streak with no file for a human to edit, and nothing here refuses to
 > fire.
+>
+> **A fifth verdict landed on 2026-08-05, and it closes a gap this entry could not
+> see.** F4 asks whether a firing that changed nothing reads as one that worked, and
+> `no-op` answers it — but `no-op` means *nothing to do*, which is a claim about the
+> tree. The meta vault then fired twenty-two scheduled passes whose MCP tool surface
+> was never present: each ran `check` and `status` truthfully, changed no commit, and
+> sealed `no-op`, so twenty-two firings that could not do their job wore the verdict
+> for a tree that was already fine. `degraded` (`src/loop/degraded.ts`) is that case's
+> own name. It outranks `healthy` **and** `no-op` and is outranked by `unhealthy` and
+> `crashed`, so a firing without the means to work may claim neither that it worked
+> nor that there was nothing to do, and a red step is never softened into an excuse.
+> Its inputs are the vault's tool trace, the source surface `buildPassContext` could
+> build, and whether the config was readable — the pass is asked nothing, which is the
+> point, since the candidate behind it was written to rest on the agent's own honesty
+> and its assumption test says plainly that this is the one thing that cannot be
+> assumed. `loop seal` exits 17 for it, distinct from `unhealthy`'s 1. Pinned in
+> `test/loop/degraded-pass-reporting.test.ts`, controls included. The trace is the one
+> decider input the surface itself can move, which F6 now states rather than hides.
 
 **F5 — The mandate carries a stated acceptance condition, and distance from it is
 reported by something that cannot write the tree.**
@@ -2240,6 +2258,22 @@ write.**
 > **A check that cannot distinguish its passing state from its broken state is not
 > a check**, and this document has now watched that sentence come true on a
 > citation, on a criterion status, and on a test's own driver.
+>
+> **The first genuine exception landed on 2026-08-05, and it is stated rather than
+> absorbed.** The `degraded` verdict (F4's fifth word) reads the vault's own tool
+> trace, `.ost-agent/usage/events.jsonl` — and the surface writes that file on every
+> call, which is precisely what the byte-identity assertion refuses everywhere else.
+> Filing it as an ordinary reader would have made part 2 fail for a true reason with
+> a misleading message, so it has its own classification and its own part 5, whose
+> claim is deliberately weaker: **the agent cannot forge a trace line, only cause
+> one by really invoking a tool, and cannot remove one, because the allowlist has no
+> tool that deletes or rewrites a file.** Both halves are driven, not argued — a real
+> `ost_append_to_node` is shown appending, and the whole mutating surface is then
+> aimed at the trace with a planted record in it, which survives byte for byte at the
+> front. So the single direction the surface can move this verdict is *out* of
+> `degraded`, by doing the work it is being asked whether it could do. The cost is
+> named in the same place: this separates a firing whose surface was absent from one
+> whose surface was present, not work done from work shirked.
 >
 > **F6 is what turns "the tree must never validate itself" from a principle into
 > something with a failure mode**, and it is why W5 moved to Tier 1.
@@ -2953,7 +2987,18 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 1898 tests across 160 files, verified 2026-08-04 (`npx vitest run`,
+> *Today:* **met** — 1918 tests across 161 files, verified 2026-08-05 (`npx vitest run`,
+> after `test/loop/degraded-pass-reporting.test.ts` pinned the degraded verdict — a firing that
+> ran without the means to do its job now has a name of its own and may not seal `healthy` or
+> `no-op`, the two words a reader takes to mean the tree is fine. The evidence is the vault's
+> own tool trace, the source surface the context could build, and whether the config was
+> readable: the pass is asked nothing. Every mode is injected into a real firing and each has a
+> full-surface twin that must still seal the old verdict, because a contract that always says
+> degraded carries no information either. Two limits are pinned rather than papered over — the
+> trace is the one Gate F decider input the surface itself writes (part 5 of
+> `test/release/gate-f-deciders.test.ts` states the weaker append-only property that holds
+> there instead), and the detector separates a firing whose surface was absent from one whose
+> surface was present, not work done from work shirked;
 > after `test/product/manifest-ranking-shift.test.ts` pinned the declared resource manifest —
 > the operator states what they have, and the planner may not emit a priority order without
 > naming which declared resources conditioned it and which are blank. What the spec settles is

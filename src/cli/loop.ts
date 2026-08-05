@@ -26,7 +26,8 @@ import { loadConfig } from "../config/load.js";
 import type { LoopConfig } from "../config/schema.js";
 import { evaluateCadence, parseCadence } from "../loop/cadence.js";
 import { detectLaunderedExit, launderedExitMessage } from "../loop/exitLaundering.js";
-import { appendStep, readRuns, sealRun, startRun } from "../loop/health.js";
+import { degradedReport, observeDegradation } from "../loop/degraded.js";
+import { appendStep, readOpenRun, readRuns, sealRun, startRun } from "../loop/health.js";
 import { assessStall } from "../loop/stall.js";
 import { acquireFiringLock, releaseFiringLock, stampFiringLock } from "../loop/lock.js";
 import { checkCeiling, measureFiring, type SpendCeiling } from "../loop/spend.js";
@@ -48,6 +49,18 @@ export const LOOP_EXIT = {
   dirtyTree: 14,
   locked: 15,
   treeUnreadable: 16,
+  /**
+   * `loop seal` only: this firing ran without the means to do its job.
+   *
+   * The odd one out — every code above is a firing that did not start, and this
+   * is one that finished. It is here rather than folded into seal's `1` for the
+   * reason the table exists at all: a wrapper that cannot tell "the tree came
+   * back red" from "the pass never reached the tree" will treat one as the other,
+   * and the whole point of the degraded verdict is that those are different
+   * events with different fixes. Non-zero because exit 0 is the one word an
+   * unattended caller reads as clean.
+   */
+  degraded: 17,
 } as const;
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -480,6 +493,11 @@ export function registerLoopCommands(program: Command): void {
       } else {
         const ageMin = Math.floor((now - new Date(last.startedAt).getTime()) / 60_000);
         console.log(`last-fired: ${last.startedAt} (${ageMin} minute(s) ago, ${last.verdict ?? "unsealed"})`);
+        // The verdict word alone would send the reader back to the ledger to find
+        // out what was missing, and this command exists because the reader does not
+        // go and look. On stdout with the rest of the report: this is a reporter,
+        // and a `degraded` line here is information rather than an alarm.
+        for (const line of degradedReport(last.degradations ?? [])) console.log(line);
       }
 
       const stall = assessStall(runs);
@@ -502,10 +520,23 @@ export function registerLoopCommands(program: Command): void {
     .description("compute the verdict from the recorded exits, append it to runs.jsonl, release the lock")
     .option("--vault <dir>", VAULT_OPTION_HELP)
     .action((opts: { vault: string }) => {
-      const sealed = sealRun(opts.vault, { headAfter: gitHead(opts.vault) });
+      // Observed BEFORE the seal and from the vault rather than from the firing:
+      // the pass gets no say in whether it was degraded, which is the one property
+      // the candidate behind this could not have if it were enforced by prose in a
+      // prompt. `readOpenRun` returning null is left to `sealRun` to complain
+      // about — it owns that message and there is nothing to observe anyway.
+      const open = readOpenRun(opts.vault);
+      const degradations = open ? observeDegradation(opts.vault, open) : [];
+      const sealed = sealRun(opts.vault, { headAfter: gitHead(opts.vault), degradations });
       const released = releaseFiringLock(opts.vault, { runId: sealed.runId });
       console.log(`loop run ${sealed.runId} sealed: ${sealed.verdict}`);
       for (const s of sealed.steps) console.log(`  ${s.exit === 0 ? "✓" : "✗"} ${s.phase} (exit ${s.exit})`);
+      // On stderr, beside the stall escalation, because a cron mails stderr and
+      // this is the line that must not be scrolled past. Printed whenever a
+      // degradation was observed — including on an `unhealthy` firing, where it is
+      // the difference between "the check failed" and "the check failed with
+      // nothing behind it".
+      for (const line of degradedReport(degradations)) console.error(line);
       if (!released) {
         console.error("note: the firing lock is no longer this run's — it was broken as stale and retaken. Left alone.");
       }
@@ -518,5 +549,6 @@ export function registerLoopCommands(program: Command): void {
       const stall = assessStall(readRuns(opts.vault));
       if (stall.stalled) console.error(`⚠ stalled: ${stall.reason}`);
       if (sealed.verdict === "unhealthy" || sealed.verdict === "crashed") process.exitCode = 1;
+      else if (sealed.verdict === "degraded") process.exitCode = LOOP_EXIT.degraded;
     });
 }

@@ -56,6 +56,43 @@ function config(loopBlock: string): void {
   fs.writeFileSync(path.join(vault, "ost.config.yaml"), `outcome: "ship it"\n${loopBlock}`, "utf8");
 }
 
+/**
+ * Make the vault's tool trace a tracked, empty file — the state every vault is in
+ * after `ost-agent init`, which records its own `vault_init` event.
+ *
+ * Called BEFORE the first `loop start` of a bracket, and both halves matter.
+ * Tracked, so the appends `traceToolCall` makes show up as a modified file under
+ * `.ost-agent/usage/` and are covered by the firing-residue exemption instead of
+ * collapsing into an untracked `?? .ost-agent/` that D5 refuses. Committed
+ * outside the bracket, so creating it cannot move HEAD mid-firing and turn a
+ * `no-op` into a `healthy`.
+ */
+function traceEnabled(): void {
+  const trace = path.join(vault, ".ost-agent", "usage", "events.jsonl");
+  fs.mkdirSync(path.dirname(trace), { recursive: true });
+  fs.writeFileSync(trace, "", "utf8");
+  git("add", "-A");
+  git("commit", "--quiet", "-m", "trace");
+}
+
+/**
+ * One traced tool invocation, exactly as `withUsageTracing` writes them.
+ *
+ * A firing whose pass phase traces nothing never reached the tree, and now seals
+ * `degraded` rather than `no-op` (`src/loop/degraded.ts`). The brackets below run
+ * `true` as their pass step, so this line is what stands for the pass they are
+ * simulating — without it they would be asserting the verdict of a pass that did
+ * not happen.
+ */
+function traceToolCall(): void {
+  fs.appendFileSync(
+    path.join(vault, ".ost-agent", "usage", "events.jsonl"),
+    JSON.stringify({ ts: new Date().toISOString(), tool: "ost_next_work", ok: true, ms: 2, surface: "mcp", argBytes: 8 }) +
+      "\n",
+    "utf8",
+  );
+}
+
 /** A firing's worth of spend in this vault, at a timestamp inside the window. */
 function spend(outputTokens: number): void {
   fs.writeFileSync(
@@ -147,8 +184,10 @@ describe("loop due", () => {
 
   test("inside the window: exit 10, the one refusal a wrapper may treat as routine", () => {
     spend(1);
+    traceEnabled();
     expect(loop("start").code).toBe(0);
     expect(loop("step", "--phase", "pass", "--", "true").code).toBe(0);
+    traceToolCall();
     expect(loop("step", "--phase", "check", "--", "true").code).toBe(0);
     expect(loop("seal").code).toBe(0);
 
@@ -161,12 +200,16 @@ describe("loop due", () => {
 describe("the firing bracket", () => {
   test("a firing appends exactly one record, and its verdict is not the caller's to choose", () => {
     spend(1);
+    traceEnabled();
     loop("start");
     loop("step", "--phase", "pass", "--", "true");
+    traceToolCall();
     loop("step", "--phase", "check", "--", "true");
     const sealed = loop("seal");
     // HEAD is the baseline commit before and after — nothing moved — so a green
-    // firing that changed nothing is `no-op` rather than `healthy`.
+    // firing that changed nothing is `no-op` rather than `healthy`. The traced
+    // call is what makes `no-op` the honest verdict rather than `degraded`: this
+    // pass reached the tree and found nothing to do.
     expect(sealed.out).toMatch(/sealed: no-op/);
     const ledger = fs.readFileSync(path.join(vault, ".git", "ost-agent", "runs.jsonl"), "utf8").trim().split("\n");
     expect(ledger).toHaveLength(1);
@@ -425,7 +468,12 @@ describe("D5 — a firing refuses to begin against a dirty vault", () => {
     expect(loop("start").code).toBe(0);
     expect(loop("step", "--phase", "pass", "--", "true").code).toBe(0);
     expect(loop("step", "--phase", "check", "--", "true").code).toBe(0);
-    expect(loop("seal").code).toBe(0);
+    // 17, not 0, and for the reason the scope note above already gives: the steps
+    // are `true`, so no tool ran and this firing genuinely did not reach the tree.
+    // It seals `degraded` (`src/loop/degraded.ts`). Left as a toolless bracket on
+    // purpose — this test is about what the LOOP leaves in the working tree, and
+    // a traced call would add a modified file to the very tree it is inspecting.
+    expect(loop("seal").code).toBe(17);
     // The firing really happened — otherwise this test proves only that doing
     // nothing dirties nothing.
     expect(fs.existsSync(path.join(vault, ".git", "ost-agent", "runs.jsonl"))).toBe(true);
@@ -459,10 +507,20 @@ describe("D5 — a firing refuses to begin against a dirty vault", () => {
  * each seals `no-op`.
  */
 describe("a run of dry firings escalates", () => {
-  /** One firing bracket; `pass` defaults to a no-op step. Returns `loop seal`'s output. */
+  /**
+   * One firing bracket; `pass` defaults to a no-op step. Returns `loop seal`'s
+   * output.
+   *
+   * The traced call stands for the pass the `true` step is simulating. Without it
+   * every firing here would seal `degraded` — correctly, since nothing reached
+   * the tree — and this block would be measuring the wrong streak: it is about a
+   * vault that fires, does its job, and finds nothing, which is a different
+   * failure from a vault that cannot do its job at all.
+   */
   function fire(pass: string[] = ["true"]): Ran {
     loop("start");
     loop("step", "--phase", "pass", "--", ...pass);
+    traceToolCall();
     loop("step", "--phase", "check", "--", "true");
     return loop("seal");
   }
@@ -472,6 +530,7 @@ describe("a run of dry firings escalates", () => {
 
   test("the third dry firing escalates where the first two do not", () => {
     spend(1);
+    traceEnabled();
     expect(fire().out).not.toMatch(/stalled/);
     expect(fire().out).not.toMatch(/stalled/);
     const third = fire();
@@ -486,6 +545,7 @@ describe("a run of dry firings escalates", () => {
 
   test("a firing that advances the tree clears the escalation — the positive control", () => {
     spend(1);
+    traceEnabled();
     fire();
     fire();
     expect(fire().out).toMatch(/⚠ stalled/); // stuck
@@ -502,6 +562,7 @@ describe("a run of dry firings escalates", () => {
 
   test("the stall also rides on `loop due`, before the gates and without changing the decision", () => {
     spend(1);
+    traceEnabled();
     fire();
     fire();
     fire();
