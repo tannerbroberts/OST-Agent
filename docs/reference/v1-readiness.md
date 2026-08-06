@@ -3058,7 +3058,15 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 2124 tests across 173 files, verified 2026-08-06 (`npx vitest run`,
+> *Today:* **met** — 2176 tests across 174 files, verified 2026-08-06 (`npx vitest run`,
+> after the search-literality census landed: of the 850 search arguments this project has
+> issued over its own node text, 125 of the 126 whose text came out of the tree are
+> expressible as literal lookups — 99%, against a bar of 90% fixed before the count — while
+> 246 of 724 hand-written arguments need real pattern semantics. The two axes come apart,
+> and the census publishes the ladders that would move its verdict rather than asking to be
+> trusted on where "literal" was drawn
+> (`test/telemetry/search-literality-census.test.ts`). Previously 2124 tests across 173
+> files, verified 2026-08-06,
 > after the allowlist generator landed with its guard: a run's permission allowlist is now
 > derived from the skill's own `allowed-tools` rather than hand-copied beside it, and the
 > derivation refuses from an agent session, refuses to widen an existing grant without a
