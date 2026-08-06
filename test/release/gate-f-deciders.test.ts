@@ -568,7 +568,7 @@ describe("5 — the trace the degraded verdict reads is append-only under the wh
  * what makes "the MCP surface cannot write a decider" the whole story rather
  * than one story among several.
  */
-const PATH_WRITING_BUILTINS = ["Bash", "Edit", "MultiEdit", "Write", "NotebookEdit", "Task", "SlashCommand"];
+const PATH_WRITING_BUILTINS = ["Bash", "Edit", "Write", "NotebookEdit", "Task", "Skill"];
 
 const ENTRY_POINTS: ReadonlyArray<[file: string, allow: RegExp, deny: RegExp]> = [
   ["examples/automation/autonomous-pass.sh", /^OST_TOOLS="([^"]+)"/m, /^DENIED_TOOLS="([^"]+)"/m],

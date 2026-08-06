@@ -397,12 +397,17 @@ tool surface.**
 > `--disallowedTools Edit,Write,Bash,…`.
 > *Today:* **met** (2026-07-29). Both examples dropped `--permission-mode
 > acceptEdits` and pass an explicit
-> `--disallowedTools Bash,BashOutput,KillShell,Edit,MultiEdit,Write,NotebookEdit,Task,SlashCommand,WebFetch,WebSearch`
-> (`examples/automation/autonomous-pass.sh:64`,
-> `examples/automation/github-workflow.yml:59`). `Task` and `SlashCommand` are on
+> `--disallowedTools Bash,BashOutput,KillShell,Edit,Write,NotebookEdit,Task,Skill,WebFetch,WebSearch`
+> (`examples/automation/autonomous-pass.sh:86`,
+> `examples/automation/github-workflow.yml:80`). `Task` and `Skill` are on
 > the list because neither writes anything itself — each hands the turn to
 > something whose tool set the flag no longer describes, and `/ost-setup` already
-> ships frontmatter granting a `Bash(…)` prefix. `WebFetch`/`WebSearch` are on it
+> ships frontmatter granting a `Bash(…)` prefix. Corrected 2026-08-06: this list
+> read `SlashCommand` and `MultiEdit`, both of which Claude Code had retired. An
+> inert deny rule is not a narrower guarantee, it is none at all for that name —
+> `Skill` had inherited the delegation this criterion claims to refuse, so the
+> criterion was **wrong while reading met**. `test/release/examples-allowlist.test.ts`
+> now ratchets both retired names out. `WebFetch`/`WebSearch` are on it
 > because `ost_read_web` and `ost_search_web` meter against one per-pass budget and
 > the raw built-ins do not, so leaving them would make P8's cap decorative.
 > `test/release/examples-allowlist.test.ts` now holds the list to an authoritative
