@@ -3053,7 +3053,15 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 2109 tests across 172 files, verified 2026-08-06 (`npx vitest run`,
+> *Today:* **met** — 2124 tests across 173 files, verified 2026-08-06 (`npx vitest run`,
+> after the allowlist generator landed with its guard: a run's permission allowlist is now
+> derived from the skill's own `allowed-tools` rather than hand-copied beside it, and the
+> derivation refuses from an agent session, refuses to widen an existing grant without a
+> human's install-time confirmation, and treats a grant a human narrowed by hand as a
+> choice rather than as drift to repair — cases two and three are the *same* state on disk,
+> which is why it refuses in both rather than guessing which happened
+> (`test/security/allowlist-generator-guard.test.ts`). Previously 2109 tests across 172
+> files, verified 2026-08-06,
 > after the build permit was made to confirm itself against the repository: a permit is
 > read off a recorded observation, an observation is a fact about the day it was filed,
 > and nothing re-runs an instrument once it has been seen red — so a build landing from
