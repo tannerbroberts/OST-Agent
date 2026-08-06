@@ -2996,8 +2996,21 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 2063 tests across 168 files, verified 2026-08-05 (`npx vitest run`,
-> after a corrections ledger gave a refusal a carrier out of the session it was issued in.
+> *Today:* **met** — 2066 tests across 169 files, verified 2026-08-05 (`npx vitest run`,
+> after the first-run branch was made to ask exactly one question. The tool layer already
+> resolved the vault directory into `nextStep`, but every *instruction* that renders the
+> no-vault branch — the `firstRun` rule, the skill's first-run section, `/ost-setup` step
+> 2 — told the session to compose `init <folder> --outcome "<their words>"` itself. Two
+> holes where the tool had already filled one in: a session whose shell sits in a
+> subdirectory scaffolds a vault the server never reads, `ost_next_work` still answers
+> `bootstrap: true`, and the human is asked the question they have already answered
+> correctly. All three surfaces now send the session to the payload's own `nextStep`, and
+> `test/mcp/bootstrap-one-question.test.ts` holds each of them to one placeholder that is
+> never the folder — proved discriminating by reverting each surface in turn — then runs
+> the command end to end from a cwd that is *not* the vault and asserts the root Outcome
+> carries the sentence verbatim. It settles the mechanical half only: whether a STRANGER
+> gets there is a person's reaction and stays with a human. Before that,
+> a corrections ledger gave a refusal a carrier out of the session it was issued in.
 > A guard that refuses a call usually says what to use instead; that message was spoken,
 > obeyed once, and gone — so seven sessions across four days hit the identical
 > `Blocked: sleep …` refusal, and the guard ended up being the only memory in the system.

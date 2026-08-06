@@ -73,7 +73,18 @@ export function configProblemGuidance(dir: string, cause: string): string {
   ].join("\n");
 }
 
-/** The first-run section rendered into the generated skill. */
+/**
+ * The first-run section rendered into the generated skill.
+ *
+ * Step 2 sends the session to the `nextStep` the tool handed back rather than
+ * showing a command to compose. It used to render `initCommand("<project dir>")`,
+ * which left two holes — the folder and the outcome — and only one of them is a
+ * question anybody should be asked. The tool already resolved the directory the
+ * server is pointed at; a session filling that hole from its own shell cwd (a
+ * subdirectory, say) creates a vault the server never reads, so the next call
+ * still reports `bootstrap: true` and the human answers the same question twice.
+ * One placeholder, and it is the one thing only they can supply.
+ */
 export function firstRunSkillSection(): string {
   return [
     "## First run — if the vault is not initialized",
@@ -81,7 +92,7 @@ export function firstRunSkillSection(): string {
     "If any `ost_*` tool responds that the vault is **not initialized**, do not stop and do not guess. Setup runs itself, in conversation:",
     "",
     `1. ${ASK_HUMAN_RULE}`,
-    `2. Run (via your shell): \`${initCommand("<project dir>")}\` — ${NO_KEY_NOTE}`,
+    `2. Run (via your shell) the \`nextStep\` command the tool handed back — \`ost_next_work\`'s bootstrap payload and every refusal message both carry it. It is an \`ost-agent.mjs init\` invocation with the vault directory **already filled in**; substitute ONLY their sentence for the single \`<…>\` placeholder and change nothing else. Never retype the folder from your own cwd — the tool named the directory the server is pointed at, and a vault scaffolded anywhere else is one the server never reads. ${NO_KEY_NOTE}`,
     "3. Retry the tool call: the MCP server picks up the new vault immediately, with no reconnect. Then continue with the normal flow below.",
   ].join("\n");
 }

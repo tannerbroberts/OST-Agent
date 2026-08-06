@@ -282,11 +282,13 @@ Ask the human, and wait for their answer:
 
 > **What outcome do you want this tree to serve?** One sentence, in your own words.
 
-Read their sentence back to them for confirmation, verbatim. Then run:
+Read their sentence back to them, verbatim. Then run the \`nextStep\` command from the \`ost_next_work\` payload you already have, substituting ONLY their sentence for the single \`<…>\` placeholder in it. It has this shape — the path shown is an example; **yours arrives already filled in**:
 
 \`\`\`
-node \${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init <folder> --outcome "<their words>"
+node \${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init "/Users/you/your-project" --outcome "<their words>"
 \`\`\`
+
+The directory \`nextStep\` names is the one the MCP server is pointed at, which is why you must not retype it from your own cwd. If your shell sits in a subdirectory and you scaffold there instead, the server never sees that vault, \`ost_next_work\` still answers \`bootstrap: true\`, and you will ask the human the question they have already answered.
 
 ## 3. A vault with no root Outcome
 
