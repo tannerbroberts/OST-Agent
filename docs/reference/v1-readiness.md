@@ -3053,7 +3053,17 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 2099 tests across 171 files, verified 2026-08-06 (`npx vitest run`,
+> *Today:* **met** — 2109 tests across 172 files, verified 2026-08-06 (`npx vitest run`,
+> after the build permit was made to confirm itself against the repository: a permit is
+> read off a recorded observation, an observation is a fact about the day it was filed,
+> and nothing re-runs an instrument once it has been seen red — so a build landing from
+> outside the loop leaves a permit that still reads live. The loop spent a full model pass
+> on one: recorded red on 2026-08-05 with "No test files found", green since a merge 17
+> minutes before the firing. `buildable --repo` now re-runs the command and refuses with
+> SPENT when it passes, the loop files the green that was owed, and no model call is made
+> against a definition of done already met. Pinned by
+> `test/eval/permit-staleness.test.ts`. Previously 2099 tests across 171 files, verified
+> 2026-08-06,
 > after the plugin tool-namespace fix: every grant shipped to a plugin session named a
 > tool no plugin session mints, three guards derived the prefix independently and all
 > three derived it the same wrong way, and the mismatch was documented as harmless

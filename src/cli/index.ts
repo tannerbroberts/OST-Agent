@@ -13,6 +13,7 @@
  *   ost-agent gate "<solution>" [--vault DIR] block building against untested assumptions
  *   ost-agent verify "<test>" --repo DIR      run a test's instrument; record red/green as an observed fact
  *   ost-agent buildable ["<solution>"]        is it defined well enough to build, and against what command?
+ *   ost-agent buildable "<s>" --repo DIR      …and is the recorded red still red, or was the ticket spent?
  *   ost-agent stranded [--also DIR]           evidence no node cites, split by which fix would clear it
  *   ost-agent capability [--repo DIR]         what each builder can do, read off the commits already written
  *   ost-agent preflight [--transcripts DIR]   did the callers whose calls failed already know they were unsure?
@@ -41,7 +42,7 @@ import { lineageOf, renderLineage } from "../eval/lineage.js";
 import { BELIEVABILITY_LADDER, type RungId } from "../knowledge/believability.js";
 import { promoteNode, recordResult, retractNode, VERDICTS, type Verdict } from "../ost/results.js";
 import { verifyInstrument } from "../ost/instrument.js";
-import { buildableSolutions, buildPermit, testsAwaitingVerification } from "../eval/buildable.js";
+import { buildableSolutions, buildPermit, confirmPermit, testsAwaitingVerification } from "../eval/buildable.js";
 import { formatCensus, reconcileWithGit, reconcileWithUsage } from "../ost/census.js";
 import { formatStrandedCensus, strandedEvidenceCensus } from "../ost/stranded.js";
 import { blindnessCensus, formatBlindnessCensus, readSweepRuns, recordSweepRun } from "../ost/sweep.js";
@@ -544,7 +545,12 @@ program
   .argument("[solution]", "title of the Solution node; omit to list every buildable solution")
   .option("--vault <dir>", VAULT_OPTION_HELP)
   .option("--pending", "instead list the tests that declare an instrument nobody has run yet")
-  .action((solution: string | undefined, opts: { vault: string; pending?: boolean }) => {
+  .option(
+    "--repo <dir>",
+    "re-run the instrument against this repository before clearing, and refuse the permit if it passes today " +
+      "(records nothing — that is `ost-agent verify`)",
+  )
+  .action((solution: string | undefined, opts: { vault: string; pending?: boolean; repo?: string }) => {
     const ctx = buildPassContext(opts.vault);
     const tree = ctx.vault.readTree();
     if (opts.pending) {
@@ -581,12 +587,21 @@ program
       for (const r of order.ranked) console.log(r.solution);
       return;
     }
-    const permit = buildPermit(tree, solution);
+    // A permit read off the node is a claim about the day it was recorded. With
+    // `--repo` it becomes a claim about now: the command runs again, and a red
+    // that has since gone green refuses instead of clearing. Nothing is written
+    // either way — the caller is told which test to `verify`, because that is
+    // the one path allowed to file an observation.
+    const recorded = buildPermit(tree, solution);
+    const permit = opts.repo ? confirmPermit(recorded, opts.repo) : recorded;
     if (permit.cleared) {
       console.log(`buildable: CLEARED — ${permit.reason}`);
       return;
     }
-    console.error(`buildable: BLOCKED — ${permit.reason}`);
+    // SPENT is its own word rather than a flavour of BLOCKED. They are opposite
+    // findings — blocked means nobody has defined this yet, spent means somebody
+    // already built it — and a loop reading this output acts differently on each.
+    console.error(`buildable: ${permit.spent ? "SPENT" : "BLOCKED"} — ${permit.reason}`);
     process.exitCode = 1;
   });
 

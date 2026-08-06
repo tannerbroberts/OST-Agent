@@ -37,9 +37,11 @@
 #
 # A consequence worth stating because it is the reason this is affordable to run hourly:
 # **the buildability decision is mechanical and costs no model call.** The preflight below
-# is grep plus the CLI's own gate. Claude is invoked only when the gate has already let
-# something through, so a tree with nothing tested is scanned for pennies rather than
-# reasoned about for dollars.
+# is grep, the CLI's own gate, and the candidate's own instrument re-run once against the
+# repository. Claude is invoked only when the gate has already let something through AND
+# that instrument still fails today, so a tree with nothing tested is scanned for pennies
+# rather than reasoned about for dollars — and a tree whose work is already done costs one
+# test run instead of a whole pass.
 #
 # Usage:
 #   OST_AGENT_DIR=/path/to/OST-Agent  examples/automation/build-pass.sh  /path/to/vault
@@ -356,9 +358,59 @@ if [ "$BUILD_COUNT" -eq 0 ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Something is buildable. Only now is a model call worth making.
+# Something is buildable — according to observations recorded on earlier days.
+# Confirm the top candidate against the repository AS IT IS NOW before spending a
+# model call on it.
+#
+# Why this exists: the preflight above only verifies tests nobody has run yet
+# (`buildable --pending` skips anything already observed), so once an instrument
+# is recorded red it is never re-run. Anything that turns it green from outside
+# this loop — a branch merged, a fix that landed under someone else's PR — leaves
+# a permit that still reads live. On 2026-08-06 this loop spent a full pass on a
+# solution whose instrument had been green for 17 minutes: the builder arrived,
+# found its definition of done already met, and there was nothing to build.
+#
+# `buildable --repo` runs the command and refuses with SPENT when it passes. It
+# records nothing, so the green is filed here by `verify` — in the shell, outside
+# the model, same as every other observation this loop writes.
 # ---------------------------------------------------------------------------
-TARGET="$(head -1 "$BUILDABLE")"
+# Only SPENT disqualifies a candidate. BLOCKED does not, and the difference is
+# load-bearing: this list holds solutions cleared by EITHER permit, and one
+# cleared by `gate` — a human's recorded result — legitimately has no red
+# instrument for `buildable` to clear. Dropping those would quietly narrow this
+# loop to the mechanical permit and strand every solution a person vouched for.
+TARGET=""
+SPENT_COUNT=0
+while IFS= read -r sol; do
+  [ -n "$sol" ] || continue
+  PERMIT_OUT="$(node "$CLI" buildable "$sol" --vault . --repo "$OST_AGENT_DIR" 2>&1)"
+  case "$PERMIT_OUT" in
+    *"buildable: SPENT"*)
+      SPENT_COUNT=$(( SPENT_COUNT + 1 ))
+      echo "build-pass: \"$sol\" was already built — its instrument passes today. Recording the green." >&2
+      # First quoted string in the refusal is the test title; the command it ran
+      # travels in backticks, so it cannot be mistaken for one.
+      SPENT_TEST="$(printf '%s\n' "$PERMIT_OUT" | grep -oE '"[^"]+"' | head -1 | tr -d '"')"
+      if [ -n "$SPENT_TEST" ]; then
+        node "$CLI" verify "$SPENT_TEST" --repo "$OST_AGENT_DIR" --vault . >/dev/null 2>&1 || true
+        git -C "$VAULT_DIR" add -- "${SPENT_TEST}.md" >/dev/null 2>&1 || true
+        if [ -n "$(git -C "$VAULT_DIR" diff --cached --name-only 2>/dev/null)" ]; then
+          git -C "$VAULT_DIR" -c user.name="ost-build-loop" -c user.email="build@localhost" \
+            commit -q -m "chore(instruments): \"${SPENT_TEST}\" was green before this firing" >/dev/null 2>&1 || true
+        fi
+      fi
+      ;;
+    *)
+      TARGET="$sol"
+      break
+      ;;
+  esac
+done <"$BUILDABLE"
+
+if [ -z "$TARGET" ]; then
+  report "Build loop ran and built nothing, because everything the tree offered had already been built. All ${BUILD_COUNT} candidate(s) carried a red observation that no longer holds — their instruments pass against the repository today — and ${SPENT_COUNT} stale permit(s) have now been closed with the green they were owed. No model call was spent. Nothing is required of you; the next test discovery writes reaches this loop on the following firing."
+  exit 0
+fi
 
 # Computed once, here, because every report from this point on is about this one
 # solution — including the two the script writes itself (the interrupted-firing
