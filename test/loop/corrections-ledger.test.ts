@@ -185,11 +185,19 @@ describe("the ledger is durable, and folding the same corpus twice changes nothi
   });
 
   test("a session still being written to is not harvested — a correction has to outlive its session", () => {
-    // Everything in the corpus is "live" under the default quiet window, because a
-    // fresh checkout stamps every fixture with today's mtime. That is the same
-    // guard `TranscriptSource` applies, and it is why a session never receives its
-    // own corrections.
-    const result = recordCorrections(state, CORPUS, { quietMinutes: 30, now: Date.now() });
+    // Everything in the corpus is "live" relative to a clock set just after it was
+    // written. That is the same guard `TranscriptSource` applies, and it is why a
+    // session never receives its own corrections.
+    //
+    // `now` is anchored to the newest fixture rather than read off the wall clock.
+    // It used to be `Date.now()`, which asserted this property only while the
+    // corpus's mtimes were fresh — a checkout stamps them at clone time, so the
+    // test passed for thirty minutes after any checkout and failed for the rest of
+    // that checkout's life. Green on CI forever, because CI clones; red for anyone
+    // who ran the suite twice in an afternoon. A guard about elapsed time has to be
+    // handed the clock, or the thing under test is how old the working copy is.
+    const writtenAt = Math.max(...corpusFiles().map((f) => fs.statSync(f).mtimeMs));
+    const result = recordCorrections(state, CORPUS, { quietMinutes: 30, now: writtenAt + 60_000 });
     if (!result.readable) throw new Error("the corpus should be readable");
     expect(result.sessions).toEqual([]);
     expect(result.ledger.corrections).toEqual([]);
