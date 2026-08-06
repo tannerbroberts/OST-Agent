@@ -27052,6 +27052,7 @@ import path14 from "node:path";
 // src/config/load.ts
 var import_yaml = __toESM(require_dist(), 1);
 import fs2 from "node:fs";
+import os from "node:os";
 import path2 from "node:path";
 
 // node_modules/zod/v3/external.js
@@ -31325,6 +31326,9 @@ adapters:
     projectDir: ""          # repo whose sessions to read; transcripts are found under ~/.claude/projects/<slug>
     path: ""                # or point straight at a directory of *.jsonl transcripts
     quietMinutes: 30        # a session is "finished" once its file has been untouched this long
+                            # an unattended firing runs with cwd set to the VAULT, so its sessions land
+                            # elsewhere: if loop.spend.sessionsDir is set, that folder is harvested too,
+                            # and each evidence item names which of the two it came out of
   usage:
     enabled: true           # roll the mechanical tool-invocation trace into daily evidence (observed behavior, no narrator)
     minEvents: 5            # a day needs at least this many tool calls to become an evidence item
@@ -31533,6 +31537,11 @@ var BOOTSTRAP_PLACEHOLDER_OUTCOME = "(no outcome \u2014 this directory is not an
 function configPath(vaultDir) {
   return path2.join(path2.resolve(vaultDir), CONFIG_FILENAME);
 }
+function resolveSessionsDir(vaultDir, declared) {
+  if (declared === "~") return os.homedir();
+  if (declared.startsWith("~/")) return path2.join(os.homedir(), declared.slice(2));
+  return path2.resolve(vaultDir, declared);
+}
 function defaultConfig() {
   return ConfigSchema.parse({ outcome: BOOTSTRAP_PLACEHOLDER_OUTCOME });
 }
@@ -31572,11 +31581,11 @@ import path6 from "node:path";
 
 // src/adapters/transcript.ts
 import fs3 from "node:fs";
-import os from "node:os";
+import os2 from "node:os";
 import path3 from "node:path";
 function defaultTranscriptDir(projectDir) {
   const slug2 = path3.resolve(projectDir).replace(/[^A-Za-z0-9]/g, "-");
-  return path3.join(os.homedir(), ".claude", "projects", slug2);
+  return path3.join(os2.homedir(), ".claude", "projects", slug2);
 }
 var DEFAULT_QUIET_MINUTES = 30;
 var DEFAULT_MAX_EVENTS = 25;
@@ -31718,12 +31727,12 @@ function extractFriction(jsonl) {
   }
   return events;
 }
-function renderBody(sessionId, events, shown) {
+function renderBody(sessionId, origin, events, shown) {
   const counts = /* @__PURE__ */ new Map();
   for (const e of events) counts.set(e.kind, (counts.get(e.kind) ?? 0) + 1);
   const summary = [...counts.entries()].map(([kind, n]) => `${kind} \xD7${n}`).join(", ");
   const lines = [
-    `Session \`${sessionId}\` produced ${events.length} friction events (${summary}).`,
+    `Session \`${sessionId}\` (${origin}) produced ${events.length} friction events (${summary}).`,
     "",
     "Evidence class: **observed behavior** \u2014 the agent's own usage of this product, captured mechanically from its session transcript. It is not outside-user demand data: it grounds usability, not desirability, and must not be counted as external evidence of want.",
     "",
@@ -31738,27 +31747,42 @@ function renderBody(sessionId, events, shown) {
 var TranscriptSource = class {
   name = "transcript";
   actor = "transcript";
-  dir;
+  dirs;
   quietMinutes;
   maxEvents;
   maxSessions;
   constructor(opts) {
-    this.dir = path3.resolve(opts.dir);
+    const byPath = /* @__PURE__ */ new Map();
+    for (const d of opts.dirs) {
+      const resolved = path3.resolve(d.dir);
+      if (!byPath.has(resolved)) byPath.set(resolved, { dir: resolved, origin: d.origin });
+    }
+    this.dirs = [...byPath.values()];
     this.quietMinutes = opts.quietMinutes ?? DEFAULT_QUIET_MINUTES;
     this.maxEvents = opts.maxEventsPerSession ?? DEFAULT_MAX_EVENTS;
     this.maxSessions = opts.maxSessions ?? DEFAULT_MAX_SESSIONS;
   }
   async fetchSince(cursor) {
     const seen = new Set(decodeSeen(cursor));
-    if (!fs3.existsSync(this.dir)) return { items: [], cursor };
     const quietBefore = Date.now() - this.quietMinutes * 6e4;
-    const sessions = fs3.readdirSync(this.dir, { withFileTypes: true }).filter((e) => e.isFile() && e.name.endsWith(".jsonl")).map((e) => {
-      const full = path3.join(this.dir, e.name);
-      return { id: e.name.replace(/\.jsonl$/, ""), full, mtimeMs: fs3.statSync(full).mtimeMs };
-    }).filter((s) => !seen.has(`TRANSCRIPT:${s.id}`) && s.mtimeMs <= quietBefore).sort((a, b2) => b2.mtimeMs - a.mtimeMs).slice(0, this.maxSessions);
+    const sessions = [];
+    for (const d of this.dirs) {
+      if (!fs3.existsSync(d.dir)) continue;
+      for (const entry of fs3.readdirSync(d.dir, { withFileTypes: true })) {
+        if (!entry.isFile() || !entry.name.endsWith(".jsonl")) continue;
+        const id = entry.name.replace(/\.jsonl$/, "");
+        if (seen.has(`TRANSCRIPT:${id}`)) continue;
+        const full = path3.join(d.dir, entry.name);
+        const mtimeMs = fs3.statSync(full).mtimeMs;
+        if (mtimeMs > quietBefore) continue;
+        sessions.push({ id, full, origin: d.origin, mtimeMs });
+      }
+    }
+    sessions.sort((a, b2) => b2.mtimeMs - a.mtimeMs);
     const items = [];
-    for (const s of sessions) {
+    for (const s of sessions.slice(0, this.maxSessions)) {
       const id = `TRANSCRIPT:${s.id}`;
+      if (seen.has(id)) continue;
       seen.add(id);
       const events = extractFriction(fs3.readFileSync(s.full, "utf8"));
       if (events.length === 0) continue;
@@ -31767,7 +31791,7 @@ var TranscriptSource = class {
         id,
         source: id,
         title: `Session friction ${s.id}`,
-        body: renderBody(s.id, events, shown),
+        body: renderBody(s.id, s.origin, events, shown),
         timestamp: new Date(s.mtimeMs).toISOString()
       });
     }
@@ -40188,6 +40212,23 @@ function credentialBrokerFromEnv(opts = {}) {
 }
 
 // src/runner/context.ts
+function transcriptDirs(vaultDir, config2) {
+  const t2 = config2.adapters.transcript;
+  const dirs = [];
+  if (t2.path) {
+    dirs.push({ dir: path14.resolve(vaultDir, t2.path), origin: `sessions in ${t2.path}` });
+  } else if (t2.projectDir) {
+    dirs.push({ dir: defaultTranscriptDir(t2.projectDir), origin: `sessions run in ${t2.projectDir}` });
+  }
+  const declared = config2.loop?.spend?.sessionsDir ?? config2.loop?.questions?.sessionsDir;
+  if (declared) {
+    dirs.push({
+      dir: resolveSessionsDir(vaultDir, declared),
+      origin: "this vault's own unattended firings \u2014 nobody was watching"
+    });
+  }
+  return dirs;
+}
 function resolveSearchProvider(config2, credentials) {
   if (credentials.broker.holds(CREDENTIAL_SEARCH)) {
     return braveProvider(
@@ -40250,7 +40291,7 @@ function buildSources(dir, config2, credentials) {
         );
       }
       return new TranscriptSource({
-        dir: t2.path ? path14.resolve(dir, t2.path) : defaultTranscriptDir(t2.projectDir),
+        dirs: transcriptDirs(dir, config2),
         quietMinutes: t2.quietMinutes,
         maxEventsPerSession: t2.maxEventsPerSession
       });
@@ -40932,32 +40973,33 @@ function checkInvariants(tree) {
       v.push({ rule: "opportunity-connected", node: n.title, detail: "not connected to the outcome (directly or via a parent opportunity)" });
     }
   }
-  for (const n of tree) {
-    if (n.layer === "Solution") {
-      const parents = tree.filter((p2) => p2.layer === "Opportunity" && p2.links.includes(n.title));
-      if (parents.length === 0) v.push({ rule: "solution-mapped", node: n.title, detail: "not linked under any Opportunity" });
-    }
-  }
-  for (const n of tree) {
-    if (n.layer === "Assumption") {
-      const parents = tree.filter((p2) => p2.layer === "Solution" && p2.links.includes(n.title));
-      if (parents.length === 0) v.push({ rule: "assumption-mapped", node: n.title, detail: "not linked under any Solution" });
-    }
-  }
-  for (const n of tree) {
-    if (n.layer === "AssumptionTest") {
-      const parents = tree.filter(
-        (p2) => (p2.layer === "Assumption" || p2.layer === "Solution") && p2.links.includes(n.title)
-      );
-      if (parents.length === 0) v.push({ rule: "test-mapped", node: n.title, detail: "not linked under any Assumption" });
-    }
-  }
   const parentsOf = /* @__PURE__ */ new Map();
   for (const p2 of tree) {
     for (const child of p2.links) {
       const list = parentsOf.get(child);
-      if (list) list.push(p2.title);
-      else parentsOf.set(child, [p2.title]);
+      if (list) list.push(p2);
+      else parentsOf.set(child, [p2]);
+    }
+  }
+  for (const n of tree) {
+    if (n.layer === "Solution") {
+      const parents = parentsOf.get(n.title) ?? [];
+      if (!parents.some((p2) => p2.layer === "Opportunity"))
+        v.push({ rule: "solution-mapped", node: n.title, detail: "not linked under any Opportunity" });
+    }
+  }
+  for (const n of tree) {
+    if (n.layer === "Assumption") {
+      const parents = parentsOf.get(n.title) ?? [];
+      if (!parents.some((p2) => p2.layer === "Solution"))
+        v.push({ rule: "assumption-mapped", node: n.title, detail: "not linked under any Solution" });
+    }
+  }
+  for (const n of tree) {
+    if (n.layer === "AssumptionTest") {
+      const parents = parentsOf.get(n.title) ?? [];
+      if (!parents.some((p2) => p2.layer === "Assumption" || p2.layer === "Solution"))
+        v.push({ rule: "test-mapped", node: n.title, detail: "not linked under any Assumption" });
     }
   }
   for (const n of tree) {
@@ -40966,7 +41008,7 @@ function checkInvariants(tree) {
       v.push({
         rule: "single-parent",
         node: n.title,
-        detail: `has ${held.length} parents (${held.join("; ")}) \u2014 a node belongs under its single best-fit parent`
+        detail: `has ${held.length} parents (${held.map((p2) => p2.title).join("; ")}) \u2014 a node belongs under its single best-fit parent`
       });
     }
   }
@@ -47418,7 +47460,6 @@ function renderCorrections(ledger) {
 
 // src/cli/loop.ts
 import { spawnSync as spawnSync3 } from "node:child_process";
-import os4 from "node:os";
 import path39 from "node:path";
 
 // src/loop/exitLaundering.ts
@@ -47715,7 +47756,7 @@ function assessStall(runs, threshold = STALL_STREAK_THRESHOLD) {
 
 // src/loop/lock.ts
 import fs31 from "node:fs";
-import os2 from "node:os";
+import os3 from "node:os";
 import path34 from "node:path";
 function firingLockPath(vaultDir) {
   const state = loopStateDir(vaultDir);
@@ -47773,7 +47814,7 @@ function acquireFiringLock(vaultDir, opts) {
   const record2 = {
     pid: opts.pid ?? process.pid,
     ...opts.holderPid !== void 0 ? { holderPid: opts.holderPid } : {},
-    host: opts.host ?? os2.hostname(),
+    host: opts.host ?? os3.hostname(),
     acquiredAt: new Date(now).toISOString(),
     ...opts.runId ? { runId: opts.runId } : {}
   };
@@ -48036,7 +48077,7 @@ import path38 from "node:path";
 // src/config/pointer.ts
 var import_yaml3 = __toESM(require_dist(), 1);
 import fs35 from "node:fs";
-import os3 from "node:os";
+import os4 from "node:os";
 import path37 from "node:path";
 var VAULT_POINTER_FILENAME = "ost.vault.yaml";
 var PointerSchema = external_exports.union([
@@ -48053,8 +48094,8 @@ var PointerSchema = external_exports.union([
   })
 ]);
 function resolveAgainst(baseDir, declared) {
-  if (declared === "~") return os3.homedir();
-  if (declared.startsWith("~/")) return path37.join(os3.homedir(), declared.slice(2));
+  if (declared === "~") return os4.homedir();
+  if (declared.startsWith("~/")) return path37.join(os4.homedir(), declared.slice(2));
   return path37.resolve(baseDir, declared);
 }
 function readVaultPointer(dir) {
@@ -48158,11 +48199,6 @@ var LOOP_EXIT = {
   degraded: 17
 };
 var HOUR_MS = 60 * 60 * 1e3;
-function resolveSessionsDir(vaultDir, declared) {
-  if (declared === "~") return os4.homedir();
-  if (declared.startsWith("~/")) return path39.join(os4.homedir(), declared.slice(2));
-  return path39.resolve(vaultDir, declared);
-}
 function ceilingOf(vaultDir, spend) {
   if (!spend) return null;
   const { ceilingWeightedTokens, windowHours, sessionsDir } = spend;

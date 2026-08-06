@@ -19,10 +19,9 @@
  * statement verbatim: only `notElapsed` is a normal, quiet outcome.
  */
 import { spawnSync } from "node:child_process";
-import os from "node:os";
 import path from "node:path";
 import type { Command } from "commander";
-import { loadConfig } from "../config/load.js";
+import { loadConfig, resolveSessionsDir } from "../config/load.js";
 import type { LoopConfig } from "../config/schema.js";
 import { evaluateCadence, parseCadence } from "../loop/cadence.js";
 import { detectLaunderedExit, launderedExitMessage } from "../loop/exitLaundering.js";
@@ -66,20 +65,10 @@ export const LOOP_EXIT = {
 
 const HOUR_MS = 60 * 60 * 1000;
 
-/**
- * Expand a leading `~` before resolving, because the only path an operator will
- * ever write here starts with one: Claude Code keeps transcripts under
- * `~/.claude/projects/<slug>`, and that is what `autonomous-pass.sh`'s header
- * tells them to paste. `path.resolve(vaultDir, "~/x")` silently produces
- * `<vault>/~/x`, which cannot exist — so the loop read an unmeasurable spend and
- * refused to fire, forever, on the one configuration the documentation hands out.
- * A refusal nobody can clear by following the instructions is R2's shape.
- */
-export function resolveSessionsDir(vaultDir: string, declared: string): string {
-  if (declared === "~") return os.homedir();
-  if (declared.startsWith("~/")) return path.join(os.homedir(), declared.slice(2));
-  return path.resolve(vaultDir, declared);
-}
+// `resolveSessionsDir` moved to `src/config/load.ts` when the transcript adapter
+// became a second reader of the same declared path — see its doc comment there.
+// Re-exported so a caller reaching for it through the loop surface still finds it.
+export { resolveSessionsDir };
 
 /**
  * The declared ceiling, with its transcript directory resolved against the vault.

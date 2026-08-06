@@ -2,6 +2,7 @@
  * Load and validate `ost.config.yaml` from a vault directory.
  */
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
 import { ConfigSchema, type Config } from "./schema.js";
@@ -21,6 +22,28 @@ export const BOOTSTRAP_PLACEHOLDER_OUTCOME =
 
 export function configPath(vaultDir: string): string {
   return path.join(path.resolve(vaultDir), CONFIG_FILENAME);
+}
+
+/**
+ * Resolve a session directory an operator declared in `ost.config.yaml`.
+ *
+ * Expand a leading `~` before resolving, because the only path an operator will
+ * ever write here starts with one: Claude Code keeps transcripts under
+ * `~/.claude/projects/<slug>`, and that is what `autonomous-pass.sh`'s header
+ * tells them to paste. `path.resolve(vaultDir, "~/x")` silently produces
+ * `<vault>/~/x`, which cannot exist — so the loop read an unmeasurable spend and
+ * refused to fire, forever, on the one configuration the documentation hands out.
+ * A refusal nobody can clear by following the instructions is R2's shape.
+ *
+ * It lives here, beside the config it interprets, rather than in `cli/loop.ts`
+ * where it was written: the transcript adapter now reads the same declared
+ * directory, and `src/runner/context.ts` cannot import from `src/cli/` without
+ * pulling Commander into the MCP server's module graph.
+ */
+export function resolveSessionsDir(vaultDir: string, declared: string): string {
+  if (declared === "~") return os.homedir();
+  if (declared.startsWith("~/")) return path.join(os.homedir(), declared.slice(2));
+  return path.resolve(vaultDir, declared);
 }
 
 export interface LoadConfigOptions {

@@ -2477,6 +2477,34 @@ the environment.**
 > only self-generated channel is usage — which increments once per *day*. And *"a
 > dry firing seals `no-op`, never `healthy`"* is H1/H4's half; nothing here decides
 > it.
+>
+> **The per-firing channel was not reading firings (2026-08-05).** The sentence
+> above was true of the adapter and false of every vault running it. Claude Code
+> keys a session directory to the cwd a session ran in; an unattended firing runs
+> with cwd set to the *vault*, and `adapters.transcript.projectDir` points at the
+> *code repository*. So the channel harvested the sessions in which the agent was
+> worked on by a person and none of the ones in which it ran by itself: on this
+> product's own meta vault, 36 cited sessions, all attended, zero firings, for the
+> loop's entire life. Nothing was broken and nothing reported a gap — the cursor
+> advanced, items arrived, and the half that was missing was missing silently,
+> which is the shape S2 exists to catch and could not see here because the channel
+> was neither disabled nor unavailable nor undated. It was healthy and half-blind.
+>
+> `TranscriptSource` now takes a **list** of directories, and
+> `transcriptDirs` (`src/runner/context.ts`) composes it from what the vault has
+> already declared: the configured project or path, plus `loop.spend.sessionsDir`
+> — reusing the operator's existing declaration rather than asking for a third
+> one, the same argument `src/loop/corrections.ts` makes for reading it. **Each
+> item names the directory it came from** (`TranscriptDir.origin`, required), so
+> the two are told apart downstream: friction in an attended session is something
+> a person could have fixed on the spot, and the same friction in a firing is a
+> failure mode nobody watched. Pinned in `test/adapters/transcript.test.ts` (six
+> tests: both piles harvested, origin carried and not cross-contaminated, a
+> missing directory not cancelling a present one, the newest-first cap spent
+> across directories rather than per directory, one id harvested once) and
+> `test/runner/context.test.ts` (a session in the declared `sessionsDir` becomes
+> evidence labelled unattended, the path is declared exactly once, and a vault
+> with no `loop:` block reads what it always read).
 
 **⛔ S2 — Every commissioned channel is enumerable, and its silence is
 detectable.**
@@ -2764,6 +2792,35 @@ at 10,000 nodes.**
 > set still grows superlinearly, and on a vault of near-identical titles the
 > *answer* is quadratic — no search strategy shortens it. What bounds that case is
 > Z2's generator and materialization cap, not this index.
+>
+> **The budget was breached, the gate caught it, and nobody read the gate for a
+> week (2026-08-06).** Between 07-30 and 08-05 the tree acquired four structural
+> rules (`single-parent`, `test-mapped`, `assumption-mapped`, the wikilink and
+> empty-subject checks). Three of them answered "who links to this node?" with
+> `tree.filter(...)` **per node** — a full scan per Solution, per Assumption and
+> per AssumptionTest, with an `Array.includes` inside each, which at 10,000 nodes
+> is ~80M link comparisons and profiled at **44% of all CPU in this benchmark**.
+> `ost_next_work` drifted 620ms → ~1,600ms and `ost_check` 600ms → ~1,570ms on the
+> same laptop these figures were first taken on.
+>
+> The instructive part is not the quadratic — this document already records two of
+> those — it is **how the failure was read**. Local runs still passed (1,600 of
+> 2,000ms), so the drift was invisible to anyone developing; CI, on a slower box,
+> failed six runs out of six at 2,045–2,183ms, on `main` as well as on branches.
+> Three of those reds were treated as a flaky timing test and left, and this
+> vault's inbox holds two friction filings from 08-01 saying exactly that. **A
+> perf gate that fails only on the slowest machine that runs it will be read as
+> the machine's fault every time**, and the tell that it is not is cheap: measure
+> the number the gate reports against the number the criterion recorded. That
+> comparison was available all week and nobody made it.
+>
+> Fixed by using the inbound-edge index `single-parent` had already built twenty
+> lines further down — the three scans above it simply never used it.
+> **`ost_next_work` 522–540ms, `ost_check` 463–469ms** on the same machine, which
+> is now faster than the original figures and restores a ~3.8× margin. The rules'
+> behaviour is unchanged by construction: the index holds parent *nodes*, one
+> entry per (parent, link) occurrence, so `single-parent` still double-counts a
+> duplicated edge exactly as it did.
 
 **Z4 — Retired nodes leave the denominator.**
 > *Check:* assert `readTreeCensus` supports a status/archive filter and that the

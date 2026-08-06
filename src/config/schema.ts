@@ -131,6 +131,13 @@ const AtlassianSchema = z
 
 // Harvests the agent's own finished sessions as usage evidence. Opt-in: it reads
 // session transcripts, so the operator turns it on deliberately.
+//
+// The keys below name ONE directory — the sessions in which the agent is worked
+// on. A vault that also declares `loop.spend.sessionsDir` gets that directory
+// harvested too, without naming it twice: those are the sessions in which the
+// agent ran *by itself*, which is the other half of "the agent's own sessions"
+// and the half a cwd-keyed session directory hides. See `transcriptDirs` in
+// src/runner/context.ts. Every evidence item says which of the two it came from.
 const TranscriptSchema = z
   .object({
     enabled: z.boolean().default(false),
@@ -357,6 +364,9 @@ adapters:
     projectDir: ""          # repo whose sessions to read; transcripts are found under ~/.claude/projects/<slug>
     path: ""                # or point straight at a directory of *.jsonl transcripts
     quietMinutes: 30        # a session is "finished" once its file has been untouched this long
+                            # an unattended firing runs with cwd set to the VAULT, so its sessions land
+                            # elsewhere: if loop.spend.sessionsDir is set, that folder is harvested too,
+                            # and each evidence item names which of the two it came out of
   usage:
     enabled: true           # roll the mechanical tool-invocation trace into daily evidence (observed behavior, no narrator)
     minEvents: 5            # a day needs at least this many tool calls to become an evidence item

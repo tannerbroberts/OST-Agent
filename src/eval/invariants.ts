@@ -85,19 +85,49 @@ export function checkInvariants(tree: OstNode[]): Violation[] {
     }
   }
 
+  /*
+   * Inbound edges, indexed once.
+   *
+   * The four rules below all ask the same question — "who links to this node?" —
+   * and three of them used to answer it with `tree.filter(...)` per node, which
+   * is a full scan of the tree per Solution, per Assumption and per Test, with an
+   * `Array.includes` inside each. At 10,000 nodes that is ~80M link comparisons
+   * and it was 44% of all CPU in the Z3 benchmark: `ost_next_work` drifted from
+   * ~620ms to ~1,600ms on the machine Z3 was measured on, and CI — a slower box —
+   * crossed the 2,000ms budget six runs out of six while local runs still passed.
+   * The gate was right and nobody had read it yet.
+   *
+   * The index was already here, built for `single-parent` twenty lines further
+   * down; the three scans above it simply never used it. It holds parent NODES
+   * rather than titles so the layer tests below need no second lookup, and it is
+   * built exactly as `single-parent` built it — one entry per (parent, link)
+   * occurrence, so a parent that lists the same child twice still counts twice
+   * for that rule, as it always did.
+   */
+  const parentsOf = new Map<string, OstNode[]>();
+  for (const p of tree) {
+    for (const child of p.links) {
+      const list = parentsOf.get(child);
+      if (list) list.push(p);
+      else parentsOf.set(child, [p]);
+    }
+  }
+
   // every Solution sits under at least one Opportunity
   for (const n of tree) {
     if (n.layer === "Solution") {
-      const parents = tree.filter((p) => p.layer === "Opportunity" && p.links.includes(n.title));
-      if (parents.length === 0) v.push({ rule: "solution-mapped", node: n.title, detail: "not linked under any Opportunity" });
+      const parents = parentsOf.get(n.title) ?? [];
+      if (!parents.some((p) => p.layer === "Opportunity"))
+        v.push({ rule: "solution-mapped", node: n.title, detail: "not linked under any Opportunity" });
     }
   }
 
   // every Assumption sits under at least one Solution
   for (const n of tree) {
     if (n.layer === "Assumption") {
-      const parents = tree.filter((p) => p.layer === "Solution" && p.links.includes(n.title));
-      if (parents.length === 0) v.push({ rule: "assumption-mapped", node: n.title, detail: "not linked under any Solution" });
+      const parents = parentsOf.get(n.title) ?? [];
+      if (!parents.some((p) => p.layer === "Solution"))
+        v.push({ rule: "assumption-mapped", node: n.title, detail: "not linked under any Solution" });
     }
   }
 
@@ -112,10 +142,9 @@ export function checkInvariants(tree: OstNode[]): Violation[] {
   // edge, so the legacy branch can only ever shrink.
   for (const n of tree) {
     if (n.layer === "AssumptionTest") {
-      const parents = tree.filter(
-        (p) => (p.layer === "Assumption" || p.layer === "Solution") && p.links.includes(n.title),
-      );
-      if (parents.length === 0) v.push({ rule: "test-mapped", node: n.title, detail: "not linked under any Assumption" });
+      const parents = parentsOf.get(n.title) ?? [];
+      if (!parents.some((p) => p.layer === "Assumption" || p.layer === "Solution"))
+        v.push({ rule: "test-mapped", node: n.title, detail: "not linked under any Assumption" });
     }
   }
 
@@ -135,21 +164,17 @@ export function checkInvariants(tree: OstNode[]): Violation[] {
   // correctly-layered ones: two parents is two parents, and a node reached by one
   // legal and one illegal edge should report both problems, not have this one
   // hidden by the other.
-  const parentsOf = new Map<string, string[]>();
-  for (const p of tree) {
-    for (const child of p.links) {
-      const list = parentsOf.get(child);
-      if (list) list.push(p.title);
-      else parentsOf.set(child, [p.title]);
-    }
-  }
+  //
+  // Reads the `parentsOf` index built above rather than building a second copy of
+  // it — this rule is where that index was introduced, and the three hierarchy
+  // rules now share it.
   for (const n of tree) {
     const held = parentsOf.get(n.title);
     if (held && held.length > 1) {
       v.push({
         rule: "single-parent",
         node: n.title,
-        detail: `has ${held.length} parents (${held.join("; ")}) — a node belongs under its single best-fit parent`,
+        detail: `has ${held.length} parents (${held.map((p) => p.title).join("; ")}) — a node belongs under its single best-fit parent`,
       });
     }
   }
