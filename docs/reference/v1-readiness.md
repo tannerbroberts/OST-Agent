@@ -2996,8 +2996,22 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 2045 tests across 167 files, verified 2026-08-05 (`npx vitest run`,
-> after the PRODUCT was made to obey `single-backlink` too. The rule was enforced on the
+> *Today:* **met** — 2063 tests across 168 files, verified 2026-08-05 (`npx vitest run`,
+> after a corrections ledger gave a refusal a carrier out of the session it was issued in.
+> A guard that refuses a call usually says what to use instead; that message was spoken,
+> obeyed once, and gone — so seven sessions across four days hit the identical
+> `Blocked: sleep …` refusal, and the guard ended up being the only memory in the system.
+> `src/loop/corrections.ts` harvests those refusals out of finished transcripts, keys them
+> by the permitted form the guard named — so eight sightings of one correction fold to one
+> entry, not eight — and `ost-agent corrections` renders the ledger into the head of both
+> wrappers' prompts, ahead of the tree. `test/loop/corrections-ledger.test.ts` replays the
+> seven real sessions (`test/fixtures/corrections/PROVENANCE.md`) and pins the whole chain:
+> the fold, the discrimination between a correction and an ordinary failure, the cap that
+> names what it dropped, and that both wrappers read the ledger upstream of the line that
+> invokes `claude`. What it proves is delivery, not persuasion: nothing here can see
+> whether a session that receives a correction acts on it, and a reflex that survived seven
+> explicit refusals may survive a note about them. Before that, the PRODUCT was made to
+> obey `single-backlink` too. The rule was enforced on the
 > agent and stated in the ruleset, but `Vault.detach`, `Vault.mergeNodes` and the duplicate
 > scanner each wrote a `[[wikilink]]` into a `## History` or `## Issues` section — a second
 > link to a node that already has a parent. Not hypothetical: this repository's own

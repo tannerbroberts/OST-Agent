@@ -400,7 +400,30 @@ DENIED="mcp__ost-agent__ost_annotate,mcp__ost-agent__ost_append_to_node,mcp__ost
 #
 # A plain redirect is not parsed that way, so prose can be prose.
 PROMPT_FILE="$(mktemp "${TMPDIR:-/tmp}/ost-build-prompt.XXXXXX")"
+
+# The corrections this workspace has already been given, read before the prompt is
+# composed so they reach the session ahead of its first tool call.
+#
+# `--state "$STATE"` rather than the vault's `.git/`: this loop keeps its state outside
+# the vault on purpose (see OST_BUILD_STATE at the top), and a ledger written inside would
+# wedge discovery's dirty-tree gate — the one failure this whole split exists to avoid.
+# `--project "$PWD"` derives the transcript directory through the CLI's own slug rule
+# instead of re-deriving it with sed here; cwd is the vault, and that is the directory
+# Claude Code writes this loop's sessions into.
+#
+# Seven of this loop's sessions hit the identical `Blocked: sleep …` refusal across four
+# days. Each was told what to use instead, and none of them could tell the next one. This
+# is the line that carries it forward. Substituted into the heredoc, not `cat`-ed in,
+# because the heredoc is already how everything else in this prompt is assembled — and
+# it is expanded here where a failure is a missing section rather than a dead firing.
+CORRECTIONS="$(node "$CLI" corrections --state "$STATE" --project "$PWD" 2>/dev/null \
+  || printf '(the corrections ledger could not be read this firing)')"
+
 cat >"$PROMPT_FILE" <<PROMPT
+$CORRECTIONS
+
+---
+
 You are the build half of an OST loop. The discovery half maintains the tree; you do not
 touch it. Your job is to build ONE solution the tree has already cleared for building, in
 the code repository, and to report what you found doing it.

@@ -18,6 +18,7 @@
  *   ost-agent preflight [--transcripts DIR]   did the callers whose calls failed already know they were unsure?
  *   ost-agent channels [--vault DIR]          every drop folder, its last delivery, and what has gone silent
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
+ *   ost-agent corrections [--state DIR]       refusals this workspace already paid for, for the next session to read
  *   ost-agent loop due|start|step|seal        unattended firing: cadence, lock, ceiling, health
  *   ost-agent mcp [--vault DIR]               stdio MCP server (no API key needed)
  *
@@ -57,8 +58,11 @@ import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapte
 import { createLazyOstMcpServer, MCP_TOOL_NAMES } from "../mcp/server.js";
 import { vaultReadiness } from "../mcp/bootstrap.js";
 import { gitCommit } from "../git/safe-git.js";
-import { workingTreeStatus, type VaultTreeStatus } from "../loop/state.js";
-import { entriesRequiringAHuman, registerLoopCommands } from "./loop.js";
+import { loopStateDir, workingTreeStatus, type VaultTreeStatus } from "../loop/state.js";
+import {
+  DEFAULT_QUIET_MINUTES, emptyCorrectionsLedger, readLedger, recordCorrections, renderCorrections,
+} from "../loop/corrections.js";
+import { entriesRequiringAHuman, registerLoopCommands, resolveSessionsDir } from "./loop.js";
 import { installVaultResolution, resolvedVaultSource, VAULT_OPTION_HELP } from "./vault-option.js";
 import { describeVaultSource } from "../config/pointer.js";
 import { VERSION } from "../index.js";
@@ -79,6 +83,56 @@ async function prompt(question: string, fallback?: string): Promise<string> {
 /** Commander's accumulator for a repeatable option: `--also a --also b` → `["a", "b"]`. */
 function collect(value: string, previous: string[]): string[] {
   return [...previous, value];
+}
+
+interface CorrectionsOptions {
+  state?: string;
+  sessions?: string;
+  project?: string;
+  quietMinutes?: string;
+  /** Commander's `--no-record`: absent ⇒ true. */
+  record?: boolean;
+  vault: string;
+}
+
+/**
+ * Where this workspace's ledger lives.
+ *
+ * `--state` first and unconditionally, because the two loops on a machine do not
+ * share a home and only the caller knows which one it is. The discovery loop is a
+ * vault loop and gets `<vault>/.git/ost-agent/` — outside the working tree, for the
+ * reason `src/loop/state.ts` spells out. The build loop keeps its state outside the
+ * vault entirely (`$OST_BUILD_STATE`) so it cannot wedge discovery's dirty-tree
+ * gate, and passes that path in.
+ *
+ * Null when neither is available, which is a real state: `--vault` may point at a
+ * directory that is not a git checkout.
+ */
+function correctionsStateDir(opts: CorrectionsOptions): string | null {
+  if (opts.state) return path.resolve(opts.state);
+  return loopStateDir(opts.vault);
+}
+
+/**
+ * Which transcripts to harvest, in the order a caller means them.
+ *
+ * `--project` derives through {@link defaultTranscriptDir} rather than by pasting
+ * the slug rule into a shell script. The rule (project path, every non-alphanumeric
+ * character to `-`, under `~/.claude/projects/`) already exists in one place, and a
+ * second copy in bash is a second thing to get wrong on the day it changes.
+ *
+ * The config fallback reads the sessions directory the vault ALREADY declares for
+ * its spend ceiling. Not a third declaration of the same path: it is the same
+ * directory, the operator has already written it down, and a key they had to
+ * duplicate is a key they would leave unset — which would turn this feature off on
+ * exactly the vaults that run unattended.
+ */
+function correctionsSessionsDir(opts: CorrectionsOptions): string | null {
+  if (opts.sessions) return path.resolve(opts.sessions);
+  if (opts.project) return defaultTranscriptDir(opts.project);
+  const { config } = readConfig(opts.vault, { missing: "defaults" });
+  const declared = config.loop?.spend?.sessionsDir ?? config.loop?.questions?.sessionsDir;
+  return declared ? resolveSessionsDir(opts.vault, declared) : null;
 }
 
 const program = new Command();
@@ -717,6 +771,71 @@ program
   .action((opts: { vault: string }) => {
     const ctx = buildPassContext(opts.vault);
     console.log(renderRollup(rollupTree(ctx.vault.readTree())));
+  });
+
+program
+  .command("corrections")
+  .description(
+    "the corrections this workspace has already been given: refusals harvested from finished sessions, deduplicated by the permitted form they named, rendered for the next session to read before it composes",
+  )
+  .option("--state <dir>", "where the ledger lives (default: <vault>/.git/ost-agent)")
+  .option("--sessions <dir>", "directory of Claude Code session transcripts to harvest")
+  .option("--project <dir>", "derive --sessions from a project directory's transcript slug")
+  .option(
+    "--quiet-minutes <n>",
+    `a session must be untouched this long to count as finished (default ${DEFAULT_QUIET_MINUTES})`,
+  )
+  .option("--no-record", "render what is already recorded; do not read any transcript")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((opts: CorrectionsOptions) => {
+    /*
+     * A READER that keeps itself current, and the two halves are deliberately one
+     * command rather than two.
+     *
+     * The caller is a wrapper prepending this output to a prompt. Were harvesting a
+     * separate invocation, a wrapper that added the render and forgot the harvest
+     * would hand over a ledger that had silently stopped learning — and it would
+     * look exactly like a workspace with nothing to correct. There is no state here
+     * worth protecting from a write: the ledger is machine-local advice, outside git
+     * by construction, and folding a session in twice is a no-op.
+     *
+     * Never a non-zero exit, whatever it finds. The caller is building a prompt, and
+     * an unreachable transcript directory must degrade to "no corrections known"
+     * rather than taking the firing down with it.
+     */
+    const state = correctionsStateDir(opts);
+    if (state === null) {
+      console.error(
+        "cannot locate a corrections ledger: pass --state <dir>, or point --vault at a git checkout — the ledger lives under its .git/, never in the working tree.",
+      );
+      console.log(renderCorrections(emptyCorrectionsLedger()));
+      return;
+    }
+
+    if (opts.record !== false) {
+      const sessions = correctionsSessionsDir(opts);
+      if (sessions === null) {
+        console.error(
+          "not harvesting: no session transcripts named — pass --sessions or --project, or declare `loop.spend.sessionsDir` in the vault's config.",
+        );
+      } else {
+        const quiet = Number(opts.quietMinutes);
+        const result = recordCorrections(state, sessions, {
+          ...(Number.isFinite(quiet) ? { quietMinutes: quiet } : {}),
+        });
+        // On stderr, so what a wrapper captures from stdout is the ledger and
+        // nothing else. Still worth printing: a harvest that has read nothing for a
+        // week is how this feature dies without anybody noticing.
+        if (!result.readable) console.error(`not harvesting: ${result.reason}`);
+        else if (result.sessions.length > 0) {
+          console.error(
+            `harvested ${result.sessions.length} finished session(s): ${result.sightings} refusal(s), ${result.added} new correction(s).`,
+          );
+        }
+      }
+    }
+
+    console.log(renderCorrections(readLedger(state)));
   });
 
 registerLoopCommands(program);

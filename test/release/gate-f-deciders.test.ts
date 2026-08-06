@@ -168,11 +168,18 @@ const TRACE_READER_MODULES: Record<string, string> = {
  * criterion it does not decide, and the enumeration's whole value is that the
  * attribution is real.
  *
+ * `corrections.ts` is the same shape and is here for the same reason. It reads
+ * finished session transcripts and its own ledger, and what it produces is TEXT
+ * handed to the next session before it composes — advice, carrying no verdict, no
+ * exit code and no gate. `ost-agent corrections` cannot refuse a firing, and both
+ * wrappers treat an unreadable ledger as a missing paragraph in a prompt rather
+ * than a reason to stop.
+ *
  * The property that keeps this class from being a hole is asserted below: no
  * decider imports a reporter. The moment one does, its reads become decider inputs
  * and this classification fails the build rather than silently going stale.
  */
-const REPORTER_MODULES = ["questions.ts"];
+const REPORTER_MODULES = ["questions.ts", "corrections.ts"];
 
 const FS_READ = /\bfs\.(readFileSync|readdirSync|existsSync|statSync|lstatSync|realpathSync|openSync)\b|\bspawnSync\b|\bexecFileSync\b/;
 
