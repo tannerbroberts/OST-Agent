@@ -358,8 +358,13 @@ Open the vault folder in Obsidian and watch the tree grow in graph view.
 There is no separate model and no API key: the plugin bundles an **MCP server**
 (deterministic — it holds no model of its own) and the *reasoning* is supplied
 entirely by the Claude Code session you are already in, the same way a skill
-works. The append-only tools appear in any session as `mcp__ost-agent__ost_next_work`,
-`…_ost_create_node`, `…_ost_read_tree`, and so on. `ost_next_work` is a read-only
+works. Installed as a plugin, the append-only tools appear in a session as
+`mcp__plugin_ost-agent_ost-agent__ost_next_work`, `…_ost_create_node`,
+`…_ost_read_tree`, and so on. (Registered directly instead — `claude mcp add`, a
+project `.mcp.json` — the same tools appear as `mcp__ost-agent__ost_*`; the
+namespace follows how the server was registered, and
+[`docs/consuming-from-claude-code.md`](docs/consuming-from-claude-code.md) has the
+table.) `ost_next_work` is a read-only
 orchestration tool that reports exactly what the tree still needs (unmapped
 evidence, under-served opportunities, solutions whose assumptions are unstated or
 untestable, hygiene issues), so the session knows what to do without re-deriving it. Every

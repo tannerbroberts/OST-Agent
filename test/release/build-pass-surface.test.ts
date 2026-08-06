@@ -24,6 +24,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
+import { bareToolName } from "../../scripts/mcp-prefix.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const read = (p: string) => fs.readFileSync(path.join(root, p), "utf8");
@@ -61,28 +62,34 @@ const discoveryAuthority = sortedTools(
   read(".claude/commands/ost-pass.md").match(/^allowed-tools:\s*(.+)$/m)![1],
 );
 
+/*
+ * The comparisons below are made on TOOL NAMES rather than on grant strings.
+ *
+ * `/ost-pass` is delivered by the plugin and so names tools in the plugin's
+ * namespace (`mcp__plugin_ost-agent_ost-agent__*`); this script registers the
+ * server itself with `--mcp-config` and names them in the direct one
+ * (`mcp__ost-agent__*`). Both are correct for the surface they run on. What must
+ * still hold — and is the entire point of this file — is that the SET of tools
+ * lines up: every tool discovery may call is read-only here or explicitly denied.
+ * Comparing strings across two namespaces would answer a question nobody asked.
+ */
+const discoveryTools = discoveryAuthority.map(bareToolName).sort();
+
 describe("the build pass cannot write the tree it builds against", () => {
   test("grants no ost_* tool that mutates", () => {
     // Whitelist by name rather than by "contains write": the read-only surface is small
     // and closed, so anything outside it is a mutation until someone argues otherwise here.
-    const READ_ONLY = new Set([
-      "mcp__ost-agent__ost_read_tree",
-      "mcp__ost-agent__ost_next_work",
-      "mcp__ost-agent__ost_status",
-      "mcp__ost-agent__ost_debt",
-      "mcp__ost-agent__ost_check",
-      "mcp__ost-agent__ost_gate",
-    ]);
-    const granted = allowed.filter((t) => t.startsWith("mcp__ost-agent__"));
+    const READ_ONLY = new Set(["ost_read_tree", "ost_next_work", "ost_status", "ost_debt", "ost_check", "ost_gate"]);
+    const granted = allowed.filter((t) => t.startsWith("mcp__")).map(bareToolName);
     expect(granted.filter((t) => !READ_ONLY.has(t))).toEqual([]);
   });
 
   test("every ost_* tool the discovery pass may call is either read-only here or denied", () => {
     // The drift guard described in this file's header. Adding a write tool to
     // /ost-pass's frontmatter now fails here until build-pass.sh denies it too.
-    const allowedSet = new Set(allowed);
-    const deniedSet = new Set(denied);
-    const unaccountedFor = discoveryAuthority.filter((t) => !allowedSet.has(t) && !deniedSet.has(t));
+    const allowedSet = new Set(allowed.map(bareToolName));
+    const deniedSet = new Set(denied.map(bareToolName));
+    const unaccountedFor = discoveryTools.filter((t) => !allowedSet.has(t) && !deniedSet.has(t));
     expect(unaccountedFor).toEqual([]);
   });
 

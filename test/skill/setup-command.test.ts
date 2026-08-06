@@ -19,6 +19,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
+import { MCP_PREFIX } from "../../scripts/mcp-prefix.js";
 import {
   COMMANDS_DIR,
   renderSetupCommand,
@@ -39,7 +40,7 @@ describe("the generated /ost-setup command", () => {
   });
 
   test("it can read the bootstrap state it is supposed to branch on", () => {
-    expect(cmd).toMatch(/allowed-tools:.*mcp__ost-agent__ost_next_work/);
+    expect(cmd).toMatch(new RegExp(`allowed-tools:.*${MCP_PREFIX}ost_next_work`));
   });
 
   test("its shell allowance is scoped to a named subcommand, not to a shell", () => {

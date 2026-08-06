@@ -14,6 +14,16 @@
  *
  * This test makes that drift a loud CI failure instead of a silent one.
  *
+ * **It compares TOOL NAMES, not grant strings, and that is not a loosening.**
+ * The two sides run on different surfaces and therefore mint different
+ * namespaces: `/ost-pass` is delivered by the plugin, so a session mints
+ * `mcp__plugin_ost-agent_ost-agent__*`, while the examples register the server
+ * themselves with `--mcp-config` and mint `mcp__ost-agent__*`. Comparing the
+ * full strings would force one of the two to be wrong — and until 2026-08-06 the
+ * repo resolved that by having BOTH use the direct form, which meant no grant in
+ * any command file matched a tool any plugin session mints. Each side's prefix is
+ * asserted separately below, against the surface it actually runs on.
+ *
  * It also pins the other half, which the sync check never touched: what the
  * examples *deny*. Both ran under `--permission-mode acceptEdits` with no
  * `--disallowedTools`, and cwd is the vault — so ordinary Edit/Write against a
@@ -24,6 +34,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
+import { DIRECT_PREFIX, MCP_PREFIX, bareToolName } from "../../scripts/mcp-prefix.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const read = (p: string) => fs.readFileSync(path.join(root, p), "utf8");
@@ -43,27 +54,32 @@ function frontmatterAllowedTools(commandMd: string): string[] {
 }
 
 const authority = frontmatterAllowedTools(read(".claude/commands/ost-pass.md"));
+/** The same list reduced to tool names, for comparison across surfaces. */
+const authorityTools = authority.map(bareToolName).sort();
 
 describe("examples' --allowedTools stay in sync with /ost-pass's frontmatter", () => {
   test("the frontmatter itself grants at least the ingest + read/write surface", () => {
     // Sanity check on the authority itself, so a typo there can't make both
     // comparisons below pass vacuously.
-    expect(authority).toContain("mcp__ost-agent__ost_ingest_inbox");
-    expect(authority).toContain("mcp__ost-agent__ost_next_work");
+    expect(authority).toContain(`${MCP_PREFIX}ost_ingest_inbox`);
+    expect(authority).toContain(`${MCP_PREFIX}ost_next_work`);
   });
 
   test("examples/automation/autonomous-pass.sh's OST_TOOLS matches, tool for tool", () => {
     const script = read("examples/automation/autonomous-pass.sh");
     const match = script.match(/^OST_TOOLS="([^"]+)"/m);
     expect(match, "autonomous-pass.sh has no OST_TOOLS= assignment").toBeTruthy();
-    expect(sortedTools(match![1])).toEqual(authority);
+    expect(sortedTools(match![1]).map(bareToolName).sort()).toEqual(authorityTools);
+    // …and it uses the namespace ITS surface mints, which is not the plugin's.
+    for (const grant of sortedTools(match![1])) expect(grant.startsWith(DIRECT_PREFIX)).toBe(true);
   });
 
   test("examples/automation/github-workflow.yml's --allowedTools matches, tool for tool", () => {
     const workflow = read("examples/automation/github-workflow.yml");
     const match = workflow.match(/--allowedTools "([^"]+)"/);
     expect(match, "github-workflow.yml has no --allowedTools argument").toBeTruthy();
-    expect(sortedTools(match![1])).toEqual(authority);
+    expect(sortedTools(match![1]).map(bareToolName).sort()).toEqual(authorityTools);
+    for (const grant of sortedTools(match![1])) expect(grant.startsWith(DIRECT_PREFIX)).toBe(true);
   });
 });
 
@@ -121,7 +137,7 @@ describe("the unattended examples grant no write capability beyond the MCP surfa
         // Deny beats allow. An MCP tool that lands on both lists is a phase that
         // silently stops running on the one path with no human present to notice —
         // the same failure the sync test above exists to prevent.
-        expect(authority.filter((t) => denied.has(t))).toEqual([]);
+        expect(authorityTools.filter((t) => denied.has(t) || denied.has(`${DIRECT_PREFIX}${t}`))).toEqual([]);
       });
     });
   }
@@ -187,7 +203,7 @@ describe("/ost-pass's prose and its allowed-tools describe the same agent", () =
   // in exposition as well as instruction, and exposition is exactly what the
   // contained set above has to justify by name.
   const mentioned = [...new Set(body.match(/\bost_[a-z_]+\b/g) ?? [])].sort();
-  const granted = new Set(authority.map((t) => t.replace("mcp__ost-agent__", "")));
+  const granted = new Set(authorityTools);
 
   test("the body names tools at all, so the comparison cannot pass vacuously", () => {
     expect(mentioned.length).toBeGreaterThan(5);

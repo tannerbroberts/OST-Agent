@@ -1,6 +1,6 @@
 ---
 description: Map unmapped evidence into customer #Opportunity nodes (OST discovery process P2)
-allowed-tools: mcp__ost-agent__ost_ingest_inbox, mcp__ost-agent__ost_next_work, mcp__ost-agent__ost_read_tree, mcp__ost-agent__ost_create_node, mcp__ost-agent__ost_link_nodes
+allowed-tools: mcp__plugin_ost-agent_ost-agent__ost_ingest_inbox, mcp__plugin_ost-agent_ost-agent__ost_next_work, mcp__plugin_ost-agent_ost-agent__ost_read_tree, mcp__plugin_ost-agent_ost-agent__ost_create_node, mcp__plugin_ost-agent_ost-agent__ost_link_nodes
 ---
 
 Run opportunity mapping. Follow the `opportunity-solution-tree` skill's rules.

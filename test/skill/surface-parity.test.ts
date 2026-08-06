@@ -64,29 +64,25 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import { SKILL_PATH } from "../../scripts/gen-skill.js";
 import { MCP_TOOL_NAMES } from "../../src/mcp/server.js";
+/**
+ * The prefix a session actually mints for this plugin's tools — imported, never
+ * re-derived here.
+ *
+ * This file used to carry its own copy of the derivation, and so did
+ * `test/release/command-allowlists.test.ts` and `scripts/gen-skill.ts`. All three
+ * copies read the manifest's `mcpServers` key and produced `mcp__<server>__`,
+ * which is what a DIRECTLY registered server mints. A plugin-delivered server —
+ * the only install path `README.md` documents — mints
+ * `mcp__plugin_<plugin>_<server>__`. Three independent derivations, all wrong the
+ * same way, so every guard agreed with the thing it was guarding for 23 releases.
+ * Deriving is not the same as deriving correctly, and the fix for that is one
+ * derivation rather than three careful ones.
+ */
+import { MCP_PREFIX } from "../../scripts/mcp-prefix.js";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
-/**
- * The prefix a session actually mints for this plugin's tools, read off the
- * `mcpServers` key of `.claude-plugin/plugin.json` — the same derivation
- * `test/release/command-allowlists.test.ts` uses on the command files, and the
- * same one `scripts/gen-skill.ts` now renders with.
- *
- * Hardcoding it here (as this file did until 2026-07-30) made the parity check
- * blind to the one edit that voids the whole grant at once: rename the server in
- * the manifest, and every `mcp__ost-agent__*` name in the skill resolves to
- * nothing — denied rather than prompted, so the model would lose its entire
- * surface silently. With both sides derived, that rename fails here.
- */
-const MCP_PREFIX: string = (() => {
-  const manifest = JSON.parse(fs.readFileSync(path.join(repoRoot, ".claude-plugin", "plugin.json"), "utf8")) as {
-    mcpServers?: Record<string, unknown>;
-  };
-  const names = Object.keys(manifest.mcpServers ?? {});
-  if (names.length !== 1) throw new Error(`expected exactly one mcpServers entry, found ${names.length}`);
-  return `mcp__${names[0]}__`;
-})();
+
 
 const skill = fs.readFileSync(SKILL_PATH, "utf8");
 

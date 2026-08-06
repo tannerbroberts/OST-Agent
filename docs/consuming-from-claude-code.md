@@ -76,9 +76,18 @@ After that, `/ost-status`, `/ost-pass`, etc. work in **any** session (not just i
 
 If you are working on OST-Agent itself rather than consuming it, `git clone` this repo (see [`CONTRIBUTING.md`](../CONTRIBUTING.md) for the build setup), and either open a session inside it (project-scoped `.claude/` loads the skill and commands automatically) or point Claude Code at it directly with `--plugin-dir /path/to/OST-Agent`. This is a development path, not a distribution channel — there is nothing here for an end user to wire up by hand.
 
-### Tool-name prefix caveat
+### Tool-name prefix: two namespaces, and neither is a fallback for the other
 
-The skill and commands pre-approve tools as `mcp__ost-agent__ost_*`, which is the plugin's server name. If you ever register an MCP server under a different name (only possible from a `--plugin-dir` checkout, not through the marketplace), the pre-approvals won't match and Claude will ask for permission once per tool — harmless, just a prompt.
+A tool's name depends on **how the server was registered**, not on what it does:
+
+| how you registered it | what a session mints |
+| --- | --- |
+| `/plugin install ost-agent@ost-agent` (the documented path) | `mcp__plugin_ost-agent_ost-agent__ost_*` |
+| `claude mcp add`, a project `.mcp.json`, or `--mcp-config` | `mcp__ost-agent__ost_*` |
+
+The skill and the `/ost-*` commands are delivered *by the plugin*, so they grant the first form. `examples/automation/*.sh` declare the server themselves with `--mcp-config` and never load the plugin, so they grant the second. Both are correct; migrating either to the other's form breaks it.
+
+**This section used to say the mismatch was "harmless, just a prompt", and that sentence cost five scheduled firings.** Every grant in the repo used the direct form while the only documented install mints the plugin form, so no grant matched any tool. Interactively it *is* a prompt, which is why it read as cosmetic for 23 releases. Under `claude -p` there is nobody to prompt: **an ungranted call is denied, not asked about**, so the pass runs, has every call refused, writes nothing, and exits `0` reporting success — the `no-op` shape **F4** exists to catch, arriving through the door nothing was watching. Fixed 2026-08-06; `test/release/plugin-tool-namespace.test.ts` pins both namespaces, including a literal recorded from a real session so the derivation is checked against an observation rather than against itself.
 
 ---
 

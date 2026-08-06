@@ -1,6 +1,6 @@
 ---
 description: Flag tree-hygiene issues (orphans, dangling links, duplicates) by annotating — never deleting (OST process P5)
-allowed-tools: mcp__ost-agent__ost_next_work, mcp__ost-agent__ost_read_tree, mcp__ost-agent__ost_annotate
+allowed-tools: mcp__plugin_ost-agent_ost-agent__ost_next_work, mcp__plugin_ost-agent_ost-agent__ost_read_tree, mcp__plugin_ost-agent_ost-agent__ost_annotate
 ---
 
 Run tree hygiene. Follow the `opportunity-solution-tree` skill's rules.
