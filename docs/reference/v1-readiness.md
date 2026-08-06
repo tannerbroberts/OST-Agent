@@ -3058,7 +3058,17 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 2124 tests across 173 files, verified 2026-08-06 (`npx vitest run`,
+> *Today:* **met** — 2140 tests across 174 files, verified 2026-08-06 (`npx vitest run`,
+> after the unread marker landed: a search now returns results *or* an explicit unread
+> subject naming what it could not examine, and never an empty set for a question that did
+> not run. `rg: error parsing glob '{Charge'` cost this loop a wasted call and, worse, left
+> the caller holding zero results — which is what "nothing is wrong here" looks like. The
+> total reports hits, examined and unread as three quantities, and the flattening path is
+> absent rather than discouraged: `SearchTotal` carries no `hits`, no `length` and no
+> iterator, so the only route to a count is a call that takes a handler for the unread
+> case (`test/ost/unread-subject-propagation.test.ts`, which runs `tsc` over four
+> flattening attempts and requires each to fail to compile). Previously 2124 tests across
+> 173 files, verified 2026-08-06,
 > after the allowlist generator landed with its guard: a run's permission allowlist is now
 > derived from the skill's own `allowed-tools` rather than hand-copied beside it, and the
 > derivation refuses from an agent session, refuses to widen an existing grant without a
