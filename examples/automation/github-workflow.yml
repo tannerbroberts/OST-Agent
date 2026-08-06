@@ -77,7 +77,7 @@ jobs:
             --mcp-config "$RUNNER_TEMP/ost-mcp.json" \
             --strict-mcp-config \
             --allowedTools "mcp__ost-agent__ost_ingest_inbox,mcp__ost-agent__ost_next_work,mcp__ost-agent__ost_read_tree,mcp__ost-agent__ost_create_node,mcp__ost-agent__ost_link_nodes,mcp__ost-agent__ost_append_to_node,mcp__ost-agent__ost_set_status,mcp__ost-agent__ost_set_evidence,mcp__ost-agent__ost_set_instrument,mcp__ost-agent__ost_annotate,mcp__ost-agent__ost_detach_nodes,mcp__ost-agent__ost_edit_node,mcp__ost-agent__ost_merge_nodes,mcp__ost-agent__ost_search_web,mcp__ost-agent__ost_read_web,mcp__ost-agent__ost_read_repo" \
-            --disallowedTools "Bash,BashOutput,KillShell,Edit,MultiEdit,Write,NotebookEdit,Task,SlashCommand,WebFetch,WebSearch" \
+            --disallowedTools "Bash,BashOutput,KillShell,Edit,Write,NotebookEdit,Task,Skill,WebFetch,WebSearch" \
             --output-format text
 
       - name: Push new nodes

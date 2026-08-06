@@ -30,6 +30,7 @@
  * node file were pre-approved and the allowlist above described only which MCP
  * tools the agent would bother to use, not what it could do (criterion W5).
  */
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -47,9 +48,10 @@ function sortedTools(csv: string): string[] {
     .sort();
 }
 
-function frontmatterAllowedTools(commandMd: string): string[] {
-  const match = commandMd.match(/^allowed-tools:\s*(.+)$/m);
-  if (!match) throw new Error("ost-pass.md has no `allowed-tools` frontmatter line");
+/** Reads the `allowed-tools:` frontmatter line off a command file or the skill. */
+function frontmatterAllowedTools(markdown: string): string[] {
+  const match = markdown.match(/^allowed-tools:\s*(.+)$/m);
+  if (!match) throw new Error("no `allowed-tools` frontmatter line");
   return sortedTools(match[1]);
 }
 
@@ -89,26 +91,57 @@ describe("examples' --allowedTools stay in sync with /ost-pass's frontmatter", (
  * This list is the authority — an example may not quietly ship a shorter one, and
  * lengthening it here forces both examples to be edited in the same commit.
  *
- * `Task` and `SlashCommand` are on it because neither writes anything itself: they
+ * `Task` and `Skill` are on it because neither writes anything itself: they
  * hand the turn to something whose tool set this flag no longer describes, and
  * `/ost-setup` already ships `allowed-tools` frontmatter granting a `Bash(…)`
  * prefix. Web is on it because `ost_read_web`/`ost_search_web` meter lookups
  * against one per-pass budget (`src/security/tools.ts:161-167`) and the raw
  * built-ins are unmetered.
+ *
+ * **A name on this list must be a tool that exists, and until 2026-08-06 two were
+ * not.** Claude Code renamed `SlashCommand` to `Skill` and folded `MultiEdit` into
+ * `Edit`. A deny rule matching no tool is inert, so the delegation entry above
+ * described a capability that was reachable under its new name for as long as the
+ * rename had been in place — the list looked complete and was one short. Claude Code
+ * reports this ("Permission deny rule … matches no known tool") and both loops
+ * printed it on every firing for four days, where it read as a stale-name nit.
+ *
+ * The two cases are opposites and the log cannot tell them apart: a retired name WITH
+ * a successor is a hole and must be renamed, a retired name WITHOUT one is dead weight
+ * and must be dropped. Which one a given name is cannot be decided from this repo —
+ * the authority is the running Claude Code, and CI has no Claude Code to ask. So this
+ * file does not pretend to derive liveness; it ratchets against the two names already
+ * caught, and records the one-line experiment that catches the next one:
+ *
+ *     claude -p "say ok" --disallowedTools "Skill,MultiEdit,SlashCommand,…"
+ *
+ * which prints "matches no known tool" for exactly the dead names and nothing for the
+ * live ones. That is how these two were found (2026-08-06) rather than reasoned about,
+ * and re-running it is the only way to audit this list — a hand-kept copy of Claude
+ * Code's tool surface would be a fourth drifting copy of the kind this file exists to
+ * refuse.
  */
 const MUST_DENY = [
   "Bash",
   "BashOutput",
   "KillShell",
   "Edit",
-  "MultiEdit",
   "Write",
   "NotebookEdit",
   "Task",
-  "SlashCommand",
+  "Skill",
   "WebFetch",
   "WebSearch",
 ].sort();
+
+/**
+ * Names Claude Code once defined and no longer does, each with what must be done about
+ * it instead. Confirmed inert by experiment, not by reading a changelog.
+ */
+const RETIRED_TOOL_NAMES: ReadonlyMap<string, string> = new Map([
+  ["SlashCommand", "renamed to `Skill`, which must be denied in its place (this was a hole, not a nit)"],
+  ["MultiEdit", "folded into `Edit`, which is already denied, so it needs no successor"],
+]);
 
 const examples: ReadonlyArray<[label: string, file: string, denyPattern: RegExp]> = [
   ["examples/automation/autonomous-pass.sh", "examples/automation/autonomous-pass.sh", /^DENIED_TOOLS="([^"]+)"/m],
@@ -125,6 +158,18 @@ describe("the unattended examples grant no write capability beyond the MCP surfa
       test("denies every mutating, executing, delegating and networked built-in", () => {
         expect(match, `${label} passes no --disallowedTools list`).toBeTruthy();
         expect([...denied].sort()).toEqual(MUST_DENY);
+      });
+
+      test("names no tool Claude Code has retired", () => {
+        // A ratchet, not a derivation — see the note on MUST_DENY. Each entry was
+        // confirmed inert by running Claude Code with it in --disallowedTools and
+        // reading back "matches no known tool". Re-add one and this fails, which is
+        // the point: an inert deny rule reads as coverage and provides none.
+        for (const [retired, successor] of RETIRED_TOOL_NAMES) {
+          expect(denied, `${label} denies "${retired}", which Claude Code no longer defines — ${successor}`).not.toContain(
+            retired,
+          );
+        }
       });
 
       test("does not pre-accept edits against the vault", () => {
@@ -247,5 +292,82 @@ describe("/ost-pass's prose and its allowed-tools describe the same agent", () =
     for (const sense of ["ost_search_web", "ost_read_web", "ost_read_repo"]) {
       expect(granted, `${sense} should be granted — the pass has no outward sense without it`).toContain(sense);
     }
+  });
+});
+
+/**
+ * The pass is handed the SKILL as its system prompt, and the skill declares more tools
+ * than this surface grants — 22 against 16. Everything above keeps the three copies of
+ * the *grant* honest with each other; none of it asks whether the agent reading the
+ * *declaration* is told which part of it does not apply here.
+ *
+ * It was not, and the cost was measured rather than imagined. Two consecutive
+ * unattended firings (2026-08-05, 2026-08-06) reached for `ost_check`, `ost_debt` and
+ * `ost_flag_humans_required`, were denied without a message — under `-p` a tool outside
+ * `--allowedTools` is denied, not prompted — and reported the identical denied set,
+ * correctly concluding it was fixed rather than drifting and unable to see why. One of
+ * them then filed ~30 tree writes as "unverified", which reads as an instrument that
+ * failed rather than one that was never offered.
+ *
+ * The containment itself is deliberate and stays (`CONTAINED_ON_PURPOSE` above,
+ * `src/knowledge/ruleset.ts`). What changes is that the script now names the difference
+ * in the system prompt, computed from the two lists it already holds.
+ *
+ * **This test runs the shipped derivation, not a reimplementation of it.** The block is
+ * extracted from `autonomous-pass.sh` between its `withheld-derivation` markers and
+ * executed by bash, so a test-local copy cannot drift into agreeing with itself — the
+ * failure mode `scripts/mcp-prefix.ts` exists to prevent, where three careful
+ * derivations were all wrong the same way.
+ */
+describe("the pass is told which declared tools this surface withholds", () => {
+  const script = read("examples/automation/autonomous-pass.sh");
+
+  const skillDeclared = frontmatterAllowedTools(
+    read(".claude/skills/opportunity-solution-tree/SKILL.md"),
+  ).map(bareToolName);
+  const surfaceGranted = new Set(
+    sortedTools(script.match(/^OST_TOOLS="([^"]+)"/m)![1]).map(bareToolName),
+  );
+  const expectedWithheld = skillDeclared.filter((t) => !surfaceGranted.has(t)).sort();
+
+  test("the skill really does declare more than this surface grants", () => {
+    // Non-vacuity: if these ever converge the test below passes trivially, and the
+    // right response is to delete this describe block rather than to keep it green.
+    expect(skillDeclared.length).toBeGreaterThan(surfaceGranted.size);
+    expect(expectedWithheld.length).toBeGreaterThan(0);
+  });
+
+  test("the shipped derivation computes exactly the withheld set", () => {
+    const block = script.match(/# >>> withheld-derivation[\s\S]*?\n# <<< withheld-derivation/);
+    expect(block, "autonomous-pass.sh has no `withheld-derivation` marker block").toBeTruthy();
+
+    const harness = [
+      "set -euo pipefail",
+      `SKILL_FILE=${JSON.stringify(path.join(root, ".claude/skills/opportunity-solution-tree/SKILL.md"))}`,
+      `OST_TOOLS=${JSON.stringify(script.match(/^OST_TOOLS="([^"]+)"/m)![1])}`,
+      block![0],
+      'printf "%s\\n" "$WITHHELD"',
+    ].join("\n");
+
+    const run = spawnSync("bash", ["-c", harness], { encoding: "utf8" });
+    expect(run.status, run.stderr).toBe(0);
+    expect(
+      run.stdout.split("\n").map((s) => s.trim()).filter(Boolean).sort(),
+    ).toEqual(expectedWithheld);
+  });
+
+  test("the computed note reaches the model, not just the script", () => {
+    // The derivation is worthless if it is never appended. Deny-beats-allow means a
+    // wrong grant is loud; an unsent prompt section is silent, so it is pinned here.
+    expect(script).toMatch(/--append-system-prompt "\$OST_SKILL\$SURFACE_NOTE"/);
+    expect(script).toMatch(/SURFACE_NOTE="/);
+  });
+
+  test("it names ost_check specifically, and says writes are unverified by design", () => {
+    // The single most expensive line of the two observed firings: a pass that cannot
+    // verify its own writes should say so in those terms rather than reporting a
+    // failure, which is what sent a human looking for a broken instrument.
+    expect(expectedWithheld).toContain("ost_check");
+    expect(script).toMatch(/unverified-by-design/);
   });
 });

@@ -94,11 +94,18 @@ describe("the build pass cannot write the tree it builds against", () => {
   });
 
   test("denies delegation as well as mutation", () => {
-    // Task and SlashCommand write nothing themselves — they hand the turn to something
+    // Task and Skill write nothing themselves — they hand the turn to something
     // whose tool set --disallowedTools no longer describes. The observed failure was a
     // review subagent merging the pull request containing the hole it was reviewing.
+    //
+    // `Skill` is the live name; this entry read `SlashCommand` until 2026-08-06, which
+    // Claude Code had retired. A deny rule naming a tool that does not exist is inert,
+    // so the delegation this test believes it pins was reachable the whole time. The
+    // name is asserted here rather than anywhere softer because the failure is silent
+    // in exactly one direction: the log warns, the pass still exits 0.
     expect(denied).toContain("Task");
-    expect(denied).toContain("SlashCommand");
+    expect(denied).toContain("Skill");
+    expect(denied).not.toContain("SlashCommand");
   });
 
   test("the allow and deny lists are disjoint", () => {

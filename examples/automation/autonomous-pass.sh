@@ -68,7 +68,22 @@ OST_TOOLS="mcp__ost-agent__ost_ingest_inbox,mcp__ost-agent__ost_next_work,mcp__o
 # denial described a route nobody could take. The tree recorded the symptom
 # from the operator's side ("Fresh outside findings never reach the tree unless
 # I go get them") without anyone noticing it was a missing line here.
-DENIED_TOOLS="Bash,BashOutput,KillShell,Edit,MultiEdit,Write,NotebookEdit,Task,SlashCommand,WebFetch,WebSearch"
+#
+# `Skill` rather than `SlashCommand`, and that rename is not cosmetic. Claude Code
+# retired `SlashCommand` in favour of `Skill`; a deny rule naming a tool that no
+# longer exists is inert, and Claude Code says so on every firing ("Permission deny
+# rule "SlashCommand" matches no known tool"). Both loops printed that line on every
+# run for four days. The warning was read as noise about a stale name — it was in
+# fact the deny list reporting a HOLE: the delegation capability this entry exists to
+# refuse had moved to a name nothing denied, so an unattended pass could invoke a
+# skill and hand the turn to instructions carrying their own tool set. Silencing the
+# warning by deleting the line would have closed the report and left the hole.
+#
+# `MultiEdit` is gone for the opposite reason: it was retired without a successor —
+# its capability folded into `Edit`, which is denied on the line above — so it is
+# genuinely dead weight rather than a hole wearing a stale name. The two cases look
+# identical in the log and are opposites, which is why each is named here.
+DENIED_TOOLS="Bash,BashOutput,KillShell,Edit,Write,NotebookEdit,Task,Skill,WebFetch,WebSearch"
 
 cd "$VAULT_DIR"
 
@@ -158,7 +173,59 @@ JSON
 # same file whose frontmatter is the authority for $OST_TOOLS above — everything after
 # its frontmatter is the instruction body that `/ost-pass` would have expanded to.
 PASS_PROMPT="$(awk 'BEGIN{n=0} /^---$/{n++; next} n>=2' "$OST_AGENT_DIR/.claude/commands/ost-pass.md")"
-OST_SKILL="$(cat "$OST_AGENT_DIR/.claude/skills/opportunity-solution-tree/SKILL.md")"
+SKILL_FILE="$OST_AGENT_DIR/.claude/skills/opportunity-solution-tree/SKILL.md"
+OST_SKILL="$(cat "$SKILL_FILE")"
+
+# The skill is handed over as the system prompt below, and its `allowed-tools` line
+# declares every tool the SKILL grants — 22 of them. This surface grants fewer, and
+# that is deliberate: R7's containment argument reads `.claude/commands/ost-pass.md`,
+# and `src/knowledge/ruleset.ts` says in terms that granting a tool to the skill "does
+# not move a single cell of that table" and must not "drift into the unattended sweep
+# by association". The narrower grant is a decision. It is not the bug.
+#
+# Nobody telling the PASS about it is. The pass read its own rulebook, reached for
+# `ost_check`, `ost_debt` and `ost_flag_humans_required`, and under `-p` a tool outside
+# --allowedTools is denied rather than prompted — no message, no way to report a tool it
+# was never offered. So it rediscovered the same fixed list one call at a time on every
+# firing, then filed ~30 writes as "unverified" as though the tool had failed rather
+# than never having been offered. Two consecutive firings reported an identical denied
+# set and correctly concluded it was fixed rather than drifting; neither could see WHY,
+# because the reason lives in a file the pass cannot read.
+#
+# Derived from the two lists themselves rather than typed out here, so it cannot drift
+# from either — and it renders nothing at all when they agree, so the day a containment
+# is retired this section disappears on its own instead of becoming a third stale copy.
+# >>> withheld-derivation (executed verbatim by test/release/examples-allowlist.test.ts —
+# it is extracted between these markers and run, so the test cannot pass against a copy
+# of this logic that has drifted from the copy that ships)
+SKILL_DECLARED="$(sed -n 's/^allowed-tools:[[:space:]]*//p' "$SKILL_FILE" | head -1 |
+  tr ',' '\n' | sed 's/.*__//; s/[[:space:]]//g; /^$/d' | sort -u)"
+SURFACE_GRANTED="$(printf '%s' "$OST_TOOLS" |
+  tr ',' '\n' | sed 's/.*__//; s/[[:space:]]//g; /^$/d' | sort -u)"
+WITHHELD="$(comm -23 <(printf '%s\n' "$SKILL_DECLARED") <(printf '%s\n' "$SURFACE_GRANTED") | sed '/^$/d')"
+# <<< withheld-derivation
+
+SURFACE_NOTE=""
+if [ -n "$WITHHELD" ]; then
+  SURFACE_NOTE="
+
+# What this surface withholds
+
+The skill above declares tools that THIS run does not grant:
+
+$(printf '%s\n' "$WITHHELD" | sed 's/^/- /')
+
+They are withheld on purpose — the argument for each is in
+\`test/release/examples-allowlist.test.ts\` (CONTAINED_ON_PURPOSE) and
+\`src/knowledge/ruleset.ts\` — not missing by accident, and not a fault you can clear.
+Calling one is denied silently rather than refused with a message, so a call spent
+finding that out buys nothing and the next firing would spend it again.
+
+Do the pass without them. Where a step you would otherwise take needs one, say so in
+your closing report and carry on — in particular, this run cannot verify its own writes
+with \`ost_check\`, so report your writes as unverified-by-design rather than as a
+tool that failed."
+fi
 
 # The top-level view, computed here because the pass cannot compute it itself:
 # this surface denies Bash on purpose (discovery may write the tree and may not
@@ -205,7 +272,7 @@ fi
 
 node "$CLI" loop step --phase pass --vault . -- \
   claude -p "$(cat "$PROMPT_FILE")" \
-  --append-system-prompt "$OST_SKILL" \
+  --append-system-prompt "$OST_SKILL$SURFACE_NOTE" \
   --mcp-config "$MCP_CONFIG" \
   --strict-mcp-config \
   --allowedTools "$OST_TOOLS" \
