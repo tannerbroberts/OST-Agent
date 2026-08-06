@@ -19,7 +19,6 @@
  * statement verbatim: only `notElapsed` is a normal, quiet outcome.
  */
 import { spawnSync } from "node:child_process";
-import os from "node:os";
 import path from "node:path";
 import type { Command } from "commander";
 import { loadConfig, resolveSessionsDir } from "../config/load.js";
