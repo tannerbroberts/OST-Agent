@@ -982,7 +982,7 @@ var require_command = __commonJS({
     var EventEmitter2 = __require("node:events").EventEmitter;
     var childProcess = __require("node:child_process");
     var path41 = __require("node:path");
-    var fs39 = __require("node:fs");
+    var fs40 = __require("node:fs");
     var process3 = __require("node:process");
     var { Argument: Argument2, humanReadableArgName } = require_argument();
     var { CommanderError: CommanderError2 } = require_error();
@@ -1915,10 +1915,10 @@ Expecting one of '${allowedValues.join("', '")}'`);
         const sourceExt = [".js", ".ts", ".tsx", ".mjs", ".cjs"];
         function findFile(baseDir, baseName) {
           const localBin = path41.resolve(baseDir, baseName);
-          if (fs39.existsSync(localBin)) return localBin;
+          if (fs40.existsSync(localBin)) return localBin;
           if (sourceExt.includes(path41.extname(baseName))) return void 0;
           const foundExt = sourceExt.find(
-            (ext) => fs39.existsSync(`${localBin}${ext}`)
+            (ext) => fs40.existsSync(`${localBin}${ext}`)
           );
           if (foundExt) return `${localBin}${foundExt}`;
           return void 0;
@@ -1930,7 +1930,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
         if (this._scriptPath) {
           let resolvedScriptPath;
           try {
-            resolvedScriptPath = fs39.realpathSync(this._scriptPath);
+            resolvedScriptPath = fs40.realpathSync(this._scriptPath);
           } catch (err) {
             resolvedScriptPath = this._scriptPath;
           }
@@ -9919,14 +9919,14 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs39 = this.flowScalar(this.type);
+              const fs40 = this.flowScalar(this.type);
               if (atNextItem || it.value) {
-                map.items.push({ start, key: fs39, sep: [] });
+                map.items.push({ start, key: fs40, sep: [] });
                 this.onKeyLine = true;
               } else if (it.sep) {
-                this.stack.push(fs39);
+                this.stack.push(fs40);
               } else {
-                Object.assign(it, { key: fs39, sep: [] });
+                Object.assign(it, { key: fs40, sep: [] });
                 this.onKeyLine = true;
               }
               return;
@@ -10054,13 +10054,13 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs39 = this.flowScalar(this.type);
+              const fs40 = this.flowScalar(this.type);
               if (!it || it.value)
-                fc.items.push({ start: [], key: fs39, sep: [] });
+                fc.items.push({ start: [], key: fs40, sep: [] });
               else if (it.sep)
-                this.stack.push(fs39);
+                this.stack.push(fs40);
               else
-                Object.assign(it, { key: fs39, sep: [] });
+                Object.assign(it, { key: fs40, sep: [] });
               return;
             }
             case "flow-map-end":
@@ -13744,7 +13744,7 @@ var require_parse = __commonJS({
 var require_gray_matter = __commonJS({
   "node_modules/gray-matter/index.js"(exports2, module2) {
     "use strict";
-    var fs39 = __require("fs");
+    var fs40 = __require("fs");
     var sections = require_section_matter();
     var defaults = require_defaults();
     var stringify = require_stringify2();
@@ -13828,7 +13828,7 @@ var require_gray_matter = __commonJS({
       return stringify(file, data, options2);
     };
     matter4.read = function(filepath, options2) {
-      const str2 = fs39.readFileSync(filepath, "utf8");
+      const str2 = fs40.readFileSync(filepath, "utf8");
       const file = matter4(str2, options2);
       file.path = filepath;
       return file;
@@ -26906,12 +26906,12 @@ var require_dist4 = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs39, exportName) {
+    function addFormats(ajv, list, fs40, exportName) {
       var _a2;
       var _b;
       (_a2 = (_b = ajv.opts.code).formats) !== null && _a2 !== void 0 ? _a2 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs39[f]);
+        ajv.addFormat(f, fs40[f]);
     }
     module2.exports = exports2 = formatsPlugin;
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -47521,8 +47521,150 @@ function runAllowlistGenerator(opts) {
   return { exitCode: 0, report: decision.message, decision };
 }
 
-// src/loop/corrections.ts
+// src/runner/grant-preflight.ts
 import fs31 from "node:fs";
+function parseRule(entry) {
+  const trimmed2 = entry.trim();
+  const match = trimmed2.match(/^([^(]+)\((.*)\)$/s);
+  if (!match) return { entry: trimmed2, tool: trimmed2, argument: null };
+  return { entry: trimmed2, tool: match[1].trim(), argument: match[2].trim() };
+}
+function normalizeArgument(argument) {
+  const collapsed = argument.startsWith("//") ? argument.slice(1) : argument;
+  return collapsed.length > 1 && collapsed.endsWith("/") ? collapsed.replace(/\/+$/, "") : collapsed;
+}
+function toolCovered(grantTool, demandTool) {
+  if (grantTool === demandTool) return true;
+  return grantTool.startsWith("mcp__") && demandTool.startsWith(`${grantTool}__`);
+}
+function globToRegExp(pattern) {
+  let out = "";
+  for (let i2 = 0; i2 < pattern.length; i2++) {
+    const c3 = pattern[i2];
+    if (c3 === "*") {
+      if (pattern[i2 + 1] === "*") {
+        out += ".*";
+        i2++;
+      } else out += "[^/]*";
+    } else if (c3 === "?") out += "[^/]";
+    else out += c3.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  }
+  return new RegExp(`^${out}$`);
+}
+function argumentCovered(grantArgument, demandArgument) {
+  const grant = normalizeArgument(grantArgument);
+  const demand = normalizeArgument(demandArgument);
+  if (grant === demand) return true;
+  if (grant.endsWith(":*")) return demand.startsWith(grant.slice(0, -2));
+  if (grant.includes("*") || grant.includes("?")) return globToRegExp(grant).test(demand);
+  return demand.startsWith(`${grant}/`);
+}
+function ruleCovers(grant, demand) {
+  if (!toolCovered(grant.tool, demand.tool)) return false;
+  if (grant.argument === null) return true;
+  if (demand.argument === null) return false;
+  return argumentCovered(grant.argument, demand.argument);
+}
+function resolveGrants(input) {
+  const demands = input.demands.map(parseRule);
+  const grants = input.grants.map(parseRule);
+  const gaps = [];
+  for (const demand of demands) {
+    if (grants.some((g) => ruleCovers(g, demand))) continue;
+    const named = grants.filter((g) => toolCovered(g.tool, demand.tool));
+    gaps.push({
+      demand,
+      kind: named.length > 0 ? "out-of-scope" : "ungranted",
+      granted: named.map((g) => g.entry)
+    });
+  }
+  return { demands, grants, gaps };
+}
+function renderPreflight(result, paths) {
+  const caveat = `Checked: ${paths.skillPath} declares, ${paths.settingsPath} grants. NOT checked: whether the session's live grant is this file \u2014 a preflight right about the configuration and wrong about the session is still wrong.`;
+  if (result.gaps.length === 0) {
+    return [
+      `preflight CLEARED: all ${result.demands.length} declared tool demand(s) are covered by the grant.`,
+      caveat
+    ].join("\n");
+  }
+  const ungranted = result.gaps.filter((g) => g.kind === "ungranted");
+  const scoped = result.gaps.filter((g) => g.kind === "out-of-scope");
+  const lines = [
+    `PREFLIGHT FAILED: ${result.gaps.length} of ${result.demands.length} declared tool demand(s) are not covered by the grant this run would fire with.`,
+    ""
+  ];
+  if (ungranted.length > 0) {
+    lines.push(`Not granted at all (${ungranted.length}):`);
+    for (const gap of ungranted) lines.push(`  ${gap.demand.entry}`);
+    lines.push("");
+  }
+  if (scoped.length > 0) {
+    lines.push(`Granted, but not for what this run asks (${scoped.length}):`);
+    for (const gap of scoped) {
+      lines.push(`  ${gap.demand.entry} \u2014 ${gap.demand.tool} is granted only for: ${gap.granted.join(", ")}`);
+    }
+    lines.push("");
+  }
+  lines.push(
+    `Add them to \`permissions.allow\` in ${paths.settingsPath}, or narrow the declaration in ${paths.skillPath}.`,
+    "Stopping here is cheaper than finding out one call at a time: under `claude -p` an ungranted call is denied",
+    "rather than prompted, so a run that proceeds spends its night discovering this and reports a night with",
+    "nothing to do. Nothing was requested, escalated or written \u2014 which grant to add is the operator's decision.",
+    "",
+    caveat
+  );
+  return lines.join("\n");
+}
+var PREFLIGHT_EXIT = {
+  cleared: 0,
+  /** Demands the grant does not cover. The run must not start. */
+  gaps: 20,
+  /** The comparison could not be made at all — which is not a clear result. */
+  unreadable: 21
+};
+function runGrantPreflight(opts) {
+  const paths = { skillPath: opts.skillPath, settingsPath: opts.settingsPath };
+  if (!fs31.existsSync(opts.skillPath)) {
+    return {
+      exitCode: PREFLIGHT_EXIT.unreadable,
+      report: `preflight COULD NOT RUN: no declaration file at ${opts.skillPath}. That is not a cleared run.`,
+      result: null
+    };
+  }
+  const declared = declaredTools(fs31.readFileSync(opts.skillPath, "utf8")) ?? [];
+  const demands = [...declared, ...opts.extraDemands ?? []];
+  if (demands.length === 0) {
+    return {
+      exitCode: PREFLIGHT_EXIT.unreadable,
+      report: `preflight COULD NOT RUN: ${opts.skillPath} has no \`allowed-tools\` frontmatter line and no --demand was given, so there is nothing to check the grant against. That is not a cleared run.`,
+      result: null
+    };
+  }
+  if (!fs31.existsSync(opts.settingsPath)) {
+    const result2 = resolveGrants({ demands, grants: [] });
+    return { exitCode: PREFLIGHT_EXIT.gaps, report: renderPreflight(result2, paths), result: result2 };
+  }
+  let settings;
+  try {
+    settings = JSON.parse(fs31.readFileSync(opts.settingsPath, "utf8"));
+  } catch (e) {
+    return {
+      exitCode: PREFLIGHT_EXIT.unreadable,
+      report: `preflight COULD NOT RUN: ${opts.settingsPath} is not valid JSON (${e instanceof Error ? e.message : String(e)}), so what this run is granted is unknown. That is not a cleared run.`,
+      result: null
+    };
+  }
+  const result = resolveGrants({ demands, grants: grantedTools(settings) });
+  return {
+    exitCode: result.gaps.length > 0 ? PREFLIGHT_EXIT.gaps : PREFLIGHT_EXIT.cleared,
+    report: renderPreflight(result, paths),
+    result
+  };
+}
+
+// src/loop/corrections.ts
+import fs32 from "node:fs";
 import path32 from "node:path";
 var LEDGER_FILE = "corrections.json";
 var LEDGER_VERSION = 1;
@@ -47609,9 +47751,9 @@ function emptyCorrectionsLedger() {
 }
 function readLedger(stateDir2) {
   const p2 = ledgerPath(stateDir2);
-  if (!fs31.existsSync(p2)) return emptyCorrectionsLedger();
+  if (!fs32.existsSync(p2)) return emptyCorrectionsLedger();
   try {
-    const parsed = JSON.parse(fs31.readFileSync(p2, "utf8"));
+    const parsed = JSON.parse(fs32.readFileSync(p2, "utf8"));
     if (parsed.version !== LEDGER_VERSION) return emptyCorrectionsLedger();
     return {
       version: LEDGER_VERSION,
@@ -47625,8 +47767,8 @@ function readLedger(stateDir2) {
 }
 function writeLedger(stateDir2, ledger) {
   const dir = path32.resolve(stateDir2);
-  fs31.mkdirSync(dir, { recursive: true });
-  fs31.writeFileSync(ledgerPath(dir), JSON.stringify(ledger, null, 2));
+  fs32.mkdirSync(dir, { recursive: true });
+  fs32.writeFileSync(ledgerPath(dir), JSON.stringify(ledger, null, 2));
 }
 function foldSightings(ledger, sightings) {
   const byPermitted = /* @__PURE__ */ new Map();
@@ -47667,7 +47809,7 @@ function harvestableSessions(sessionsDir, ledger, opts) {
   const dir = path32.resolve(sessionsDir);
   let names;
   try {
-    names = fs31.readdirSync(dir);
+    names = fs32.readdirSync(dir);
   } catch {
     return [];
   }
@@ -47681,7 +47823,7 @@ function harvestableSessions(sessionsDir, ledger, opts) {
     const file = path32.join(dir, name);
     let mtimeMs;
     try {
-      mtimeMs = fs31.statSync(file).mtimeMs;
+      mtimeMs = fs32.statSync(file).mtimeMs;
     } catch {
       continue;
     }
@@ -47693,7 +47835,7 @@ function harvestableSessions(sessionsDir, ledger, opts) {
 function recordCorrections(stateDir2, sessionsDir, opts = {}) {
   const ledger = readLedger(stateDir2);
   const dir = path32.resolve(sessionsDir);
-  if (!fs31.existsSync(dir)) {
+  if (!fs32.existsSync(dir)) {
     return { readable: false, reason: `no session transcripts at ${dir}`, ledger };
   }
   const sessions = harvestableSessions(dir, ledger, {
@@ -47705,7 +47847,7 @@ function recordCorrections(stateDir2, sessionsDir, opts = {}) {
   for (const s of sessions) {
     let text2;
     try {
-      text2 = fs31.readFileSync(s.file, "utf8");
+      text2 = fs32.readFileSync(s.file, "utf8");
     } catch {
       continue;
     }
@@ -47904,7 +48046,7 @@ function degradedReport(degradations) {
 }
 
 // src/loop/health.ts
-import fs32 from "node:fs";
+import fs33 from "node:fs";
 import path33 from "node:path";
 var REQUIRED_PHASES = ["pass", "check"];
 function healthDir(dir) {
@@ -47917,22 +48059,22 @@ function runsPath(dir) {
   return path33.join(healthDir(dir), "runs.jsonl");
 }
 function appendRun(dir, run) {
-  fs32.appendFileSync(runsPath(dir), JSON.stringify(run) + "\n");
+  fs33.appendFileSync(runsPath(dir), JSON.stringify(run) + "\n");
 }
 function readOpenRun(dir) {
   const state = loopStateDir(dir);
   if (state === null) return null;
   const p2 = path33.join(state, "open-run.json");
-  if (!fs32.existsSync(p2)) return null;
+  if (!fs33.existsSync(p2)) return null;
   try {
-    return JSON.parse(fs32.readFileSync(p2, "utf8"));
+    return JSON.parse(fs33.readFileSync(p2, "utf8"));
   } catch {
     return null;
   }
 }
 function sweepCrashed(dir) {
   const p2 = openRunPath(dir);
-  if (!fs32.existsSync(p2)) return null;
+  if (!fs33.existsSync(p2)) return null;
   const open = readOpenRun(dir);
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const crashed = open ? { ...open, endedAt: now, verdict: "crashed" } : {
@@ -47945,7 +48087,7 @@ function sweepCrashed(dir) {
     verdict: "crashed"
   };
   appendRun(dir, crashed);
-  fs32.rmSync(p2, { force: true });
+  fs33.rmSync(p2, { force: true });
   return crashed;
 }
 var idsIssuedThisMillisecond = 0;
@@ -47967,7 +48109,7 @@ function startRun(dir, meta) {
     ...meta.headBefore ? { headBefore: meta.headBefore } : {},
     steps: []
   };
-  fs32.writeFileSync(openRunPath(dir), JSON.stringify(run, null, 2));
+  fs33.writeFileSync(openRunPath(dir), JSON.stringify(run, null, 2));
   return run;
 }
 function requireOpenRun(dir) {
@@ -47978,7 +48120,7 @@ function requireOpenRun(dir) {
 function appendStep(dir, step) {
   const open = requireOpenRun(dir);
   open.steps.push({ ...step, at: (/* @__PURE__ */ new Date()).toISOString() });
-  fs32.writeFileSync(openRunPath(dir), JSON.stringify(open, null, 2));
+  fs33.writeFileSync(openRunPath(dir), JSON.stringify(open, null, 2));
   return open;
 }
 function computeVerdict(run) {
@@ -48005,7 +48147,7 @@ function sealRun(dir, meta = {}) {
     verdict: computeVerdict(withHead)
   };
   appendRun(dir, sealed);
-  fs32.rmSync(openRunPath(dir), { force: true });
+  fs33.rmSync(openRunPath(dir), { force: true });
   return sealed;
 }
 var VERDICTS2 = /* @__PURE__ */ new Set(["healthy", "unhealthy", "no-op", "crashed", "degraded"]);
@@ -48013,9 +48155,9 @@ function readRuns(dir) {
   const state = loopStateDir(dir);
   if (state === null) return [];
   const p2 = path33.join(state, "runs.jsonl");
-  if (!fs32.existsSync(p2)) return [];
+  if (!fs33.existsSync(p2)) return [];
   const runs = [];
-  for (const line of fs32.readFileSync(p2, "utf8").split("\n")) {
+  for (const line of fs33.readFileSync(p2, "utf8").split("\n")) {
     if (!line.trim()) continue;
     try {
       const parsed = JSON.parse(line);
@@ -48048,7 +48190,7 @@ function assessStall(runs, threshold = STALL_STREAK_THRESHOLD) {
 }
 
 // src/loop/lock.ts
-import fs33 from "node:fs";
+import fs34 from "node:fs";
 import os3 from "node:os";
 import path34 from "node:path";
 function firingLockPath(vaultDir) {
@@ -48057,9 +48199,9 @@ function firingLockPath(vaultDir) {
 }
 function readFiringLock(vaultDir) {
   const p2 = firingLockPath(vaultDir);
-  if (p2 === null || !fs33.existsSync(p2)) return null;
+  if (p2 === null || !fs34.existsSync(p2)) return null;
   try {
-    const parsed = JSON.parse(fs33.readFileSync(p2, "utf8"));
+    const parsed = JSON.parse(fs34.readFileSync(p2, "utf8"));
     return typeof parsed?.pid === "number" && typeof parsed?.acquiredAt === "string" ? parsed : null;
   } catch {
     return null;
@@ -48089,15 +48231,15 @@ function staleness(held, opts) {
 var tmpCounter = 0;
 function linkInPlace(stateDir2, lockFile, record2) {
   const tmp = path34.join(stateDir2, `.firing.lock.${record2.pid}.${tmpCounter++}`);
-  fs33.writeFileSync(tmp, JSON.stringify(record2) + "\n");
+  fs34.writeFileSync(tmp, JSON.stringify(record2) + "\n");
   try {
-    fs33.linkSync(tmp, lockFile);
+    fs34.linkSync(tmp, lockFile);
     return true;
   } catch (e) {
     if (e.code !== "EEXIST") throw e;
     return false;
   } finally {
-    fs33.rmSync(tmp, { force: true });
+    fs34.rmSync(tmp, { force: true });
   }
 }
 function acquireFiringLock(vaultDir, opts) {
@@ -48117,8 +48259,8 @@ function acquireFiringLock(vaultDir, opts) {
   if (!stale) return { ok: false, held, reason: `another firing holds the lock \u2014 ${why}` };
   try {
     const sidelined = `${lockFile}.stale-${now}-${record2.pid}`;
-    fs33.renameSync(lockFile, sidelined);
-    fs33.rmSync(sidelined, { force: true });
+    fs34.renameSync(lockFile, sidelined);
+    fs34.rmSync(sidelined, { force: true });
   } catch (e) {
     if (e.code !== "ENOENT") throw e;
   }
@@ -48130,8 +48272,8 @@ function stampFiringLock(vaultDir, record2, runId) {
   const lockFile = path34.join(stateDir2, "firing.lock");
   const next = { ...record2, runId };
   const tmp = path34.join(stateDir2, `.firing.lock.${record2.pid}.${tmpCounter++}`);
-  fs33.writeFileSync(tmp, JSON.stringify(next) + "\n");
-  fs33.renameSync(tmp, lockFile);
+  fs34.writeFileSync(tmp, JSON.stringify(next) + "\n");
+  fs34.renameSync(tmp, lockFile);
   return next;
 }
 function releaseFiringLock(vaultDir, match) {
@@ -48142,16 +48284,16 @@ function releaseFiringLock(vaultDir, match) {
   if (match.pid !== void 0 && held.pid !== match.pid) return false;
   if (match.acquiredAt !== void 0 && held.acquiredAt !== match.acquiredAt) return false;
   if (match.runId !== void 0 && held.runId !== match.runId) return false;
-  fs33.rmSync(p2, { force: true });
+  fs34.rmSync(p2, { force: true });
   return true;
 }
 
 // src/loop/spend.ts
-import fs35 from "node:fs";
+import fs36 from "node:fs";
 import path35 from "node:path";
 
 // src/adapters/tokens.ts
-import fs34 from "node:fs";
+import fs35 from "node:fs";
 function count(value) {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
 }
@@ -48161,7 +48303,7 @@ function text(value) {
 function* readEntries(file) {
   let raw;
   try {
-    raw = fs34.readFileSync(file, "utf8");
+    raw = fs35.readFileSync(file, "utf8");
   } catch {
     return;
   }
@@ -48218,7 +48360,7 @@ function sessionCwd(file) {
 // src/loop/spend.ts
 function canonical(p2) {
   try {
-    return fs35.realpathSync(path35.resolve(p2));
+    return fs36.realpathSync(path35.resolve(p2));
   } catch {
     return path35.resolve(p2);
   }
@@ -48227,7 +48369,7 @@ function measureFiring(sessionsDir, opts) {
   const dir = path35.resolve(sessionsDir);
   let names;
   try {
-    names = fs35.readdirSync(dir);
+    names = fs36.readdirSync(dir);
   } catch (e) {
     return {
       measurable: false,
@@ -48280,11 +48422,11 @@ function checkCeiling(ceiling, measurement) {
 }
 
 // src/loop/questions.ts
-import fs36 from "node:fs";
+import fs37 from "node:fs";
 import path36 from "node:path";
 function canonical2(p2) {
   try {
-    return fs36.realpathSync(path36.resolve(p2));
+    return fs37.realpathSync(path36.resolve(p2));
   } catch {
     return path36.resolve(p2);
   }
@@ -48293,7 +48435,7 @@ function measureInterruptions(sessionsDir, opts) {
   const dir = path36.resolve(sessionsDir);
   let names;
   try {
-    names = fs36.readdirSync(dir);
+    names = fs37.readdirSync(dir);
   } catch (e) {
     return {
       measurable: false,
@@ -48322,7 +48464,7 @@ function measureInterruptions(sessionsDir, opts) {
 function readAsks(file) {
   let text2;
   try {
-    text2 = fs36.readFileSync(file, "utf8");
+    text2 = fs37.readFileSync(file, "utf8");
   } catch {
     return [];
   }
@@ -48364,12 +48506,12 @@ function formatQuestionBudget(budget, measurement) {
 }
 
 // src/cli/vault-option.ts
-import fs38 from "node:fs";
+import fs39 from "node:fs";
 import path38 from "node:path";
 
 // src/config/pointer.ts
 var import_yaml3 = __toESM(require_dist(), 1);
-import fs37 from "node:fs";
+import fs38 from "node:fs";
 import os4 from "node:os";
 import path37 from "node:path";
 var VAULT_POINTER_FILENAME = "ost.vault.yaml";
@@ -48393,10 +48535,10 @@ function resolveAgainst(baseDir, declared) {
 }
 function readVaultPointer(dir) {
   const file = path37.join(path37.resolve(dir), VAULT_POINTER_FILENAME);
-  if (!fs37.existsSync(file)) return null;
+  if (!fs38.existsSync(file)) return null;
   let raw;
   try {
-    raw = (0, import_yaml3.parse)(fs37.readFileSync(file, "utf8"));
+    raw = (0, import_yaml3.parse)(fs38.readFileSync(file, "utf8"));
   } catch (e) {
     throw new Error(`${file} is not valid YAML: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -48464,7 +48606,7 @@ function resolvedVaultSource() {
 }
 function stalePointerWarning(r2) {
   if (r2.via !== "pointer" || !r2.pointer) return null;
-  if (fs38.existsSync(path38.join(r2.dir, CONFIG_FILENAME))) return null;
+  if (fs39.existsSync(path38.join(r2.dir, CONFIG_FILENAME))) return null;
   return `${r2.pointer.file} names ${r2.dir}, which is not a vault (no ${CONFIG_FILENAME}). The pointer is stale, or that vault has not been cloned onto this machine.`;
 }
 
@@ -49186,6 +49328,23 @@ program2.command("allowlist").description(
     skillPath: path40.resolve(opts.skill),
     settingsPath: path40.resolve(opts.settings),
     confirmed: opts.confirmInstall === true
+  });
+  if (run.exitCode === 0) console.log(run.report);
+  else {
+    console.error(run.report);
+    process.exitCode = run.exitCode;
+  }
+});
+program2.command("grants").description("name every tool a run's instructions declare that its grant does not cover \u2014 before the run starts").requiredOption("--skill <file>", "the SKILL.md (or command file) whose `allowed-tools` line is the declaration").requiredOption("--settings <file>", "the settings.json whose permissions.allow is the grant the run fires with").option(
+  "--demand <rule>",
+  "a tool the run needs that the declaration does not name, in grant syntax (repeatable). Prose in the prompt is deliberately not harvested \u2014 a sentence naming a tool may be telling the run not to use it",
+  collect,
+  []
+).action((opts) => {
+  const run = runGrantPreflight({
+    skillPath: path40.resolve(opts.skill),
+    settingsPath: path40.resolve(opts.settings),
+    extraDemands: opts.demand
   });
   if (run.exitCode === 0) console.log(run.report);
   else {
