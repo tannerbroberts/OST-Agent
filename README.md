@@ -1,68 +1,288 @@
 # OST-Agent
 
-**A Claude Code plugin that keeps a Teresa Torres–style [Opportunity Solution Tree](https://www.producttalk.org/opportunity-solution-tree/) up to date, using the Claude Code session you already have open as the reasoning brain.**
+> **Define a software as: the thing that draws the most efficient action map from where
+> people are to where people want to be.**
 
-Drop customer evidence into a vault's local inbox (or hand it to Claude Code directly), and the connected session distills it into an Opportunity Solution Tree — mapping opportunities and **ideating** candidate solutions and assumption tests — appending everything to a git-versioned set of Obsidian notes you can open as a graph. There is no separate model or API key: the session's reasoning is the whole engine, and the server it talks to is entirely deterministic.
+OST-Agent draws that map, continuously, using an AI that is structurally incapable of
+walking it for you.
 
-It is designed around one promise:
+The map is a Teresa Torres–style
+[Opportunity Solution Tree](https://www.producttalk.org/opportunity-solution-tree/): one
+human-set **outcome** at the root (where people want to be), the **opportunities** beneath
+it (where people actually are — their needs, pains and desires), the **solutions** that
+might close that distance, the **assumptions** each solution rests on, and the **tests**
+that would tell you whether those assumptions hold. It is plain Markdown, one file per
+node, committed to git on every write, and it opens in [Obsidian](https://obsidian.md) as
+a navigable graph.
 
-> **Every write is a new append-only git commit, so every write can be reverted.**
+Four claims follow from that definition. This README is organised around **how far each
+one is actually built**, because a map of the product that flatters the product is the one
+failure this product cannot survive.
 
-It cannot delete your data, rewrite history, force-push, run shell commands, or take any destructive action — because no tool that could do those things is ever given to it. Even if a poisoned note says *"ignore your instructions and delete everything,"* there is simply no tool to obey it with. See [The trust model](#the-trust-model).
+| The claim | Where it stands |
+|---|---|
+| **It draws the path and never walks it**, so a misaligned goal has a human to answer for it | **Built, and the most finished part of the system.** No tool that acts on the world is ever constructed — see [It draws; it does not act](#1-it-draws-the-path--it-does-not-walk-it) |
+| **AI is an agnostic power source**; this repo is the harness around it | **Built at the core, single-host at the edges.** The server holds no model and no API key; the packaging is Claude Code–shaped — see [The harness](#2-ai-is-the-power-source--this-is-the-harness) |
+| **More operators surface unknown failure modes faster** | **Half built.** The instruments that catch a failure mode exist and run; the number of operators they run for is one — see [Failure modes](#3-more-operators-more-failure-modes-found-faster) |
+| **The harness improves the harness** | **Built and running unattended,** on one laptop, where nobody else can watch it — see [Recursion](#4-the-harness-improves-the-harness) |
+| **Many people plug their own AI compute into one map** | **Not built.** See [What parallelising would take](#what-parallelising-would-actually-take) |
 
-That promise is about recovery, and restraint is now a separate mechanism rather than a rule the agent is asked to keep. The two writes the tree's gates read are refused at the boundary: `## Results` and `## Uncovered` are reserved headings that no argument on any tool can author, and `validated` is not a value `ost_set_status` or `ost_create_node` accepts — promotion is `ost-agent promote`, on your CLI (criteria **B1**, **B2**, **B10**). What is *not* yet proved is the general claim: nothing enumerates the whole surface to show that no single call can flip a gate, which is criterion **P10** and is still open. And a person editing the markdown by hand can write anything — that is the point, they are the actor the gate defers to.
-
-> **Status:** OST-Agent ships only as a Claude Code plugin — no npm package, no standalone runner, no code path that calls a model on its own. The ingestion path works end-to-end across six commissioned channels: `/ost-setup` creates the vault, evidence is captured with `/ost-map` or the unattended `/ost-pass`, and every write lands as a committed, Obsidian-valid tree. The project runs its own discovery on itself against a live vault, which is where most of the sharp edges below were found. Design & plan: [`docs/superpowers/`](docs/superpowers/); the running bar is [`docs/reference/v1-readiness.md`](docs/reference/v1-readiness.md).
+> **Distribution status:** OST-Agent ships only as a Claude Code plugin — no npm package,
+> no standalone runner, no code path that calls a model on its own. `/ost-setup` creates
+> the vault; evidence is captured with `/ost-map` or the unattended `/ost-pass`; every
+> write lands as a committed, Obsidian-valid tree. The running bar is
+> [`docs/reference/v1-readiness.md`](docs/reference/v1-readiness.md) — 75 criteria, each
+> stating a check you can run today, 74 met and 1 open as of this writing. Design & plan:
+> [`docs/superpowers/`](docs/superpowers/).
 
 ---
 
 ## What it produces
 
-An **Opportunity Solution Tree** rendered as plain Markdown, one file per node, that opens directly in [Obsidian](https://obsidian.md)'s graph view:
+An **Opportunity Solution Tree** rendered as plain Markdown, one file per node, that opens
+directly in Obsidian's graph view. Five layers, exactly one parent per node:
 
 ```
 your-vault/
-├── Reach 10,000 daily active users.md        #Outcome
-├── I want a reason to come back every day.md  #Opportunity   ──▶ linked under the outcome
-├── Daily challenge mode.md                    #Solution #unvalidated
-└── A daily ritual will lift retention.md      #AssumptionTest #unvalidated
+├── Reach 10,000 daily active users.md          #Outcome
+├── I want a reason to come back every day.md   #Opportunity      ──▶ under the outcome
+├── Daily challenge mode.md                     #Solution         #unvalidated
+├── A daily ritual is what brings them back.md  #Assumption       #unvalidated
+└── Invite 20 lapsed users to a 7-day streak.md #AssumptionTest   #unvalidated
 ```
 
 Each node file:
 
-- **First line is a type tag** so Obsidian colors nodes by layer: `#Outcome` · `#Opportunity` · `#Solution` · `#AssumptionTest`.
-- **`[[wikilinks]]`** from a parent to its children become the graph's edges (Outcome → Opportunities → Solutions → Assumption Tests).
-- **YAML frontmatter** carries machine-readable metadata (`status`, `source`, `created`, `confidence`) without breaking graph view.
-- Agent-ideated ideas are appended with `status: unvalidated` and an **`#unvalidated`** tag stamped by the server, so speculation is always visually distinct from validated knowledge — and no allowlisted tool can take the tag back off.
-
-Open the folder as an Obsidian vault and the tree is a navigable graph.
+- **First line is a type tag** so Obsidian colors nodes by layer: `#Outcome` ·
+  `#Opportunity` · `#Solution` · `#Assumption` · `#AssumptionTest`. Opportunities may nest
+  under opportunities; every other layer has exactly one legal parent, and the check that
+  writes an edge reads the same table as the check that creates a node.
+- **`[[wikilinks]]`** from a parent to its children are the graph's edges — and only the
+  contiguous link block under the tag line counts, so prose that mentions another node is
+  a citation, not an edge.
+- **YAML frontmatter** carries machine-readable metadata (`status`, `source`, `created`,
+  the evidence rung, the lane) without breaking graph view.
+- Agent-ideated ideas are appended with `status: unvalidated` and an **`#unvalidated`** tag
+  stamped by the server, so speculation is always visually distinct from validated
+  knowledge — and no allowlisted tool can take the tag back off.
 
 ---
 
-## The trust model
+## 1. It draws the path — it does not walk it
 
-The safety of OST-Agent does not depend on the agent behaving well. It depends on the agent **not having any dangerous capability in the first place**.
+*"If it won't act, just draws the path, you'll have the actual actor to blame if the goal
+is misaligned."*
 
-- **Allowlist of tools, not a blocklist.** The connected Claude Code session gets an explicitly registered MCP tool set — 22 tools today: the tree writers (`create node`, `append`, `link`, `set status`, `set evidence`, `set instrument`, `annotate`, `flag humans required`), three that walked back strict append-only under bounded conditions (`edit`, `detach`, `merge` — an edit takes prose and can neither author nor remove a reserved heading), the read-only reporters (`read tree`, `next work`, `check`, `debt`, `status`, `gate`), the ingest path (`ingest inbox`), and the outward senses (`search web`, `read web`, `read repo`, `rank source`). There is **no** `bash`, **no** general file write, **no** delete or rename tool, and **no** tool that commits or pushes on the agent's own say-so. A destructive instruction maps to no available tool and simply fails.
-- **Git is the safety net.** Every mutating tool call is auto-committed by the server itself as a *new commit*. History is never rewritten; there is no `reset --hard`, no `rm`, no force-push, no branch deletion. Anything the agent writes lands as a normal commit you can revert — nothing is ever lost. What git does *not* do is stop a write from being believed while it stands, so reversibility is the floor here rather than the guarantee. The two writes that used to clear a gate on the agent's own authority are now closed at the boundary: `## Results` and `## Uncovered` are reserved headings no tool argument can author, and `validated` is not a value `ost_set_status` or `ost_create_node` accepts (criteria **B1**, **B2**, **B10** in [`docs/reference/v1-readiness.md`](docs/reference/v1-readiness.md)). What remains is that a human with a text editor can write anything — which is the point, they are the actor the gate defers to.
-- **Untrusted input.** Content pulled into the tree (inbox notes, fetched web pages) is treated as *data, never instructions*. Nothing on the tool surface writes back to an outside system.
-- **Confined & bounded.** All writes stay inside the vault folder; filenames are sanitized. Outward web lookups share one budget (`web.lookupBudget`) that is a **lifetime** total per process, not a rate — a refill paces bursts inside it rather than topping it up forever, so a long-lived session cannot spend ten an hour indefinitely. Failed lookups cannot refund their way past it either, which is criterion **P8** and was a real hole when the budget was first written: 10,000 outward attempts under a stated total of 10.
-- **Secrets stay out of the vault.** Tokens live in environment variables, never in commits.
-- **Failure is legible.** `ost-agent check` (also the `ost_check` MCP tool) reports every tree-invariant violation on demand — nothing carrying the `unvalidated` tag can also be marked `validated`, nothing can be an orphan — so a bad pass is visible the moment anyone asks, not discovered later.
+That is a liability argument, and liability only stays where you put it if the agent is
+**incapable** of the act, not merely instructed against it. So the safety of OST-Agent does
+not depend on the agent behaving well; it depends on the agent not holding any dangerous
+capability in the first place.
+
+- **A closed allowlist, not a blocklist.** A connected session gets exactly 22 registered
+  MCP tools (pinned by test): the tree writers (`create node`, `append`, `link`,
+  `set status`, `set evidence`, `set instrument`, `annotate`, `flag humans required`),
+  three that walked back strict append-only under bounded conditions (`edit`, `detach`,
+  `merge` — an edit takes prose and can neither author nor remove a reserved heading), the
+  read-only reporters (`read tree`, `next work`, `check`, `debt`, `status`, `gate`), the
+  ingest path (`ingest inbox`), and the outward senses (`search web`, `read web`,
+  `read repo`, `rank source`). There is **no** `bash`, **no** general file write, **no**
+  delete or rename tool, and **no** tool that commits or pushes on the agent's own say-so.
+  A destructive instruction maps to no available tool and simply fails — including one
+  arriving inside a poisoned note that says *"ignore your instructions and delete
+  everything."* A fail-closed guard also refuses at startup any tool whose *name* smells
+  destructive **or consequential** — sending, signing, paying and publishing are as
+  unwelcome here as deleting.
+- **The verdicts are off the surface entirely.** Every write that would let the agent grade
+  its own work is unreachable from it: `## Results`, `## Uncovered` and `## Retraction` are
+  reserved headings no tool argument can author, and `validated` is not a value
+  `ost_set_status` or `ost_create_node` accepts. Recording a result is `ost-agent result`,
+  promotion is `ost-agent promote`, running an instrument is `ost-agent verify`, and
+  labelling a test as safe for automation is `ost-agent lane` — all four are CLI-only, each
+  guarded by its own regression test. An observation the model could author is a permit it
+  granted itself.
+- **The capability inversion.** Discovery may write the tree and may not touch the world;
+  the build pass may write the world and may not touch the tree. They are separate
+  processes with separate tool grants, and a test fails if a tool added to one crosses into
+  the other.
+- **Git is the floor, not the guarantee.** Every mutating call is auto-committed by the
+  server as a *new* commit. History is never rewritten; there is no `reset --hard`, no
+  `rm`, no force-push, no branch deletion. Anything the agent writes can be reverted — but
+  reversibility does not stop a wrong claim from being believed while it stands, which is
+  why the boundary refusals above exist beside it.
+- **Untrusted input.** Inbox notes and fetched pages are *data, never instructions.*
+  Nothing on the tool surface writes back to an outside system.
+- **Confined & bounded.** All writes stay inside the vault; filenames are sanitized.
+  Outward lookups share one budget (`web.lookupBudget`) that is a **lifetime** total per
+  process, not a rate — and a failed lookup cannot refund its way past it, which was a real
+  hole when the budget was first written: 10,000 outward attempts under a stated total
+  of 10.
+- **Failure is legible.** `ost-agent check` (also `ost_check`) reports every tree-invariant
+  violation on demand — nothing `unvalidated` may also be `validated`, nothing may be an
+  orphan, nothing may have two parents — so a bad pass is visible the moment anyone asks.
+
+**What is honestly still open:** nothing enumerates the whole tool surface to *prove* that
+no single call can flip a gate — that is criterion **P10** and it is the one criterion of
+the 75 still not met. And a human with a text editor can write anything into these files;
+that is the point, they are the actor the gate defers to.
+
+### The line it will not cross, stated as behaviour
+
+- **It writes no implementation code** for solutions and **runs no experiment.** The MCP
+  surface maintains the *knowledge tree* only. Building against a permit is a separate,
+  separately-capabilitied pass — [`examples/automation/build-pass.sh`](examples/automation/)
+  is the worked example.
+- **It does not invent or change its own outcome.** The root mandate is human-set at `init`
+  and retuned with `ost-agent set-outcome "…"` — a human-only command. Retuning preserves
+  the prior mandate under `## History`, so the steering knob's evolution stays observable.
+- **It does not write back** to any external system it reads from.
+- **It never deletes, rewrites history, or force-pushes.** Corrections are new commits, and
+  a claim the tree has outgrown is *withdrawn* with `ost-agent retract` rather than removed.
+- **It never marks its own ideas validated.** The `#unvalidated` marker is stamped by the
+  server, not chosen by the author.
 
 Read the full model in [`docs/superpowers/specs`](docs/superpowers/specs).
 
 ---
 
-## What it will **not** do
+## 2. AI is the power source — this is the harness
 
-By design, OST-Agent:
+*"AI, as it's currently defined and used, isn't quite that software, but it can be an
+agnostic power source if this software is written as a harness for AI."*
 
-- **Does not write implementation code** for solutions, and **the agent runs no experiment** — the MCP surface maintains the *knowledge tree* only. The one thing that executes anything is `ost-agent verify`, which runs a test's declared spec command and records red or green; it is a CLI/wrapper call, absent from every agent tool surface, precisely because an observation the model could author is a permit it granted itself. Building *against* a permit is likewise out-of-band: [`examples/automation/build-pass.sh`](examples/automation/) is a worked example of a second, separately-capabilitied pass that may write the world and may not touch the tree — the mirror image of the discovery pass, which may write the tree and may not touch the world.
-- **Does not invent or change its own outcome.** The root mandate is human-set; you provide it at `init` and retune it with `ost-agent set-outcome "…"` (a human-only command — never an agent tool). Retuning edits the root node in place and preserves the prior mandate under a `## History` section, so the outcome is a tunable steering knob (like a prompt) whose evolution stays observable.
-- **Does not write back** to any external system it reads from.
-- **Never deletes, never rewrites history, never force-pushes.** Corrections are new commits.
-- **Never marks its own ideas as validated.** Ideated solutions and assumptions are appended `unvalidated` for a human to review, and the `#unvalidated` marker is stamped by the server rather than chosen by the author. `validated` is not a value the agent can pass to any tool; a human promotes with `ost-agent promote` (**B2**).
+The harness property is real at the core and it is worth being precise about what it means
+here: **there is no model in this repository.** No API key, no provider SDK, no code path
+that calls a model on its own. The server is a deterministic MCP server over stdio — it
+holds the tree, the invariants, the budgets and the refusals — and the *reasoning* is
+supplied entirely by whatever session connects to it. Swap the session and you have swapped
+the power source; nothing in the tree changes shape.
+
+Two consequences that are easy to miss:
+
+- **The intelligence is rented, and the structure is owned.** An operator brings their own
+  compute (a Claude subscription today) and the vault they get is plain Markdown in a git
+  repo they own. There is nothing to be locked into and no server of mine holding anything.
+- **A better model makes a better map without a release.** The gates the map has to pass do
+  not move when the model improves — which is what makes "recursive self-improvement" a
+  thing that can be *measured* here rather than asserted.
+
+**What is honestly still true today: the harness is agnostic in principle and single-host in
+practice.** The MCP server itself is standard and would run under any MCP client, but every
+edge around it is Claude Code–shaped — the plugin manifest and its `${CLAUDE_PLUGIN_ROOT}`
+launch, the generated skill, the `/ost-*` slash commands, the automation examples that
+shell out to `claude -p`, and the `transcript` evidence channel that reads
+`~/.claude/projects`. Nobody has yet run it under a second host and written down what broke.
+That gap is the first item in [what needs doing](#what-needs-doing-to-close-the-distance).
+
+---
+
+## 3. More operators, more failure modes, found faster
+
+*"If more people use it, you'll uncover more unknown failure modes more quickly. If you fix
+those failure modes, you'll likely find more market fit."*
+
+The instruments that turn a use into a *recorded* failure mode are built and running:
+
+- **`ost-agent friction`** files the confusion that never produces an error — the class of
+  failure that leaves no trace anywhere else — as one line into the vault's inbox, where the
+  next pass picks it up like any other evidence.
+- **The `transcript` channel** harvests the agent's own finished sessions, and **`usage`**
+  rolls the mechanical tool-invocation trace into daily evidence. Both make the tool
+  observable to itself.
+- **The believability ladder** stops any of this from grading itself: a `USAGE:` item is a
+  counted, unnarrated trace and a `TRANSCRIPT:` item is a model reading its own session, so
+  neither can climb above the `assertion` rung on its own. Nothing an agent produces about
+  itself moves a node up the ladder.
+- **The actor trust ledger** computes standing from track record rather than storing it —
+  and the asymmetry is the safety argument: the agent can append only records that *lower*
+  standing, while credit is minted only from a test a human recorded.
+
+**What is honestly still true: the number of operators these instruments run for is one.**
+The multiplier in that claim is doing all the work and it is currently set to 1. Concretely,
+what is missing is not a feature but an identity: there is no authenticated contributor
+identity to key trust on, which is why the trust ledger's actor vocabulary deliberately has
+no `builder` kind — a kind whose only writer is the thing being judged is a hole in a third
+dress. A stranger's friction line has no route to this tree, and nothing aggregates two
+operators' findings.
+
+---
+
+## 4. The harness improves the harness
+
+*"Use that software to define the goal: 'Make the best AI powered software that draws a map
+from where people are to where they want to be' — and in principle, you'll have the
+recursive self improvement of the harness making a better harness."*
+
+This part is not a plan; it is what has been running unattended for weeks. OST-Agent points
+a vault at itself — [`tannerbroberts/ost-agent-meta`](https://github.com/tannerbroberts/ost-agent-meta),
+roughly 950 nodes — under a mandate to *observe its own runs, name where it failed itself,
+and patch that failure faster than new failures appear.* Two scheduled loops drive it: a
+discovery pass that may write the tree and not the world, and a build pass that may write
+the world and not the tree. Most of the sharp edges documented in this README were found by
+that loop, on itself.
+
+The loop is bounded so it can be left alone: a declared cadence and a weighted-token spend
+ceiling with **no defaults** (a vault that declares neither refuses to fire and says why,
+because a cadence nobody chose is a spend rate the tool picked for you), a lock tied to the
+holder's pid, a run of dry firings that escalates rather than reading as steady state, and a
+firing that skipped a phase recorded *unhealthy* — omission does not get to look like a
+clean run.
+
+**What is honestly still true: the recursion runs on one laptop and nobody outside can watch
+it.** The meta vault is public, but the reports, the health of the loops, and the "what did
+it fix this week" signal are all local.
+
+---
+
+## What parallelising would actually take
+
+*"Make sure multiple people can plug their AI compute resources into that software, and
+you'll have parallelized it."*
+
+None of this is built, and the honest reason is that the pieces it needs are precisely the
+pieces the trust model spent the last month making hard to forge. Sketching it here so the
+shape is inspectable rather than implied:
+
+- **A contributor identity worth keying trust on.** Everything downstream — whose evidence,
+  whose result, whose standing — is unrepresentable until a contribution can be attributed
+  to something the contributor cannot simply type.
+- **A merge across vaults, not just within one.** `ost_merge_nodes` resolves overlap inside
+  a tree. Two operators' trees overlapping is the same problem one layer up, against
+  append-only histories that must both survive.
+- **A shared evidence pool that a human still gates.** The whole design says an agent may
+  not promote what it found. Federating evidence must not become a way to launder a
+  stranger's assertion into a local `observed`.
+- **Multi-tenant firing.** The loop lock is single-tenant today (it knows about hosts, but
+  only enough to refuse). Parallel compute means several passes on one map without two of
+  them ideating the same branch.
+
+---
+
+## What needs doing to close the distance
+
+In rough order, each stated as the check that would show it landed:
+
+1. **Run the whole thing under a second MCP host and write down what broke.** The server is
+   already host-neutral; the rules a session needs are not — they live in a generated Claude
+   Code skill. Serving that same ruleset as the MCP server's own `instructions` would give
+   any host the rules without the skill, and the drift test that already holds `SKILL.md` to
+   `src/knowledge/ruleset.ts` would hold both.
+2. **Give a stranger a route in.** The meta vault's mandate already names *external returning
+   operators* as its primary instrument and there are none, because there is no front door —
+   not because nobody would walk through it. `ost-agent friction` files locally; what is
+   missing is a paste-ready outward form of it (the human sends it, never the agent) and a
+   read-only channel that ingests what arrives, at the `assertion` floor, like any other
+   untrusted source.
+3. **Make the recursion watchable from outside.** The loops report into local logs. A
+   committed, generated status artifact in the meta repo would let anyone check whether the
+   self-improvement claim is holding — which is the only way that claim is worth anything.
+4. **Name an authenticated contributor kind.** The trust ledger deliberately has no
+   `builder` actor because there is nothing to key it on. A channel that *attests* who wrote
+   something (rather than a field the writer fills in) is the unlock for everything in the
+   parallelisation list above.
+5. **Close P10**, the last open readiness criterion: enumerate the whole tool surface and
+   show no single call can flip a gate.
+6. **Then, and only then, cross-vault merge and multi-tenant firing.** Doing these before
+   identity exists builds a shared map with no way to tell whose claim is whose.
 
 ---
 
@@ -76,7 +296,7 @@ OST-Agent starts no process of its own and holds no timer — it runs when a Cla
 | **Ingest** | Captures new notes from the vault's local inbox as provenance-tagged evidence. | `/ost-map` and `/ost-pass` call this first; also the `ost_ingest_inbox` tool directly |
 | **Opportunity mapping** | Distills customer needs/pains/desires from new evidence into `#Opportunity` nodes linked under the outcome (deduping). | `/ost-map` |
 | **Solution ideation** | Ideates new `#Solution` nodes (`unvalidated`) for under-served opportunities. Never implements. | `/ost-ideate` |
-| **Assumption surfacing** | Surfaces the desirability / viability / feasibility / usability assumptions each solution depends on and *proposes* (never runs) tests. | `/ost-assumptions` |
+| **Assumption surfacing** | Surfaces the desirability / viability / feasibility / usability `#Assumption` nodes each solution depends on, and *proposes* (never runs) an `#AssumptionTest` beneath each. | `/ost-assumptions` |
 | **Tree hygiene** | Flags orphans, dangling links, and likely duplicates by *annotating* them (never deleting). | `/ost-hygiene` |
 
 `/ost-pass` runs all of the above in sequence, looping until `ost_next_work` reports `done: true` — the closest thing to "unattended," and still just a Claude Code session working through the same tools. Every write auto-commits; there is no push step (that stays a human or CI action on the vault's own remote). For scheduled/unattended operation — cron or GitHub Actions invoking `claude -p "/ost-pass"` headless — see [`docs/consuming-from-claude-code.md`](docs/consuming-from-claude-code.md).
@@ -105,8 +325,11 @@ Working examples of both halves live in [`examples/automation/`](examples/automa
 
 ## Install
 
-OST-Agent is a Claude Code plugin. It needs a Claude subscription and `node` on
-your PATH; it is not on npm and there is nothing to install globally.
+OST-Agent ships today as a Claude Code plugin. It needs a Claude subscription and
+`node` on your PATH; it is not on npm and there is nothing to install globally.
+(The server underneath is a plain MCP server and the intent is that any host can
+drive it — see [the harness](#2-ai-is-the-power-source--this-is-the-harness) for
+exactly how far that is true today.)
 
 ```
 /plugin marketplace add tannerbroberts/OST-Agent
@@ -138,8 +361,8 @@ entirely by the Claude Code session you are already in, the same way a skill
 works. The append-only tools appear in any session as `mcp__ost-agent__ost_next_work`,
 `…_ost_create_node`, `…_ost_read_tree`, and so on. `ost_next_work` is a read-only
 orchestration tool that reports exactly what the tree still needs (unmapped
-evidence, under-served opportunities, solutions missing an assumption test,
-hygiene issues), so the session knows what to do without re-deriving it. Every
+evidence, under-served opportunities, solutions whose assumptions are unstated or
+untestable, hygiene issues), so the session knows what to do without re-deriving it. Every
 write is auto-committed by the server; no `git`, delete, or shell tool is ever
 exposed, so a prompt-injected instruction still maps to no dangerous tool.
 
@@ -396,7 +619,7 @@ processes:
 
 ## Why an Opportunity Solution Tree?
 
-Teresa Torres's OST is a simple visual: a single **outcome** at the top, branching into the **opportunities** (customer needs, pains, desires) that could move it, then the **solutions** that might address each opportunity, then the **assumption tests** that would tell you whether a solution actually works. It keeps a team's discovery honest — every idea traces back to a real customer need and, ultimately, to the outcome. OST-Agent's job is to keep that tree faithfully reflecting what the business is learning, and to keep the idea space fresh — without ever pretending an unvalidated idea is proven.
+Teresa Torres's OST is a simple visual: a single **outcome** at the top, branching into the **opportunities** (customer needs, pains, desires) that could move it, then the **solutions** that might address each opportunity, then the **assumptions** each solution rests on and the **tests** that would tell you whether they hold. It keeps a team's discovery honest — every idea traces back to a real customer need and, ultimately, to the outcome. That is the same object as the action map at the top of this README: the outcome is where people want to be, the opportunities are where they are, and everything between the two is the path, ranked. OST-Agent's job is to keep that tree faithfully reflecting what is being learned, and to keep the idea space fresh — without ever pretending an unvalidated idea is proven.
 
 A cited primer lives in [`docs/reference/teresa-torres-ost.md`](docs/reference/teresa-torres-ost.md).
 
