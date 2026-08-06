@@ -21,11 +21,13 @@ Ask the human, and wait for their answer:
 
 > **What outcome do you want this tree to serve?** One sentence, in your own words.
 
-Read their sentence back to them for confirmation, verbatim. Then run:
+Read their sentence back to them, verbatim. Then run the `nextStep` command from the `ost_next_work` payload you already have, substituting ONLY their sentence for the single `<…>` placeholder in it. It has this shape — the path shown is an example; **yours arrives already filled in**:
 
 ```
-node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init <folder> --outcome "<their words>"
+node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init "/Users/you/your-project" --outcome "<their words>"
 ```
+
+The directory `nextStep` names is the one the MCP server is pointed at, which is why you must not retype it from your own cwd. If your shell sits in a subdirectory and you scaffold there instead, the server never sees that vault, `ost_next_work` still answers `bootstrap: true`, and you will ask the human the question they have already answered.
 
 ## 3. A vault with no root Outcome
 
@@ -44,7 +46,7 @@ Call `ost_next_work` again and report what it says. A fresh tree holding only an
 ## The rules this command is bound by
 
 - A session can be connected to these tools before any vault exists — that is the normal first minute, not a malfunction. `ost_next_work` reports it as `bootstrap: true` with a `reason` and a `nextStep`; treat that as the state of the world and follow the branch below instead of reporting a broken tool.
-- When `reason` is `no-vault`: ask the human what outcome they want this tree to serve, in one sentence, and wait for their answer. Then run their words back to them for confirmation and set up the vault with `node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init <folder> --outcome "<their words>"`.
+- When `reason` is `no-vault`: ask the human what outcome they want this tree to serve, in one sentence, and wait for their answer. Then read their words back to them and set the vault up by running the payload's own `nextStep` command, substituting ONLY their sentence for the single `<…>` placeholder in it. Do not retype the folder: `nextStep` already names the directory the server is pointed at, and a path taken from your own shell's cwd can be a different one — that scaffolds a vault the server never reads, so `ost_next_work` still answers `bootstrap: true` and the human is asked the same question a second time having already answered it correctly.
 - When `reason` is `no-outcome`: the vault exists but its root is missing; ask the human for the outcome and use `node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs set-outcome "<their words>" --vault <dir>`.
 - Never invent, paraphrase into something sharper, or guess the outcome — it is the single human-set mandate the whole tree hangs from, and inventing it would make every node below it ladder up to a goal nobody chose.
 - If the human is not available to answer, stop and say what you are waiting for. Do not scaffold a vault around a placeholder outcome to make progress.
