@@ -40973,32 +40973,33 @@ function checkInvariants(tree) {
       v.push({ rule: "opportunity-connected", node: n.title, detail: "not connected to the outcome (directly or via a parent opportunity)" });
     }
   }
-  for (const n of tree) {
-    if (n.layer === "Solution") {
-      const parents = tree.filter((p2) => p2.layer === "Opportunity" && p2.links.includes(n.title));
-      if (parents.length === 0) v.push({ rule: "solution-mapped", node: n.title, detail: "not linked under any Opportunity" });
-    }
-  }
-  for (const n of tree) {
-    if (n.layer === "Assumption") {
-      const parents = tree.filter((p2) => p2.layer === "Solution" && p2.links.includes(n.title));
-      if (parents.length === 0) v.push({ rule: "assumption-mapped", node: n.title, detail: "not linked under any Solution" });
-    }
-  }
-  for (const n of tree) {
-    if (n.layer === "AssumptionTest") {
-      const parents = tree.filter(
-        (p2) => (p2.layer === "Assumption" || p2.layer === "Solution") && p2.links.includes(n.title)
-      );
-      if (parents.length === 0) v.push({ rule: "test-mapped", node: n.title, detail: "not linked under any Assumption" });
-    }
-  }
   const parentsOf = /* @__PURE__ */ new Map();
   for (const p2 of tree) {
     for (const child of p2.links) {
       const list = parentsOf.get(child);
-      if (list) list.push(p2.title);
-      else parentsOf.set(child, [p2.title]);
+      if (list) list.push(p2);
+      else parentsOf.set(child, [p2]);
+    }
+  }
+  for (const n of tree) {
+    if (n.layer === "Solution") {
+      const parents = parentsOf.get(n.title) ?? [];
+      if (!parents.some((p2) => p2.layer === "Opportunity"))
+        v.push({ rule: "solution-mapped", node: n.title, detail: "not linked under any Opportunity" });
+    }
+  }
+  for (const n of tree) {
+    if (n.layer === "Assumption") {
+      const parents = parentsOf.get(n.title) ?? [];
+      if (!parents.some((p2) => p2.layer === "Solution"))
+        v.push({ rule: "assumption-mapped", node: n.title, detail: "not linked under any Solution" });
+    }
+  }
+  for (const n of tree) {
+    if (n.layer === "AssumptionTest") {
+      const parents = parentsOf.get(n.title) ?? [];
+      if (!parents.some((p2) => p2.layer === "Assumption" || p2.layer === "Solution"))
+        v.push({ rule: "test-mapped", node: n.title, detail: "not linked under any Assumption" });
     }
   }
   for (const n of tree) {
@@ -41007,7 +41008,7 @@ function checkInvariants(tree) {
       v.push({
         rule: "single-parent",
         node: n.title,
-        detail: `has ${held.length} parents (${held.join("; ")}) \u2014 a node belongs under its single best-fit parent`
+        detail: `has ${held.length} parents (${held.map((p2) => p2.title).join("; ")}) \u2014 a node belongs under its single best-fit parent`
       });
     }
   }
