@@ -3053,7 +3053,15 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 2066 tests across 169 files, verified 2026-08-05 (`npx vitest run`,
+> *Today:* **met** — 2099 tests across 171 files, verified 2026-08-06 (`npx vitest run`,
+> after the plugin tool-namespace fix: every grant shipped to a plugin session named a
+> tool no plugin session mints, three guards derived the prefix independently and all
+> three derived it the same wrong way, and the mismatch was documented as harmless
+> because interactively it is only a prompt — under `-p` it is a denial, which is five
+> scheduled firings that ran, wrote nothing and reported success. Pinned by
+> `test/release/plugin-tool-namespace.test.ts`, which records what a live session was
+> observed to mint so the derivation is checked against an observation. Previously 2066
+> tests across 169 files, verified 2026-08-05,
 > after the first-run branch was made to ask exactly one question. The tool layer already
 > resolved the vault directory into `nextStep`, but every *instruction* that renders the
 > no-vault branch — the `firstRun` rule, the skill's first-run section, `/ost-setup` step
