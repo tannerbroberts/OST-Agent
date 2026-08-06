@@ -20,6 +20,7 @@
  *   ost-agent channels [--vault DIR]          every drop folder, its last delivery, and what has gone silent
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
  *   ost-agent corrections [--state DIR]       refusals this workspace already paid for, for the next session to read
+ *   ost-agent allowlist --skill F --settings F  derive a run's permission grant from the skill's own allowed-tools
  *   ost-agent loop due|start|step|seal        unattended firing: cadence, lock, ceiling, health
  *   ost-agent mcp [--vault DIR]               stdio MCP server (no API key needed)
  *
@@ -59,6 +60,7 @@ import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapte
 import { createLazyOstMcpServer, MCP_TOOL_NAMES } from "../mcp/server.js";
 import { vaultReadiness } from "../mcp/bootstrap.js";
 import { gitCommit } from "../git/safe-git.js";
+import { runAllowlistGenerator } from "../security/allowlist-generator.js";
 import { loopStateDir, workingTreeStatus, type VaultTreeStatus } from "../loop/state.js";
 import {
   DEFAULT_QUIET_MINUTES, emptyCorrectionsLedger, readLedger, recordCorrections, renderCorrections,
@@ -851,6 +853,31 @@ program
     }
 
     console.log(renderCorrections(readLedger(state)));
+  });
+
+program
+  .command("allowlist")
+  .description(
+    "derive a session's permission allowlist from the skill's own allowed-tools (human-only, at install time)",
+  )
+  .requiredOption("--skill <file>", "the SKILL.md (or command file) whose `allowed-tools` line is the declaration")
+  .requiredOption("--settings <file>", "the settings.json whose permissions.allow is derived from it")
+  .option(
+    "--confirm-install",
+    "the human's install-time confirmation that grants the declaration names but this file lacks should be added " +
+      "(without it, widening an existing grant is refused — a narrower grant may be somebody's deliberate choice)",
+  )
+  .action((opts: { skill: string; settings: string; confirmInstall?: boolean }) => {
+    const run = runAllowlistGenerator({
+      skillPath: path.resolve(opts.skill),
+      settingsPath: path.resolve(opts.settings),
+      confirmed: opts.confirmInstall === true,
+    });
+    if (run.exitCode === 0) console.log(run.report);
+    else {
+      console.error(run.report);
+      process.exitCode = run.exitCode;
+    }
   });
 
 registerLoopCommands(program);

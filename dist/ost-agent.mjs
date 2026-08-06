@@ -982,7 +982,7 @@ var require_command = __commonJS({
     var EventEmitter2 = __require("node:events").EventEmitter;
     var childProcess = __require("node:child_process");
     var path41 = __require("node:path");
-    var fs37 = __require("node:fs");
+    var fs38 = __require("node:fs");
     var process3 = __require("node:process");
     var { Argument: Argument2, humanReadableArgName } = require_argument();
     var { CommanderError: CommanderError2 } = require_error();
@@ -1915,10 +1915,10 @@ Expecting one of '${allowedValues.join("', '")}'`);
         const sourceExt = [".js", ".ts", ".tsx", ".mjs", ".cjs"];
         function findFile(baseDir, baseName) {
           const localBin = path41.resolve(baseDir, baseName);
-          if (fs37.existsSync(localBin)) return localBin;
+          if (fs38.existsSync(localBin)) return localBin;
           if (sourceExt.includes(path41.extname(baseName))) return void 0;
           const foundExt = sourceExt.find(
-            (ext) => fs37.existsSync(`${localBin}${ext}`)
+            (ext) => fs38.existsSync(`${localBin}${ext}`)
           );
           if (foundExt) return `${localBin}${foundExt}`;
           return void 0;
@@ -1930,7 +1930,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
         if (this._scriptPath) {
           let resolvedScriptPath;
           try {
-            resolvedScriptPath = fs37.realpathSync(this._scriptPath);
+            resolvedScriptPath = fs38.realpathSync(this._scriptPath);
           } catch (err) {
             resolvedScriptPath = this._scriptPath;
           }
@@ -9919,14 +9919,14 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs37 = this.flowScalar(this.type);
+              const fs38 = this.flowScalar(this.type);
               if (atNextItem || it.value) {
-                map.items.push({ start, key: fs37, sep: [] });
+                map.items.push({ start, key: fs38, sep: [] });
                 this.onKeyLine = true;
               } else if (it.sep) {
-                this.stack.push(fs37);
+                this.stack.push(fs38);
               } else {
-                Object.assign(it, { key: fs37, sep: [] });
+                Object.assign(it, { key: fs38, sep: [] });
                 this.onKeyLine = true;
               }
               return;
@@ -10054,13 +10054,13 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs37 = this.flowScalar(this.type);
+              const fs38 = this.flowScalar(this.type);
               if (!it || it.value)
-                fc.items.push({ start: [], key: fs37, sep: [] });
+                fc.items.push({ start: [], key: fs38, sep: [] });
               else if (it.sep)
-                this.stack.push(fs37);
+                this.stack.push(fs38);
               else
-                Object.assign(it, { key: fs37, sep: [] });
+                Object.assign(it, { key: fs38, sep: [] });
               return;
             }
             case "flow-map-end":
@@ -13744,7 +13744,7 @@ var require_parse = __commonJS({
 var require_gray_matter = __commonJS({
   "node_modules/gray-matter/index.js"(exports2, module2) {
     "use strict";
-    var fs37 = __require("fs");
+    var fs38 = __require("fs");
     var sections = require_section_matter();
     var defaults = require_defaults();
     var stringify = require_stringify2();
@@ -13828,7 +13828,7 @@ var require_gray_matter = __commonJS({
       return stringify(file, data, options2);
     };
     matter4.read = function(filepath, options2) {
-      const str2 = fs37.readFileSync(filepath, "utf8");
+      const str2 = fs38.readFileSync(filepath, "utf8");
       const file = matter4(str2, options2);
       file.path = filepath;
       return file;
@@ -26906,12 +26906,12 @@ var require_dist4 = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs37, exportName) {
+    function addFormats(ajv, list, fs38, exportName) {
       var _a2;
       var _b;
       (_a2 = (_b = ajv.opts.code).formats) !== null && _a2 !== void 0 ? _a2 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs37[f]);
+        ajv.addFormat(f, fs38[f]);
     }
     module2.exports = exports2 = formatsPlugin;
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -47242,8 +47242,148 @@ function createLazyOstMcpServer(vaultDir) {
   return server;
 }
 
-// src/loop/corrections.ts
+// src/security/allowlist-generator.ts
 import fs29 from "node:fs";
+var AGENT_SESSION_MARKERS = [
+  "CLAUDECODE",
+  "CLAUDE_CODE_ENTRYPOINT",
+  "CLAUDE_CODE_SESSION_ID",
+  "CLAUDE_PLUGIN_ROOT",
+  "AI_AGENT"
+];
+function agentSessionMarker(env) {
+  for (const name of AGENT_SESSION_MARKERS) {
+    const value = env[name];
+    if (value !== void 0 && value !== "") return name;
+  }
+  return null;
+}
+function declaredTools(skillMarkdown) {
+  const line = skillMarkdown.match(/^allowed-tools:\s*(.+)$/m);
+  if (!line) return null;
+  const tools = line[1].split(",").map((s) => s.trim()).filter(Boolean);
+  return tools.length > 0 ? tools : null;
+}
+function grantedTools(settings) {
+  const allow = settings.permissions?.allow;
+  return Array.isArray(allow) ? allow.filter((e) => typeof e === "string") : [];
+}
+function decideAllowlist(input) {
+  const marker = agentSessionMarker(input.env);
+  if (marker) {
+    return {
+      verdict: "refused",
+      reason: "agent-session",
+      message: [
+        `REFUSED: this ran inside an agent session (${marker} is set), and only a human may run it.`,
+        "Generating a permission allowlist is an install-time act performed by the person who owns the",
+        "machine, at their own shell, with no agent in the loop. A session that could write its own grant",
+        "would be granting itself the permit \u2014 which is the one thing this generator exists not to do.",
+        `Who may run it: the operator installing the plugin, from a plain terminal, as:`,
+        `  ost-agent allowlist --skill ${input.skillPath} --settings ${input.settingsPath}`,
+        "Nothing was written."
+      ].join("\n")
+    };
+  }
+  const declared = declaredTools(input.skill);
+  if (!declared) {
+    return {
+      verdict: "refused",
+      reason: "no-declaration",
+      message: `REFUSED: ${input.skillPath} has no \`allowed-tools\` frontmatter line, so there is no declaration to derive a grant from. Nothing was written.`
+    };
+  }
+  if (input.settings === null) {
+    return {
+      verdict: "write",
+      allow: declared,
+      added: declared,
+      message: `wrote ${declared.length} grant(s) to ${input.settingsPath}, derived from ${input.skillPath}`
+    };
+  }
+  const granted = grantedTools(input.settings);
+  const missing = declared.filter((t2) => !granted.includes(t2));
+  if (missing.length === 0) {
+    return {
+      verdict: "current",
+      message: `${input.settingsPath} already grants every tool ${input.skillPath} declares. Nothing written.`
+    };
+  }
+  if (!input.confirmed) {
+    return {
+      verdict: "refused",
+      reason: "would-widen",
+      message: [
+        `REFUSED: widening an existing grant needs a human at install time.`,
+        `${input.skillPath} declares ${missing.length} tool(s) that ${input.settingsPath} does not grant:`,
+        ...missing.map((t2) => `  ${t2}`),
+        "",
+        "This is NOT drift to be repaired. Two different histories leave exactly this state and these two",
+        "files cannot tell them apart: a tool was appended to the skill after install, or a human narrowed",
+        "the grant on purpose and meant to withhold it. Making the lists equal would silently overrule the",
+        "second, so the generator does neither and asks the only party who knows which happened.",
+        "",
+        `If the omission is deliberate, do nothing \u2014 a grant narrower than the declaration is a supported`,
+        `state and this command will keep saying so. If the tools above should be granted, re-run with`,
+        `--confirm-install and they will be added (and nothing else will be touched).`,
+        "Nothing was written."
+      ].join("\n")
+    };
+  }
+  return {
+    verdict: "write",
+    allow: [...granted, ...missing],
+    added: missing,
+    message: `added ${missing.length} grant(s) to ${input.settingsPath}: ${missing.join(", ")}`
+  };
+}
+function runAllowlistGenerator(opts) {
+  const env = opts.env ?? process.env;
+  let skill = "";
+  if (agentSessionMarker(env) === null) {
+    if (!fs29.existsSync(opts.skillPath)) {
+      return {
+        exitCode: 1,
+        report: `REFUSED: no skill file at ${opts.skillPath}. Nothing was written.`,
+        decision: {
+          verdict: "refused",
+          reason: "no-declaration",
+          message: `REFUSED: no skill file at ${opts.skillPath}. Nothing was written.`
+        }
+      };
+    }
+    skill = fs29.readFileSync(opts.skillPath, "utf8");
+  }
+  let settings = null;
+  if (fs29.existsSync(opts.settingsPath)) {
+    const raw = fs29.readFileSync(opts.settingsPath, "utf8");
+    try {
+      settings = JSON.parse(raw);
+    } catch (e) {
+      const message = `REFUSED: ${opts.settingsPath} is not valid JSON (${e instanceof Error ? e.message : String(e)}). Rewriting a file this command cannot read would destroy whatever is in it. Nothing was written.`;
+      return { exitCode: 1, report: message, decision: { verdict: "refused", reason: "would-widen", message } };
+    }
+  }
+  const decision = decideAllowlist({
+    skill,
+    settings,
+    env,
+    confirmed: opts.confirmed === true,
+    skillPath: opts.skillPath,
+    settingsPath: opts.settingsPath
+  });
+  if (decision.verdict !== "write") {
+    return { exitCode: decision.verdict === "refused" ? 1 : 0, report: decision.message, decision };
+  }
+  const next = { ...settings ?? {} };
+  next.permissions = { ...settings?.permissions ?? {}, allow: decision.allow };
+  fs29.writeFileSync(opts.settingsPath, `${JSON.stringify(next, null, 2)}
+`, "utf8");
+  return { exitCode: 0, report: decision.message, decision };
+}
+
+// src/loop/corrections.ts
+import fs30 from "node:fs";
 import path32 from "node:path";
 var LEDGER_FILE = "corrections.json";
 var LEDGER_VERSION = 1;
@@ -47330,9 +47470,9 @@ function emptyCorrectionsLedger() {
 }
 function readLedger(stateDir2) {
   const p2 = ledgerPath(stateDir2);
-  if (!fs29.existsSync(p2)) return emptyCorrectionsLedger();
+  if (!fs30.existsSync(p2)) return emptyCorrectionsLedger();
   try {
-    const parsed = JSON.parse(fs29.readFileSync(p2, "utf8"));
+    const parsed = JSON.parse(fs30.readFileSync(p2, "utf8"));
     if (parsed.version !== LEDGER_VERSION) return emptyCorrectionsLedger();
     return {
       version: LEDGER_VERSION,
@@ -47346,8 +47486,8 @@ function readLedger(stateDir2) {
 }
 function writeLedger(stateDir2, ledger) {
   const dir = path32.resolve(stateDir2);
-  fs29.mkdirSync(dir, { recursive: true });
-  fs29.writeFileSync(ledgerPath(dir), JSON.stringify(ledger, null, 2));
+  fs30.mkdirSync(dir, { recursive: true });
+  fs30.writeFileSync(ledgerPath(dir), JSON.stringify(ledger, null, 2));
 }
 function foldSightings(ledger, sightings) {
   const byPermitted = /* @__PURE__ */ new Map();
@@ -47388,7 +47528,7 @@ function harvestableSessions(sessionsDir, ledger, opts) {
   const dir = path32.resolve(sessionsDir);
   let names;
   try {
-    names = fs29.readdirSync(dir);
+    names = fs30.readdirSync(dir);
   } catch {
     return [];
   }
@@ -47402,7 +47542,7 @@ function harvestableSessions(sessionsDir, ledger, opts) {
     const file = path32.join(dir, name);
     let mtimeMs;
     try {
-      mtimeMs = fs29.statSync(file).mtimeMs;
+      mtimeMs = fs30.statSync(file).mtimeMs;
     } catch {
       continue;
     }
@@ -47414,7 +47554,7 @@ function harvestableSessions(sessionsDir, ledger, opts) {
 function recordCorrections(stateDir2, sessionsDir, opts = {}) {
   const ledger = readLedger(stateDir2);
   const dir = path32.resolve(sessionsDir);
-  if (!fs29.existsSync(dir)) {
+  if (!fs30.existsSync(dir)) {
     return { readable: false, reason: `no session transcripts at ${dir}`, ledger };
   }
   const sessions = harvestableSessions(dir, ledger, {
@@ -47426,7 +47566,7 @@ function recordCorrections(stateDir2, sessionsDir, opts = {}) {
   for (const s of sessions) {
     let text2;
     try {
-      text2 = fs29.readFileSync(s.file, "utf8");
+      text2 = fs30.readFileSync(s.file, "utf8");
     } catch {
       continue;
     }
@@ -47625,7 +47765,7 @@ function degradedReport(degradations) {
 }
 
 // src/loop/health.ts
-import fs30 from "node:fs";
+import fs31 from "node:fs";
 import path33 from "node:path";
 var REQUIRED_PHASES = ["pass", "check"];
 function healthDir(dir) {
@@ -47638,22 +47778,22 @@ function runsPath(dir) {
   return path33.join(healthDir(dir), "runs.jsonl");
 }
 function appendRun(dir, run) {
-  fs30.appendFileSync(runsPath(dir), JSON.stringify(run) + "\n");
+  fs31.appendFileSync(runsPath(dir), JSON.stringify(run) + "\n");
 }
 function readOpenRun(dir) {
   const state = loopStateDir(dir);
   if (state === null) return null;
   const p2 = path33.join(state, "open-run.json");
-  if (!fs30.existsSync(p2)) return null;
+  if (!fs31.existsSync(p2)) return null;
   try {
-    return JSON.parse(fs30.readFileSync(p2, "utf8"));
+    return JSON.parse(fs31.readFileSync(p2, "utf8"));
   } catch {
     return null;
   }
 }
 function sweepCrashed(dir) {
   const p2 = openRunPath(dir);
-  if (!fs30.existsSync(p2)) return null;
+  if (!fs31.existsSync(p2)) return null;
   const open = readOpenRun(dir);
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const crashed = open ? { ...open, endedAt: now, verdict: "crashed" } : {
@@ -47666,7 +47806,7 @@ function sweepCrashed(dir) {
     verdict: "crashed"
   };
   appendRun(dir, crashed);
-  fs30.rmSync(p2, { force: true });
+  fs31.rmSync(p2, { force: true });
   return crashed;
 }
 var idsIssuedThisMillisecond = 0;
@@ -47688,7 +47828,7 @@ function startRun(dir, meta) {
     ...meta.headBefore ? { headBefore: meta.headBefore } : {},
     steps: []
   };
-  fs30.writeFileSync(openRunPath(dir), JSON.stringify(run, null, 2));
+  fs31.writeFileSync(openRunPath(dir), JSON.stringify(run, null, 2));
   return run;
 }
 function requireOpenRun(dir) {
@@ -47699,7 +47839,7 @@ function requireOpenRun(dir) {
 function appendStep(dir, step) {
   const open = requireOpenRun(dir);
   open.steps.push({ ...step, at: (/* @__PURE__ */ new Date()).toISOString() });
-  fs30.writeFileSync(openRunPath(dir), JSON.stringify(open, null, 2));
+  fs31.writeFileSync(openRunPath(dir), JSON.stringify(open, null, 2));
   return open;
 }
 function computeVerdict(run) {
@@ -47726,7 +47866,7 @@ function sealRun(dir, meta = {}) {
     verdict: computeVerdict(withHead)
   };
   appendRun(dir, sealed);
-  fs30.rmSync(openRunPath(dir), { force: true });
+  fs31.rmSync(openRunPath(dir), { force: true });
   return sealed;
 }
 var VERDICTS2 = /* @__PURE__ */ new Set(["healthy", "unhealthy", "no-op", "crashed", "degraded"]);
@@ -47734,9 +47874,9 @@ function readRuns(dir) {
   const state = loopStateDir(dir);
   if (state === null) return [];
   const p2 = path33.join(state, "runs.jsonl");
-  if (!fs30.existsSync(p2)) return [];
+  if (!fs31.existsSync(p2)) return [];
   const runs = [];
-  for (const line of fs30.readFileSync(p2, "utf8").split("\n")) {
+  for (const line of fs31.readFileSync(p2, "utf8").split("\n")) {
     if (!line.trim()) continue;
     try {
       const parsed = JSON.parse(line);
@@ -47769,7 +47909,7 @@ function assessStall(runs, threshold = STALL_STREAK_THRESHOLD) {
 }
 
 // src/loop/lock.ts
-import fs31 from "node:fs";
+import fs32 from "node:fs";
 import os3 from "node:os";
 import path34 from "node:path";
 function firingLockPath(vaultDir) {
@@ -47778,9 +47918,9 @@ function firingLockPath(vaultDir) {
 }
 function readFiringLock(vaultDir) {
   const p2 = firingLockPath(vaultDir);
-  if (p2 === null || !fs31.existsSync(p2)) return null;
+  if (p2 === null || !fs32.existsSync(p2)) return null;
   try {
-    const parsed = JSON.parse(fs31.readFileSync(p2, "utf8"));
+    const parsed = JSON.parse(fs32.readFileSync(p2, "utf8"));
     return typeof parsed?.pid === "number" && typeof parsed?.acquiredAt === "string" ? parsed : null;
   } catch {
     return null;
@@ -47810,15 +47950,15 @@ function staleness(held, opts) {
 var tmpCounter = 0;
 function linkInPlace(stateDir2, lockFile, record2) {
   const tmp = path34.join(stateDir2, `.firing.lock.${record2.pid}.${tmpCounter++}`);
-  fs31.writeFileSync(tmp, JSON.stringify(record2) + "\n");
+  fs32.writeFileSync(tmp, JSON.stringify(record2) + "\n");
   try {
-    fs31.linkSync(tmp, lockFile);
+    fs32.linkSync(tmp, lockFile);
     return true;
   } catch (e) {
     if (e.code !== "EEXIST") throw e;
     return false;
   } finally {
-    fs31.rmSync(tmp, { force: true });
+    fs32.rmSync(tmp, { force: true });
   }
 }
 function acquireFiringLock(vaultDir, opts) {
@@ -47838,8 +47978,8 @@ function acquireFiringLock(vaultDir, opts) {
   if (!stale) return { ok: false, held, reason: `another firing holds the lock \u2014 ${why}` };
   try {
     const sidelined = `${lockFile}.stale-${now}-${record2.pid}`;
-    fs31.renameSync(lockFile, sidelined);
-    fs31.rmSync(sidelined, { force: true });
+    fs32.renameSync(lockFile, sidelined);
+    fs32.rmSync(sidelined, { force: true });
   } catch (e) {
     if (e.code !== "ENOENT") throw e;
   }
@@ -47851,8 +47991,8 @@ function stampFiringLock(vaultDir, record2, runId) {
   const lockFile = path34.join(stateDir2, "firing.lock");
   const next = { ...record2, runId };
   const tmp = path34.join(stateDir2, `.firing.lock.${record2.pid}.${tmpCounter++}`);
-  fs31.writeFileSync(tmp, JSON.stringify(next) + "\n");
-  fs31.renameSync(tmp, lockFile);
+  fs32.writeFileSync(tmp, JSON.stringify(next) + "\n");
+  fs32.renameSync(tmp, lockFile);
   return next;
 }
 function releaseFiringLock(vaultDir, match) {
@@ -47863,16 +48003,16 @@ function releaseFiringLock(vaultDir, match) {
   if (match.pid !== void 0 && held.pid !== match.pid) return false;
   if (match.acquiredAt !== void 0 && held.acquiredAt !== match.acquiredAt) return false;
   if (match.runId !== void 0 && held.runId !== match.runId) return false;
-  fs31.rmSync(p2, { force: true });
+  fs32.rmSync(p2, { force: true });
   return true;
 }
 
 // src/loop/spend.ts
-import fs33 from "node:fs";
+import fs34 from "node:fs";
 import path35 from "node:path";
 
 // src/adapters/tokens.ts
-import fs32 from "node:fs";
+import fs33 from "node:fs";
 function count(value) {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
 }
@@ -47882,7 +48022,7 @@ function text(value) {
 function* readEntries(file) {
   let raw;
   try {
-    raw = fs32.readFileSync(file, "utf8");
+    raw = fs33.readFileSync(file, "utf8");
   } catch {
     return;
   }
@@ -47939,7 +48079,7 @@ function sessionCwd(file) {
 // src/loop/spend.ts
 function canonical(p2) {
   try {
-    return fs33.realpathSync(path35.resolve(p2));
+    return fs34.realpathSync(path35.resolve(p2));
   } catch {
     return path35.resolve(p2);
   }
@@ -47948,7 +48088,7 @@ function measureFiring(sessionsDir, opts) {
   const dir = path35.resolve(sessionsDir);
   let names;
   try {
-    names = fs33.readdirSync(dir);
+    names = fs34.readdirSync(dir);
   } catch (e) {
     return {
       measurable: false,
@@ -48001,11 +48141,11 @@ function checkCeiling(ceiling, measurement) {
 }
 
 // src/loop/questions.ts
-import fs34 from "node:fs";
+import fs35 from "node:fs";
 import path36 from "node:path";
 function canonical2(p2) {
   try {
-    return fs34.realpathSync(path36.resolve(p2));
+    return fs35.realpathSync(path36.resolve(p2));
   } catch {
     return path36.resolve(p2);
   }
@@ -48014,7 +48154,7 @@ function measureInterruptions(sessionsDir, opts) {
   const dir = path36.resolve(sessionsDir);
   let names;
   try {
-    names = fs34.readdirSync(dir);
+    names = fs35.readdirSync(dir);
   } catch (e) {
     return {
       measurable: false,
@@ -48043,7 +48183,7 @@ function measureInterruptions(sessionsDir, opts) {
 function readAsks(file) {
   let text2;
   try {
-    text2 = fs34.readFileSync(file, "utf8");
+    text2 = fs35.readFileSync(file, "utf8");
   } catch {
     return [];
   }
@@ -48085,12 +48225,12 @@ function formatQuestionBudget(budget, measurement) {
 }
 
 // src/cli/vault-option.ts
-import fs36 from "node:fs";
+import fs37 from "node:fs";
 import path38 from "node:path";
 
 // src/config/pointer.ts
 var import_yaml3 = __toESM(require_dist(), 1);
-import fs35 from "node:fs";
+import fs36 from "node:fs";
 import os4 from "node:os";
 import path37 from "node:path";
 var VAULT_POINTER_FILENAME = "ost.vault.yaml";
@@ -48114,10 +48254,10 @@ function resolveAgainst(baseDir, declared) {
 }
 function readVaultPointer(dir) {
   const file = path37.join(path37.resolve(dir), VAULT_POINTER_FILENAME);
-  if (!fs35.existsSync(file)) return null;
+  if (!fs36.existsSync(file)) return null;
   let raw;
   try {
-    raw = (0, import_yaml3.parse)(fs35.readFileSync(file, "utf8"));
+    raw = (0, import_yaml3.parse)(fs36.readFileSync(file, "utf8"));
   } catch (e) {
     throw new Error(`${file} is not valid YAML: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -48185,7 +48325,7 @@ function resolvedVaultSource() {
 }
 function stalePointerWarning(r2) {
   if (r2.via !== "pointer" || !r2.pointer) return null;
-  if (fs36.existsSync(path38.join(r2.dir, CONFIG_FILENAME))) return null;
+  if (fs37.existsSync(path38.join(r2.dir, CONFIG_FILENAME))) return null;
   return `${r2.pointer.file} names ${r2.dir}, which is not a vault (no ${CONFIG_FILENAME}). The pointer is stale, or that vault has not been cloned onto this machine.`;
 }
 
@@ -48854,6 +48994,23 @@ program2.command("corrections").description(
     }
   }
   console.log(renderCorrections(readLedger(state)));
+});
+program2.command("allowlist").description(
+  "derive a session's permission allowlist from the skill's own allowed-tools (human-only, at install time)"
+).requiredOption("--skill <file>", "the SKILL.md (or command file) whose `allowed-tools` line is the declaration").requiredOption("--settings <file>", "the settings.json whose permissions.allow is derived from it").option(
+  "--confirm-install",
+  "the human's install-time confirmation that grants the declaration names but this file lacks should be added (without it, widening an existing grant is refused \u2014 a narrower grant may be somebody's deliberate choice)"
+).action((opts) => {
+  const run = runAllowlistGenerator({
+    skillPath: path40.resolve(opts.skill),
+    settingsPath: path40.resolve(opts.settings),
+    confirmed: opts.confirmInstall === true
+  });
+  if (run.exitCode === 0) console.log(run.report);
+  else {
+    console.error(run.report);
+    process.exitCode = run.exitCode;
+  }
 });
 registerLoopCommands(program2);
 program2.command("mcp").description("run a stdio MCP server exposing the append-only OST tools (no API key needed)").option("--vault <dir>", VAULT_OPTION_HELP).action(async (opts) => {

@@ -59,6 +59,21 @@ The denial list is the load-bearing half, and it is new. These scripts used to p
 
 What that used to leave uncovered was the pass writing the things the tree's own gates read, and those two writes are now refused rather than discouraged: `## Results` and `## Uncovered` are reserved headings no tool argument can author, and `validated` is not a value any tool accepts — a human promotes with `ost-agent promote` (criteria **B1**, **B2**, **B10**). What is still open is the general statement rather than the two doors: criterion **P10** asks for an enumeration over the whole tool surface showing that no single call flips a gate or empties a violation it created, and nothing enumerates yet. **Read the diff of an unattended pass before anyone acts on the tree.**
 
+### Deriving the grant instead of copying it
+
+The allowlist an unattended run carries is a hand-kept copy of the skill's `allowed-tools`, and the copy is what drifts: a tool added to the skill in March does not appear in a grant written in January, and under `-p` an ungranted call is **denied, not prompted**, so the pass runs, does less, and exits 0. `ost_flag_humans_required` was named in the skill and denied in five consecutive firings before anyone looked.
+
+`ost-agent allowlist` derives the second list from the first, so adding a tool to the skill is the act that grants it:
+
+```bash
+ost-agent allowlist --skill .claude/skills/opportunity-solution-tree/SKILL.md \
+                    --settings ~/.claude/settings.json
+```
+
+It is **human-only and install-time**, and it refuses far more often than it writes, because a generator that rewrites a settings file is compute holding a pen over its own permit. It refuses outright when it detects an agent session in the environment; on a target that already exists it will only *add* grants, never remove one, and only when the human says `--confirm-install`.
+
+The case worth knowing about: **a grant narrower than the declaration is not drift.** "A tool was appended to the skill after install" and "a human deliberately withheld a tool" leave exactly the same state in these two files, and nothing in either can tell them apart — so the generator refuses both rather than guessing, and says so. If your grant is short on purpose, do nothing; this command will keep agreeing with you. `test/security/allowlist-generator-guard.test.ts` is the specification.
+
 ---
 
 ## Packaging — the plugin is the only path
