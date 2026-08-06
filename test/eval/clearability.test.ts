@@ -43,6 +43,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { checkInvariants } from "../../src/eval/invariants.js";
 import { MCP_TOOL_NAMES } from "../../src/mcp/server.js";
+import { bareToolName } from "../../scripts/mcp-prefix.js";
 import { Vault } from "../../src/ost/vault.js";
 import type { OstNode } from "../../src/ost/node.js";
 import { buildOstTools, type ToolContext } from "../../src/security/tools.js";
@@ -76,7 +77,7 @@ const PASS_TOOL_NAMES: string[] = (() => {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean)
-    .map((n) => n.replace(/^mcp__ost-agent__/, ""));
+    .map(bareToolName);
 })();
 
 const SURFACES = [

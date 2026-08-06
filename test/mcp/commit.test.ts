@@ -10,8 +10,29 @@ let dir: string;
 beforeEach(async () => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "ost-commitq-"));
   await initVault(dir, "Reach 10,000 daily active users", "Retention");
+  /*
+   * Turn off git's background housekeeping in the fixture repo.
+   *
+   * `git commit` may spawn `gc --auto`, which detaches and keeps writing inside
+   * `.git` after the commit has returned. This file commits several times in a
+   * few hundred milliseconds and then deletes the repository, so the teardown
+   * below can land while that process is still going — `ENOTEMPTY: directory not
+   * empty, rmdir` on the fixture's `.git`, observed on CI on 2026-08-06 and never
+   * locally, because it needs a machine slow enough for the two to overlap.
+   *
+   * Disabled here rather than tolerated in the teardown because the race is the
+   * bug: a retry loop would make the failure rarer and leave a test that deletes
+   * a repository out from under a live git process. Nothing is weakened — no
+   * assertion in this file concerns packing or repacking.
+   *
+   * NOT set in `gitInitIfAbsent`: real vaults commit on every tool call and want
+   * their housekeeping. This is a property of tests that create, commit to and
+   * destroy a repository inside one tick, and any other test doing that has the
+   * same exposure.
+   */
+  await simpleGit(dir).addConfig("gc.auto", "0");
 });
-afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
+afterEach(() => fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }));
 
 function writeNode(dir: string, name: string): void {
   fs.writeFileSync(path.join(dir, name), `---\ntype: Opportunity\n---\n${name}\n`);

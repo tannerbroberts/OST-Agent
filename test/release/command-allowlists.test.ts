@@ -54,25 +54,26 @@ import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, test } from "vitest";
 import { MCP_TOOL_NAMES } from "../../src/mcp/server.js";
 import { initVault } from "../../src/runner/init.js";
+/**
+ * The prefix a session actually mints for this plugin's tools — imported, never
+ * re-derived here.
+ *
+ * This file used to carry its own copy of the derivation, and so did
+ * `test/release/command-allowlists.test.ts` and `scripts/gen-skill.ts`. All three
+ * copies read the manifest's `mcpServers` key and produced `mcp__<server>__`,
+ * which is what a DIRECTLY registered server mints. A plugin-delivered server —
+ * the only install path `README.md` documents — mints
+ * `mcp__plugin_<plugin>_<server>__`. Three independent derivations, all wrong the
+ * same way, so every guard agreed with the thing it was guarding for 23 releases.
+ * Deriving is not the same as deriving correctly, and the fix for that is one
+ * derivation rather than three careful ones.
+ */
+import { MCP_PREFIX } from "../../scripts/mcp-prefix.js";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const COMMANDS_DIR = path.join(repoRoot, ".claude", "commands");
 
-/**
- * The MCP tool-name prefix Claude Code will actually mint, taken from the plugin
- * manifest's server key rather than hardcoded. Renaming the server in
- * `plugin.json` renames every tool the session sees; if that ever happens, this
- * test fails on all nine files at once instead of the plugin silently losing its
- * whole tool surface at runtime.
- */
-const MCP_PREFIX: string = (() => {
-  const manifest = JSON.parse(fs.readFileSync(path.join(repoRoot, ".claude-plugin", "plugin.json"), "utf8")) as {
-    mcpServers?: Record<string, unknown>;
-  };
-  const names = Object.keys(manifest.mcpServers ?? {});
-  if (names.length !== 1) throw new Error(`expected exactly one mcpServers entry, found ${names.length}`);
-  return `mcp__${names[0]}__`;
-})();
+
 
 /**
  * Every subcommand `src/cli/index.ts` defines, read out of the source.
@@ -169,7 +170,7 @@ describe("the derived authorities are real (so nothing below can pass vacuously)
     for (const sub of ["init", "set-outcome", "gate", "promote"]) {
       expect(SUBCOMMANDS, `src/cli/index.ts defines ${sub}`).toContain(sub);
     }
-    expect(MCP_PREFIX).toBe("mcp__ost-agent__");
+    expect(MCP_PREFIX).toBe("mcp__plugin_ost-agent_ost-agent__");
   });
 
   test("every shipped command file is being audited", () => {
@@ -199,12 +200,12 @@ describe("every command's allowed-tools names only tools that exist (D2)", () =>
 const BROKEN: ReadonlyArray<[why: string, frontmatter: string, expected: RegExp]> = [
   [
     "a misspelled MCP tool",
-    "mcp__ost-agent__ost_read_tree, mcp__ost-agent__ost_creat_node",
+    "mcp__plugin_ost-agent_ost-agent__ost_read_tree, mcp__plugin_ost-agent_ost-agent__ost_creat_node",
     /no such tool.*ost_creat_node/,
   ],
   [
     "a tool that was never on the surface",
-    "mcp__ost-agent__ost_delete_node",
+    "mcp__plugin_ost-agent_ost-agent__ost_delete_node",
     /no such tool.*ost_delete_node/,
   ],
   [
@@ -215,12 +216,12 @@ const BROKEN: ReadonlyArray<[why: string, frontmatter: string, expected: RegExp]
   [
     "a bare shell grant",
     "Bash",
-    /is neither an mcp__ost-agent__\* tool nor a/,
+    /is neither an mcp__plugin_ost-agent_ost-agent__\* tool nor a/,
   ],
   [
     "a wildcard shell grant dressed up as the real form",
     "Bash(node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs:*)",
-    /is neither an mcp__ost-agent__\* tool nor a/,
+    /is neither an mcp__plugin_ost-agent_ost-agent__\* tool nor a/,
   ],
   [
     "another server's tool",
@@ -248,7 +249,7 @@ describe("the auditor reports a command file that grants something unreal", () =
   test("a well-formed fixture passes, so the auditor is not simply always-red", () => {
     const source =
       "---\ndescription: fixture\n" +
-      "allowed-tools: mcp__ost-agent__ost_read_tree, Bash(node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init:*)\n" +
+      "allowed-tools: mcp__plugin_ost-agent_ost-agent__ost_read_tree, Bash(node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init:*)\n" +
       "---\n\nbody\n";
     expect(auditCommandFile("fixture.md", source)).toEqual([]);
   });

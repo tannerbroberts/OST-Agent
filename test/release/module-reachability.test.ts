@@ -56,7 +56,32 @@ const srcRoot = path.join(repoRoot, "src");
  * `examples/automation/autonomous-pass.sh` takes on every firing, which is why
  * they came off.
  */
-const KNOWN_UNREACHABLE: Record<string, string> = {};
+const KNOWN_UNREACHABLE: Record<string, string> = {
+  /*
+   * The interpretive transcript read: a model answers a fixed question set about
+   * a whole session, and every candidate it files must carry a verbatim span
+   * located in the text it was handed, or it is dropped. Written, tested (19
+   * tests, offline against an injected fake), and deliberately not wired.
+   *
+   * It is here rather than deleted, and unwired rather than shipped, because the
+   * tree says so. Its node — "A model reads the raw transcript and files what the
+   * pattern scan cannot see" — is `unvalidated`, and its definition of done is
+   * "Blind-rate a model's reading of five already-harvested sessions", which needs
+   * a person. The node also states the trade it asks the operator to accept:
+   * every session read costs money in proportion to how much the product is used,
+   * and this vault's operator has already recorded credential-and-cost as the
+   * binding constraint on unattended work. Wiring it would be answering that
+   * question with a commit instead of with the test that was designed to answer
+   * it.
+   *
+   * What the register is for is exactly this: a module that is finished but
+   * parked, named, with the reason and the thing that would unpark it. It comes
+   * off when the blind rating is recorded, or the module goes when the node is
+   * deferred.
+   */
+  "src/adapters/transcript-model-reader.ts":
+    "built and tested; parked pending its node's blind-rating test, which is human-only",
+};
 
 function tsFiles(dir: string): string[] {
   const out: string[] = [];

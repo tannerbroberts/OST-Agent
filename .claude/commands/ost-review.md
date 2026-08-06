@@ -1,7 +1,7 @@
 ---
 description: Triage the agent-ideated (unvalidated) nodes — help a human promote, defer, or annotate them
 argument-hint: [layer to focus: Solution | Opportunity | AssumptionTest — optional]
-allowed-tools: mcp__ost-agent__ost_read_tree, mcp__ost-agent__ost_set_status, mcp__ost-agent__ost_annotate, mcp__ost-agent__ost_append_to_node
+allowed-tools: mcp__plugin_ost-agent_ost-agent__ost_read_tree, mcp__plugin_ost-agent_ost-agent__ost_set_status, mcp__plugin_ost-agent_ost-agent__ost_annotate, mcp__plugin_ost-agent_ost-agent__ost_append_to_node
 ---
 
 Help the human review what the agent proposed. This is the human-decision step the autonomous pass deliberately leaves open — everything the agent originates is `unvalidated`.

@@ -1,7 +1,7 @@
 ---
 description: Contribute a customer insight to the tree — reframes it into a proper #Opportunity and attaches it
 argument-hint: <the customer insight, need, or pain in your own words>
-allowed-tools: mcp__ost-agent__ost_read_tree, mcp__ost-agent__ost_create_node, mcp__ost-agent__ost_link_nodes
+allowed-tools: mcp__plugin_ost-agent_ost-agent__ost_read_tree, mcp__plugin_ost-agent_ost-agent__ost_create_node, mcp__plugin_ost-agent_ost-agent__ost_link_nodes
 ---
 
 A human is participating in discovery. Their insight:

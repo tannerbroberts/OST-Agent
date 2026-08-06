@@ -1,6 +1,6 @@
 ---
 description: Show the Opportunity Solution Tree's state and what maintenance is outstanding
-allowed-tools: mcp__ost-agent__ost_read_tree, mcp__ost-agent__ost_next_work
+allowed-tools: mcp__plugin_ost-agent_ost-agent__ost_read_tree, mcp__plugin_ost-agent_ost-agent__ost_next_work
 ---
 
 Read-only status check on the OST vault.
