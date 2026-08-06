@@ -219,20 +219,38 @@ describe("the lineage prefix means the pass touched a node", () => {
   test("LINEAGE starts empty and is only filled once a target is chosen", () => {
     expect(script).toMatch(/^LINEAGE=""$/m);
     const init = script.search(/^LINEAGE=""$/m);
-    const target = script.indexOf('TARGET="$(head -1 "$BUILDABLE")"');
+    const selection = script.search(/^TARGET=""$/m);
     const filled = script.search(/^LINEAGE="\$\(node "\$CLI" lineage/m);
-    expect(target).toBeGreaterThan(init);
-    expect(filled).toBeGreaterThan(target);
+    expect(selection).toBeGreaterThan(init);
+    expect(filled).toBeGreaterThan(selection);
+  });
+
+  test("nothing sets TARGET after the lineage is read, so the prefix names what was built", () => {
+    // The candidate that heads the list may turn out to be already built, so the
+    // target is now CHOSEN by a loop rather than read off line one. The property
+    // the prefix rests on is unchanged and is what this asserts: every write to
+    // TARGET happens before `lineage` is asked about it.
+    const filled = script.search(/^LINEAGE="\$\(node "\$CLI" lineage/m);
+    const writes = [...script.matchAll(/^\s*TARGET=/gm)].map((m) => m.index!);
+    expect(writes.length).toBeGreaterThan(1);
+    for (const at of writes) expect(at).toBeLessThan(filled);
   });
 
   test("every no-build branch returns before a target exists, so idle reports carry no prefix", () => {
-    // The structural guarantee, rather than a promise about the branches: the
-    // whole BUILD_COUNT-zero block exits before TARGET is read.
+    // The structural guarantee, rather than a promise about the branches: both
+    // no-build blocks exit before the lineage is read. The second one is newer —
+    // a list whose every candidate has already been built is an idle firing that
+    // reaches further into the script than the empty-list case does.
     const zeroBranch = script.indexOf('if [ "$BUILD_COUNT" -eq 0 ]; then');
-    const target = script.indexOf('TARGET="$(head -1 "$BUILDABLE")"');
+    const selection = script.search(/^TARGET=""$/m);
+    const nothingLeft = script.indexOf('if [ -z "$TARGET" ]; then');
+    const filled = script.search(/^LINEAGE="\$\(node "\$CLI" lineage/m);
     expect(zeroBranch).toBeGreaterThan(-1);
-    expect(target).toBeGreaterThan(zeroBranch);
-    expect(script.slice(zeroBranch, target)).toMatch(/^\s*exit 0$/m);
+    expect(selection).toBeGreaterThan(zeroBranch);
+    expect(script.slice(zeroBranch, selection)).toMatch(/^\s*exit 0$/m);
+    expect(nothingLeft).toBeGreaterThan(selection);
+    expect(nothingLeft).toBeLessThan(filled);
+    expect(script.slice(nothingLeft, filled)).toMatch(/^\s*exit 0$/m);
   });
 
   test("the model's own report gets the prefix too — it Writes the file itself", () => {

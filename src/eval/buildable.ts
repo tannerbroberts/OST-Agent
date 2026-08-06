@@ -20,10 +20,27 @@
  * A red observation is a permit and a green one is a completion: once the
  * instrument passes, the solution has been built and the ticket is spent. So a
  * test that has gone green stops being a reason to start work.
+ *
+ * **A recorded observation is a fact about the past, and a permit is a claim
+ * about now.** Everything above reads the node and nothing runs the command, so
+ * a permit stays cleared for exactly as long as nobody re-observes it — and the
+ * loop deliberately never re-observes an instrument it has already seen red
+ * ({@link testsAwaitingVerification}). Anything that turns the command green
+ * outside the loop therefore leaves a live-looking permit behind: a build merged
+ * from a branch, a fix that landed under another PR, a dependency that started
+ * satisfying the spec. This is not hypothetical. On 2026-08-06 the build loop
+ * spent a full model pass on "A model reads the raw transcript and files what
+ * the pattern scan cannot see", whose instrument had been recorded red on
+ * 2026-08-05 with "No test files found" and had been green since the merge 17
+ * minutes earlier. {@link confirmPermit} is the answer: before a caller spends
+ * anything on a permit, run the command and find out whether the red is still
+ * true. It records nothing — recording is `ost-agent verify`, and it stays
+ * where it is.
  */
-import { nodeInstrument, observedGreen, observedRed } from "../ost/instrument.js";
+import { nodeInstrument, observedGreen, observedRed, runInstrument, type InstrumentRun } from "../ost/instrument.js";
 import { CAUTIOUS_LANE } from "../knowledge/lanes.js";
 import type { OstNode } from "../ost/node.js";
+import { isInstrument, parseInstrument, type ParsedInstrument } from "../knowledge/instruments.js";
 import { testsUnderSolution } from "../processes/tree.js";
 
 export interface BuildPermit {
@@ -33,6 +50,13 @@ export interface BuildPermit {
   instrument?: string;
   /** The test carrying it. */
   test?: string;
+  /**
+   * Set by {@link confirmPermit} when the recorded red no longer holds: the
+   * command passes today, so the ticket was spent before this caller reached it.
+   * `test` and `instrument` are still populated, because the useful next move is
+   * to go and record the green on that test.
+   */
+  spent?: boolean;
 }
 
 /**
@@ -115,6 +139,51 @@ function permitFrom(index: Map<string, OstNode>, title: string): BuildPermit {
       `"${title}" is built. That is the definition of done.`,
     instrument: instrument.command,
     test: chosen.title,
+  };
+}
+
+/**
+ * Is the recorded red still true? Run the command and find out.
+ *
+ * This is the step between "the tree says this is buildable" and spending a
+ * model pass on it. It is deliberately NOT folded into {@link buildPermit}: that
+ * function is pure, is called once per solution by {@link buildableSolutions},
+ * and is on the hot path of `ost_next_work` under a wall-clock budget — running
+ * a spec suite per solution there would be minutes of test runner to answer a
+ * question about one solution. So the confirmation is opt-in and belongs to the
+ * caller about to spend something.
+ *
+ * **It records nothing.** Filing an observation is `ost-agent verify`, which is
+ * CLI-only and refuses a first-run green, and this must not become a second door
+ * into the instrument log. What it returns instead is a refusal that names the
+ * test, so the caller can go and file the green through the door that exists.
+ *
+ * Fail-open on a permit that was never cleared (nothing to confirm) and on a
+ * command that will not parse (there is nothing to run, and `buildPermit` has
+ * already refused those). Fail-CLOSED on green: a permit whose instrument passes
+ * is spent, whoever spent it.
+ */
+export function confirmPermit(
+  permit: BuildPermit,
+  repoDir: string,
+  run: (instrument: ParsedInstrument, dir: string) => InstrumentRun = runInstrument,
+): BuildPermit {
+  if (!permit.cleared || !permit.instrument) return permit;
+  const parsed = parseInstrument(permit.instrument);
+  if (!isInstrument(parsed)) return permit;
+
+  const observed = run(parsed, repoDir);
+  if (observed.observation === "red") return permit;
+
+  return {
+    cleared: false,
+    spent: true,
+    test: permit.test,
+    instrument: permit.instrument,
+    reason:
+      `"${permit.test}" was observed red, but \`${permit.instrument}\` passes against this repository today ` +
+      `(exit ${observed.exitCode ?? "none"}) — the solution has been built since that observation was filed, and ` +
+      `the permit is spent. Nothing has been recorded here: \`ost-agent verify "${permit.test}"\` files the green.`,
   };
 }
 

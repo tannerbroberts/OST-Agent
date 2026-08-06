@@ -154,6 +154,33 @@ describe("the build pass defers to the gate rather than re-implementing it", () 
     // someone who reads an empty build queue as a bug.
     expect(executable).toMatch(/BUILD_COUNT.*-eq 0/s);
   });
+
+  test("confirms the target's instrument is still red before spending a model call", () => {
+    // The observed failure: a permit recorded red on 2026-08-05 was still being offered on
+    // 2026-08-06, 17 minutes after the merge that turned it green. A full pass was spent
+    // on a definition of done that was already met. `--repo` re-runs the command.
+    const claudeAt = executable.indexOf("claude -p");
+    const confirmAt = executable.search(/buildable "\$sol" --vault \. --repo "\$OST_AGENT_DIR"/);
+    expect(confirmAt).toBeGreaterThan(-1);
+    expect(claudeAt).toBeGreaterThan(confirmAt);
+  });
+
+  test("a spent permit is closed with the green it was owed, in the shell", () => {
+    // Refusing is not enough on its own: nothing would have changed, and the same stale
+    // permit would head the list on the next firing. The observation is filed by `verify`
+    // here in the preflight — never by the model, which is told not to run it at all.
+    expect(executable).toMatch(/buildable: SPENT/);
+    expect(executable).toMatch(/verify "\$SPENT_TEST" --repo "\$OST_AGENT_DIR"/);
+  });
+
+  test("only SPENT drops a candidate, so gate-cleared work is not narrowed away", () => {
+    // The candidate list holds solutions cleared by EITHER permit. One cleared by `gate` —
+    // a human's recorded result — has no red instrument for `buildable` to clear and comes
+    // back BLOCKED. Treating that as a rejection would strand every solution a person
+    // vouched for and leave this loop running on the mechanical permit alone.
+    expect(executable).not.toMatch(/if node "\$CLI" buildable "\$sol" --vault \. --repo/);
+    expect(executable).toMatch(/case "\$PERMIT_OUT" in\s*\n\s*\*"buildable: SPENT"\*\)/);
+  });
 });
 
 describe("the build pass does not wedge the discovery loop", () => {

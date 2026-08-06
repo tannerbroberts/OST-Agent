@@ -41516,6 +41516,20 @@ function permitFrom(index, title) {
     test: chosen.title
   };
 }
+function confirmPermit(permit, repoDir, run = runInstrument) {
+  if (!permit.cleared || !permit.instrument) return permit;
+  const parsed = parseInstrument(permit.instrument);
+  if (!isInstrument(parsed)) return permit;
+  const observed = run(parsed, repoDir);
+  if (observed.observation === "red") return permit;
+  return {
+    cleared: false,
+    spent: true,
+    test: permit.test,
+    instrument: permit.instrument,
+    reason: `"${permit.test}" was observed red, but \`${permit.instrument}\` passes against this repository today (exit ${observed.exitCode ?? "none"}) \u2014 the solution has been built since that observation was filed, and the permit is spent. Nothing has been recorded here: \`ost-agent verify "${permit.test}"\` files the green.`
+  };
+}
 function buildableSolutions(tree) {
   const index = indexByTitle(tree);
   const out = [];
@@ -48693,7 +48707,10 @@ program2.command("verify").description("run an assumption test's instrument and 
     console.log("  that is still `ost-agent result`, and still a human's.");
   }
 });
-program2.command("buildable").description("may work start on this solution, and against what definition of done? (exits non-zero when not)").argument("[solution]", "title of the Solution node; omit to list every buildable solution").option("--vault <dir>", VAULT_OPTION_HELP).option("--pending", "instead list the tests that declare an instrument nobody has run yet").action((solution, opts) => {
+program2.command("buildable").description("may work start on this solution, and against what definition of done? (exits non-zero when not)").argument("[solution]", "title of the Solution node; omit to list every buildable solution").option("--vault <dir>", VAULT_OPTION_HELP).option("--pending", "instead list the tests that declare an instrument nobody has run yet").option(
+  "--repo <dir>",
+  "re-run the instrument against this repository before clearing, and refuse the permit if it passes today (records nothing \u2014 that is `ost-agent verify`)"
+).action((solution, opts) => {
   const ctx = buildPassContext(opts.vault);
   const tree = ctx.vault.readTree();
   if (opts.pending) {
@@ -48712,12 +48729,13 @@ program2.command("buildable").description("may work start on this solution, and 
     for (const r2 of order.ranked) console.log(r2.solution);
     return;
   }
-  const permit = buildPermit(tree, solution);
+  const recorded = buildPermit(tree, solution);
+  const permit = opts.repo ? confirmPermit(recorded, opts.repo) : recorded;
   if (permit.cleared) {
     console.log(`buildable: CLEARED \u2014 ${permit.reason}`);
     return;
   }
-  console.error(`buildable: BLOCKED \u2014 ${permit.reason}`);
+  console.error(`buildable: ${permit.spent ? "SPENT" : "BLOCKED"} \u2014 ${permit.reason}`);
   process.exitCode = 1;
 });
 program2.command("stranded").description("evidence no node cites, split into what an existing node already quotes and what only a new node type could home").option("--vault <dir>", VAULT_OPTION_HELP).option("--also <dir>", "another vault to include in the same census (repeatable)", collect, []).option(
