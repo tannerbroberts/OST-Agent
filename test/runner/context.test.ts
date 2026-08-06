@@ -83,6 +83,96 @@ describe("buildPassContext adapter wiring", () => {
     expect(ctx.unavailableSources.find((u) => u.name === "transcript")?.reason).toMatch(/transcript.*(path|projectDir)/i);
   });
 
+  /**
+   * The vault this product dogfoods ran for its whole life reading only the
+   * sessions in which the agent was worked on BY A PERSON: 36 cited, zero
+   * unattended firings. Not a configuration mistake — a firing's cwd is the
+   * vault, so Claude Code files it in a different directory, and the operator
+   * had already declared that directory for the spend ceiling.
+   */
+  describe("the loop's own firings are harvested too", () => {
+    /** A finished session with one failed call, in a directory of its own. */
+    function firingSessionsDir(): string {
+      const sessions = fs.mkdtempSync(path.join(os.tmpdir(), "ost-firings-"));
+      const file = path.join(sessions, "firing-session.jsonl");
+      fs.writeFileSync(
+        file,
+        [
+          JSON.stringify({
+            timestamp: "2026-08-05T20:00:00.000Z",
+            type: "assistant",
+            message: {
+              role: "assistant",
+              content: [{ type: "tool_use", id: "t1", name: "Bash", input: { command: "sleep 45" } }],
+            },
+          }),
+          JSON.stringify({
+            timestamp: "2026-08-05T20:00:01.000Z",
+            type: "user",
+            message: {
+              role: "user",
+              content: [{ type: "tool_result", tool_use_id: "t1", is_error: true, content: "Blocked: sleep is denied" }],
+            },
+          }),
+        ].join("\n") + "\n",
+        "utf8",
+      );
+      const old = new Date(Date.now() - 120 * 60_000);
+      fs.utimesSync(file, old, old);
+      return sessions;
+    }
+
+    function writeConfig(transcriptPath: string, sessionsDir: string): void {
+      fs.writeFileSync(
+        configPath(dir),
+        `outcome: "Reach 10,000 daily active users"\n` +
+          `adapters:\n  transcript:\n    enabled: true\n    path: ${JSON.stringify(transcriptPath)}\n` +
+          `loop:\n  cadence: "1h"\n  spend:\n    ceilingWeightedTokens: 1000\n    windowHours: 24\n` +
+          `    sessionsDir: ${JSON.stringify(sessionsDir)}\n`,
+        "utf8",
+      );
+    }
+
+    test("a session from loop.spend.sessionsDir becomes evidence, labelled unattended", async () => {
+      const sessions = firingSessionsDir();
+      try {
+        // `path` points somewhere with no transcripts at all: every item below can
+        // only have come from the directory the LOOP declared.
+        writeConfig(path.join(dir, "no-transcripts-here"), sessions);
+        const source = buildPassContext(dir).sources.find((s) => s.name === "transcript")!;
+
+        const { items } = await source.fetchSince(null);
+
+        expect(items.map((i) => i.id)).toEqual(["TRANSCRIPT:firing-session"]);
+        expect(items[0].body).toContain("unattended");
+      } finally {
+        fs.rmSync(sessions, { recursive: true, force: true });
+      }
+    });
+
+    test("the operator does not declare the directory twice", () => {
+      // Nothing in `adapters.transcript` names the firings directory — the only
+      // place it appears is `loop.spend.sessionsDir`, where it already was.
+      const sessions = firingSessionsDir();
+      try {
+        writeConfig(path.join(dir, "no-transcripts-here"), sessions);
+        expect(fs.readFileSync(configPath(dir), "utf8").split(sessions).length - 1).toBe(1);
+      } finally {
+        fs.rmSync(sessions, { recursive: true, force: true });
+      }
+    });
+
+    test("a vault with no loop block reads exactly what it read before", async () => {
+      fs.writeFileSync(
+        configPath(dir),
+        `outcome: "Reach 10,000 daily active users"\nadapters:\n  transcript:\n    enabled: true\n    path: ${JSON.stringify(dir)}\n`,
+        "utf8",
+      );
+      const source = buildPassContext(dir).sources.find((s) => s.name === "transcript")!;
+      expect((await source.fetchSince(null)).items).toHaveLength(0);
+    });
+  });
+
   test("a source turned OFF and a source that could not be built are different facts", () => {
     // Both are "not in ctx.sources". Collapsing them into one word is how an
     // operator staring at a full folder is told the same thing whether they turned

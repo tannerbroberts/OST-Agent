@@ -20,11 +20,11 @@
  * both "nothing to report" and "never looked".
  */
 import path from "node:path";
-import { CONFIG_FILENAME, defaultConfig, loadConfig, readConfig } from "../config/load.js";
+import { CONFIG_FILENAME, defaultConfig, loadConfig, readConfig, resolveSessionsDir } from "../config/load.js";
 import { resolveChannels } from "../adapters/channels.js";
 import { InboxSource } from "../adapters/inbox.js";
 import { AtlassianSource, HttpAtlassianClient } from "../adapters/atlassian.js";
-import { TranscriptSource, defaultTranscriptDir } from "../adapters/transcript.js";
+import { TranscriptSource, defaultTranscriptDir, type TranscriptDir } from "../adapters/transcript.js";
 import { UsageSource } from "../adapters/usage.js";
 import { usageLogPath } from "../telemetry/usage.js";
 import { SlackSource, HttpSlackClient } from "../adapters/slack.js";
@@ -49,6 +49,51 @@ import {
   credentialBrokerFromEnv,
   type EnvBroker,
 } from "./credentials.js";
+
+/**
+ * Which session directories the transcript adapter reads, and what to call them.
+ *
+ * Two, when the vault runs unattended, and the second one is the point.
+ *
+ * `adapters.transcript` names the sessions an operator asked for — but Claude
+ * Code keys a session directory to the cwd a session ran in, and an unattended
+ * firing runs with cwd set to the *vault*. So a vault that configures the code
+ * repository harvests every session in which the agent was worked on by a person
+ * and none of the ones in which it ran by itself. That is what happened to this
+ * product's own vault for the loop's whole life: 36 sessions cited, all attended,
+ * zero firings, and no signal anywhere that a whole half was missing.
+ *
+ * The firing directory is **not a third thing for the operator to declare.** It
+ * is already written down, once, as `loop.spend.sessionsDir` — the same reuse and
+ * the same argument as `src/loop/corrections.ts`: a key somebody has to type
+ * twice is a key they leave unset, which would turn this off on exactly the
+ * vaults that run unattended and therefore need it most. Consent is not stretched
+ * by reading it, either: `adapters.transcript.enabled` is opt-in and off by
+ * default *because* it reads transcripts, and these are the same agent's
+ * transcripts in the folder the operator pointed the loop at.
+ *
+ * A vault with no `loop:` block gets exactly what it got before — one directory.
+ */
+function transcriptDirs(vaultDir: string, config: Config): TranscriptDir[] {
+  const t = config.adapters.transcript;
+  const dirs: TranscriptDir[] = [];
+  if (t.path) {
+    dirs.push({ dir: path.resolve(vaultDir, t.path), origin: `sessions in ${t.path}` });
+  } else if (t.projectDir) {
+    dirs.push({ dir: defaultTranscriptDir(t.projectDir), origin: `sessions run in ${t.projectDir}` });
+  }
+  // `questions.sessionsDir` is the fallback for the same reason `corrections`
+  // reads it: it is the other place the loop's own session directory is declared,
+  // and a vault that set only that one still means the same folder.
+  const declared = config.loop?.spend?.sessionsDir ?? config.loop?.questions?.sessionsDir;
+  if (declared) {
+    dirs.push({
+      dir: resolveSessionsDir(vaultDir, declared),
+      origin: "this vault's own unattended firings — nobody was watching",
+    });
+  }
+  return dirs;
+}
 
 /**
  * Brave if a key is held, else the keyless federated sources if they are turned
@@ -206,7 +251,7 @@ function buildSources(dir: string, config: Config, credentials: EnvBroker): Asse
         );
       }
       return new TranscriptSource({
-        dir: t.path ? path.resolve(dir, t.path) : defaultTranscriptDir(t.projectDir),
+        dirs: transcriptDirs(dir, config),
         quietMinutes: t.quietMinutes,
         maxEventsPerSession: t.maxEventsPerSession,
       });

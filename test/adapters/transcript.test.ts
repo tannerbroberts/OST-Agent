@@ -10,12 +10,19 @@ import {
 } from "../../src/adapters/transcript.js";
 
 let dir: string;
+let firingDir: string;
+
+/** The two origins under test, worded as a real caller words them. */
+const ATTENDED = "sessions run in /repo";
+const UNATTENDED = "this vault's own unattended firings — nobody was watching";
 
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "ost-transcript-"));
+  firingDir = fs.mkdtempSync(path.join(os.tmpdir(), "ost-firings-"));
 });
 afterEach(() => {
   fs.rmSync(dir, { recursive: true, force: true });
+  fs.rmSync(firingDir, { recursive: true, force: true });
 });
 
 /** One JSONL transcript line, in the shape Claude Code writes. */
@@ -42,10 +49,19 @@ function toolResult(content: string, isError: boolean): string {
 
 /** Write a transcript file and backdate it so it counts as a finished session. */
 function writeSession(id: string, lines: string[], ageMinutes = 120): void {
-  const file = path.join(dir, `${id}.jsonl`);
+  writeSessionIn(dir, id, lines, ageMinutes);
+}
+
+function writeSessionIn(where: string, id: string, lines: string[], ageMinutes = 120): void {
+  const file = path.join(where, `${id}.jsonl`);
   fs.writeFileSync(file, lines.join("\n") + "\n");
   const when = new Date(Date.now() - ageMinutes * 60_000);
   fs.utimesSync(file, when, when);
+}
+
+/** A session whose single event is one failed Bash call. */
+function failingSession(): string[] {
+  return [assistantTool("Bash", { command: "ls /nope" }), toolResult("no such file", true)];
 }
 
 describe("extractFriction", () => {
@@ -207,7 +223,7 @@ describe("defaultTranscriptDir", () => {
 describe("TranscriptSource", () => {
   test("emits one evidence item per finished session that contained friction", async () => {
     writeSession("sess-a", [assistantTool("Bash", { command: "ls /nope" }), toolResult("no such file", true)]);
-    const src = new TranscriptSource({ dir });
+    const src = new TranscriptSource({ dirs: [{ dir, origin: ATTENDED }] });
 
     const { items } = await src.fetchSince(null);
 
@@ -219,7 +235,7 @@ describe("TranscriptSource", () => {
 
   test("does not re-emit a session it has already harvested", async () => {
     writeSession("sess-a", [assistantTool("Bash", { command: "ls /nope" }), toolResult("no such file", true)]);
-    const src = new TranscriptSource({ dir });
+    const src = new TranscriptSource({ dirs: [{ dir, origin: ATTENDED }] });
 
     const first = await src.fetchSince(null);
     const second = await src.fetchSince(first.cursor);
@@ -230,7 +246,7 @@ describe("TranscriptSource", () => {
 
   test("skips a session that is still being written to", async () => {
     writeSession("live", [assistantTool("Bash", { command: "ls /nope" }), toolResult("no such file", true)], 0);
-    const src = new TranscriptSource({ dir });
+    const src = new TranscriptSource({ dirs: [{ dir, origin: ATTENDED }] });
 
     const { items } = await src.fetchSince(null);
 
@@ -239,7 +255,7 @@ describe("TranscriptSource", () => {
 
   test("emits nothing for a session with no friction", async () => {
     writeSession("clean", [assistantTool("Read", { file_path: "/a" }), toolResult("contents", false)]);
-    const src = new TranscriptSource({ dir });
+    const src = new TranscriptSource({ dirs: [{ dir, origin: ATTENDED }] });
 
     expect((await src.fetchSince(null)).items).toHaveLength(0);
   });
@@ -250,7 +266,7 @@ describe("TranscriptSource", () => {
       toolResult("401 with Bearer abcDEF123456ghijkl", true),
     ]);
     const before = fs.readFileSync(path.join(dir, "sess-secret.jsonl"), "utf8");
-    const src = new TranscriptSource({ dir });
+    const src = new TranscriptSource({ dirs: [{ dir, origin: ATTENDED }] });
 
     const { items } = await src.fetchSince(null);
 
@@ -264,7 +280,7 @@ describe("TranscriptSource", () => {
       noisy.push(assistantTool("Bash", { command: `try-${i}` }), toolResult(`failure ${i}`, true));
     }
     writeSession("noisy", noisy);
-    const src = new TranscriptSource({ dir, maxEventsPerSession: 5 });
+    const src = new TranscriptSource({ dirs: [{ dir, origin: ATTENDED }], maxEventsPerSession: 5 });
 
     const { items } = await src.fetchSince(null);
 
@@ -273,7 +289,115 @@ describe("TranscriptSource", () => {
   });
 
   test("missing transcript directory yields no items", async () => {
-    const src = new TranscriptSource({ dir: path.join(dir, "does-not-exist") });
+    const src = new TranscriptSource({ dirs: [{ dir: path.join(dir, "does-not-exist"), origin: ATTENDED }] });
     expect((await src.fetchSince(null)).items).toHaveLength(0);
+  });
+});
+
+/**
+ * The half that was missing. An unattended firing runs with cwd set to the vault,
+ * so Claude Code files its transcript in a different directory from the sessions
+ * where the agent was worked on — and a source that reads one directory reads one
+ * of those two piles and reports nothing about the other.
+ */
+describe("TranscriptSource over several directories", () => {
+  test("harvests sessions from every directory it is given", async () => {
+    writeSession("attended", failingSession());
+    writeSessionIn(firingDir, "firing", failingSession());
+    const src = new TranscriptSource({
+      dirs: [
+        { dir, origin: ATTENDED },
+        { dir: firingDir, origin: UNATTENDED },
+      ],
+    });
+
+    const { items } = await src.fetchSince(null);
+
+    expect(items.map((i) => i.id).sort()).toEqual(["TRANSCRIPT:attended", "TRANSCRIPT:firing"]);
+  });
+
+  test("says which directory each session came from, so the two are told apart", async () => {
+    writeSession("attended", failingSession());
+    writeSessionIn(firingDir, "firing", failingSession());
+    const src = new TranscriptSource({
+      dirs: [
+        { dir, origin: ATTENDED },
+        { dir: firingDir, origin: UNATTENDED },
+      ],
+    });
+
+    const { items } = await src.fetchSince(null);
+    const body = (id: string) => items.find((i) => i.id === `TRANSCRIPT:${id}`)!.body;
+
+    expect(body("attended")).toContain(ATTENDED);
+    expect(body("attended")).not.toContain(UNATTENDED);
+    expect(body("firing")).toContain(UNATTENDED);
+  });
+
+  test("a directory that does not exist does not cancel one that does", async () => {
+    writeSessionIn(firingDir, "firing", failingSession());
+    const src = new TranscriptSource({
+      dirs: [
+        { dir: path.join(dir, "never-created"), origin: ATTENDED },
+        { dir: firingDir, origin: UNATTENDED },
+      ],
+    });
+
+    expect((await src.fetchSince(null)).items.map((i) => i.id)).toEqual(["TRANSCRIPT:firing"]);
+  });
+
+  test("the same directory named twice is harvested once", async () => {
+    writeSession("attended", failingSession());
+    const src = new TranscriptSource({
+      dirs: [
+        { dir, origin: ATTENDED },
+        { dir: path.join(dir, "."), origin: UNATTENDED },
+      ],
+    });
+
+    const { items } = await src.fetchSince(null);
+
+    expect(items).toHaveLength(1);
+    expect(items[0].body).toContain(ATTENDED);
+  });
+
+  test("the session cap is spent newest-first across directories, not per directory", async () => {
+    // The firing directory holds the three most recent sessions. A per-directory
+    // cap would let the older attended pile take slots from them.
+    for (let i = 0; i < 4; i++) writeSessionIn(dir, `attended-${i}`, failingSession(), 600 + i);
+    for (let i = 0; i < 3; i++) writeSessionIn(firingDir, `firing-${i}`, failingSession(), 60 + i);
+    const src = new TranscriptSource({
+      dirs: [
+        { dir, origin: ATTENDED },
+        { dir: firingDir, origin: UNATTENDED },
+      ],
+      maxSessions: 3,
+    });
+
+    const { items } = await src.fetchSince(null);
+
+    expect(items.map((i) => i.id).sort()).toEqual([
+      "TRANSCRIPT:firing-0",
+      "TRANSCRIPT:firing-1",
+      "TRANSCRIPT:firing-2",
+    ]);
+  });
+
+  test("a session already harvested from one directory is not re-emitted from another", async () => {
+    writeSession("shared", failingSession());
+    const first = await new TranscriptSource({ dirs: [{ dir, origin: ATTENDED }] }).fetchSince(null);
+
+    // The same id now also present in the second directory — a vault reconfigured
+    // to point at a folder holding a copy must not file the session a second time.
+    writeSessionIn(firingDir, "shared", failingSession());
+    const second = await new TranscriptSource({
+      dirs: [
+        { dir, origin: ATTENDED },
+        { dir: firingDir, origin: UNATTENDED },
+      ],
+    }).fetchSince(first.cursor);
+
+    expect(first.items).toHaveLength(1);
+    expect(second.items).toHaveLength(0);
   });
 });

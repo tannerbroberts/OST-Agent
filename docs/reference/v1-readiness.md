@@ -2477,6 +2477,34 @@ the environment.**
 > only self-generated channel is usage — which increments once per *day*. And *"a
 > dry firing seals `no-op`, never `healthy`"* is H1/H4's half; nothing here decides
 > it.
+>
+> **The per-firing channel was not reading firings (2026-08-05).** The sentence
+> above was true of the adapter and false of every vault running it. Claude Code
+> keys a session directory to the cwd a session ran in; an unattended firing runs
+> with cwd set to the *vault*, and `adapters.transcript.projectDir` points at the
+> *code repository*. So the channel harvested the sessions in which the agent was
+> worked on by a person and none of the ones in which it ran by itself: on this
+> product's own meta vault, 36 cited sessions, all attended, zero firings, for the
+> loop's entire life. Nothing was broken and nothing reported a gap — the cursor
+> advanced, items arrived, and the half that was missing was missing silently,
+> which is the shape S2 exists to catch and could not see here because the channel
+> was neither disabled nor unavailable nor undated. It was healthy and half-blind.
+>
+> `TranscriptSource` now takes a **list** of directories, and
+> `transcriptDirs` (`src/runner/context.ts`) composes it from what the vault has
+> already declared: the configured project or path, plus `loop.spend.sessionsDir`
+> — reusing the operator's existing declaration rather than asking for a third
+> one, the same argument `src/loop/corrections.ts` makes for reading it. **Each
+> item names the directory it came from** (`TranscriptDir.origin`, required), so
+> the two are told apart downstream: friction in an attended session is something
+> a person could have fixed on the spot, and the same friction in a firing is a
+> failure mode nobody watched. Pinned in `test/adapters/transcript.test.ts` (six
+> tests: both piles harvested, origin carried and not cross-contaminated, a
+> missing directory not cancelling a present one, the newest-first cap spent
+> across directories rather than per directory, one id harvested once) and
+> `test/runner/context.test.ts` (a session in the declared `sessionsDir` becomes
+> evidence labelled unattended, the path is declared exactly once, and a vault
+> with no `loop:` block reads what it always read).
 
 **⛔ S2 — Every commissioned channel is enumerable, and its silence is
 detectable.**

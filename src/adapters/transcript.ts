@@ -17,6 +17,26 @@
  * - bounded and redacted — a capped number of short excerpts per session, with
  *   secret-shaped strings masked, because transcripts are large, noisy, and may
  *   contain material that should not be committed to a shared vault.
+ *
+ * ## Several directories, and why each item has to say which one it came from
+ *
+ * "The agent's own sessions" is not one directory. Claude Code keys a session
+ * directory to the *working directory* it ran in, so an agent that is worked on
+ * in one place and runs unattended in another leaves two disjoint piles — and on
+ * the vault this product dogfoods, the adapter read only the first. Every one of
+ * the 36 sessions cited in that tree was a human-driven session in the code
+ * repository; not one was an unattended firing, because a firing's cwd is the
+ * vault. The channel whose entire premise is "the agent is the product's most
+ * active user" was reading only the agent being *built*, never the agent
+ * *running*, and nothing in the evidence said so.
+ *
+ * That last clause is why {@link TranscriptDir} carries an `origin` and why it is
+ * not optional. Merging two piles into one channel without labelling them makes
+ * the two indistinguishable downstream — every item is `TRANSCRIPT:<uuid>`, and a
+ * uuid does not say whether a person was sitting there. A pass reading friction
+ * out of an *attended* session is reading something a human could have fixed on
+ * the spot; the same friction in an unattended firing is a failure mode nobody
+ * saw. Those are different findings, so the origin travels with the evidence.
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -49,9 +69,29 @@ export interface FrictionEvent {
   timestamp: string;
 }
 
-export interface TranscriptSourceOptions {
+/** One directory of session transcripts, and what kind of session lands in it. */
+export interface TranscriptDir {
   /** Directory of `*.jsonl` session transcripts. */
   dir: string;
+  /**
+   * What these sessions are, in one phrase, written into every evidence item
+   * this directory produces — "this vault's own unattended firings", "sessions
+   * run against /path/to/repo". Required, not defaulted: the whole reason for
+   * reading more than one directory is that the difference between them is the
+   * finding, and a default would be a phrase nobody chose describing sessions
+   * nobody looked at.
+   */
+  origin: string;
+}
+
+export interface TranscriptSourceOptions {
+  /**
+   * Directories to harvest, each labelled. Scanned as one pool: sessions from
+   * every directory compete for the same newest-first {@link maxSessions} budget,
+   * so a busy directory cannot starve a quiet one of its recent sessions and the
+   * cap keeps meaning what it says however many directories are named.
+   */
+  dirs: TranscriptDir[];
   /** A session is "finished" once its file has been untouched this long. */
   quietMinutes?: number;
   /** Cap on friction events reported per session (the rest are counted only). */
@@ -237,13 +277,18 @@ export function extractFriction(jsonl: string): FrictionEvent[] {
   return events;
 }
 
-function renderBody(sessionId: string, events: FrictionEvent[], shown: FrictionEvent[]): string {
+function renderBody(
+  sessionId: string,
+  origin: string,
+  events: FrictionEvent[],
+  shown: FrictionEvent[],
+): string {
   const counts = new Map<FrictionKind, number>();
   for (const e of events) counts.set(e.kind, (counts.get(e.kind) ?? 0) + 1);
   const summary = [...counts.entries()].map(([kind, n]) => `${kind} ×${n}`).join(", ");
 
   const lines = [
-    `Session \`${sessionId}\` produced ${events.length} friction events (${summary}).`,
+    `Session \`${sessionId}\` (${origin}) produced ${events.length} friction events (${summary}).`,
     "",
     "Evidence class: **observed behavior** — the agent's own usage of this product, captured mechanically from its session transcript. It is not outside-user demand data: it grounds usability, not desirability, and must not be counted as external evidence of want.",
     "",
@@ -261,13 +306,23 @@ function renderBody(sessionId: string, events: FrictionEvent[], shown: FrictionE
 export class TranscriptSource implements Source {
   readonly name = "transcript";
   readonly actor: Actor = "transcript";
-  private readonly dir: string;
+  private readonly dirs: TranscriptDir[];
   private readonly quietMinutes: number;
   private readonly maxEvents: number;
   private readonly maxSessions: number;
 
   constructor(opts: TranscriptSourceOptions) {
-    this.dir = path.resolve(opts.dir);
+    // Deduplicated by RESOLVED path, first label winning. Two names for one
+    // directory is the ordinary case, not an exotic one — a vault whose loop
+    // fires in its own folder can reach the same pile through the configured
+    // path and through the loop's declared `sessionsDir` — and harvesting it
+    // twice would double every session's friction into one evidence item.
+    const byPath = new Map<string, TranscriptDir>();
+    for (const d of opts.dirs) {
+      const resolved = path.resolve(d.dir);
+      if (!byPath.has(resolved)) byPath.set(resolved, { dir: resolved, origin: d.origin });
+    }
+    this.dirs = [...byPath.values()];
     this.quietMinutes = opts.quietMinutes ?? DEFAULT_QUIET_MINUTES;
     this.maxEvents = opts.maxEventsPerSession ?? DEFAULT_MAX_EVENTS;
     this.maxSessions = opts.maxSessions ?? DEFAULT_MAX_SESSIONS;
@@ -275,23 +330,31 @@ export class TranscriptSource implements Source {
 
   async fetchSince(cursor: Cursor): Promise<FetchResult> {
     const seen = new Set<string>(decodeSeen(cursor));
-    if (!fs.existsSync(this.dir)) return { items: [], cursor };
-
     const quietBefore = Date.now() - this.quietMinutes * 60_000;
-    const sessions = fs
-      .readdirSync(this.dir, { withFileTypes: true })
-      .filter((e) => e.isFile() && e.name.endsWith(".jsonl"))
-      .map((e) => {
-        const full = path.join(this.dir, e.name);
-        return { id: e.name.replace(/\.jsonl$/, ""), full, mtimeMs: fs.statSync(full).mtimeMs };
-      })
-      .filter((s) => !seen.has(`TRANSCRIPT:${s.id}`) && s.mtimeMs <= quietBefore)
-      .sort((a, b) => b.mtimeMs - a.mtimeMs)
-      .slice(0, this.maxSessions);
+
+    // A directory that is not there is skipped rather than ending the scan. The
+    // single-directory version returned empty on a missing one, which was the
+    // same thing when there was only ever one; with several it would make an
+    // absent directory silently cancel the present ones.
+    const sessions: { id: string; full: string; origin: string; mtimeMs: number }[] = [];
+    for (const d of this.dirs) {
+      if (!fs.existsSync(d.dir)) continue;
+      for (const entry of fs.readdirSync(d.dir, { withFileTypes: true })) {
+        if (!entry.isFile() || !entry.name.endsWith(".jsonl")) continue;
+        const id = entry.name.replace(/\.jsonl$/, "");
+        if (seen.has(`TRANSCRIPT:${id}`)) continue;
+        const full = path.join(d.dir, entry.name);
+        const mtimeMs = fs.statSync(full).mtimeMs;
+        if (mtimeMs > quietBefore) continue;
+        sessions.push({ id, full, origin: d.origin, mtimeMs });
+      }
+    }
+    sessions.sort((a, b) => b.mtimeMs - a.mtimeMs);
 
     const items: EvidenceItem[] = [];
-    for (const s of sessions) {
+    for (const s of sessions.slice(0, this.maxSessions)) {
       const id = `TRANSCRIPT:${s.id}`;
+      if (seen.has(id)) continue; // one id, one item, even if two directories hold it
       seen.add(id); // a harvested session is never revisited, friction or not
       const events = extractFriction(fs.readFileSync(s.full, "utf8"));
       if (events.length === 0) continue;
@@ -300,7 +363,7 @@ export class TranscriptSource implements Source {
         id,
         source: id,
         title: `Session friction ${s.id}`,
-        body: renderBody(s.id, events, shown),
+        body: renderBody(s.id, s.origin, events, shown),
         timestamp: new Date(s.mtimeMs).toISOString(),
       });
     }
