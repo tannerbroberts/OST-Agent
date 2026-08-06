@@ -3058,8 +3058,16 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 2155 tests across 175 files, verified 2026-08-06 (`npx vitest run`,
-> after the grant preflight landed: `ost-agent grants` resolves the tools a run's
+> *Today:* **met** — 2193 tests across 176 files, verified 2026-08-06 (`npx vitest run`,
+> after the tainted-argument guard landed: tree text reaches a command only through
+> `TreeText`, which has no bare form — the four ways out each name a destination
+> (`forSearchPattern`, `forPathUnder`, `forMessage`, `equalsLiteral`) and the guard test
+> sweeps every other member of the type rather than listing the leaks anyone thought of.
+> Building it found a real defect in `compileGlob`: an *escaped* metacharacter compiled to
+> an invalid regex and `new RegExp` **threw**, out of the one function whose contract is
+> that a pattern which will not compile is returned rather than thrown. That is fixed and
+> the compile is now wrapped, so the escape path a quoter uses cannot become the `catch`
+> that returns `[]`. Before that, after the grant preflight landed: `ost-agent grants` resolves the tools a run's
 > instructions declare against the `permissions.allow` it will fire with and names every
 > one the grant does not cover, **including path-scoped ones** — four of fifteen recorded
 > denials in this workspace were `Glob` refused on `/Users/tanner/dev/OST-Agent`, where the
