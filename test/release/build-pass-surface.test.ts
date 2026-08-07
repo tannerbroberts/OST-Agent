@@ -220,3 +220,64 @@ describe("the build pass runs on a Linux runner too", () => {
     expect(executable).toMatch(/mktemp\s+"\$\{TMPDIR:-\/tmp\}\/[\w.-]*X{6,}"/);
   });
 });
+
+describe("shipping is local, and it is not the model's to claim", () => {
+  /*
+   * The build loop used to end its turn in `gh pr checks --watch`, which makes
+   * merging conditional on an event it cannot subscribe to. On 2026-08-06 GitHub
+   * acquired no runner for four hours and four finished branches (#70, #71, #72,
+   * #74) sat open behind checks that were never dispatched; the tree records the
+   * same wait across fourteen distinct pull requests and twenty sessions.
+   *
+   * The replacement has to hold two properties at once, and these pin both.
+   */
+  const prompt = source;
+
+  /*
+   * What the script RUNS, with the prompt heredoc cut out. The prompt names
+   * `gh pr checks` in order to forbid it, so asserting over the whole file would
+   * make the prohibition indistinguishable from the call it prohibits.
+   */
+  const commands = (() => {
+    const lines = executable.split("\n");
+    const open = lines.findIndex((l) => /^cat >"\$PROMPT_FILE" <<PROMPT$/.test(l));
+    const close = lines.findIndex((l, i) => i > open && l === "PROMPT");
+    expect(open).toBeGreaterThan(-1);
+    expect(close).toBeGreaterThan(open);
+    return [...lines.slice(0, open), ...lines.slice(close + 1)].join("\n");
+  })();
+
+  test("nothing the script RUNS waits on GitHub Actions", () => {
+    expect(commands).not.toMatch(/gh pr checks/);
+    expect(commands).not.toMatch(/--watch/);
+    // A sleep-poll is the same wait wearing a different hat.
+    expect(commands).not.toMatch(/^\s*sleep \d+/m);
+  });
+
+  test("the builder is told not to poll or merge, in the prompt it actually reads", () => {
+    expect(prompt).toMatch(/do not run 'gh pr checks'/i);
+    expect(prompt).toMatch(/Do not merge/i);
+  });
+
+  test("the shell runs `ost-agent ship`, so the merge gate is not the model's claim", () => {
+    // The load-bearing half: a builder told "run the gates, then merge" is a
+    // builder asserting its own health. The gate must be re-run by something
+    // with no stake in the answer — the same reason the postflight re-runs the
+    // instrument instead of believing the report.
+    expect(executable).toMatch(/node "\$CLI" ship --repo "\$OST_AGENT_DIR"/);
+  });
+
+  test("the ship step distinguishes 'not eligible' from 'a gate went red'", () => {
+    // 20 is the wrapper's own mistake to fix; anything else is a finding about
+    // the code. Collapsing them loses the difference the report exists to carry.
+    expect(executable).toMatch(/SHIP_EXIT/);
+    expect(executable).toMatch(/\b20\)/);
+  });
+
+  test("the ship result is APPENDED to the report, never substituted for it", () => {
+    // A disagreement between "I verified the gates" and what the gates just did
+    // is the most useful thing this loop can surface, so both survive.
+    expect(executable).toMatch(/Loop ship: \$\{SHIP_NOTE\}/);
+    expect(executable).toMatch(/cat "\$REPORT"/);
+  });
+});
