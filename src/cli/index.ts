@@ -24,6 +24,7 @@
  *   ost-agent channels [--vault DIR]          every drop folder, its last delivery, and what has gone silent
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
  *   ost-agent corrections [--state DIR]       refusals this workspace already paid for, for the next session to read
+ *   ost-agent claim "<work>" --briefing F     take the work before building it, so a second pass sees it is taken
  *   ost-agent allowlist --skill F --settings F  derive a run's permission grant from the skill's own allowed-tools
  *   ost-agent grants --skill F --settings F   name every tool a run declares that its grant does not cover
  *   ost-agent ship --repo DIR                 run the gates locally and merge the branch if they are green
@@ -91,6 +92,10 @@ import { loopStateDir, workingTreeStatus, type VaultTreeStatus } from "../loop/s
 import {
   DEFAULT_QUIET_MINUTES, emptyCorrectionsLedger, readLedger, recordCorrections, renderCorrections,
 } from "../loop/corrections.js";
+import {
+  CLAIM_EXIT, DEFAULT_CLAIM_TTL_HOURS, claimWork, liveClaims, readBriefingFile, releaseClaim,
+  renderClaim, renderClaims, resolveWorkItem,
+} from "../loop/claim.js";
 import { entriesRequiringAHuman, registerLoopCommands, resolveSessionsDir } from "./loop.js";
 import { installVaultResolution, resolvedVaultSource, VAULT_OPTION_HELP } from "./vault-option.js";
 import { describeVaultSource } from "../config/pointer.js";
@@ -121,6 +126,16 @@ interface CorrectionsOptions {
   quietMinutes?: string;
   /** Commander's `--no-record`: absent ⇒ true. */
   record?: boolean;
+  vault: string;
+}
+
+interface ClaimCliOptions {
+  briefing: string;
+  session?: string;
+  state?: string;
+  ttlHours?: string;
+  release?: boolean;
+  list?: boolean;
   vault: string;
 }
 
@@ -1040,6 +1055,93 @@ program
     }
 
     console.log(renderCorrections(readLedger(state)));
+  });
+
+program
+  .command("claim")
+  .argument("[work]", "how this pass words the work it is about to start")
+  .description(
+    "take the work item before building it: the naming is resolved against the briefing both passes read, so a " +
+      "second pass that words the same item differently is still told it is taken",
+  )
+  .requiredOption("--briefing <file>", "the document that names the candidate work — the shared vocabulary")
+  .option("--session <id>", "who is claiming (default: $OST_SESSION_ID)")
+  .option("--state <dir>", "where the ledger lives (default: <vault>/.git/ost-agent)")
+  .option("--ttl-hours <n>", `how long the claim holds without renewal (default ${DEFAULT_CLAIM_TTL_HOURS})`)
+  .option("--release", "give the item back instead of taking it")
+  .option("--list", "print what is claimed and take nothing")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((work: string | undefined, opts: ClaimCliOptions) => {
+    /*
+     * Fail-closed on every input it needs, because each degradation has the same
+     * shape: a `claim` that answers 0 for a reason unrelated to the work being
+     * free is a pass waved through, which is the failure the command exists to
+     * stop. So an unlocatable ledger, an unnamed session and an unreadable
+     * briefing are all refusals rather than defaults.
+     */
+    const state = opts.state ? path.resolve(opts.state) : loopStateDir(opts.vault);
+    if (state === null) {
+      console.error(
+        "cannot locate a claim ledger: pass --state <dir>, or point --vault at a git checkout — the ledger lives under its .git/, never in the working tree.",
+      );
+      process.exitCode = CLAIM_EXIT.unresolved;
+      return;
+    }
+
+    if (opts.list) {
+      console.log(renderClaims(liveClaims(state)));
+      return;
+    }
+
+    // A claim by nobody is worse than no claim: two passes that both default to
+    // the same name look like one pass renewing, and each waves the other
+    // through. There is no safe default, so there is no default.
+    const session = opts.session ?? process.env.OST_SESSION_ID;
+    if (!session) {
+      console.error(
+        "not claiming: no session named — pass --session <id> or set $OST_SESSION_ID. Two passes claiming under one name cannot exclude each other.",
+      );
+      process.exitCode = CLAIM_EXIT.unresolved;
+      return;
+    }
+    if (!work) {
+      console.error('not claiming: say what the work is — `ost-agent claim "<work>" --briefing <file>`.');
+      process.exitCode = CLAIM_EXIT.unresolved;
+      return;
+    }
+
+    let briefing: string;
+    try {
+      briefing = readBriefingFile(opts.briefing);
+    } catch (e) {
+      console.error(`not claiming: ${e instanceof Error ? e.message : String(e)}`);
+      process.exitCode = CLAIM_EXIT.unresolved;
+      return;
+    }
+
+    const hours = Number(opts.ttlHours);
+    const ttlMs = (Number.isFinite(hours) && hours > 0 ? hours : DEFAULT_CLAIM_TTL_HOURS) * 3_600_000;
+
+    if (opts.release) {
+      const resolution = resolveWorkItem(work, briefing);
+      if (!resolution.resolved) {
+        console.error(`not released: ${resolution.reason}`);
+        process.exitCode = CLAIM_EXIT.unresolved;
+        return;
+      }
+      const released = releaseClaim(state, resolution.identity.key, session);
+      console.log(
+        released
+          ? `RELEASED "${resolution.identity.label}" — ${session} no longer holds it.`
+          : `NOT RELEASED "${resolution.identity.label}" — ${session} does not hold it. A claim that lapsed and was retaken belongs to whoever retook it.`,
+      );
+      return;
+    }
+
+    const outcome = claimWork(state, { naming: work, briefing, session, ttlMs });
+    console.log(renderClaim(outcome));
+    if (outcome.status === "already-claimed") process.exitCode = CLAIM_EXIT.alreadyClaimed;
+    else if (outcome.status === "unresolved") process.exitCode = CLAIM_EXIT.unresolved;
   });
 
 program
