@@ -10725,7 +10725,7 @@ var require_mark = __commonJS({
       this.column = column;
     }
     Mark.prototype.getSnippet = function getSnippet(indent, maxLength) {
-      var head, start, tail, end, snippet;
+      var head, start, tail2, end, snippet;
       if (!this.buffer) return null;
       indent = indent || 4;
       maxLength = maxLength || 75;
@@ -10739,18 +10739,18 @@ var require_mark = __commonJS({
           break;
         }
       }
-      tail = "";
+      tail2 = "";
       end = this.position;
       while (end < this.buffer.length && "\0\r\n\x85\u2028\u2029".indexOf(this.buffer.charAt(end)) === -1) {
         end += 1;
         if (end - this.position > maxLength / 2 - 1) {
-          tail = " ... ";
+          tail2 = " ... ";
           end -= 5;
           break;
         }
       }
       snippet = this.buffer.slice(start, end);
-      return common.repeat(" ", indent) + head + snippet + tail + "\n" + common.repeat(" ", indent + this.position - start + head.length) + "^";
+      return common.repeat(" ", indent) + head + snippet + tail2 + "\n" + common.repeat(" ", indent + this.position - start + head.length) + "^";
     };
     Mark.prototype.toString = function toString(compact) {
       var snippet, where = "";
@@ -11438,7 +11438,7 @@ var require_binary2 = __commonJS({
       return result;
     }
     function representYamlBinary(object3) {
-      var result = "", bits = 0, idx, tail, max = object3.length, map = BASE64_MAP;
+      var result = "", bits = 0, idx, tail2, max = object3.length, map = BASE64_MAP;
       for (idx = 0; idx < max; idx++) {
         if (idx % 3 === 0 && idx) {
           result += map[bits >> 18 & 63];
@@ -11448,18 +11448,18 @@ var require_binary2 = __commonJS({
         }
         bits = (bits << 8) + object3[idx];
       }
-      tail = max % 3;
-      if (tail === 0) {
+      tail2 = max % 3;
+      if (tail2 === 0) {
         result += map[bits >> 18 & 63];
         result += map[bits >> 12 & 63];
         result += map[bits >> 6 & 63];
         result += map[bits & 63];
-      } else if (tail === 2) {
+      } else if (tail2 === 2) {
         result += map[bits >> 10 & 63];
         result += map[bits >> 4 & 63];
         result += map[bits << 2 & 63];
         result += map[64];
-      } else if (tail === 1) {
+      } else if (tail2 === 1) {
         result += map[bits >> 2 & 63];
         result += map[bits << 4 & 63];
         result += map[64];
@@ -11640,18 +11640,18 @@ var require_regexp = __commonJS({
     function resolveJavascriptRegExp(data) {
       if (data === null) return false;
       if (data.length === 0) return false;
-      var regexp = data, tail = /\/([gim]*)$/.exec(data), modifiers = "";
+      var regexp = data, tail2 = /\/([gim]*)$/.exec(data), modifiers = "";
       if (regexp[0] === "/") {
-        if (tail) modifiers = tail[1];
+        if (tail2) modifiers = tail2[1];
         if (modifiers.length > 3) return false;
         if (regexp[regexp.length - modifiers.length - 1] !== "/") return false;
       }
       return true;
     }
     function constructJavascriptRegExp(data) {
-      var regexp = data, tail = /\/([gim]*)$/.exec(data), modifiers = "";
+      var regexp = data, tail2 = /\/([gim]*)$/.exec(data), modifiers = "";
       if (regexp[0] === "/") {
-        if (tail) modifiers = tail[1];
+        if (tail2) modifiers = tail2[1];
         regexp = regexp.slice(1, regexp.length - modifiers.length - 1);
       }
       return new RegExp(regexp, modifiers);
@@ -31457,7 +31457,7 @@ function nearMiss(requested, opts = {}) {
     consumed++;
   }
   const missing = segments[consumed] ?? "";
-  const tail = segments.slice(consumed).join(path.sep);
+  const tail2 = segments.slice(consumed).join(path.sep);
   const { present, truncated } = listing(reached, opts.hide);
   const miss = { requested, reached, missing, present, truncated };
   if (!missing) return miss;
@@ -31479,7 +31479,7 @@ function nearMiss(requested, opts = {}) {
   }
   const hunted = [];
   for (const root of roots) {
-    const c3 = path.join(root, tail);
+    const c3 = path.join(root, tail2);
     if (c3 !== target && exists(c3)) hunted.push(c3);
   }
   const boundary = opts.confineTo ? path.resolve(opts.confineTo) : null;
@@ -31488,7 +31488,7 @@ function nearMiss(requested, opts = {}) {
     if (parent === up) break;
     if (boundary && parent !== boundary && !parent.startsWith(boundary + path.sep)) break;
     up = parent;
-    const c3 = path.join(up, tail);
+    const c3 = path.join(up, tail2);
     if (c3 !== target && exists(c3)) hunted.push(c3);
   }
   const distinct = [...new Set(hunted)];
@@ -31498,7 +31498,7 @@ function nearMiss(requested, opts = {}) {
       suggestion: {
         path: show(distinct[0]),
         reason: "elsewhere",
-        because: `"${tail}" does not exist under ${reached}, but it does exist at ${distinct[0]}`
+        because: `"${tail2}" does not exist under ${reached}, but it does exist at ${distinct[0]}`
       }
     };
   }
@@ -31507,7 +31507,7 @@ function nearMiss(requested, opts = {}) {
     return {
       ...miss,
       suggestion: {
-        path: show(path.join(reached, near, ...tail.split(path.sep).slice(1) || [])),
+        path: show(path.join(reached, near, ...tail2.split(path.sep).slice(1) || [])),
         reason: "spelling",
         because: `${reached} holds "${near}", which differs from "${missing}" by a typo's worth of characters`
       }
@@ -32154,18 +32154,18 @@ function channelIdPrefix(channel) {
 }
 function realpathish(p2) {
   let head = path6.resolve(p2);
-  const tail = [];
+  const tail2 = [];
   for (; ; ) {
     if (fs6.existsSync(head)) {
       try {
-        return path6.join(fs6.realpathSync(head), ...tail);
+        return path6.join(fs6.realpathSync(head), ...tail2);
       } catch {
         return path6.resolve(p2);
       }
     }
     const parent = path6.dirname(head);
     if (parent === head) return path6.resolve(p2);
-    tail.unshift(path6.basename(head));
+    tail2.unshift(path6.basename(head));
     head = parent;
   }
 }
@@ -33753,9 +33753,9 @@ var init_git_response_error = __esm2({
     "use strict";
     init_git_error();
     GitResponseError = class extends GitError {
-      constructor(git2, message) {
-        super(void 0, message || String(git2));
-        this.git = git2;
+      constructor(git3, message) {
+        super(void 0, message || String(git3));
+        this.git = git3;
       }
     };
   }
@@ -37519,10 +37519,10 @@ var require_git = __commonJS2({
       return this._runTask(moveTask2(from, to), trailingFunctionArgument2(arguments));
     };
     Git2.prototype.checkoutLatestTag = function(then) {
-      var git2 = this;
+      var git3 = this;
       return this.pull(function() {
-        git2.tags(function(err, tags) {
-          git2.checkout(tags.latest, then);
+        git3.tags(function(err, tags) {
+          git3.checkout(tags.latest, then);
         });
       });
     };
@@ -41949,11 +41949,11 @@ function renderGate(tree, solution) {
     return { text: `gate: CLEARED \u2014 ${verdict.reason}`, cleared: true };
   }
   const outstanding = verdict.debt?.outstanding ?? [];
-  const tail = outstanding.join("; ");
-  if (outstanding.length > MAX_ITEMS_PER_LIST && verdict.reason.endsWith(tail)) {
+  const tail2 = outstanding.join("; ");
+  if (outstanding.length > MAX_ITEMS_PER_LIST && verdict.reason.endsWith(tail2)) {
     const shown = outstanding.slice(0, MAX_ITEMS_PER_LIST);
     const hidden = outstanding.length - shown.length;
-    const head = verdict.reason.slice(0, verdict.reason.length - tail.length);
+    const head = verdict.reason.slice(0, verdict.reason.length - tail2.length);
     return {
       text: `gate: BLOCKED \u2014 ${head}${shown.join("; ")} \u2026 and ${hidden} more not listed (showing ${shown.length} of ${outstanding.length}). The refusal counts all ${outstanding.length}; every one of them is linked from this solution's node, so \`ost_read_tree\` names them.`,
       cleared: false
@@ -42041,6 +42041,216 @@ function renderStatus(ctx, census) {
   );
   appendAttention(lines, ctx, tree);
   return lines.join("\n");
+}
+
+// src/release/ship-repo.ts
+import { spawnSync as spawnSync3 } from "node:child_process";
+
+// src/release/ship.ts
+import { spawnSync as spawnSync2 } from "node:child_process";
+var CORE_GATES = [
+  {
+    name: "tsc",
+    argv: ["npx", "tsc", "--noEmit"],
+    why: "the tree must type-check before anything else is worth reading"
+  },
+  {
+    name: "vitest",
+    argv: ["npx", "vitest", "run"],
+    why: "the suite is the definition of done for everything already shipped"
+  }
+];
+var CONDITIONAL_GATES = [
+  {
+    name: "bundle-drift",
+    argv: ["npm", "run", "bundle"],
+    why: "the plugin launches the committed bundle, so a stale one ships code nobody reviewed",
+    when: (changed) => changed.some((p2) => p2.startsWith("src/"))
+  },
+  {
+    name: "skill-drift",
+    argv: ["npm", "run", "gen:skill"],
+    why: "SKILL.md is generated from the ruleset and is what an agent actually reads",
+    when: (changed) => changed.includes("src/knowledge/ruleset.ts")
+  }
+];
+var GENERATED_ARTIFACT = {
+  "bundle-drift": "dist/ost-agent.mjs",
+  "skill-drift": "SKILL.md"
+};
+function gatesFor(changed) {
+  const conditional = CONDITIONAL_GATES.filter((g) => g.when(changed)).map(
+    ({ name, argv, why }) => ({ name, argv, why })
+  );
+  return [...CORE_GATES, ...conditional];
+}
+function shipRefusals(state) {
+  const reasons = [];
+  if (state.branch === state.defaultBranch) {
+    reasons.push(
+      `refusing to ship "${state.branch}": it IS the default branch. Work is merged INTO ${state.defaultBranch}, never from it.`
+    );
+  }
+  if (state.branch === "HEAD") {
+    reasons.push("refusing to ship a detached HEAD: there is no branch here to merge or delete.");
+  }
+  if (state.dirty) {
+    reasons.push(
+      "refusing to ship with uncommitted changes: the gates would measure a working tree that is not what merges. Commit or stash first."
+    );
+  }
+  if (state.ahead === 0 && state.branch !== state.defaultBranch) {
+    reasons.push(
+      `refusing to ship "${state.branch}": it has no commits that ${state.defaultBranch} does not already have. There is nothing to merge.`
+    );
+  }
+  return reasons;
+}
+function tail(output, lines = 20) {
+  const kept = output.trimEnd().split("\n").slice(-lines);
+  return kept.join("\n");
+}
+var spawnRunner = (argv, cwd) => {
+  const [command, ...args] = argv;
+  const run = spawnSync2(command, args, { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  const output = `${run.stdout ?? ""}${run.stderr ?? ""}`;
+  return { status: run.error ? null : run.status, output: run.error ? `${output}${run.error.message}` : output };
+};
+function runGates(gates, repo, run = spawnRunner) {
+  const runs = [];
+  for (const gate of gates) {
+    const { status, output } = run(gate.argv, repo);
+    const passed = status === 0;
+    runs.push({ gate, exitCode: status, passed, excerpt: tail(output) });
+    if (!passed) break;
+  }
+  return runs;
+}
+function redGate(runs) {
+  return runs.find((r2) => !r2.passed);
+}
+function summarize(branch, refusals, runs) {
+  if (refusals.length > 0) return `not shipped \u2014 ${refusals[0]}`;
+  const red = redGate(runs);
+  if (red) {
+    const code = red.exitCode === null ? "did not run" : `exit ${red.exitCode}`;
+    return `not shipped \u2014 the "${red.gate.name}" gate went red (${code}). ${red.gate.why}.`;
+  }
+  const names = runs.map((r2) => r2.gate.name).join(", ");
+  return `shipped "${branch}" \u2014 ${runs.length} gate(s) green locally (${names}), merged without waiting on any external check.`;
+}
+
+// src/release/ship-repo.ts
+var realRunner = (argv, cwd) => {
+  const [command, ...args] = argv;
+  const run = spawnSync3(command, args, { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  const output = `${run.stdout ?? ""}${run.stderr ?? ""}`;
+  return { status: run.error ? null : run.status, output: run.error ? `${output}${run.error.message}` : output };
+};
+function git2(repo, args, run) {
+  const { status, output } = run(["git", ...args], repo);
+  if (status !== 0) throw new Error(`git ${args.join(" ")} failed (exit ${status}):
+${tail(output, 10)}`);
+  return output.trim();
+}
+function readBranchState(repo, defaultBranch, run = realRunner) {
+  const branch = git2(repo, ["rev-parse", "--abbrev-ref", "HEAD"], run);
+  const dirty = git2(repo, ["status", "--porcelain"], run).length > 0;
+  let ahead = 0;
+  try {
+    const counts = git2(repo, ["rev-list", "--left-right", "--count", `origin/${defaultBranch}...HEAD`], run);
+    ahead = Number(counts.split(/\s+/)[1] ?? 0);
+  } catch {
+  }
+  return { branch, defaultBranch, dirty, ahead };
+}
+function syncWithDefault(repo, defaultBranch, run, log) {
+  const fetch = run(["git", "fetch", "origin", defaultBranch], repo);
+  if (fetch.status !== 0) {
+    log(`ship: could not fetch origin/${defaultBranch} \u2014 gates will measure this branch alone, not the merge result.`);
+    return void 0;
+  }
+  const behind = run(["git", "rev-list", "--count", `HEAD..origin/${defaultBranch}`], repo);
+  if (behind.status === 0 && behind.output.trim() === "0") return void 0;
+  log(`ship: ${behind.output.trim()} commit(s) on origin/${defaultBranch} are not on this branch \u2014 merging before the gates run.`);
+  const merge2 = run(["git", "merge", "--no-edit", `origin/${defaultBranch}`], repo);
+  if (merge2.status !== 0) {
+    run(["git", "merge", "--abort"], repo);
+    return `refusing to ship: merging origin/${defaultBranch} into this branch conflicts, and an unattended pass resolving a conflict is a pass rewriting work nobody reviewed. The merge was aborted and the branch is untouched.`;
+  }
+  return void 0;
+}
+function artifactDrift(repo, gateName, run) {
+  const artifact = GENERATED_ARTIFACT[gateName];
+  if (!artifact) return void 0;
+  const status = run(["git", "status", "--porcelain", "--", artifact], repo);
+  if (status.status !== 0 || status.output.trim().length === 0) return void 0;
+  run(["git", "checkout", "--", artifact], repo);
+  return `${artifact} is stale \u2014 regenerating it changed the committed file. Run the generator and commit the result.`;
+}
+function ship(opts) {
+  const { repo, defaultBranch = "main", dryRun = false } = opts;
+  const run = opts.run ?? realRunner;
+  const log = opts.log ?? (() => {
+  });
+  let state;
+  try {
+    state = readBranchState(repo, defaultBranch, run);
+  } catch (e) {
+    const why = e instanceof Error ? e.message : String(e);
+    return { shipped: false, refusals: [why], gateRuns: [], summary: `not shipped \u2014 ${why}` };
+  }
+  const refusals = shipRefusals(state);
+  if (refusals.length > 0) {
+    return { shipped: false, refusals, gateRuns: [], summary: summarize(state.branch, refusals, []) };
+  }
+  const conflict = syncWithDefault(repo, defaultBranch, run, log);
+  if (conflict) {
+    return { shipped: false, refusals: [conflict], gateRuns: [], summary: summarize(state.branch, [conflict], []) };
+  }
+  const diff = run(["git", "diff", "--name-only", `origin/${defaultBranch}...HEAD`], repo);
+  const changed = diff.status === 0 ? diff.output.split("\n").map((l) => l.trim()).filter(Boolean) : [];
+  const gates = gatesFor(changed);
+  log(`ship: ${gates.length} gate(s) to run \u2014 ${gates.map((g) => g.name).join(", ")}`);
+  const gateRuns = [];
+  for (const gate of gates) {
+    log(`ship: running ${gate.name} \u2026`);
+    const [result] = runGates([gate], repo, run);
+    gateRuns.push(result);
+    if (!result.passed) break;
+    const drift = artifactDrift(repo, gate.name, run);
+    if (drift) {
+      gateRuns[gateRuns.length - 1] = { ...result, passed: false, excerpt: drift };
+      break;
+    }
+  }
+  const red = redGate(gateRuns);
+  if (red) {
+    return { shipped: false, refusals: [], gateRuns, summary: summarize(state.branch, [], gateRuns) };
+  }
+  if (dryRun) {
+    return {
+      shipped: false,
+      refusals: [],
+      gateRuns,
+      summary: `dry run \u2014 every gate is green, so "${state.branch}" would have merged.`
+    };
+  }
+  const push = run(["git", "push", "--set-upstream", "origin", state.branch], repo);
+  if (push.status !== 0) {
+    const why = `every gate is green, but pushing "${state.branch}" failed:
+${tail(push.output, 10)}`;
+    return { shipped: false, refusals: [why], gateRuns, summary: `not shipped \u2014 ${why}` };
+  }
+  const merge2 = run(["gh", "pr", "merge", state.branch, "--squash", "--delete-branch", "--admin"], repo);
+  if (merge2.status !== 0) {
+    const why = `every gate is green, but 'gh pr merge' failed:
+${tail(merge2.output, 10)}`;
+    return { shipped: false, refusals: [why], gateRuns, summary: `not shipped \u2014 ${why}` };
+  }
+  run(["git", "checkout", defaultBranch], repo);
+  run(["git", "pull", "--ff-only", "origin", defaultBranch], repo);
+  return { shipped: true, refusals: [], gateRuns, summary: summarize(state.branch, [], gateRuns) };
 }
 
 // src/eval/rollup.ts
@@ -42264,7 +42474,7 @@ import fs23 from "node:fs";
 import path24 from "node:path";
 
 // src/loop/state.ts
-import { spawnSync as spawnSync2 } from "node:child_process";
+import { spawnSync as spawnSync4 } from "node:child_process";
 import fs22 from "node:fs";
 import path23 from "node:path";
 var STATE_DIRNAME = "ost-agent";
@@ -42285,8 +42495,8 @@ function gitDir(vaultDir) {
   return path23.resolve(abs, match[1].trim());
 }
 function loopStateDir(vaultDir) {
-  const git2 = gitDir(vaultDir);
-  return git2 === null ? null : path23.join(git2, STATE_DIRNAME);
+  const git3 = gitDir(vaultDir);
+  return git3 === null ? null : path23.join(git3, STATE_DIRNAME);
 }
 function requireLoopStateDir(vaultDir) {
   const dir = loopStateDir(vaultDir);
@@ -42299,7 +42509,7 @@ function requireLoopStateDir(vaultDir) {
   return dir;
 }
 function gitHead(vaultDir) {
-  const r2 = spawnSync2("git", ["rev-parse", "HEAD"], {
+  const r2 = spawnSync4("git", ["rev-parse", "HEAD"], {
     cwd: path23.resolve(vaultDir),
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"]
@@ -42308,7 +42518,7 @@ function gitHead(vaultDir) {
   return sha.length > 0 ? sha : void 0;
 }
 function workingTreeStatus(vaultDir) {
-  const r2 = spawnSync2("git", ["status", "--porcelain"], {
+  const r2 = spawnSync4("git", ["status", "--porcelain"], {
     cwd: path23.resolve(vaultDir),
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"]
@@ -42706,14 +42916,14 @@ function parseLog(raw) {
 async function readCommittedRecord(repoRoot, window2 = {}) {
   const w = { ...DEFAULT_WINDOW, ...window2 };
   const repo = path25.resolve(repoRoot);
-  const git2 = simpleGit(repo);
-  if (!await git2.checkIsRepo()) {
+  const git3 = simpleGit(repo);
+  if (!await git3.checkIsRepo()) {
     throw new Error(`${repo} is not a git repository \u2014 there is no committed record to read`);
   }
-  const shallow = (await git2.raw(["rev-parse", "--is-shallow-repository"]).catch(() => "false")).trim() === "true";
+  const shallow = (await git3.raw(["rev-parse", "--is-shallow-repository"]).catch(() => "false")).trim() === "true";
   const format = `${RS}%H${FS}%an${FS}%ae${FS}%s${FS}%b${FS}`;
-  const commits = parseLog(await git2.raw(["log", `-n${w.commits}`, `--format=${format}`, "--name-only"]));
-  const scanned = parseLog(await git2.raw(["log", `-n${w.scan}`, `--format=${format}`, "--name-only"]));
+  const commits = parseLog(await git3.raw(["log", `-n${w.commits}`, `--format=${format}`, "--name-only"]));
+  const scanned = parseLog(await git3.raw(["log", `-n${w.scan}`, `--format=${format}`, "--name-only"]));
   const prs = [];
   const seen = /* @__PURE__ */ new Set();
   for (const c3 of scanned) {
@@ -42723,7 +42933,7 @@ async function readCommittedRecord(repoRoot, window2 = {}) {
     const number3 = merged?.[1] ?? squashed?.[1];
     if (!number3 || seen.has(number3)) continue;
     seen.add(number3);
-    const commitSubjects = merged ? (await git2.raw(["log", "--format=%s", `${c3.ref}^1..${c3.ref}^2`]).catch(() => "")).split("\n").map((s) => s.trim()).filter(Boolean) : [];
+    const commitSubjects = merged ? (await git3.raw(["log", "--format=%s", `${c3.ref}^1..${c3.ref}^2`]).catch(() => "")).split("\n").map((s) => s.trim()).filter(Boolean) : [];
     prs.push({ ...c3, kind: "pr", ref: `#${number3}`, commitSubjects });
   }
   return { repo, commits, prs, shallow };
@@ -47613,7 +47823,7 @@ function renderCorrections(ledger) {
 }
 
 // src/cli/loop.ts
-import { spawnSync as spawnSync3 } from "node:child_process";
+import { spawnSync as spawnSync5 } from "node:child_process";
 import path39 from "node:path";
 
 // src/loop/exitLaundering.ts
@@ -48522,7 +48732,7 @@ function registerLoopCommands(program3) {
     }
     const startedAt = Date.now();
     const cwd = process.cwd();
-    const child = spawnSync3(command[0], command.slice(1), { stdio: "inherit" });
+    const child = spawnSync5(command[0], command.slice(1), { stdio: "inherit" });
     const exit = child.status ?? 1;
     if (child.error) console.error(`${command[0]}: ${child.error.message}`);
     appendStep(opts.vault, {
@@ -49011,6 +49221,26 @@ program2.command("allowlist").description(
     console.error(run.report);
     process.exitCode = run.exitCode;
   }
+});
+program2.command("ship").description(
+  "run this branch's gates on this machine and merge it if they are green (waits on no external check)"
+).requiredOption("-r, --repo <dir>", "the repository whose branch is being shipped").option("--default-branch <name>", "the branch work merges into", "main").option("--dry-run", "run every gate and report, but never merge").action((opts) => {
+  const outcome = ship({
+    repo: path40.resolve(opts.repo),
+    defaultBranch: opts.defaultBranch,
+    dryRun: opts.dryRun === true,
+    log: (line) => console.error(line)
+  });
+  for (const run of outcome.gateRuns) {
+    const verdict = run.passed ? "green" : `RED (exit ${run.exitCode ?? "did not run"})`;
+    console.log(`  ${run.gate.name}: ${verdict}`);
+    if (!run.passed) console.log(run.excerpt.replace(/^/gm, "    "));
+  }
+  console.log(outcome.summary);
+  if (outcome.shipped) return;
+  const allGreen = outcome.refusals.length === 0 && outcome.gateRuns.every((r2) => r2.passed);
+  if (opts.dryRun === true && allGreen) return;
+  process.exitCode = outcome.refusals.length > 0 ? 20 : 1;
 });
 registerLoopCommands(program2);
 program2.command("mcp").description("run a stdio MCP server exposing the append-only OST tools (no API key needed)").option("--vault <dir>", VAULT_OPTION_HELP).action(async (opts) => {

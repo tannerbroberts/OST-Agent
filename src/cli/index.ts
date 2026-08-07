@@ -21,6 +21,7 @@
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
  *   ost-agent corrections [--state DIR]       refusals this workspace already paid for, for the next session to read
  *   ost-agent allowlist --skill F --settings F  derive a run's permission grant from the skill's own allowed-tools
+ *   ost-agent ship --repo DIR                 run the gates locally and merge the branch if they are green
  *   ost-agent loop due|start|step|seal        unattended firing: cadence, lock, ceiling, health
  *   ost-agent mcp [--vault DIR]               stdio MCP server (no API key needed)
  *
@@ -38,6 +39,7 @@ import { ailingChannels, allChannels, channelHealth, renderChannels } from "../a
 import { initVault } from "../runner/init.js";
 import { setOutcome } from "../runner/set-outcome.js";
 import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/render.js";
+import { ship } from "../release/ship-repo.js";
 import { renderRollup, rollupTree } from "../eval/rollup.js";
 import { lineageOf, renderLineage } from "../eval/lineage.js";
 import { BELIEVABILITY_LADDER, type RungId } from "../knowledge/believability.js";
@@ -878,6 +880,41 @@ program
       console.error(run.report);
       process.exitCode = run.exitCode;
     }
+  });
+
+program
+  .command("ship")
+  .description(
+    "run this branch's gates on this machine and merge it if they are green (waits on no external check)",
+  )
+  .requiredOption("-r, --repo <dir>", "the repository whose branch is being shipped")
+  .option("--default-branch <name>", "the branch work merges into", "main")
+  .option("--dry-run", "run every gate and report, but never merge")
+  .action((opts: { repo: string; defaultBranch: string; dryRun?: boolean }) => {
+    const outcome = ship({
+      repo: path.resolve(opts.repo),
+      defaultBranch: opts.defaultBranch,
+      dryRun: opts.dryRun === true,
+      log: (line) => console.error(line),
+    });
+
+    for (const run of outcome.gateRuns) {
+      const verdict = run.passed ? "green" : `RED (exit ${run.exitCode ?? "did not run"})`;
+      console.log(`  ${run.gate.name}: ${verdict}`);
+      if (!run.passed) console.log(run.excerpt.replace(/^/gm, "    "));
+    }
+    console.log(outcome.summary);
+
+    if (outcome.shipped) return;
+    // A dry run that cleared every gate did what it was asked to do, so it exits
+    // 0 — otherwise the rehearsal reports the same failure as the thing it was
+    // rehearsing, and nobody can use it to check the gates without merging.
+    const allGreen = outcome.refusals.length === 0 && outcome.gateRuns.every((r) => r.passed);
+    if (opts.dryRun === true && allGreen) return;
+    // 20 for "the branch was never eligible", 1 for "a gate said no". A wrapper
+    // needs to tell those apart: the first is its own mistake to fix, the second
+    // is a finding about the code that belongs in the report.
+    process.exitCode = outcome.refusals.length > 0 ? 20 : 1;
   });
 
 registerLoopCommands(program);
