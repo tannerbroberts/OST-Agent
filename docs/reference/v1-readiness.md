@@ -3058,7 +3058,12 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
 > `test/release/version.test.ts` passes; the `bundle-drift` job in
 > `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 2124 tests across 173 files, verified 2026-08-06 (`npx vitest run`,
+> *Today:* **met** — 2153 tests across 174 files, verified 2026-08-06 (`npx vitest run`,
+> after the drift-window census landed: how much room a between-steps drift sentinel would
+> have had is now measured over the collisions already recorded rather than assumed, and the
+> census reports which reading of "movement" its verdict turns on
+> (`test/runner/drift-sentinel-window.test.ts`). Previously 2124 tests across 173 files,
+> verified 2026-08-06,
 > after the allowlist generator landed with its guard: a run's permission allowlist is now
 > derived from the skill's own `allowed-tools` rather than hand-copied beside it, and the
 > derivation refuses from an agent session, refuses to widen an existing grant without a
