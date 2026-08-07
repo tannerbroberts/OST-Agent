@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__plugin_ost-agent_ost-agent__ost_read_tree",
+      "mcp__plugin_ost-agent_ost-agent__ost_create_node",
+      "Glob(//Users/tanner/ost-agent-meta/**)",
+      "Bash(npx vitest:*)"
+    ]
+  }
+}

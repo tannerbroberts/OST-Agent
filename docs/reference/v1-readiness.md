@@ -3056,9 +3056,12 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 
 **D1 — The release gates pass.**
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
-> `test/release/version.test.ts` passes; the `bundle-drift` job in
-> `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 2153 tests across 174 files, verified 2026-08-06 (`npx vitest run`,
+> `test/release/version.test.ts` passes; the bundle-drift check is green — run locally by
+> `ost-agent ship`, and separately by the `bundle-drift` job in `.github/workflows/ci.yml`.
+> As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
+> gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
+> work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
+> *Today:* **met** — 2260 tests across 179 files, verified 2026-08-06 (`npx vitest run`,
 > after the drift-window census landed: how much room a between-steps drift sentinel would
 > have had is now measured over the collisions already recorded rather than assumed, and the
 > census reports which reading of "movement" its verdict turns on
