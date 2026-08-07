@@ -158,3 +158,59 @@ describe("the merge itself", () => {
     expect(calls.some((c) => c.includes("sleep"))).toBe(false);
   });
 });
+
+describe("the mergeability race, which is not a check poll", () => {
+  /*
+   * GitHub recomputes a pull request's mergeability asynchronously after a push.
+   * Observed on #70: `gh pr merge` reported "Pull Request has merge conflicts"
+   * seconds after a push, and `gh pr view` read MERGEABLE moments later with
+   * nothing changed in between. That is a stale field settling with every input
+   * already in hand — bounded, and it finishes. A CI run is work that has not
+   * started and may never be scheduled. Retrying the first is not the thing this
+   * module removed, and these pin the line between them.
+   */
+  function mergeAnswers(sequence: Answer[]) {
+    let i = 0;
+    const calls: string[] = [];
+    const slept: number[] = [];
+    const run: Runner = (argv) => {
+      const key = argv.join(" ");
+      calls.push(key);
+      if (key.startsWith("gh pr merge")) return sequence[Math.min(i++, sequence.length - 1)]!;
+      return CLEAN[key] ?? { status: 0, output: "" };
+    };
+    return { run, calls, slept, sleep: (ms: number) => slept.push(ms) };
+  }
+
+  test("a stale mergeability answer is retried and then succeeds", () => {
+    const h = mergeAnswers([
+      { status: 1, output: "GraphQL: Pull Request has merge conflicts (mergePullRequest)" },
+      { status: 0, output: "merged" },
+    ]);
+    const outcome = ship({ repo: "/repo", run: h.run, sleep: h.sleep });
+
+    expect(outcome.shipped).toBe(true);
+    expect(h.calls.filter((c) => c.startsWith("gh pr merge"))).toHaveLength(2);
+    expect(h.slept).toEqual([2000]);
+  });
+
+  test("a real refusal is NOT retried — it is reported on the first answer", () => {
+    // Retrying a closed PR or a permissions error spends four more seconds
+    // arriving at the same place, and makes a real failure look like a flake.
+    const h = mergeAnswers([{ status: 1, output: "GraphQL: Pull request is closed" }]);
+    const outcome = ship({ repo: "/repo", run: h.run, sleep: h.sleep });
+
+    expect(outcome.shipped).toBe(false);
+    expect(h.calls.filter((c) => c.startsWith("gh pr merge"))).toHaveLength(1);
+    expect(h.slept).toEqual([]);
+  });
+
+  test("the retry is bounded, so a permanently stuck merge still reports", () => {
+    const h = mergeAnswers([{ status: 1, output: "Pull Request has merge conflicts" }]);
+    const outcome = ship({ repo: "/repo", run: h.run, sleep: h.sleep });
+
+    expect(outcome.shipped).toBe(false);
+    expect(h.calls.filter((c) => c.startsWith("gh pr merge"))).toHaveLength(5);
+    expect(outcome.summary).toContain("not shipped");
+  });
+});

@@ -42147,6 +42147,14 @@ var realRunner = (argv, cwd) => {
   const output = `${run.stdout ?? ""}${run.stderr ?? ""}`;
   return { status: run.error ? null : run.status, output: run.error ? `${output}${run.error.message}` : output };
 };
+var MERGE_ATTEMPTS = 5;
+var MERGE_RETRY_MS = 2e3;
+function isStaleMergeability(output) {
+  return /has merge conflicts|not mergeable|Base branch was modified|mergeable state|try again/i.test(output);
+}
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
 function git2(repo, args, run) {
   const { status, output } = run(["git", ...args], repo);
   if (status !== 0) throw new Error(`git ${args.join(" ")} failed (exit ${status}):
@@ -42193,6 +42201,7 @@ function ship(opts) {
   const run = opts.run ?? realRunner;
   const log = opts.log ?? (() => {
   });
+  const sleep = opts.sleep ?? sleepSync;
   let state;
   try {
     state = readBranchState(repo, defaultBranch, run);
@@ -42242,7 +42251,12 @@ function ship(opts) {
 ${tail(push.output, 10)}`;
     return { shipped: false, refusals: [why], gateRuns, summary: `not shipped \u2014 ${why}` };
   }
-  const merge2 = run(["gh", "pr", "merge", state.branch, "--squash", "--delete-branch", "--admin"], repo);
+  let merge2 = run(["gh", "pr", "merge", state.branch, "--squash", "--delete-branch", "--admin"], repo);
+  for (let attempt = 1; merge2.status !== 0 && attempt < MERGE_ATTEMPTS && isStaleMergeability(merge2.output); attempt++) {
+    log(`ship: GitHub has not finished recomputing mergeability \u2014 retrying the merge (${attempt}/${MERGE_ATTEMPTS - 1}).`);
+    sleep(MERGE_RETRY_MS);
+    merge2 = run(["gh", "pr", "merge", state.branch, "--squash", "--delete-branch", "--admin"], repo);
+  }
   if (merge2.status !== 0) {
     const why = `every gate is green, but 'gh pr merge' failed:
 ${tail(merge2.output, 10)}`;
