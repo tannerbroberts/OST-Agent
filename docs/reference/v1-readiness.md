@@ -3061,12 +3061,15 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2260 tests across 179 files, verified 2026-08-06 (`npx vitest run`,
-> after the drift-window census landed: how much room a between-steps drift sentinel would
-> have had is now measured over the collisions already recorded rather than assumed, and the
-> census reports which reading of "movement" its verdict turns on
-> (`test/runner/drift-sentinel-window.test.ts`). Previously 2124 tests across 173 files,
-> verified 2026-08-06,
+> *Today:* **met** — 2306 tests across 180 files, verified 2026-08-06 (`npx vitest run`,
+> after the search-literality census landed: of the 850 search arguments this project has
+> issued over its own node text, 125 of the 126 whose text came out of the tree are
+> expressible as literal lookups — 99%, against a bar of 90% fixed before the count — while
+> 246 of 724 hand-written arguments need real pattern semantics. The two axes come apart,
+> and the census publishes the ladders that would move its verdict rather than asking to be
+> trusted on where "literal" was drawn
+> (`test/telemetry/search-literality-census.test.ts`). Previously 2124 tests across 173
+> files, verified 2026-08-06,
 > after the allowlist generator landed with its guard: a run's permission allowlist is now
 > derived from the skill's own `allowed-tools` rather than hand-copied beside it, and the
 > derivation refuses from an agent session, refuses to widen an existing grant without a

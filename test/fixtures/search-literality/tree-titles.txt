@@ -1,0 +1,1072 @@
+A Context node type for evidence that is true, useful, and not a customer need
+A PM defending a roadmap would show an honestly weak rung rather than hide it
+A blind reader given both trees picks this one to act on
+A block stops everything and announces itself to no one
+A blocking wait removes the refusals without costing wall-clock time
+A branch reading as only as strong as its weakest input changes what people act on
+A briefing at a fixed address changes which node a builder actually opens first
+A briefing written for comprehension leaves the operator able to check the agent's own reading
+A broker holds the credential and answers scoped, audited requests from the run
+A budget for questions, spent down across the run and visible to the operator
+A builder can work from the map without ideating on it
+A builder capability profile read off the work already committed, with no deposit asked for
+A call the tool should have refused is permanent, because append-only cannot take it back
+A caller about to make a failing call usually already doubts it, so a validate-only twin gets reached for
+A caller shown the exact bytes will sometimes change the write before confirming
+A change I ship can only reach the agent by stopping it first
+A cheap validating call the caller may make before committing to the real one
+A check with an empty subject is a failure, not a pass
+A chosen source list delivers items that bear on something actually open
+A cold session given only the tree can say why the work exists
+A command's exit code at write time distinguishes unbuilt behaviour from a broken environment
+A committed test outlives and outperforms a verdict draft as the artefact of a pass
+A config check can name a sense that is required and absent, not only validate the paths that are present
+A conflict marker cannot reach a commit, because the hook that would allow it refuses
+A correction lives only as long as the session it was given in
+A corrections ledger in the workspace that every session reads before it composes
+A curated golden set discriminates a good tree from a bad one
+A curated set of safe forms covers enough of what callers actually need
+A dead lease holder can be told from a slow one without waiting out the TTL
+A decay rule surfaces the nodes that have actually gone out of date
+A declared resource manifest the planner must cite before it ranks anything
+A degraded pass has its own name and is not allowed to report a clean run
+A deny rule derived from one refusal does not eat the legitimate uses of the same verb
+A digest arriving where stakeholders already read gets read
+A dismissal can be made auditable enough that a human can catch a dishonest one
+A disposition record every bucket consults before it lists anything
+A drift sentinel that samples HEAD and file mtimes between steps and interrupts on movement
+A failed pass reports success, so my automation can't tell
+A failed path lookup answers with the nearest thing that does exist
+A first-run branch that walks a stranger to a vault in one question
+A fleet instance reaches the inbox with no new credential, and its provenance survives the trip
+A floor can be picked that a linter can enforce and that covers the machines in play
+A full discovery pass can be completed with no delete and no edit tool
+A gate's intended scope can be written down without a clause that satisfies itself vacuously
+A generated allowlist can widen a grant without a human in the loop
+A generated manifest can only carry the rules the schemas know, and the refusal that bit hardest is not one of them
+A grandfathered backlog actually gets cleared rather than becoming permanent
+A guard can catch the unacknowledged drop without refusing honest rewriting
+A guard derived the rule it was checking, so it agreed with the bug for 23 releases
+A guard's expectation must be a recorded observation, with the command that took it stored alongside
+A hash guard refuses almost no good writes while correctly naming the ones that were drift
+A helper I installed fails on my own machine's shell, and only running it says so
+A helper rewritten against the bundled runtime stays short enough that the operator would still edit it
+A helper's declared requirements stay true as the helper changes
+A human-gated release is tagged promptly enough not to become the bottleneck
+A journal written per completed step never overstates what a killed run finished
+A justified narrowing and an evasive one are distinguishable in the report
+A kill criterion written when a candidate was cheap actually gets honoured when it is expensive
+A locked outcome addresses what operators are actually afraid of when they leave it running
+A loudly-marked placeholder outcome gets replaced rather than becoming the tree's real root
+A malformed call lands before anything checks it, and only reading back the file says so
+A map small enough to carry answers most of the lookups that were failing
+A meaningful share of these failures are dropped intentions rather than wrong names
+A mechanical signature groups the redundant records without burying the singleton
+A merge conflict got committed into a source file, so the next run inherits a repo that cannot build
+A migration can bring old nodes into compliance without changing what any of them means
+A mirror can be stale and still be good enough to read discovery evidence from
+A model reading a whole session finds friction that a pattern scan structurally cannot
+A model reads the raw transcript and files what the pattern scan cannot see
+A narrow check catches the same diagnostic far faster than the whole-project run
+A newline inside a wiki-link catches breaks that nothing else catches
+A node returned as unrecognised makes the agent notice the hole it would otherwise miss
+A pass can detect its own degradation, rather than being degraded in ways invisible from inside
+A pass can enumerate its own senses and their state without being told what it tried to use
+A pass can know which tools it needs before it makes its first call
+A pass can name the tools it expected and did not get, not merely the ones it had
+A pass can record enough state to be resumed without repeating work or inventing any
+A pass can tell a human's edit from its own using git alone
+A pass declares the tools it needs before it starts, and refuses to begin without them
+A pass ends by reporting which of its senses were live and which it never had
+A pass that can dismiss its own backlog will not use it to avoid work that mattered
+A pass's decision not to distil an opportunity is a judgement worth recording
+A pass's queue contents can be recovered from what the vault already keeps
+A path failure answers with the layout it was addressed against, not with the path that was missing
+A perf gate reports its measurement next to the number the criterion recorded
+A permission denial is distinguishable from a tool failing on its own terms
+A pointer file in the project root that names its vault, read by anything that opens the repo
+A positive control would actually fire on the sweeps that shipped
+A postinstall step gets to run and speak on a stock setup
+A precondition the surface satisfies for you stops enforcing the thing it existed to enforce
+A preflight manifest states every tool precondition before the pass composes its first call
+A provenance census would not have flagged the three guards that motivated it
+A provenance marker keeps being read once it is on everything
+A pull adapter per source the pass reads directly, on its own schedule
+A push channel the operator subscribes to, applied at the next safe checkpoint
+A push-first rule would have blocked few enough past releases to be adoptable
+A quarantine list committed to the repo, so the exclusion is declared once instead of retyped
+A question queue the run banks and works around, instead of stopping at the fork
+A quoted justification makes me check the agent's advice less
+A reader given run records can tell which passes actually did their job
+A real goal left at the root keeps attracting work, rather than being ignored in favour of the milestone
+A real share of the backlog is compute-only and yields decisive verdict drafts
+A recipient of a free tree cares enough to show it to someone else
+A recorded expectation goes stale silently, because the probe stored beside it is never re-run
+A recorded failure can't be reproduced, because the record omits where it ran
+A refusal can be reported without carrying any of the content it refused
+A refusal written down once will actually be read before the next call that would repeat it
+A rendered tree orients a reader faster than the files do
+A response cannot be sized more cheaply than it can be produced, so stating the size first buys nothing
+A result carries its own exclusion set, so a gate cannot read it as full coverage
+A result must state what it did not cover
+A retraction append that supersedes an earlier node, which every reader and gate honours
+A rewrite can preserve every unsupplied section without the caller naming one
+A row can carry every factor separately without a composite number reappearing anywhere
+A rule change lands on finished work, and nothing carries that work across
+A run can act on a sentence the operator wrote, without asking again
+A run can rank its own questions by consequence well enough that a spent budget buys the important ones
+A run checks that the tree it inherited actually builds before it plans any work on it
+A run declares the tools it needs and halts loudly when they are absent
+A run has no authority to decide anything, so every fork is a full stop
+A run journal written as it goes, so an interrupted run reads as a list of finished steps
+A run never states which tools it had, so a degraded pass reads like a full one afterwards
+A run that dies while I am away stays dead, and nothing says where it stopped
+A run's boundaries and work are recoverable from the commits alone
+A run's credential needs are predictable enough to scope in advance
+A run's own leftovers break the next run's setup, so the loop fails before it starts
+A runner that executes instruments and records exit codes only, judging nothing
+A same-run baseline rises with load in step with the thing it is normalising
+A scheduled export keeps arriving, and a stopped one does not look like an empty experiment
+A scheduled run finds out its tools are missing only after it has started
+A second process is editing the same files, and a failed string match is the only notification
+A session can find out which tools it may call without calling one
+A session missing its tools still has enough surface left to run the check that says so
+A session transcript contains distillable stalls and dead ends worth the next pass's attention
+A session's narrative and its trace disagree often enough, and materially enough, to be evidence
+A setup check that names the missing file and the exact line to add
+A shell-agnostic execution path that never hands a string to a shell at all
+A shipped solution leaves the instruments queue, because built behaviour cannot carry a red-now command
+A shipped solution's claim is settleable by running one named spec
+A side-by-side comparison of two processes' output is judgeable in reasonable time
+A small bundled model is good enough for a routine maintenance pass
+A small fixed set of fields explains most recorded failures
+A small fixed set of state questions covers the environment failures that actually occur
+A spend ceiling per period that stops the loop dead, whatever it thinks it is doing
+A stale lock can be recovered quickly without ever releasing a live one
+A stall is definable well enough for a watchdog to act on it
+A standing Next Build node the agent rewrites every pass
+A standing authority contract naming which classes of decision compute may take alone
+A standing briefing that teaches the tree back, rather than reporting what changed in it
+A standing queue of pending asks the operator clears at whatever cadence suits them
+A standing recruiting channel can supply interviewees without anyone remembering to schedule
+A stated denominator makes a reader notice a drop they would otherwise have missed
+A string I meant literally is read as syntax, so the command fails instead of searching
+A suppression condition can be checked by machine, or it is a delete
+A sweep maintained from returned deltas stays exactly in step with a fresh read
+A sweep that cannot read its subject reports a clean result
+A ten percent sample estimates whole-tree quality closely enough to act on
+A test that failed because the machine was busy looks exactly like one that failed because I broke something
+A third of my calls go on re-asking what is outstanding
+A tightening ships with the migration that brings the existing tree with it
+A tool call I got slightly wrong destroyed the note I was filing
+A tool surface can be confirmed without invoking any of the tools on it
+A trace of calls, outcomes and durations carries the defects a session actually had
+A tree being moved by another writer can be told apart from an operator simply working
+A tree version can be computed cheaply and still detect every change
+A user can complete a first run without ever supplying a key
+A vault could live in a shared repository with little enough redaction, decided by a stated rule
+A vault opened from an unrelated directory can yield its own tools
+A visible evidence class changes how much a reader trusts the node carrying it
+A week of real decisions fits in ten minutes once each is pre-chewed to a yes or no
+A weekly digest is enough to make an operator willing to walk away
+A whole-tree ranked ledger that refuses to publish a row without its reason
+A workspace inventory detailed enough to prevent the observed failures is too large to carry in context
+A workspace that is safe to reset can be told apart from one still being worked in
+A wrapped pre-commitment lead-in is read, so the absent count stops being a formatting artefact
+A written estimate of how much a branch moves the goal survives contact with real movement
+Accept the credential in whatever form the operator already has it, and adapt internally
+Acceptance rate of five self-drafted ruleset changes
+Add the hook and check whether the commit paths a run actually uses all pass through it
+Add the pointer file and count how many tools actually look for it unprompted
+Adopt session transcripts as the trace source instead of new instrumentation
+Adversarial grounding judge
+Agent proposes its own workflow changes for one-click adoption
+Allowlist Tool Runner registers only OST tools
+Ambient session agent drives the append-only tools
+An LLM judge's faithfulness ratings agree with a human's
+An acknowledgement that records a decision not to act, and takes the item off the sweep
+An adapter against a passive source can be built quickly and keeps working without attention
+An adversarial suite catches the injection attacks that would actually be attempted
+An agent already in the operator's session can run a pass as well as a dedicated API driver
+An agent can identify its own wrong turn well enough for the retrospective to be worth reading
+An agent given a one-line channel at the point of pain will actually file
+An agent-side convention that finds the vault by searching upward, so nothing needs recording
+An attack-only pass produces criticism specific enough to act on
+An autonomous web loop finds things that bear on assumptions the tree actually holds open
+An end-of-session deposit prompt in the surface the collaborator is already in
+An independent judge names the riskiest assumption, and disagreement with the author is the signal
+An index built from the repository state would have named the right symbol before the compile did
+An inspectable manifest raises operator trust more than an assertion does
+An instance can deliver to the central inbox on what it already holds, with its provenance intact
+An interrupted run leaves no trustworthy account of what it completed
+An item a pass declined is suppressed until the reason it was declined stops holding
+An observation can be recorded without becoming a verdict that clears a gate
+An operator consents to being asked, and finds the questions worth their time
+An operator facing a queue of drafts keeps reading them rather than approving in bulk
+An operator handed a refusals section acts on it instead of learning to skip it
+An operator notified at every block keeps acting on the notifications rather than tuning them out
+An operator shown the evidence will accept an elimination they initially disagreed with
+An operator shown the line that was actually written notices when it is wrong
+An operator will actually visit a queue that never chases them
+An operator will adopt an outside-sourced candidate into their real consideration set
+An operator would accept a pass dismissing its own work list by written assertion
+An opportunity counts as served when its subtree has solutions, not only its direct children
+An unattended pass can resolve the merges this creates without corrupting the tree
+An unread marker survives to the summary instead of being flattened to zero
+An upgrade changed what counts as done, so finished work silently reopened
+Announce the wait on a channel the operator already watches, the moment it starts
+Answering one question costs me three turns, because I have to fix its options before I can reply
+Append-only audit trail the operator can replay
+Append-only tool surface with no delete or shell tool
+Apply the escalating message to the five-failure session and check where it would have fired
+Artifacts are composed incrementally, so there is a line three at which to check
+Ask a shipped solution for its observed exit code instead of an instrument
+Ask five operators whether they would let a stated default stand while they are away
+Ask five operators whether they would put their secret in a broker that acts for a run
+Ask five prospective operators whether they would let their vault report outward
+Ask ten PMs to recount the last time they were asked how they knew, and what they showed
+Ask ten buyers to split a test's price between designing it and running it
+Ask ten buyers what happened the last time a tool they relied on shut down
+Ask ten practitioners whether their own discipline has ever failed them, before naming any mechanism
+Ask the host for the credential it already holds, instead of asking the operator for a second one
+Ask the open question first, and offer options only once the frame is agreed
+Ask-anything conversational status
+Asked at the moment the reasoning is still in their head, a collaborator will deposit it — and come back unasked
+Assert on work units instead of milliseconds
+Attach thirty self-observations to one node and require the rung not to move
+Attempt ledger of what was already tried
+Audit both vault histories for rename-shaped link breaks
+Audit every consumer of the tree for whether it would honour a retraction flag
+Audit every shipped solution against the repository before trusting the exclusion
+Authors nominate a riskiest assumption other than the one they were already going to test
+Auto-satisfy a read-before-write, then change the file underneath and require the write to still refuse
+Autonomous web-research loop that files findings into the inbox
+Backdated half-life comparison for staleness flags
+Backpressure on instrumenting pushes results to be recorded, rather than just stopping work
+Backpressure-tolerant ingest channel that preserves provenance under load
+Bank each question, proceed on a stated default, and present the banked set at the end
+Bank the blocked item, carry on with everything independent of it, and present the block at the end
+Be found through the agent ecosystem's own directories rather than through product channels
+Being told a section was dropped is worth little to a caller with no undo
+Believability ladder required on every node
+Blind parallel ideators produce more distinct candidates than one agent asked for three
+Blind-judge what could have continued, before reading the answer that was given
+Blind-rate a model's reading of five already-harvested sessions
+Blind-rate ten dry-run web findings for whether they bear on an open assumption
+Blind-rate ten instruments for groundedness and compare against whether their pass had repo sight
+Blind-rate ten records as typo or friction and compare against the recovery rule
+Blind-review a pass's acknowledge-or-map calls on the seven stranded items
+Break one pass on purpose and check cron notices within a cycle
+Broken inherited trees are common enough, and the check cheap enough, to pay for it every run
+Budget against a same-run baseline instead of against the clock
+Build the queue from asks already outstanding and see whether the operator empties it once
+Building crowds out the search for better evidence
+Bundled local model for zero-credential trial
+Buyers have been burned by lock-in recently enough to pay for portability
+Buyers treat refusals as trustworthiness rather than as the product being worse
+Buyers value the design of a test, not just the running of it
+Can a builder work from the map without ideating
+Can a pass tell a human edit from its own, using only git
+Can riskiest-assumption-tested be judged mechanically
+Can't tell if the generated tree is actually any good
+Canary the changed process against the old one
+Candidate tournament that eliminates on grounded evidence rather than promoting on vibes
+Capability estimated from what each collaborator was asked to do and what came back
+Carry a content hash from read to write and refuse on drift, naming what drifted
+Carry across every section the caller did not supply, rather than a hand-listed reserved set
+Census every check whose expected and actual sides are drawn from the same source
+Census every consumer that reads a suite result as a pass-or-fail boolean
+Census every source of new work in this vault and check which can be watched as an event
+Census the recorded searches and split them by whether their argument came from the tree
+Change a journalled file underneath a replacement and require the failure to name staleness, not a missing string
+Charge for the maintained tree, not the tool that maintains it
+Charge nothing for the tool and sell the discovery engagement it produces
+Charge per assumption test designed and run to a pre-committed threshold
+Charting cost can be estimated well enough in advance to inform the choice
+Cheapest-disconfirmer first — rank tests by how fast they could kill the idea
+Check a derived deny rule against legitimate uses of the same verb it was derived from
+Check a partial artifact is rejected at the offending line rather than at submission
+Check every dropped section is reported with enough to restore it
+Check how many past failed paths fall inside a small set of nameable roots
+Check how often the caller knew to be uncertain before the call that failed
+Check past failures against the snapshot fields before building the snapshot
+Check that a recorded exit code cannot clear a gate or masquerade as a result
+Check the accepted grammar is retrievable without submitting anything, and names every rejected construct
+Check the deferred nodes for whether what killed them repeats by category
+Check the guard refuses an unaccounted-for section drop and permits an acknowledged one
+Check the handed-back skeleton parses clean against the same parser that accepts submissions
+Check the instrument allowance holds at the floor while no result has ever been recorded
+Check the rollup reports readiness and execution as separate numbers, with neither called built
+Check three past pass notes for the wrong turn they left out
+Check transcript-derived call parity against the in-band trace for one session
+Check what would actually have to be redacted before a vault could live in a shared repo
+Check whether a toolless session can even run the tool check
+Check whether initialising only tool-created directories still covers every captured failure
+Check whether isolation correctly acquits a flake and convicts a real regression
+Check whether naming the acceptable rung leads callers to take it without new grounds
+Check whether the near-miss text would have supplied the correction
+Check whether the threshold field gets a bound or just the same wrapped prose
+Check whether the writing version is recoverable from vault state at all
+Checking on progress means digging through files
+Checks over a hand-built vault surface findings its owner did not already know
+Classify every filesystem event in three real sessions as meaningful or churn
+Classify the failed match by comparing the file against the run journal's recorded read
+Classify the steps of ten past runs as credentialed or not, and see how much work sits upstream
+Cluster friction records by signature before the queue sees them
+Cold-offer test - will outside teams hand over real discovery work
+Commands are composed against a repo layout nobody checked, so the first thing that runs is a path that isn't there
+Compare against the recent history of this same gate on this same machine
+Compare the scheduler's view of the environment against the run's
+Compare what the run attempted against what it set out to do, and report the shortfall
+Compete on the vault being plain files the customer keeps, not a tree inside someone's product
+Compute the unblock-count distribution over this vault and require it to be non-flat
+Compute the unblocking order and compare it against what the builder actually picked up
+Concierge design-partner cohort
+Confidence propagation with founder-theory warnings
+Conflicts are rare and contested enough that human-only resolution does not flood the operator
+Connecting my systems of record could leak or corrupt them
+Constraint profile mined from what actually blocked the loop
+Continuous story-based interview habit
+Contribution estimates that ladder a local metric to the distant goal
+Cost the chart before choosing the goal, so the substitution is a decision and not a drift
+Count how buried each of the three firings was before assuming the wording was at fault
+Count how many captured failures happened in a directory this tool actually scaffolded
+Count how many existing rules would need a conditional to support two live versions
+Count how many of the captured failures were a dropped intention rather than a wrong name
+Count how many of the harvested shell failures a curated set of safe forms would have covered
+Count how many of the operator's real experiment sources can push anywhere at all
+Count how many of this vault's recommendations would go silent under a refuse-when-unclear rule
+Count how many open assumptions in this tree could be moved by anything public at all
+Count how many past releases a push-first rule would have blocked
+Count how many recorded steps are safely replayable at all
+Count how many timed checks would run somewhere that cannot guarantee isolation
+Count how many underserved opportunities have a solution somewhere beneath them
+Count how many vault conflicts are mechanical, to see what a human-only rule would actually cost
+Count how much of the committed record could name a capability at all
+Count how much of the tree a recorded decision could actually order
+Count how much post-handoff work in past sessions would have survived a failing check
+Count past gate narrowings and judge how many were reasonable
+Count stranded evidence items across both vaults that only a Context node could home
+Count the distinct credential forms in play and how often each changed in a year
+Count the distinct test files ever hand-excluded across the captured sessions
+Count what share of observed path failures came through this product's own tools
+Crash a run holding the lock and time how long the vault stays unusable
+Creating a vault writes the tool-enabling config into the project beside it
+Credentialed steps sit late in a run rather than upstream of everything else
+Critic pass rated for actionability
+Decisions taken on a stated assumption are mostly accepted, and the review is short enough to happen
+Declare a required tool set and check a pass refuses before doing any work
+Declare the distance to the real goal as named darkness, so the gap is inventory
+Declare the files a run intends to touch, and refuse to start when another writer already holds them
+Declare the tool surface a pass requires and abort in the first second if it is absent
+Declaring the operator's real resources changes which work comes first
+Degrade five passes on purpose and count how many admit it
+Deliver three free trees and count how many the recipient shows to someone else
+Derive the next version from the registry, never from the local file
+Derive the permission allowlist from the skill's own allowed-tools, so the two lists cannot drift
+Derive the whole consequence set from the premise and ask about all of it at once
+Detect drift at write time and refuse, naming what changed since the read
+Detect renames from link topology and repair the edge
+Detect that no terminal is attached and answer the prompt from a stated policy
+Detect the authentication that already exists and say exactly which one will be used
+Detect the dead ends from the artifact trail rather than from the session
+Diff three past sessions' claims against their traces by hand
+Discovery and building draw on the same budget, and building always wins
+Discovery done because the budget exists is as useful as discovery done because someone chose it
+Dismiss ten records and require every one to be attributable and reversible
+Do blind parallel ideators produce more distinct candidates than one agent asked for three
+Do candidates carrying kill criteria actually get killed within two weeks
+Do everything that needs no credential first, and bank the rest into one approval
+Do named unfixed thresholds actually get fixed
+Do provenance markers still get read once they are on everything
+Do six cold artefacts show a test beating a verdict draft
+Do the shipped sweeps actually find a planted instance
+Do the three reflection questions catch a builder misunderstanding the pass output missed
+Do two practitioners place the same opportunity under the same sub-outcome
+Do written contribution estimates survive one month of real movement
+Do written reasons get challenged, or only read
+Does a briefing node change which node a builder actually opens first
+Does a first-run branch actually get a stranger to a working vault
+Does a forced uncovered field change what a second reader believes
+Does a named-dimension constraint raise distinctness without lowering candidate quality
+Does a placeholder outcome get replaced, or does it become the tree's real root
+Does a quarantined node make the agent notice the hole in its tree
+Does a route view change which work a builder picks up first
+Does a stated denominator catch a drop nobody predicted
+Does an operator notice a bad write when the tool echoes the line back
+Does cheapest-disconfirmer ordering eliminate more candidates per hour spent
+Does refusing a newline inside a wiki-link catch breaks nothing else catches
+Does showing the whole sentence change what a reader does with a paste-ready command
+Does the guard catch real laundering without refusing honest commands
+Does the side-by-side change what a reviewer does about a threshold
+Don't want to buy a second AI credential just to try it
+Draft the corrections file from past refusals and check whether it would have fitted in context
+Draft the decision classes from the older half of the stops and test them on the newer half
+Draft the workspace map and check how many past failed lookups it would have answered
+Drift is auditable after the fact from the pass records alone
+Drop shipped solutions from the instrument queue
+Each agent writes on its own branch, and merging is a deliberate, reviewable step
+Each instance publishes only its refusals and dead ends, and nothing about its subject
+Each pass leaves me more to check than it started with
+Each queue reports its delta — what entered, what left, and what no pass could act on
+Each run gets a workspace named after itself, so two runs cannot collide
+Each write returns the delta it caused, so the sweep updates in the caller's hands
+Echo the written line back so a bad write is visible immediately
+Edit a node holding five sections, supply two, and check the other three survive intact
+Empty and undefined writes actually landed in the vault histories
+End-of-session retrospective the agent must write before the session closes
+Enough distinct files get hand-excluded that declaring them once beats retyping
+Enough failed calls are shape errors that schema validation catches a real share of them
+Enough of a run's remaining work sits independent of whatever blocked it
+Enough of the tree is already ordered by a recorded human decision to rank from
+Enough open assumptions in the tree could be moved by public information to be worth the channel
+Enough recorded steps are side-effect-free to be safely replayable by a fixed rule
+Enough refusal classes are safe to absorb that removing the occasion is worth doing
+Enough timed-check runs happen somewhere isolation can be guaranteed
+Enough true, useful, non-need evidence is being stranded to justify a layer of its own
+Enumerate the hosts this tool runs under and check which expose a delegable capability
+Error classes can be grouped so the counter fires on the second real repeat and changes behaviour
+Errors the session corrected itself collapse into a counted summary
+Estimate charting cost for three past goals and check the estimates against what happened
+Every channel can name a per-item source, not just a per-channel one
+Every construct the parser rejects appears in a grammar obtainable without submitting anything
+Every count states the denominator it was taken over
+Every forced choice carries an open field, and a written answer is first-class
+Every instance reports to a central telemetry inbox the meta-OST parses and ideates from
+Every machine-selected quote carries the sentence it was cut from
+Every pass records the outcome text it ran against, and a changed outcome is visible as a change
+Every path the config declares is checked when the config is read, not when something reaches for it
+Every piece of work is priced in my minutes, and I have none to spend
+Every precondition is discovered by violating it, so a pass pays a turn per rule it did not know
+Every quoting surface renders the whole sentence, not just the detector that already does
+Every reader of the tree can be made to honour a retraction, and there are few enough to do it
+Every recorded step carries the directory and argv it actually ran with
+Every refusal a surface returns is recorded as tree evidence, not just as a failed call
+Every regretted write becomes a new pre-write invariant, so the class cannot recur
+Every response that can be refused for size states its size first
+Every route a run commits by passes through a place a local hook can occupy
+Every row shows the named factors behind its rank, with no composite score
+Every run ends blocked on a credential only I hold
+Every run records the tool surface it actually had
+Every self-observation channel names which of its sources each item came from
+Every session leaves an evidence record that restates a need the tree already holds
+Every source of new work in this vault can be watched as an event
+Every surface that quotes a source can be made to render the sentence, not just the one that already does
+Every work bucket excludes nodes whose own frontmatter already says they are closed
+Evidence that fits no layer keeps coming back, so the pass never runs out of work
+Evidence-debt gate before building
+Excluding shipped solutions removes items that are genuinely done, not items being dodged
+Experiment data sits at its source until a human carries it into the inbox
+Expiring resource questions asked at a fixed cadence
+Fall back to the command-line path automatically when the MCP tools are absent
+Fear the agent could take a destructive, irreversible action
+Feed every search path a malformed pattern and require the total to say two were unread
+Feed the guard three reds and one green and require it to sort them
+Few enough consumers read a suite result as a boolean that they can all be migrated at once
+Filter the queue on shipped and count what is still unsatisfiable
+Filtering by status removes the stuck shipped solutions without hiding any that still owe an instrument
+Five-minute orientation task on a static mock
+Five-pass count of self-filed friction events
+Five-second status glance test after a failed run
+Flag a threshold that is still an instruction to choose one
+Follow a candidate source list for a month and count items that bear on anything open
+Forced-variation prompts that require candidates to differ on a named dimension
+Forcing a look before every path costs more turns than the wrong guesses did
+Free-form questions about the tree can be answered faithfully from the tree
+Fresh outside findings never reach the tree unless I go get them
+Full builder thinking-trace visibility with a self-reflection communication gauge
+Funded tools already generate these trees, so I can't say why anyone would pick this one
+Gate narrowings are rare enough that routing each through a person is not the bottleneck
+Gate on a ratio against a calibration run taken on the same machine at the same time
+Generate near-miss suggestions for past failures and count how many point at the right thing
+Generate the inventory and require it to fit a startup budget while still naming the failed paths
+Git auto-init and one-command revert work on the machines this will actually run on
+Git-only substrate that makes every change revertible
+Give a cold session only the tree and see whether it can say why the work exists
+Give me the most efficient mapping of actions from where we are to where we want to get
+Going silent on ambiguous sources costs few enough recommendations to be affordable
+Golden-set evaluation harness
+Group the harvested tool errors by hand and see whether one rule reproduces the grouping
+Guided dry-run mode before unattended operation
+Hand a reader five run records and ask which passes did their job
+Hand the composer a legal skeleton, so the default shape is already in the accepted dialect
+Hand the run a layout of the workspace before it takes its first action
+Hand the run the project's symbol surface before it writes, not after it compiles
+Hand-compute unblock counts and see if the operator's pick changes
+Hand-distil three past sessions
+Hand-fill the manifest and count how many of the top five priorities move
+Hand-label the gated rows and check whether a detector agrees
+Have a blind reader sort ten shortfall reports into justified and evasive
+Have a human review a pass's acknowledgements and count how many were avoidance
+Have a second person run the hand arm, so the comparison is not built by its own author
+Have an unattended pass resolve ten seeded merge conflicts and grade every resolution
+Have authors nominate a riskiest assumption and check it against what they were already testing
+Have five authors preview a write they were about to make and count how many change it
+Have the operator answer questions about their own tree from the briefing alone
+Have the scheduler verify the environment before it dispatches a run at all
+Have three independent judges nominate for ten solutions and see whether they agree with each other
+Have two people independently label a full sweep's items as actionable or not, and compare
+Having the vault is not the same as having the tools, and nothing points that out
+Helpers are written against the lowest version actually present, and a check enforces it
+Honest accounting is worth having even though it builds nothing and moves no test
+Human review sampling with a faithfulness rubric
+Humans can still promote a node while the agent is structurally blocked from it
+I aim at a goal I can afford to chart, not the one I actually want
+I call a symbol I never wrote, and a whole-project typecheck at the end of the batch is what tells me
+I can't leave the process running unattended without worrying
+I can't say why anyone wouldn't just do this by hand with Claude and Obsidian
+I can't scale OST-Agents with my own compute because their experience never comes back to me
+I can't tell another PM 'just run npm install' and have it work
+I can't tell if anyone outside my own head wants this
+I can't tell what a half-finished run actually finished
+I can't tell which evidence deserves weight
+I cannot see what the agent did while I was away, so walking away is a leap
+I compose a hundred and seventy lines before the surface tells me it does not accept that dialect
+I don't know what unit of this anyone would pay for
+I don't know who this is for beyond myself
+I hand-exclude the flaky test on every run, and the green that comes back never says what it skipped
+I have a tree full of unvalidated nodes and no idea which one to pick up
+I have no side-by-side evidence that the tool beats doing it by hand
+I need the tree's output to be actionable by compute alone, because my hours don't exist
+I opened the vault in Obsidian and the agent lost half the tree
+I probe for files that were never there, because nothing hands me the layout of the workspace I am in
+I repeat one shell mistake five times in a session, because the first failure never said it was a class
+I run git in a folder that was never initialised, and exit 128 is how I learn it
+I want my usage to automatically feed into and make the OST-Agent better
+Idle down when a pass produces commentary instead of structure
+If the agent tends the tree for me, I may lose the understanding that tending it built
+Immutable goal contract
+Improvements I ship never reach the agents already running
+Improving how the agent works means interrupting it
+In-the-moment friction events filed by the agent
+Independent LLM judge scores faithfulness to evidence
+Independent ideators that never see each other's candidates
+Independent judge separate from the proposer
+Independent judges converge on the same riskiest assumption, so agreement means something
+Initialising only tool-created directories still covers every failure that occurred
+Install the package on ten stock setups and see whether postinstall ever gets to speak
+Installation runs the helper's own preflight and refuses to install what cannot run here
+Instances federate by exchanging trees with each other, with no centre at all
+Instrumented public trial with a willingness-to-pay probe
+Interrupt a pass mid-plan with an outside write and see what state its accepted writes leave
+Interview ten solo builders about the last decision they made with nobody to check it
+Invoke the allowlist generator from inside a session and require it to refuse
+Isolation acquits a flake and convicts a real regression
+Items age out of the default view into a backlog that is counted but not reported
+Judge the eighteen reopened items — were they genuinely finished
+Keep reading the legacy signal as a fallback so old work still counts
+Keep the goal I actually want as the outcome, and hang the affordable one beneath it as a milestone
+Keeping the raw stream lets new questions be asked of history already collected
+Kill a lease holder mid-build and check the workspace is reclaimed without the TTL elapsing
+Kill ten runs at random points and check what the journal's last line claims
+Kill-at-random-points restart test
+Killing the process at any instant leaves a state a restart can resume from
+Knowing what was already ruled out changes what an ideation pass produces
+Labelled-vs-unlabelled branch comparison
+Lead with what this refuses to do, because the funded tools will not refuse it
+Least-privilege read-only tokens, GET-only clients
+Leave a permanent test behind instead of a one-off verdict draft
+Leave the real goal at the root for a quarter and count what actually laddered up to it
+Let a friction record corroborate an existing opportunity instead of demanding a new node
+Let a pass mark evidence acknowledged, with a reason, without inventing an opportunity
+Let the run declare a symbol it intends to add, so calling it early is a record rather than a break
+List in two directories and measure installs against how far the listing was scrolled
+List what a detection probe would touch and have someone say whether they consent to each
+Load the ingest channel at ten times observed peak and check provenance survives
+Load the machine deliberately and check that the calibration ratio holds while the raw number does not
+Load this vault's own config and require the check to name product.repos as absent
+Local read-only mirror of source systems
+Maintain a sweep from returned deltas alone across a full pass and compare against a fresh read
+Make the refusal show the text that is actually there now
+Make the threshold a field the node carries, not a sentence in its prose
+Making a result state its gaps changes what a second reader concludes from it
+Many records from one self-observing actor will not inflate a node's believability
+Mark what the machine chose differently from what a human wrote
+Meaningful external writes are separable from churn by a rule fixed in advance
+Measure how long the last human-gated release actually waited
+Measure how much signal a refuse-on-unknown-context rule would delete
+Measure what fraction of recorded refusals a schema-derived manifest could have named
+Measure whether the permitted wait is actually more expensive to write than the blocked one
+Measure whether work count actually tracks elapsed time across vault sizes
+Mechanical tool-invocation trace with daily evidence rollup
+Merge the enabling config into five real project settings files and check nothing was lost
+Merge two real vaults as a dry run and count the conflicts a person has to settle
+Migrate the old accounting into the new ledger on first run, and record that it happened
+Mine tool errors and retries from run logs
+Most failed paths fall under a small set of nameable roots
+Most of what a run stops for is independent of the answer, so it could have carried on
+Most opportunities the sweep calls underserved are categories whose children are already served
+Most real commands need no shell feature, so removing the shell costs little
+Most refusals are expressible as conditions knowable before the call
+Most regretted writes could have been refused by a check needing no judgement
+Moving the threshold into a field gets a bound written, rather than the same prose relocated
+Mutate the manifest server name and require the three prefix guards to go red
+My loop spends its time waiting for a check it cannot subscribe to
+My performance gate is an absolute number, so a busy machine alone can fail it
+My tests carry thresholds nobody ever fixed, so nothing can come out a failure
+My unattended run stops at a prompt that assumes a person is sitting there
+Name the specific mechanisms a hand process structurally cannot have
+Naming an unfixed threshold is enough to get it fixed
+Naming the acceptable value does not become a way to take it without grounds
+Nearly every search a pass issues is a literal lookup wearing a pattern language
+Nested sub-outcomes between the distant goal and the opportunity space
+Never let a malformed search be counted as an empty result
+New rules apply forward only, and existing nodes are marked as predating them
+No agent resolves a conflict it did not create; the merge is handed back to a human
+No one outside my own network could discover this product exists
+No secret ever lands in the vault or its history, and a scan can confirm it
+Nobody outside the building has been asked, so every claim about demand is mine
+Non-interactive is the default, and any tool that would prompt is made to fail loudly instead
+Nonzero exit code and failure summary when a pass errors
+Nothing brings the tree's state to me, so staying current means going and reading it
+Nothing connects this week's work to the goal, so I can't tell if I am moving toward it
+Nothing declares what I have to work with, so every plan is built on a guess
+Nothing kills a candidate, so every idea I have ever had is still alive
+Nothing names the one node to pick up next, so choosing is work before the work
+Nothing points from my project to the vault that maps it
+Nothing tells an honest loop to stop, so it either idles or invents work
+OST-Agent (meta)
+Offer a maintained tree at a stated monthly price to ten teams and count who asks for terms
+Offer the deposit prompt and count who comes back a second time unasked
+Offer the permitted form at the moment of reach, so the wrong reflex is never the cheapest thing to write
+Offer three routes at different risk levels and say what each one forecloses
+Offer to run one free tree for a stranger's product and let the result travel
+One cheap blocking wait replaces the poll-and-retry loop
+One expiry period fits the real flake timeline without firing on unresolved flakes
+One ledger shape can carry a disposition for evidence, solutions and opportunities alike
+One migration stopped me seven times, because settling the policy once never settled the rest
+One question is enough to get someone who knows nothing to a working vault
+One re-synthesis pass with human accept-reject
+One red run is all I get, and nothing in it separates noise from a real break
+One surface profile per pass, with the tool set pinned in config rather than inherited
+One sweep per pass by contract, and a pass that re-reads must say what changed
+One workspace-state probe the run makes before it plans, not one failing command at a time
+One writer at a time, enforced by a lock the second agent waits on rather than ignores
+Only a human may change what a gate covers, and the change is a separate commit
+Only friction touching the product's own surface is filed; the rest is counted
+Operator-owned local event log with consented raw export
+Operators actually replay a history to rebuild trust, rather than just wanting one to exist
+Operators consent to a probe that looks in the places their credentials live
+Operators get real value with the vault staying entirely local
+Operators will accept an agent that modifies itself while unattended
+Operators will accept one process holding every secret, in exchange for never handing one to a run
+Operators will accept the agent living inside the vault it maintains
+Operators will consent to shipping raw usage out of their own vault
+Operators will let a channel change an agent that is running while nobody is watching
+Operators will let a stated default stand while they are away, for a class of decision they can name
+Operators will let their vault report outward at all
+Optional bring-your-own-key, off by default
+Order the frontier by what each step unblocks, not by what it costs
+Ordering by time-to-kill eliminates more candidates per hour than ordering by importance
+Outside lookups are demanded by an open assumption, never scheduled on their own
+Outside teams will hand over real discovery work to a stranger running it for them
+Outside-in candidates drawn from how other products solved the same opportunity
+Paired ideation run with and without the ledger
+Paper test of the confidence roll-up rule
+Paper-classify the existing commit history as structure versus commentary
+Paper-map prerequisite pairs among the sixty existing tests
+Partition today's sweep by actor and see whether the unattended share is reachable
+Partitioning by actor leaves an unattended pass a reachable share and nobody's pile empty
+Pin three surfaces in config and check a profile expresses what actually differs
+Pitch the refusals to ten prospects and count who treats them as a feature
+Post-session transcript harvester
+Practitioners recognise their own discipline as something that has failed them
+Pre-committed kill criteria attached to every candidate at birth
+Pre-order probe - will anyone pay before the map proves itself
+Preflight the run's tool demands against its grant and stop at turn one
+Prerequisite edges between assumption tests
+Produce three routes for one live branch and have a reader rank them without seeing the labels
+Prompt-injection red-team harness in CI
+Protected discovery budget
+Provenance survives a burst, so a flood produces a backlog rather than a silent hole
+Publish a stop condition the loop can evaluate, and make idling the honest default
+Publish six pieces over six weeks and count strangers who arrive and try it
+Publish the preconditions of every call so they can be checked before it is made
+Publish where the operator is already asking the question, in public, with the tree attached
+Published capability manifest with signed build
+Publishing real discovery work brings strangers who try it
+Push digest where stakeholders already are
+Put a worktree into each dirty state and check the reconciler's verdict on every one
+Put two vaults on one machine and see whether the upward search picks the right one
+Putting the failure first makes a human see it in a glance
+Putting the uncovered statement beside the threshold changes what a reviewer does
+Quarantine entries expire, so a workaround cannot become permanent by inattention
+Quarantine unknown node types instead of dropping them
+Queue forty drafts for approval and record how long the operator spends on each
+Rank each session's questions by consequence and check whether the first ones asked were the important ones
+Rank every node by how many blocked tests one build would unblock
+Rank only what a recorded decision already ordered, and leave the rest unranked
+Ration instrumenting against the rate results are recorded, so readiness cannot outrun execution
+Raw-first telemetry store with summaries as derived views
+Re-run every stored probe in CI and require its recorded literal to still agree
+Re-run once and report the disagreement rather than the first result
+Read back four weeks of spend and judge how much bought something worth having
+Read past re-reads and judge how many caught something the caller did not already know
+Read-only access is enough to gather the evidence the tree needs
+Readers notice a degraded run without being told to look
+Reading the whole tree at once yields reorganisations a human accepts
+Real prerequisite relationships exist between the tests already in the tree
+Real-world signal gates outcome achievement
+Rebuild the symbol index at the commit that failed, and check it would have named the right symbol
+Recompute two past passes' queues from git and compare against what those passes reported
+Reconcile hand-edits and report drift at the start of every pass
+Reconstruct the old accounting on a copy and see if it agrees
+Reconstruct what finished from the commit history, so no run has to be trusted to report
+Record a read-and-skipped judgement so the queue drains without a write
+Recurrence across sessions files a record, a single incident does not
+Refusals are written back as a standing corrections file every session reads first
+Refusals the tool can prevent become refusals the tool never issues
+Refuse a proving command whose exit code cannot report failure
+Refuse a rewrite that would drop a section the caller never accounted for
+Refuse a source that names no record, at write time rather than at sweep time
+Refuse a wiki-link that contains a newline
+Refuse a write whose content is empty or literally undefined
+Refuse an instrument that passes on arrival
+Refuse to recommend when the source does not read cleanly
+Refuse to record a result against a threshold that was never fixed
+Refuse to record a step whose context could not be determined
+Refuse to release from history that has not been pushed
+Refusing an unfixed threshold blocks few enough filings to be a guard rather than a wall
+Refusing on unknown context deletes almost no signal anyone would have used
+Refusing the colliding write leaves the tree coherent, not half-applied
+Remote push optional and off by default
+Rename-shaped link breaks are common enough in the histories to be worth detecting
+Rendered tree view with diff since last visit
+Repetition across sessions is a good enough filter for what deserves a record
+Replay a denied call and a tool error and check they land as different records
+Replay a recorded failure in its recorded context on demand
+Replay all 29 records through the surface rule and see what it keeps
+Replay all existing tests to count how many a refusal would have blocked
+Replay both flakes and one planted regression against the ratio
+Replay captured sessions to count how often a hash guard would refuse a good write
+Replay every past release against a registry-derived number
+Replay five known blockers and check whether mining would have named each before it cost a pass
+Replay historical runs against a stall definition
+Replay one week of raw events against five questions the rollup cannot answer
+Replay past sweeps to see how many were blind all the way rather than partly
+Replay past sweeps to see what an ageing rule would have moved to the backlog
+Replay recorded perf failures with the pair alone and check whether they separate
+Replay ten past runs and count how many needed a scope nobody would have predicted
+Replay the captured environment failures against a fixed set of state questions
+Replay the collision session and measure how many steps stood between the movement and the stale write
+Replay the corpus to count how many correct path guesses the guard would have taxed
+Replay the four toolless passes and see whether the check names the right file
+Replay the hard-fix session's trace against its known defects
+Replay the last ten releases and count how many a pull-at-start instance would have received
+Replay the last three tightenings and see whether the grandfathered backlog ever cleared
+Replay the recorded flake timeline to see whether any single expiry period would have helped
+Replay the recorded question sessions and count whether framing first adds stops or removes them
+Replay the routing record and count how many work classes ever reached more than one collaborator
+Replay the same 29 records through the recurrence rule and count what files
+Replay the seven refusals and check the ledger surfaces every one before a call is composed
+Replay the stored measurements and check whether they came from comparable conditions
+Replay the three recorded failed runs through the journal-alert rule on paper
+Replay the two recorded rejections and check the run could act on the operator's own words
+Replay the two titles that broke ripgrep through every path that reaches a command
+Replay this vault's whole git history as events and see if the projection matches
+Replay two hundred commits and count what a dead-end scan flags
+Report the accounting change explicitly instead of folding it into the counts
+Report what a write changed, so a silent loss stops being silent
+Require a path to have been observed this session before a command may address it
+Require a shipped solution to be asked for an observation and not for a red command
+Require every guard to demonstrate it can fail, by mutating the thing it claims to protect
+Require every size-capped tool to answer a size probe without materialising its payload
+Requiring difference along a named dimension raises distinctness without lowering quality
+Resolve every path against a declared root, so a wrong prefix cannot be constructed
+Resolve the declared tool list against the settings allowlist and name every gap, including path-scoped ones
+Resolve the newest published version at pass start and refuse to run silently on a stale one
+Resumable append-only process journal
+Resume three handed-off passes from their recorded state and check they continue correctly
+Reverted commits and discarded branches carry the dead ends a transcript would have shown
+Rewrite the shortest helper against the bundled runtime and compare length and readability
+Route every data-derived argument through a quoter, and make the unquoted path unavailable
+Route view showing the shortest credible path from here to goal-achieved
+Run a bash 3.2 linter over every helper and count what it flags and what it misses
+Run a pass with one sense unconfigured and require its closing report to say which
+Run both for two weeks on the same evidence and publish what diverged
+Run five passes with the blocking wait and count refusals against the polling record
+Run one small corpus through both and have a blind reader say which tree they would act on
+Run the checks over three hand-built vaults and count findings the owner did not already know
+Run the compute-only backlog today and count decisive verdict drafts
+Run the preflight over recorded working-tree states and count the clean sessions it would have refused
+Run the refusals section for two weeks and count the mornings it changes anything
+Run the same evidence through both and publish the diff as the pitch
+Run the signature over the real 65 and check the singleton survives
+Run the timed check under isolation, or do not let it fail the build at all
+Safe-to-default prompts separate from must-stop ones by a rule someone can write down
+Sampling between steps catches the movement before the run acts on stale content
+Scaffolding initialises unconditionally, so the state is never in question
+Scheduled ambient passes that page the operator only at hard gates
+Scheduled re-synthesis of the whole tree
+Score the provenance census against the three guards it was invented to catch
+Search node text through a literal-only interface, so no escaping question ever arises
+Secrets never stored in the vault
+Seed a shipped solution with no instrument and require the work list to omit it
+Seed every sweep with a known-present instance it must find
+Seeing a path instead of a taxonomy changes which work a builder starts on
+Seeing the whole sentence changes what a reader does with the fragment
+Sell one engagement and record how many hours it actually took against what was charged
+Send one notification per block for two weeks and count how many the operator acts on
+Set the non-interactive flags and check whether the tools that stalled actually honour them
+Set up a per-run workspace and count what it reinstalls against the warm shared one
+Set up one scheduled export and check every week whether it is still arriving
+Settle the known prompts as config and count how many new ones appear in a month
+Settle the standing answers once, in committed configuration the run inherits
+Setup reconciles the workspace it finds instead of assuming there isn't one
+Ship a starter vault whose outcome is a placeholder the human must replace
+Ship it as something that grades a hand-built tree rather than replacing the hand
+Ship the helper with its own runtime rather than borrowing the machine's
+Ship the vault and its tools as one unit, so there is no second step to miss
+Short-lived scoped tokens minted at run start, expiring with the run
+Show five operators a pass's dismissed-work list and ask whether they would have let it stand
+Show me the whole priority order, and why each item sits where it does
+Show readers a degraded run report and see whether they notice
+Show the operator ten forks already taken and count the reversals and the minutes
+Show the whole write, exactly as it will land, and require a confirm before it does
+Snapshot the resolved environment, but only for the step that failed
+Solo builders experience the absence of anyone to check them as a problem they feel
+Someone outside the project will run the hand arm, so the comparison is not built by its own author
+Someone will pay before the tree has proved itself to them
+Something opening the repository will look for a pointer file without being told to
+Sort a day of real failed calls into shape errors and meaning errors
+Sort the observed prompts into safe-to-default and must-stop, and see whether a rule separates them
+Sort the seven questions by reversal cost and count how many were safe to default
+Sort the top refusal classes into safe-to-absorb and load-bearing, and count each
+Spending more does not buy proportionally more worth having, so a hard stop costs little
+Split the cartographer loop from the builder loop
+Split the outstanding list by who may act on it, and report only this actor's share
+Splitting proposer from judge raises trust more than a proposer's own sign-off
+Staleness decay that surfaces nodes for refresh
+State the decision the run is about to take and invite correction, instead of enumerating choices
+Status alone decides what belongs in the instrument queue
+Status and digest lead with the last failed run
+Stop counting an unrun test as progress, and report execution as the only number that moves
+Structure and commentary are separable from the shape of the output alone
+Subscribe to a short list of sources and let arrivals wake the tree
+Supervisor heartbeat consumes run journals and alerts on error
+Supervisor heartbeat with automatic restart
+Supporting two live ruleset versions costs few enough conditionals to stay maintainable
+Sweep both vault histories for writes that landed as undefined or empty
+Sweeps that found nothing were mostly looking at nothing at all, rather than at a subset
+Take a week of this vault's refusals and check whether any leaks content when quoted
+Take ten past blocked runs and measure how much work sat independent of the block
+Take the fork, state the assumption, and price the reversal
+Take the harvested commands and count how many genuinely need a shell to do their work
+Take the last ten regretted writes and check whether each could have been refused mechanically
+Take up independent work while a check is outstanding
+Teams can define an external signal that decides whether their outcome was met
+Teams will pay a monthly fee for an artefact whose best months look like its worst
+Test audit that no tool outside the allowlist is ever registered
+Test can a full pass be done with no delete or edit tool
+Test can an ambient agent drive a pass at API-driver quality
+Test can teams define a real-world outcome signal for the gate
+Test can users complete first run without providing a key
+Test do operators actually replay the audit trail to regain trust
+Test do operators get value with remote push off
+Test does a 10 percent sample estimate whole-tree quality
+Test does a published manifest increase operator trust
+Test does a supervised dry run raise willingness to enable cron
+Test does an independent judge raise trust over self-report
+Test does git auto-init and one-command revert work everywhere
+Test does the LLM judge agree with human faithfulness ratings
+Test does the golden set discriminate good trees from bad
+Test does the red-team harness catch known injection attacks
+Test does the weekly digest make operators willing to walk away
+Test humans can promote while the agent is blocked from validating
+Test is a bundled local model good enough for a pass
+Test is mirror staleness acceptable versus live reads
+Test is read-only GET access enough to gather needed evidence
+Test scan confirms no secret ever lands in vault or history
+Test the assumption that killed the last comparable idea, before anything else
+Tests get written and instrumented all day, and not one of them has ever been run
+The CLI fallback reaches the same vault and refuses everything the read path should not do
+The CLI fallback reaches the same vault, and refuses the write half
+The agent asks the operator to make the calls it could have made itself
+The agent directories carry enough traffic to be a distribution channel worth packaging for
+The agent has no picture of what the builder can do, because reasoning traces never reach it
+The agent has to guess what resources it's actually working with
+The agent narrows its own capability to get past a gate I set
+The agent proposes and never files, so every node enters the tree through the operator's hand
+The agent's repo sight fails mid-pass, because nothing checked the product path before it was needed
+The buyer is not a person but another agent, and the tree is the memory it lacks
+The buyer is the PM who has to defend a roadmap to people who did not attend the interviews
+The buyer is the solo builder with no research function and no one to argue with
+The calibration workload and the measured one respond to contention the same way
+The candidate maps all look alike, so the route that would have worked is never among them
+The changes an agent drafts for its own ruleset are ones a human would accept
+The classifier reads a pre-commitment the same way however the text happens to be wrapped
+The commits and PRs already written are specific enough to name what their author can do
+The configuration gap that makes a session toolless is mechanically identifiable
+The corrections worth inheriting fit in a session's opening context
+The credential I am already authenticated with can't be used by the tool asking for one
+The credential forms in play are few enough and stable enough to adapt to all of them
+The decisions a run stops for fall into stable classes that can be settled in advance
+The decisions a run will face are mostly derivable from its premise before it starts
+The enabling config can be merged into a real project's settings without losing anything already there
+The engagement can be priced so the fee covers the hours, with the tool doing real work in them
+The existing logs already contain enough friction signal to be worth aggregating
+The expensive half of a workspace can be shared while the mutable half is per-run
+The factors behind a rank can be detected mechanically, agreeing with a hand labelling
+The failures this would prevent happened in directories this tool actually created
+The fallback can be bounded so it does not become permanent
+The fallback is bounded by the version boundary and goes inert at a stated release
+The file changed after I read it, and the failed edit is how I find out
+The forks a run meets are mostly cheap to reverse, and the expensive ones are recognisable in advance
+The friction I hit leaves no record behind, so nothing can be learned from it
+The friction channel fills with my own typos, so the signal I wanted is buried
+The friction that matters leaves no error behind
+The gate can tell me something was tested, not whether the risky thing was
+The gate records the capability it was set against, and refuses to pass a smaller one
+The goal I care about is too far from anything I can act on this week
+The guard catches real laundering without refusing honest commands
+The guard turns each correction into a workspace constraint, so the wrong call stops being expressible
+The hosts this runs under expose a delegable capability, on enough of the real runs to matter
+The instrument-writing step declares repo sight required and skips itself rather than inventing paths
+The items the legacy signal keeps counted were genuinely finished
+The log is the agent an event-sourced graph the whole tree is projected from
+The loop proposes a release and a human tags it
+The loop sleeps on a signal and is woken by the event, instead of deciding when to look
+The loop's recorded stalls name a resource early enough to be a planner input
+The measurement and the criterion, side by side, are enough to tell noise from regression
+The nearest existing path is usually the one the caller meant
+The old accounting can be reconstructed accurately enough to migrate without inventing done-ness
+The operator's real experiment sources can push anywhere at all
+The pass ends at the handoff, and the finished check wakes the next one
+The pass never says it is done, so I can't tell when to stop paying for compute
+The permitted form is genuinely no more expensive to write than the blocked reflex
+The prompts a run meets are a stable set, so settling them once mostly ends them
+The re-reads this would remove were mostly not learning anything
+The refusal states the value that would have worked, not just the one that did not
+The registry and the origin tags together always know the true current version
+The registry is a path improvements actually travel down, promptly
+The resource questions are quick to answer and ask for facts the vault does not already hold
+The row renders four factor values and emits no composite number anywhere
+The run is handed the workspace layout at startup, before it composes anything
+The run journals already contain what an alerting rule needs
+The run record names the tools it had and the ones it expected and did not get
+The run's own journal is enough to tell a stale file from a badly quoted one
+The run's proposed options are wrong often enough that framing first saves turns rather than costing them
+The run's report leads with what it was refused, so a denied night cannot read as a quiet one
+The same agent has a different tool surface on every surface I run it on
+The same blocked call comes back next session, because a correction only lives as long as the session it was given in
+The same refusal is rediscovered every session, because nothing carries the lesson forward
+The scaffolder writes a manifest of what it did and did not initialise
+The scheduler's view of the environment matches what the run itself would see
+The schedulers already watching this speak exit codes, and will notice
+The second identical failure is answered differently from the first
+The skeleton stays valid against the same parser that accepts submissions
+The solution names its own riskiest assumption, and the gate checks that one was tested
+The source pushes to a receiving endpoint that writes straight into the inbox
+The source writes a standing export to a watched folder, so carrying becomes a scheduled job
+The stored measurements came from comparable enough conditions to be a distribution
+The surface publishes its accepted grammar where a composer can read it before writing
+The surface satisfies a precondition it could have satisfied itself
+The surfaces differ in ways one pinned profile shape could actually express
+The sweep returns a version, and re-asking an unchanged tree costs nothing
+The tally is kept and the second occurrence is met with the count, not the correction
+The text at the intended site contains what a correct retry needs
+The three guards that agreed with the bug would stay green under a mutation of the thing they check
+The tool surface offers the correct form so prominently that the failing form is not reached for
+The tools that actually stalled honour the non-interactive convention
+The tools this product controls account for a minority of the path failures observed
+The tree declares which ruleset version it was built under, and checks run against that
+The tree never revisits itself, so old nodes rot and tried things get tried again
+The unattended run is scoped for tools nobody granted it, and it finds out one denial at a time
+The uncovered statement printed next to what the test asked for
+The vault carries the agent it runs, upgraded by an ordinary git pull
+The vault lives inside the repository it maps, so there is nothing to point at
+The vault's whole history expresses as events with no residue, and the projection reproduces it exactly
+The version that wrote a vault is recoverable from the vault itself
+The whole loop waits on one human command, and nobody is told it is waiting
+The work I most want to run unattended is the work that keeps needing a decision
+The workspace is leased, and the next run reclaims a lease whose holder is gone
+There is exactly one plausible vault above any given directory
+Thirty-day log sample for existing signal
+Three gates fired correctly in one session and every one of them read as noise first
+Three reflection questions against a builder's trace catch misunderstandings the pass output missed
+Three reserved discovery passes rated for usefulness
+Three routes differ enough in kind that a reader can rank them without the labels
+Three-week digest engagement run
+Time a candidate version computation against producing the full sweep
+Time a single-file check against the whole-project run it would replace
+Time one real week of decisions through the docket from a phone
+Time the build check against how often a run would actually have found a broken tree
+Time the resource questions once and count answers the vault could not already recover
+Timed side-by-side judgement of canary output
+Tool layer forbids the agent from setting validated
+Trace-vs-narrative reconciler that files disagreements as friction
+Transcripts already contain every call an in-band trace would have recorded
+Tree-origin survives the trip from frontmatter to the call site
+Triage every assumption test by the human-minutes it actually needs, and let compute run the zero-minute lane
+Trust an unmonitored agent enough to walk away
+Trust can rest on absence of capability, with no general-purpose tool ever registered
+Try to bound five past runs within the commit history without being told where they started
+Try to confirm a tool surface without invoking any of it
+Try to derive the seven questions from the premise alone, before reading the session
+Try to express every refusal this tool can issue as a precondition, and count the ones that resist
+Try to express the scope of five existing gates and see which ones resist it
+Try to load the tools from inside the vault directory at all
+Try to reproduce ten recorded failures from the record alone
+Trying this at all costs a purchase, before I know whether it is worth anything
+Twenty-question grounding check for answer faithfulness
+Two agents sharing my vault can trample each other
+Two failures being the same class is decidable by a rule that matches hand grouping
+Two practitioners place the same opportunity under the same sub-outcome
+Two real vaults can be merged with few enough conflicts for a person to settle them
+Two release trains picked the same version number because nothing checked what was already published
+Two runs write the same vault at once and nothing arbitrates between them
+Two thirds of my calls failed, and each one only told me after I made it
+Two unattended weeks - count pages, grind, and money burned
+Two unattended weeks produce few enough pages, and little enough grind, to be worth the spend
+Two-week recruiting test for interview supply
+Typecheck the files just touched, at the moment they are touched
+Unblock count changes which node an operator actually picks
+Unblock counts are near-uniform across a real tree, so ranking by them orders nothing
+Unblocking order produces choices a builder prefers to the ones they were making
+Unprompted-fear interviews about leaving it running
+Usage reaches me as summaries, with the raw signal already discarded
+Validate every tool call against the schema the tool already declares
+Validate incrementally as the artifact is built, so the rejection arrives at line three
+Versioned workflow with scheduled hot-swap and rollback
+Waiting on a slow external check burns the session, because every obvious way to wait is refused
+Want proof no hijackable capability even exists
+Watch the working tree and invalidate the agent's copy the moment an external write lands
+Watching one supervised pass raises an operator's willingness to enable unattended runs
+Weekly ten-minute docket - every pending decision arrives prepared as one yes or no
+Weekly what-changed-and-why digest
+What I actually do with the tool is never recorded, so improving it runs on memory
+What ages out is mostly work that genuinely did not matter
+What happened next separates a typo from real friction reliably
+What kills solutions in this tree repeats by category, often enough to infer risk from
+What made those firings read as noise is something the gate's own wording can fix
+What stands between here and the real goal is missing knowledge rather than missing resources
+What the agent learns doesn't accumulate over time
+What the agent struggles with every session disappears
+What the failing call was against separates product friction from everything else
+When the rules tighten, my existing tree is stranded out of compliance
+Whether a pass has repo sight is a good enough proxy for whether its instruments are grounded
+Whether an item is actionable is decidable mechanically, not case by case
+Whether the riskiest assumption has been tested can be judged mechanically
+Will operators consent to shipping raw usage from their own vault
+Withhold the agent's answer on ten forks and measure how often the operator diverges
+Work I already finished keeps coming back in the queue, so the pass can never say it is done
+Work a previous pass settled comes back on the next list, so I pay to re-decide it
+Work classes have been routed to more than one collaborator, so the record can compare them
+Work count tracks elapsed time closely enough to catch the regressions a clock would
+Work done while a check is pending survives that check failing
+Work my own governance has already gated still shows as outstanding every pass
+Worry the agent is grading its own homework
+Would an operator accept an elimination they initially disagreed with once shown the evidence
+Would an operator accept the agent living inside the vault it maintains
+Would an operator adopt an outside-sourced candidate into their consideration set
+Would operators accept unattended self-modification
+Would operators enable an update channel that can change an unattended agent
+Write four real suppression conditions and check each evaluates without judgement
+Write manifests for the existing helpers and check whether they catch the failures already seen
+Write one adapter against the messiest source and time how long it stays working
+Write one disposition of each of the three kinds through a single ledger schema
+Write the gap as an unknown and see whether a Format can be stated for it at all
+Write the migration for one past tightening and have a reader check it changed nothing's meaning
+Written reasons get argued with, rather than read and accepted
+cwd and resolved argv are enough to re-run a recorded failure verbatim
+npm setup wizard that scaffolds the vault first and asks for a key last

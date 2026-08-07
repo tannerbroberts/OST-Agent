@@ -18,6 +18,7 @@
  *   ost-agent search "<glob>" [--vault DIR]   grep the node bodies; a subject it could not read is never a zero
  *   ost-agent capability [--repo DIR]         what each builder can do, read off the commits already written
  *   ost-agent preflight [--transcripts DIR]   did the callers whose calls failed already know they were unsure?
+ *   ost-agent searches [--transcripts DIR]    were the searches over node text literal, and did their text come from the tree?
  *   ost-agent channels [--vault DIR]          every drop folder, its last delivery, and what has gone silent
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
  *   ost-agent corrections [--state DIR]       refusals this workspace already paid for, for the next session to read
@@ -67,6 +68,9 @@ import { formatPriorityOrder, rankBuildableWork } from "../product/planner.js";
 import {
   formatPreflightCensus, preflightUncertaintyCensus, readTranscriptSessions, readUsageEvents,
 } from "../telemetry/preflight.js";
+import {
+  formatSearchLiteralityCensus, readSearchArguments, readTreeTitles, searchLiteralityCensus,
+} from "../telemetry/search-literality.js";
 import { defaultTranscriptDir } from "../adapters/transcript.js";
 import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
 import { laneDef, LANES, type LaneId } from "../knowledge/lanes.js";
@@ -801,6 +805,31 @@ program
     // Nothing readable is not a clean result — it is the sweep that could not read
     // its subject, and an automation has to learn that through the exit code.
     if (census.readable === 0) process.exitCode = 1;
+  });
+
+program
+  .command("searches")
+  .description("how many searches over node text were literal lookups, and how many of those arguments came out of the tree")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option(
+    "--transcripts <dir>",
+    "a directory of session transcripts to read the searches out of (repeatable); defaults to this project's own",
+    collect,
+    [],
+  )
+  .action((opts: { vault: string; transcripts: string[] }) => {
+    // Deliberately NOT `buildPassContext`, for the reason `preflight` gives: this
+    // reads transcripts and node titles and answers a question about them, and
+    // opening a Vault handle would create the directory a mistyped path names.
+    const vault = path.resolve(opts.vault);
+    const dirs = opts.transcripts.length ? opts.transcripts : [defaultTranscriptDir(vault)];
+    const sessions = dirs.flatMap((d) => readTranscriptSessions(path.resolve(d)));
+    const { args, unread, calls } = readSearchArguments(sessions, { vaultDir: vault });
+    const census = searchLiteralityCensus(args, readTreeTitles(vault), { sessionsRead: sessions.length, calls, unread });
+    console.log(formatSearchLiteralityCensus(census));
+    // A census that read no argument has not found "no patterns" — it has found
+    // nothing, and an automation has to learn that through the exit code.
+    if (census.args === 0) process.exitCode = 1;
   });
 
 program
