@@ -3056,9 +3056,12 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 
 **D1 — The release gates pass.**
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
-> `test/release/version.test.ts` passes; the `bundle-drift` job in
-> `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 2155 tests across 175 files, verified 2026-08-06 (`npx vitest run`,
+> `test/release/version.test.ts` passes; the bundle-drift check is green — run locally by
+> `ost-agent ship`, and separately by the `bundle-drift` job in `.github/workflows/ci.yml`.
+> As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
+> gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
+> work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
+> *Today:* **met** — 2193 tests across 177 files, verified 2026-08-06 (`npx vitest run`,
 > after the grant preflight landed: `ost-agent grants` resolves the tools a run's
 > instructions declare against the `permissions.allow` it will fire with and names every
 > one the grant does not cover, **including path-scoped ones** — four of fifteen recorded
@@ -3078,8 +3081,8 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > absent rather than discouraged: `SearchTotal` carries no `hits`, no `length` and no
 > iterator, so the only route to a count is a call that takes a handler for the unread
 > case (`test/ost/unread-subject-propagation.test.ts`, which runs `tsc` over four
-> flattening attempts and requires each to fail to compile). Previously 2124 tests across
-> 173 files, verified 2026-08-06,
+> flattening attempts and requires each to fail to compile). Previously 2165 tests across
+> 175 files, verified 2026-08-06,
 > after the allowlist generator landed with its guard: a run's permission allowlist is now
 > derived from the skill's own `allowed-tools` rather than hand-copied beside it, and the
 > derivation refuses from an agent session, refuses to widen an existing grant without a
