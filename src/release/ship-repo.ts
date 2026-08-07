@@ -42,6 +42,35 @@ export const realRunner: Runner = (argv, cwd) => {
   return { status: run.error ? null : run.status, output: run.error ? `${output}${run.error.message}` : output };
 };
 
+/** How many times the merge is attempted while GitHub's mergeability field settles. */
+export const MERGE_ATTEMPTS = 5;
+/** Gap between those attempts. Short, because the field settles in about a second. */
+export const MERGE_RETRY_MS = 2000;
+
+/**
+ * Does this `gh pr merge` failure read as a not-yet-recomputed mergeability
+ * field, rather than as a real refusal?
+ *
+ * Deliberately narrow. A genuine conflict, a closed pull request, a missing one
+ * and a permissions error must all fall through to the report on the first
+ * attempt — retrying those just spends four more seconds arriving at the same
+ * answer, and makes a real conflict look like a flake.
+ */
+export function isStaleMergeability(output: string): boolean {
+  return /has merge conflicts|not mergeable|Base branch was modified|mergeable state|try again/i.test(output);
+}
+
+/**
+ * Block this thread for `ms`.
+ *
+ * `Atomics.wait` on a throwaway buffer rather than a spawned `sleep`: the whole
+ * module's claim is that no gate reaches an interpreter, and shelling out for a
+ * delay would be the one call that does.
+ */
+export function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
 /** Convenience: run git and return trimmed stdout, or throw with the output. */
 function git(repo: string, args: readonly string[], run: Runner): string {
   const { status, output } = run(["git", ...args], repo);
@@ -75,6 +104,8 @@ export interface ShipOptions {
   readonly run?: Runner;
   /** Where progress goes. Injectable so tests stay silent. */
   readonly log?: (line: string) => void;
+  /** Injectable so the retry path is testable without spending real seconds. */
+  readonly sleep?: (ms: number) => void;
 }
 
 /**
@@ -133,6 +164,7 @@ export function ship(opts: ShipOptions): ShipOutcome {
   const { repo, defaultBranch = "main", dryRun = false } = opts;
   const run = opts.run ?? realRunner;
   const log = opts.log ?? (() => {});
+  const sleep = opts.sleep ?? sleepSync;
 
   let state: BranchState;
   try {
@@ -197,8 +229,24 @@ export function ship(opts: ShipOptions): ShipOutcome {
 
   // `gh pr merge` is the GitHub *API*, not GitHub Actions — it closes the pull
   // request, keeps the squash history this repository already has, and waits on
-  // nothing. `--admin` skips the merge queue rather than any check we run.
-  const merge = run(["gh", "pr", "merge", state.branch, "--squash", "--delete-branch", "--admin"], repo);
+  // nothing anyone has to run. `--admin` skips the merge queue rather than any
+  // check we run.
+  //
+  // The retry is NOT a check poll, and the distinction is the whole point of
+  // this module. GitHub recomputes a pull request's mergeability asynchronously
+  // after a push, so for a second or two after the push above it will answer
+  // "Pull Request has merge conflicts" about a branch that merges cleanly — seen
+  // on #70, which reported conflicts and then read MERGEABLE moments later with
+  // nothing changed in between. That is a stale field settling, with every input
+  // already in hand; it is bounded and it finishes. A CI run is work that has
+  // not started and may never be scheduled. Retrying the first is not the thing
+  // this change removed.
+  let merge = run(["gh", "pr", "merge", state.branch, "--squash", "--delete-branch", "--admin"], repo);
+  for (let attempt = 1; merge.status !== 0 && attempt < MERGE_ATTEMPTS && isStaleMergeability(merge.output); attempt++) {
+    log(`ship: GitHub has not finished recomputing mergeability — retrying the merge (${attempt}/${MERGE_ATTEMPTS - 1}).`);
+    sleep(MERGE_RETRY_MS);
+    merge = run(["gh", "pr", "merge", state.branch, "--squash", "--delete-branch", "--admin"], repo);
+  }
   if (merge.status !== 0) {
     const why = `every gate is green, but 'gh pr merge' failed:\n${tail(merge.output, 10)}`;
     return { shipped: false, refusals: [why], gateRuns, summary: `not shipped — ${why}` };
