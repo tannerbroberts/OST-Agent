@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__plugin_ost-agent_ost-agent",
+      "Glob(//Users/tanner/dev/OST-Agent/**)",
+      "Bash(npx vitest:*)"
+    ]
+  }
+}

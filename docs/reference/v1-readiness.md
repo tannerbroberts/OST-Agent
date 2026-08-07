@@ -3061,7 +3061,18 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2178 tests across 176 files, verified 2026-08-06 (`npx vitest run`,
+> *Today:* **met** — 2193 tests across 177 files, verified 2026-08-06 (`npx vitest run`,
+> after the grant preflight landed: `ost-agent grants` resolves the tools a run's
+> instructions declare against the `permissions.allow` it will fire with and names every
+> one the grant does not cover, **including path-scoped ones** — four of fifteen recorded
+> denials in this workspace were `Glob` refused on `/Users/tanner/dev/OST-Agent`, where the
+> tool was granted and the directory was not, so a name-only comparison would have cleared
+> a run that was about to be blocked. Coverage understands the grant syntax rather than
+> string equality (server-level MCP grants, Bash prefix rules, path globs), because a
+> preflight that stops a run over a tool it already has is the failure mode this is one
+> step from at all times. It writes nothing and requests nothing: widening a grant stays in
+> `ost-agent allowlist`, human-only. Previously 2140 tests across 174 files, verified
+> 2026-08-06,
 > after the unread marker landed: a search now returns results *or* an explicit unread
 > subject naming what it could not examine, and never an empty set for a question that did
 > not run. `rg: error parsing glob '{Charge'` cost this loop a wasted call and, worse, left

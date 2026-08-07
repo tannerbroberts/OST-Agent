@@ -22,6 +22,7 @@
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
  *   ost-agent corrections [--state DIR]       refusals this workspace already paid for, for the next session to read
  *   ost-agent allowlist --skill F --settings F  derive a run's permission grant from the skill's own allowed-tools
+ *   ost-agent grants --skill F --settings F   name every tool a run declares that its grant does not cover
  *   ost-agent ship --repo DIR                 run the gates locally and merge the branch if they are green
  *   ost-agent loop due|start|step|seal        unattended firing: cadence, lock, ceiling, health
  *   ost-agent mcp [--vault DIR]               stdio MCP server (no API key needed)
@@ -65,6 +66,7 @@ import { createLazyOstMcpServer, MCP_TOOL_NAMES } from "../mcp/server.js";
 import { vaultReadiness } from "../mcp/bootstrap.js";
 import { gitCommit } from "../git/safe-git.js";
 import { runAllowlistGenerator } from "../security/allowlist-generator.js";
+import { runGrantPreflight } from "../runner/grant-preflight.js";
 import { loopStateDir, workingTreeStatus, type VaultTreeStatus } from "../loop/state.js";
 import {
   DEFAULT_QUIET_MINUTES, emptyCorrectionsLedger, readLedger, recordCorrections, renderCorrections,
@@ -939,6 +941,34 @@ program
       settingsPath: path.resolve(opts.settings),
       confirmed: opts.confirmInstall === true,
     });
+    if (run.exitCode === 0) console.log(run.report);
+    else {
+      console.error(run.report);
+      process.exitCode = run.exitCode;
+    }
+  });
+
+program
+  .command("grants")
+  .description("name every tool a run's instructions declare that its grant does not cover — before the run starts")
+  .requiredOption("--skill <file>", "the SKILL.md (or command file) whose `allowed-tools` line is the declaration")
+  .requiredOption("--settings <file>", "the settings.json whose permissions.allow is the grant the run fires with")
+  .option(
+    "--demand <rule>",
+    "a tool the run needs that the declaration does not name, in grant syntax (repeatable). Prose in the prompt " +
+      "is deliberately not harvested — a sentence naming a tool may be telling the run not to use it",
+    collect,
+    [],
+  )
+  .action((opts: { skill: string; settings: string; demand: string[] }) => {
+    const run = runGrantPreflight({
+      skillPath: path.resolve(opts.skill),
+      settingsPath: path.resolve(opts.settings),
+      extraDemands: opts.demand,
+    });
+    // Non-zero on gaps AND on an unreadable input: a wrapper that treats either as
+    // "go ahead" is the failure this command exists to stop, and the two codes are
+    // distinct so it can tell "do not start" from "the check itself did not run".
     if (run.exitCode === 0) console.log(run.report);
     else {
       console.error(run.report);
