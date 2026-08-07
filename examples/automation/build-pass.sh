@@ -533,15 +533,20 @@ Work in the code repository. cwd is the vault, so cd to the repo first.
    be green. If you changed anything under src/, run 'npm run bundle' and commit
    dist/ost-agent.mjs. If you changed src/knowledge/ruleset.ts, run 'npm run gen:skill'
    and commit the regenerated SKILL.md.
-4. Push, open a PR describing the problem, what changed, and what you verified. Then wait
-   for CI with 'gh pr checks --watch' bounded by a timeout — do NOT sit in a sleep-poll
-   loop. If CI goes green, merge to main and delete the branch. If CI is not green within
-   the timeout, or is red, LEAVE THE PR OPEN and say so in your report.
-5. A red gate stops the merge, not the work. Never merge red and never loosen a gate to
-   get past one — but do not report a red gate you have not diagnosed either. Find out what
-   it is telling you first; if it is a real defect, fix it, and if it belongs to somebody
-   else's change, fix it anyway or say precisely what it is in the report. "It was already
-   failing" is a fact about history, not a finding about the code.
+4. Push and open a PR describing the problem, what changed, and what you verified. Then
+   STOP. Do not merge, and do not wait for GitHub Actions — do not run 'gh pr checks', do
+   not poll, do not sleep. GitHub CI is NOT a gate for this loop and its state must not
+   delay you: on 2026-08-06 four finished branches sat open for four hours because GitHub
+   acquired no runner, and the tree records that same wait across fourteen pull requests.
+   After you exit, the loop itself runs 'ost-agent ship' — the same gates as step 3, run
+   by the shell, with the merge conditional on exit codes it watched rather than on
+   anything you report. Leave the branch checked out with a clean working tree so it can.
+5. A red gate stops the merge, not the work. Never loosen a gate to get past one — but do
+   not report a red gate you have not diagnosed either. Find out what it is telling you
+   first; if it is a real defect, fix it, and if it belongs to somebody else's change, fix
+   it anyway or say precisely what it is in the report. "It was already failing" is a fact
+   about history, not a finding about the code. Note that a red gate in step 3 is now the
+   ONLY thing between your work and main, so leaving one for later means shipping it.
 
 You may NOT write to the vault. You have no tool that can, and you should not try — if
 the build teaches you something the tree should know, put it in your report and the
@@ -611,6 +616,38 @@ if [ -n "$TARGET_TEST" ]; then
     printf '%s\n' "$(cat "$REPORT" 2>/dev/null) [Loop check: the instrument for this solution is ${BUILD_OBSERVED} after the build, so the definition of done was not met regardless of what the report above says.]" >"$REPORT"
   fi
 fi
+
+# ---------------------------------------------------------------------------
+# Ship: run the gates here and merge on what they said.
+#
+# This is the step that used to be `gh pr checks --watch` inside the model's own
+# turn, and moving it out here is the whole point. Two things changed:
+#
+#   - The gate is LOCAL. Nothing waits on GitHub Actions, which on 2026-08-06
+#     acquired no runner for four hours and left four finished branches open.
+#     The committed workflow still runs on main and on pull requests; it is a
+#     signal now rather than a gate, and no merge waits on it.
+#   - The gate is not the MODEL's. A builder told "run the gates, then merge" is
+#     a builder asserting its own health, which is the exact shape
+#     src/loop/exitLaundering.ts exists to refuse. `ost-agent ship` re-runs tsc,
+#     the suite and the drift checks itself, as argv with no shell to launder an
+#     exit code through, and merges only on what it watched.
+#
+# Exit 20 means the branch was never eligible (dirty tree, nothing to merge, the
+# model left main checked out). Exit 1 means a gate went red — that is a finding
+# about the code, and it is appended to the report rather than smoothed over.
+# ---------------------------------------------------------------------------
+SHIP_OUT="$(node "$CLI" ship --repo "$OST_AGENT_DIR" 2>&1)"
+SHIP_EXIT=$?
+printf '%s\n' "$SHIP_OUT"
+case "$SHIP_EXIT" in
+  0) SHIP_NOTE="$(printf '%s' "$SHIP_OUT" | grep -E '^shipped ' | head -1)" ;;
+  20) SHIP_NOTE="NOT MERGED — the branch was not eligible to ship: $(printf '%s' "$SHIP_OUT" | grep -E '^not shipped' | head -1)" ;;
+  *) SHIP_NOTE="NOT MERGED — a gate went red when the loop re-ran it: $(printf '%s' "$SHIP_OUT" | grep -E '^not shipped' | head -1)" ;;
+esac
+# Appended, never substituted: the model's report is evidence, and a disagreement
+# between "I verified the gates" and what the gates just did is the finding.
+printf '%s\n' "$(cat "$REPORT" 2>/dev/null) [Loop ship: ${SHIP_NOTE}]" >"$REPORT"
 
 # Last, after every branch that could have rewritten the report — the model's own
 # Write, and the postflight's disagreement note above.
