@@ -3061,36 +3061,12 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2231 tests across 178 files, verified 2026-08-06 (`npx vitest run`,
-> after the tainted-argument guard landed: tree text reaches a command only through
-> `TreeText`, which has no bare form — the four ways out each name a destination
-> (`forSearchPattern`, `forPathUnder`, `forMessage`, `equalsLiteral`) and the guard test
-> sweeps every other member of the type rather than listing the leaks anyone thought of.
-> Building it found a real defect in `compileGlob`: an *escaped* metacharacter compiled to
-> an invalid regex and `new RegExp` **threw**, out of the one function whose contract is
-> that a pattern which will not compile is returned rather than thrown. That is fixed and
-> the compile is now wrapped, so the escape path a quoter uses cannot become the `catch`
-> that returns `[]`. Before that, after the grant preflight landed: `ost-agent grants` resolves the tools a run's
-> instructions declare against the `permissions.allow` it will fire with and names every
-> one the grant does not cover, **including path-scoped ones** — four of fifteen recorded
-> denials in this workspace were `Glob` refused on `/Users/tanner/dev/OST-Agent`, where the
-> tool was granted and the directory was not, so a name-only comparison would have cleared
-> a run that was about to be blocked. Coverage understands the grant syntax rather than
-> string equality (server-level MCP grants, Bash prefix rules, path globs), because a
-> preflight that stops a run over a tool it already has is the failure mode this is one
-> step from at all times. It writes nothing and requests nothing: widening a grant stays in
-> `ost-agent allowlist`, human-only. Previously 2140 tests across 174 files, verified
-> 2026-08-06,
-> after the unread marker landed: a search now returns results *or* an explicit unread
-> subject naming what it could not examine, and never an empty set for a question that did
-> not run. `rg: error parsing glob '{Charge'` cost this loop a wasted call and, worse, left
-> the caller holding zero results — which is what "nothing is wrong here" looks like. The
-> total reports hits, examined and unread as three quantities, and the flattening path is
-> absent rather than discouraged: `SearchTotal` carries no `hits`, no `length` and no
-> iterator, so the only route to a count is a call that takes a handler for the unread
-> case (`test/ost/unread-subject-propagation.test.ts`, which runs `tsc` over four
-> flattening attempts and requires each to fail to compile). Previously 2165 tests across
-> 175 files, verified 2026-08-06,
+> *Today:* **met** — 2260 tests across 179 files, verified 2026-08-06 (`npx vitest run`,
+> after the drift-window census landed: how much room a between-steps drift sentinel would
+> have had is now measured over the collisions already recorded rather than assumed, and the
+> census reports which reading of "movement" its verdict turns on
+> (`test/runner/drift-sentinel-window.test.ts`). Previously 2124 tests across 173 files,
+> verified 2026-08-06,
 > after the allowlist generator landed with its guard: a run's permission allowlist is now
 > derived from the skill's own `allowed-tools` rather than hand-copied beside it, and the
 > derivation refuses from an agent session, refuses to widen an existing grant without a

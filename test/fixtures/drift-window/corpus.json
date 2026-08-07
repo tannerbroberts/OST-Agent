@@ -1,0 +1,708 @@
+{
+  "transcriptsRead": 561,
+  "duplicateTranscripts": 1,
+  "excludedSessions": [
+    "768f36cf-a860-4353-b789-9643cd30397a"
+  ],
+  "projectsRoot": "/Users/tanner/.claude/projects",
+  "sessions": [
+    {
+      "sessionId": "030e5db3-9414-441f-9221-b4a984c11825",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 124,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 7,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 25,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 28,
+          "tool": "mcp__ost-agent__ost_next_work"
+        }
+      ]
+    },
+    {
+      "sessionId": "03a79a59-682a-4528-83c6-4c39d8c658ef",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 167,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 9,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 10,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 11,
+          "tool": "mcp__ost-agent__ost_next_work"
+        }
+      ]
+    },
+    {
+      "sessionId": "0d27cebf-9b5d-4cff-906c-0134512573bc",
+      "origin": "session in -Users-tanner-dev-OST-Agent",
+      "stepCount": 213,
+      "collision": true,
+      "mentions": [
+        {
+          "step": 91,
+          "tool": "Edit"
+        }
+      ]
+    },
+    {
+      "sessionId": "1a8f25fb-1259-4b80-8b53-32fbfde38e54",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 95,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 9,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 11,
+          "tool": "mcp__ost-agent__ost_next_work"
+        }
+      ]
+    },
+    {
+      "sessionId": "1f65d922-c0de-4a9b-a50a-2b0db3032561",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 30,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 5,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 8,
+          "tool": "mcp__ost-agent__ost_next_work"
+        }
+      ]
+    },
+    {
+      "sessionId": "21d0f730-05c0-4cf8-8cd2-ecdea5444bba",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 74,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 6,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 8,
+          "tool": "mcp__ost-agent__ost_next_work"
+        }
+      ]
+    },
+    {
+      "sessionId": "28d14def-76a2-4bbb-bd55-6f9b80c8ca8c",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 127,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 10,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 11,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 12,
+          "tool": "mcp__ost-agent__ost_next_work"
+        }
+      ]
+    },
+    {
+      "sessionId": "340181ec-81db-4b6b-a431-6116b2c14cec",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 56,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 27,
+          "tool": "Read"
+        }
+      ]
+    },
+    {
+      "sessionId": "3d729ebc-348f-4d45-8f3c-25df1de8fbc9",
+      "origin": "session in -Users-tanner-dev-OST-Agent",
+      "stepCount": 117,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 16,
+          "tool": "Read"
+        }
+      ]
+    },
+    {
+      "sessionId": "424486ec-3489-4b53-8e2b-012232d221ab",
+      "origin": "session in -Users-tanner-dev-OST-Agent",
+      "stepCount": 74,
+      "collision": true,
+      "mentions": [
+        {
+          "step": 47,
+          "tool": "Edit"
+        },
+        {
+          "step": 63,
+          "tool": "Edit"
+        }
+      ]
+    },
+    {
+      "sessionId": "467b3b38-9ed7-490f-8915-7c7a7b12ff13",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 58,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 7,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 13,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 15,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 16,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 17,
+          "tool": "mcp__ost-agent__ost_next_work"
+        }
+      ]
+    },
+    {
+      "sessionId": "491c205c-aadc-4c19-9644-a38a0c9c3be6",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 102,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 5,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 8,
+          "tool": "mcp__ost-agent__ost_next_work"
+        }
+      ]
+    },
+    {
+      "sessionId": "49d6b2d3-b867-4996-9d9d-8f10dd0871de",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 168,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 9,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 10,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 11,
+          "tool": "mcp__ost-agent__ost_next_work"
+        }
+      ]
+    },
+    {
+      "sessionId": "4ff7b605-da1d-4f2e-8c05-ec6408118837",
+      "origin": "session in -Users-tanner-dev-OST-Agent",
+      "stepCount": 159,
+      "collision": true,
+      "mentions": [
+        {
+          "step": 105,
+          "tool": "Edit"
+        }
+      ]
+    },
+    {
+      "sessionId": "5960b7ec-960c-4700-9e0b-2b68c3519e92",
+      "origin": "session in -Users-tanner-dev-OST-Agent",
+      "stepCount": 188,
+      "collision": true,
+      "mentions": [
+        {
+          "step": 136,
+          "tool": "Edit"
+        }
+      ]
+    },
+    {
+      "sessionId": "6308a576-c305-4d14-aef9-d0f71f8a1aaa",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 139,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 8,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 10,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 12,
+          "tool": "mcp__ost-agent__ost_next_work"
+        }
+      ]
+    },
+    {
+      "sessionId": "6e66c934-24d8-4200-b6f2-7af23002c478",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 91,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 15,
+          "tool": "Read"
+        },
+        {
+          "step": 17,
+          "tool": "Read"
+        }
+      ]
+    },
+    {
+      "sessionId": "6fbf2b9b-899d-4998-8147-0e26b133e6b8",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 113,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 8,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 10,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 12,
+          "tool": "mcp__ost-agent__ost_next_work"
+        }
+      ]
+    },
+    {
+      "sessionId": "7449e571-40b5-47b6-a1cd-3b2c1c85322e",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 130,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 5,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 8,
+          "tool": "mcp__ost-agent__ost_next_work"
+        }
+      ]
+    },
+    {
+      "sessionId": "85204e36-ff71-445a-a861-bc413de451ce",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 44,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 41,
+          "tool": "mcp__ost-agent__ost_next_work"
+        }
+      ]
+    },
+    {
+      "sessionId": "868a30f5-6431-4779-aca6-6e2926a9d4a4",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 40,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 17,
+          "tool": "Read"
+        }
+      ]
+    },
+    {
+      "sessionId": "89ac8277-29ce-4d80-827e-cefea0bebabf",
+      "origin": "session in -Users-tanner-dev-OST-Agent",
+      "stepCount": 295,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 25,
+          "tool": "Bash"
+        }
+      ]
+    },
+    {
+      "sessionId": "8a9777ad-a1ca-47fc-ab8e-3bd4b001a5cd",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 87,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 14,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 15,
+          "tool": "mcp__ost-agent__ost_next_work"
+        }
+      ]
+    },
+    {
+      "sessionId": "994b4a5c-8a70-4b65-8c6f-35b69dfbf820",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 57,
+      "collision": false,
+      "mentions": []
+    },
+    {
+      "sessionId": "995b8ab1-5e55-4a5c-b05d-aaed9e1d7538",
+      "origin": "session in -Users-tanner-dev-OST-Agent",
+      "stepCount": 74,
+      "collision": true,
+      "mentions": [
+        {
+          "step": 58,
+          "tool": "Edit"
+        }
+      ]
+    },
+    {
+      "sessionId": "9aa6b7c9-a6a9-41f9-892b-4a330a99cc36",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 77,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 20,
+          "tool": "Read"
+        },
+        {
+          "step": 26,
+          "tool": "Read"
+        },
+        {
+          "step": 27,
+          "tool": "Read"
+        },
+        {
+          "step": 30,
+          "tool": "Read"
+        },
+        {
+          "step": 58,
+          "tool": "Read"
+        }
+      ]
+    },
+    {
+      "sessionId": "aacea5c8-b422-438b-bdde-6704d9c92ee3",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 86,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 37,
+          "tool": "Read"
+        }
+      ]
+    },
+    {
+      "sessionId": "afce034c-e2c2-464b-80d8-f18969299aef",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 246,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 9,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 11,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 13,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 22,
+          "tool": "mcp__ost-agent__ost_next_work"
+        }
+      ]
+    },
+    {
+      "sessionId": "agent-a61e055e71299a8ed",
+      "origin": "subagent under 5960b7ec-960c-4700-9e0b-2b68c3519e92, in -Users-tanner-dev-OST-Agent",
+      "stepCount": 60,
+      "collision": true,
+      "mentions": [
+        {
+          "step": 36,
+          "tool": "Edit"
+        },
+        {
+          "step": 37,
+          "tool": "Edit"
+        }
+      ]
+    },
+    {
+      "sessionId": "agent-a627571427c901efb",
+      "origin": "subagent under 2a4bcf6e-89c7-4507-a9ea-1d1ec200fe23, in -Users-tanner-ost-agent-meta",
+      "stepCount": 21,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 9,
+          "tool": "Read"
+        },
+        {
+          "step": 13,
+          "tool": "Read"
+        }
+      ]
+    },
+    {
+      "sessionId": "agent-ac6008b9601a0f067",
+      "origin": "subagent under 16e9596b-7c8f-445b-a8ff-f822ed211ea5, in -Users-tanner-dev-OST-Agent",
+      "stepCount": 111,
+      "collision": true,
+      "mentions": [
+        {
+          "step": 74,
+          "tool": "Edit"
+        },
+        {
+          "step": 77,
+          "tool": "Edit"
+        }
+      ]
+    },
+    {
+      "sessionId": "agent-ac6c24316f4ae0ddd",
+      "origin": "subagent under 5960b7ec-960c-4700-9e0b-2b68c3519e92, in -Users-tanner-dev-OST-Agent",
+      "stepCount": 79,
+      "collision": true,
+      "mentions": [
+        {
+          "step": 39,
+          "tool": "Edit"
+        }
+      ]
+    },
+    {
+      "sessionId": "b0ad16bf-d234-4d46-bf7f-5e1deaad8b78",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 84,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 4,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 6,
+          "tool": "mcp__ost-agent__ost_next_work"
+        }
+      ]
+    },
+    {
+      "sessionId": "b1ff6306-d7fa-4720-87cc-30557b03c062",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 125,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 43,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 47,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 53,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 55,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 76,
+          "tool": "mcp__ost-agent__ost_next_work"
+        }
+      ]
+    },
+    {
+      "sessionId": "babb0438-8efa-4f3c-8d00-44d46be36cae",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 117,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 13,
+          "tool": "mcp__ost-agent__ost_next_work"
+        }
+      ]
+    },
+    {
+      "sessionId": "c41b49d0-e599-47c8-a49e-e0de29166f6a",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 78,
+      "collision": false,
+      "mentions": []
+    },
+    {
+      "sessionId": "c6881c3b-0504-499d-8937-c9181d547a0c",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 84,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 12,
+          "tool": "Read"
+        },
+        {
+          "step": 13,
+          "tool": "Read"
+        },
+        {
+          "step": 15,
+          "tool": "Read"
+        },
+        {
+          "step": 17,
+          "tool": "Read"
+        },
+        {
+          "step": 25,
+          "tool": "Read"
+        }
+      ]
+    },
+    {
+      "sessionId": "c7ae0d49-4495-4d3e-b8a9-93875992837f",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 19,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 12,
+          "tool": "Read"
+        }
+      ]
+    },
+    {
+      "sessionId": "cae6fea8-87e1-46f6-ba33-6a152b9b8584",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 178,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 6,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 7,
+          "tool": "mcp__ost-agent__ost_next_work"
+        },
+        {
+          "step": 9,
+          "tool": "mcp__ost-agent__ost_next_work"
+        }
+      ]
+    },
+    {
+      "sessionId": "f20bb997-399d-4960-b952-3a41e7cd39f4",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 67,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 33,
+          "tool": "Read"
+        },
+        {
+          "step": 36,
+          "tool": "Read"
+        },
+        {
+          "step": 37,
+          "tool": "Read"
+        }
+      ]
+    },
+    {
+      "sessionId": "fe05964f-a644-4aeb-af57-3a37bde1f137",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 117,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 17,
+          "tool": "Read"
+        },
+        {
+          "step": 18,
+          "tool": "Read"
+        },
+        {
+          "step": 25,
+          "tool": "Read"
+        }
+      ]
+    },
+    {
+      "sessionId": "fe671285-5ba3-422e-9cbe-2ea1ac7e3714",
+      "origin": "session in -Users-tanner-ost-agent-meta",
+      "stepCount": 109,
+      "collision": false,
+      "mentions": [
+        {
+          "step": 17,
+          "tool": "Bash"
+        },
+        {
+          "step": 23,
+          "tool": "Bash"
+        },
+        {
+          "step": 48,
+          "tool": "Bash"
+        }
+      ]
+    }
+  ]
+}
