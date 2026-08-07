@@ -42827,7 +42827,7 @@ function formatSearchTotal(name, total) {
     }
   });
 }
-var GLOB_SPECIALS = /[.+^$()|[\]\\]/g;
+var GLOB_SPECIALS = /[.*+?^${}()|[\]\\]/g;
 function compileGlob(pattern) {
   let out = "";
   let depth = 0;
@@ -42854,8 +42854,12 @@ function compileGlob(pattern) {
   if (depth > 0) {
     return { ok: false, error: `error parsing glob '${pattern}': unclosed alternate group; missing '}' (maybe escape '{' with '\\{'?)` };
   }
-  const re = new RegExp(`^${out}$`);
-  return { ok: true, matches: (line) => re.test(line) };
+  try {
+    const re = new RegExp(`^${out}$`);
+    return { ok: true, matches: (line) => re.test(line) };
+  } catch (err) {
+    return { ok: false, error: `error parsing glob '${pattern}': ${err.message}` };
+  }
 }
 var defaultRead = (file) => fs24.readFileSync(file, "utf8");
 function causeOfReadFailure(err) {
@@ -42882,6 +42886,139 @@ function searchSubjects(requests, opts = {}) {
     })
   );
 }
+
+// src/security/tainted.ts
+var CONTROL_CHARS2 = new RegExp("[\\u0000-\\u001F\\u007F]");
+var CONTROL_CHARS_GLOBAL = new RegExp("[\\u0000-\\u001F\\u007F]", "g");
+var GLOB_SYNTAX = /[\\*?{},]/g;
+var TreeText = class _TreeText {
+  #value;
+  #origin;
+  constructor(value, origin) {
+    this.#value = value;
+    this.#origin = origin;
+  }
+  /**
+   * Wrap a value read out of a node's frontmatter.
+   *
+   * Takes `unknown` because YAML hands back whatever was written: a title field
+   * holding a list or a number is a malformed node, and the place to find that
+   * out is the read, not the call three frames later that expected a string.
+   */
+  static fromFrontmatter(file, field, value) {
+    if (typeof value !== "string") {
+      throw new TypeError(`${field} of ${file} is ${value === null ? "null" : typeof value}, not text`);
+    }
+    return new _TreeText(value, { file, field });
+  }
+  /** Wrap a value that came from the tree by some other route — a body, a title read off a filename. */
+  static fromTree(value, origin) {
+    if (typeof value !== "string") {
+      throw new TypeError(`${origin.field} of ${origin.file} is not text`);
+    }
+    return new _TreeText(value, origin);
+  }
+  /**
+   * Where this came from. Safe to print: it names the file and field, not the value.
+   */
+  get origin() {
+    return this.#origin;
+  }
+  /** How long the value is, for a size check that does not need to read it. */
+  get length() {
+    return this.#value.length;
+  }
+  /**
+   * The value as a glob that matches itself and nothing else.
+   *
+   * Every character `compileGlob` would read as syntax is escaped, so `{Charge`
+   * arrives as a pattern for the six characters `{Charge` rather than as an
+   * alternate group that was never closed. The invariant a caller can rely on:
+   * `compileGlob(t.forSearchPattern())` compiles, and matches the original value.
+   */
+  forSearchPattern() {
+    return this.#value.replace(GLOB_SYNTAX, "\\$&");
+  }
+  /**
+   * A path to this value's file under `root`, or a refusal saying why not.
+   *
+   * Refuses rather than repairs, for the reason on {@link PathForTreeText}. The
+   * four refusals are the four ways a sentence stops being a filename: a
+   * separator, a traversal, a control byte (`\n` in a title makes one path into
+   * two), and nothing left at all.
+   */
+  forPathUnder(root, opts = {}) {
+    const value = this.#value;
+    const extension = opts.extension ?? ".md";
+    if (value.trim().length === 0) {
+      return { ok: false, reason: `${this.#describe()} is empty or blank, so it names no file` };
+    }
+    if (/[/\\]/.test(value)) {
+      return { ok: false, reason: `${this.#describe()} contains a path separator, so it is not one file name` };
+    }
+    if (value === "." || value === ".." || value.includes("..")) {
+      return { ok: false, reason: `${this.#describe()} contains a traversal, so the path it builds may leave ${root}` };
+    }
+    if (CONTROL_CHARS2.test(value)) {
+      return { ok: false, reason: `${this.#describe()} contains a control character, so it does not name one line or one file` };
+    }
+    const sep = root.endsWith("/") ? "" : "/";
+    return { ok: true, path: `${root}${sep}${value}${extension}` };
+  }
+  /**
+   * The value as one line of output, quoted, with nothing left that an
+   * interpreter downstream would read as an instruction.
+   *
+   * Quoted and not merely escaped, because the recorded shell failures include
+   * `(eval):1: == not found` — a separator line from output being executed. A
+   * value printed bare can become a command in whatever reads the log next; a
+   * value in quotes with its controls escaped is visibly a value. `JSON.stringify`
+   * is exactly this transformation and is used rather than reimplemented.
+   */
+  forMessage() {
+    return JSON.stringify(this.#value);
+  }
+  /**
+   * Is this value the literal `expected`?
+   *
+   * The comparison route yields a boolean and never the string, which is the
+   * whole point: an equality check is the boundary where a wrapper is most
+   * tempting to unwrap, and it does not need the value to be in circulation to
+   * answer. Exact, not canonicalising — a caller that wants to compare node
+   * titles the way the filesystem does should compare the paths
+   * {@link forPathUnder} builds, so that "equal" means "the same file".
+   */
+  equalsLiteral(expected) {
+    return this.#value === expected;
+  }
+  /** The value and its origin, for a refusal message. Names the field, quotes the value. */
+  #describe() {
+    return `${this.#origin.field} of ${this.#origin.file} (${JSON.stringify(this.#value)})`;
+  }
+  /**
+   * The four implicit conversions, present only to fail.
+   *
+   * `` `${title}` ``, `String(title)`, `title + ""` and `JSON.stringify({title})`
+   * are the ways a bare string gets back into circulation without anyone writing
+   * anything that looks wrong. Each throws naming the alternative, because a
+   * caller here has a real destination in mind and needs to say which.
+   */
+  toString() {
+    throw new TypeError(_TreeText.#refusal("String()"));
+  }
+  valueOf() {
+    throw new TypeError(_TreeText.#refusal("valueOf()"));
+  }
+  toJSON() {
+    throw new TypeError(_TreeText.#refusal("JSON.stringify()"));
+  }
+  [Symbol.toPrimitive]() {
+    throw new TypeError(_TreeText.#refusal("string interpolation"));
+  }
+  static #refusal(how) {
+    return `tree text has no bare form: ${how} would hand it to a command unquoted. Name a destination \u2014 forSearchPattern(), forPathUnder(), forMessage() or equalsLiteral().`;
+  }
+};
 
 // src/product/capability.ts
 import path25 from "node:path";
@@ -49417,15 +49554,20 @@ program2.command("search").argument("<glob>", "glob matched against each line of
   const dropped = SearchTotal.over(
     census.unreadable.map((u) => unread(u.file, "unreadable", u.reason))
   );
+  const titles = census.nodes.map(
+    (n) => TreeText.fromTree(n.title, { file: `${n.title}.md`, field: "title" })
+  );
+  const requests = [];
+  const unbuildable = [];
+  for (const title of titles) {
+    const built = title.forPathUnder(ctx.vault.root);
+    if (built.ok) requests.push({ subject: title.forMessage(), file: built.path, pattern: glob });
+    else unbuildable.push(unread(title.forMessage(), "unreadable", built.reason));
+  }
   const combined = SearchTotal.merge(
     dropped,
-    searchSubjects(
-      census.nodes.map((n) => ({
-        subject: n.title,
-        file: path40.join(ctx.vault.root, `${n.title}.md`),
-        pattern: glob
-      }))
-    )
+    SearchTotal.over(unbuildable),
+    searchSubjects(requests)
   );
   const hits = combined.resolve({
     whenComplete: (found) => found.length,

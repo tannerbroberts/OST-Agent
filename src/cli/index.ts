@@ -51,7 +51,16 @@ import { buildableSolutions, buildPermit, confirmPermit, testsAwaitingVerificati
 import { formatCensus, reconcileWithGit, reconcileWithUsage } from "../ost/census.js";
 import { formatStrandedCensus, strandedEvidenceCensus } from "../ost/stranded.js";
 import { blindnessCensus, formatBlindnessCensus, readSweepRuns, recordSweepRun } from "../ost/sweep.js";
-import { formatSearchTotal, searchSubjects, SearchTotal, unread, type LineHit } from "../ost/search.js";
+import {
+  formatSearchTotal,
+  searchSubjects,
+  SearchTotal,
+  unread,
+  type LineHit,
+  type SearchOutcome,
+  type SearchRequest,
+} from "../ost/search.js";
+import { TreeText } from "../security/tainted.js";
 import { committedCapabilityProfile, formatCapabilityProfile } from "../product/capability.js";
 import { readResourceManifest } from "../product/manifest.js";
 import { formatPriorityOrder, rankBuildableWork } from "../product/planner.js";
@@ -675,15 +684,29 @@ program
     const dropped = SearchTotal.over<LineHit>(
       census.unreadable.map((u) => unread<LineHit>(u.file, "unreadable", u.reason)),
     );
+    // Every node title here came out of the tree, and the path below used to be
+    // `${n.title}.md` — a sentence a person wrote, interpolated into a filesystem
+    // path. `TreeText` is what stops that: the title arrives wrapped and the only
+    // way to a path is `forPathUnder`, which builds one or refuses. A refusal is
+    // an unread subject rather than a thrown error, for the same reason a
+    // malformed pattern is: a title this walk could not turn into a file is a
+    // subject it did not examine, and reporting it as examined-with-no-hits is
+    // the miscount this whole module exists to prevent.
+    const titles = census.nodes.map((n) =>
+      TreeText.fromTree(n.title, { file: `${n.title}.md`, field: "title" }),
+    );
+    const requests: SearchRequest[] = [];
+    const unbuildable: SearchOutcome<LineHit>[] = [];
+    for (const title of titles) {
+      const built = title.forPathUnder(ctx.vault.root);
+      if (built.ok) requests.push({ subject: title.forMessage(), file: built.path, pattern: glob });
+      else unbuildable.push(unread<LineHit>(title.forMessage(), "unreadable", built.reason));
+    }
+
     const combined = SearchTotal.merge(
       dropped,
-      searchSubjects(
-        census.nodes.map((n) => ({
-          subject: n.title,
-          file: path.join(ctx.vault.root, `${n.title}.md`),
-          pattern: glob,
-        })),
-      ),
+      SearchTotal.over(unbuildable),
+      searchSubjects(requests),
     );
 
     // The count, obtained the only way there is: by saying what happens to the

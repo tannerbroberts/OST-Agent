@@ -218,7 +218,21 @@ export type CompiledPattern =
   | { readonly ok: true; readonly matches: (line: string) => boolean }
   | { readonly ok: false; readonly error: string };
 
-const GLOB_SPECIALS = /[.+^$()|[\]\\]/g;
+/**
+ * Every character that means something to a regular expression, including the
+ * five that also mean something to a glob.
+ *
+ * Those five (`*?{},`) used to be missing, on the reasoning that the loop below
+ * handles them before anything reaches this replace. That is true of the *glob*
+ * branches and false of the escape branch: `\*` takes the next character
+ * verbatim, so an escaped wildcard arrived in the regex as a bare `*` and
+ * `new RegExp("^*$")` threw `Nothing to repeat` — out of a function whose whole
+ * contract is that a pattern which will not compile is *returned* rather than
+ * thrown, because a throw here is how a caller ends up in a `catch` that returns
+ * `[]`. Escaping a metacharacter is the one thing a caller does when it means a
+ * literal, which is to say the failure sat exactly on the path a quoter uses.
+ */
+const GLOB_SPECIALS = /[.*+?^${}()|[\]\\]/g;
 
 /**
  * Compile a glob into a line matcher, refusing the ones ripgrep refuses.
@@ -254,8 +268,16 @@ export function compileGlob(pattern: string): CompiledPattern {
   if (depth > 0) {
     return { ok: false, error: `error parsing glob '${pattern}': unclosed alternate group; missing '}' (maybe escape '{' with '\\{'?)` };
   }
-  const re = new RegExp(`^${out}$`);
-  return { ok: true, matches: (line: string) => re.test(line) };
+  // Belt and braces on the same rule: whatever the loop above builds, a pattern
+  // this function cannot compile leaves as an error value. The escape bug proved
+  // the loop can be wrong, and a throw from here reaches a caller that has no
+  // unread subject to report — it becomes an empty result somewhere up the stack.
+  try {
+    const re = new RegExp(`^${out}$`);
+    return { ok: true, matches: (line: string) => re.test(line) };
+  } catch (err) {
+    return { ok: false, error: `error parsing glob '${pattern}': ${(err as Error).message}` };
+  }
 }
 
 /** One question asked of one subject: which file, under which name, with which pattern. */
