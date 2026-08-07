@@ -3061,7 +3061,18 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2326 tests across 181 files, verified 2026-08-07 (`npx vitest run`,
+> *Today:* **met** — 2344 tests across 183 files, verified 2026-08-07 (`npx vitest run`,
+> after the disposition ledger landed: `ost_next_work` has a notion of *closed* for the
+> first time, so work a pass settled stops coming back on the next list. One append-only
+> sidecar entry type carries all three faces — an evidence id acknowledged, a solution
+> shipped, an opportunity served by its children — and every bucket reads it through one
+> call that takes a subject and nothing else, so no bucket can grow a rule of its own
+> (`src/knowledge/dispositions.ts`, `test/ost/disposition-ledger-shape.test.ts`). The
+> write is `ost-agent dispose`, a human's command and deliberately not on the agent's
+> surface: this is the one write that removes work by asserting rather than by doing, and
+> whether a pass should ever hold it is an open question about operators. Every withheld
+> item is named and counted on the response that withheld it, so a `done` reached by
+> settling is legible as such. Previously 2326 tests across 181 files, verified 2026-08-07,
 > after the required-tool precondition landed: the skill now declares `required-tools`
 > beside `allowed-tools`, and a pass whose surface is missing one of the three it cannot
 > work without refuses at second zero rather than discovering the gap at the call that

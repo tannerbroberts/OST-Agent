@@ -28,6 +28,7 @@ import { hasRecordedResult } from "../eval/evidence-debt.js";
 import { solutionsMissingInstruments } from "../eval/buildable.js";
 import { DATA_FRAME, frameData } from "../security/framing.js";
 import { latestAsk, readAskLedger } from "../knowledge/asks.js";
+import { omitDisposed, readDispositionLedger, type Withheld } from "../knowledge/dispositions.js";
 
 export interface UnmappedEvidence {
   id: string;
@@ -296,6 +297,29 @@ export interface NextWork {
    * leaves a denominator silently is how a count starts lying. May be capped.
    */
   retiredFromDuplicateScan: RetiredNode[];
+  /**
+   * Every item a live disposition kept off a list above, with the reason and the
+   * name of whoever settled it.
+   *
+   * **Reported for the same reason `truncated` is, and it is the more important of
+   * the two.** A cap hides work until the next response; a disposition hides it
+   * until somebody reverses it, and the whole hazard of this mechanism is that work
+   * can be removed by asserting a sentence about it rather than by doing anything
+   * checkable. A dismissal nobody can see is an amnesty, so every one of them rides
+   * on the response that acted on it and is counted in the summary — including on a
+   * `done` tree, where these are the only items that were not listed.
+   *
+   * Which lists consult the ledger: the four that constitute `done` and have no
+   * other way to be cleared. `hygieneIssues` does not, deliberately — `ost_annotate`
+   * already clears a hygiene issue, and a second clear path is a second answer to
+   * one question, which is the R4 defect this file exists downstream of.
+   * `openUnknowns` and `assumptionWork` do not either: neither blocks `done`, and
+   * both already leave their list when the thing they name actually happens (a
+   * resolution is declared, a result is recorded).
+   *
+   * May be capped; see {@link NextWork.truncated}.
+   */
+  withheldByDisposition: Withheld[];
   /**
    * Every list above that was shortened, with the count it was shortened from.
    *
@@ -737,39 +761,71 @@ export function computeNextWork(vault: Vault, dir: string, min: number, now: () 
    * ONE read of the evidence directory, reused below for citation resolution — a second
    * read is a second answer, and these two have to agree by construction.
    */
+  /*
+   * The disposition ledger, read ONCE for every bucket below.
+   *
+   * This is what "closed" means here — the notion this tool never had, which is why
+   * work a previous pass settled came back on the next list and each bucket leaked
+   * its own way. Read from the same `dir` as the evidence and the ask ledger, and
+   * consulted through exactly one call (`omitDisposed`), so no bucket can grow a
+   * rule of its own. Every one of them passes the subject its own list is keyed by —
+   * an evidence `id` for one, a node title for the other three — and that is the
+   * only difference between the three faces.
+   */
+  const dispositions = readDispositionLedger(dir);
+  const withheld: Withheld[] = [];
+
   const evidence = readEvidence(dir);
   const storedEvidenceIds = new Set(evidence.map((e) => e.id));
   const citedSources = new Set(tree.map((n) => n.source).filter((s): s is string => !!s));
-  const allUnmappedEvidence: UnmappedEvidence[] = evidence
-    .filter((e) => !citedSources.has(e.id))
-    .map((e) => ({
-      id: e.id,
-      source: e.source,
-      title: e.title,
-      excerpt: frameData(e.body.slice(0, EXCERPT_CHARS)),
-      bodyChars: e.body.length,
-      actor: e.actor,
-    }));
+  const allUnmappedEvidence: UnmappedEvidence[] = omitDisposed(
+    evidence
+      .filter((e) => !citedSources.has(e.id))
+      .map((e) => ({
+        id: e.id,
+        source: e.source,
+        title: e.title,
+        excerpt: frameData(e.body.slice(0, EXCERPT_CHARS)),
+        bodyChars: e.body.length,
+        actor: e.actor,
+      })),
+    (e) => e.id,
+    dispositions,
+    "unmappedEvidence",
+    withheld,
+  );
 
-  const allUnderservedOpportunities: UnderservedOpportunity[] = tree
-    .filter((n) => n.layer === "Opportunity")
-    .map((o) => {
-      const existing = childrenOfLayer(o, index, "Solution");
-      // `solutions` is the real count and `existingSolutions` a sample of it —
-      // the one comparison that matters (`solutions < min`) is made on the count.
-      return {
-        title: o.title,
-        solutions: existing.length,
-        needed: min,
-        existingSolutions: existing.slice(0, MAX_LISTED_CHILDREN),
-      };
-    })
-    .filter((o) => o.solutions < min);
+  const allUnderservedOpportunities: UnderservedOpportunity[] = omitDisposed(
+    tree
+      .filter((n) => n.layer === "Opportunity")
+      .map((o) => {
+        const existing = childrenOfLayer(o, index, "Solution");
+        // `solutions` is the real count and `existingSolutions` a sample of it —
+        // the one comparison that matters (`solutions < min`) is made on the count.
+        return {
+          title: o.title,
+          solutions: existing.length,
+          needed: min,
+          existingSolutions: existing.slice(0, MAX_LISTED_CHILDREN),
+        };
+      })
+      .filter((o) => o.solutions < min),
+    (o) => o.title,
+    dispositions,
+    "underservedOpportunities",
+    withheld,
+  );
 
-  const allSolutionsMissingAssumptions: BareSolution[] = tree
-    .filter((n) => n.layer === "Solution")
-    .filter((s) => testsUnderSolution(s, index).length === 0)
-    .map((s) => ({ title: s.title, opportunity: firstOpportunityParent.get(s.title) ?? null }));
+  const allSolutionsMissingAssumptions: BareSolution[] = omitDisposed(
+    tree
+      .filter((n) => n.layer === "Solution")
+      .filter((s) => testsUnderSolution(s, index).length === 0)
+      .map((s) => ({ title: s.title, opportunity: firstOpportunityParent.get(s.title) ?? null })),
+    (s) => s.title,
+    dispositions,
+    "solutionsMissingAssumptions",
+    withheld,
+  );
 
   // The ledger is read once, here, from the same `dir` the evidence came from —
   // and the node lists it returns are computed over the census above, so the two
@@ -817,7 +873,13 @@ export function computeNextWork(vault: Vault, dir: string, min: number, now: () 
   const unmappedEvidence = capList(allUnmappedEvidence, "unmappedEvidence", truncated);
   const underservedOpportunities = capList(allUnderservedOpportunities, "underservedOpportunities", truncated);
   const solutionsMissingAssumptions = capList(allSolutionsMissingAssumptions, "solutionsMissingAssumptions", truncated);
-  const allSolutionsMissingInstruments = solutionsMissingInstruments(tree);
+  const allSolutionsMissingInstruments = omitDisposed(
+    solutionsMissingInstruments(tree),
+    (title) => title,
+    dispositions,
+    "solutionsMissingInstruments",
+    withheld,
+  );
   const solutionsMissingInstrumentsList = capList(
     allSolutionsMissingInstruments,
     "solutionsMissingInstruments",
@@ -829,6 +891,7 @@ export function computeNextWork(vault: Vault, dir: string, min: number, now: () 
   const hygieneIssues = capList(hygiene.issues, "hygieneIssues", truncated, MAX_ITEMS_PER_LIST, hygiene.total);
   const openUnknowns = capList(allOpenUnknowns, "openUnknowns", truncated);
   const retiredFromDuplicateScan = capList(allRetired, "retiredFromDuplicateScan", truncated);
+  const withheldByDisposition = capList(withheld, "withheldByDisposition", truncated);
   // Each lane's queue is capped the same way and names what it hid. On a done
   // tree these can be the only capped lists, which is why the truncation note is
   // now appended in every summary branch below and not only when there is
@@ -861,6 +924,21 @@ export function computeNextWork(vault: Vault, dir: string, min: number, now: () 
   if (allOpenUnknowns.length)
     parts.push(`${allOpenUnknowns.length} open unknown(s) → explore (does not block done)`);
 
+  // Every dismissal is named, in every branch, including the done one — a `done`
+  // reached by settling twelve items is a different fact from a `done` reached by
+  // doing them, and the summary is where an operator reads which one this is.
+  // Counted over the full set, like every other count here, and the oldest lead
+  // because a disposition nobody has revisited is the one most likely to be wrong.
+  const dispositionNote = withheld.length
+    ? ` ${withheld.length} item(s) were withheld from the lists above by a live disposition and are NOT part of the counts: ` +
+      withheldByDisposition.map((w) => `"${w.subject}" (${w.reason} — ${w.by})`).join("; ") +
+      `${withheld.length > withheldByDisposition.length ? ", …" : ""}. ` +
+      "Each one is work somebody settled by asserting rather than by doing; " +
+      '`ost-agent dispositions` lists them all and `ost-agent dispose "<subject>" --reopen` puts one back.'
+    : "";
+  const damagedLedgerNote = dispositions.damaged
+    ? ` ${dispositions.damaged} disposition ledger line(s) would not parse and were dropped; a dropped line closes nothing, so any subject they named is listed above.`
+    : "";
   const truncationNote = truncated.length
     ? ` Lists are capped at ${MAX_ITEMS_PER_LIST}: ` +
       truncated.map((t) => `${t.list} showing ${t.shown} of ${t.total} (${t.hidden} not listed)`).join("; ") +
@@ -911,9 +989,9 @@ export function computeNextWork(vault: Vault, dir: string, min: number, now: () 
   // can be the only capped lists, and a cap that named nothing would read as amnesty.
   const summary = done
     ? allOpenUnknowns.length
-      ? `Tree is fully maintained — nothing to do. ${allOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${askNote}${truncationNote}${retirementNote}`
-      : `Tree is fully maintained — nothing to do.${assumptionNote}${askNote}${truncationNote}${retirementNote}`
-    : `Outstanding: ${parts.join("; ")}.${assumptionNote}${askNote}${truncationNote}${excerptNote}${retirementNote}`;
+      ? `Tree is fully maintained — nothing to do. ${allOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${askNote}${dispositionNote}${damagedLedgerNote}${truncationNote}${retirementNote}`
+      : `Tree is fully maintained — nothing to do.${assumptionNote}${askNote}${dispositionNote}${damagedLedgerNote}${truncationNote}${retirementNote}`
+    : `Outstanding: ${parts.join("; ")}.${assumptionNote}${askNote}${dispositionNote}${damagedLedgerNote}${truncationNote}${excerptNote}${retirementNote}`;
 
   return {
     framing: DATA_FRAME,
@@ -928,6 +1006,7 @@ export function computeNextWork(vault: Vault, dir: string, min: number, now: () 
     hygieneIssues,
     openUnknowns,
     retiredFromDuplicateScan,
+    withheldByDisposition,
     truncated,
   };
 }
