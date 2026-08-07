@@ -15,6 +15,7 @@
  *   ost-agent buildable ["<solution>"]        is it defined well enough to build, and against what command?
  *   ost-agent buildable "<s>" --repo DIR      …and is the recorded red still red, or was the ticket spent?
  *   ost-agent stranded [--also DIR]           evidence no node cites, split by which fix would clear it
+ *   ost-agent search "<glob>" [--vault DIR]   grep the node bodies; a subject it could not read is never a zero
  *   ost-agent capability [--repo DIR]         what each builder can do, read off the commits already written
  *   ost-agent preflight [--transcripts DIR]   did the callers whose calls failed already know they were unsure?
  *   ost-agent channels [--vault DIR]          every drop folder, its last delivery, and what has gone silent
@@ -49,6 +50,7 @@ import { buildableSolutions, buildPermit, confirmPermit, testsAwaitingVerificati
 import { formatCensus, reconcileWithGit, reconcileWithUsage } from "../ost/census.js";
 import { formatStrandedCensus, strandedEvidenceCensus } from "../ost/stranded.js";
 import { blindnessCensus, formatBlindnessCensus, readSweepRuns, recordSweepRun } from "../ost/sweep.js";
+import { formatSearchTotal, searchSubjects, SearchTotal, unread, type LineHit } from "../ost/search.js";
 import { committedCapabilityProfile, formatCapabilityProfile } from "../product/capability.js";
 import { readResourceManifest } from "../product/manifest.js";
 import { formatPriorityOrder, rankBuildableWork } from "../product/planner.js";
@@ -652,6 +654,68 @@ program
       return;
     }
     console.log(text);
+  });
+
+program
+  .command("search")
+  .argument("<glob>", "glob matched against each line of every node body — `*` and `?` and `{a,b}`")
+  .description("grep the node bodies, reporting what it could not read rather than counting it as zero")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((glob: string, opts: { vault: string }) => {
+    const ctx = buildPassContext(opts.vault);
+    const census = ctx.vault.readTreeCensus();
+
+    // The census already knows which files it could not parse, and those are
+    // unread subjects rather than absent ones. Before this they left the walk as
+    // a silently smaller denominator, which is the same false zero one layer
+    // down: a search over a tree with an unparseable node reported hits over the
+    // nodes that happened to parse and said nothing about the one it never saw.
+    const dropped = SearchTotal.over<LineHit>(
+      census.unreadable.map((u) => unread<LineHit>(u.file, "unreadable", u.reason)),
+    );
+    const combined = SearchTotal.merge(
+      dropped,
+      searchSubjects(
+        census.nodes.map((n) => ({
+          subject: n.title,
+          file: path.join(ctx.vault.root, `${n.title}.md`),
+          pattern: glob,
+        })),
+      ),
+    );
+
+    // The count, obtained the only way there is: by saying what happens to the
+    // subjects that went unread. Here they are reported beside it rather than
+    // folded into it, which is what `formatSearchTotal` prints below.
+    const hits = combined.resolve<number>({
+      whenComplete: (found) => found.length,
+      whenUnread: (_unread, found) => found.length,
+    });
+
+    try {
+      recordSweepRun(ctx.dir, {
+        sweep: "search",
+        at: new Date().toISOString(),
+        subject: combined.toSweepSubject(),
+        findings: hits,
+        outcome: combined.blind ? "blind" : hits > 0 ? "findings" : "clean",
+      });
+    } catch (e) {
+      console.error(`(this run was not recorded: ${e instanceof Error ? e.message : String(e)})`);
+    }
+
+    const text = formatSearchTotal(`search ${JSON.stringify(glob)}`, combined);
+    // A search that read nothing exits non-zero for the same reason a blind sweep
+    // does: it has no denominator to have found nothing over.
+    if (combined.blind) {
+      console.error(text);
+      process.exitCode = 1;
+      return;
+    }
+    console.log(text);
+    for (const s of combined.examinedSubjects) {
+      for (const h of s.hits) console.log(`  ${h.subject}:${h.line}: ${h.text.trim()}`);
+    }
   });
 
 program

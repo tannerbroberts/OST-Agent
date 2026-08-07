@@ -982,7 +982,7 @@ var require_command = __commonJS({
     var EventEmitter2 = __require("node:events").EventEmitter;
     var childProcess = __require("node:child_process");
     var path41 = __require("node:path");
-    var fs38 = __require("node:fs");
+    var fs39 = __require("node:fs");
     var process3 = __require("node:process");
     var { Argument: Argument2, humanReadableArgName } = require_argument();
     var { CommanderError: CommanderError2 } = require_error();
@@ -1915,10 +1915,10 @@ Expecting one of '${allowedValues.join("', '")}'`);
         const sourceExt = [".js", ".ts", ".tsx", ".mjs", ".cjs"];
         function findFile(baseDir, baseName) {
           const localBin = path41.resolve(baseDir, baseName);
-          if (fs38.existsSync(localBin)) return localBin;
+          if (fs39.existsSync(localBin)) return localBin;
           if (sourceExt.includes(path41.extname(baseName))) return void 0;
           const foundExt = sourceExt.find(
-            (ext) => fs38.existsSync(`${localBin}${ext}`)
+            (ext) => fs39.existsSync(`${localBin}${ext}`)
           );
           if (foundExt) return `${localBin}${foundExt}`;
           return void 0;
@@ -1930,7 +1930,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
         if (this._scriptPath) {
           let resolvedScriptPath;
           try {
-            resolvedScriptPath = fs38.realpathSync(this._scriptPath);
+            resolvedScriptPath = fs39.realpathSync(this._scriptPath);
           } catch (err) {
             resolvedScriptPath = this._scriptPath;
           }
@@ -9919,14 +9919,14 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs38 = this.flowScalar(this.type);
+              const fs39 = this.flowScalar(this.type);
               if (atNextItem || it.value) {
-                map.items.push({ start, key: fs38, sep: [] });
+                map.items.push({ start, key: fs39, sep: [] });
                 this.onKeyLine = true;
               } else if (it.sep) {
-                this.stack.push(fs38);
+                this.stack.push(fs39);
               } else {
-                Object.assign(it, { key: fs38, sep: [] });
+                Object.assign(it, { key: fs39, sep: [] });
                 this.onKeyLine = true;
               }
               return;
@@ -10054,13 +10054,13 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs38 = this.flowScalar(this.type);
+              const fs39 = this.flowScalar(this.type);
               if (!it || it.value)
-                fc.items.push({ start: [], key: fs38, sep: [] });
+                fc.items.push({ start: [], key: fs39, sep: [] });
               else if (it.sep)
-                this.stack.push(fs38);
+                this.stack.push(fs39);
               else
-                Object.assign(it, { key: fs38, sep: [] });
+                Object.assign(it, { key: fs39, sep: [] });
               return;
             }
             case "flow-map-end":
@@ -13744,7 +13744,7 @@ var require_parse = __commonJS({
 var require_gray_matter = __commonJS({
   "node_modules/gray-matter/index.js"(exports2, module2) {
     "use strict";
-    var fs38 = __require("fs");
+    var fs39 = __require("fs");
     var sections = require_section_matter();
     var defaults = require_defaults();
     var stringify = require_stringify2();
@@ -13828,7 +13828,7 @@ var require_gray_matter = __commonJS({
       return stringify(file, data, options2);
     };
     matter4.read = function(filepath, options2) {
-      const str2 = fs38.readFileSync(filepath, "utf8");
+      const str2 = fs39.readFileSync(filepath, "utf8");
       const file = matter4(str2, options2);
       file.path = filepath;
       return file;
@@ -26906,12 +26906,12 @@ var require_dist4 = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs38, exportName) {
+    function addFormats(ajv, list, fs39, exportName) {
       var _a2;
       var _b;
       (_a2 = (_b = ajv.opts.code).formats) !== null && _a2 !== void 0 ? _a2 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs38[f]);
+        ajv.addFormat(f, fs39[f]);
     }
     module2.exports = exports2 = formatsPlugin;
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -42730,6 +42730,145 @@ function formatStrandedCensus(census) {
   return lines.join("\n");
 }
 
+// src/ost/search.ts
+import fs24 from "node:fs";
+function examined(subject, hits) {
+  return { read: true, subject, hits };
+}
+function unread(subject, cause, detail2) {
+  return { read: false, subject, cause, detail: detail2 };
+}
+var SearchTotal = class _SearchTotal {
+  #outcomes;
+  constructor(outcomes) {
+    this.#outcomes = outcomes;
+  }
+  /** Gather outcomes into a total. The one constructor. */
+  static over(outcomes) {
+    return new _SearchTotal([...outcomes]);
+  }
+  /**
+   * One total over several searches, with both denominators added up.
+   *
+   * Exists so a caller that runs two searches is not the place the distinction
+   * gets lost. Concatenating two `resolve` results by hand is precisely the
+   * boundary the assumption underneath this module says the marker dies at: the
+   * obvious way to write it drops the unread half of each.
+   */
+  static merge(...totals) {
+    return new _SearchTotal(totals.flatMap((t2) => [...t2.#outcomes]));
+  }
+  /** How many subjects the search was pointed at. The denominator. */
+  get offered() {
+    return this.#outcomes.length;
+  }
+  /** How many of them it actually got as far as examining. */
+  get examined() {
+    return this.#outcomes.reduce((n, o2) => o2.read ? n + 1 : n, 0);
+  }
+  /**
+   * The subjects it could not examine, each with its reason.
+   *
+   * Exposed directly, unlike the hits, because the asymmetry is the point: a
+   * consumer that never looks at this cannot obtain a count either, and a
+   * consumer that formats a summary has the reasons in hand without asking.
+   */
+  get unread() {
+    return this.#outcomes.filter((o2) => !o2.read);
+  }
+  /** Per-subject detail for the subjects that were read. */
+  get examinedSubjects() {
+    return this.#outcomes.filter((o2) => o2.read);
+  }
+  /** True when nothing was read at all — the case {@link sweepReport} calls blind. */
+  get blind() {
+    return this.offered > 0 && this.examined === 0;
+  }
+  /**
+   * Get something out of the search, having said what happens to the unread.
+   *
+   * This is the whole mechanism. `resolve` is the only member that yields the
+   * hits, and it cannot be called without supplying `whenUnread`, so the
+   * flattening path is absent rather than discouraged. The convention version of
+   * this rule already failed here once — the wrapped-wikilink guard exists
+   * because asking people to keep links on one line did not work.
+   */
+  resolve(handlers) {
+    const hits = this.examinedSubjects.flatMap((s) => [...s.hits]);
+    const unread2 = this.unread;
+    const examined2 = this.examined;
+    return unread2.length === 0 ? handlers.whenComplete(hits, examined2) : handlers.whenUnread(unread2, hits, examined2);
+  }
+  /** The offered/read pair, for {@link sweepReport} and the sweep ledger. */
+  toSweepSubject() {
+    return { offered: this.offered, read: this.examined };
+  }
+};
+function formatSearchTotal(name, total) {
+  return total.resolve({
+    whenComplete: (hits, examined2) => `${name}: ${hits.length} hit(s) over ${examined2} of ${total.offered} subject(s) examined, 0 unread.`,
+    whenUnread: (unread2, hits, examined2) => {
+      const head = total.blind ? `${name}: UNREAD \u2014 0 of ${total.offered} subject(s) examined, ${unread2.length} unread. This search found nothing because it ran against nothing.` : `${name}: ${hits.length} hit(s) over ${examined2} of ${total.offered} subject(s) examined, ${unread2.length} unread \u2014 the hit count is short by whatever the ${unread2.length} unread subject(s) hold.`;
+      return [head, ...unread2.map((u) => `  \u2013 unread ${u.subject} (${u.cause}): ${u.detail}`)].join("\n");
+    }
+  });
+}
+var GLOB_SPECIALS = /[.+^$()|[\]\\]/g;
+function compileGlob(pattern) {
+  let out = "";
+  let depth = 0;
+  for (let i2 = 0; i2 < pattern.length; i2++) {
+    const c3 = pattern[i2];
+    if (c3 === "\\" && i2 + 1 < pattern.length) {
+      out += pattern[++i2].replace(GLOB_SPECIALS, "\\$&");
+      continue;
+    }
+    if (c3 === "*") out += ".*";
+    else if (c3 === "?") out += ".";
+    else if (c3 === "{") {
+      depth++;
+      out += "(?:";
+    } else if (c3 === "}") {
+      if (depth === 0) {
+        return { ok: false, error: `error parsing glob '${pattern}': unopened alternate group; missing '{' (maybe escape '}' with '\\}'?)` };
+      }
+      depth--;
+      out += ")";
+    } else if (c3 === "," && depth > 0) out += "|";
+    else out += c3.replace(GLOB_SPECIALS, "\\$&");
+  }
+  if (depth > 0) {
+    return { ok: false, error: `error parsing glob '${pattern}': unclosed alternate group; missing '}' (maybe escape '{' with '\\{'?)` };
+  }
+  const re = new RegExp(`^${out}$`);
+  return { ok: true, matches: (line) => re.test(line) };
+}
+var defaultRead = (file) => fs24.readFileSync(file, "utf8");
+function causeOfReadFailure(err) {
+  const code = err?.code;
+  return code === "EACCES" || code === "EPERM" || code === "EISDIR" ? "denied" : "unreadable";
+}
+function searchSubjects(requests, opts = {}) {
+  const readFile = opts.readFile ?? defaultRead;
+  return SearchTotal.over(
+    requests.map((req) => {
+      const compiled = compileGlob(req.pattern);
+      if (!compiled.ok) return unread(req.subject, "malformed-pattern", compiled.error);
+      let raw;
+      try {
+        raw = readFile(req.file);
+      } catch (err) {
+        return unread(req.subject, causeOfReadFailure(err), err.message);
+      }
+      const hits = [];
+      raw.split("\n").forEach((text2, i2) => {
+        if (compiled.matches(text2)) hits.push({ subject: req.subject, line: i2 + 1, text: text2 });
+      });
+      return examined(req.subject, hits);
+    })
+  );
+}
+
 // src/product/capability.ts
 import path25 from "node:path";
 var CLEAR_COMMIT_SHARE = 0.7;
@@ -42964,7 +43103,7 @@ function formatCapabilityProfile(report) {
 
 // src/product/manifest.ts
 var import_yaml2 = __toESM(require_dist(), 1);
-import fs24 from "node:fs";
+import fs25 from "node:fs";
 import path26 from "node:path";
 var MANIFEST_FILENAME = "ost.resources.yaml";
 function manifestPath(vaultDir) {
@@ -43101,10 +43240,10 @@ function summarizeDeclared(m, id) {
 }
 function readResourceManifest(vaultDir) {
   const p2 = manifestPath(vaultDir);
-  if (!fs24.existsSync(p2)) return { manifest: EMPTY_MANIFEST };
+  if (!fs25.existsSync(p2)) return { manifest: EMPTY_MANIFEST };
   let raw;
   try {
-    raw = (0, import_yaml2.parse)(fs24.readFileSync(p2, "utf8")) ?? {};
+    raw = (0, import_yaml2.parse)(fs25.readFileSync(p2, "utf8")) ?? {};
   } catch (e) {
     return {
       manifest: EMPTY_MANIFEST,
@@ -43264,7 +43403,7 @@ function formatPriorityOrder(order) {
 }
 
 // src/telemetry/preflight.ts
-import fs25 from "node:fs";
+import fs26 from "node:fs";
 import path27 from "node:path";
 var UNCERTAINTY_RULE = {
   /**
@@ -43538,7 +43677,7 @@ function preflightUncertaintyCensus(events, sessions) {
 function readUsageEvents(vaultDir) {
   let text2;
   try {
-    text2 = fs25.readFileSync(usageLogPath(vaultDir), "utf8");
+    text2 = fs26.readFileSync(usageLogPath(vaultDir), "utf8");
   } catch {
     return [];
   }
@@ -43555,14 +43694,14 @@ function readUsageEvents(vaultDir) {
 function readTranscriptSessions(dir) {
   let names;
   try {
-    names = fs25.readdirSync(dir).filter((n) => n.endsWith(".jsonl")).sort();
+    names = fs26.readdirSync(dir).filter((n) => n.endsWith(".jsonl")).sort();
   } catch {
     return [];
   }
   const sessions = [];
   for (const name of names) {
     try {
-      sessions.push({ id: name.replace(/\.jsonl$/, ""), jsonl: fs25.readFileSync(path27.join(dir, name), "utf8") });
+      sessions.push({ id: name.replace(/\.jsonl$/, ""), jsonl: fs26.readFileSync(path27.join(dir, name), "utf8") });
     } catch {
     }
   }
@@ -43610,12 +43749,12 @@ function formatPreflightCensus(census) {
       lines.push(`      no hedge, no check, no read, no question in the window${blind}`);
     }
   }
-  const unread = census.readings.filter((r2) => r2.unread);
-  if (unread.length) {
+  const unread2 = census.readings.filter((r2) => r2.unread);
+  if (unread2.length) {
     lines.push("");
-    lines.push(`Unread \u2014 no session record survives for these ${unread.length} failure(s):`);
+    lines.push(`Unread \u2014 no session record survives for these ${unread2.length} failure(s):`);
     const byTool = /* @__PURE__ */ new Map();
-    for (const r2 of unread) byTool.set(`${r2.tool} (${r2.surface})`, (byTool.get(`${r2.tool} (${r2.surface})`) ?? 0) + 1);
+    for (const r2 of unread2) byTool.set(`${r2.tool} (${r2.surface})`, (byTool.get(`${r2.tool} (${r2.surface})`) ?? 0) + 1);
     for (const [tool2, n] of [...byTool.entries()].sort((a, b2) => b2[1] - a[1])) lines.push(`  ${tool2} \xD7${n}`);
   }
   lines.push("");
@@ -43626,7 +43765,7 @@ function formatPreflightCensus(census) {
 }
 
 // src/adapters/friction.ts
-import fs26 from "node:fs";
+import fs27 from "node:fs";
 import path28 from "node:path";
 var FRICTION_KINDS = ["blocked", "guessed", "unclear-rule", "missing-affordance", "slow"];
 var MAX_NOTE_CHARS = 500;
@@ -43640,7 +43779,7 @@ function slug(note) {
 }
 function uniquePath(dir, base) {
   let candidate = path28.join(dir, `${base}.md`);
-  for (let n = 2; fs26.existsSync(candidate); n++) {
+  for (let n = 2; fs27.existsSync(candidate); n++) {
     candidate = path28.join(dir, `${base}-${n}.md`);
   }
   return candidate;
@@ -43659,7 +43798,7 @@ function fileFriction(vaultDir, filing) {
   if (!note) throw new Error("a friction filing needs a note \u2014 one line describing what went wrong");
   const dir = path28.resolve(vaultDir);
   const inboxDir = frictionDir(dir);
-  fs26.mkdirSync(inboxDir, { recursive: true });
+  fs27.mkdirSync(inboxDir, { recursive: true });
   const at = filing.at ?? (/* @__PURE__ */ new Date()).toISOString();
   const day = at.slice(0, 10);
   const context = filing.context ? clean(filing.context, MAX_CONTEXT_CHARS) : "";
@@ -43679,7 +43818,7 @@ function fileFriction(vaultDir, filing) {
     ""
   ].join("\n");
   const target = uniquePath(inboxDir, `${day}-friction-${slug(note)}`);
-  fs26.writeFileSync(target, body, "utf8");
+  fs27.writeFileSync(target, body, "utf8");
   return target;
 }
 
@@ -46100,7 +46239,7 @@ function decodeEntities(s) {
 }
 
 // src/product/repo.ts
-import fs27 from "node:fs";
+import fs28 from "node:fs";
 import path29 from "node:path";
 var MAX_FILE_CHARS = 2e4;
 var MAX_LIST_ENTRIES = 500;
@@ -46138,7 +46277,7 @@ function readProductRepo(repos, input) {
       "no product repos configured \u2014 add local repo paths under `product.repos` in ost.config.yaml so the agent can read what the product is"
     );
   }
-  const roots = repos.map((r2) => fs27.realpathSync(path29.resolve(r2)));
+  const roots = repos.map((r2) => fs28.realpathSync(path29.resolve(r2)));
   let root;
   if (input.repo) {
     const found = roots.find((r2) => path29.basename(r2) === input.repo || r2 === path29.resolve(input.repo));
@@ -46165,7 +46304,7 @@ function readProductRepo(repos, input) {
   refuseVaultSidecar(joined, rel);
   let real;
   try {
-    real = fs27.realpathSync(joined);
+    real = fs28.realpathSync(joined);
   } catch {
     throw new Error(missingPathMessage(roots, root, rel));
   }
@@ -46174,12 +46313,12 @@ function readProductRepo(repos, input) {
   }
   refuseVaultSidecar(real, rel);
   const repoName = path29.basename(root);
-  const stat = fs27.statSync(real);
+  const stat = fs28.statSync(real);
   if (stat.isDirectory()) {
-    const entries = fs27.readdirSync(real, { withFileTypes: true }).filter((e) => !SKIP_DIRS.has(e.name) && !isSidecarName(e.name)).sort((a, b2) => a.name.localeCompare(b2.name)).slice(0, MAX_LIST_ENTRIES).map((e) => ({ name: e.name, type: e.isDirectory() ? "dir" : "file" }));
+    const entries = fs28.readdirSync(real, { withFileTypes: true }).filter((e) => !SKIP_DIRS.has(e.name) && !isSidecarName(e.name)).sort((a, b2) => a.name.localeCompare(b2.name)).slice(0, MAX_LIST_ENTRIES).map((e) => ({ name: e.name, type: e.isDirectory() ? "dir" : "file" }));
     return { framing: DATA_FRAME, kind: "listing", repo: repoName, path: rel, entries };
   }
-  const buf = fs27.readFileSync(real);
+  const buf = fs28.readFileSync(real);
   if (buf.subarray(0, 8192).includes(0)) {
     throw new Error(`"${rel}" looks binary \u2014 only text files can be read`);
   }
@@ -47222,7 +47361,7 @@ function enqueueCommit(dir, message) {
 }
 
 // src/mcp/bootstrap.ts
-import fs28 from "node:fs";
+import fs29 from "node:fs";
 import path30 from "node:path";
 
 // src/mcp/setup.ts
@@ -47253,7 +47392,7 @@ function configProblemGuidance(dir, cause) {
 // src/mcp/bootstrap.ts
 function vaultReadiness(ctx) {
   const vault = ctx.dir;
-  if (!fs28.existsSync(path30.join(vault, ".git")) || !fs28.existsSync(configPath(vault))) {
+  if (!fs29.existsSync(path30.join(vault, ".git")) || !fs29.existsSync(configPath(vault))) {
     const nextStep = initCommand(vault);
     return {
       ready: false,
@@ -47453,7 +47592,7 @@ function createLazyOstMcpServer(vaultDir) {
 }
 
 // src/security/allowlist-generator.ts
-import fs29 from "node:fs";
+import fs30 from "node:fs";
 var AGENT_SESSION_MARKERS = [
   "CLAUDECODE",
   "CLAUDE_CODE_ENTRYPOINT",
@@ -47551,7 +47690,7 @@ function runAllowlistGenerator(opts) {
   const env = opts.env ?? process.env;
   let skill = "";
   if (agentSessionMarker(env) === null) {
-    if (!fs29.existsSync(opts.skillPath)) {
+    if (!fs30.existsSync(opts.skillPath)) {
       return {
         exitCode: 1,
         report: `REFUSED: no skill file at ${opts.skillPath}. Nothing was written.`,
@@ -47562,11 +47701,11 @@ function runAllowlistGenerator(opts) {
         }
       };
     }
-    skill = fs29.readFileSync(opts.skillPath, "utf8");
+    skill = fs30.readFileSync(opts.skillPath, "utf8");
   }
   let settings = null;
-  if (fs29.existsSync(opts.settingsPath)) {
-    const raw = fs29.readFileSync(opts.settingsPath, "utf8");
+  if (fs30.existsSync(opts.settingsPath)) {
+    const raw = fs30.readFileSync(opts.settingsPath, "utf8");
     try {
       settings = JSON.parse(raw);
     } catch (e) {
@@ -47587,13 +47726,13 @@ function runAllowlistGenerator(opts) {
   }
   const next = { ...settings ?? {} };
   next.permissions = { ...settings?.permissions ?? {}, allow: decision.allow };
-  fs29.writeFileSync(opts.settingsPath, `${JSON.stringify(next, null, 2)}
+  fs30.writeFileSync(opts.settingsPath, `${JSON.stringify(next, null, 2)}
 `, "utf8");
   return { exitCode: 0, report: decision.message, decision };
 }
 
 // src/loop/corrections.ts
-import fs30 from "node:fs";
+import fs31 from "node:fs";
 import path32 from "node:path";
 var LEDGER_FILE = "corrections.json";
 var LEDGER_VERSION = 1;
@@ -47680,9 +47819,9 @@ function emptyCorrectionsLedger() {
 }
 function readLedger(stateDir2) {
   const p2 = ledgerPath(stateDir2);
-  if (!fs30.existsSync(p2)) return emptyCorrectionsLedger();
+  if (!fs31.existsSync(p2)) return emptyCorrectionsLedger();
   try {
-    const parsed = JSON.parse(fs30.readFileSync(p2, "utf8"));
+    const parsed = JSON.parse(fs31.readFileSync(p2, "utf8"));
     if (parsed.version !== LEDGER_VERSION) return emptyCorrectionsLedger();
     return {
       version: LEDGER_VERSION,
@@ -47696,8 +47835,8 @@ function readLedger(stateDir2) {
 }
 function writeLedger(stateDir2, ledger) {
   const dir = path32.resolve(stateDir2);
-  fs30.mkdirSync(dir, { recursive: true });
-  fs30.writeFileSync(ledgerPath(dir), JSON.stringify(ledger, null, 2));
+  fs31.mkdirSync(dir, { recursive: true });
+  fs31.writeFileSync(ledgerPath(dir), JSON.stringify(ledger, null, 2));
 }
 function foldSightings(ledger, sightings) {
   const byPermitted = /* @__PURE__ */ new Map();
@@ -47738,7 +47877,7 @@ function harvestableSessions(sessionsDir, ledger, opts) {
   const dir = path32.resolve(sessionsDir);
   let names;
   try {
-    names = fs30.readdirSync(dir);
+    names = fs31.readdirSync(dir);
   } catch {
     return [];
   }
@@ -47752,7 +47891,7 @@ function harvestableSessions(sessionsDir, ledger, opts) {
     const file = path32.join(dir, name);
     let mtimeMs;
     try {
-      mtimeMs = fs30.statSync(file).mtimeMs;
+      mtimeMs = fs31.statSync(file).mtimeMs;
     } catch {
       continue;
     }
@@ -47764,7 +47903,7 @@ function harvestableSessions(sessionsDir, ledger, opts) {
 function recordCorrections(stateDir2, sessionsDir, opts = {}) {
   const ledger = readLedger(stateDir2);
   const dir = path32.resolve(sessionsDir);
-  if (!fs30.existsSync(dir)) {
+  if (!fs31.existsSync(dir)) {
     return { readable: false, reason: `no session transcripts at ${dir}`, ledger };
   }
   const sessions = harvestableSessions(dir, ledger, {
@@ -47776,7 +47915,7 @@ function recordCorrections(stateDir2, sessionsDir, opts = {}) {
   for (const s of sessions) {
     let text2;
     try {
-      text2 = fs30.readFileSync(s.file, "utf8");
+      text2 = fs31.readFileSync(s.file, "utf8");
     } catch {
       continue;
     }
@@ -47975,7 +48114,7 @@ function degradedReport(degradations) {
 }
 
 // src/loop/health.ts
-import fs31 from "node:fs";
+import fs32 from "node:fs";
 import path33 from "node:path";
 var REQUIRED_PHASES = ["pass", "check"];
 function healthDir(dir) {
@@ -47988,22 +48127,22 @@ function runsPath(dir) {
   return path33.join(healthDir(dir), "runs.jsonl");
 }
 function appendRun(dir, run) {
-  fs31.appendFileSync(runsPath(dir), JSON.stringify(run) + "\n");
+  fs32.appendFileSync(runsPath(dir), JSON.stringify(run) + "\n");
 }
 function readOpenRun(dir) {
   const state = loopStateDir(dir);
   if (state === null) return null;
   const p2 = path33.join(state, "open-run.json");
-  if (!fs31.existsSync(p2)) return null;
+  if (!fs32.existsSync(p2)) return null;
   try {
-    return JSON.parse(fs31.readFileSync(p2, "utf8"));
+    return JSON.parse(fs32.readFileSync(p2, "utf8"));
   } catch {
     return null;
   }
 }
 function sweepCrashed(dir) {
   const p2 = openRunPath(dir);
-  if (!fs31.existsSync(p2)) return null;
+  if (!fs32.existsSync(p2)) return null;
   const open = readOpenRun(dir);
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const crashed = open ? { ...open, endedAt: now, verdict: "crashed" } : {
@@ -48016,7 +48155,7 @@ function sweepCrashed(dir) {
     verdict: "crashed"
   };
   appendRun(dir, crashed);
-  fs31.rmSync(p2, { force: true });
+  fs32.rmSync(p2, { force: true });
   return crashed;
 }
 var idsIssuedThisMillisecond = 0;
@@ -48038,7 +48177,7 @@ function startRun(dir, meta) {
     ...meta.headBefore ? { headBefore: meta.headBefore } : {},
     steps: []
   };
-  fs31.writeFileSync(openRunPath(dir), JSON.stringify(run, null, 2));
+  fs32.writeFileSync(openRunPath(dir), JSON.stringify(run, null, 2));
   return run;
 }
 function requireOpenRun(dir) {
@@ -48049,7 +48188,7 @@ function requireOpenRun(dir) {
 function appendStep(dir, step) {
   const open = requireOpenRun(dir);
   open.steps.push({ ...step, at: (/* @__PURE__ */ new Date()).toISOString() });
-  fs31.writeFileSync(openRunPath(dir), JSON.stringify(open, null, 2));
+  fs32.writeFileSync(openRunPath(dir), JSON.stringify(open, null, 2));
   return open;
 }
 function computeVerdict(run) {
@@ -48076,7 +48215,7 @@ function sealRun(dir, meta = {}) {
     verdict: computeVerdict(withHead)
   };
   appendRun(dir, sealed);
-  fs31.rmSync(openRunPath(dir), { force: true });
+  fs32.rmSync(openRunPath(dir), { force: true });
   return sealed;
 }
 var VERDICTS2 = /* @__PURE__ */ new Set(["healthy", "unhealthy", "no-op", "crashed", "degraded"]);
@@ -48084,9 +48223,9 @@ function readRuns(dir) {
   const state = loopStateDir(dir);
   if (state === null) return [];
   const p2 = path33.join(state, "runs.jsonl");
-  if (!fs31.existsSync(p2)) return [];
+  if (!fs32.existsSync(p2)) return [];
   const runs = [];
-  for (const line of fs31.readFileSync(p2, "utf8").split("\n")) {
+  for (const line of fs32.readFileSync(p2, "utf8").split("\n")) {
     if (!line.trim()) continue;
     try {
       const parsed = JSON.parse(line);
@@ -48119,7 +48258,7 @@ function assessStall(runs, threshold = STALL_STREAK_THRESHOLD) {
 }
 
 // src/loop/lock.ts
-import fs32 from "node:fs";
+import fs33 from "node:fs";
 import os3 from "node:os";
 import path34 from "node:path";
 function firingLockPath(vaultDir) {
@@ -48128,9 +48267,9 @@ function firingLockPath(vaultDir) {
 }
 function readFiringLock(vaultDir) {
   const p2 = firingLockPath(vaultDir);
-  if (p2 === null || !fs32.existsSync(p2)) return null;
+  if (p2 === null || !fs33.existsSync(p2)) return null;
   try {
-    const parsed = JSON.parse(fs32.readFileSync(p2, "utf8"));
+    const parsed = JSON.parse(fs33.readFileSync(p2, "utf8"));
     return typeof parsed?.pid === "number" && typeof parsed?.acquiredAt === "string" ? parsed : null;
   } catch {
     return null;
@@ -48160,15 +48299,15 @@ function staleness(held, opts) {
 var tmpCounter = 0;
 function linkInPlace(stateDir2, lockFile, record2) {
   const tmp = path34.join(stateDir2, `.firing.lock.${record2.pid}.${tmpCounter++}`);
-  fs32.writeFileSync(tmp, JSON.stringify(record2) + "\n");
+  fs33.writeFileSync(tmp, JSON.stringify(record2) + "\n");
   try {
-    fs32.linkSync(tmp, lockFile);
+    fs33.linkSync(tmp, lockFile);
     return true;
   } catch (e) {
     if (e.code !== "EEXIST") throw e;
     return false;
   } finally {
-    fs32.rmSync(tmp, { force: true });
+    fs33.rmSync(tmp, { force: true });
   }
 }
 function acquireFiringLock(vaultDir, opts) {
@@ -48188,8 +48327,8 @@ function acquireFiringLock(vaultDir, opts) {
   if (!stale) return { ok: false, held, reason: `another firing holds the lock \u2014 ${why}` };
   try {
     const sidelined = `${lockFile}.stale-${now}-${record2.pid}`;
-    fs32.renameSync(lockFile, sidelined);
-    fs32.rmSync(sidelined, { force: true });
+    fs33.renameSync(lockFile, sidelined);
+    fs33.rmSync(sidelined, { force: true });
   } catch (e) {
     if (e.code !== "ENOENT") throw e;
   }
@@ -48201,8 +48340,8 @@ function stampFiringLock(vaultDir, record2, runId) {
   const lockFile = path34.join(stateDir2, "firing.lock");
   const next = { ...record2, runId };
   const tmp = path34.join(stateDir2, `.firing.lock.${record2.pid}.${tmpCounter++}`);
-  fs32.writeFileSync(tmp, JSON.stringify(next) + "\n");
-  fs32.renameSync(tmp, lockFile);
+  fs33.writeFileSync(tmp, JSON.stringify(next) + "\n");
+  fs33.renameSync(tmp, lockFile);
   return next;
 }
 function releaseFiringLock(vaultDir, match) {
@@ -48213,16 +48352,16 @@ function releaseFiringLock(vaultDir, match) {
   if (match.pid !== void 0 && held.pid !== match.pid) return false;
   if (match.acquiredAt !== void 0 && held.acquiredAt !== match.acquiredAt) return false;
   if (match.runId !== void 0 && held.runId !== match.runId) return false;
-  fs32.rmSync(p2, { force: true });
+  fs33.rmSync(p2, { force: true });
   return true;
 }
 
 // src/loop/spend.ts
-import fs34 from "node:fs";
+import fs35 from "node:fs";
 import path35 from "node:path";
 
 // src/adapters/tokens.ts
-import fs33 from "node:fs";
+import fs34 from "node:fs";
 function count(value) {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
 }
@@ -48232,7 +48371,7 @@ function text(value) {
 function* readEntries(file) {
   let raw;
   try {
-    raw = fs33.readFileSync(file, "utf8");
+    raw = fs34.readFileSync(file, "utf8");
   } catch {
     return;
   }
@@ -48289,7 +48428,7 @@ function sessionCwd(file) {
 // src/loop/spend.ts
 function canonical(p2) {
   try {
-    return fs34.realpathSync(path35.resolve(p2));
+    return fs35.realpathSync(path35.resolve(p2));
   } catch {
     return path35.resolve(p2);
   }
@@ -48298,7 +48437,7 @@ function measureFiring(sessionsDir, opts) {
   const dir = path35.resolve(sessionsDir);
   let names;
   try {
-    names = fs34.readdirSync(dir);
+    names = fs35.readdirSync(dir);
   } catch (e) {
     return {
       measurable: false,
@@ -48351,11 +48490,11 @@ function checkCeiling(ceiling, measurement) {
 }
 
 // src/loop/questions.ts
-import fs35 from "node:fs";
+import fs36 from "node:fs";
 import path36 from "node:path";
 function canonical2(p2) {
   try {
-    return fs35.realpathSync(path36.resolve(p2));
+    return fs36.realpathSync(path36.resolve(p2));
   } catch {
     return path36.resolve(p2);
   }
@@ -48364,7 +48503,7 @@ function measureInterruptions(sessionsDir, opts) {
   const dir = path36.resolve(sessionsDir);
   let names;
   try {
-    names = fs35.readdirSync(dir);
+    names = fs36.readdirSync(dir);
   } catch (e) {
     return {
       measurable: false,
@@ -48393,7 +48532,7 @@ function measureInterruptions(sessionsDir, opts) {
 function readAsks(file) {
   let text2;
   try {
-    text2 = fs35.readFileSync(file, "utf8");
+    text2 = fs36.readFileSync(file, "utf8");
   } catch {
     return [];
   }
@@ -48435,12 +48574,12 @@ function formatQuestionBudget(budget, measurement) {
 }
 
 // src/cli/vault-option.ts
-import fs37 from "node:fs";
+import fs38 from "node:fs";
 import path38 from "node:path";
 
 // src/config/pointer.ts
 var import_yaml3 = __toESM(require_dist(), 1);
-import fs36 from "node:fs";
+import fs37 from "node:fs";
 import os4 from "node:os";
 import path37 from "node:path";
 var VAULT_POINTER_FILENAME = "ost.vault.yaml";
@@ -48464,10 +48603,10 @@ function resolveAgainst(baseDir, declared) {
 }
 function readVaultPointer(dir) {
   const file = path37.join(path37.resolve(dir), VAULT_POINTER_FILENAME);
-  if (!fs36.existsSync(file)) return null;
+  if (!fs37.existsSync(file)) return null;
   let raw;
   try {
-    raw = (0, import_yaml3.parse)(fs36.readFileSync(file, "utf8"));
+    raw = (0, import_yaml3.parse)(fs37.readFileSync(file, "utf8"));
   } catch (e) {
     throw new Error(`${file} is not valid YAML: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -48535,7 +48674,7 @@ function resolvedVaultSource() {
 }
 function stalePointerWarning(r2) {
   if (r2.via !== "pointer" || !r2.pointer) return null;
-  if (fs37.existsSync(path38.join(r2.dir, CONFIG_FILENAME))) return null;
+  if (fs38.existsSync(path38.join(r2.dir, CONFIG_FILENAME))) return null;
   return `${r2.pointer.file} names ${r2.dir}, which is not a vault (no ${CONFIG_FILENAME}). The pointer is stale, or that vault has not been cloned onto this machine.`;
 }
 
@@ -49115,6 +49254,48 @@ program2.command("stranded").description("evidence no node cites, split into wha
     return;
   }
   console.log(text2);
+});
+program2.command("search").argument("<glob>", "glob matched against each line of every node body \u2014 `*` and `?` and `{a,b}`").description("grep the node bodies, reporting what it could not read rather than counting it as zero").option("--vault <dir>", VAULT_OPTION_HELP).action((glob, opts) => {
+  const ctx = buildPassContext(opts.vault);
+  const census = ctx.vault.readTreeCensus();
+  const dropped = SearchTotal.over(
+    census.unreadable.map((u) => unread(u.file, "unreadable", u.reason))
+  );
+  const combined = SearchTotal.merge(
+    dropped,
+    searchSubjects(
+      census.nodes.map((n) => ({
+        subject: n.title,
+        file: path40.join(ctx.vault.root, `${n.title}.md`),
+        pattern: glob
+      }))
+    )
+  );
+  const hits = combined.resolve({
+    whenComplete: (found) => found.length,
+    whenUnread: (_unread, found) => found.length
+  });
+  try {
+    recordSweepRun(ctx.dir, {
+      sweep: "search",
+      at: (/* @__PURE__ */ new Date()).toISOString(),
+      subject: combined.toSweepSubject(),
+      findings: hits,
+      outcome: combined.blind ? "blind" : hits > 0 ? "findings" : "clean"
+    });
+  } catch (e) {
+    console.error(`(this run was not recorded: ${e instanceof Error ? e.message : String(e)})`);
+  }
+  const text2 = formatSearchTotal(`search ${JSON.stringify(glob)}`, combined);
+  if (combined.blind) {
+    console.error(text2);
+    process.exitCode = 1;
+    return;
+  }
+  console.log(text2);
+  for (const s of combined.examinedSubjects) {
+    for (const h2 of s.hits) console.log(`  ${h2.subject}:${h2.line}: ${h2.text.trim()}`);
+  }
 });
 program2.command("sweeps").description("replay the recorded sweep runs and report how many were blind all the way rather than partly").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
   const runs = readSweepRuns(path40.resolve(opts.vault));
