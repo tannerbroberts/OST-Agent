@@ -10,6 +10,8 @@
  *   ost-agent lanes [--vault DIR]             assumption tests by the human minutes they cost
  *   ost-agent lanes --flag-cautious <who>     bulk: humans-required for every test naming an outside person
  *   ost-agent lane "<test>" --set <lane> ...  classify one test into a lane
+ *   ost-agent dispose "<subject>" ...        settle one item so no work bucket lists it again (--reopen reverses)
+ *   ost-agent dispositions [--vault DIR]     every item currently settled, dated and attributed
  *   ost-agent gate "<solution>" [--vault DIR] block building against untested assumptions
  *   ost-agent verify "<test>" --repo DIR      run a test's instrument; record red/green as an observed fact
  *   ost-agent buildable ["<solution>"]        is it defined well enough to build, and against what command?
@@ -74,6 +76,10 @@ import {
 import { defaultTranscriptDir } from "../adapters/transcript.js";
 import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
 import { laneDef, LANES, type LaneId } from "../knowledge/lanes.js";
+import {
+  appendDisposition, DISPOSITION_KINDS, formatDispositions, isDispositionKind, latestDisposition,
+  readDispositionLedger,
+} from "../knowledge/dispositions.js";
 import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapters/friction.js";
 import { createLazyOstMcpServer, MCP_TOOL_NAMES } from "../mcp/server.js";
 import { vaultReadiness } from "../mcp/bootstrap.js";
@@ -519,6 +525,66 @@ program
     console.log(`classified "${test}": ${line}`);
     const def = laneDef(opts.set as LaneId);
     console.log(def.computeMayRun ? "  an unattended pass MAY now run this test." : "  a person is still required.");
+  });
+
+/*
+ * `dispose` and `dispositions` — the write path and the audit surface for the one
+ * ledger that says "settled", and the reason both live on the CLI rather than on the
+ * agent's tool surface.
+ *
+ * Every other item leaves a work list by something checkable: code shipped, an
+ * instrument attached, a node created. A disposition removes work by asserting a
+ * sentence about it — and it would be written by the party whose budget the work
+ * costs. That is the same shape as the self-validation the whole tool surface is
+ * built to refuse, so the write sits where `result` and `promote` sit (B1/B2): a
+ * command a human runs. Whether a pass should ever be able to dismiss its own work
+ * list is a question about operators, not about code, and it is open — "Show five
+ * operators a pass's dismissed-work list and ask whether they would have let it
+ * stand" has not run.
+ */
+program
+  .command("dispose")
+  .description("settle one item so no bucket lists it again — or reopen one that was settled wrongly")
+  .argument("<subject>", "an evidence id, or a node title, exactly as the work list printed it")
+  .requiredOption("-b, --by <who>", "who settled it — an unattributed dismissal is unauditable")
+  .requiredOption("-w, --why <text>", "why it is settled, in the writer's words; this sentence is the whole audit")
+  .option(
+    "-k, --kind <kind>",
+    `what the subject is: ${DISPOSITION_KINDS.join(", ")} (for the auditor; the work lists read only the subject)`,
+  )
+  .option("--reopen", "put the subject back on its bucket — a wrong disposition is reversed, never deleted")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((subject: string, opts: { by: string; why: string; kind?: string; reopen?: boolean; vault: string }) => {
+    // `kind` is required on a close and irrelevant on a reopen: the reopen names a
+    // subject the ledger already carries a kind for, and asking again is one more
+    // chance for the two entries to disagree about the same subject.
+    const existing = latestDisposition(readDispositionLedger(opts.vault), subject);
+    const kind = opts.kind ?? existing?.kind;
+    if (!isDispositionKind(kind)) {
+      console.error(
+        `ost-agent dispose: --kind must be one of ${DISPOSITION_KINDS.join(", ")}` +
+          (opts.reopen ? " (the ledger carries no earlier entry for that subject to take it from)" : ""),
+      );
+      process.exitCode = 1;
+      return;
+    }
+    const state = opts.reopen ? "reopened" : "closed";
+    appendDisposition(opts.vault, { subject, kind, state, reason: opts.why, by: opts.by });
+    console.log(
+      opts.reopen
+        ? `reopened "${subject}" — it is back on its ${kind} bucket.`
+        : `settled "${subject}" (${kind}) — no bucket will list it again.\n` +
+            "  It is still counted and named on every ost_next_work response, under withheldByDisposition.\n" +
+            '  Reverse it with `ost-agent dispose "<subject>" --reopen --by <you> --why "<why>"`.',
+    );
+  });
+
+program
+  .command("dispositions")
+  .description("every item currently settled, dated and attributed — the dismissed-work list, in bulk")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((opts: { vault: string }) => {
+    console.log(formatDispositions(readDispositionLedger(opts.vault)));
   });
 
 program

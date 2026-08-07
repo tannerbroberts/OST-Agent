@@ -524,6 +524,24 @@ Append-only means a claim cannot be deleted, which is right, and it used to mean
 
 `ost-agent stranded` is the other side of the same concern: evidence that no node cites, split by which fix would actually clear it — an item some live node's prose already quotes (an appendable `source` is enough) versus one nothing quotes at all (which needs a new node). Computed from the tree rather than counted by hand, because a hand census of this is what it was written to replace.
 
+### Dispositions — a way to say "settled", once, where every bucket reads it
+
+`ost_next_work` re-derives outstanding work from the tree's raw structure on every pass, and until now it had no notion of *closed*. So work a previous pass settled came back on the next list and got re-decided, and each bucket leaked its own way: an opportunity whose solution space really does live on its children stayed underserved forever; a solution that shipped still owed an assumption test; and an evidence item corroborating a node the tree already has could not be cleared by any smarter derivation at all, because mapped-ness is `source:` equality and nothing can add a `source:` to an existing node. Something has to be written down.
+
+One append-only sidecar ledger is that record — `.ost-agent/dispositions/dispositions.jsonl`, where the *sweep* reads rather than where a *reader* reads (a `## Disposition` section in a node body was tried, and the sweep did not see it). One entry type carries all three faces — a subject, a kind, a reason, whoever settled it — and every bucket consults it through a single call that takes the subject and nothing else, so no bucket can grow a rule of its own:
+
+```bash
+ost-agent dispose "Onboarding checklist" --kind solution \
+  --by "Tanner" --why "shipped in #78" --vault ~/my-vault
+ost-agent dispositions --vault ~/my-vault          # every live dismissal, dated and attributed
+ost-agent dispose "Onboarding checklist" --reopen \
+  --by "Tanner" --why "it did not ship after all" --vault ~/my-vault
+```
+
+**This is the one write on the whole surface that removes work by asserting rather than by doing**, and three things follow. It is not on the agent's tool surface — it is a human's CLI command, beside `result` and `promote`, because a pass that can dismiss its own work list has a completion signal that means nothing. Nothing it hides is hidden silently: every withheld item is named and counted on the `ost_next_work` response that withheld it, so a `done` reached by settling twelve items reads differently from one reached by doing them. And every disposition is reversed by a second entry rather than a delete, so the dismissal and the disagreement both stay on file.
+
+Whether an operator would ever accept an *agent* holding this write is an open question that needs people rather than a build, and it is a live assumption test in this product's own tree.
+
 ### Lanes — what each assumption test actually costs a person
 
 A backlog of assumption tests is not one queue. Some are replays and audits over artifacts already sitting on disk; some need a person for one keystroke; some are blocked on a credential nobody delegated; and some need real outside people and can never be anything else. Treated as one queue they all wait on the scarcest resource in the list — the operator — and the free ones never get run.
