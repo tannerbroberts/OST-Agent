@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- **A run finds out what it may call before it decides what to do.** `ost-agent grants
+  --skill F --settings F` resolves the tools a run's instructions declare against the
+  `permissions.allow` it will fire with, and names every demand the grant does not cover —
+  by name, with the file the fix goes in, at exit 20. Under `claude -p` an ungranted call is
+  denied rather than prompted, so the alternative is a pass that discovers its own grant one
+  refused call at a time, at the point where it had already decided what it wanted to do.
+  **Scope is part of the comparison, not an afterthought:** four of fifteen recorded denials
+  in this workspace were `Glob` refused on `/Users/tanner/dev/OST-Agent` — the tool was
+  granted and the directory was not — so coverage reads the grant syntax (server-level MCP
+  grants, Bash prefix rules, path globs, directory subtrees) rather than comparing strings.
+  Reporting a gap for a tool that is in fact granted would stop a run that could have done
+  its work, so the coverage direction is pinned as hard as the gap direction. It writes
+  nothing, requests nothing and escalates nothing: which grant to add is the operator's
+  decision, and deriving one stays in `ost-agent allowlist`, which refuses from an agent
+  session. An unreadable declaration or settings file exits 21, never 0 — a check that could
+  not run is not a cleared run.
+
 - **A credential broker holds the secrets, and the run holds a handle.** `SLACK_BOT_TOKEN`,
   `ATLASSIAN_API_TOKEN` and `BRAVE_SEARCH_API_KEY` used to be read from the environment and
   handed, in full, to the client that would use them — and in the search case onto

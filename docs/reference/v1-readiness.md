@@ -3056,9 +3056,12 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 
 **D1 — The release gates pass.**
 > *Check:* `npx tsc --noEmit` exits 0; `npx vitest run` is green;
-> `test/release/version.test.ts` passes; the `bundle-drift` job in
-> `.github/workflows/ci.yml` is green.
-> *Today:* **met** — 2176 tests across 174 files, verified 2026-08-06 (`npx vitest run`,
+> `test/release/version.test.ts` passes; the bundle-drift check is green — run locally by
+> `ost-agent ship`, and separately by the `bundle-drift` job in `.github/workflows/ci.yml`.
+> As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
+> gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
+> work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
+> *Today:* **met** — 2306 tests across 180 files, verified 2026-08-06 (`npx vitest run`,
 > after the search-literality census landed: of the 850 search arguments this project has
 > issued over its own node text, 125 of the 126 whose text came out of the tree are
 > expressible as literal lookups — 99%, against a bar of 90% fixed before the count — while

@@ -15,6 +15,7 @@
  *   ost-agent buildable ["<solution>"]        is it defined well enough to build, and against what command?
  *   ost-agent buildable "<s>" --repo DIR      …and is the recorded red still red, or was the ticket spent?
  *   ost-agent stranded [--also DIR]           evidence no node cites, split by which fix would clear it
+ *   ost-agent search "<glob>" [--vault DIR]   grep the node bodies; a subject it could not read is never a zero
  *   ost-agent capability [--repo DIR]         what each builder can do, read off the commits already written
  *   ost-agent preflight [--transcripts DIR]   did the callers whose calls failed already know they were unsure?
  *   ost-agent searches [--transcripts DIR]    were the searches over node text literal, and did their text come from the tree?
@@ -22,6 +23,8 @@
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
  *   ost-agent corrections [--state DIR]       refusals this workspace already paid for, for the next session to read
  *   ost-agent allowlist --skill F --settings F  derive a run's permission grant from the skill's own allowed-tools
+ *   ost-agent grants --skill F --settings F   name every tool a run declares that its grant does not cover
+ *   ost-agent ship --repo DIR                 run the gates locally and merge the branch if they are green
  *   ost-agent loop due|start|step|seal        unattended firing: cadence, lock, ceiling, health
  *   ost-agent mcp [--vault DIR]               stdio MCP server (no API key needed)
  *
@@ -39,6 +42,7 @@ import { ailingChannels, allChannels, channelHealth, renderChannels } from "../a
 import { initVault } from "../runner/init.js";
 import { setOutcome } from "../runner/set-outcome.js";
 import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/render.js";
+import { ship } from "../release/ship-repo.js";
 import { renderRollup, rollupTree } from "../eval/rollup.js";
 import { lineageOf, renderLineage } from "../eval/lineage.js";
 import { BELIEVABILITY_LADDER, type RungId } from "../knowledge/believability.js";
@@ -48,6 +52,16 @@ import { buildableSolutions, buildPermit, confirmPermit, testsAwaitingVerificati
 import { formatCensus, reconcileWithGit, reconcileWithUsage } from "../ost/census.js";
 import { formatStrandedCensus, strandedEvidenceCensus } from "../ost/stranded.js";
 import { blindnessCensus, formatBlindnessCensus, readSweepRuns, recordSweepRun } from "../ost/sweep.js";
+import {
+  formatSearchTotal,
+  searchSubjects,
+  SearchTotal,
+  unread,
+  type LineHit,
+  type SearchOutcome,
+  type SearchRequest,
+} from "../ost/search.js";
+import { TreeText } from "../security/tainted.js";
 import { committedCapabilityProfile, formatCapabilityProfile } from "../product/capability.js";
 import { readResourceManifest } from "../product/manifest.js";
 import { formatPriorityOrder, rankBuildableWork } from "../product/planner.js";
@@ -65,6 +79,7 @@ import { createLazyOstMcpServer, MCP_TOOL_NAMES } from "../mcp/server.js";
 import { vaultReadiness } from "../mcp/bootstrap.js";
 import { gitCommit } from "../git/safe-git.js";
 import { runAllowlistGenerator } from "../security/allowlist-generator.js";
+import { runGrantPreflight } from "../runner/grant-preflight.js";
 import { loopStateDir, workingTreeStatus, type VaultTreeStatus } from "../loop/state.js";
 import {
   DEFAULT_QUIET_MINUTES, emptyCorrectionsLedger, readLedger, recordCorrections, renderCorrections,
@@ -657,6 +672,82 @@ program
   });
 
 program
+  .command("search")
+  .argument("<glob>", "glob matched against each line of every node body — `*` and `?` and `{a,b}`")
+  .description("grep the node bodies, reporting what it could not read rather than counting it as zero")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((glob: string, opts: { vault: string }) => {
+    const ctx = buildPassContext(opts.vault);
+    const census = ctx.vault.readTreeCensus();
+
+    // The census already knows which files it could not parse, and those are
+    // unread subjects rather than absent ones. Before this they left the walk as
+    // a silently smaller denominator, which is the same false zero one layer
+    // down: a search over a tree with an unparseable node reported hits over the
+    // nodes that happened to parse and said nothing about the one it never saw.
+    const dropped = SearchTotal.over<LineHit>(
+      census.unreadable.map((u) => unread<LineHit>(u.file, "unreadable", u.reason)),
+    );
+    // Every node title here came out of the tree, and the path below used to be
+    // `${n.title}.md` — a sentence a person wrote, interpolated into a filesystem
+    // path. `TreeText` is what stops that: the title arrives wrapped and the only
+    // way to a path is `forPathUnder`, which builds one or refuses. A refusal is
+    // an unread subject rather than a thrown error, for the same reason a
+    // malformed pattern is: a title this walk could not turn into a file is a
+    // subject it did not examine, and reporting it as examined-with-no-hits is
+    // the miscount this whole module exists to prevent.
+    const titles = census.nodes.map((n) =>
+      TreeText.fromTree(n.title, { file: `${n.title}.md`, field: "title" }),
+    );
+    const requests: SearchRequest[] = [];
+    const unbuildable: SearchOutcome<LineHit>[] = [];
+    for (const title of titles) {
+      const built = title.forPathUnder(ctx.vault.root);
+      if (built.ok) requests.push({ subject: title.forMessage(), file: built.path, pattern: glob });
+      else unbuildable.push(unread<LineHit>(title.forMessage(), "unreadable", built.reason));
+    }
+
+    const combined = SearchTotal.merge(
+      dropped,
+      SearchTotal.over(unbuildable),
+      searchSubjects(requests),
+    );
+
+    // The count, obtained the only way there is: by saying what happens to the
+    // subjects that went unread. Here they are reported beside it rather than
+    // folded into it, which is what `formatSearchTotal` prints below.
+    const hits = combined.resolve<number>({
+      whenComplete: (found) => found.length,
+      whenUnread: (_unread, found) => found.length,
+    });
+
+    try {
+      recordSweepRun(ctx.dir, {
+        sweep: "search",
+        at: new Date().toISOString(),
+        subject: combined.toSweepSubject(),
+        findings: hits,
+        outcome: combined.blind ? "blind" : hits > 0 ? "findings" : "clean",
+      });
+    } catch (e) {
+      console.error(`(this run was not recorded: ${e instanceof Error ? e.message : String(e)})`);
+    }
+
+    const text = formatSearchTotal(`search ${JSON.stringify(glob)}`, combined);
+    // A search that read nothing exits non-zero for the same reason a blind sweep
+    // does: it has no denominator to have found nothing over.
+    if (combined.blind) {
+      console.error(text);
+      process.exitCode = 1;
+      return;
+    }
+    console.log(text);
+    for (const s of combined.examinedSubjects) {
+      for (const h of s.hits) console.log(`  ${h.subject}:${h.line}: ${h.text.trim()}`);
+    }
+  });
+
+program
   .command("sweeps")
   .description("replay the recorded sweep runs and report how many were blind all the way rather than partly")
   .option("--vault <dir>", VAULT_OPTION_HELP)
@@ -907,6 +998,69 @@ program
       console.error(run.report);
       process.exitCode = run.exitCode;
     }
+  });
+
+program
+  .command("grants")
+  .description("name every tool a run's instructions declare that its grant does not cover — before the run starts")
+  .requiredOption("--skill <file>", "the SKILL.md (or command file) whose `allowed-tools` line is the declaration")
+  .requiredOption("--settings <file>", "the settings.json whose permissions.allow is the grant the run fires with")
+  .option(
+    "--demand <rule>",
+    "a tool the run needs that the declaration does not name, in grant syntax (repeatable). Prose in the prompt " +
+      "is deliberately not harvested — a sentence naming a tool may be telling the run not to use it",
+    collect,
+    [],
+  )
+  .action((opts: { skill: string; settings: string; demand: string[] }) => {
+    const run = runGrantPreflight({
+      skillPath: path.resolve(opts.skill),
+      settingsPath: path.resolve(opts.settings),
+      extraDemands: opts.demand,
+    });
+    // Non-zero on gaps AND on an unreadable input: a wrapper that treats either as
+    // "go ahead" is the failure this command exists to stop, and the two codes are
+    // distinct so it can tell "do not start" from "the check itself did not run".
+    if (run.exitCode === 0) console.log(run.report);
+    else {
+      console.error(run.report);
+      process.exitCode = run.exitCode;
+    }
+  });
+
+program
+  .command("ship")
+  .description(
+    "run this branch's gates on this machine and merge it if they are green (waits on no external check)",
+  )
+  .requiredOption("-r, --repo <dir>", "the repository whose branch is being shipped")
+  .option("--default-branch <name>", "the branch work merges into", "main")
+  .option("--dry-run", "run every gate and report, but never merge")
+  .action((opts: { repo: string; defaultBranch: string; dryRun?: boolean }) => {
+    const outcome = ship({
+      repo: path.resolve(opts.repo),
+      defaultBranch: opts.defaultBranch,
+      dryRun: opts.dryRun === true,
+      log: (line) => console.error(line),
+    });
+
+    for (const run of outcome.gateRuns) {
+      const verdict = run.passed ? "green" : `RED (exit ${run.exitCode ?? "did not run"})`;
+      console.log(`  ${run.gate.name}: ${verdict}`);
+      if (!run.passed) console.log(run.excerpt.replace(/^/gm, "    "));
+    }
+    console.log(outcome.summary);
+
+    if (outcome.shipped) return;
+    // A dry run that cleared every gate did what it was asked to do, so it exits
+    // 0 — otherwise the rehearsal reports the same failure as the thing it was
+    // rehearsing, and nobody can use it to check the gates without merging.
+    const allGreen = outcome.refusals.length === 0 && outcome.gateRuns.every((r) => r.passed);
+    if (opts.dryRun === true && allGreen) return;
+    // 20 for "the branch was never eligible", 1 for "a gate said no". A wrapper
+    // needs to tell those apart: the first is its own mistake to fix, the second
+    // is a finding about the code that belongs in the report.
+    process.exitCode = outcome.refusals.length > 0 ? 20 : 1;
   });
 
 registerLoopCommands(program);

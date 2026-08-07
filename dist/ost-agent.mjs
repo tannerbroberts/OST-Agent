@@ -982,7 +982,7 @@ var require_command = __commonJS({
     var EventEmitter2 = __require("node:events").EventEmitter;
     var childProcess = __require("node:child_process");
     var path42 = __require("node:path");
-    var fs39 = __require("node:fs");
+    var fs41 = __require("node:fs");
     var process3 = __require("node:process");
     var { Argument: Argument2, humanReadableArgName } = require_argument();
     var { CommanderError: CommanderError2 } = require_error();
@@ -1915,10 +1915,10 @@ Expecting one of '${allowedValues.join("', '")}'`);
         const sourceExt = [".js", ".ts", ".tsx", ".mjs", ".cjs"];
         function findFile(baseDir, baseName) {
           const localBin = path42.resolve(baseDir, baseName);
-          if (fs39.existsSync(localBin)) return localBin;
+          if (fs41.existsSync(localBin)) return localBin;
           if (sourceExt.includes(path42.extname(baseName))) return void 0;
           const foundExt = sourceExt.find(
-            (ext) => fs39.existsSync(`${localBin}${ext}`)
+            (ext) => fs41.existsSync(`${localBin}${ext}`)
           );
           if (foundExt) return `${localBin}${foundExt}`;
           return void 0;
@@ -1930,7 +1930,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
         if (this._scriptPath) {
           let resolvedScriptPath;
           try {
-            resolvedScriptPath = fs39.realpathSync(this._scriptPath);
+            resolvedScriptPath = fs41.realpathSync(this._scriptPath);
           } catch (err) {
             resolvedScriptPath = this._scriptPath;
           }
@@ -9919,14 +9919,14 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs39 = this.flowScalar(this.type);
+              const fs41 = this.flowScalar(this.type);
               if (atNextItem || it.value) {
-                map.items.push({ start, key: fs39, sep: [] });
+                map.items.push({ start, key: fs41, sep: [] });
                 this.onKeyLine = true;
               } else if (it.sep) {
-                this.stack.push(fs39);
+                this.stack.push(fs41);
               } else {
-                Object.assign(it, { key: fs39, sep: [] });
+                Object.assign(it, { key: fs41, sep: [] });
                 this.onKeyLine = true;
               }
               return;
@@ -10054,13 +10054,13 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs39 = this.flowScalar(this.type);
+              const fs41 = this.flowScalar(this.type);
               if (!it || it.value)
-                fc.items.push({ start: [], key: fs39, sep: [] });
+                fc.items.push({ start: [], key: fs41, sep: [] });
               else if (it.sep)
-                this.stack.push(fs39);
+                this.stack.push(fs41);
               else
-                Object.assign(it, { key: fs39, sep: [] });
+                Object.assign(it, { key: fs41, sep: [] });
               return;
             }
             case "flow-map-end":
@@ -10725,7 +10725,7 @@ var require_mark = __commonJS({
       this.column = column;
     }
     Mark.prototype.getSnippet = function getSnippet(indent, maxLength) {
-      var head, start, tail, end, snippet;
+      var head, start, tail2, end, snippet;
       if (!this.buffer) return null;
       indent = indent || 4;
       maxLength = maxLength || 75;
@@ -10739,18 +10739,18 @@ var require_mark = __commonJS({
           break;
         }
       }
-      tail = "";
+      tail2 = "";
       end = this.position;
       while (end < this.buffer.length && "\0\r\n\x85\u2028\u2029".indexOf(this.buffer.charAt(end)) === -1) {
         end += 1;
         if (end - this.position > maxLength / 2 - 1) {
-          tail = " ... ";
+          tail2 = " ... ";
           end -= 5;
           break;
         }
       }
       snippet = this.buffer.slice(start, end);
-      return common.repeat(" ", indent) + head + snippet + tail + "\n" + common.repeat(" ", indent + this.position - start + head.length) + "^";
+      return common.repeat(" ", indent) + head + snippet + tail2 + "\n" + common.repeat(" ", indent + this.position - start + head.length) + "^";
     };
     Mark.prototype.toString = function toString(compact) {
       var snippet, where = "";
@@ -11438,7 +11438,7 @@ var require_binary2 = __commonJS({
       return result;
     }
     function representYamlBinary(object3) {
-      var result = "", bits = 0, idx, tail, max = object3.length, map = BASE64_MAP;
+      var result = "", bits = 0, idx, tail2, max = object3.length, map = BASE64_MAP;
       for (idx = 0; idx < max; idx++) {
         if (idx % 3 === 0 && idx) {
           result += map[bits >> 18 & 63];
@@ -11448,18 +11448,18 @@ var require_binary2 = __commonJS({
         }
         bits = (bits << 8) + object3[idx];
       }
-      tail = max % 3;
-      if (tail === 0) {
+      tail2 = max % 3;
+      if (tail2 === 0) {
         result += map[bits >> 18 & 63];
         result += map[bits >> 12 & 63];
         result += map[bits >> 6 & 63];
         result += map[bits & 63];
-      } else if (tail === 2) {
+      } else if (tail2 === 2) {
         result += map[bits >> 10 & 63];
         result += map[bits >> 4 & 63];
         result += map[bits << 2 & 63];
         result += map[64];
-      } else if (tail === 1) {
+      } else if (tail2 === 1) {
         result += map[bits >> 2 & 63];
         result += map[bits << 4 & 63];
         result += map[64];
@@ -11640,18 +11640,18 @@ var require_regexp = __commonJS({
     function resolveJavascriptRegExp(data) {
       if (data === null) return false;
       if (data.length === 0) return false;
-      var regexp = data, tail = /\/([gim]*)$/.exec(data), modifiers = "";
+      var regexp = data, tail2 = /\/([gim]*)$/.exec(data), modifiers = "";
       if (regexp[0] === "/") {
-        if (tail) modifiers = tail[1];
+        if (tail2) modifiers = tail2[1];
         if (modifiers.length > 3) return false;
         if (regexp[regexp.length - modifiers.length - 1] !== "/") return false;
       }
       return true;
     }
     function constructJavascriptRegExp(data) {
-      var regexp = data, tail = /\/([gim]*)$/.exec(data), modifiers = "";
+      var regexp = data, tail2 = /\/([gim]*)$/.exec(data), modifiers = "";
       if (regexp[0] === "/") {
-        if (tail) modifiers = tail[1];
+        if (tail2) modifiers = tail2[1];
         regexp = regexp.slice(1, regexp.length - modifiers.length - 1);
       }
       return new RegExp(regexp, modifiers);
@@ -13744,7 +13744,7 @@ var require_parse = __commonJS({
 var require_gray_matter = __commonJS({
   "node_modules/gray-matter/index.js"(exports2, module2) {
     "use strict";
-    var fs39 = __require("fs");
+    var fs41 = __require("fs");
     var sections = require_section_matter();
     var defaults = require_defaults();
     var stringify = require_stringify2();
@@ -13828,7 +13828,7 @@ var require_gray_matter = __commonJS({
       return stringify(file, data, options2);
     };
     matter4.read = function(filepath, options2) {
-      const str2 = fs39.readFileSync(filepath, "utf8");
+      const str2 = fs41.readFileSync(filepath, "utf8");
       const file = matter4(str2, options2);
       file.path = filepath;
       return file;
@@ -26906,12 +26906,12 @@ var require_dist4 = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs39, exportName) {
+    function addFormats(ajv, list, fs41, exportName) {
       var _a2;
       var _b;
       (_a2 = (_b = ajv.opts.code).formats) !== null && _a2 !== void 0 ? _a2 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs39[f]);
+        ajv.addFormat(f, fs41[f]);
     }
     module2.exports = exports2 = formatsPlugin;
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -31457,7 +31457,7 @@ function nearMiss(requested, opts = {}) {
     consumed++;
   }
   const missing = segments[consumed] ?? "";
-  const tail = segments.slice(consumed).join(path.sep);
+  const tail2 = segments.slice(consumed).join(path.sep);
   const { present, truncated } = listing(reached, opts.hide);
   const miss = { requested, reached, missing, present, truncated };
   if (!missing) return miss;
@@ -31479,7 +31479,7 @@ function nearMiss(requested, opts = {}) {
   }
   const hunted = [];
   for (const root of roots) {
-    const c3 = path.join(root, tail);
+    const c3 = path.join(root, tail2);
     if (c3 !== target && exists(c3)) hunted.push(c3);
   }
   const boundary = opts.confineTo ? path.resolve(opts.confineTo) : null;
@@ -31488,7 +31488,7 @@ function nearMiss(requested, opts = {}) {
     if (parent === up) break;
     if (boundary && parent !== boundary && !parent.startsWith(boundary + path.sep)) break;
     up = parent;
-    const c3 = path.join(up, tail);
+    const c3 = path.join(up, tail2);
     if (c3 !== target && exists(c3)) hunted.push(c3);
   }
   const distinct = [...new Set(hunted)];
@@ -31498,7 +31498,7 @@ function nearMiss(requested, opts = {}) {
       suggestion: {
         path: show(distinct[0]),
         reason: "elsewhere",
-        because: `"${tail}" does not exist under ${reached}, but it does exist at ${distinct[0]}`
+        because: `"${tail2}" does not exist under ${reached}, but it does exist at ${distinct[0]}`
       }
     };
   }
@@ -31507,7 +31507,7 @@ function nearMiss(requested, opts = {}) {
     return {
       ...miss,
       suggestion: {
-        path: show(path.join(reached, near, ...tail.split(path.sep).slice(1) || [])),
+        path: show(path.join(reached, near, ...tail2.split(path.sep).slice(1) || [])),
         reason: "spelling",
         because: `${reached} holds "${near}", which differs from "${missing}" by a typo's worth of characters`
       }
@@ -32154,18 +32154,18 @@ function channelIdPrefix(channel) {
 }
 function realpathish(p2) {
   let head = path6.resolve(p2);
-  const tail = [];
+  const tail2 = [];
   for (; ; ) {
     if (fs6.existsSync(head)) {
       try {
-        return path6.join(fs6.realpathSync(head), ...tail);
+        return path6.join(fs6.realpathSync(head), ...tail2);
       } catch {
         return path6.resolve(p2);
       }
     }
     const parent = path6.dirname(head);
     if (parent === head) return path6.resolve(p2);
-    tail.unshift(path6.basename(head));
+    tail2.unshift(path6.basename(head));
     head = parent;
   }
 }
@@ -33753,9 +33753,9 @@ var init_git_response_error = __esm2({
     "use strict";
     init_git_error();
     GitResponseError = class extends GitError {
-      constructor(git2, message) {
-        super(void 0, message || String(git2));
-        this.git = git2;
+      constructor(git3, message) {
+        super(void 0, message || String(git3));
+        this.git = git3;
       }
     };
   }
@@ -37519,10 +37519,10 @@ var require_git = __commonJS2({
       return this._runTask(moveTask2(from, to), trailingFunctionArgument2(arguments));
     };
     Git2.prototype.checkoutLatestTag = function(then) {
-      var git2 = this;
+      var git3 = this;
       return this.pull(function() {
-        git2.tags(function(err, tags) {
-          git2.checkout(tags.latest, then);
+        git3.tags(function(err, tags) {
+          git3.checkout(tags.latest, then);
         });
       });
     };
@@ -41949,11 +41949,11 @@ function renderGate(tree, solution) {
     return { text: `gate: CLEARED \u2014 ${verdict.reason}`, cleared: true };
   }
   const outstanding = verdict.debt?.outstanding ?? [];
-  const tail = outstanding.join("; ");
-  if (outstanding.length > MAX_ITEMS_PER_LIST && verdict.reason.endsWith(tail)) {
+  const tail2 = outstanding.join("; ");
+  if (outstanding.length > MAX_ITEMS_PER_LIST && verdict.reason.endsWith(tail2)) {
     const shown = outstanding.slice(0, MAX_ITEMS_PER_LIST);
     const hidden = outstanding.length - shown.length;
-    const head = verdict.reason.slice(0, verdict.reason.length - tail.length);
+    const head = verdict.reason.slice(0, verdict.reason.length - tail2.length);
     return {
       text: `gate: BLOCKED \u2014 ${head}${shown.join("; ")} \u2026 and ${hidden} more not listed (showing ${shown.length} of ${outstanding.length}). The refusal counts all ${outstanding.length}; every one of them is linked from this solution's node, so \`ost_read_tree\` names them.`,
       cleared: false
@@ -42041,6 +42041,230 @@ function renderStatus(ctx, census) {
   );
   appendAttention(lines, ctx, tree);
   return lines.join("\n");
+}
+
+// src/release/ship-repo.ts
+import { spawnSync as spawnSync3 } from "node:child_process";
+
+// src/release/ship.ts
+import { spawnSync as spawnSync2 } from "node:child_process";
+var CORE_GATES = [
+  {
+    name: "tsc",
+    argv: ["npx", "tsc", "--noEmit"],
+    why: "the tree must type-check before anything else is worth reading"
+  },
+  {
+    name: "vitest",
+    argv: ["npx", "vitest", "run"],
+    why: "the suite is the definition of done for everything already shipped"
+  }
+];
+var CONDITIONAL_GATES = [
+  {
+    name: "bundle-drift",
+    argv: ["npm", "run", "bundle"],
+    why: "the plugin launches the committed bundle, so a stale one ships code nobody reviewed",
+    when: (changed) => changed.some((p2) => p2.startsWith("src/"))
+  },
+  {
+    name: "skill-drift",
+    argv: ["npm", "run", "gen:skill"],
+    why: "SKILL.md is generated from the ruleset and is what an agent actually reads",
+    when: (changed) => changed.includes("src/knowledge/ruleset.ts")
+  }
+];
+var GENERATED_ARTIFACT = {
+  "bundle-drift": "dist/ost-agent.mjs",
+  "skill-drift": "SKILL.md"
+};
+function gatesFor(changed) {
+  const conditional = CONDITIONAL_GATES.filter((g) => g.when(changed)).map(
+    ({ name, argv, why }) => ({ name, argv, why })
+  );
+  return [...CORE_GATES, ...conditional];
+}
+function shipRefusals(state) {
+  const reasons = [];
+  if (state.branch === state.defaultBranch) {
+    reasons.push(
+      `refusing to ship "${state.branch}": it IS the default branch. Work is merged INTO ${state.defaultBranch}, never from it.`
+    );
+  }
+  if (state.branch === "HEAD") {
+    reasons.push("refusing to ship a detached HEAD: there is no branch here to merge or delete.");
+  }
+  if (state.dirty) {
+    reasons.push(
+      "refusing to ship with uncommitted changes: the gates would measure a working tree that is not what merges. Commit or stash first."
+    );
+  }
+  if (state.ahead === 0 && state.branch !== state.defaultBranch) {
+    reasons.push(
+      `refusing to ship "${state.branch}": it has no commits that ${state.defaultBranch} does not already have. There is nothing to merge.`
+    );
+  }
+  return reasons;
+}
+function tail(output, lines = 20) {
+  const kept = output.trimEnd().split("\n").slice(-lines);
+  return kept.join("\n");
+}
+var spawnRunner = (argv, cwd) => {
+  const [command, ...args] = argv;
+  const run = spawnSync2(command, args, { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  const output = `${run.stdout ?? ""}${run.stderr ?? ""}`;
+  return { status: run.error ? null : run.status, output: run.error ? `${output}${run.error.message}` : output };
+};
+function runGates(gates, repo, run = spawnRunner) {
+  const runs = [];
+  for (const gate of gates) {
+    const { status, output } = run(gate.argv, repo);
+    const passed = status === 0;
+    runs.push({ gate, exitCode: status, passed, excerpt: tail(output) });
+    if (!passed) break;
+  }
+  return runs;
+}
+function redGate(runs) {
+  return runs.find((r2) => !r2.passed);
+}
+function summarize(branch, refusals, runs) {
+  if (refusals.length > 0) return `not shipped \u2014 ${refusals[0]}`;
+  const red = redGate(runs);
+  if (red) {
+    const code = red.exitCode === null ? "did not run" : `exit ${red.exitCode}`;
+    return `not shipped \u2014 the "${red.gate.name}" gate went red (${code}). ${red.gate.why}.`;
+  }
+  const names = runs.map((r2) => r2.gate.name).join(", ");
+  return `shipped "${branch}" \u2014 ${runs.length} gate(s) green locally (${names}), merged without waiting on any external check.`;
+}
+
+// src/release/ship-repo.ts
+var realRunner = (argv, cwd) => {
+  const [command, ...args] = argv;
+  const run = spawnSync3(command, args, { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  const output = `${run.stdout ?? ""}${run.stderr ?? ""}`;
+  return { status: run.error ? null : run.status, output: run.error ? `${output}${run.error.message}` : output };
+};
+var MERGE_ATTEMPTS = 5;
+var MERGE_RETRY_MS = 2e3;
+function isStaleMergeability(output) {
+  return /has merge conflicts|not mergeable|Base branch was modified|mergeable state|try again/i.test(output);
+}
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+function git2(repo, args, run) {
+  const { status, output } = run(["git", ...args], repo);
+  if (status !== 0) throw new Error(`git ${args.join(" ")} failed (exit ${status}):
+${tail(output, 10)}`);
+  return output.trim();
+}
+function readBranchState(repo, defaultBranch, run = realRunner) {
+  const branch = git2(repo, ["rev-parse", "--abbrev-ref", "HEAD"], run);
+  const dirty = git2(repo, ["status", "--porcelain"], run).length > 0;
+  let ahead = 0;
+  try {
+    const counts = git2(repo, ["rev-list", "--left-right", "--count", `origin/${defaultBranch}...HEAD`], run);
+    ahead = Number(counts.split(/\s+/)[1] ?? 0);
+  } catch {
+  }
+  return { branch, defaultBranch, dirty, ahead };
+}
+function syncWithDefault(repo, defaultBranch, run, log) {
+  const fetch = run(["git", "fetch", "origin", defaultBranch], repo);
+  if (fetch.status !== 0) {
+    log(`ship: could not fetch origin/${defaultBranch} \u2014 gates will measure this branch alone, not the merge result.`);
+    return void 0;
+  }
+  const behind = run(["git", "rev-list", "--count", `HEAD..origin/${defaultBranch}`], repo);
+  if (behind.status === 0 && behind.output.trim() === "0") return void 0;
+  log(`ship: ${behind.output.trim()} commit(s) on origin/${defaultBranch} are not on this branch \u2014 merging before the gates run.`);
+  const merge2 = run(["git", "merge", "--no-edit", `origin/${defaultBranch}`], repo);
+  if (merge2.status !== 0) {
+    run(["git", "merge", "--abort"], repo);
+    return `refusing to ship: merging origin/${defaultBranch} into this branch conflicts, and an unattended pass resolving a conflict is a pass rewriting work nobody reviewed. The merge was aborted and the branch is untouched.`;
+  }
+  return void 0;
+}
+function artifactDrift(repo, gateName, run) {
+  const artifact = GENERATED_ARTIFACT[gateName];
+  if (!artifact) return void 0;
+  const status = run(["git", "status", "--porcelain", "--", artifact], repo);
+  if (status.status !== 0 || status.output.trim().length === 0) return void 0;
+  run(["git", "checkout", "--", artifact], repo);
+  return `${artifact} is stale \u2014 regenerating it changed the committed file. Run the generator and commit the result.`;
+}
+function ship(opts) {
+  const { repo, defaultBranch = "main", dryRun = false } = opts;
+  const run = opts.run ?? realRunner;
+  const log = opts.log ?? (() => {
+  });
+  const sleep = opts.sleep ?? sleepSync;
+  let state;
+  try {
+    state = readBranchState(repo, defaultBranch, run);
+  } catch (e) {
+    const why = e instanceof Error ? e.message : String(e);
+    return { shipped: false, refusals: [why], gateRuns: [], summary: `not shipped \u2014 ${why}` };
+  }
+  const refusals = shipRefusals(state);
+  if (refusals.length > 0) {
+    return { shipped: false, refusals, gateRuns: [], summary: summarize(state.branch, refusals, []) };
+  }
+  const conflict = syncWithDefault(repo, defaultBranch, run, log);
+  if (conflict) {
+    return { shipped: false, refusals: [conflict], gateRuns: [], summary: summarize(state.branch, [conflict], []) };
+  }
+  const diff = run(["git", "diff", "--name-only", `origin/${defaultBranch}...HEAD`], repo);
+  const changed = diff.status === 0 ? diff.output.split("\n").map((l) => l.trim()).filter(Boolean) : [];
+  const gates = gatesFor(changed);
+  log(`ship: ${gates.length} gate(s) to run \u2014 ${gates.map((g) => g.name).join(", ")}`);
+  const gateRuns = [];
+  for (const gate of gates) {
+    log(`ship: running ${gate.name} \u2026`);
+    const [result] = runGates([gate], repo, run);
+    gateRuns.push(result);
+    if (!result.passed) break;
+    const drift = artifactDrift(repo, gate.name, run);
+    if (drift) {
+      gateRuns[gateRuns.length - 1] = { ...result, passed: false, excerpt: drift };
+      break;
+    }
+  }
+  const red = redGate(gateRuns);
+  if (red) {
+    return { shipped: false, refusals: [], gateRuns, summary: summarize(state.branch, [], gateRuns) };
+  }
+  if (dryRun) {
+    return {
+      shipped: false,
+      refusals: [],
+      gateRuns,
+      summary: `dry run \u2014 every gate is green, so "${state.branch}" would have merged.`
+    };
+  }
+  const push = run(["git", "push", "--set-upstream", "origin", state.branch], repo);
+  if (push.status !== 0) {
+    const why = `every gate is green, but pushing "${state.branch}" failed:
+${tail(push.output, 10)}`;
+    return { shipped: false, refusals: [why], gateRuns, summary: `not shipped \u2014 ${why}` };
+  }
+  let merge2 = run(["gh", "pr", "merge", state.branch, "--squash", "--delete-branch", "--admin"], repo);
+  for (let attempt = 1; merge2.status !== 0 && attempt < MERGE_ATTEMPTS && isStaleMergeability(merge2.output); attempt++) {
+    log(`ship: GitHub has not finished recomputing mergeability \u2014 retrying the merge (${attempt}/${MERGE_ATTEMPTS - 1}).`);
+    sleep(MERGE_RETRY_MS);
+    merge2 = run(["gh", "pr", "merge", state.branch, "--squash", "--delete-branch", "--admin"], repo);
+  }
+  if (merge2.status !== 0) {
+    const why = `every gate is green, but 'gh pr merge' failed:
+${tail(merge2.output, 10)}`;
+    return { shipped: false, refusals: [why], gateRuns, summary: `not shipped \u2014 ${why}` };
+  }
+  run(["git", "checkout", defaultBranch], repo);
+  run(["git", "pull", "--ff-only", "origin", defaultBranch], repo);
+  return { shipped: true, refusals: [], gateRuns, summary: summarize(state.branch, [], gateRuns) };
 }
 
 // src/eval/rollup.ts
@@ -42264,7 +42488,7 @@ import fs23 from "node:fs";
 import path24 from "node:path";
 
 // src/loop/state.ts
-import { spawnSync as spawnSync2 } from "node:child_process";
+import { spawnSync as spawnSync4 } from "node:child_process";
 import fs22 from "node:fs";
 import path23 from "node:path";
 var STATE_DIRNAME = "ost-agent";
@@ -42285,8 +42509,8 @@ function gitDir(vaultDir) {
   return path23.resolve(abs, match[1].trim());
 }
 function loopStateDir(vaultDir) {
-  const git2 = gitDir(vaultDir);
-  return git2 === null ? null : path23.join(git2, STATE_DIRNAME);
+  const git3 = gitDir(vaultDir);
+  return git3 === null ? null : path23.join(git3, STATE_DIRNAME);
 }
 function requireLoopStateDir(vaultDir) {
   const dir = loopStateDir(vaultDir);
@@ -42299,7 +42523,7 @@ function requireLoopStateDir(vaultDir) {
   return dir;
 }
 function gitHead(vaultDir) {
-  const r2 = spawnSync2("git", ["rev-parse", "HEAD"], {
+  const r2 = spawnSync4("git", ["rev-parse", "HEAD"], {
     cwd: path23.resolve(vaultDir),
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"]
@@ -42308,7 +42532,7 @@ function gitHead(vaultDir) {
   return sha.length > 0 ? sha : void 0;
 }
 function workingTreeStatus(vaultDir) {
-  const r2 = spawnSync2("git", ["status", "--porcelain"], {
+  const r2 = spawnSync4("git", ["status", "--porcelain"], {
     cwd: path23.resolve(vaultDir),
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"]
@@ -42520,6 +42744,282 @@ function formatStrandedCensus(census) {
   return lines.join("\n");
 }
 
+// src/ost/search.ts
+import fs24 from "node:fs";
+function examined(subject, hits) {
+  return { read: true, subject, hits };
+}
+function unread(subject, cause, detail2) {
+  return { read: false, subject, cause, detail: detail2 };
+}
+var SearchTotal = class _SearchTotal {
+  #outcomes;
+  constructor(outcomes) {
+    this.#outcomes = outcomes;
+  }
+  /** Gather outcomes into a total. The one constructor. */
+  static over(outcomes) {
+    return new _SearchTotal([...outcomes]);
+  }
+  /**
+   * One total over several searches, with both denominators added up.
+   *
+   * Exists so a caller that runs two searches is not the place the distinction
+   * gets lost. Concatenating two `resolve` results by hand is precisely the
+   * boundary the assumption underneath this module says the marker dies at: the
+   * obvious way to write it drops the unread half of each.
+   */
+  static merge(...totals) {
+    return new _SearchTotal(totals.flatMap((t2) => [...t2.#outcomes]));
+  }
+  /** How many subjects the search was pointed at. The denominator. */
+  get offered() {
+    return this.#outcomes.length;
+  }
+  /** How many of them it actually got as far as examining. */
+  get examined() {
+    return this.#outcomes.reduce((n, o2) => o2.read ? n + 1 : n, 0);
+  }
+  /**
+   * The subjects it could not examine, each with its reason.
+   *
+   * Exposed directly, unlike the hits, because the asymmetry is the point: a
+   * consumer that never looks at this cannot obtain a count either, and a
+   * consumer that formats a summary has the reasons in hand without asking.
+   */
+  get unread() {
+    return this.#outcomes.filter((o2) => !o2.read);
+  }
+  /** Per-subject detail for the subjects that were read. */
+  get examinedSubjects() {
+    return this.#outcomes.filter((o2) => o2.read);
+  }
+  /** True when nothing was read at all — the case {@link sweepReport} calls blind. */
+  get blind() {
+    return this.offered > 0 && this.examined === 0;
+  }
+  /**
+   * Get something out of the search, having said what happens to the unread.
+   *
+   * This is the whole mechanism. `resolve` is the only member that yields the
+   * hits, and it cannot be called without supplying `whenUnread`, so the
+   * flattening path is absent rather than discouraged. The convention version of
+   * this rule already failed here once — the wrapped-wikilink guard exists
+   * because asking people to keep links on one line did not work.
+   */
+  resolve(handlers) {
+    const hits = this.examinedSubjects.flatMap((s) => [...s.hits]);
+    const unread2 = this.unread;
+    const examined2 = this.examined;
+    return unread2.length === 0 ? handlers.whenComplete(hits, examined2) : handlers.whenUnread(unread2, hits, examined2);
+  }
+  /** The offered/read pair, for {@link sweepReport} and the sweep ledger. */
+  toSweepSubject() {
+    return { offered: this.offered, read: this.examined };
+  }
+};
+function formatSearchTotal(name, total) {
+  return total.resolve({
+    whenComplete: (hits, examined2) => `${name}: ${hits.length} hit(s) over ${examined2} of ${total.offered} subject(s) examined, 0 unread.`,
+    whenUnread: (unread2, hits, examined2) => {
+      const head = total.blind ? `${name}: UNREAD \u2014 0 of ${total.offered} subject(s) examined, ${unread2.length} unread. This search found nothing because it ran against nothing.` : `${name}: ${hits.length} hit(s) over ${examined2} of ${total.offered} subject(s) examined, ${unread2.length} unread \u2014 the hit count is short by whatever the ${unread2.length} unread subject(s) hold.`;
+      return [head, ...unread2.map((u) => `  \u2013 unread ${u.subject} (${u.cause}): ${u.detail}`)].join("\n");
+    }
+  });
+}
+var GLOB_SPECIALS = /[.*+?^${}()|[\]\\]/g;
+function compileGlob(pattern) {
+  let out = "";
+  let depth = 0;
+  for (let i2 = 0; i2 < pattern.length; i2++) {
+    const c3 = pattern[i2];
+    if (c3 === "\\" && i2 + 1 < pattern.length) {
+      out += pattern[++i2].replace(GLOB_SPECIALS, "\\$&");
+      continue;
+    }
+    if (c3 === "*") out += ".*";
+    else if (c3 === "?") out += ".";
+    else if (c3 === "{") {
+      depth++;
+      out += "(?:";
+    } else if (c3 === "}") {
+      if (depth === 0) {
+        return { ok: false, error: `error parsing glob '${pattern}': unopened alternate group; missing '{' (maybe escape '}' with '\\}'?)` };
+      }
+      depth--;
+      out += ")";
+    } else if (c3 === "," && depth > 0) out += "|";
+    else out += c3.replace(GLOB_SPECIALS, "\\$&");
+  }
+  if (depth > 0) {
+    return { ok: false, error: `error parsing glob '${pattern}': unclosed alternate group; missing '}' (maybe escape '{' with '\\{'?)` };
+  }
+  try {
+    const re = new RegExp(`^${out}$`);
+    return { ok: true, matches: (line) => re.test(line) };
+  } catch (err) {
+    return { ok: false, error: `error parsing glob '${pattern}': ${err.message}` };
+  }
+}
+var defaultRead = (file) => fs24.readFileSync(file, "utf8");
+function causeOfReadFailure(err) {
+  const code = err?.code;
+  return code === "EACCES" || code === "EPERM" || code === "EISDIR" ? "denied" : "unreadable";
+}
+function searchSubjects(requests, opts = {}) {
+  const readFile = opts.readFile ?? defaultRead;
+  return SearchTotal.over(
+    requests.map((req) => {
+      const compiled = compileGlob(req.pattern);
+      if (!compiled.ok) return unread(req.subject, "malformed-pattern", compiled.error);
+      let raw;
+      try {
+        raw = readFile(req.file);
+      } catch (err) {
+        return unread(req.subject, causeOfReadFailure(err), err.message);
+      }
+      const hits = [];
+      raw.split("\n").forEach((text2, i2) => {
+        if (compiled.matches(text2)) hits.push({ subject: req.subject, line: i2 + 1, text: text2 });
+      });
+      return examined(req.subject, hits);
+    })
+  );
+}
+
+// src/security/tainted.ts
+var CONTROL_CHARS2 = new RegExp("[\\u0000-\\u001F\\u007F]");
+var CONTROL_CHARS_GLOBAL = new RegExp("[\\u0000-\\u001F\\u007F]", "g");
+var GLOB_SYNTAX = /[\\*?{},]/g;
+var TreeText = class _TreeText {
+  #value;
+  #origin;
+  constructor(value, origin) {
+    this.#value = value;
+    this.#origin = origin;
+  }
+  /**
+   * Wrap a value read out of a node's frontmatter.
+   *
+   * Takes `unknown` because YAML hands back whatever was written: a title field
+   * holding a list or a number is a malformed node, and the place to find that
+   * out is the read, not the call three frames later that expected a string.
+   */
+  static fromFrontmatter(file, field, value) {
+    if (typeof value !== "string") {
+      throw new TypeError(`${field} of ${file} is ${value === null ? "null" : typeof value}, not text`);
+    }
+    return new _TreeText(value, { file, field });
+  }
+  /** Wrap a value that came from the tree by some other route — a body, a title read off a filename. */
+  static fromTree(value, origin) {
+    if (typeof value !== "string") {
+      throw new TypeError(`${origin.field} of ${origin.file} is not text`);
+    }
+    return new _TreeText(value, origin);
+  }
+  /**
+   * Where this came from. Safe to print: it names the file and field, not the value.
+   */
+  get origin() {
+    return this.#origin;
+  }
+  /** How long the value is, for a size check that does not need to read it. */
+  get length() {
+    return this.#value.length;
+  }
+  /**
+   * The value as a glob that matches itself and nothing else.
+   *
+   * Every character `compileGlob` would read as syntax is escaped, so `{Charge`
+   * arrives as a pattern for the six characters `{Charge` rather than as an
+   * alternate group that was never closed. The invariant a caller can rely on:
+   * `compileGlob(t.forSearchPattern())` compiles, and matches the original value.
+   */
+  forSearchPattern() {
+    return this.#value.replace(GLOB_SYNTAX, "\\$&");
+  }
+  /**
+   * A path to this value's file under `root`, or a refusal saying why not.
+   *
+   * Refuses rather than repairs, for the reason on {@link PathForTreeText}. The
+   * four refusals are the four ways a sentence stops being a filename: a
+   * separator, a traversal, a control byte (`\n` in a title makes one path into
+   * two), and nothing left at all.
+   */
+  forPathUnder(root, opts = {}) {
+    const value = this.#value;
+    const extension = opts.extension ?? ".md";
+    if (value.trim().length === 0) {
+      return { ok: false, reason: `${this.#describe()} is empty or blank, so it names no file` };
+    }
+    if (/[/\\]/.test(value)) {
+      return { ok: false, reason: `${this.#describe()} contains a path separator, so it is not one file name` };
+    }
+    if (value === "." || value === ".." || value.includes("..")) {
+      return { ok: false, reason: `${this.#describe()} contains a traversal, so the path it builds may leave ${root}` };
+    }
+    if (CONTROL_CHARS2.test(value)) {
+      return { ok: false, reason: `${this.#describe()} contains a control character, so it does not name one line or one file` };
+    }
+    const sep = root.endsWith("/") ? "" : "/";
+    return { ok: true, path: `${root}${sep}${value}${extension}` };
+  }
+  /**
+   * The value as one line of output, quoted, with nothing left that an
+   * interpreter downstream would read as an instruction.
+   *
+   * Quoted and not merely escaped, because the recorded shell failures include
+   * `(eval):1: == not found` — a separator line from output being executed. A
+   * value printed bare can become a command in whatever reads the log next; a
+   * value in quotes with its controls escaped is visibly a value. `JSON.stringify`
+   * is exactly this transformation and is used rather than reimplemented.
+   */
+  forMessage() {
+    return JSON.stringify(this.#value);
+  }
+  /**
+   * Is this value the literal `expected`?
+   *
+   * The comparison route yields a boolean and never the string, which is the
+   * whole point: an equality check is the boundary where a wrapper is most
+   * tempting to unwrap, and it does not need the value to be in circulation to
+   * answer. Exact, not canonicalising — a caller that wants to compare node
+   * titles the way the filesystem does should compare the paths
+   * {@link forPathUnder} builds, so that "equal" means "the same file".
+   */
+  equalsLiteral(expected) {
+    return this.#value === expected;
+  }
+  /** The value and its origin, for a refusal message. Names the field, quotes the value. */
+  #describe() {
+    return `${this.#origin.field} of ${this.#origin.file} (${JSON.stringify(this.#value)})`;
+  }
+  /**
+   * The four implicit conversions, present only to fail.
+   *
+   * `` `${title}` ``, `String(title)`, `title + ""` and `JSON.stringify({title})`
+   * are the ways a bare string gets back into circulation without anyone writing
+   * anything that looks wrong. Each throws naming the alternative, because a
+   * caller here has a real destination in mind and needs to say which.
+   */
+  toString() {
+    throw new TypeError(_TreeText.#refusal("String()"));
+  }
+  valueOf() {
+    throw new TypeError(_TreeText.#refusal("valueOf()"));
+  }
+  toJSON() {
+    throw new TypeError(_TreeText.#refusal("JSON.stringify()"));
+  }
+  [Symbol.toPrimitive]() {
+    throw new TypeError(_TreeText.#refusal("string interpolation"));
+  }
+  static #refusal(how) {
+    return `tree text has no bare form: ${how} would hand it to a command unquoted. Name a destination \u2014 forSearchPattern(), forPathUnder(), forMessage() or equalsLiteral().`;
+  }
+};
+
 // src/product/capability.ts
 import path25 from "node:path";
 var CLEAR_COMMIT_SHARE = 0.7;
@@ -42706,14 +43206,14 @@ function parseLog(raw) {
 async function readCommittedRecord(repoRoot, window2 = {}) {
   const w = { ...DEFAULT_WINDOW, ...window2 };
   const repo = path25.resolve(repoRoot);
-  const git2 = simpleGit(repo);
-  if (!await git2.checkIsRepo()) {
+  const git3 = simpleGit(repo);
+  if (!await git3.checkIsRepo()) {
     throw new Error(`${repo} is not a git repository \u2014 there is no committed record to read`);
   }
-  const shallow = (await git2.raw(["rev-parse", "--is-shallow-repository"]).catch(() => "false")).trim() === "true";
+  const shallow = (await git3.raw(["rev-parse", "--is-shallow-repository"]).catch(() => "false")).trim() === "true";
   const format = `${RS}%H${FS}%an${FS}%ae${FS}%s${FS}%b${FS}`;
-  const commits = parseLog(await git2.raw(["log", `-n${w.commits}`, `--format=${format}`, "--name-only"]));
-  const scanned = parseLog(await git2.raw(["log", `-n${w.scan}`, `--format=${format}`, "--name-only"]));
+  const commits = parseLog(await git3.raw(["log", `-n${w.commits}`, `--format=${format}`, "--name-only"]));
+  const scanned = parseLog(await git3.raw(["log", `-n${w.scan}`, `--format=${format}`, "--name-only"]));
   const prs = [];
   const seen = /* @__PURE__ */ new Set();
   for (const c3 of scanned) {
@@ -42723,7 +43223,7 @@ async function readCommittedRecord(repoRoot, window2 = {}) {
     const number3 = merged?.[1] ?? squashed?.[1];
     if (!number3 || seen.has(number3)) continue;
     seen.add(number3);
-    const commitSubjects = merged ? (await git2.raw(["log", "--format=%s", `${c3.ref}^1..${c3.ref}^2`]).catch(() => "")).split("\n").map((s) => s.trim()).filter(Boolean) : [];
+    const commitSubjects = merged ? (await git3.raw(["log", "--format=%s", `${c3.ref}^1..${c3.ref}^2`]).catch(() => "")).split("\n").map((s) => s.trim()).filter(Boolean) : [];
     prs.push({ ...c3, kind: "pr", ref: `#${number3}`, commitSubjects });
   }
   return { repo, commits, prs, shallow };
@@ -42754,7 +43254,7 @@ function formatCapabilityProfile(report) {
 
 // src/product/manifest.ts
 var import_yaml2 = __toESM(require_dist(), 1);
-import fs24 from "node:fs";
+import fs25 from "node:fs";
 import path26 from "node:path";
 var MANIFEST_FILENAME = "ost.resources.yaml";
 function manifestPath(vaultDir) {
@@ -42891,10 +43391,10 @@ function summarizeDeclared(m, id) {
 }
 function readResourceManifest(vaultDir) {
   const p2 = manifestPath(vaultDir);
-  if (!fs24.existsSync(p2)) return { manifest: EMPTY_MANIFEST };
+  if (!fs25.existsSync(p2)) return { manifest: EMPTY_MANIFEST };
   let raw;
   try {
-    raw = (0, import_yaml2.parse)(fs24.readFileSync(p2, "utf8")) ?? {};
+    raw = (0, import_yaml2.parse)(fs25.readFileSync(p2, "utf8")) ?? {};
   } catch (e) {
     return {
       manifest: EMPTY_MANIFEST,
@@ -43054,7 +43554,7 @@ function formatPriorityOrder(order) {
 }
 
 // src/telemetry/preflight.ts
-import fs25 from "node:fs";
+import fs26 from "node:fs";
 import path27 from "node:path";
 var UNCERTAINTY_RULE = {
   /**
@@ -43328,7 +43828,7 @@ function preflightUncertaintyCensus(events, sessions) {
 function readUsageEvents(vaultDir) {
   let text2;
   try {
-    text2 = fs25.readFileSync(usageLogPath(vaultDir), "utf8");
+    text2 = fs26.readFileSync(usageLogPath(vaultDir), "utf8");
   } catch {
     return [];
   }
@@ -43345,14 +43845,14 @@ function readUsageEvents(vaultDir) {
 function readTranscriptSessions(dir) {
   let names;
   try {
-    names = fs25.readdirSync(dir).filter((n) => n.endsWith(".jsonl")).sort();
+    names = fs26.readdirSync(dir).filter((n) => n.endsWith(".jsonl")).sort();
   } catch {
     return [];
   }
   const sessions = [];
   for (const name of names) {
     try {
-      sessions.push({ id: name.replace(/\.jsonl$/, ""), jsonl: fs25.readFileSync(path27.join(dir, name), "utf8") });
+      sessions.push({ id: name.replace(/\.jsonl$/, ""), jsonl: fs26.readFileSync(path27.join(dir, name), "utf8") });
     } catch {
     }
   }
@@ -43400,12 +43900,12 @@ function formatPreflightCensus(census) {
       lines.push(`      no hedge, no check, no read, no question in the window${blind}`);
     }
   }
-  const unread = census.readings.filter((r2) => r2.unread);
-  if (unread.length) {
+  const unread2 = census.readings.filter((r2) => r2.unread);
+  if (unread2.length) {
     lines.push("");
-    lines.push(`Unread \u2014 no session record survives for these ${unread.length} failure(s):`);
+    lines.push(`Unread \u2014 no session record survives for these ${unread2.length} failure(s):`);
     const byTool = /* @__PURE__ */ new Map();
-    for (const r2 of unread) byTool.set(`${r2.tool} (${r2.surface})`, (byTool.get(`${r2.tool} (${r2.surface})`) ?? 0) + 1);
+    for (const r2 of unread2) byTool.set(`${r2.tool} (${r2.surface})`, (byTool.get(`${r2.tool} (${r2.surface})`) ?? 0) + 1);
     for (const [tool2, n] of [...byTool.entries()].sort((a, b2) => b2[1] - a[1])) lines.push(`  ${tool2} \xD7${n}`);
   }
   lines.push("");
@@ -43416,7 +43916,7 @@ function formatPreflightCensus(census) {
 }
 
 // src/telemetry/search-literality.ts
-import fs26 from "node:fs";
+import fs27 from "node:fs";
 import path28 from "node:path";
 var LITERALITY_RULE = {
   /**
@@ -43593,7 +44093,7 @@ function breToRegex(pattern) {
   }
   return out;
 }
-var GLOB_SYNTAX = "*?[]{}";
+var GLOB_SYNTAX2 = "*?[]{}";
 function globCompiles(glob) {
   let brace = false;
   let bracket = false;
@@ -43624,13 +44124,13 @@ function globQuestion(glob) {
 }
 function containsCore(glob) {
   const core = glob.replace(/^\*+/, "").replace(/\*+$/, "");
-  if (core.split("").some((c3) => GLOB_SYNTAX.includes(c3))) return null;
+  if (core.split("").some((c3) => GLOB_SYNTAX2.includes(c3))) return null;
   if (core === glob && core !== "") return null;
   if (core && !/[^/]/.test(core)) return null;
   return core;
 }
 function expandGlob(glob) {
-  const branchCore = (part) => part.split("").some((c3) => GLOB_SYNTAX.includes(c3)) ? containsCore(part) : part;
+  const branchCore = (part) => part.split("").some((c3) => GLOB_SYNTAX2.includes(c3)) ? containsCore(part) : part;
   const open = glob.indexOf("{");
   if (open === -1) {
     const core = branchCore(glob);
@@ -43639,10 +44139,10 @@ function expandGlob(glob) {
   const close = glob.indexOf("}", open);
   if (close === -1) return null;
   const head = glob.slice(0, open);
-  const tail = glob.slice(close + 1);
-  if (/[?[\]]/.test(head) || /[?[\]]/.test(tail)) return null;
+  const tail2 = glob.slice(close + 1);
+  if (/[?[\]]/.test(head) || /[?[\]]/.test(tail2)) return null;
   const parts = glob.slice(open + 1, close).split(",");
-  const rest = expandGlob(tail);
+  const rest = expandGlob(tail2);
   if (rest === null) return null;
   const out = [];
   for (const part of parts) {
@@ -43698,7 +44198,7 @@ function classifyLiterality(value, language) {
     return { literality: "malformed", literals: literalRuns(value, language), reason: "glob did not compile" };
   }
   const question = globQuestion(value);
-  if (!question.split("").some((c3) => GLOB_SYNTAX.includes(c3))) {
+  if (!question.split("").some((c3) => GLOB_SYNTAX2.includes(c3))) {
     return { literality: "literal", literals: [question], reason: "" };
   }
   const expanded = expandGlob(question);
@@ -43912,7 +44412,7 @@ function isNodeText(subject, vaultDir) {
 }
 function readSearchArguments(sessions, options2) {
   const args = [];
-  const unread = [];
+  const unread2 = [];
   let calls = 0;
   for (const session of sessions) {
     let entryIndex = -1;
@@ -43947,7 +44447,7 @@ function readSearchArguments(sessions, options2) {
             lifted++;
             args.push({ ...base, field, language, value, subject });
           }
-          if (!lifted) unread.push({ ...base, excerpt: clip4(JSON.stringify(input)), cause: "no-argument-recorded" });
+          if (!lifted) unread2.push({ ...base, excerpt: clip4(JSON.stringify(input)), cause: "no-argument-recorded" });
           continue;
         }
         if (tool2 !== "Bash") continue;
@@ -43958,14 +44458,14 @@ function readSearchArguments(sessions, options2) {
         const searches = shellSearches(command, cwd);
         if (searches === null) {
           calls++;
-          unread.push({ ...base, excerpt: clip4(command), cause: "unparseable-shell" });
+          unread2.push({ ...base, excerpt: clip4(command), cause: "unparseable-shell" });
           continue;
         }
         for (const search of searches) {
           const lifted = shellArguments(search);
           if (lifted === null) {
             calls++;
-            unread.push({ ...base, excerpt: clip4(command), cause: "unparseable-shell" });
+            unread2.push({ ...base, excerpt: clip4(command), cause: "unparseable-shell" });
             continue;
           }
           if (!lifted.args.length) continue;
@@ -43985,7 +44485,7 @@ function readSearchArguments(sessions, options2) {
       }
     }
   }
-  return { args, unread, calls };
+  return { args, unread: unread2, calls };
 }
 function shareOf(literal3, derived) {
   return derived ? literal3 / derived : null;
@@ -44065,7 +44565,7 @@ function searchLiteralityCensus(args, treeText, extra) {
 function readTreeTitles(vaultDir) {
   let names;
   try {
-    names = fs26.readdirSync(vaultDir);
+    names = fs27.readdirSync(vaultDir);
   } catch {
     return [];
   }
@@ -44133,7 +44633,7 @@ function formatSearchLiteralityCensus(census) {
 }
 
 // src/adapters/friction.ts
-import fs27 from "node:fs";
+import fs28 from "node:fs";
 import path29 from "node:path";
 var FRICTION_KINDS = ["blocked", "guessed", "unclear-rule", "missing-affordance", "slow"];
 var MAX_NOTE_CHARS = 500;
@@ -44147,7 +44647,7 @@ function slug(note) {
 }
 function uniquePath(dir, base) {
   let candidate = path29.join(dir, `${base}.md`);
-  for (let n = 2; fs27.existsSync(candidate); n++) {
+  for (let n = 2; fs28.existsSync(candidate); n++) {
     candidate = path29.join(dir, `${base}-${n}.md`);
   }
   return candidate;
@@ -44166,7 +44666,7 @@ function fileFriction(vaultDir, filing) {
   if (!note) throw new Error("a friction filing needs a note \u2014 one line describing what went wrong");
   const dir = path29.resolve(vaultDir);
   const inboxDir = frictionDir(dir);
-  fs27.mkdirSync(inboxDir, { recursive: true });
+  fs28.mkdirSync(inboxDir, { recursive: true });
   const at = filing.at ?? (/* @__PURE__ */ new Date()).toISOString();
   const day = at.slice(0, 10);
   const context = filing.context ? clean(filing.context, MAX_CONTEXT_CHARS) : "";
@@ -44186,7 +44686,7 @@ function fileFriction(vaultDir, filing) {
     ""
   ].join("\n");
   const target = uniquePath(inboxDir, `${day}-friction-${slug(note)}`);
-  fs27.writeFileSync(target, body, "utf8");
+  fs28.writeFileSync(target, body, "utf8");
   return target;
 }
 
@@ -46607,7 +47107,7 @@ function decodeEntities(s) {
 }
 
 // src/product/repo.ts
-import fs28 from "node:fs";
+import fs29 from "node:fs";
 import path30 from "node:path";
 var MAX_FILE_CHARS = 2e4;
 var MAX_LIST_ENTRIES = 500;
@@ -46645,7 +47145,7 @@ function readProductRepo(repos, input) {
       "no product repos configured \u2014 add local repo paths under `product.repos` in ost.config.yaml so the agent can read what the product is"
     );
   }
-  const roots = repos.map((r2) => fs28.realpathSync(path30.resolve(r2)));
+  const roots = repos.map((r2) => fs29.realpathSync(path30.resolve(r2)));
   let root;
   if (input.repo) {
     const found = roots.find((r2) => path30.basename(r2) === input.repo || r2 === path30.resolve(input.repo));
@@ -46672,7 +47172,7 @@ function readProductRepo(repos, input) {
   refuseVaultSidecar(joined, rel);
   let real;
   try {
-    real = fs28.realpathSync(joined);
+    real = fs29.realpathSync(joined);
   } catch {
     throw new Error(missingPathMessage(roots, root, rel));
   }
@@ -46681,12 +47181,12 @@ function readProductRepo(repos, input) {
   }
   refuseVaultSidecar(real, rel);
   const repoName = path30.basename(root);
-  const stat = fs28.statSync(real);
+  const stat = fs29.statSync(real);
   if (stat.isDirectory()) {
-    const entries = fs28.readdirSync(real, { withFileTypes: true }).filter((e) => !SKIP_DIRS.has(e.name) && !isSidecarName(e.name)).sort((a, b2) => a.name.localeCompare(b2.name)).slice(0, MAX_LIST_ENTRIES).map((e) => ({ name: e.name, type: e.isDirectory() ? "dir" : "file" }));
+    const entries = fs29.readdirSync(real, { withFileTypes: true }).filter((e) => !SKIP_DIRS.has(e.name) && !isSidecarName(e.name)).sort((a, b2) => a.name.localeCompare(b2.name)).slice(0, MAX_LIST_ENTRIES).map((e) => ({ name: e.name, type: e.isDirectory() ? "dir" : "file" }));
     return { framing: DATA_FRAME, kind: "listing", repo: repoName, path: rel, entries };
   }
-  const buf = fs28.readFileSync(real);
+  const buf = fs29.readFileSync(real);
   if (buf.subarray(0, 8192).includes(0)) {
     throw new Error(`"${rel}" looks binary \u2014 only text files can be read`);
   }
@@ -47729,7 +48229,7 @@ function enqueueCommit(dir, message) {
 }
 
 // src/mcp/bootstrap.ts
-import fs29 from "node:fs";
+import fs30 from "node:fs";
 import path31 from "node:path";
 
 // src/mcp/setup.ts
@@ -47760,7 +48260,7 @@ function configProblemGuidance(dir, cause) {
 // src/mcp/bootstrap.ts
 function vaultReadiness(ctx) {
   const vault = ctx.dir;
-  if (!fs29.existsSync(path31.join(vault, ".git")) || !fs29.existsSync(configPath(vault))) {
+  if (!fs30.existsSync(path31.join(vault, ".git")) || !fs30.existsSync(configPath(vault))) {
     const nextStep = initCommand(vault);
     return {
       ready: false,
@@ -47960,7 +48460,7 @@ function createLazyOstMcpServer(vaultDir) {
 }
 
 // src/security/allowlist-generator.ts
-import fs30 from "node:fs";
+import fs31 from "node:fs";
 var AGENT_SESSION_MARKERS = [
   "CLAUDECODE",
   "CLAUDE_CODE_ENTRYPOINT",
@@ -48058,7 +48558,7 @@ function runAllowlistGenerator(opts) {
   const env = opts.env ?? process.env;
   let skill = "";
   if (agentSessionMarker(env) === null) {
-    if (!fs30.existsSync(opts.skillPath)) {
+    if (!fs31.existsSync(opts.skillPath)) {
       return {
         exitCode: 1,
         report: `REFUSED: no skill file at ${opts.skillPath}. Nothing was written.`,
@@ -48069,11 +48569,11 @@ function runAllowlistGenerator(opts) {
         }
       };
     }
-    skill = fs30.readFileSync(opts.skillPath, "utf8");
+    skill = fs31.readFileSync(opts.skillPath, "utf8");
   }
   let settings = null;
-  if (fs30.existsSync(opts.settingsPath)) {
-    const raw = fs30.readFileSync(opts.settingsPath, "utf8");
+  if (fs31.existsSync(opts.settingsPath)) {
+    const raw = fs31.readFileSync(opts.settingsPath, "utf8");
     try {
       settings = JSON.parse(raw);
     } catch (e) {
@@ -48094,13 +48594,155 @@ function runAllowlistGenerator(opts) {
   }
   const next = { ...settings ?? {} };
   next.permissions = { ...settings?.permissions ?? {}, allow: decision.allow };
-  fs30.writeFileSync(opts.settingsPath, `${JSON.stringify(next, null, 2)}
+  fs31.writeFileSync(opts.settingsPath, `${JSON.stringify(next, null, 2)}
 `, "utf8");
   return { exitCode: 0, report: decision.message, decision };
 }
 
+// src/runner/grant-preflight.ts
+import fs32 from "node:fs";
+function parseRule(entry) {
+  const trimmed2 = entry.trim();
+  const match = trimmed2.match(/^([^(]+)\((.*)\)$/s);
+  if (!match) return { entry: trimmed2, tool: trimmed2, argument: null };
+  return { entry: trimmed2, tool: match[1].trim(), argument: match[2].trim() };
+}
+function normalizeArgument(argument) {
+  const collapsed = argument.startsWith("//") ? argument.slice(1) : argument;
+  return collapsed.length > 1 && collapsed.endsWith("/") ? collapsed.replace(/\/+$/, "") : collapsed;
+}
+function toolCovered(grantTool, demandTool) {
+  if (grantTool === demandTool) return true;
+  return grantTool.startsWith("mcp__") && demandTool.startsWith(`${grantTool}__`);
+}
+function globToRegExp(pattern) {
+  let out = "";
+  for (let i2 = 0; i2 < pattern.length; i2++) {
+    const c3 = pattern[i2];
+    if (c3 === "*") {
+      if (pattern[i2 + 1] === "*") {
+        out += ".*";
+        i2++;
+      } else out += "[^/]*";
+    } else if (c3 === "?") out += "[^/]";
+    else out += c3.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  }
+  return new RegExp(`^${out}$`);
+}
+function argumentCovered(grantArgument, demandArgument) {
+  const grant = normalizeArgument(grantArgument);
+  const demand = normalizeArgument(demandArgument);
+  if (grant === demand) return true;
+  if (grant.endsWith(":*")) return demand.startsWith(grant.slice(0, -2));
+  if (grant.includes("*") || grant.includes("?")) return globToRegExp(grant).test(demand);
+  return demand.startsWith(`${grant}/`);
+}
+function ruleCovers(grant, demand) {
+  if (!toolCovered(grant.tool, demand.tool)) return false;
+  if (grant.argument === null) return true;
+  if (demand.argument === null) return false;
+  return argumentCovered(grant.argument, demand.argument);
+}
+function resolveGrants(input) {
+  const demands = input.demands.map(parseRule);
+  const grants = input.grants.map(parseRule);
+  const gaps = [];
+  for (const demand of demands) {
+    if (grants.some((g) => ruleCovers(g, demand))) continue;
+    const named = grants.filter((g) => toolCovered(g.tool, demand.tool));
+    gaps.push({
+      demand,
+      kind: named.length > 0 ? "out-of-scope" : "ungranted",
+      granted: named.map((g) => g.entry)
+    });
+  }
+  return { demands, grants, gaps };
+}
+function renderPreflight(result, paths) {
+  const caveat = `Checked: ${paths.skillPath} declares, ${paths.settingsPath} grants. NOT checked: whether the session's live grant is this file \u2014 a preflight right about the configuration and wrong about the session is still wrong.`;
+  if (result.gaps.length === 0) {
+    return [
+      `preflight CLEARED: all ${result.demands.length} declared tool demand(s) are covered by the grant.`,
+      caveat
+    ].join("\n");
+  }
+  const ungranted = result.gaps.filter((g) => g.kind === "ungranted");
+  const scoped = result.gaps.filter((g) => g.kind === "out-of-scope");
+  const lines = [
+    `PREFLIGHT FAILED: ${result.gaps.length} of ${result.demands.length} declared tool demand(s) are not covered by the grant this run would fire with.`,
+    ""
+  ];
+  if (ungranted.length > 0) {
+    lines.push(`Not granted at all (${ungranted.length}):`);
+    for (const gap of ungranted) lines.push(`  ${gap.demand.entry}`);
+    lines.push("");
+  }
+  if (scoped.length > 0) {
+    lines.push(`Granted, but not for what this run asks (${scoped.length}):`);
+    for (const gap of scoped) {
+      lines.push(`  ${gap.demand.entry} \u2014 ${gap.demand.tool} is granted only for: ${gap.granted.join(", ")}`);
+    }
+    lines.push("");
+  }
+  lines.push(
+    `Add them to \`permissions.allow\` in ${paths.settingsPath}, or narrow the declaration in ${paths.skillPath}.`,
+    "Stopping here is cheaper than finding out one call at a time: under `claude -p` an ungranted call is denied",
+    "rather than prompted, so a run that proceeds spends its night discovering this and reports a night with",
+    "nothing to do. Nothing was requested, escalated or written \u2014 which grant to add is the operator's decision.",
+    "",
+    caveat
+  );
+  return lines.join("\n");
+}
+var PREFLIGHT_EXIT = {
+  cleared: 0,
+  /** Demands the grant does not cover. The run must not start. */
+  gaps: 20,
+  /** The comparison could not be made at all — which is not a clear result. */
+  unreadable: 21
+};
+function runGrantPreflight(opts) {
+  const paths = { skillPath: opts.skillPath, settingsPath: opts.settingsPath };
+  if (!fs32.existsSync(opts.skillPath)) {
+    return {
+      exitCode: PREFLIGHT_EXIT.unreadable,
+      report: `preflight COULD NOT RUN: no declaration file at ${opts.skillPath}. That is not a cleared run.`,
+      result: null
+    };
+  }
+  const declared = declaredTools(fs32.readFileSync(opts.skillPath, "utf8")) ?? [];
+  const demands = [...declared, ...opts.extraDemands ?? []];
+  if (demands.length === 0) {
+    return {
+      exitCode: PREFLIGHT_EXIT.unreadable,
+      report: `preflight COULD NOT RUN: ${opts.skillPath} has no \`allowed-tools\` frontmatter line and no --demand was given, so there is nothing to check the grant against. That is not a cleared run.`,
+      result: null
+    };
+  }
+  if (!fs32.existsSync(opts.settingsPath)) {
+    const result2 = resolveGrants({ demands, grants: [] });
+    return { exitCode: PREFLIGHT_EXIT.gaps, report: renderPreflight(result2, paths), result: result2 };
+  }
+  let settings;
+  try {
+    settings = JSON.parse(fs32.readFileSync(opts.settingsPath, "utf8"));
+  } catch (e) {
+    return {
+      exitCode: PREFLIGHT_EXIT.unreadable,
+      report: `preflight COULD NOT RUN: ${opts.settingsPath} is not valid JSON (${e instanceof Error ? e.message : String(e)}), so what this run is granted is unknown. That is not a cleared run.`,
+      result: null
+    };
+  }
+  const result = resolveGrants({ demands, grants: grantedTools(settings) });
+  return {
+    exitCode: result.gaps.length > 0 ? PREFLIGHT_EXIT.gaps : PREFLIGHT_EXIT.cleared,
+    report: renderPreflight(result, paths),
+    result
+  };
+}
+
 // src/loop/corrections.ts
-import fs31 from "node:fs";
+import fs33 from "node:fs";
 import path33 from "node:path";
 var LEDGER_FILE = "corrections.json";
 var LEDGER_VERSION = 1;
@@ -48187,9 +48829,9 @@ function emptyCorrectionsLedger() {
 }
 function readLedger(stateDir2) {
   const p2 = ledgerPath(stateDir2);
-  if (!fs31.existsSync(p2)) return emptyCorrectionsLedger();
+  if (!fs33.existsSync(p2)) return emptyCorrectionsLedger();
   try {
-    const parsed = JSON.parse(fs31.readFileSync(p2, "utf8"));
+    const parsed = JSON.parse(fs33.readFileSync(p2, "utf8"));
     if (parsed.version !== LEDGER_VERSION) return emptyCorrectionsLedger();
     return {
       version: LEDGER_VERSION,
@@ -48203,8 +48845,8 @@ function readLedger(stateDir2) {
 }
 function writeLedger(stateDir2, ledger) {
   const dir = path33.resolve(stateDir2);
-  fs31.mkdirSync(dir, { recursive: true });
-  fs31.writeFileSync(ledgerPath(dir), JSON.stringify(ledger, null, 2));
+  fs33.mkdirSync(dir, { recursive: true });
+  fs33.writeFileSync(ledgerPath(dir), JSON.stringify(ledger, null, 2));
 }
 function foldSightings(ledger, sightings) {
   const byPermitted = /* @__PURE__ */ new Map();
@@ -48245,7 +48887,7 @@ function harvestableSessions(sessionsDir, ledger, opts) {
   const dir = path33.resolve(sessionsDir);
   let names;
   try {
-    names = fs31.readdirSync(dir);
+    names = fs33.readdirSync(dir);
   } catch {
     return [];
   }
@@ -48259,7 +48901,7 @@ function harvestableSessions(sessionsDir, ledger, opts) {
     const file = path33.join(dir, name);
     let mtimeMs;
     try {
-      mtimeMs = fs31.statSync(file).mtimeMs;
+      mtimeMs = fs33.statSync(file).mtimeMs;
     } catch {
       continue;
     }
@@ -48271,7 +48913,7 @@ function harvestableSessions(sessionsDir, ledger, opts) {
 function recordCorrections(stateDir2, sessionsDir, opts = {}) {
   const ledger = readLedger(stateDir2);
   const dir = path33.resolve(sessionsDir);
-  if (!fs31.existsSync(dir)) {
+  if (!fs33.existsSync(dir)) {
     return { readable: false, reason: `no session transcripts at ${dir}`, ledger };
   }
   const sessions = harvestableSessions(dir, ledger, {
@@ -48283,7 +48925,7 @@ function recordCorrections(stateDir2, sessionsDir, opts = {}) {
   for (const s of sessions) {
     let text2;
     try {
-      text2 = fs31.readFileSync(s.file, "utf8");
+      text2 = fs33.readFileSync(s.file, "utf8");
     } catch {
       continue;
     }
@@ -48330,7 +48972,7 @@ function renderCorrections(ledger) {
 }
 
 // src/cli/loop.ts
-import { spawnSync as spawnSync3 } from "node:child_process";
+import { spawnSync as spawnSync5 } from "node:child_process";
 import path40 from "node:path";
 
 // src/loop/exitLaundering.ts
@@ -48482,7 +49124,7 @@ function degradedReport(degradations) {
 }
 
 // src/loop/health.ts
-import fs32 from "node:fs";
+import fs34 from "node:fs";
 import path34 from "node:path";
 var REQUIRED_PHASES = ["pass", "check"];
 function healthDir(dir) {
@@ -48495,22 +49137,22 @@ function runsPath(dir) {
   return path34.join(healthDir(dir), "runs.jsonl");
 }
 function appendRun(dir, run) {
-  fs32.appendFileSync(runsPath(dir), JSON.stringify(run) + "\n");
+  fs34.appendFileSync(runsPath(dir), JSON.stringify(run) + "\n");
 }
 function readOpenRun(dir) {
   const state = loopStateDir(dir);
   if (state === null) return null;
   const p2 = path34.join(state, "open-run.json");
-  if (!fs32.existsSync(p2)) return null;
+  if (!fs34.existsSync(p2)) return null;
   try {
-    return JSON.parse(fs32.readFileSync(p2, "utf8"));
+    return JSON.parse(fs34.readFileSync(p2, "utf8"));
   } catch {
     return null;
   }
 }
 function sweepCrashed(dir) {
   const p2 = openRunPath(dir);
-  if (!fs32.existsSync(p2)) return null;
+  if (!fs34.existsSync(p2)) return null;
   const open = readOpenRun(dir);
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const crashed = open ? { ...open, endedAt: now, verdict: "crashed" } : {
@@ -48523,7 +49165,7 @@ function sweepCrashed(dir) {
     verdict: "crashed"
   };
   appendRun(dir, crashed);
-  fs32.rmSync(p2, { force: true });
+  fs34.rmSync(p2, { force: true });
   return crashed;
 }
 var idsIssuedThisMillisecond = 0;
@@ -48545,7 +49187,7 @@ function startRun(dir, meta) {
     ...meta.headBefore ? { headBefore: meta.headBefore } : {},
     steps: []
   };
-  fs32.writeFileSync(openRunPath(dir), JSON.stringify(run, null, 2));
+  fs34.writeFileSync(openRunPath(dir), JSON.stringify(run, null, 2));
   return run;
 }
 function requireOpenRun(dir) {
@@ -48556,7 +49198,7 @@ function requireOpenRun(dir) {
 function appendStep(dir, step) {
   const open = requireOpenRun(dir);
   open.steps.push({ ...step, at: (/* @__PURE__ */ new Date()).toISOString() });
-  fs32.writeFileSync(openRunPath(dir), JSON.stringify(open, null, 2));
+  fs34.writeFileSync(openRunPath(dir), JSON.stringify(open, null, 2));
   return open;
 }
 function computeVerdict(run) {
@@ -48583,7 +49225,7 @@ function sealRun(dir, meta = {}) {
     verdict: computeVerdict(withHead)
   };
   appendRun(dir, sealed);
-  fs32.rmSync(openRunPath(dir), { force: true });
+  fs34.rmSync(openRunPath(dir), { force: true });
   return sealed;
 }
 var VERDICTS2 = /* @__PURE__ */ new Set(["healthy", "unhealthy", "no-op", "crashed", "degraded"]);
@@ -48591,9 +49233,9 @@ function readRuns(dir) {
   const state = loopStateDir(dir);
   if (state === null) return [];
   const p2 = path34.join(state, "runs.jsonl");
-  if (!fs32.existsSync(p2)) return [];
+  if (!fs34.existsSync(p2)) return [];
   const runs = [];
-  for (const line of fs32.readFileSync(p2, "utf8").split("\n")) {
+  for (const line of fs34.readFileSync(p2, "utf8").split("\n")) {
     if (!line.trim()) continue;
     try {
       const parsed = JSON.parse(line);
@@ -48626,7 +49268,7 @@ function assessStall(runs, threshold = STALL_STREAK_THRESHOLD) {
 }
 
 // src/loop/lock.ts
-import fs33 from "node:fs";
+import fs35 from "node:fs";
 import os3 from "node:os";
 import path35 from "node:path";
 function firingLockPath(vaultDir) {
@@ -48635,9 +49277,9 @@ function firingLockPath(vaultDir) {
 }
 function readFiringLock(vaultDir) {
   const p2 = firingLockPath(vaultDir);
-  if (p2 === null || !fs33.existsSync(p2)) return null;
+  if (p2 === null || !fs35.existsSync(p2)) return null;
   try {
-    const parsed = JSON.parse(fs33.readFileSync(p2, "utf8"));
+    const parsed = JSON.parse(fs35.readFileSync(p2, "utf8"));
     return typeof parsed?.pid === "number" && typeof parsed?.acquiredAt === "string" ? parsed : null;
   } catch {
     return null;
@@ -48667,15 +49309,15 @@ function staleness(held, opts) {
 var tmpCounter = 0;
 function linkInPlace(stateDir2, lockFile, record2) {
   const tmp = path35.join(stateDir2, `.firing.lock.${record2.pid}.${tmpCounter++}`);
-  fs33.writeFileSync(tmp, JSON.stringify(record2) + "\n");
+  fs35.writeFileSync(tmp, JSON.stringify(record2) + "\n");
   try {
-    fs33.linkSync(tmp, lockFile);
+    fs35.linkSync(tmp, lockFile);
     return true;
   } catch (e) {
     if (e.code !== "EEXIST") throw e;
     return false;
   } finally {
-    fs33.rmSync(tmp, { force: true });
+    fs35.rmSync(tmp, { force: true });
   }
 }
 function acquireFiringLock(vaultDir, opts) {
@@ -48695,8 +49337,8 @@ function acquireFiringLock(vaultDir, opts) {
   if (!stale) return { ok: false, held, reason: `another firing holds the lock \u2014 ${why}` };
   try {
     const sidelined = `${lockFile}.stale-${now}-${record2.pid}`;
-    fs33.renameSync(lockFile, sidelined);
-    fs33.rmSync(sidelined, { force: true });
+    fs35.renameSync(lockFile, sidelined);
+    fs35.rmSync(sidelined, { force: true });
   } catch (e) {
     if (e.code !== "ENOENT") throw e;
   }
@@ -48708,8 +49350,8 @@ function stampFiringLock(vaultDir, record2, runId) {
   const lockFile = path35.join(stateDir2, "firing.lock");
   const next = { ...record2, runId };
   const tmp = path35.join(stateDir2, `.firing.lock.${record2.pid}.${tmpCounter++}`);
-  fs33.writeFileSync(tmp, JSON.stringify(next) + "\n");
-  fs33.renameSync(tmp, lockFile);
+  fs35.writeFileSync(tmp, JSON.stringify(next) + "\n");
+  fs35.renameSync(tmp, lockFile);
   return next;
 }
 function releaseFiringLock(vaultDir, match) {
@@ -48720,16 +49362,16 @@ function releaseFiringLock(vaultDir, match) {
   if (match.pid !== void 0 && held.pid !== match.pid) return false;
   if (match.acquiredAt !== void 0 && held.acquiredAt !== match.acquiredAt) return false;
   if (match.runId !== void 0 && held.runId !== match.runId) return false;
-  fs33.rmSync(p2, { force: true });
+  fs35.rmSync(p2, { force: true });
   return true;
 }
 
 // src/loop/spend.ts
-import fs35 from "node:fs";
+import fs37 from "node:fs";
 import path36 from "node:path";
 
 // src/adapters/tokens.ts
-import fs34 from "node:fs";
+import fs36 from "node:fs";
 function count(value) {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
 }
@@ -48739,7 +49381,7 @@ function text(value) {
 function* readEntries(file) {
   let raw;
   try {
-    raw = fs34.readFileSync(file, "utf8");
+    raw = fs36.readFileSync(file, "utf8");
   } catch {
     return;
   }
@@ -48796,7 +49438,7 @@ function sessionCwd(file) {
 // src/loop/spend.ts
 function canonical(p2) {
   try {
-    return fs35.realpathSync(path36.resolve(p2));
+    return fs37.realpathSync(path36.resolve(p2));
   } catch {
     return path36.resolve(p2);
   }
@@ -48805,7 +49447,7 @@ function measureFiring(sessionsDir, opts) {
   const dir = path36.resolve(sessionsDir);
   let names;
   try {
-    names = fs35.readdirSync(dir);
+    names = fs37.readdirSync(dir);
   } catch (e) {
     return {
       measurable: false,
@@ -48858,11 +49500,11 @@ function checkCeiling(ceiling, measurement) {
 }
 
 // src/loop/questions.ts
-import fs36 from "node:fs";
+import fs38 from "node:fs";
 import path37 from "node:path";
 function canonical2(p2) {
   try {
-    return fs36.realpathSync(path37.resolve(p2));
+    return fs38.realpathSync(path37.resolve(p2));
   } catch {
     return path37.resolve(p2);
   }
@@ -48871,7 +49513,7 @@ function measureInterruptions(sessionsDir, opts) {
   const dir = path37.resolve(sessionsDir);
   let names;
   try {
-    names = fs36.readdirSync(dir);
+    names = fs38.readdirSync(dir);
   } catch (e) {
     return {
       measurable: false,
@@ -48900,7 +49542,7 @@ function measureInterruptions(sessionsDir, opts) {
 function readAsks(file) {
   let text2;
   try {
-    text2 = fs36.readFileSync(file, "utf8");
+    text2 = fs38.readFileSync(file, "utf8");
   } catch {
     return [];
   }
@@ -48942,12 +49584,12 @@ function formatQuestionBudget(budget, measurement) {
 }
 
 // src/cli/vault-option.ts
-import fs38 from "node:fs";
+import fs40 from "node:fs";
 import path39 from "node:path";
 
 // src/config/pointer.ts
 var import_yaml3 = __toESM(require_dist(), 1);
-import fs37 from "node:fs";
+import fs39 from "node:fs";
 import os4 from "node:os";
 import path38 from "node:path";
 var VAULT_POINTER_FILENAME = "ost.vault.yaml";
@@ -48971,10 +49613,10 @@ function resolveAgainst(baseDir, declared) {
 }
 function readVaultPointer(dir) {
   const file = path38.join(path38.resolve(dir), VAULT_POINTER_FILENAME);
-  if (!fs37.existsSync(file)) return null;
+  if (!fs39.existsSync(file)) return null;
   let raw;
   try {
-    raw = (0, import_yaml3.parse)(fs37.readFileSync(file, "utf8"));
+    raw = (0, import_yaml3.parse)(fs39.readFileSync(file, "utf8"));
   } catch (e) {
     throw new Error(`${file} is not valid YAML: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -49042,7 +49684,7 @@ function resolvedVaultSource() {
 }
 function stalePointerWarning(r2) {
   if (r2.via !== "pointer" || !r2.pointer) return null;
-  if (fs38.existsSync(path39.join(r2.dir, CONFIG_FILENAME))) return null;
+  if (fs40.existsSync(path39.join(r2.dir, CONFIG_FILENAME))) return null;
   return `${r2.pointer.file} names ${r2.dir}, which is not a vault (no ${CONFIG_FILENAME}). The pointer is stale, or that vault has not been cloned onto this machine.`;
 }
 
@@ -49239,7 +49881,7 @@ function registerLoopCommands(program3) {
     }
     const startedAt = Date.now();
     const cwd = process.cwd();
-    const child = spawnSync3(command[0], command.slice(1), { stdio: "inherit" });
+    const child = spawnSync5(command[0], command.slice(1), { stdio: "inherit" });
     const exit = child.status ?? 1;
     if (child.error) console.error(`${command[0]}: ${child.error.message}`);
     appendStep(opts.vault, {
@@ -49623,6 +50265,53 @@ program2.command("stranded").description("evidence no node cites, split into wha
   }
   console.log(text2);
 });
+program2.command("search").argument("<glob>", "glob matched against each line of every node body \u2014 `*` and `?` and `{a,b}`").description("grep the node bodies, reporting what it could not read rather than counting it as zero").option("--vault <dir>", VAULT_OPTION_HELP).action((glob, opts) => {
+  const ctx = buildPassContext(opts.vault);
+  const census = ctx.vault.readTreeCensus();
+  const dropped = SearchTotal.over(
+    census.unreadable.map((u) => unread(u.file, "unreadable", u.reason))
+  );
+  const titles = census.nodes.map(
+    (n) => TreeText.fromTree(n.title, { file: `${n.title}.md`, field: "title" })
+  );
+  const requests = [];
+  const unbuildable = [];
+  for (const title of titles) {
+    const built = title.forPathUnder(ctx.vault.root);
+    if (built.ok) requests.push({ subject: title.forMessage(), file: built.path, pattern: glob });
+    else unbuildable.push(unread(title.forMessage(), "unreadable", built.reason));
+  }
+  const combined = SearchTotal.merge(
+    dropped,
+    SearchTotal.over(unbuildable),
+    searchSubjects(requests)
+  );
+  const hits = combined.resolve({
+    whenComplete: (found) => found.length,
+    whenUnread: (_unread, found) => found.length
+  });
+  try {
+    recordSweepRun(ctx.dir, {
+      sweep: "search",
+      at: (/* @__PURE__ */ new Date()).toISOString(),
+      subject: combined.toSweepSubject(),
+      findings: hits,
+      outcome: combined.blind ? "blind" : hits > 0 ? "findings" : "clean"
+    });
+  } catch (e) {
+    console.error(`(this run was not recorded: ${e instanceof Error ? e.message : String(e)})`);
+  }
+  const text2 = formatSearchTotal(`search ${JSON.stringify(glob)}`, combined);
+  if (combined.blind) {
+    console.error(text2);
+    process.exitCode = 1;
+    return;
+  }
+  console.log(text2);
+  for (const s of combined.examinedSubjects) {
+    for (const h2 of s.hits) console.log(`  ${h2.subject}:${h2.line}: ${h2.text.trim()}`);
+  }
+});
 program2.command("sweeps").description("replay the recorded sweep runs and report how many were blind all the way rather than partly").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
   const runs = readSweepRuns(path41.resolve(opts.vault));
   if (runs.length === 0) {
@@ -49659,8 +50348,8 @@ program2.command("searches").description("how many searches over node text were 
   const vault = path41.resolve(opts.vault);
   const dirs = opts.transcripts.length ? opts.transcripts : [defaultTranscriptDir(vault)];
   const sessions = dirs.flatMap((d) => readTranscriptSessions(path41.resolve(d)));
-  const { args, unread, calls } = readSearchArguments(sessions, { vaultDir: vault });
-  const census = searchLiteralityCensus(args, readTreeTitles(vault), { sessionsRead: sessions.length, calls, unread });
+  const { args, unread: unread2, calls } = readSearchArguments(sessions, { vaultDir: vault });
+  const census = searchLiteralityCensus(args, readTreeTitles(vault), { sessionsRead: sessions.length, calls, unread: unread2 });
   console.log(formatSearchLiteralityCensus(census));
   if (census.args === 0) process.exitCode = 1;
 });
@@ -49742,6 +50431,43 @@ program2.command("allowlist").description(
     console.error(run.report);
     process.exitCode = run.exitCode;
   }
+});
+program2.command("grants").description("name every tool a run's instructions declare that its grant does not cover \u2014 before the run starts").requiredOption("--skill <file>", "the SKILL.md (or command file) whose `allowed-tools` line is the declaration").requiredOption("--settings <file>", "the settings.json whose permissions.allow is the grant the run fires with").option(
+  "--demand <rule>",
+  "a tool the run needs that the declaration does not name, in grant syntax (repeatable). Prose in the prompt is deliberately not harvested \u2014 a sentence naming a tool may be telling the run not to use it",
+  collect,
+  []
+).action((opts) => {
+  const run = runGrantPreflight({
+    skillPath: path41.resolve(opts.skill),
+    settingsPath: path41.resolve(opts.settings),
+    extraDemands: opts.demand
+  });
+  if (run.exitCode === 0) console.log(run.report);
+  else {
+    console.error(run.report);
+    process.exitCode = run.exitCode;
+  }
+});
+program2.command("ship").description(
+  "run this branch's gates on this machine and merge it if they are green (waits on no external check)"
+).requiredOption("-r, --repo <dir>", "the repository whose branch is being shipped").option("--default-branch <name>", "the branch work merges into", "main").option("--dry-run", "run every gate and report, but never merge").action((opts) => {
+  const outcome = ship({
+    repo: path41.resolve(opts.repo),
+    defaultBranch: opts.defaultBranch,
+    dryRun: opts.dryRun === true,
+    log: (line) => console.error(line)
+  });
+  for (const run of outcome.gateRuns) {
+    const verdict = run.passed ? "green" : `RED (exit ${run.exitCode ?? "did not run"})`;
+    console.log(`  ${run.gate.name}: ${verdict}`);
+    if (!run.passed) console.log(run.excerpt.replace(/^/gm, "    "));
+  }
+  console.log(outcome.summary);
+  if (outcome.shipped) return;
+  const allGreen = outcome.refusals.length === 0 && outcome.gateRuns.every((r2) => r2.passed);
+  if (opts.dryRun === true && allGreen) return;
+  process.exitCode = outcome.refusals.length > 0 ? 20 : 1;
 });
 registerLoopCommands(program2);
 program2.command("mcp").description("run a stdio MCP server exposing the append-only OST tools (no API key needed)").option("--vault <dir>", VAULT_OPTION_HELP).action(async (opts) => {
