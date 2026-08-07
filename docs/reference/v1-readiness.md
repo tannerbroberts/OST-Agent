@@ -3061,7 +3061,17 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2344 tests across 183 files, verified 2026-08-07 (`npx vitest run`,
+> *Today:* **met** — 2369 tests across 185 files, verified 2026-08-07 (`npx vitest run`,
+> after the work claim landed: a pass now takes the work item before it builds it, and the
+> claim is keyed on the *briefing item* rather than on the pass's own wording — the two
+> readings that collided on 2026-07-26 ("invited-visitor arm split" and "add an arm column
+> to `visitor_events`") score 0.29 on the title similarity `ost_next_work` dedupes with, so
+> a claim keyed on wording would not have stopped it. `src/loop/claim.ts`,
+> `test/loop/work-claim-vocabulary-match.test.ts`, `test/cli/claim.test.ts`; the ledger is
+> enumerated in `test/release/gate-f-deciders.test.ts` as an off-gate decider input, so the
+> unattended surface is proved unable to forge or erase a claim by the same byte-for-byte
+> comparison Gate F's own deciders get. Previously 2344 tests across 183 files, verified
+> 2026-08-07,
 > after the disposition ledger landed: `ost_next_work` has a notion of *closed* for the
 > first time, so work a pass settled stops coming back on the next list. One append-only
 > sidecar entry type carries all three faces — an evidence id acknowledged, a solution

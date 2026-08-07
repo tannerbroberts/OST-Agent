@@ -46,8 +46,10 @@ import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { configPath } from "../../src/config/load.js";
 import { resolveSessionsDir } from "../../src/cli/loop.js";
+import { claimsPath } from "../../src/loop/claim.js";
 import { openRunPath, runsPath } from "../../src/loop/health.js";
 import { firingLockPath } from "../../src/loop/lock.js";
+import { loopStateDir } from "../../src/loop/state.js";
 import { MCP_TOOL_NAMES } from "../../src/mcp/server.js";
 import { buildOstTools } from "../../src/security/tools.js";
 import { Vault } from "../../src/ost/vault.js";
@@ -181,7 +183,48 @@ const TRACE_READER_MODULES: Record<string, string> = {
  */
 const REPORTER_MODULES = ["questions.ts", "corrections.ts"];
 
-const FS_READ = /\bfs\.(readFileSync|readdirSync|existsSync|statSync|lstatSync|realpathSync|openSync)\b|\bspawnSync\b|\bexecFileSync\b/;
+/**
+ * The fifth class, and the one that could most easily have been a hole.
+ *
+ * `claim.ts` reads a file and produces a verdict carrying an exit code
+ * (`CLAIM_EXIT.alreadyClaimed` stops a pass before it builds), so it is not a
+ * reporter. It decides no Gate F criterion either — no cadence, no lock, no
+ * ceiling, no health — so filing it under `READER_MODULES` would attribute it to
+ * a criterion it does not decide, which is the dishonesty part 1 exists to
+ * prevent.
+ *
+ * **What it gets instead of an exemption: the same proof.** A claim the
+ * unattended surface can write is a claim the agent can forge (take work it
+ * never did) or erase (rebuild work somebody holds), which is worth precisely
+ * nothing. So the ledger is enumerated below like a decider input and goes
+ * through parts 2 and 4 byte for byte with the rest — it lives in the same
+ * `.git/ost-agent/` directory as `firing.lock`, and the point of listing it here
+ * is that a future move OUT of that directory fails this file rather than
+ * quietly making the claims forgeable.
+ */
+const OFF_GATE_DECIDER_MODULES: Record<string, string> = {
+  "claim.ts": "the work claim — decides whether a pass may start, not whether a firing may",
+};
+
+/**
+ * Files read by deciders that are not Gate F deciders. Snapshotted beside the
+ * Gate F inputs in part 2 for the reason above.
+ */
+const OFF_GATE_DECIDER_PATHS = (v: string): string[] => [claimsPath(loopStateDir(v)!)];
+
+/**
+ * A throwaway checkout, for the two enumeration assertions that need a vault
+ * before the suite's own one exists. `loopStateDir` resolves through a real
+ * `.git`, which is the resolution under test — passing a made-up path would ask
+ * a different question.
+ */
+function sampleCheckout(): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ost-f6-sample-"));
+  fs.mkdirSync(path.join(dir, ".git"));
+  return dir;
+}
+
+const FS_READ =/\bfs\.(readFileSync|readdirSync|existsSync|statSync|lstatSync|realpathSync|openSync)\b|\bspawnSync\b|\bexecFileSync\b/;
 
 describe("1 — the enumeration covers every module that can become a decider input", () => {
   const loopDir = path.join(repoRoot, "src/loop");
@@ -197,12 +240,13 @@ describe("1 — the enumeration covers every module that can become a decider in
         TRACE_READER_MODULES[m] ? "trace-reader" : null,
         PURE_MODULES.includes(m) ? "pure" : null,
         REPORTER_MODULES.includes(m) ? "reporter" : null,
+        OFF_GATE_DECIDER_MODULES[m] ? "off-gate decider" : null,
       ].filter(Boolean);
       expect(
         classifications,
-        `src/loop/${m} is not classified — add it to READER_MODULES, TRACE_READER_MODULES, PURE_MODULES or ` +
-          "REPORTER_MODULES, and if it opens a new file for a DECIDER, add that file to the decider's reads " +
-          "so both surfaces below cover it",
+        `src/loop/${m} is not classified — add it to READER_MODULES, TRACE_READER_MODULES, PURE_MODULES, ` +
+          "REPORTER_MODULES or OFF_GATE_DECIDER_MODULES, and if it opens a new file for a DECIDER, add that " +
+          "file to the decider's reads so both surfaces below cover it",
       ).toHaveLength(1);
     }
   });
@@ -252,13 +296,40 @@ describe("1 — the enumeration covers every module that can become a decider in
     }
   });
 
+  test("the off-gate deciders really do read something, and it is enumerated", () => {
+    // Same non-vacuity as the readers. The second half matters more here: this
+    // class buys its place by having its inputs snapshotted like a decider's, so
+    // a module filed here that opened a file OFF the list would be taking the
+    // classification without the obligation.
+    for (const m of Object.keys(OFF_GATE_DECIDER_MODULES)) {
+      const src = fs.readFileSync(path.join(loopDir, m), "utf8");
+      expect(FS_READ.test(src), `src/loop/${m} is filed as an off-gate decider but reads nothing`).toBe(true);
+      expect(
+        OFF_GATE_DECIDER_PATHS(sampleCheckout()).length,
+        `src/loop/${m} is filed as an off-gate decider but no path is enumerated for it`,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  test("the off-gate deciders' inputs live where the surface cannot reach", () => {
+    // The whole argument for the class in one assertion: these files are under
+    // the git directory, which is the property parts 2–4 turn into a proof.
+    for (const p of OFF_GATE_DECIDER_PATHS(sampleCheckout())) {
+      expect(p, `${p} is an off-gate decider input outside .git/ — it is forgeable`).toContain(
+        path.join(".git", "ost-agent"),
+      );
+    }
+  });
+
   test("no decider imports a reporter, so no verdict is computed from what one reads", () => {
     // This is what makes the reporter class safe rather than an exemption. A
     // reporter's files are NOT enumerated as decider inputs and are NOT covered by
     // parts 2–4; that is only sound while no verdict can reach them.
     const deciderModules = [
       ...DECIDERS.map((d) => d.module),
-      ...Object.keys({ ...READER_MODULES, ...TRACE_READER_MODULES }).map((m) => `src/loop/${m}`),
+      ...Object.keys({ ...READER_MODULES, ...TRACE_READER_MODULES, ...OFF_GATE_DECIDER_MODULES }).map(
+        (m) => `src/loop/${m}`,
+      ),
     ];
     for (const decider of new Set(deciderModules)) {
       const src = readRepoFile(decider);
@@ -292,9 +363,13 @@ function git(...args: string[]): string {
   return execFileSync("git", args, { cwd: vault, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
 }
 
-/** Every decider file, deduplicated, in a stable order. */
+/**
+ * Every decider file, deduplicated, in a stable order — Gate F's, plus the
+ * off-gate deciders' inputs, which earn the same byte-for-byte comparison for
+ * the reason {@link OFF_GATE_DECIDER_MODULES} gives.
+ */
 function deciderPaths(v: string): string[] {
-  return [...new Set(DECIDERS.flatMap((d) => d.reads(v)))].sort();
+  return [...new Set([...DECIDERS.flatMap((d) => d.reads(v)), ...OFF_GATE_DECIDER_PATHS(v)])].sort();
 }
 
 function digest(p: string): string {
@@ -338,6 +413,20 @@ beforeEach(() => {
   );
   fs.writeFileSync(openRunPath(vault), JSON.stringify({ runId: "r2", startedAt: "2026-07-02T00:00:00.000Z" }), "utf8");
   fs.writeFileSync(firingLockPath(vault)!, JSON.stringify({ pid: 1, acquiredAt: "2026-07-02T00:00:00.000Z" }), "utf8");
+  fs.writeFileSync(
+    claimsPath(loopStateDir(vault)!),
+    JSON.stringify({
+      key: "0123456789abcdef",
+      label: "the invited-visitor arm split",
+      naming: "invited-visitor arm split",
+      session: "s1",
+      claimedAt: "2026-07-02T00:00:00.000Z",
+      expiresAt: "2026-07-02T08:00:00.000Z",
+      briefingDigest: "abc123",
+      state: "held",
+    }) + "\n",
+    "utf8",
+  );
 
   const v = new Vault(vault);
   v.createNode({ title: "Ship the thing", layer: "Outcome", tags: [], links: [], body: "root" });
