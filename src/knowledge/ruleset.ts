@@ -257,9 +257,26 @@ export const OST_RULESET = {
   "skillTools": [
     // The maintenance loop, in the order the loop runs them.
     { "name": "ost_ingest_inbox", "grant": true },
-    { "name": "ost_next_work", "grant": true },
-    { "name": "ost_read_tree", "grant": true },
-    { "name": "ost_create_node", "grant": true },
+    // `required: true` on these three, and on nothing else. It is a stronger
+    // claim than `grant`, and it is checked before a pass starts rather than
+    // discovered forty calls in (`src/mcp/required-tools.ts`): without one of
+    // them a pass produces NOTHING, so starting is worse than not starting —
+    // it finishes, narrows silently, and reports a run that reads complete.
+    //
+    // The line is drawn at "produces nothing", not at "produces less", and the
+    // difference is what stops this from becoming a blanket refusal. Every
+    // other tool here is a would-use: absent, the pass covers less ground and
+    // says so. `ost_ingest_inbox` is the closest call and stays a would-use on
+    // purpose — a pass without it still services underserved opportunities and
+    // missing assumptions, which is a narrower pass rather than a dead one.
+    // `ost_check`, `ost_flag_humans_required` and `ost_rank_source` are the
+    // reason the split has to exist at all: the unattended surface withholds
+    // them deliberately (`test/release/examples-allowlist.test.ts`,
+    // CONTAINED_ON_PURPOSE), so a requirement list naming them would refuse
+    // every scheduled firing over a containment somebody chose.
+    { "name": "ost_next_work", "grant": true, "required": true },
+    { "name": "ost_read_tree", "grant": true, "required": true },
+    { "name": "ost_create_node", "grant": true, "required": true },
     { "name": "ost_link_nodes", "grant": true },
     { "name": "ost_append_to_node", "grant": true },
     { "name": "ost_set_status", "grant": true },

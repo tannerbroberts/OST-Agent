@@ -85,7 +85,33 @@ const grantedTools = (): string =>
  * all rather than a blank block, so the skill does not carry a hole where a
  * reason would go.
  */
-type SkillTool = { readonly name: string; readonly grant: boolean; readonly reason?: string };
+type SkillTool = {
+  readonly name: string;
+  readonly grant: boolean;
+  readonly reason?: string;
+  readonly required?: boolean;
+};
+
+/**
+ * The skill's `required-tools` frontmatter: the subset of the grant a pass cannot
+ * begin without, rendered from the same list for the same reason as the grant.
+ *
+ * Two lines rather than one because their absences cost different things, and a
+ * single list cannot say so: missing a would-use tool narrows a pass, missing a
+ * required one empties it. `src/mcp/required-tools.ts` reads this line before a
+ * pass starts and refuses on the second case only — a check that refused on both
+ * would stop every scheduled firing over tools this repo withholds on purpose,
+ * and a gate that reads as an obstacle is a gate that gets switched off.
+ *
+ * Widened through {@link SkillTool} for the same reason `reason` is: `required`
+ * is on three of twenty-two entries, and the `as const` literal's type does not
+ * carry the key on the other nineteen.
+ */
+const requiredTools = (): string =>
+  (R.skillTools as readonly SkillTool[])
+    .filter((t) => t.grant && t.required === true)
+    .map((t) => `${MCP_PREFIX}${t.name}`)
+    .join(", ");
 
 const omissions = (): string =>
   (R.skillTools as readonly SkillTool[])
@@ -108,6 +134,7 @@ name: opportunity-solution-tree
 description: Maintain a Teresa Torres Opportunity Solution Tree (OST) — distill customer evidence into Opportunity nodes, ideate candidate Solutions, and surface Assumption Tests — as append-only Obsidian Markdown, driven through the ost-agent MCP tools. Use whenever asked to run product discovery, do opportunity mapping / solution ideation / assumption surfacing, or maintain an OST vault.
 when_to_use: The user wants to build or update an Opportunity Solution Tree, run continuous product discovery, map customer opportunities, ideate solutions, surface assumptions, or run an OST maintenance pass. Requires the ost-agent MCP server to be connected (its ost_* tools are present).
 allowed-tools: ${grantedTools()}
+required-tools: ${requiredTools()}
 ---
 
 # Maintaining an Opportunity Solution Tree

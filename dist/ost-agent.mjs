@@ -982,7 +982,7 @@ var require_command = __commonJS({
     var EventEmitter2 = __require("node:events").EventEmitter;
     var childProcess = __require("node:child_process");
     var path42 = __require("node:path");
-    var fs41 = __require("node:fs");
+    var fs42 = __require("node:fs");
     var process3 = __require("node:process");
     var { Argument: Argument2, humanReadableArgName } = require_argument();
     var { CommanderError: CommanderError2 } = require_error();
@@ -1915,10 +1915,10 @@ Expecting one of '${allowedValues.join("', '")}'`);
         const sourceExt = [".js", ".ts", ".tsx", ".mjs", ".cjs"];
         function findFile(baseDir, baseName) {
           const localBin = path42.resolve(baseDir, baseName);
-          if (fs41.existsSync(localBin)) return localBin;
+          if (fs42.existsSync(localBin)) return localBin;
           if (sourceExt.includes(path42.extname(baseName))) return void 0;
           const foundExt = sourceExt.find(
-            (ext) => fs41.existsSync(`${localBin}${ext}`)
+            (ext) => fs42.existsSync(`${localBin}${ext}`)
           );
           if (foundExt) return `${localBin}${foundExt}`;
           return void 0;
@@ -1930,7 +1930,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
         if (this._scriptPath) {
           let resolvedScriptPath;
           try {
-            resolvedScriptPath = fs41.realpathSync(this._scriptPath);
+            resolvedScriptPath = fs42.realpathSync(this._scriptPath);
           } catch (err) {
             resolvedScriptPath = this._scriptPath;
           }
@@ -9919,14 +9919,14 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs41 = this.flowScalar(this.type);
+              const fs42 = this.flowScalar(this.type);
               if (atNextItem || it.value) {
-                map.items.push({ start, key: fs41, sep: [] });
+                map.items.push({ start, key: fs42, sep: [] });
                 this.onKeyLine = true;
               } else if (it.sep) {
-                this.stack.push(fs41);
+                this.stack.push(fs42);
               } else {
-                Object.assign(it, { key: fs41, sep: [] });
+                Object.assign(it, { key: fs42, sep: [] });
                 this.onKeyLine = true;
               }
               return;
@@ -10054,13 +10054,13 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs41 = this.flowScalar(this.type);
+              const fs42 = this.flowScalar(this.type);
               if (!it || it.value)
-                fc.items.push({ start: [], key: fs41, sep: [] });
+                fc.items.push({ start: [], key: fs42, sep: [] });
               else if (it.sep)
-                this.stack.push(fs41);
+                this.stack.push(fs42);
               else
-                Object.assign(it, { key: fs41, sep: [] });
+                Object.assign(it, { key: fs42, sep: [] });
               return;
             }
             case "flow-map-end":
@@ -13744,7 +13744,7 @@ var require_parse = __commonJS({
 var require_gray_matter = __commonJS({
   "node_modules/gray-matter/index.js"(exports2, module2) {
     "use strict";
-    var fs41 = __require("fs");
+    var fs42 = __require("fs");
     var sections = require_section_matter();
     var defaults = require_defaults();
     var stringify = require_stringify2();
@@ -13828,7 +13828,7 @@ var require_gray_matter = __commonJS({
       return stringify(file, data, options2);
     };
     matter4.read = function(filepath, options2) {
-      const str2 = fs41.readFileSync(filepath, "utf8");
+      const str2 = fs42.readFileSync(filepath, "utf8");
       const file = matter4(str2, options2);
       file.path = filepath;
       return file;
@@ -26906,12 +26906,12 @@ var require_dist4 = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs41, exportName) {
+    function addFormats(ajv, list, fs42, exportName) {
       var _a2;
       var _b;
       (_a2 = (_b = ajv.opts.code).formats) !== null && _a2 !== void 0 ? _a2 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs41[f]);
+        ajv.addFormat(f, fs42[f]);
     }
     module2.exports = exports2 = formatsPlugin;
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -39976,9 +39976,26 @@ var OST_RULESET = {
   "skillTools": [
     // The maintenance loop, in the order the loop runs them.
     { "name": "ost_ingest_inbox", "grant": true },
-    { "name": "ost_next_work", "grant": true },
-    { "name": "ost_read_tree", "grant": true },
-    { "name": "ost_create_node", "grant": true },
+    // `required: true` on these three, and on nothing else. It is a stronger
+    // claim than `grant`, and it is checked before a pass starts rather than
+    // discovered forty calls in (`src/mcp/required-tools.ts`): without one of
+    // them a pass produces NOTHING, so starting is worse than not starting —
+    // it finishes, narrows silently, and reports a run that reads complete.
+    //
+    // The line is drawn at "produces nothing", not at "produces less", and the
+    // difference is what stops this from becoming a blanket refusal. Every
+    // other tool here is a would-use: absent, the pass covers less ground and
+    // says so. `ost_ingest_inbox` is the closest call and stays a would-use on
+    // purpose — a pass without it still services underserved opportunities and
+    // missing assumptions, which is a narrower pass rather than a dead one.
+    // `ost_check`, `ost_flag_humans_required` and `ost_rank_source` are the
+    // reason the split has to exist at all: the unattended surface withholds
+    // them deliberately (`test/release/examples-allowlist.test.ts`,
+    // CONTAINED_ON_PURPOSE), so a requirement list naming them would refuse
+    // every scheduled firing over a containment somebody chose.
+    { "name": "ost_next_work", "grant": true, "required": true },
+    { "name": "ost_read_tree", "grant": true, "required": true },
+    { "name": "ost_create_node", "grant": true, "required": true },
     { "name": "ost_link_nodes", "grant": true },
     { "name": "ost_append_to_node", "grant": true },
     { "name": "ost_set_status", "grant": true },
@@ -48741,8 +48758,132 @@ function runGrantPreflight(opts) {
   };
 }
 
-// src/loop/corrections.ts
+// src/mcp/required-tools.ts
 import fs33 from "node:fs";
+function unnamespacedTool(tool2) {
+  if (!tool2.startsWith("mcp__")) return tool2;
+  const last2 = tool2.lastIndexOf("__");
+  return last2 > "mcp".length ? tool2.slice(last2 + 2) : tool2;
+}
+function splitList(value) {
+  return value.split(",").map((t2) => t2.trim()).filter((t2) => t2.length > 0);
+}
+function parseToolDeclaration(markdown) {
+  const allowed = declaredTools(markdown);
+  if (allowed === null || allowed.length === 0) {
+    return { problem: "no `allowed-tools` frontmatter line, so the pass has declared no tool surface to check" };
+  }
+  const requiredLine = markdown.match(/^required-tools:\s*(.+)$/m);
+  if (!requiredLine) {
+    return {
+      problem: "no `required-tools` frontmatter line. Which of its tools the pass cannot start without is undeclared, and an undeclared precondition is not an empty one \u2014 reading it as `nothing is required` would make this check clear every run, including the ones it exists to stop"
+    };
+  }
+  const required2 = splitList(requiredLine[1]);
+  if (required2.length === 0) {
+    return { problem: "`required-tools:` is present but names nothing, which is not the same as having no precondition" };
+  }
+  const allowedBare = new Set(allowed.map((t2) => unnamespacedTool(parseRule(t2).tool)));
+  const undeclared = required2.filter((t2) => !allowedBare.has(unnamespacedTool(parseRule(t2).tool)));
+  if (undeclared.length > 0) {
+    return {
+      problem: `\`required-tools\` names ${undeclared.join(", ")}, which \`allowed-tools\` does not \u2014 a pass cannot require a tool it never asked to be granted. Fix one of the two lines.`
+    };
+  }
+  const requiredBare = new Set(required2.map((t2) => unnamespacedTool(parseRule(t2).tool)));
+  return {
+    required: required2,
+    wouldUse: allowed.filter((t2) => !requiredBare.has(unnamespacedTool(parseRule(t2).tool)))
+  };
+}
+function isDeclarationProblem(d) {
+  return "problem" in d;
+}
+function availableCovers(available, demand) {
+  if (ruleCovers(available, demand)) return true;
+  if (!available.tool.startsWith("mcp__") || !demand.tool.startsWith("mcp__")) return false;
+  return unnamespacedTool(available.tool) === unnamespacedTool(demand.tool) && (available.argument === null || demand.argument !== null && available.argument === demand.argument);
+}
+function resolveRequiredTools(declaration, available) {
+  const grants = [...available];
+  const req = resolveGrants({ demands: [...declaration.required], grants });
+  const opt = resolveGrants({ demands: [...declaration.wouldUse], grants });
+  const parsedAvailable = grants.map(parseRule);
+  const surviving = (gaps) => gaps.filter((gap) => !parsedAvailable.some((a) => availableCovers(a, gap.demand)));
+  return {
+    required: req.demands,
+    wouldUse: opt.demands,
+    missingRequired: surviving(req.gaps),
+    missingWouldUse: surviving(opt.gaps)
+  };
+}
+var REQUIRED_TOOLS_EXIT = {
+  cleared: 0,
+  /** A required tool is not on the surface. The pass must not begin. */
+  missingRequired: 30,
+  /** The declaration could not be read, which is not a cleared run. */
+  undeclared: 31
+};
+var LIVE_SURFACE_CAVEAT = "NOT checked: whether the surface this run actually fires with is the list handed in here \u2014 a precondition right about the declaration and wrong about the session is still wrong at 3am.";
+function renderRequiredTools(resolution) {
+  const narrowing = resolution.missingWouldUse.length === 0 ? [] : [
+    "",
+    `Narrower than declared: ${resolution.missingWouldUse.length} would-use tool(s) are not on this surface.`,
+    ...resolution.missingWouldUse.map((g) => `  ${g.demand.entry}`),
+    "The pass starts anyway \u2014 these cost it reach, not its ability to deliver. Report what you could not do",
+    "with them rather than reporting a clean run."
+  ];
+  if (resolution.missingRequired.length === 0) {
+    return [
+      `required-tools CLEARED: all ${resolution.required.length} required tool(s) are on this surface.`,
+      ...narrowing,
+      "",
+      LIVE_SURFACE_CAVEAT
+    ].join("\n");
+  }
+  return [
+    `REFUSING TO BEGIN: ${resolution.missingRequired.length} of ${resolution.required.length} required tool(s) are not on this surface.`,
+    "",
+    "Required and absent:",
+    ...resolution.missingRequired.map((g) => `  ${g.demand.entry}`),
+    ...narrowing,
+    "",
+    "Nothing has been written. A pass that starts without these does not fail \u2014 it narrows, finishes, and reports",
+    "a run that looks complete from the outside, which is the state this refusal exists to prevent. Grant them, or",
+    "move them out of `required-tools` if the pass genuinely delivers without them.",
+    "",
+    LIVE_SURFACE_CAVEAT
+  ].join("\n");
+}
+function checkRequiredTools(opts) {
+  let markdown;
+  try {
+    markdown = fs33.readFileSync(opts.passFile, "utf8");
+  } catch (e) {
+    return {
+      exitCode: REQUIRED_TOOLS_EXIT.undeclared,
+      report: `required-tools COULD NOT RUN: ${opts.passFile} is unreadable (${e instanceof Error ? e.message : String(e)}). That is not a cleared run.`,
+      resolution: null
+    };
+  }
+  const declaration = parseToolDeclaration(markdown);
+  if (isDeclarationProblem(declaration)) {
+    return {
+      exitCode: REQUIRED_TOOLS_EXIT.undeclared,
+      report: `required-tools COULD NOT RUN: ${opts.passFile} has ${declaration.problem}. That is not a cleared run.`,
+      resolution: null
+    };
+  }
+  const resolution = resolveRequiredTools(declaration, opts.available);
+  return {
+    exitCode: resolution.missingRequired.length > 0 ? REQUIRED_TOOLS_EXIT.missingRequired : REQUIRED_TOOLS_EXIT.cleared,
+    report: renderRequiredTools(resolution),
+    resolution
+  };
+}
+
+// src/loop/corrections.ts
+import fs34 from "node:fs";
 import path33 from "node:path";
 var LEDGER_FILE = "corrections.json";
 var LEDGER_VERSION = 1;
@@ -48829,9 +48970,9 @@ function emptyCorrectionsLedger() {
 }
 function readLedger(stateDir2) {
   const p2 = ledgerPath(stateDir2);
-  if (!fs33.existsSync(p2)) return emptyCorrectionsLedger();
+  if (!fs34.existsSync(p2)) return emptyCorrectionsLedger();
   try {
-    const parsed = JSON.parse(fs33.readFileSync(p2, "utf8"));
+    const parsed = JSON.parse(fs34.readFileSync(p2, "utf8"));
     if (parsed.version !== LEDGER_VERSION) return emptyCorrectionsLedger();
     return {
       version: LEDGER_VERSION,
@@ -48845,8 +48986,8 @@ function readLedger(stateDir2) {
 }
 function writeLedger(stateDir2, ledger) {
   const dir = path33.resolve(stateDir2);
-  fs33.mkdirSync(dir, { recursive: true });
-  fs33.writeFileSync(ledgerPath(dir), JSON.stringify(ledger, null, 2));
+  fs34.mkdirSync(dir, { recursive: true });
+  fs34.writeFileSync(ledgerPath(dir), JSON.stringify(ledger, null, 2));
 }
 function foldSightings(ledger, sightings) {
   const byPermitted = /* @__PURE__ */ new Map();
@@ -48887,7 +49028,7 @@ function harvestableSessions(sessionsDir, ledger, opts) {
   const dir = path33.resolve(sessionsDir);
   let names;
   try {
-    names = fs33.readdirSync(dir);
+    names = fs34.readdirSync(dir);
   } catch {
     return [];
   }
@@ -48901,7 +49042,7 @@ function harvestableSessions(sessionsDir, ledger, opts) {
     const file = path33.join(dir, name);
     let mtimeMs;
     try {
-      mtimeMs = fs33.statSync(file).mtimeMs;
+      mtimeMs = fs34.statSync(file).mtimeMs;
     } catch {
       continue;
     }
@@ -48913,7 +49054,7 @@ function harvestableSessions(sessionsDir, ledger, opts) {
 function recordCorrections(stateDir2, sessionsDir, opts = {}) {
   const ledger = readLedger(stateDir2);
   const dir = path33.resolve(sessionsDir);
-  if (!fs33.existsSync(dir)) {
+  if (!fs34.existsSync(dir)) {
     return { readable: false, reason: `no session transcripts at ${dir}`, ledger };
   }
   const sessions = harvestableSessions(dir, ledger, {
@@ -48925,7 +49066,7 @@ function recordCorrections(stateDir2, sessionsDir, opts = {}) {
   for (const s of sessions) {
     let text2;
     try {
-      text2 = fs33.readFileSync(s.file, "utf8");
+      text2 = fs34.readFileSync(s.file, "utf8");
     } catch {
       continue;
     }
@@ -49124,7 +49265,7 @@ function degradedReport(degradations) {
 }
 
 // src/loop/health.ts
-import fs34 from "node:fs";
+import fs35 from "node:fs";
 import path34 from "node:path";
 var REQUIRED_PHASES = ["pass", "check"];
 function healthDir(dir) {
@@ -49137,22 +49278,22 @@ function runsPath(dir) {
   return path34.join(healthDir(dir), "runs.jsonl");
 }
 function appendRun(dir, run) {
-  fs34.appendFileSync(runsPath(dir), JSON.stringify(run) + "\n");
+  fs35.appendFileSync(runsPath(dir), JSON.stringify(run) + "\n");
 }
 function readOpenRun(dir) {
   const state = loopStateDir(dir);
   if (state === null) return null;
   const p2 = path34.join(state, "open-run.json");
-  if (!fs34.existsSync(p2)) return null;
+  if (!fs35.existsSync(p2)) return null;
   try {
-    return JSON.parse(fs34.readFileSync(p2, "utf8"));
+    return JSON.parse(fs35.readFileSync(p2, "utf8"));
   } catch {
     return null;
   }
 }
 function sweepCrashed(dir) {
   const p2 = openRunPath(dir);
-  if (!fs34.existsSync(p2)) return null;
+  if (!fs35.existsSync(p2)) return null;
   const open = readOpenRun(dir);
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const crashed = open ? { ...open, endedAt: now, verdict: "crashed" } : {
@@ -49165,7 +49306,7 @@ function sweepCrashed(dir) {
     verdict: "crashed"
   };
   appendRun(dir, crashed);
-  fs34.rmSync(p2, { force: true });
+  fs35.rmSync(p2, { force: true });
   return crashed;
 }
 var idsIssuedThisMillisecond = 0;
@@ -49187,7 +49328,7 @@ function startRun(dir, meta) {
     ...meta.headBefore ? { headBefore: meta.headBefore } : {},
     steps: []
   };
-  fs34.writeFileSync(openRunPath(dir), JSON.stringify(run, null, 2));
+  fs35.writeFileSync(openRunPath(dir), JSON.stringify(run, null, 2));
   return run;
 }
 function requireOpenRun(dir) {
@@ -49198,7 +49339,7 @@ function requireOpenRun(dir) {
 function appendStep(dir, step) {
   const open = requireOpenRun(dir);
   open.steps.push({ ...step, at: (/* @__PURE__ */ new Date()).toISOString() });
-  fs34.writeFileSync(openRunPath(dir), JSON.stringify(open, null, 2));
+  fs35.writeFileSync(openRunPath(dir), JSON.stringify(open, null, 2));
   return open;
 }
 function computeVerdict(run) {
@@ -49225,7 +49366,7 @@ function sealRun(dir, meta = {}) {
     verdict: computeVerdict(withHead)
   };
   appendRun(dir, sealed);
-  fs34.rmSync(openRunPath(dir), { force: true });
+  fs35.rmSync(openRunPath(dir), { force: true });
   return sealed;
 }
 var VERDICTS2 = /* @__PURE__ */ new Set(["healthy", "unhealthy", "no-op", "crashed", "degraded"]);
@@ -49233,9 +49374,9 @@ function readRuns(dir) {
   const state = loopStateDir(dir);
   if (state === null) return [];
   const p2 = path34.join(state, "runs.jsonl");
-  if (!fs34.existsSync(p2)) return [];
+  if (!fs35.existsSync(p2)) return [];
   const runs = [];
-  for (const line of fs34.readFileSync(p2, "utf8").split("\n")) {
+  for (const line of fs35.readFileSync(p2, "utf8").split("\n")) {
     if (!line.trim()) continue;
     try {
       const parsed = JSON.parse(line);
@@ -49268,7 +49409,7 @@ function assessStall(runs, threshold = STALL_STREAK_THRESHOLD) {
 }
 
 // src/loop/lock.ts
-import fs35 from "node:fs";
+import fs36 from "node:fs";
 import os3 from "node:os";
 import path35 from "node:path";
 function firingLockPath(vaultDir) {
@@ -49277,9 +49418,9 @@ function firingLockPath(vaultDir) {
 }
 function readFiringLock(vaultDir) {
   const p2 = firingLockPath(vaultDir);
-  if (p2 === null || !fs35.existsSync(p2)) return null;
+  if (p2 === null || !fs36.existsSync(p2)) return null;
   try {
-    const parsed = JSON.parse(fs35.readFileSync(p2, "utf8"));
+    const parsed = JSON.parse(fs36.readFileSync(p2, "utf8"));
     return typeof parsed?.pid === "number" && typeof parsed?.acquiredAt === "string" ? parsed : null;
   } catch {
     return null;
@@ -49309,15 +49450,15 @@ function staleness(held, opts) {
 var tmpCounter = 0;
 function linkInPlace(stateDir2, lockFile, record2) {
   const tmp = path35.join(stateDir2, `.firing.lock.${record2.pid}.${tmpCounter++}`);
-  fs35.writeFileSync(tmp, JSON.stringify(record2) + "\n");
+  fs36.writeFileSync(tmp, JSON.stringify(record2) + "\n");
   try {
-    fs35.linkSync(tmp, lockFile);
+    fs36.linkSync(tmp, lockFile);
     return true;
   } catch (e) {
     if (e.code !== "EEXIST") throw e;
     return false;
   } finally {
-    fs35.rmSync(tmp, { force: true });
+    fs36.rmSync(tmp, { force: true });
   }
 }
 function acquireFiringLock(vaultDir, opts) {
@@ -49337,8 +49478,8 @@ function acquireFiringLock(vaultDir, opts) {
   if (!stale) return { ok: false, held, reason: `another firing holds the lock \u2014 ${why}` };
   try {
     const sidelined = `${lockFile}.stale-${now}-${record2.pid}`;
-    fs35.renameSync(lockFile, sidelined);
-    fs35.rmSync(sidelined, { force: true });
+    fs36.renameSync(lockFile, sidelined);
+    fs36.rmSync(sidelined, { force: true });
   } catch (e) {
     if (e.code !== "ENOENT") throw e;
   }
@@ -49350,8 +49491,8 @@ function stampFiringLock(vaultDir, record2, runId) {
   const lockFile = path35.join(stateDir2, "firing.lock");
   const next = { ...record2, runId };
   const tmp = path35.join(stateDir2, `.firing.lock.${record2.pid}.${tmpCounter++}`);
-  fs35.writeFileSync(tmp, JSON.stringify(next) + "\n");
-  fs35.renameSync(tmp, lockFile);
+  fs36.writeFileSync(tmp, JSON.stringify(next) + "\n");
+  fs36.renameSync(tmp, lockFile);
   return next;
 }
 function releaseFiringLock(vaultDir, match) {
@@ -49362,16 +49503,16 @@ function releaseFiringLock(vaultDir, match) {
   if (match.pid !== void 0 && held.pid !== match.pid) return false;
   if (match.acquiredAt !== void 0 && held.acquiredAt !== match.acquiredAt) return false;
   if (match.runId !== void 0 && held.runId !== match.runId) return false;
-  fs35.rmSync(p2, { force: true });
+  fs36.rmSync(p2, { force: true });
   return true;
 }
 
 // src/loop/spend.ts
-import fs37 from "node:fs";
+import fs38 from "node:fs";
 import path36 from "node:path";
 
 // src/adapters/tokens.ts
-import fs36 from "node:fs";
+import fs37 from "node:fs";
 function count(value) {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
 }
@@ -49381,7 +49522,7 @@ function text(value) {
 function* readEntries(file) {
   let raw;
   try {
-    raw = fs36.readFileSync(file, "utf8");
+    raw = fs37.readFileSync(file, "utf8");
   } catch {
     return;
   }
@@ -49438,7 +49579,7 @@ function sessionCwd(file) {
 // src/loop/spend.ts
 function canonical(p2) {
   try {
-    return fs37.realpathSync(path36.resolve(p2));
+    return fs38.realpathSync(path36.resolve(p2));
   } catch {
     return path36.resolve(p2);
   }
@@ -49447,7 +49588,7 @@ function measureFiring(sessionsDir, opts) {
   const dir = path36.resolve(sessionsDir);
   let names;
   try {
-    names = fs37.readdirSync(dir);
+    names = fs38.readdirSync(dir);
   } catch (e) {
     return {
       measurable: false,
@@ -49500,11 +49641,11 @@ function checkCeiling(ceiling, measurement) {
 }
 
 // src/loop/questions.ts
-import fs38 from "node:fs";
+import fs39 from "node:fs";
 import path37 from "node:path";
 function canonical2(p2) {
   try {
-    return fs38.realpathSync(path37.resolve(p2));
+    return fs39.realpathSync(path37.resolve(p2));
   } catch {
     return path37.resolve(p2);
   }
@@ -49513,7 +49654,7 @@ function measureInterruptions(sessionsDir, opts) {
   const dir = path37.resolve(sessionsDir);
   let names;
   try {
-    names = fs38.readdirSync(dir);
+    names = fs39.readdirSync(dir);
   } catch (e) {
     return {
       measurable: false,
@@ -49542,7 +49683,7 @@ function measureInterruptions(sessionsDir, opts) {
 function readAsks(file) {
   let text2;
   try {
-    text2 = fs38.readFileSync(file, "utf8");
+    text2 = fs39.readFileSync(file, "utf8");
   } catch {
     return [];
   }
@@ -49584,12 +49725,12 @@ function formatQuestionBudget(budget, measurement) {
 }
 
 // src/cli/vault-option.ts
-import fs40 from "node:fs";
+import fs41 from "node:fs";
 import path39 from "node:path";
 
 // src/config/pointer.ts
 var import_yaml3 = __toESM(require_dist(), 1);
-import fs39 from "node:fs";
+import fs40 from "node:fs";
 import os4 from "node:os";
 import path38 from "node:path";
 var VAULT_POINTER_FILENAME = "ost.vault.yaml";
@@ -49613,10 +49754,10 @@ function resolveAgainst(baseDir, declared) {
 }
 function readVaultPointer(dir) {
   const file = path38.join(path38.resolve(dir), VAULT_POINTER_FILENAME);
-  if (!fs39.existsSync(file)) return null;
+  if (!fs40.existsSync(file)) return null;
   let raw;
   try {
-    raw = (0, import_yaml3.parse)(fs39.readFileSync(file, "utf8"));
+    raw = (0, import_yaml3.parse)(fs40.readFileSync(file, "utf8"));
   } catch (e) {
     throw new Error(`${file} is not valid YAML: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -49684,7 +49825,7 @@ function resolvedVaultSource() {
 }
 function stalePointerWarning(r2) {
   if (r2.via !== "pointer" || !r2.pointer) return null;
-  if (fs40.existsSync(path39.join(r2.dir, CONFIG_FILENAME))) return null;
+  if (fs41.existsSync(path39.join(r2.dir, CONFIG_FILENAME))) return null;
   return `${r2.pointer.file} names ${r2.dir}, which is not a vault (no ${CONFIG_FILENAME}). The pointer is stale, or that vault has not been cloned onto this machine.`;
 }
 
@@ -50447,6 +50588,23 @@ program2.command("grants").description("name every tool a run's instructions dec
   else {
     console.error(run.report);
     process.exitCode = run.exitCode;
+  }
+});
+program2.command("required-tools").description("refuse to begin a pass whose declared-required tools are not on the surface it would fire with").requiredOption(
+  "--pass <file>",
+  "the SKILL.md (or command file) declaring `allowed-tools` and the `required-tools` subset it cannot start without"
+).requiredOption(
+  "--available <csv>",
+  "the tools the run will actually be able to call \u2014 the same string handed to `--allowedTools`"
+).action((opts) => {
+  const check2 = checkRequiredTools({
+    passFile: path41.resolve(opts.pass),
+    available: opts.available.split(",").map((t2) => t2.trim()).filter(Boolean)
+  });
+  if (check2.exitCode === REQUIRED_TOOLS_EXIT.cleared) console.log(check2.report);
+  else {
+    console.error(check2.report);
+    process.exitCode = check2.exitCode;
   }
 });
 program2.command("ship").description(
