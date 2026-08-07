@@ -46,6 +46,9 @@ set -euo pipefail
 VAULT_DIR="${1:-.}"
 OST_AGENT_DIR="${OST_AGENT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 CLI="$OST_AGENT_DIR/dist/ost-agent.mjs"
+# Read here rather than at the point of use, because two things now read it: the
+# required-tool refusal below, and the system prompt this pass fires with.
+SKILL_FILE="$OST_AGENT_DIR/.claude/skills/opportunity-solution-tree/SKILL.md"
 
 # Kept in sync with .claude/commands/ost-pass.md's `allowed-tools` frontmatter — that
 # file is the authority on what /ost-pass needs. If it grants a new tool, add it here too.
@@ -102,6 +105,29 @@ if [ "$DUE" -ne 0 ]; then
   echo "not firing (loop due exit $DUE) — see above." >&2
   exit "$DUE"
 fi
+
+# Does this surface carry the tools the pass cannot work without?
+#
+# The skill declares two lines: `allowed-tools`, everything the pass may reach
+# for, and `required-tools`, the three it produces NOTHING without. $OST_TOOLS
+# above grants 16 of the skill's 22 — the other six are withheld on purpose, and
+# a check that refused over those would stop every firing over a containment
+# somebody chose. So only the required half can stop this, and the withheld half
+# comes out as the narrowing note the pass is already handed further down.
+#
+# Placed HERE, ahead of `loop start`, and that ordering is the whole guarantee: no
+# lock is taken, no health record is opened, nothing is written into the vault.
+# The alternative — discovering a missing tool at the call that needed it — is
+# what five scheduled firings of this repo's meta vault actually did. Under
+# `claude -p` that call is denied rather than prompted, so the pass carried on
+# without it and produced a smaller result that reads from the outside exactly
+# like a complete one. Refusing at second zero costs a cron mail; the other costs
+# a night and leaves a record nobody can tell from a good one.
+#
+# Not wrapped in `set +e`: exits 30 (a required tool is absent) and 31 (the
+# declaration could not be read) are both "do not begin", and there is no third
+# case for this script to sort out. `set -e` stops here with the report on stderr.
+node "$CLI" required-tools --pass "$SKILL_FILE" --available "$OST_TOOLS"
 
 # Take the overlap lock and open the health record. If this fails — another firing
 # is live, or the record cannot be written — nothing runs. A firing nobody can read
@@ -173,7 +199,6 @@ JSON
 # same file whose frontmatter is the authority for $OST_TOOLS above — everything after
 # its frontmatter is the instruction body that `/ost-pass` would have expanded to.
 PASS_PROMPT="$(awk 'BEGIN{n=0} /^---$/{n++; next} n>=2' "$OST_AGENT_DIR/.claude/commands/ost-pass.md")"
-SKILL_FILE="$OST_AGENT_DIR/.claude/skills/opportunity-solution-tree/SKILL.md"
 OST_SKILL="$(cat "$SKILL_FILE")"
 
 # The skill is handed over as the system prompt below, and its `allowed-tools` line

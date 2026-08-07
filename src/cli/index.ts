@@ -80,6 +80,7 @@ import { vaultReadiness } from "../mcp/bootstrap.js";
 import { gitCommit } from "../git/safe-git.js";
 import { runAllowlistGenerator } from "../security/allowlist-generator.js";
 import { runGrantPreflight } from "../runner/grant-preflight.js";
+import { REQUIRED_TOOLS_EXIT, checkRequiredTools } from "../mcp/required-tools.js";
 import { loopStateDir, workingTreeStatus, type VaultTreeStatus } from "../loop/state.js";
 import {
   DEFAULT_QUIET_MINUTES, emptyCorrectionsLedger, readLedger, recordCorrections, renderCorrections,
@@ -1025,6 +1026,33 @@ program
     else {
       console.error(run.report);
       process.exitCode = run.exitCode;
+    }
+  });
+
+program
+  .command("required-tools")
+  .description("refuse to begin a pass whose declared-required tools are not on the surface it would fire with")
+  .requiredOption(
+    "--pass <file>",
+    "the SKILL.md (or command file) declaring `allowed-tools` and the `required-tools` subset it cannot start without",
+  )
+  .requiredOption(
+    "--available <csv>",
+    "the tools the run will actually be able to call — the same string handed to `--allowedTools`",
+  )
+  .action((opts: { pass: string; available: string }) => {
+    const check = checkRequiredTools({
+      passFile: path.resolve(opts.pass),
+      available: opts.available.split(",").map((t) => t.trim()).filter(Boolean),
+    });
+    // Two non-zero codes, and neither means "go ahead": `missingRequired` is a run
+    // that must not start, `undeclared` is a check that could not be made — which
+    // is also not a cleared run, and a wrapper collapsing the two into one would
+    // lose exactly the distinction this command exists to draw.
+    if (check.exitCode === REQUIRED_TOOLS_EXIT.cleared) console.log(check.report);
+    else {
+      console.error(check.report);
+      process.exitCode = check.exitCode;
     }
   });
 

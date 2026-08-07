@@ -3061,7 +3061,16 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2306 tests across 180 files, verified 2026-08-06 (`npx vitest run`,
+> *Today:* **met** — 2326 tests across 181 files, verified 2026-08-07 (`npx vitest run`,
+> after the required-tool precondition landed: the skill now declares `required-tools`
+> beside `allowed-tools`, and a pass whose surface is missing one of the three it cannot
+> work without refuses at second zero rather than discovering the gap at the call that
+> needed it. Missing a *would-use* tool still starts the pass and reports the narrowing —
+> without that half the check would refuse every scheduled firing over `ost_check`,
+> `ost_flag_humans_required` and `ost_rank_source`, which this repo withholds on purpose,
+> and a gate that reads as an obstacle is a gate that gets switched off
+> (`test/mcp/preflight-required-tools.test.ts`). Previously 2306 tests across 180
+> files, verified 2026-08-06,
 > after the search-literality census landed: of the 850 search arguments this project has
 > issued over its own node text, 125 of the 126 whose text came out of the tree are
 > expressible as literal lookups — 99%, against a bar of 90% fixed before the count — while
