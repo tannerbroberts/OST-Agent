@@ -9,7 +9,14 @@
  * Purely a reader — it reads the tree + the `.ost-agent/` sidecar and reports.
  * It never mutates, so it carries no commit.
  */
-import { byTitle, childrenOfLayer, claimsStoredEvidence, readEvidence, testsUnderSolution } from "../processes/tree.js";
+import {
+  byTitle,
+  childrenOfLayer,
+  claimsStoredEvidence,
+  opportunitiesServedBeneath,
+  readEvidence,
+  testsUnderSolution,
+} from "../processes/tree.js";
 import type { Actor } from "../adapters/source.js";
 import { checkInvariants } from "../eval/invariants.js";
 import { scanNearDuplicates } from "../ost/dedupe.js";
@@ -795,6 +802,28 @@ export function computeNextWork(vault: Vault, dir: string, min: number, now: () 
     withheld,
   );
 
+  /*
+   * The category exemption.
+   *
+   * `solutions` counts an Opportunity's DIRECT solution children, which is the
+   * right count for a specific need and the wrong one for a heading: a bucket
+   * holding 45 solutions two levels down read as under-served and sent every
+   * pass to ideate under it, which is the one place a solution does not belong.
+   *
+   * So an Opportunity that files sub-opportunities is exempt — but only while
+   * something is actually beneath it. The bare structural rule ("has children ⇒
+   * is a category ⇒ never reported") silences a heading whose whole subtree is
+   * empty, and an empty subtree is exactly the gap this list exists to find.
+   * `opportunitiesServedBeneath` is that guard and the whole of it: it asks
+   * whether the subtree is empty, never how full it is, so no threshold is
+   * decided here beyond the `min` the caller already set.
+   *
+   * The exemption is counted and named in the summary. A heading that goes
+   * quiet without saying so is indistinguishable from a tree that got better.
+   */
+  const servedBeneath = opportunitiesServedBeneath(tree, index);
+  const exemptCategories: string[] = [];
+
   const allUnderservedOpportunities: UnderservedOpportunity[] = omitDisposed(
     tree
       .filter((n) => n.layer === "Opportunity")
@@ -803,13 +832,23 @@ export function computeNextWork(vault: Vault, dir: string, min: number, now: () 
         // `solutions` is the real count and `existingSolutions` a sample of it —
         // the one comparison that matters (`solutions < min`) is made on the count.
         return {
-          title: o.title,
-          solutions: existing.length,
-          needed: min,
-          existingSolutions: existing.slice(0, MAX_LISTED_CHILDREN),
+          node: o,
+          entry: {
+            title: o.title,
+            solutions: existing.length,
+            needed: min,
+            existingSolutions: existing.slice(0, MAX_LISTED_CHILDREN),
+          },
         };
       })
-      .filter((o) => o.solutions < min),
+      .filter(({ entry }) => entry.solutions < min)
+      .filter(({ node }) => {
+        const isCategory = childrenOfLayer(node, index, "Opportunity").length > 0;
+        if (!isCategory || !servedBeneath.has(node.title)) return true;
+        exemptCategories.push(node.title);
+        return false;
+      })
+      .map(({ entry }) => entry),
     (o) => o.title,
     dispositions,
     "underservedOpportunities",
@@ -951,6 +990,17 @@ export function computeNextWork(vault: Vault, dir: string, min: number, now: () 
     ? ` ${allRetired.length} retired node(s) were withheld from the duplicate scan only (every gate still counts them): ` +
       `${retiredFromDuplicateScan.map((r) => r.node).join(", ")}${allRetired.length > retiredFromDuplicateScan.length ? ", …" : ""}.`
     : "";
+  // Which headings went quiet, and why. The exemption removes work from the list
+  // without anything being done about it, so it is reported the way a disposition
+  // is: named, counted over the full set, and with the rule stated so a reader can
+  // tell an exempt category from a served one. Titles are capped like every other
+  // list here — five is enough to recognise the shape without putting a thousand
+  // headings into one string (Z2).
+  const exemptionNote = exemptCategories.length
+    ? ` ${exemptCategories.length} category opportunity(ies) were exempt from the under-served check — they file sub-opportunities and solutions already hang beneath them: ` +
+      `${exemptCategories.slice(0, MAX_LISTED_CHILDREN).join(", ")}${exemptCategories.length > MAX_LISTED_CHILDREN ? ", …" : ""}. ` +
+      "A category whose subtree holds no solution at all is NOT exempt and is still listed above."
+    : "";
   // The excerpt is a cap like any other, so it names what it hid and where the rest
   // is (W7 reconciled with Z2). Counted over the full set, not the shown one, and
   // only in the not-done branch because `done` implies there is no unmapped record
@@ -989,9 +1039,9 @@ export function computeNextWork(vault: Vault, dir: string, min: number, now: () 
   // can be the only capped lists, and a cap that named nothing would read as amnesty.
   const summary = done
     ? allOpenUnknowns.length
-      ? `Tree is fully maintained — nothing to do. ${allOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${askNote}${dispositionNote}${damagedLedgerNote}${truncationNote}${retirementNote}`
-      : `Tree is fully maintained — nothing to do.${assumptionNote}${askNote}${dispositionNote}${damagedLedgerNote}${truncationNote}${retirementNote}`
-    : `Outstanding: ${parts.join("; ")}.${assumptionNote}${askNote}${dispositionNote}${damagedLedgerNote}${truncationNote}${excerptNote}${retirementNote}`;
+      ? `Tree is fully maintained — nothing to do. ${allOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${askNote}${dispositionNote}${damagedLedgerNote}${exemptionNote}${truncationNote}${retirementNote}`
+      : `Tree is fully maintained — nothing to do.${assumptionNote}${askNote}${dispositionNote}${damagedLedgerNote}${exemptionNote}${truncationNote}${retirementNote}`
+    : `Outstanding: ${parts.join("; ")}.${assumptionNote}${askNote}${dispositionNote}${damagedLedgerNote}${exemptionNote}${truncationNote}${excerptNote}${retirementNote}`;
 
   return {
     framing: DATA_FRAME,
