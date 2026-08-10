@@ -1,0 +1,242 @@
+[
+  {
+    "id": "noise-2x-1",
+    "cause": "noise",
+    "condition": "unchanged code, 20 CPU spinners (2× cores)",
+    "measured": 802,
+    "runs": [
+      834,
+      802,
+      894
+    ],
+    "spreadMin": 802,
+    "spreadMax": 894,
+    "recordedMin": 249,
+    "recordedMax": 267,
+    "budget": 712,
+    "controlMeasured": 27,
+    "controlRuns": [
+      40,
+      64,
+      27
+    ],
+    "recordedControlMin": 12,
+    "recordedControlMax": 14
+  },
+  {
+    "id": "noise-2x-2",
+    "cause": "noise",
+    "condition": "unchanged code, 20 CPU spinners (2× cores)",
+    "measured": 856,
+    "runs": [
+      856,
+      884,
+      896
+    ],
+    "spreadMin": 856,
+    "spreadMax": 896,
+    "recordedMin": 249,
+    "recordedMax": 267,
+    "budget": 712,
+    "controlMeasured": 34,
+    "controlRuns": [
+      34,
+      50,
+      34
+    ],
+    "recordedControlMin": 12,
+    "recordedControlMax": 14
+  },
+  {
+    "id": "noise-2x-3",
+    "cause": "noise",
+    "condition": "unchanged code, 20 CPU spinners (2× cores)",
+    "measured": 811,
+    "runs": [
+      845,
+      811,
+      844
+    ],
+    "spreadMin": 811,
+    "spreadMax": 845,
+    "recordedMin": 249,
+    "recordedMax": 267,
+    "budget": 712,
+    "controlMeasured": 29,
+    "controlRuns": [
+      33,
+      40,
+      29
+    ],
+    "recordedControlMin": 12,
+    "recordedControlMax": 14
+  },
+  {
+    "id": "noise-3x-0",
+    "cause": "noise",
+    "condition": "unchanged code, 30 CPU spinners (3× cores)",
+    "measured": 1031,
+    "runs": [
+      1031,
+      1213,
+      1297
+    ],
+    "spreadMin": 1031,
+    "spreadMax": 1297,
+    "recordedMin": 249,
+    "recordedMax": 267,
+    "budget": 712,
+    "controlMeasured": 60,
+    "controlRuns": [
+      79,
+      66,
+      60
+    ],
+    "recordedControlMin": 12,
+    "recordedControlMax": 14
+  },
+  {
+    "id": "noise-3x-1",
+    "cause": "noise",
+    "condition": "unchanged code, 30 CPU spinners (3× cores)",
+    "measured": 1229,
+    "runs": [
+      1293,
+      1229,
+      1282
+    ],
+    "spreadMin": 1229,
+    "spreadMax": 1293,
+    "recordedMin": 249,
+    "recordedMax": 267,
+    "budget": 712,
+    "controlMeasured": 56,
+    "controlRuns": [
+      71,
+      56,
+      56
+    ],
+    "recordedControlMin": 12,
+    "recordedControlMax": 14
+  },
+  {
+    "id": "regression-idle-s2-0",
+    "cause": "regression",
+    "condition": "2× the reinstated quadratic scan, idle machine",
+    "measured": 1039,
+    "runs": [
+      1040,
+      1039,
+      1041
+    ],
+    "spreadMin": 1039,
+    "spreadMax": 1041,
+    "recordedMin": 249,
+    "recordedMax": 267,
+    "budget": 712,
+    "controlMeasured": 14,
+    "controlRuns": [
+      14,
+      14,
+      15
+    ],
+    "recordedControlMin": 12,
+    "recordedControlMax": 14
+  },
+  {
+    "id": "regression-idle-s2-1",
+    "cause": "regression",
+    "condition": "2× the reinstated quadratic scan, idle machine",
+    "measured": 1039,
+    "runs": [
+      1041,
+      1039,
+      1042
+    ],
+    "spreadMin": 1039,
+    "spreadMax": 1042,
+    "recordedMin": 249,
+    "recordedMax": 267,
+    "budget": 712,
+    "controlMeasured": 15,
+    "controlRuns": [
+      15,
+      15,
+      15
+    ],
+    "recordedControlMin": 12,
+    "recordedControlMax": 14
+  },
+  {
+    "id": "regression-idle-s2-2",
+    "cause": "regression",
+    "condition": "2× the reinstated quadratic scan, idle machine",
+    "measured": 1041,
+    "runs": [
+      1041,
+      1041,
+      1055
+    ],
+    "spreadMin": 1041,
+    "spreadMax": 1055,
+    "recordedMin": 249,
+    "recordedMax": 267,
+    "budget": 712,
+    "controlMeasured": 14,
+    "controlRuns": [
+      14,
+      14,
+      16
+    ],
+    "recordedControlMin": 12,
+    "recordedControlMax": 14
+  },
+  {
+    "id": "regression-loaded-1x-0",
+    "cause": "regression",
+    "condition": "the historical drift (1× quadratic) on a box running 10 CPU spinners",
+    "measured": 1538,
+    "runs": [
+      1551,
+      1538,
+      1566
+    ],
+    "spreadMin": 1538,
+    "spreadMax": 1566,
+    "recordedMin": 249,
+    "recordedMax": 267,
+    "budget": 712,
+    "controlMeasured": 24,
+    "controlRuns": [
+      26,
+      24,
+      27
+    ],
+    "recordedControlMin": 12,
+    "recordedControlMax": 14
+  },
+  {
+    "id": "regression-loaded-1x-1",
+    "cause": "regression",
+    "condition": "the historical drift (1× quadratic) on a box running 10 CPU spinners",
+    "measured": 1126,
+    "runs": [
+      1156,
+      1126,
+      1138
+    ],
+    "spreadMin": 1126,
+    "spreadMax": 1156,
+    "recordedMin": 249,
+    "recordedMax": 267,
+    "budget": 712,
+    "controlMeasured": 21,
+    "controlRuns": [
+      21,
+      21,
+      26
+    ],
+    "recordedControlMin": 12,
+    "recordedControlMax": 14
+  }
+]
