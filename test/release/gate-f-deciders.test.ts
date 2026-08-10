@@ -177,11 +177,24 @@ const TRACE_READER_MODULES: Record<string, string> = {
  * wrappers treat an unreadable ledger as a missing paragraph in a prompt rather
  * than a reason to stop.
  *
+ * `senses.ts` is the third, and it is the one whose classification is worth
+ * stating carefully because it sits next to a decider that looks just like it.
+ * `degraded.ts` reads the same usage trace and the same `buildPassContext`, and it
+ * is a TRACE READER because what it returns changes a verdict and an exit code
+ * (`LOOP_EXIT.degraded`). The sense census reads those same inputs and returns
+ * LINES. Nothing folds it into `computeVerdict`, nothing branches on it, and seal's
+ * exit code is computed from `sealed.verdict` alone — so a census that came out
+ * wrong misinforms a reader and cannot move a gate. That is precisely the reporter
+ * property, and it is the reason the census may be printed unconditionally on every
+ * firing while the degraded banner may not.
+ *
  * The property that keeps this class from being a hole is asserted below: no
  * decider imports a reporter. The moment one does, its reads become decider inputs
- * and this classification fails the build rather than silently going stale.
+ * and this classification fails the build rather than silently going stale. That
+ * assertion is doing real work for `senses.ts` specifically: it is the line that
+ * would fail the build if a future change ever let the census decide anything.
  */
-const REPORTER_MODULES = ["questions.ts", "corrections.ts"];
+const REPORTER_MODULES = ["questions.ts", "corrections.ts", "senses.ts"];
 
 /**
  * The fifth class, and the one that could most easily have been a hole.
