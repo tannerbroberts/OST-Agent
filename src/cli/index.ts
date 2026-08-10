@@ -31,6 +31,7 @@
  *   ost-agent bank-question "<q>" ...         bank a fork instead of stopping at it, costed by the work it holds up
  *   ost-agent allowlist --skill F --settings F  derive a run's permission grant from the skill's own allowed-tools
  *   ost-agent grants --skill F --settings F   name every tool a run declares that its grant does not cover
+ *   ost-agent build-check --repo DIR          does the tree a run inherited actually build? checked before work is planned on it
  *   ost-agent ship --repo DIR                 run the gates locally and merge the branch if they are green
  *   ost-agent loop due|start|step|seal        unattended firing: cadence, lock, ceiling, health
  *   ost-agent mcp [--vault DIR]               stdio MCP server (no API key needed)
@@ -50,6 +51,7 @@ import { initVault } from "../runner/init.js";
 import { setOutcome } from "../runner/set-outcome.js";
 import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/render.js";
 import { ship } from "../release/ship-repo.js";
+import { BUILD_CHECK_EXIT, formatBuildCheck, inheritedTreeBuildCheck } from "../release/inherited-tree.js";
 import { renderRollup, rollupTree } from "../eval/rollup.js";
 import { lineageOf, renderLineage } from "../eval/lineage.js";
 import { BELIEVABILITY_LADDER, type RungId } from "../knowledge/believability.js";
@@ -1411,6 +1413,26 @@ program
     else {
       console.error(check.report);
       process.exitCode = check.exitCode;
+    }
+  });
+
+program
+  .command("build-check")
+  .description(
+    "does the tree this run inherited actually build? the typecheck gate, timed, refused before any work is planned on it",
+  )
+  .requiredOption("-r, --repo <dir>", "the repository the run inherited")
+  .action(async (opts: { repo: string }) => {
+    const repo = path.resolve(opts.repo);
+    const result = await inheritedTreeBuildCheck(repo);
+    const report = formatBuildCheck(repo, result);
+    // Green to stdout, refusals to stderr, and the exit code carries the
+    // verdict: 0 builds, 1 broken, 2 could-not-check. Only 0 clears — a wrapper
+    // that gates on non-zero is fail-closed without knowing the difference.
+    if (result.verdict === "builds") console.log(report);
+    else {
+      console.error(report);
+      process.exitCode = BUILD_CHECK_EXIT[result.verdict];
     }
   });
 
