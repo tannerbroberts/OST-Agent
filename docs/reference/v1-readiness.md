@@ -3061,7 +3061,15 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2385 tests across 187 files, verified 2026-08-09 (`npx vitest run`,
+> *Today:* **met** — 2404 tests across 188 files, verified 2026-08-09 (`npx vitest run`,
+> after the sense census landed: a firing's closing report now enumerates every sense it
+> reads with — the tree, the product repo, both web senses, every declared channel — each
+> carrying a state derived from config and grant rather than from what the pass happened to
+> touch, so a sense nothing reached for is distinguishable in the report from one that
+> worked. It is a reporter and decides nothing: seal's exit code is still computed from the
+> verdict alone (`src/loop/senses.ts`, `test/loop/sense-census-report.test.ts`, classified
+> under `REPORTER_MODULES` in `test/release/gate-f-deciders.test.ts`).
+> Previously 2385 tests across 187 files, verified 2026-08-09,
 > after the vacuous-red distinction landed: an instrument naming a spec file nobody had
 > written exited non-zero, was recorded `**red**`, and minted a build permit whose stated
 > definition of done an empty file would have satisfied. It was not a rare edge — of the

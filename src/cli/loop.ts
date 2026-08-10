@@ -27,6 +27,7 @@ import { evaluateCadence, parseCadence } from "../loop/cadence.js";
 import { detectLaunderedExit, launderedExitMessage } from "../loop/exitLaundering.js";
 import { degradedReport, observeDegradation } from "../loop/degraded.js";
 import { appendStep, readOpenRun, readRuns, sealRun, startRun } from "../loop/health.js";
+import { observeSenses, senseCensusReport } from "../loop/senses.js";
 import { assessStall } from "../loop/stall.js";
 import { acquireFiringLock, releaseFiringLock, stampFiringLock } from "../loop/lock.js";
 import { checkCeiling, measureFiring, type SpendCeiling } from "../loop/spend.js";
@@ -550,10 +551,21 @@ export function registerLoopCommands(program: Command): void {
       // about — it owns that message and there is nothing to observe anyway.
       const open = readOpenRun(opts.vault);
       const degradations = open ? observeDegradation(opts.vault, open) : [];
+      // The sense census, observed against the same still-open run and from the
+      // vault rather than from the firing. Derived from config and grant, so a
+      // sense nothing reached for still gets a state — see src/loop/senses.ts.
+      const senses = open ? observeSenses(opts.vault, open) : [];
       const sealed = sealRun(opts.vault, { headAfter: gitHead(opts.vault), degradations });
       const released = releaseFiringLock(opts.vault, { runId: sealed.runId });
       console.log(`loop run ${sealed.runId} sealed: ${sealed.verdict}`);
       for (const s of sealed.steps) console.log(`  ${s.exit === 0 ? "✓" : "✗"} ${s.phase} (exit ${s.exit})`);
+      // On stdout with the rest of the closing report, and UNCONDITIONALLY —
+      // unlike the degraded banner below, which speaks only when something is
+      // already known to be wrong. The firing this is for is the one that looks
+      // fine: a census that appeared only beside a degradation could never tell
+      // an operator that a healthy-sealing pass spent the night unable to see the
+      // product, and that is the pass whose output nobody knew to distrust.
+      for (const line of senseCensusReport(senses)) console.log(line);
       // On stderr, beside the stall escalation, because a cron mails stderr and
       // this is the line that must not be scrolled past. Printed whenever a
       // degradation was observed — including on an `unhealthy` firing, where it is
