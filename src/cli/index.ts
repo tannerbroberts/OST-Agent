@@ -22,6 +22,8 @@
  *   ost-agent preflight [--transcripts DIR]   did the callers whose calls failed already know they were unsure?
  *   ost-agent searches [--transcripts DIR]    were the searches over node text literal, and did their text come from the tree?
  *   ost-agent path-failures [--transcripts D] which of the path failures a pass hit came through a tool this repo controls?
+ *   ost-agent manifest [--vault DIR]          every precondition the tool schemas can state, before you compose a call
+ *   ost-agent refusals [--transcripts DIR]    how many of the refusals a pass hit a schema-derived manifest could have named
  *   ost-agent channels [--vault DIR]          every drop folder, its last delivery, and what has gone silent
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
  *   ost-agent corrections [--state DIR]       refusals this workspace already paid for, for the next session to read
@@ -78,6 +80,14 @@ import {
 import {
   formatPathFailureCensus, pathFailureCensus, readPathFailures,
 } from "../telemetry/path-failure-attribution.js";
+import {
+  formatRefusalCoverageCensus, refusalCoverageCensus,
+} from "../telemetry/refusal-coverage.js";
+import {
+  generatePreflightManifest, renderPreflightManifest, type ToolSchemaLike,
+} from "../security/preflight-manifest.js";
+import { buildOstTools } from "../security/tools.js";
+import { Vault } from "../ost/vault.js";
 import { defaultTranscriptDir } from "../adapters/transcript.js";
 import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
 import { laneDef, LANES, type LaneId } from "../knowledge/lanes.js";
@@ -942,6 +952,47 @@ program
     // found nothing to read, and an automation has to learn that through the exit
     // code rather than off a report that looks clean.
     if (census.pathShaped === 0) process.exitCode = 1;
+  });
+
+program
+  .command("manifest")
+  .description("every precondition this tool surface can state about itself, folded from the schemas — read it before composing a call")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((opts: { vault: string }) => {
+    // Probe-only: the manifest is folded from schemas and reads nothing in the
+    // vault, so the Vault handle is opened with `create: false` for the reason
+    // the MCP server's readiness check does — probing a directory must never
+    // create it, and a mistyped `--vault` here would otherwise leave one behind.
+    const dir = path.resolve(opts.vault);
+    const tools = buildOstTools({ vault: new Vault(dir, { create: false }), dir, remote: { enabled: false } });
+    console.log(renderPreflightManifest(generatePreflightManifest(tools as unknown as ToolSchemaLike[])));
+  });
+
+program
+  .command("refusals")
+  .description("how many of the refusal classes a pass actually hit a schema-derived manifest could have named — the census behind the preflight manifest")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option(
+    "--transcripts <dir>",
+    "a directory of session transcripts to read the refusals out of (repeatable); defaults to this project's own",
+    collect,
+    [],
+  )
+  .action((opts: { vault: string; transcripts: string[] }) => {
+    // Deliberately NOT `buildPassContext`, for the reason `preflight` gives: this
+    // reads transcripts and answers a question about them, and opening a writable
+    // Vault handle would create the directory a mistyped path names.
+    const vault = path.resolve(opts.vault);
+    const dirs = opts.transcripts.length ? opts.transcripts : [defaultTranscriptDir(vault)];
+    const sessions = dirs.flatMap((d) => readTranscriptSessions(path.resolve(d)));
+    const { failures } = readPathFailures(sessions);
+    const tools = buildOstTools({ vault: new Vault(vault, { create: false }), dir: vault, remote: { enabled: false } });
+    const census = refusalCoverageCensus(failures, generatePreflightManifest(tools as unknown as ToolSchemaLike[]));
+    console.log(formatRefusalCoverageCensus(census));
+    // No recognised refusal is not "the surface states everything" — it is a
+    // sweep that found nothing to read, and an automation has to learn that
+    // through the exit code rather than off a report that looks clean.
+    if (census.classes.length === 0) process.exitCode = 1;
   });
 
 program
