@@ -597,14 +597,14 @@ var require_help = __commonJS({
        * @return {string}
        *
        */
-      wrap(str2, width, indent, minColumnWidth = 40) {
+      wrap(str3, width, indent, minColumnWidth = 40) {
         const indents = " \\f\\t\\v\xA0\u1680\u2000-\u200A\u202F\u205F\u3000\uFEFF";
         const manualIndent = new RegExp(`[\\n][${indents}]+`);
-        if (str2.match(manualIndent)) return str2;
+        if (str3.match(manualIndent)) return str3;
         const columnWidth = width - indent;
-        if (columnWidth < minColumnWidth) return str2;
-        const leadingStr = str2.slice(0, indent);
-        const columnText = str2.slice(indent).replace("\r\n", "\n");
+        if (columnWidth < minColumnWidth) return str3;
+        const leadingStr = str3.slice(0, indent);
+        const columnText = str3.slice(indent).replace("\r\n", "\n");
         const indentString = " ".repeat(indent);
         const zeroWidthSpace = "\u200B";
         const breaks = `\\s${zeroWidthSpace}`;
@@ -873,9 +873,9 @@ var require_option = __commonJS({
         return option.negate === (negativeValue === value);
       }
     };
-    function camelcase(str2) {
-      return str2.split("-").reduce((str3, word) => {
-        return str3 + word[0].toUpperCase() + word.slice(1);
+    function camelcase(str3) {
+      return str3.split("-").reduce((str4, word) => {
+        return str4 + word[0].toUpperCase() + word.slice(1);
       });
     }
     function splitOptionFlags(flags) {
@@ -1029,11 +1029,11 @@ var require_command = __commonJS({
         this._showHelpAfterError = false;
         this._showSuggestionAfterError = true;
         this._outputConfiguration = {
-          writeOut: (str2) => process3.stdout.write(str2),
-          writeErr: (str2) => process3.stderr.write(str2),
+          writeOut: (str3) => process3.stdout.write(str3),
+          writeErr: (str3) => process3.stderr.write(str3),
           getOutHelpWidth: () => process3.stdout.isTTY ? process3.stdout.columns : void 0,
           getErrHelpWidth: () => process3.stderr.isTTY ? process3.stderr.columns : void 0,
-          outputError: (str2, write) => write(str2)
+          outputError: (str3, write) => write(str3)
         };
         this._hidden = false;
         this._helpOption = void 0;
@@ -2669,18 +2669,18 @@ Expecting one of '${allowedValues.join("', '")}'`);
        * @param {string} [description]
        * @return {(this | string | undefined)} `this` command for chaining, or version string if no arguments
        */
-      version(str2, flags, description) {
-        if (str2 === void 0) return this._version;
-        this._version = str2;
+      version(str3, flags, description) {
+        if (str3 === void 0) return this._version;
+        this._version = str3;
         flags = flags || "-V, --version";
         description = description || "output the version number";
         const versionOption = this.createOption(flags, description);
         this._versionOptionName = versionOption.attributeName();
         this._registerOption(versionOption);
         this.on("option:" + versionOption.name(), () => {
-          this._outputConfiguration.writeOut(`${str2}
+          this._outputConfiguration.writeOut(`${str3}
 `);
-          this._exit(0, "commander.version", str2);
+          this._exit(0, "commander.version", str3);
         });
         return this;
       }
@@ -2691,10 +2691,10 @@ Expecting one of '${allowedValues.join("', '")}'`);
        * @param {object} [argsDescription]
        * @return {(string|Command)}
        */
-      description(str2, argsDescription) {
-        if (str2 === void 0 && argsDescription === void 0)
+      description(str3, argsDescription) {
+        if (str3 === void 0 && argsDescription === void 0)
           return this._description;
-        this._description = str2;
+        this._description = str3;
         if (argsDescription) {
           this._argsDescription = argsDescription;
         }
@@ -2706,9 +2706,9 @@ Expecting one of '${allowedValues.join("', '")}'`);
        * @param {string} [str]
        * @return {(string|Command)}
        */
-      summary(str2) {
-        if (str2 === void 0) return this._summary;
-        this._summary = str2;
+      summary(str3) {
+        if (str3 === void 0) return this._summary;
+        this._summary = str3;
         return this;
       }
       /**
@@ -2756,8 +2756,8 @@ Expecting one of '${allowedValues.join("', '")}'`);
        * @param {string} [str]
        * @return {(string|Command)}
        */
-      usage(str2) {
-        if (str2 === void 0) {
+      usage(str3) {
+        if (str3 === void 0) {
           if (this._usage) return this._usage;
           const args = this.registeredArguments.map((arg) => {
             return humanReadableArgName(arg);
@@ -2768,7 +2768,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
             this.registeredArguments.length ? args : []
           ).join(" ");
         }
-        this._usage = str2;
+        this._usage = str3;
         return this;
       }
       /**
@@ -2777,9 +2777,9 @@ Expecting one of '${allowedValues.join("', '")}'`);
        * @param {string} [str]
        * @return {(string|Command)}
        */
-      name(str2) {
-        if (str2 === void 0) return this._name;
-        this._name = str2;
+      name(str3) {
+        if (str3 === void 0) return this._name;
+        this._name = str3;
         return this;
       }
       /**
@@ -3986,13 +3986,13 @@ var require_Collection = __commonJS({
 var require_stringifyComment = __commonJS({
   "node_modules/yaml/dist/stringify/stringifyComment.js"(exports2) {
     "use strict";
-    var stringifyComment = (str2) => str2.replace(/^(?!$)(?: $)?/gm, "#");
+    var stringifyComment = (str3) => str3.replace(/^(?!$)(?: $)?/gm, "#");
     function indentComment(comment, indent) {
       if (/^\n+$/.test(comment))
         return comment.substring(1);
       return indent ? comment.replace(/^(?! *$)/gm, indent) : comment;
     }
-    var lineComment = (str2, indent, comment) => str2.endsWith("\n") ? indentComment(comment, indent) : comment.includes("\n") ? "\n" + indentComment(comment, indent) : (str2.endsWith(" ") ? "" : " ") + comment;
+    var lineComment = (str3, indent, comment) => str3.endsWith("\n") ? indentComment(comment, indent) : comment.includes("\n") ? "\n" + indentComment(comment, indent) : (str3.endsWith(" ") ? "" : " ") + comment;
     exports2.indentComment = indentComment;
     exports2.lineComment = lineComment;
     exports2.stringifyComment = stringifyComment;
@@ -4146,16 +4146,16 @@ var require_stringifyString = __commonJS({
       lineWidth: ctx.options.lineWidth,
       minContentWidth: ctx.options.minContentWidth
     });
-    var containsDocumentMarker = (str2) => /^(%|---|\.\.\.)/m.test(str2);
-    function lineLengthOverLimit(str2, lineWidth, indentLength) {
+    var containsDocumentMarker = (str3) => /^(%|---|\.\.\.)/m.test(str3);
+    function lineLengthOverLimit(str3, lineWidth, indentLength) {
       if (!lineWidth || lineWidth < 0)
         return false;
       const limit = lineWidth - indentLength;
-      const strLen = str2.length;
+      const strLen = str3.length;
       if (strLen <= limit)
         return false;
       for (let i2 = 0, start = 0; i2 < strLen; ++i2) {
-        if (str2[i2] === "\n") {
+        if (str3[i2] === "\n") {
           if (i2 - start > limit)
             return true;
           start = i2 + 1;
@@ -4172,11 +4172,11 @@ var require_stringifyString = __commonJS({
       const { implicitKey } = ctx;
       const minMultiLineLength = ctx.options.doubleQuotedMinMultiLineLength;
       const indent = ctx.indent || (containsDocumentMarker(value) ? "  " : "");
-      let str2 = "";
+      let str3 = "";
       let start = 0;
       for (let i2 = 0, ch = json[i2]; ch; ch = json[++i2]) {
         if (ch === " " && json[i2 + 1] === "\\" && json[i2 + 2] === "n") {
-          str2 += json.slice(start, i2) + "\\ ";
+          str3 += json.slice(start, i2) + "\\ ";
           i2 += 1;
           start = i2;
           ch = "\\";
@@ -4185,38 +4185,38 @@ var require_stringifyString = __commonJS({
           switch (json[i2 + 1]) {
             case "u":
               {
-                str2 += json.slice(start, i2);
+                str3 += json.slice(start, i2);
                 const code = json.substr(i2 + 2, 4);
                 switch (code) {
                   case "0000":
-                    str2 += "\\0";
+                    str3 += "\\0";
                     break;
                   case "0007":
-                    str2 += "\\a";
+                    str3 += "\\a";
                     break;
                   case "000b":
-                    str2 += "\\v";
+                    str3 += "\\v";
                     break;
                   case "001b":
-                    str2 += "\\e";
+                    str3 += "\\e";
                     break;
                   case "0085":
-                    str2 += "\\N";
+                    str3 += "\\N";
                     break;
                   case "00a0":
-                    str2 += "\\_";
+                    str3 += "\\_";
                     break;
                   case "2028":
-                    str2 += "\\L";
+                    str3 += "\\L";
                     break;
                   case "2029":
-                    str2 += "\\P";
+                    str3 += "\\P";
                     break;
                   default:
                     if (code.substr(0, 2) === "00")
-                      str2 += "\\x" + code.substr(2);
+                      str3 += "\\x" + code.substr(2);
                     else
-                      str2 += json.substr(i2, 6);
+                      str3 += json.substr(i2, 6);
                 }
                 i2 += 5;
                 start = i2 + 1;
@@ -4226,14 +4226,14 @@ var require_stringifyString = __commonJS({
               if (implicitKey || json[i2 + 2] === '"' || json.length < minMultiLineLength) {
                 i2 += 1;
               } else {
-                str2 += json.slice(start, i2) + "\n\n";
+                str3 += json.slice(start, i2) + "\n\n";
                 while (json[i2 + 2] === "\\" && json[i2 + 3] === "n" && json[i2 + 4] !== '"') {
-                  str2 += "\n";
+                  str3 += "\n";
                   i2 += 2;
                 }
-                str2 += indent;
+                str3 += indent;
                 if (json[i2 + 2] === " ")
-                  str2 += "\\";
+                  str3 += "\\";
                 i2 += 1;
                 start = i2 + 1;
               }
@@ -4242,8 +4242,8 @@ var require_stringifyString = __commonJS({
               i2 += 1;
           }
       }
-      str2 = start ? str2 + json.slice(start) : json;
-      return implicitKey ? str2 : foldFlowLines.foldFlowLines(str2, indent, foldFlowLines.FOLD_QUOTED, getFoldOptions(ctx, false));
+      str3 = start ? str3 + json.slice(start) : json;
+      return implicitKey ? str3 : foldFlowLines.foldFlowLines(str3, indent, foldFlowLines.FOLD_QUOTED, getFoldOptions(ctx, false));
     }
     function singleQuotedString(value, ctx) {
       if (ctx.options.singleQuote === false || ctx.implicitKey && value.includes("\n") || /[ \t]\n|\n[ \t]/.test(value))
@@ -4371,15 +4371,15 @@ ${indent}${start}${value}${end}`;
           return quotedString(value, ctx);
         }
       }
-      const str2 = value.replace(/\n+/g, `$&
+      const str3 = value.replace(/\n+/g, `$&
 ${indent}`);
       if (actualString) {
-        const test = (tag) => tag.default && tag.tag !== "tag:yaml.org,2002:str" && tag.test?.test(str2);
+        const test = (tag) => tag.default && tag.tag !== "tag:yaml.org,2002:str" && tag.test?.test(str3);
         const { compat, tags } = ctx.doc.schema;
         if (tags.some(test) || compat?.some(test))
           return quotedString(value, ctx);
       }
-      return implicitKey ? str2 : foldFlowLines.foldFlowLines(str2, indent, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, false));
+      return implicitKey ? str3 : foldFlowLines.foldFlowLines(str3, indent, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, false));
     }
     function stringifyString(item, ctx, onComment, onChompKeep) {
       const { implicitKey, inFlow } = ctx;
@@ -4531,11 +4531,11 @@ var require_stringify = __commonJS({
       const props = stringifyProps(node, tagObj, ctx);
       if (props.length > 0)
         ctx.indentAtStart = (ctx.indentAtStart ?? 0) + props.length + 1;
-      const str2 = typeof tagObj.stringify === "function" ? tagObj.stringify(node, ctx, onComment, onChompKeep) : identity.isScalar(node) ? stringifyString.stringifyString(node, ctx, onComment, onChompKeep) : node.toString(ctx, onComment, onChompKeep);
+      const str3 = typeof tagObj.stringify === "function" ? tagObj.stringify(node, ctx, onComment, onChompKeep) : identity.isScalar(node) ? stringifyString.stringifyString(node, ctx, onComment, onChompKeep) : node.toString(ctx, onComment, onChompKeep);
       if (!props)
-        return str2;
-      return identity.isScalar(node) || str2[0] === "{" || str2[0] === "[" ? `${props} ${str2}` : `${props}
-${ctx.indent}${str2}`;
+        return str3;
+      return identity.isScalar(node) || str3[0] === "{" || str3[0] === "[" ? `${props} ${str3}` : `${props}
+${ctx.indent}${str3}`;
     }
     exports2.createStringifyContext = createStringifyContext;
     exports2.stringify = stringify;
@@ -4570,8 +4570,8 @@ var require_stringifyPair = __commonJS({
       });
       let keyCommentDone = false;
       let chompKeep = false;
-      let str2 = stringify.stringify(key, ctx, () => keyCommentDone = true, () => chompKeep = true);
-      if (!explicitKey && !ctx.inFlow && str2.length > 1024) {
+      let str3 = stringify.stringify(key, ctx, () => keyCommentDone = true, () => chompKeep = true);
+      if (!explicitKey && !ctx.inFlow && str3.length > 1024) {
         if (simpleKeys)
           throw new Error("With simple keys, single line scalar must not span more than 1024 characters");
         explicitKey = true;
@@ -4580,27 +4580,27 @@ var require_stringifyPair = __commonJS({
         if (allNullValues || value == null) {
           if (keyCommentDone && onComment)
             onComment();
-          return str2 === "" ? "?" : explicitKey ? `? ${str2}` : str2;
+          return str3 === "" ? "?" : explicitKey ? `? ${str3}` : str3;
         }
       } else if (allNullValues && !simpleKeys || value == null && explicitKey) {
-        str2 = `? ${str2}`;
+        str3 = `? ${str3}`;
         if (keyComment && !keyCommentDone) {
-          str2 += stringifyComment.lineComment(str2, ctx.indent, commentString(keyComment));
+          str3 += stringifyComment.lineComment(str3, ctx.indent, commentString(keyComment));
         } else if (chompKeep && onChompKeep)
           onChompKeep();
-        return str2;
+        return str3;
       }
       if (keyCommentDone)
         keyComment = null;
       if (explicitKey) {
         if (keyComment)
-          str2 += stringifyComment.lineComment(str2, ctx.indent, commentString(keyComment));
-        str2 = `? ${str2}
+          str3 += stringifyComment.lineComment(str3, ctx.indent, commentString(keyComment));
+        str3 = `? ${str3}
 ${indent}:`;
       } else {
-        str2 = `${str2}:`;
+        str3 = `${str3}:`;
         if (keyComment)
-          str2 += stringifyComment.lineComment(str2, ctx.indent, commentString(keyComment));
+          str3 += stringifyComment.lineComment(str3, ctx.indent, commentString(keyComment));
       }
       let vsb, vcb, valueComment;
       if (identity.isNode(value)) {
@@ -4616,7 +4616,7 @@ ${indent}:`;
       }
       ctx.implicitKey = false;
       if (!explicitKey && !keyComment && identity.isScalar(value))
-        ctx.indentAtStart = str2.length + 1;
+        ctx.indentAtStart = str3.length + 1;
       chompKeep = false;
       if (!indentSeq && indentStep.length >= 2 && !ctx.inFlow && !explicitKey && identity.isSeq(value) && !value.flow && !value.tag && !value.anchor) {
         ctx.indent = ctx.indent.substring(2);
@@ -4660,16 +4660,16 @@ ${ctx.indent}`;
       } else if (valueStr === "" || valueStr[0] === "\n") {
         ws = "";
       }
-      str2 += ws + valueStr;
+      str3 += ws + valueStr;
       if (ctx.inFlow) {
         if (valueCommentDone && onComment)
           onComment();
       } else if (valueComment && !valueCommentDone) {
-        str2 += stringifyComment.lineComment(str2, ctx.indent, commentString(valueComment));
+        str3 += stringifyComment.lineComment(str3, ctx.indent, commentString(valueComment));
       } else if (chompKeep && onChompKeep) {
         onChompKeep();
       }
-      return str2;
+      return str3;
     }
     exports2.stringifyPair = stringifyPair;
   }
@@ -4896,31 +4896,31 @@ var require_stringifyCollection = __commonJS({
           }
         }
         chompKeep = false;
-        let str3 = stringify.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
+        let str4 = stringify.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
         if (comment2)
-          str3 += stringifyComment.lineComment(str3, itemIndent, commentString(comment2));
+          str4 += stringifyComment.lineComment(str4, itemIndent, commentString(comment2));
         if (chompKeep && comment2)
           chompKeep = false;
-        lines.push(blockItemPrefix + str3);
+        lines.push(blockItemPrefix + str4);
       }
-      let str2;
+      let str3;
       if (lines.length === 0) {
-        str2 = flowChars.start + flowChars.end;
+        str3 = flowChars.start + flowChars.end;
       } else {
-        str2 = lines[0];
+        str3 = lines[0];
         for (let i2 = 1; i2 < lines.length; ++i2) {
           const line = lines[i2];
-          str2 += line ? `
+          str3 += line ? `
 ${indent}${line}` : "\n";
         }
       }
       if (comment) {
-        str2 += "\n" + stringifyComment.indentComment(commentString(comment), indent);
+        str3 += "\n" + stringifyComment.indentComment(commentString(comment), indent);
         if (onComment)
           onComment();
       } else if (chompKeep && onChompKeep)
         onChompKeep();
-      return str2;
+      return str3;
     }
     function stringifyFlowCollection({ items }, ctx, { flowChars, itemIndent }) {
       const { indent, indentStep, flowCollectionPadding: fcPadding, options: { commentString } } = ctx;
@@ -4963,21 +4963,21 @@ ${indent}${line}` : "\n";
         }
         if (comment)
           reqNewline = true;
-        let str2 = stringify.stringify(item, itemCtx, () => comment = null);
-        reqNewline || (reqNewline = lines.length > linesAtValue || str2.includes("\n"));
+        let str3 = stringify.stringify(item, itemCtx, () => comment = null);
+        reqNewline || (reqNewline = lines.length > linesAtValue || str3.includes("\n"));
         if (i2 < items.length - 1) {
-          str2 += ",";
+          str3 += ",";
         } else if (ctx.options.trailingComma) {
           if (ctx.options.lineWidth > 0) {
-            reqNewline || (reqNewline = lines.reduce((sum2, line) => sum2 + line.length + 2, 2) + (str2.length + 2) > ctx.options.lineWidth);
+            reqNewline || (reqNewline = lines.reduce((sum2, line) => sum2 + line.length + 2, 2) + (str3.length + 2) > ctx.options.lineWidth);
           }
           if (reqNewline) {
-            str2 += ",";
+            str3 += ",";
           }
         }
         if (comment)
-          str2 += stringifyComment.lineComment(str2, itemIndent, commentString(comment));
-        lines.push(str2);
+          str3 += stringifyComment.lineComment(str3, itemIndent, commentString(comment));
+        lines.push(str3);
         linesAtValue = lines.length;
       }
       const { start, end } = flowChars;
@@ -4989,11 +4989,11 @@ ${indent}${line}` : "\n";
           reqNewline = ctx.options.lineWidth > 0 && len > ctx.options.lineWidth;
         }
         if (reqNewline) {
-          let str2 = start;
+          let str3 = start;
           for (const line of lines)
-            str2 += line ? `
+            str3 += line ? `
 ${indentStep}${indent}${line}` : "\n";
-          return `${str2}
+          return `${str3}
 ${indent}${end}`;
         } else {
           return `${start}${fcPadding}${lines.join(" ")}${fcPadding}${end}`;
@@ -5325,7 +5325,7 @@ var require_string = __commonJS({
       identify: (value) => typeof value === "string",
       default: true,
       tag: "tag:yaml.org,2002:str",
-      resolve: (str2) => str2,
+      resolve: (str3) => str3,
       stringify(item, ctx, onComment, onChompKeep) {
         ctx = Object.assign({ actualString: true }, ctx);
         return stringifyString.stringifyString(item, ctx, onComment, onChompKeep);
@@ -5363,7 +5363,7 @@ var require_bool = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:bool",
       test: /^(?:[Tt]rue|TRUE|[Ff]alse|FALSE)$/,
-      resolve: (str2) => new Scalar.Scalar(str2[0] === "t" || str2[0] === "T"),
+      resolve: (str3) => new Scalar.Scalar(str3[0] === "t" || str3[0] === "T"),
       stringify({ source, value }, ctx) {
         if (source && boolTag.test.test(source)) {
           const sv = source[0] === "t" || source[0] === "T";
@@ -5415,7 +5415,7 @@ var require_float = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:float",
       test: /^(?:[-+]?\.(?:inf|Inf|INF)|\.nan|\.NaN|\.NAN)$/,
-      resolve: (str2) => str2.slice(-3).toLowerCase() === "nan" ? NaN : str2[0] === "-" ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
+      resolve: (str3) => str3.slice(-3).toLowerCase() === "nan" ? NaN : str3[0] === "-" ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
       stringify: stringifyNumber.stringifyNumber
     };
     var floatExp = {
@@ -5424,7 +5424,7 @@ var require_float = __commonJS({
       tag: "tag:yaml.org,2002:float",
       format: "EXP",
       test: /^[-+]?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)[eE][-+]?[0-9]+$/,
-      resolve: (str2) => parseFloat(str2),
+      resolve: (str3) => parseFloat(str3),
       stringify(node) {
         const num = Number(node.value);
         return isFinite(num) ? num.toExponential() : stringifyNumber.stringifyNumber(node);
@@ -5435,11 +5435,11 @@ var require_float = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:float",
       test: /^[-+]?(?:\.[0-9]+|[0-9]+\.[0-9]*)$/,
-      resolve(str2) {
-        const node = new Scalar.Scalar(parseFloat(str2));
-        const dot = str2.indexOf(".");
-        if (dot !== -1 && str2[str2.length - 1] === "0")
-          node.minFractionDigits = str2.length - dot - 1;
+      resolve(str3) {
+        const node = new Scalar.Scalar(parseFloat(str3));
+        const dot = str3.indexOf(".");
+        if (dot !== -1 && str3[str3.length - 1] === "0")
+          node.minFractionDigits = str3.length - dot - 1;
         return node;
       },
       stringify: stringifyNumber.stringifyNumber
@@ -5456,7 +5456,7 @@ var require_int = __commonJS({
     "use strict";
     var stringifyNumber = require_stringifyNumber();
     var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
-    var intResolve = (str2, offset, radix, { intAsBigInt }) => intAsBigInt ? BigInt(str2) : parseInt(str2.substring(offset), radix);
+    var intResolve = (str3, offset, radix, { intAsBigInt }) => intAsBigInt ? BigInt(str3) : parseInt(str3.substring(offset), radix);
     function intStringify(node, radix, prefix) {
       const { value } = node;
       if (intIdentify(value) && value >= 0)
@@ -5469,7 +5469,7 @@ var require_int = __commonJS({
       tag: "tag:yaml.org,2002:int",
       format: "OCT",
       test: /^0o[0-7]+$/,
-      resolve: (str2, _onError, opt) => intResolve(str2, 2, 8, opt),
+      resolve: (str3, _onError, opt) => intResolve(str3, 2, 8, opt),
       stringify: (node) => intStringify(node, 8, "0o")
     };
     var int2 = {
@@ -5477,7 +5477,7 @@ var require_int = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:int",
       test: /^[-+]?[0-9]+$/,
-      resolve: (str2, _onError, opt) => intResolve(str2, 0, 10, opt),
+      resolve: (str3, _onError, opt) => intResolve(str3, 0, 10, opt),
       stringify: stringifyNumber.stringifyNumber
     };
     var intHex = {
@@ -5486,7 +5486,7 @@ var require_int = __commonJS({
       tag: "tag:yaml.org,2002:int",
       format: "HEX",
       test: /^0x[0-9a-fA-F]+$/,
-      resolve: (str2, _onError, opt) => intResolve(str2, 2, 16, opt),
+      resolve: (str3, _onError, opt) => intResolve(str3, 2, 16, opt),
       stringify: (node) => intStringify(node, 16, "0x")
     };
     exports2.int = int2;
@@ -5539,7 +5539,7 @@ var require_schema2 = __commonJS({
         identify: (value) => typeof value === "string",
         default: true,
         tag: "tag:yaml.org,2002:str",
-        resolve: (str2) => str2,
+        resolve: (str3) => str3,
         stringify: stringifyJSON
       },
       {
@@ -5556,7 +5556,7 @@ var require_schema2 = __commonJS({
         default: true,
         tag: "tag:yaml.org,2002:bool",
         test: /^true$|^false$/,
-        resolve: (str2) => str2 === "true",
+        resolve: (str3) => str3 === "true",
         stringify: stringifyJSON
       },
       {
@@ -5564,7 +5564,7 @@ var require_schema2 = __commonJS({
         default: true,
         tag: "tag:yaml.org,2002:int",
         test: /^-?(?:0|[1-9][0-9]*)$/,
-        resolve: (str2, _onError, { intAsBigInt }) => intAsBigInt ? BigInt(str2) : parseInt(str2, 10),
+        resolve: (str3, _onError, { intAsBigInt }) => intAsBigInt ? BigInt(str3) : parseInt(str3, 10),
         stringify: ({ value }) => intIdentify(value) ? value.toString() : JSON.stringify(value)
       },
       {
@@ -5572,7 +5572,7 @@ var require_schema2 = __commonJS({
         default: true,
         tag: "tag:yaml.org,2002:float",
         test: /^-?(?:0|[1-9][0-9]*)(?:\.[0-9]*)?(?:[eE][-+]?[0-9]+)?$/,
-        resolve: (str2) => parseFloat(str2),
+        resolve: (str3) => parseFloat(str3),
         stringify: stringifyJSON
       }
     ];
@@ -5580,9 +5580,9 @@ var require_schema2 = __commonJS({
       default: true,
       tag: "",
       test: /^/,
-      resolve(str2, onError2) {
-        onError2(`Unresolved plain scalar ${JSON.stringify(str2)}`);
-        return str2;
+      resolve(str3, onError2) {
+        onError2(`Unresolved plain scalar ${JSON.stringify(str3)}`);
+        return str3;
       }
     };
     var schema = [map.map, seq.seq].concat(jsonScalars, jsonError);
@@ -5614,10 +5614,10 @@ var require_binary = __commonJS({
         if (typeof node_buffer.Buffer === "function") {
           return node_buffer.Buffer.from(src, "base64");
         } else if (typeof atob === "function") {
-          const str2 = atob(src.replace(/[\n\r]/g, ""));
-          const buffer = new Uint8Array(str2.length);
-          for (let i2 = 0; i2 < str2.length; ++i2)
-            buffer[i2] = str2.charCodeAt(i2);
+          const str3 = atob(src.replace(/[\n\r]/g, ""));
+          const buffer = new Uint8Array(str3.length);
+          for (let i2 = 0; i2 < str3.length; ++i2)
+            buffer[i2] = str3.charCodeAt(i2);
           return buffer;
         } else {
           onError2("This environment does not support reading binary tags; either Buffer or atob is required");
@@ -5628,28 +5628,28 @@ var require_binary = __commonJS({
         if (!value)
           return "";
         const buf = value;
-        let str2;
+        let str3;
         if (typeof node_buffer.Buffer === "function") {
-          str2 = buf instanceof node_buffer.Buffer ? buf.toString("base64") : node_buffer.Buffer.from(buf.buffer).toString("base64");
+          str3 = buf instanceof node_buffer.Buffer ? buf.toString("base64") : node_buffer.Buffer.from(buf.buffer).toString("base64");
         } else if (typeof btoa === "function") {
           let s = "";
           for (let i2 = 0; i2 < buf.length; ++i2)
             s += String.fromCharCode(buf[i2]);
-          str2 = btoa(s);
+          str3 = btoa(s);
         } else {
           throw new Error("This environment does not support writing binary tags; either Buffer or btoa is required");
         }
         type ?? (type = Scalar.Scalar.BLOCK_LITERAL);
         if (type !== Scalar.Scalar.QUOTE_DOUBLE) {
           const lineWidth = Math.max(ctx.options.lineWidth - ctx.indent.length, ctx.options.minContentWidth);
-          const n = Math.ceil(str2.length / lineWidth);
+          const n = Math.ceil(str3.length / lineWidth);
           const lines = new Array(n);
           for (let i2 = 0, o2 = 0; i2 < n; ++i2, o2 += lineWidth) {
-            lines[i2] = str2.substr(o2, lineWidth);
+            lines[i2] = str3.substr(o2, lineWidth);
           }
-          str2 = lines.join(type === Scalar.Scalar.BLOCK_LITERAL ? "\n" : " ");
+          str3 = lines.join(type === Scalar.Scalar.BLOCK_LITERAL ? "\n" : " ");
         }
-        return stringifyString.stringifyString({ comment, type, value: str2 }, ctx, onComment, onChompKeep);
+        return stringifyString.stringifyString({ comment, type, value: str3 }, ctx, onComment, onChompKeep);
       }
     };
     exports2.binary = binary;
@@ -5855,7 +5855,7 @@ var require_float2 = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:float",
       test: /^(?:[-+]?\.(?:inf|Inf|INF)|\.nan|\.NaN|\.NAN)$/,
-      resolve: (str2) => str2.slice(-3).toLowerCase() === "nan" ? NaN : str2[0] === "-" ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
+      resolve: (str3) => str3.slice(-3).toLowerCase() === "nan" ? NaN : str3[0] === "-" ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
       stringify: stringifyNumber.stringifyNumber
     };
     var floatExp = {
@@ -5864,7 +5864,7 @@ var require_float2 = __commonJS({
       tag: "tag:yaml.org,2002:float",
       format: "EXP",
       test: /^[-+]?(?:[0-9][0-9_]*)?(?:\.[0-9_]*)?[eE][-+]?[0-9]+$/,
-      resolve: (str2) => parseFloat(str2.replace(/_/g, "")),
+      resolve: (str3) => parseFloat(str3.replace(/_/g, "")),
       stringify(node) {
         const num = Number(node.value);
         return isFinite(num) ? num.toExponential() : stringifyNumber.stringifyNumber(node);
@@ -5875,11 +5875,11 @@ var require_float2 = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:float",
       test: /^[-+]?(?:[0-9][0-9_]*)?\.[0-9_]*$/,
-      resolve(str2) {
-        const node = new Scalar.Scalar(parseFloat(str2.replace(/_/g, "")));
-        const dot = str2.indexOf(".");
+      resolve(str3) {
+        const node = new Scalar.Scalar(parseFloat(str3.replace(/_/g, "")));
+        const dot = str3.indexOf(".");
         if (dot !== -1) {
-          const f = str2.substring(dot + 1).replace(/_/g, "");
+          const f = str3.substring(dot + 1).replace(/_/g, "");
           if (f[f.length - 1] === "0")
             node.minFractionDigits = f.length;
         }
@@ -5899,34 +5899,34 @@ var require_int2 = __commonJS({
     "use strict";
     var stringifyNumber = require_stringifyNumber();
     var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
-    function intResolve(str2, offset, radix, { intAsBigInt }) {
-      const sign = str2[0];
+    function intResolve(str3, offset, radix, { intAsBigInt }) {
+      const sign = str3[0];
       if (sign === "-" || sign === "+")
         offset += 1;
-      str2 = str2.substring(offset).replace(/_/g, "");
+      str3 = str3.substring(offset).replace(/_/g, "");
       if (intAsBigInt) {
         switch (radix) {
           case 2:
-            str2 = `0b${str2}`;
+            str3 = `0b${str3}`;
             break;
           case 8:
-            str2 = `0o${str2}`;
+            str3 = `0o${str3}`;
             break;
           case 16:
-            str2 = `0x${str2}`;
+            str3 = `0x${str3}`;
             break;
         }
-        const n2 = BigInt(str2);
+        const n2 = BigInt(str3);
         return sign === "-" ? BigInt(-1) * n2 : n2;
       }
-      const n = parseInt(str2, radix);
+      const n = parseInt(str3, radix);
       return sign === "-" ? -1 * n : n;
     }
     function intStringify(node, radix, prefix) {
       const { value } = node;
       if (intIdentify(value)) {
-        const str2 = value.toString(radix);
-        return value < 0 ? "-" + prefix + str2.substr(1) : prefix + str2;
+        const str3 = value.toString(radix);
+        return value < 0 ? "-" + prefix + str3.substr(1) : prefix + str3;
       }
       return stringifyNumber.stringifyNumber(node);
     }
@@ -5936,7 +5936,7 @@ var require_int2 = __commonJS({
       tag: "tag:yaml.org,2002:int",
       format: "BIN",
       test: /^[-+]?0b[0-1_]+$/,
-      resolve: (str2, _onError, opt) => intResolve(str2, 2, 2, opt),
+      resolve: (str3, _onError, opt) => intResolve(str3, 2, 2, opt),
       stringify: (node) => intStringify(node, 2, "0b")
     };
     var intOct = {
@@ -5945,7 +5945,7 @@ var require_int2 = __commonJS({
       tag: "tag:yaml.org,2002:int",
       format: "OCT",
       test: /^[-+]?0[0-7_]+$/,
-      resolve: (str2, _onError, opt) => intResolve(str2, 1, 8, opt),
+      resolve: (str3, _onError, opt) => intResolve(str3, 1, 8, opt),
       stringify: (node) => intStringify(node, 8, "0")
     };
     var int2 = {
@@ -5953,7 +5953,7 @@ var require_int2 = __commonJS({
       default: true,
       tag: "tag:yaml.org,2002:int",
       test: /^[-+]?[0-9][0-9_]*$/,
-      resolve: (str2, _onError, opt) => intResolve(str2, 0, 10, opt),
+      resolve: (str3, _onError, opt) => intResolve(str3, 0, 10, opt),
       stringify: stringifyNumber.stringifyNumber
     };
     var intHex = {
@@ -5962,7 +5962,7 @@ var require_int2 = __commonJS({
       tag: "tag:yaml.org,2002:int",
       format: "HEX",
       test: /^[-+]?0x[0-9a-fA-F_]+$/,
-      resolve: (str2, _onError, opt) => intResolve(str2, 2, 16, opt),
+      resolve: (str3, _onError, opt) => intResolve(str3, 2, 16, opt),
       stringify: (node) => intStringify(node, 16, "0x")
     };
     exports2.int = int2;
@@ -6066,9 +6066,9 @@ var require_timestamp = __commonJS({
   "node_modules/yaml/dist/schema/yaml-1.1/timestamp.js"(exports2) {
     "use strict";
     var stringifyNumber = require_stringifyNumber();
-    function parseSexagesimal(str2, asBigInt) {
-      const sign = str2[0];
-      const parts = sign === "-" || sign === "+" ? str2.substring(1) : str2;
+    function parseSexagesimal(str3, asBigInt) {
+      const sign = str3[0];
+      const parts = sign === "-" || sign === "+" ? str3.substring(1) : str3;
       const num = (n) => asBigInt ? BigInt(n) : Number(n);
       const res = parts.replace(/_/g, "").split(":").reduce((res2, p2) => res2 * num(60) + num(p2), num(0));
       return sign === "-" ? num(-1) * res : res;
@@ -6105,7 +6105,7 @@ var require_timestamp = __commonJS({
       tag: "tag:yaml.org,2002:int",
       format: "TIME",
       test: /^[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+$/,
-      resolve: (str2, _onError, { intAsBigInt }) => parseSexagesimal(str2, intAsBigInt),
+      resolve: (str3, _onError, { intAsBigInt }) => parseSexagesimal(str3, intAsBigInt),
       stringify: stringifySexagesimal
     };
     var floatTime = {
@@ -6114,7 +6114,7 @@ var require_timestamp = __commonJS({
       tag: "tag:yaml.org,2002:float",
       format: "TIME",
       test: /^[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+\.[0-9_]*$/,
-      resolve: (str2) => parseSexagesimal(str2, false),
+      resolve: (str3) => parseSexagesimal(str3, false),
       stringify: stringifySexagesimal
     };
     var timestamp = {
@@ -6125,8 +6125,8 @@ var require_timestamp = __commonJS({
       // may be omitted altogether, resulting in a date format. In such a case, the time part is
       // assumed to be 00:00:00Z (start of day, UTC).
       test: RegExp("^([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})(?:(?:t|T|[ \\t]+)([0-9]{1,2}):([0-9]{1,2}):([0-9]{1,2}(\\.[0-9]+)?)(?:[ \\t]*(Z|[-+][012]?[0-9](?::[0-9]{2})?))?)?$"),
-      resolve(str2) {
-        const match = str2.match(timestamp.test);
+      resolve(str3) {
+        const match = str3.match(timestamp.test);
         if (!match)
           throw new Error("!!timestamp expects a date, starting with yyyy-mm-dd");
         const [, year, month, day, hour, minute, second] = match.map(Number);
@@ -13015,11 +13015,11 @@ var require_dumper = __commonJS({
     function generateNextLine(state, level) {
       return "\n" + common.repeat(" ", state.indent * level);
     }
-    function testImplicitResolving(state, str2) {
+    function testImplicitResolving(state, str3) {
       var index, length, type;
       for (index = 0, length = state.implicitTypes.length; index < length; index += 1) {
         type = state.implicitTypes[index];
-        if (type.resolve(str2)) {
+        if (type.resolve(str3)) {
           return true;
         }
       }
@@ -13507,11 +13507,11 @@ var require_engines = __commonJS({
 var require_strip_bom_string = __commonJS({
   "node_modules/strip-bom-string/index.js"(exports2, module2) {
     "use strict";
-    module2.exports = function(str2) {
-      if (typeof str2 === "string" && str2.charAt(0) === "\uFEFF") {
-        return str2.slice(1);
+    module2.exports = function(str3) {
+      if (typeof str3 === "string" && str3.charAt(0) === "\uFEFF") {
+        return str3.slice(1);
       }
-      return str2;
+      return str3;
     };
   }
 });
@@ -13549,9 +13549,9 @@ var require_utils = __commonJS({
     exports2.arrayify = function(val) {
       return val ? Array.isArray(val) ? val : [val] : [];
     };
-    exports2.startsWith = function(str2, substr, len) {
+    exports2.startsWith = function(str3, substr, len) {
       if (typeof len !== "number") len = substr.length;
-      return str2.slice(0, len) === substr;
+      return str3.slice(0, len) === substr;
     };
   }
 });
@@ -13630,7 +13630,7 @@ var require_stringify2 = __commonJS({
           }
         }
       }
-      const str2 = file.content;
+      const str3 = file.content;
       const opts = defaults(options2);
       if (data == null) {
         if (!opts.data) return file;
@@ -13650,14 +13650,14 @@ var require_stringify2 = __commonJS({
         buf = newline(open) + newline(matter4) + newline(close);
       }
       if (typeof file.excerpt === "string" && file.excerpt !== "") {
-        if (str2.indexOf(file.excerpt.trim()) === -1) {
+        if (str3.indexOf(file.excerpt.trim()) === -1) {
           buf += newline(file.excerpt) + newline(close);
         }
       }
-      return buf + newline(str2);
+      return buf + newline(str3);
     };
-    function newline(str2) {
-      return str2.slice(-1) !== "\n" ? str2 + "\n" : str2;
+    function newline(str3) {
+      return str3.slice(-1) !== "\n" ? str3 + "\n" : str3;
     }
   }
 });
@@ -13729,13 +13729,13 @@ var require_parse = __commonJS({
     "use strict";
     var getEngine = require_engine();
     var defaults = require_defaults();
-    module2.exports = function(language, str2, options2) {
+    module2.exports = function(language, str3, options2) {
       const opts = defaults(options2);
       const engine = getEngine(language, opts);
       if (typeof engine.parse !== "function") {
         throw new TypeError('expected "' + language + '.parse" to be a function');
       }
-      return engine.parse(str2, opts);
+      return engine.parse(str3, opts);
     };
   }
 });
@@ -13773,30 +13773,30 @@ var require_gray_matter = __commonJS({
       const opts = defaults(options2);
       const open = opts.delimiters[0];
       const close = "\n" + opts.delimiters[1];
-      let str2 = file.content;
+      let str3 = file.content;
       if (opts.language) {
         file.language = opts.language;
       }
       const openLen = open.length;
-      if (!utils.startsWith(str2, open, openLen)) {
+      if (!utils.startsWith(str3, open, openLen)) {
         excerpt(file, opts);
         return file;
       }
-      if (str2.charAt(openLen) === open.slice(-1)) {
+      if (str3.charAt(openLen) === open.slice(-1)) {
         return file;
       }
-      str2 = str2.slice(openLen);
-      const len = str2.length;
-      const language = matter4.language(str2, opts);
+      str3 = str3.slice(openLen);
+      const len = str3.length;
+      const language = matter4.language(str3, opts);
       if (language.name) {
         file.language = language.name;
-        str2 = str2.slice(language.raw.length);
+        str3 = str3.slice(language.raw.length);
       }
-      let closeIndex = str2.indexOf(close);
+      let closeIndex = str3.indexOf(close);
       if (closeIndex === -1) {
         closeIndex = len;
       }
-      file.matter = str2.slice(0, closeIndex);
+      file.matter = str3.slice(0, closeIndex);
       const block = file.matter.replace(/^\s*#[^\n]+/gm, "").trim();
       if (block === "") {
         file.isEmpty = true;
@@ -13808,7 +13808,7 @@ var require_gray_matter = __commonJS({
       if (closeIndex === len) {
         file.content = "";
       } else {
-        file.content = str2.slice(closeIndex + close.length);
+        file.content = str3.slice(closeIndex + close.length);
         if (file.content[0] === "\r") {
           file.content = file.content.slice(1);
         }
@@ -13828,21 +13828,21 @@ var require_gray_matter = __commonJS({
       return stringify(file, data, options2);
     };
     matter4.read = function(filepath, options2) {
-      const str2 = fs45.readFileSync(filepath, "utf8");
-      const file = matter4(str2, options2);
+      const str3 = fs45.readFileSync(filepath, "utf8");
+      const file = matter4(str3, options2);
       file.path = filepath;
       return file;
     };
-    matter4.test = function(str2, options2) {
-      return utils.startsWith(str2, defaults(options2).delimiters[0]);
+    matter4.test = function(str3, options2) {
+      return utils.startsWith(str3, defaults(options2).delimiters[0]);
     };
-    matter4.language = function(str2, options2) {
+    matter4.language = function(str3, options2) {
       const opts = defaults(options2);
       const open = opts.delimiters[0];
-      if (matter4.test(str2)) {
-        str2 = str2.slice(open.length);
+      if (matter4.test(str3)) {
+        str3 = str3.slice(open.length);
       }
-      const language = str2.slice(0, str2.search(/\r?\n/));
+      const language = str3.slice(0, str3.search(/\r?\n/));
       return {
         raw: language,
         name: language ? language.trim() : ""
@@ -13877,13 +13877,13 @@ var require_ms = __commonJS({
         "val is not a non-empty string or a valid number. val=" + JSON.stringify(val)
       );
     };
-    function parse4(str2) {
-      str2 = String(str2);
-      if (str2.length > 100) {
+    function parse4(str3) {
+      str3 = String(str3);
+      if (str3.length > 100) {
         return;
       }
       var match = /^(-?(?:\d+)?\.?\d+) *(milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|years?|yrs?|y)?$/i.exec(
-        str2
+        str3
       );
       if (!match) {
         return;
@@ -14484,7 +14484,7 @@ var require_node = __commonJS({
     var { formatters } = module2.exports;
     formatters.o = function(v) {
       this.inspectOpts.colors = this.useColors;
-      return util2.inspect(v, this.inspectOpts).split("\n").map((str2) => str2.trim()).join(" ");
+      return util2.inspect(v, this.inspectOpts).split("\n").map((str3) => str3.trim()).join(" ");
     };
     formatters.O = function(v) {
       this.inspectOpts.colors = this.useColors;
@@ -14820,14 +14820,14 @@ function promiseAllObject(promisesObj) {
 }
 function randomString(length = 10) {
   const chars = "abcdefghijklmnopqrstuvwxyz";
-  let str2 = "";
+  let str3 = "";
   for (let i2 = 0; i2 < length; i2++) {
-    str2 += chars[Math.floor(Math.random() * chars.length)];
+    str3 += chars[Math.floor(Math.random() * chars.length)];
   }
-  return str2;
+  return str3;
 }
-function esc(str2) {
-  return JSON.stringify(str2);
+function esc(str3) {
+  return JSON.stringify(str3);
 }
 function isObject(data) {
   return typeof data === "object" && data !== null && !Array.isArray(data);
@@ -14855,8 +14855,8 @@ function numKeys(data) {
   }
   return keyCount;
 }
-function escapeRegex(str2) {
-  return str2.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function escapeRegex(str3) {
+  return str3.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 function clone(inst, def, params) {
   const cl = new inst._zod.constr(def ?? inst._zod.def);
@@ -15354,7 +15354,7 @@ function datetime(args) {
   const timeRegex2 = `${time3}(?:${opts.join("|")})`;
   return new RegExp(`^${dateSource}T(?:${timeRegex2})$`);
 }
-var cuid, cuid2, ulid, xid, ksuid, nanoid, duration, guid, uuid, email, _emoji, ipv4, ipv6, cidrv4, cidrv6, base64, base64url, hostname, e164, dateSource, date, string, integer, number, boolean, _null, lowercase, uppercase;
+var cuid, cuid2, ulid, xid, ksuid, nanoid, duration2, guid, uuid, email, _emoji, ipv4, ipv6, cidrv4, cidrv6, base64, base64url, hostname, e164, dateSource, date, string, integer, number, boolean, _null, lowercase, uppercase;
 var init_regexes = __esm({
   "node_modules/zod/v4/core/regexes.js"() {
     cuid = /^[cC][^\s-]{8,}$/;
@@ -15363,7 +15363,7 @@ var init_regexes = __esm({
     xid = /^[0-9a-vA-V]{20}$/;
     ksuid = /^[A-Za-z0-9]{27}$/;
     nanoid = /^[a-zA-Z0-9_-]{21}$/;
-    duration = /^P(?:(\d+W)|(?!.*W)(?=\d|T\d)(\d+Y)?(\d+M)?(\d+D)?(T(?=\d)(\d+H)?(\d+M)?(\d+([.,]\d+)?S)?)?)$/;
+    duration2 = /^P(?:(\d+W)|(?!.*W)(?=\d|T\d)(\d+Y)?(\d+M)?(\d+D)?(T(?=\d)(\d+H)?(\d+M)?(\d+([.,]\d+)?S)?)?)$/;
     guid = /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$/;
     uuid = (version2) => {
       if (!version2)
@@ -16270,7 +16270,7 @@ var init_schemas = __esm({
       $ZodStringFormat.init(inst, def);
     });
     $ZodISODuration = /* @__PURE__ */ $constructor("$ZodISODuration", (inst, def) => {
-      def.pattern ?? (def.pattern = duration);
+      def.pattern ?? (def.pattern = duration2);
       $ZodStringFormat.init(inst, def);
     });
     $ZodIPv4 = /* @__PURE__ */ $constructor("$ZodIPv4", (inst, def) => {
@@ -17775,7 +17775,7 @@ __export(iso_exports, {
   ZodISOTime: () => ZodISOTime,
   date: () => date2,
   datetime: () => datetime2,
-  duration: () => duration2,
+  duration: () => duration3,
   time: () => time2
 });
 function datetime2(params) {
@@ -17787,7 +17787,7 @@ function date2(params) {
 function time2(params) {
   return _isoTime(ZodISOTime, params);
 }
-function duration2(params) {
+function duration3(params) {
   return _isoDuration(ZodISODuration, params);
 }
 var ZodISODateTime, ZodISODate, ZodISOTime, ZodISODuration;
@@ -18186,7 +18186,7 @@ var init_schemas2 = __esm({
       inst.datetime = (params) => inst.check(datetime2(params));
       inst.date = (params) => inst.check(date2(params));
       inst.time = (params) => inst.check(time2(params));
-      inst.duration = (params) => inst.check(duration2(params));
+      inst.duration = (params) => inst.check(duration3(params));
     });
     ZodStringFormat = /* @__PURE__ */ $constructor("ZodStringFormat", (inst, def) => {
       $ZodStringFormat.init(inst, def);
@@ -20125,7 +20125,7 @@ var require_code = __commonJS({
     }
     exports2._ = _2;
     var plus = new _Code("+");
-    function str2(strs, ...args) {
+    function str3(strs, ...args) {
       const expr = [safeStringify(strs[0])];
       let i2 = 0;
       while (i2 < args.length) {
@@ -20136,7 +20136,7 @@ var require_code = __commonJS({
       optimize(expr);
       return new _Code(expr);
     }
-    exports2.str = str2;
+    exports2.str = str3;
     function addCodeArg(code, arg) {
       if (arg instanceof _Code)
         code.push(...arg._items);
@@ -20179,7 +20179,7 @@ var require_code = __commonJS({
       return;
     }
     function strConcat(c1, c22) {
-      return c22.emptyStr() ? c1 : c1.emptyStr() ? c22 : str2`${c1}${c22}`;
+      return c22.emptyStr() ? c1 : c1.emptyStr() ? c22 : str3`${c1}${c22}`;
     }
     exports2.strConcat = strConcat;
     function interpolate(x2) {
@@ -21141,22 +21141,22 @@ var require_util = __commonJS({
       return (0, codegen_1._)`${topSchemaRef}${schemaPath}${(0, codegen_1.getProperty)(keyword)}`;
     }
     exports2.schemaRefOrVal = schemaRefOrVal;
-    function unescapeFragment(str2) {
-      return unescapeJsonPointer(decodeURIComponent(str2));
+    function unescapeFragment(str3) {
+      return unescapeJsonPointer(decodeURIComponent(str3));
     }
     exports2.unescapeFragment = unescapeFragment;
-    function escapeFragment(str2) {
-      return encodeURIComponent(escapeJsonPointer(str2));
+    function escapeFragment(str3) {
+      return encodeURIComponent(escapeJsonPointer(str3));
     }
     exports2.escapeFragment = escapeFragment;
-    function escapeJsonPointer(str2) {
-      if (typeof str2 == "number")
-        return `${str2}`;
-      return str2.replace(/~/g, "~0").replace(/\//g, "~1");
+    function escapeJsonPointer(str3) {
+      if (typeof str3 == "number")
+        return `${str3}`;
+      return str3.replace(/~/g, "~0").replace(/\//g, "~1");
     }
     exports2.escapeJsonPointer = escapeJsonPointer;
-    function unescapeJsonPointer(str2) {
-      return str2.replace(/~1/g, "/").replace(/~0/g, "~");
+    function unescapeJsonPointer(str3) {
+      return str3.replace(/~1/g, "/").replace(/~0/g, "~");
     }
     exports2.unescapeJsonPointer = unescapeJsonPointer;
     function eachItem(xs, f) {
@@ -22181,8 +22181,8 @@ var require_json_schema_traverse = __commonJS({
         post(schema, jsonPtr, rootSchema, parentJsonPtr, parentKeyword, parentSchema, keyIndex);
       }
     }
-    function escapeJsonPtr(str2) {
-      return str2.replace(/~/g, "~0").replace(/\//g, "~1");
+    function escapeJsonPtr(str3) {
+      return str3.replace(/~/g, "~0").replace(/\//g, "~1");
     }
   }
 });
@@ -23246,10 +23246,10 @@ var require_utils2 = __commonJS({
         return { host, isIPV6: false };
       }
     }
-    function findToken(str2, token) {
+    function findToken(str3, token) {
       let ind = 0;
-      for (let i2 = 0; i2 < str2.length; i2++) {
-        if (str2[i2] === token) ind++;
+      for (let i2 = 0; i2 < str3.length; i2++) {
+        if (str3[i2] === token) ind++;
       }
       return ind;
     }
@@ -23992,7 +23992,7 @@ var require_core2 = __commonJS({
     var util_1 = require_util();
     var $dataRefSchema = require_data();
     var uri_1 = require_uri();
-    var defaultRegExp = (str2, flags) => new RegExp(str2, flags);
+    var defaultRegExp = (str3, flags) => new RegExp(str3, flags);
     defaultRegExp.code = "new RegExp";
     var META_IGNORE_OPTIONS = ["removeAdditional", "useDefaults", "coerceTypes"];
     var EXT_SCOPE_NAMES = /* @__PURE__ */ new Set([
@@ -24787,16 +24787,16 @@ var require_ucs2length = __commonJS({
   "node_modules/ajv/dist/runtime/ucs2length.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    function ucs2length(str2) {
-      const len = str2.length;
+    function ucs2length(str3) {
+      const len = str3.length;
       let length = 0;
       let pos = 0;
       let value;
       while (pos < len) {
         length++;
-        value = str2.charCodeAt(pos++);
+        value = str3.charCodeAt(pos++);
         if (value >= 55296 && value <= 56319 && pos < len) {
-          value = str2.charCodeAt(pos);
+          value = str3.charCodeAt(pos);
           if ((value & 64512) === 56320)
             pos++;
         }
@@ -26679,8 +26679,8 @@ var require_formats = __commonJS({
     }
     var DATE = /^(\d\d\d\d)-(\d\d)-(\d\d)$/;
     var DAYS = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-    function date3(str2) {
-      const matches = DATE.exec(str2);
+    function date3(str3) {
+      const matches = DATE.exec(str3);
       if (!matches)
         return false;
       const year = +matches[1];
@@ -26699,8 +26699,8 @@ var require_formats = __commonJS({
     }
     var TIME = /^(\d\d):(\d\d):(\d\d(?:\.\d+)?)(z|([+-])(\d\d)(?::?(\d\d))?)?$/i;
     function getTime(strictTimeZone) {
-      return function time3(str2) {
-        const matches = TIME.exec(str2);
+      return function time3(str3) {
+        const matches = TIME.exec(str3);
         if (!matches)
           return false;
         const hr = +matches[1];
@@ -26746,8 +26746,8 @@ var require_formats = __commonJS({
     var DATE_TIME_SEPARATOR = /t|\s/i;
     function getDateTime(strictTimeZone) {
       const time3 = getTime(strictTimeZone);
-      return function date_time(str2) {
-        const dateTime = str2.split(DATE_TIME_SEPARATOR);
+      return function date_time(str3) {
+        const dateTime = str3.split(DATE_TIME_SEPARATOR);
         return dateTime.length === 2 && date3(dateTime[0]) && time3(dateTime[1]);
       };
     }
@@ -26772,13 +26772,13 @@ var require_formats = __commonJS({
     }
     var NOT_URI_FRAGMENT = /\/|:/;
     var URI = /^(?:[a-z][a-z0-9+\-.]*:)(?:\/?\/(?:(?:[a-z0-9\-._~!$&'()*+,;=:]|%[0-9a-f]{2})*@)?(?:\[(?:(?:(?:(?:[0-9a-f]{1,4}:){6}|::(?:[0-9a-f]{1,4}:){5}|(?:[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){4}|(?:(?:[0-9a-f]{1,4}:){0,1}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){3}|(?:(?:[0-9a-f]{1,4}:){0,2}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){2}|(?:(?:[0-9a-f]{1,4}:){0,3}[0-9a-f]{1,4})?::[0-9a-f]{1,4}:|(?:(?:[0-9a-f]{1,4}:){0,4}[0-9a-f]{1,4})?::)(?:[0-9a-f]{1,4}:[0-9a-f]{1,4}|(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?))|(?:(?:[0-9a-f]{1,4}:){0,5}[0-9a-f]{1,4})?::[0-9a-f]{1,4}|(?:(?:[0-9a-f]{1,4}:){0,6}[0-9a-f]{1,4})?::)|[Vv][0-9a-f]+\.[a-z0-9\-._~!$&'()*+,;=:]+)\]|(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)|(?:[a-z0-9\-._~!$&'()*+,;=]|%[0-9a-f]{2})*)(?::\d*)?(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*|\/(?:(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)?|(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)(?:\?(?:[a-z0-9\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?(?:#(?:[a-z0-9\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?$/i;
-    function uri(str2) {
-      return NOT_URI_FRAGMENT.test(str2) && URI.test(str2);
+    function uri(str3) {
+      return NOT_URI_FRAGMENT.test(str3) && URI.test(str3);
     }
     var BYTE = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/gm;
-    function byte(str2) {
+    function byte(str3) {
       BYTE.lastIndex = 0;
-      return BYTE.test(str2);
+      return BYTE.test(str3);
     }
     var MIN_INT32 = -(2 ** 31);
     var MAX_INT32 = 2 ** 31 - 1;
@@ -26792,11 +26792,11 @@ var require_formats = __commonJS({
       return true;
     }
     var Z_ANCHOR = /[^\\]\\Z/;
-    function regex(str2) {
-      if (Z_ANCHOR.test(str2))
+    function regex(str3) {
+      if (Z_ANCHOR.test(str3))
         return false;
       try {
-        new RegExp(str2);
+        new RegExp(str3);
         return true;
       } catch (e) {
         return false;
@@ -31148,7 +31148,15 @@ var RemoteSchema = external_exports.object({
   url: external_exports.string().optional()
 }).default({ enabled: false });
 var CHANNEL_NAME_PATTERN = /^[a-z0-9][a-z0-9-]{0,31}$/;
-var RESERVED_CHANNEL_NAMES = ["inbox", "friction", "transcript", "usage", "atlassian", "slack"];
+var RESERVED_CHANNEL_NAMES = [
+  "inbox",
+  "friction",
+  "transcript",
+  "usage",
+  "atlassian",
+  "slack",
+  "actions"
+];
 var DropChannelSchema = external_exports.object({
   name: external_exports.string().regex(
     CHANNEL_NAME_PATTERN,
@@ -31232,6 +31240,15 @@ var SlackSchema = external_exports.object({
   enabled: external_exports.boolean().default(false),
   channels: external_exports.array(external_exports.string()).default([])
 }).default({ enabled: false, channels: [] });
+var ActionsSchema = external_exports.object({
+  enabled: external_exports.boolean().default(false),
+  /** "owner/repo" whose workflow runs to read. */
+  repo: external_exports.string().default(""),
+  /** A day needs at least this many runs to become an evidence item. */
+  minRuns: external_exports.number().int().positive().default(1),
+  /** How far back to ask on a cold start, in days. */
+  lookbackDays: external_exports.number().int().positive().default(14)
+}).default({ enabled: false, repo: "", minRuns: 1, lookbackDays: 14 });
 var FederatedSchema = external_exports.object({
   enabled: external_exports.boolean().default(false),
   discourseHosts: external_exports.array(external_exports.string()).max(5).default([])
@@ -31289,7 +31306,8 @@ var ConfigSchema = external_exports.object({
     transcript: TranscriptSchema,
     usage: UsageSchema,
     atlassian: AtlassianSchema,
-    slack: SlackSchema
+    slack: SlackSchema,
+    actions: ActionsSchema
   }).default({}),
   processes: external_exports.record(external_exports.string(), ProcessSchema).default({}),
   web: WebSchema,
@@ -31339,6 +31357,12 @@ adapters:
   slack:
     enabled: false
     channels: []
+  actions:
+    enabled: false          # read this repo's own CI runs \u2014 where the gates actually execute
+    repo: ""                # "owner/repo"; no default, because only you know which repo measures your product
+    minRuns: 1              # a day needs at least this many runs to become an evidence item
+    lookbackDays: 14        # how far back to ask on a cold start
+                            # public repos need no credential; a private one needs GITHUB_TOKEN with actions:read
 
 web:
   lookupBudget: 10          # burst: web lookups (search + page reads) available at once
@@ -31913,7 +31937,7 @@ function withUsageTracing(tools, vaultDir, surface, attribution) {
 // src/adapters/source.ts
 import fs5 from "node:fs";
 import path5 from "node:path";
-var ACTORS = ["inbox", "slack", "atlassian", "usage", "transcript", "unknown"];
+var ACTORS = ["inbox", "slack", "atlassian", "usage", "transcript", "actions", "unknown"];
 var UNKNOWN_ACTOR = "unknown";
 function isActor(value) {
   return typeof value === "string" && ACTORS.includes(value);
@@ -32285,6 +32309,21 @@ var COMMISSIONED = [
       return `Slack${scope ? ` (${scope})` : ""}`;
     },
     unavailable: (_c, env) => usableSecret(env.SLACK_BOT_TOKEN) ? null : `enabled but SLACK_BOT_TOKEN is not set in this environment (or is under ${MIN_SECRET_CHARS} characters, which the credential broker refuses to hold).`
+  },
+  {
+    name: "actions",
+    declaredPath: "adapters.actions",
+    enabled: (c3) => c3.adapters.actions.enabled,
+    endpoint: (_vaultDir, c3) => {
+      const repo = c3.adapters.actions.repo;
+      return `GitHub Actions${repo ? ` (${repo})` : ""}`;
+    },
+    // The only commissioned channel whose credential is OPTIONAL, so this probe
+    // reads config rather than the environment: a public repository is readable
+    // unauthenticated, and reporting the channel unavailable for want of a token it
+    // does not need would send an operator hunting for a credential to fix a
+    // configuration problem. What it genuinely cannot run without is the repo.
+    unavailable: (c3) => c3.adapters.actions.repo ? null : 'enabled but `repo` is not set \u2014 set it to the "owner/repo" whose workflow runs measure this product (it is not derived from a git remote, because a checkout can point at a fork).'
   }
 ];
 function commissionedChannels(vaultDir, config2, opts = {}) {
@@ -32902,6 +32941,238 @@ var HttpSlackClient = class {
       }
     }
     return out;
+  }
+};
+
+// src/adapters/actions.ts
+var DEFAULT_MIN_RUNS = 1;
+var DEFAULT_LOOKBACK_DAYS = 14;
+function str2(value, fallback = "") {
+  return typeof value === "string" ? value : fallback;
+}
+function nullableStr(value) {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+function parseWorkflowRun(raw) {
+  if (typeof raw !== "object" || raw === null) return null;
+  const r2 = raw;
+  const id = typeof r2.id === "number" ? r2.id : typeof r2.id === "string" ? Number(r2.id) : NaN;
+  if (!Number.isFinite(id)) return null;
+  const createdAt = str2(r2.created_at);
+  if (!createdAt) return null;
+  const attempt = typeof r2.run_attempt === "number" && r2.run_attempt > 0 ? r2.run_attempt : 1;
+  return {
+    id,
+    name: str2(r2.name),
+    workflowPath: str2(r2.path),
+    attempt,
+    event: str2(r2.event, "unknown"),
+    status: str2(r2.status, "unknown"),
+    conclusion: nullableStr(r2.conclusion),
+    branch: str2(r2.head_branch),
+    sha: str2(r2.head_sha),
+    createdAt,
+    startedAt: nullableStr(r2.run_started_at),
+    updatedAt: nullableStr(r2.updated_at),
+    ...typeof r2.html_url === "string" ? { url: r2.html_url } : {}
+  };
+}
+function queueSeconds(run) {
+  if (!run.startedAt) return null;
+  const created = Date.parse(run.createdAt);
+  const started = Date.parse(run.startedAt);
+  if (!Number.isFinite(created) || !Number.isFinite(started)) return null;
+  return Math.max(0, Math.round((started - created) / 1e3));
+}
+function runSeconds(run) {
+  if (!run.startedAt || !run.updatedAt) return null;
+  const started = Date.parse(run.startedAt);
+  const updated = Date.parse(run.updatedAt);
+  if (!Number.isFinite(started) || !Number.isFinite(updated)) return null;
+  return Math.max(0, Math.round((updated - started) / 1e3));
+}
+function utcDay2(iso) {
+  return iso.slice(0, 10);
+}
+function duration(seconds) {
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  if (m < 60) return `${m}m${String(seconds % 60).padStart(2, "0")}s`;
+  return `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}m`;
+}
+function median(values) {
+  if (values.length === 0) return 0;
+  const sorted2 = [...values].sort((a, b2) => a - b2);
+  return sorted2[Math.floor((sorted2.length - 1) / 2)];
+}
+var ActionsSource = class {
+  constructor(client, opts) {
+    this.client = client;
+    this.repo = opts.repo;
+    this.minRuns = opts.minRuns ?? DEFAULT_MIN_RUNS;
+    this.lookbackDays = opts.lookbackDays ?? DEFAULT_LOOKBACK_DAYS;
+    this.today = opts.today ?? (() => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10));
+  }
+  client;
+  name = "actions";
+  actor = "actions";
+  repo;
+  minRuns;
+  lookbackDays;
+  today;
+  async fetchSince(cursor) {
+    const today = this.today();
+    const raw = await this.client.fetchRuns({ createdSince: cursor ?? this.coldStart(today) });
+    const runs = [];
+    let unparsed = 0;
+    for (const record2 of raw) {
+      const run = parseWorkflowRun(record2);
+      if (run) runs.push(run);
+      else unparsed++;
+    }
+    const byDay = /* @__PURE__ */ new Map();
+    const seenIds = /* @__PURE__ */ new Set();
+    for (const run of runs) {
+      if (seenIds.has(run.id)) continue;
+      seenIds.add(run.id);
+      const day = utcDay2(run.createdAt);
+      if (day >= today) continue;
+      if (cursor && day <= cursor) continue;
+      const bucket = byDay.get(day) ?? [];
+      bucket.push(run);
+      byDay.set(day, bucket);
+    }
+    const items = [];
+    let advanced = cursor;
+    for (const day of [...byDay.keys()].sort()) {
+      const dayRuns = byDay.get(day);
+      if (!advanced || day > advanced) advanced = day;
+      if (dayRuns.length < this.minRuns) continue;
+      items.push(this.rollup(day, dayRuns, unparsed));
+    }
+    return { items, cursor: advanced };
+  }
+  /**
+   * Refuses to advance partially. The cursor is a day watermark that deliberately
+   * moves past days which never became items, so rebuilding it from `stored` would
+   * re-emit those days forever. A day is a rollup rather than a report someone is
+   * waiting on, so re-deriving it costs one request and `writeEvidence`'s id-keyed
+   * idempotency drops what is already on disk.
+   */
+  advanceCursor(previous) {
+    return previous;
+  }
+  /** The day to ask from when nothing has been read yet. */
+  coldStart(today) {
+    const t2 = Date.parse(`${today}T00:00:00Z`);
+    if (!Number.isFinite(t2)) return today;
+    return new Date(t2 - this.lookbackDays * 864e5).toISOString().slice(0, 10);
+  }
+  rollup(day, runs, unparsed) {
+    const failed = runs.filter((r2) => r2.conclusion === "failure");
+    const cancelled = runs.filter((r2) => r2.conclusion === "cancelled");
+    const unfinished = runs.filter((r2) => r2.conclusion === null);
+    const reruns = runs.filter((r2) => r2.attempt > 1);
+    const queues = runs.map(queueSeconds).filter((s) => s !== null);
+    const durations = runs.map(runSeconds).filter((s) => s !== null);
+    const worstQueue = queues.length > 0 ? Math.max(...queues) : null;
+    const byWorkflow = /* @__PURE__ */ new Map();
+    for (const r2 of runs) {
+      const key = r2.name || r2.workflowPath || "(unnamed)";
+      const entry = byWorkflow.get(key) ?? { total: 0, failed: 0 };
+      entry.total++;
+      if (r2.conclusion === "failure") entry.failed++;
+      byWorkflow.set(key, entry);
+    }
+    const failureLines = failed.slice(0, 10).map(
+      (r2) => `- \`${r2.name || r2.workflowPath}\` on \`${r2.branch}\` (${r2.event}, attempt ${r2.attempt}) \u2014 ${r2.sha.slice(0, 8)}${r2.url ? ` \u2014 ${r2.url}` : ""}`
+    );
+    const body = [
+      `# CI runs \u2014 ${day} (${this.repo}, ${runs.length} workflow runs)`,
+      "",
+      "Mechanical rollup of the repository's GitHub Actions history, pulled read-only by the",
+      "`actions` adapter. Computed, not composed: no agent narrated, selected or summarized",
+      "these numbers \u2014 they are exit codes and timestamps the source recorded.",
+      "",
+      `- **Runs:** ${runs.length} (${runs.length - failed.length - cancelled.length - unfinished.length} success, ${failed.length} failure, ${cancelled.length} cancelled${unfinished.length > 0 ? `, ${unfinished.length} unconcluded` : ""})`,
+      `- **Re-runs:** ${reruns.length} (a run somebody started again \u2014 a green after a red is not a green)`,
+      ...worstQueue !== null ? [
+        `- **Wait for a runner:** worst ${duration(worstQueue)}, median ${duration(median(queues))}` + (worstQueue >= 1800 ? " \u2014 **a wait this long is the failure mode where finished work sits unmerged, not a slow test**" : "")
+      ] : ["- **Wait for a runner:** not reported by the source for any run on this day"],
+      ...durations.length > 0 ? [`- **Run time:** median ${duration(median(durations))}, max ${duration(Math.max(...durations))}`] : [],
+      ...unparsed > 0 ? [
+        `- **Unparsed records:** ${unparsed} in this fetch \u2014 records the source returned that carried no usable id or creation time. Reported rather than dropped silently, because a channel losing records quietly is the failure this number exists to catch.`
+      ] : [],
+      "",
+      "| Workflow | Runs | Failed |",
+      "| --- | --- | --- |",
+      ...[...byWorkflow.entries()].sort((a, b2) => b2[1].total - a[1].total).map(([name, e]) => `| ${name} | ${e.total} | ${e.failed} |`),
+      ...failureLines.length > 0 ? ["", `**Failed runs${failed.length > failureLines.length ? ` (first ${failureLines.length} of ${failed.length})` : ""}:**`, ...failureLines] : [],
+      "",
+      "Evidence class: **observed behavior** \u2014 a measuring device's own record of what it",
+      "measured. It grounds whether this project's gates run, pass and finish; it says nothing",
+      "about external demand and must not be counted as evidence that anybody wants this.",
+      ""
+    ].join("\n");
+    const headline = failed.length > 0 ? `${failed.length} failed` : "all green";
+    return {
+      id: `ACTIONS:${day}`,
+      source: `ACTIONS:${day}`,
+      title: `CI runs ${day} \u2014 ${runs.length} runs, ${headline}`,
+      body,
+      timestamp: `${day}T23:59:59.000Z`
+    };
+  }
+};
+var GITHUB_API = "https://api.github.com";
+var DEFAULT_PER_PAGE = 100;
+var DEFAULT_MAX_PAGES = 10;
+var HttpActionsClient = class {
+  repo;
+  token;
+  perPage;
+  maxPages;
+  fetchFn;
+  constructor(cfg) {
+    this.repo = cfg.repo;
+    this.token = cfg.token;
+    this.perPage = Math.min(cfg.perPage ?? DEFAULT_PER_PAGE, 100);
+    this.maxPages = cfg.maxPages ?? DEFAULT_MAX_PAGES;
+    this.fetchFn = cfg.fetchFn ?? globalThis.fetch;
+  }
+  async fetchRuns(opts) {
+    const out = [];
+    for (let page = 1; page <= this.maxPages; page++) {
+      const params = new URLSearchParams({
+        per_page: String(this.perPage),
+        page: String(page),
+        // `>=` on a date, which is what the source's own search grammar accepts.
+        // The day watermark is re-asked inclusively and the cursor drops the day
+        // itself, so a run created late on the boundary day cannot fall in the gap.
+        ...opts.createdSince ? { created: `>=${opts.createdSince}` } : {}
+      });
+      const data = await this.get(
+        `${GITHUB_API}/repos/${this.repo}/actions/runs?${params}`
+      );
+      const runs = Array.isArray(data.workflow_runs) ? data.workflow_runs : [];
+      out.push(...runs);
+      if (runs.length < this.perPage) break;
+    }
+    return out;
+  }
+  async get(url) {
+    const res = await this.fetchFn(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        ...this.token ? { Authorization: `Bearer ${this.token}` } : {}
+      }
+    });
+    if (!res.ok) {
+      throw new Error(`GitHub GET ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    }
+    return await res.json();
   }
 };
 
@@ -33844,8 +34115,8 @@ function remove(target, item) {
 function asArray(source) {
   return Array.isArray(source) ? source : [source];
 }
-function asCamelCase(str2) {
-  return str2.replace(/[\s-]+(.)/g, (_all, chr) => {
+function asCamelCase(str3) {
+  return str3.replace(/[\s-]+(.)/g, (_all, chr) => {
     return chr.toUpperCase();
   });
 }
@@ -33880,8 +34151,8 @@ function pick(source, properties) {
   });
   return out;
 }
-function delay(duration3 = 0) {
-  return new Promise((done) => setTimeout(done, duration3));
+function delay(duration4 = 0) {
+  return new Promise((done) => setTimeout(done, duration4));
 }
 function orVoid(input) {
   if (input === false) {
@@ -38266,7 +38537,16 @@ function readEvidenceScan(dir) {
   }
   return { offered, records: out, unreadable };
 }
-var EVIDENCE_ID_PREFIXES = ["INBOX", "TRANSCRIPT", "SLACK", "JIRA", "CONFLUENCE", "USAGE"];
+var EVIDENCE_ID_PREFIXES = [
+  "INBOX",
+  "TRANSCRIPT",
+  "SLACK",
+  "JIRA",
+  "CONFLUENCE",
+  "USAGE",
+  // `ACTIONS:<day>` (`adapters/actions.ts`) — a day of the repository's own CI runs.
+  "ACTIONS"
+];
 var EVIDENCE_ID_SHAPE = new RegExp(`^(?:${EVIDENCE_ID_PREFIXES.join("|")}):`, "i");
 function claimsStoredEvidence(source) {
   return !!source && EVIDENCE_ID_SHAPE.test(source.trim());
@@ -38487,6 +38767,12 @@ function actorTrustKey(actor) {
       return { kind: "channel", id: actor };
     case "transcript":
     case "usage":
+    // CI is a measuring device, not a channel: `actions` carries the exit codes of
+    // the same gates this project merges on, recorded by the thing that ran them.
+    // It sits at the instrument ceiling for the reason `usage` does — a machine
+    // recorded it and no narrator touched it — and emphatically not at a channel's,
+    // which would let the project's own build server vouch for external demand.
+    case "actions":
       return { kind: "instrument", id: actor };
     case "unknown":
       return UNATTRIBUTED_KEY;
@@ -40200,11 +40486,14 @@ function fileAuditSink(vaultDir) {
 var CREDENTIAL_SLACK = "slack";
 var CREDENTIAL_ATLASSIAN = "atlassian";
 var CREDENTIAL_SEARCH = "search";
+var CREDENTIAL_GITHUB = "github";
 var ASKER_SLACK = "adapter:slack";
 var ASKER_ATLASSIAN = "adapter:atlassian";
 var ASKER_SEARCH = "web:search";
+var ASKER_ACTIONS = "adapter:actions";
 var SLACK_SCOPE = "https://slack.com/api/*";
 var BRAVE_SCOPE = "https://api.search.brave.com/res/v1/*";
+var githubActionsScope = (repo) => `https://api.github.com/repos/${repo}/actions/*`;
 function credentialBrokerFromEnv(opts = {}) {
   const env = opts.env ?? process.env;
   const credentials = {};
@@ -40224,6 +40513,7 @@ function credentialBrokerFromEnv(opts = {}) {
   offer(CREDENTIAL_SLACK, env.SLACK_BOT_TOKEN, "SLACK_BOT_TOKEN is not set");
   offer(CREDENTIAL_ATLASSIAN, env.ATLASSIAN_API_TOKEN, "ATLASSIAN_API_TOKEN is not set");
   offer(CREDENTIAL_SEARCH, env.BRAVE_SEARCH_API_KEY, "BRAVE_SEARCH_API_KEY is not set");
+  offer(CREDENTIAL_GITHUB, env.GITHUB_TOKEN, "GITHUB_TOKEN is not set (only needed for a private repository)");
   const base = env.ATLASSIAN_BASE_URL?.trim().replace(/\/$/, "");
   const grants = [];
   if (credentials[CREDENTIAL_SLACK]) {
@@ -40241,6 +40531,15 @@ function credentialBrokerFromEnv(opts = {}) {
   }
   if (credentials[CREDENTIAL_SEARCH]) {
     grants.push({ asker: ASKER_SEARCH, action: HTTP_GET, credential: CREDENTIAL_SEARCH, targets: [BRAVE_SCOPE] });
+  }
+  const githubRepo = opts.githubRepo?.trim();
+  if (credentials[CREDENTIAL_GITHUB] && githubRepo) {
+    grants.push({
+      asker: ASKER_ACTIONS,
+      action: HTTP_GET,
+      credential: CREDENTIAL_GITHUB,
+      targets: [githubActionsScope(githubRepo)]
+    });
   }
   return {
     broker: createCredentialBroker({
@@ -40389,6 +40688,27 @@ function buildSources(dir, config2, credentials) {
       );
     }
   );
+  consider(
+    "actions",
+    config2.adapters.actions.enabled ? null : `turned off in ${CONFIG_FILENAME} (adapters.actions.enabled: false)`,
+    () => {
+      const a = config2.adapters.actions;
+      if (!a.repo) {
+        throw new Error(
+          'adapters.actions is enabled but `repo` is not set \u2014 set it to the "owner/repo" whose workflow runs measure this product. It is not derived from a git remote, because a checkout can point at a fork.'
+        );
+      }
+      const authed = credentials.broker.holds(CREDENTIAL_GITHUB);
+      return new ActionsSource(
+        new HttpActionsClient({
+          repo: a.repo,
+          ...authed ? { token: credentials.broker.handle(CREDENTIAL_GITHUB) } : {},
+          fetchFn: authed ? brokeredFetch(credentials.broker, ASKER_ACTIONS) : void 0
+        }),
+        { repo: a.repo, minRuns: a.minRuns, lookbackDays: a.lookbackDays }
+      );
+    }
+  );
   return { sources, unavailableSources };
 }
 function buildPassContext(vaultDir, opts = {}) {
@@ -40397,7 +40717,12 @@ function buildPassContext(vaultDir, opts = {}) {
   const loaded = opts.listingOnly ? { config: defaultConfig(), problem: void 0 } : opts.tolerateInvalidConfig ? readConfig(dir, missing) : { config: loadConfig(dir, missing), problem: void 0 };
   const config2 = loaded.config;
   const skipSources = opts.skipSources === true || opts.listingOnly === true;
-  const credentials = credentialBrokerFromEnv({ audit: fileAuditSink(dir) });
+  const credentials = credentialBrokerFromEnv({
+    audit: fileAuditSink(dir),
+    // The grant for a GitHub token names the one repository the operator declared;
+    // see `githubRepo` in credentials.ts for why it is not derived from a remote.
+    githubRepo: config2.adapters.actions.repo
+  });
   const { sources, unavailableSources } = skipSources ? { sources: [], unavailableSources: [] } : buildSources(dir, config2, credentials);
   return {
     vault: new Vault(dir, { create: !opts.listingOnly }),

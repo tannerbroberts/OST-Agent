@@ -386,6 +386,25 @@ const COMMISSIONED: readonly CommissionedSpec[] = [
         : "enabled but SLACK_BOT_TOKEN is not set in this environment " +
           `(or is under ${MIN_SECRET_CHARS} characters, which the credential broker refuses to hold).`,
   },
+  {
+    name: "actions",
+    declaredPath: "adapters.actions",
+    enabled: (c) => c.adapters.actions.enabled,
+    endpoint: (_vaultDir, c) => {
+      const repo = c.adapters.actions.repo;
+      return `GitHub Actions${repo ? ` (${repo})` : ""}`;
+    },
+    // The only commissioned channel whose credential is OPTIONAL, so this probe
+    // reads config rather than the environment: a public repository is readable
+    // unauthenticated, and reporting the channel unavailable for want of a token it
+    // does not need would send an operator hunting for a credential to fix a
+    // configuration problem. What it genuinely cannot run without is the repo.
+    unavailable: (c) =>
+      c.adapters.actions.repo
+        ? null
+        : 'enabled but `repo` is not set — set it to the "owner/repo" whose workflow runs measure this product ' +
+          "(it is not derived from a git remote, because a checkout can point at a fork).",
+  },
 ];
 
 /**

@@ -25,7 +25,7 @@ import { CHANNEL_NAME_PATTERN } from "../config/schema.js";
  * hand-edited value, and the read has to land somewhere; it lands on the least-trusted
  * answer, never on a channel's name.
  */
-export const ACTORS = ["inbox", "slack", "atlassian", "usage", "transcript", "unknown"] as const;
+export const ACTORS = ["inbox", "slack", "atlassian", "usage", "transcript", "actions", "unknown"] as const;
 export type Actor = (typeof ACTORS)[number];
 
 /** The fail-closed answer: a record whose producer is not established. */

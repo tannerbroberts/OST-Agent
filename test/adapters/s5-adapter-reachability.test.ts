@@ -175,6 +175,9 @@ describe("S5 — the construction really happens, not just the text", () => {
         `  slack:`,
         `    enabled: ${enabled}`,
         `    channels: ["C1"]`,
+        `  actions:`,
+        `    enabled: ${enabled}`,
+        `    repo: "owner/repo"`,
         ``,
       ].join("\n"),
       "utf8",
@@ -207,6 +210,7 @@ describe("S5 — the construction really happens, not just the text", () => {
     expect(ctx.sources).toEqual([]);
     // …and every one of them is still ACCOUNTED FOR, by name, as off by choice.
     expect(ctx.unavailableSources.map((u) => u.name).sort()).toEqual([
+      "actions",
       "atlassian",
       "friction",
       "inbox",

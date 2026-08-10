@@ -3080,7 +3080,7 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2505 tests across 191 files, verified 2026-08-10 (`npx vitest run`,
+> *Today:* **met** — 2519 tests across 192 files, verified 2026-08-10 (`npx vitest run`,
 > after the refusal-coverage census landed: of the **24** distinct refusal classes in 646
 > recorded sessions, a manifest folded from tool schemas alone could have named **8**
 > (33%) against a bar the assumption test fixed at 60% before anyone counted — and on the
