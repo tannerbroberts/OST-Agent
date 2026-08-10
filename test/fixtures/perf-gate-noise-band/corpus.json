@@ -1,0 +1,106 @@
+{
+  "takenOn": "2026-08-10",
+  "machine": "darwin arm64, 10 cores",
+  "nodes": 10000,
+  "controlNodes": 500,
+  "shape": {
+    "opportunities": 2000,
+    "solutions": 4000,
+    "assumptionTests": 3999
+  },
+  "controlShape": {
+    "opportunities": 100,
+    "solutions": 200,
+    "assumptionTests": 199
+  },
+  "runsPerTrial": 3,
+  "calibrationTrials": 6,
+  "calibrationRuns": [
+    267,
+    260,
+    258,
+    256,
+    253,
+    251,
+    249,
+    250,
+    249,
+    249,
+    250,
+    251,
+    250,
+    249,
+    249,
+    249,
+    251,
+    249
+  ],
+  "calibrationControlRuns": [
+    13,
+    13,
+    14,
+    13,
+    12,
+    12,
+    12,
+    13,
+    13,
+    12,
+    12,
+    13,
+    13,
+    12,
+    14,
+    12,
+    12,
+    13
+  ],
+  "recordedMin": 249,
+  "recordedMax": 267,
+  "recordedControlMin": 12,
+  "recordedControlMax": 14,
+  "recordedRatioMax": 22.25,
+  "budget": 712,
+  "budgetMultiple": 2.6666666666666665,
+  "attempts": [
+    {
+      "condition": "noise 1× cores",
+      "trials": 4,
+      "breaches": 0
+    },
+    {
+      "condition": "noise 2× cores",
+      "trials": 4,
+      "breaches": 3
+    },
+    {
+      "condition": "noise 3× cores",
+      "trials": 2,
+      "breaches": 2
+    },
+    {
+      "condition": "regression idle severity 1",
+      "trials": 3,
+      "breaches": 0
+    },
+    {
+      "condition": "regression idle severity 2",
+      "trials": 3,
+      "breaches": 3
+    },
+    {
+      "condition": "regression loaded 1× cores",
+      "trials": 2,
+      "breaches": 2
+    }
+  ],
+  "wanted": {
+    "noise": 5,
+    "regressionIdle": 3,
+    "regressionLoaded": 2
+  },
+  "found": {
+    "noise": 5,
+    "regression": 5
+  }
+}

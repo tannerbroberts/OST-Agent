@@ -2826,6 +2826,25 @@ at 10,000 nodes.**
 > behaviour is unchanged by construction: the index holds parent *nodes*, one
 > entry per (parent, link) occurrence, so `single-parent` still double-counts a
 > duplicated edge exactly as it did.
+>
+> **The cheap tell above does not work, and that is now measured rather than
+> assumed (2026-08-10).** "Measure the number the gate reports against the number
+> the criterion recorded" scores **5 of 10** on ten perf-gate failures whose
+> causes were arranged — this same drift, reinstated around this same
+> `computeNextWork` call, against real CPU contention — against a bar of 8 fixed
+> before the count (`test/eval/perf-gate-noise-band.test.ts`). Worse than the
+> number: it calls **every** failure a regression, for an arithmetic reason that
+> reaches every criterion here carrying both figures. A gate fires at `measured >
+> budget`; this budget is 2.67× the recorded high; so breaching it already entails
+> exceeding the 2× that comparison would use, and the second number decides
+> nothing the first had not. Adding the run-to-run spread does not rescue it —
+> also 5 of 10, because twenty spinners on ten cores are a *steady* tax rather
+> than jitter. What did separate the fixture, 10 of 10 and exploratory rather than
+> pre-registered, was timing a second much smaller call on the same box in the
+> same trial and reading the ratio between them: contention moves both numbers, a
+> quadratic moves one. **That is a change to what a criterion records when it is
+> closed, not a cleverer reading of what it already says** — no criterion in this
+> document records a control today, this one included.
 
 **Z4 — Retired nodes leave the denominator.**
 > *Check:* assert `readTreeCensus` supports a status/archive filter and that the
@@ -3061,8 +3080,13 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2444 tests across 189 files, verified 2026-08-09 (`npx vitest run`,
-> after the path-failure attribution census landed: of 76 path-shaped failures in 646
+> *Today:* **met** — 2469 tests across 190 files, verified 2026-08-10 (`npx vitest run`,
+> after the perf-gate noise-band replay landed: ten gate failures with arranged causes,
+> and the measurement-against-recorded comparison Z3 recommends separates **5 of 10** of
+> them against a bar of 8 fixed before the count — refuted as a classifier, and what is
+> committed is the corpus and the three-way score that refuted it
+> (`src/eval/perf-noise-band.ts`, `test/eval/perf-gate-noise-band.test.ts`). Before that,
+> the path-failure attribution census: of 76 path-shaped failures in 646
 > recorded sessions, **0** arrived through a tool this repository controls, against a bar
 > the assumption test fixed at 40% before anyone counted — so "make the first path failure
 > answer with the layout it was addressed against" is refuted as stated, and what is
