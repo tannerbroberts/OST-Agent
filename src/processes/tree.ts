@@ -274,6 +274,55 @@ export function childrenOfLayer(node: OstNode, index: Map<string, OstNode>, laye
 }
 
 /**
+ * Every Opportunity with at least one Solution somewhere in its subtree —
+ * its own children included, and its sub-opportunities' children too.
+ *
+ * **Why a set computed once rather than a walk per node.** The caller
+ * (`underservedOpportunities`) asks this of every Opportunity in the tree, and a
+ * fresh subtree walk each time is quadratic: 2,000 opportunities over a 10,000
+ * node tree is the shape the wall-clock budget is pinned against
+ * (`test/mcp/wall-clock-budget.test.ts`). Memoised, the whole set costs one pass
+ * over the nodes and their edges.
+ *
+ * **Boolean, not a count.** The only question anyone has needed is whether the
+ * subtree is empty of solutions, and a boolean is the one answer that survives a
+ * cycle honestly: a back edge contributes `false`, so a node on a cycle can only
+ * ever be UNDER-reported as served. Under-reporting keeps a node on the
+ * under-served list, which is the safe direction — the failure this guards
+ * against is a gap that goes quiet, never a heading listed once too often.
+ */
+export function opportunitiesServedBeneath(tree: readonly OstNode[], index: Map<string, OstNode>): Set<string> {
+  const served = new Set<string>();
+  const settled = new Set<string>();
+  const visiting = new Set<string>();
+
+  const walk = (title: string): boolean => {
+    if (settled.has(title)) return served.has(title);
+    if (visiting.has(title)) return false; // back edge: see the cycle note above
+    const node = index.get(title);
+    if (!node || node.layer !== "Opportunity") return false;
+
+    visiting.add(title);
+    let has = false;
+    for (const link of node.links) {
+      const child = index.get(link); // dangling link — `check` reports it; this counts what exists
+      if (child?.layer === "Solution") has = true;
+      // No early exit: descending every sub-opportunity is what memoises them,
+      // and that is where the single-pass cost comes from.
+      else if (child?.layer === "Opportunity" && walk(link)) has = true;
+    }
+    visiting.delete(title);
+
+    settled.add(title);
+    if (has) served.add(title);
+    return has;
+  };
+
+  for (const n of tree) if (n.layer === "Opportunity") walk(n.title);
+  return served;
+}
+
+/**
  * The AssumptionTests that answer for a Solution — through its Assumptions.
  *
  * **This is the one place the Solution→Assumption→AssumptionTest walk is

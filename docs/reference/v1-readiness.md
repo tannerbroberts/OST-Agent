@@ -3061,7 +3061,17 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2369 tests across 185 files, verified 2026-08-07 (`npx vitest run`,
+> *Today:* **met** — 2373 tests across 186 files, verified 2026-08-09 (`npx vitest run`,
+> after the category exemption landed: `underservedOpportunities` counted an opportunity's
+> DIRECT solution children, so a heading holding dozens of solutions two levels down still
+> read as under-served and sent every pass to ideate under it — the one place a solution
+> does not belong. A node that files sub-opportunities is now exempt, but only while its
+> subtree holds a solution at all: an empty heading is a genuine gap and is still reported,
+> and every exemption is counted and named in the summary, because a heading that goes
+> quiet unannounced is indistinguishable from a tree that got better
+> (`src/processes/tree.ts`, `src/mcp/next-work.ts`,
+> `test/ost/next-work-category-exemption.test.ts`). Previously 2369 tests across 185 files,
+> verified 2026-08-07,
 > after the work claim landed: a pass now takes the work item before it builds it, and the
 > claim is keyed on the *briefing item* rather than on the pass's own wording — the two
 > readings that collided on 2026-07-26 ("invited-visitor arm split" and "add an arm column

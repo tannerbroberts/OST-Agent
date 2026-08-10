@@ -229,6 +229,26 @@ describe("no file but the operator's own moves a bound the operator set", () => 
 });
 
 describe("the unattended surface writes no policy into the vault", () => {
+  /**
+   * Long enough that a busy machine cannot answer for this file.
+   *
+   * Each test below drives the WHOLE mutating MCP surface against a fresh vault
+   * — every call a git commit — and costs ~11 s on an idle host. Against the
+   * suite's 20 s default that is under 2× headroom, and 186 test files running
+   * in parallel routinely spend it: all five failed with `Test timed out in
+   * 20000ms` on three consecutive full runs on 2026-08-09, and all five passed
+   * when the file was run alone. The same five fail on `main` under the same
+   * load, so this is the harness, not a change.
+   *
+   * Raising it costs nothing that matters, because none of these tests is ABOUT
+   * time: they assert what the surface wrote. The one criterion that owns a
+   * wall-clock bound is Z3, whose budget lives in
+   * `test/mcp/wall-clock-budget.test.ts` and is untouched by this. A timeout
+   * that fires on load is not a gate — it is a second, accidental performance
+   * assertion nobody wrote, hiding the real one.
+   */
+  const SURFACE_TIMEOUT_MS = 120_000;
+
   async function connect(): Promise<Client> {
     const [clientT, serverT] = InMemoryTransport.createLinkedPair();
     const server = createOstMcpServer(buildPassContext(dir));
@@ -384,19 +404,19 @@ describe("the unattended surface writes no policy into the vault", () => {
       stored.some((text) => text.includes("players churn after day three")),
       "the planted note never became an evidence record — the drop folder this fixture writes is not the one the vault reads",
     ).toBe(true);
-  });
+  }, SURFACE_TIMEOUT_MS);
 
   test("the operator's config is unchanged, byte for byte", async () => {
     const original = fs.readFileSync(configPath(dir));
     await exerciseSurface();
     expect(fs.readFileSync(configPath(dir)).equals(original)).toBe(true);
-  });
+  }, SURFACE_TIMEOUT_MS);
 
   test("nothing it wrote is a policy file, anywhere in the vault", async () => {
     const { after } = await exerciseSurface();
     const policy = after.filter((rel) => rel !== CONFIG_FILENAME && POLICY_SHAPED.test(path.basename(rel)));
     expect(policy).toEqual([]);
-  });
+  }, SURFACE_TIMEOUT_MS);
 
   test("everything it wrote is a node at the root or state under `.ost-agent/`", async () => {
     // init's own comment says "the vault root only ever contains OST node
@@ -410,7 +430,7 @@ describe("the unattended surface writes no policy into the vault", () => {
       return path.dirname(rel) !== "." || !rel.endsWith(".md");
     });
     expect(stray).toEqual([]);
-  });
+  }, SURFACE_TIMEOUT_MS);
 
   test("and nothing at all outside the vault, where that rule cannot reach", async () => {
     // The clause above is scoped to the vault, and the vault used to be the whole
@@ -427,5 +447,5 @@ describe("the unattended surface writes no policy into the vault", () => {
     // would keep its name.
     const { outsideBefore, outsideAfter } = await exerciseSurface();
     expect(changedOutside(outsideBefore, outsideAfter)).toEqual([]);
-  });
+  }, SURFACE_TIMEOUT_MS);
 });
