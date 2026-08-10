@@ -188,14 +188,14 @@ describe("buildPassContext adapter wiring", () => {
     // is the failure this whole split exists to make impossible.
     enableAtlassian();
     const ctx = buildPassContext(dir);
-    expect(accountedFor(ctx)).toEqual(["atlassian", "friction", "inbox", "slack", "transcript", "usage"]);
+    expect(accountedFor(ctx)).toEqual(["actions", "atlassian", "friction", "inbox", "slack", "transcript", "usage"]);
     // Non-vacuity: with credentials present the SAME channel moves lists rather than
     // disappearing, so the equality above is tracking config and env, not a constant.
     process.env.ATLASSIAN_BASE_URL = "https://x.atlassian.net";
     process.env.ATLASSIAN_EMAIL = "me@x.com";
     process.env.ATLASSIAN_API_TOKEN = "atlassian-api-token-fixture";
     const withCreds = buildPassContext(dir);
-    expect(accountedFor(withCreds)).toEqual(["atlassian", "friction", "inbox", "slack", "transcript", "usage"]);
+    expect(accountedFor(withCreds)).toEqual(["actions", "atlassian", "friction", "inbox", "slack", "transcript", "usage"]);
     expect(withCreds.sources.map((s) => s.name)).toContain("atlassian");
   });
 

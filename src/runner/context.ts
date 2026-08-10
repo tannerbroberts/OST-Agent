@@ -28,6 +28,7 @@ import { TranscriptSource, defaultTranscriptDir, type TranscriptDir } from "../a
 import { UsageSource } from "../adapters/usage.js";
 import { usageLogPath } from "../telemetry/usage.js";
 import { SlackSource, HttpSlackClient } from "../adapters/slack.js";
+import { ActionsSource, HttpActionsClient } from "../adapters/actions.js";
 import type { Source } from "../adapters/source.js";
 import { Vault } from "../ost/vault.js";
 import { createLookupBudget } from "../web/budget.js";
@@ -40,10 +41,12 @@ import type { PassContext, UnavailableSource } from "../processes/types.js";
 import { brokeredFetch } from "../security/brokered-fetch.js";
 import { fileAuditSink } from "../security/credential-audit.js";
 import {
+  ASKER_ACTIONS,
   ASKER_ATLASSIAN,
   ASKER_SEARCH,
   ASKER_SLACK,
   CREDENTIAL_ATLASSIAN,
+  CREDENTIAL_GITHUB,
   CREDENTIAL_SEARCH,
   CREDENTIAL_SLACK,
   credentialBrokerFromEnv,
@@ -316,6 +319,34 @@ function buildSources(dir: string, config: Config, credentials: EnvBroker): Asse
     },
   );
 
+  consider(
+    "actions",
+    config.adapters.actions.enabled ? null : `turned off in ${CONFIG_FILENAME} (adapters.actions.enabled: false)`,
+    () => {
+      const a = config.adapters.actions;
+      if (!a.repo) {
+        throw new Error(
+          'adapters.actions is enabled but `repo` is not set — set it to the "owner/repo" whose workflow runs ' +
+            "measure this product. It is not derived from a git remote, because a checkout can point at a fork.",
+        );
+      }
+      // A public repository needs no credential at all, so a held token is an
+      // upgrade rather than a requirement: an unauthenticated read still works and
+      // still delivers, it just carries the anonymous rate limit. Refusing to run
+      // without GITHUB_TOKEN would make the commonest case — a public repo — the
+      // one that reports itself unavailable.
+      const authed = credentials.broker.holds(CREDENTIAL_GITHUB);
+      return new ActionsSource(
+        new HttpActionsClient({
+          repo: a.repo,
+          ...(authed ? { token: credentials.broker.handle(CREDENTIAL_GITHUB) } : {}),
+          fetchFn: authed ? brokeredFetch(credentials.broker, ASKER_ACTIONS) : undefined,
+        }),
+        { repo: a.repo, minRuns: a.minRuns, lookbackDays: a.lookbackDays },
+      );
+    },
+  );
+
   return { sources, unavailableSources };
 }
 
@@ -334,7 +365,12 @@ export function buildPassContext(vaultDir: string, opts: BuildPassContextOptions
   // travels onward — to the adapters, onto this context, into a tool — is a
   // handle and a brokered fetch. The audit sink writes into the vault, which is
   // the thing an operator already backs up and already reads.
-  const credentials = credentialBrokerFromEnv({ audit: fileAuditSink(dir) });
+  const credentials = credentialBrokerFromEnv({
+    audit: fileAuditSink(dir),
+    // The grant for a GitHub token names the one repository the operator declared;
+    // see `githubRepo` in credentials.ts for why it is not derived from a remote.
+    githubRepo: config.adapters.actions.repo,
+  });
 
   const { sources, unavailableSources } = skipSources
     ? { sources: [] as Source[], unavailableSources: [] as UnavailableSource[] }

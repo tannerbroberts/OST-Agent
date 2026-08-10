@@ -90,6 +90,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../
  * because two lists that must agree are a list that will not.
  */
 const OUTWARD_FILES = [
+  "src/adapters/actions.ts",
   "src/adapters/atlassian.ts",
   "src/adapters/slack.ts",
   "src/security/brokered-fetch.ts",
@@ -191,13 +192,13 @@ describe("(a) every HTTP call site in the shipped source declares GET", () => {
     expect(stray.map((h) => `${h.file}:${h.line}`)).toEqual([]);
   });
 
-  test("the six call sites are named, so a seventh is a deliberate commit", () => {
+  test("the seven call sites are named, so an eighth is a deliberate commit", () => {
     // Pinned as a set rather than a count: a call site that MOVES should not fail
     // this, and a call site that APPEARS should.
     expect([...new Set(hits.map((h) => h.file))].sort()).toEqual(OUTWARD_FILES);
   });
 
-  test("and there is no outward transport outside those six files — the check the method scan cannot make", () => {
+  test("and there is no outward transport outside those seven files — the check the method scan cannot make", () => {
     // The gap this closes, stated plainly. Everything above reasons about the
     // string `method: "…"`. A POST written any other way is invisible to it:
     //

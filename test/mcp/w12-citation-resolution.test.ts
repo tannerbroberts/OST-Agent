@@ -239,7 +239,7 @@ describe("the prefix list is read off the adapters, not off itself", () => {
     // NON-VACUITY — a scan that found nothing (renamed directory, regex that no longer
     // matches the adapters' template style) would pass the assertion above while
     // checking nothing at all. These are the ids the adapters demonstrably mint today.
-    expect([...minted].sort()).toEqual(["CONFLUENCE", "INBOX", "JIRA", "SLACK", "TRANSCRIPT", "USAGE"]);
+    expect([...minted].sort()).toEqual(["ACTIONS", "CONFLUENCE", "INBOX", "JIRA", "SLACK", "TRANSCRIPT", "USAGE"]);
   });
 });
 

@@ -35,7 +35,15 @@ export const CHANNEL_NAME_PATTERN = /^[a-z0-9][a-z0-9-]{0,31}$/;
  * is channel zero, whose id shape is frozen (see `channelIdPrefix`), and `friction`
  * is where the agent files its own record.
  */
-export const RESERVED_CHANNEL_NAMES = ["inbox", "friction", "transcript", "usage", "atlassian", "slack"] as const;
+export const RESERVED_CHANNEL_NAMES = [
+  "inbox",
+  "friction",
+  "transcript",
+  "usage",
+  "atlassian",
+  "slack",
+  "actions",
+] as const;
 
 /**
  * One drop folder: its own path, its own cursor, its own id namespace, its own
@@ -171,6 +179,25 @@ const SlackSchema = z
   })
   .default({ enabled: false, channels: [] });
 
+// Rolls the repository's own GitHub Actions history into one evidence item per
+// finished day. The gates a project merges on run there, so this is where their
+// exit codes accumulate — experiment data with no door into the vault until now.
+//
+// Off by default and `repo` empty: nobody but the operator can say which repository
+// measures this product, and guessing it from a git remote would make the channel
+// silently follow whatever fork the checkout happens to point at.
+const ActionsSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+    /** "owner/repo" whose workflow runs to read. */
+    repo: z.string().default(""),
+    /** A day needs at least this many runs to become an evidence item. */
+    minRuns: z.number().int().positive().default(1),
+    /** How far back to ask on a cold start, in days. */
+    lookbackDays: z.number().int().positive().default(14),
+  })
+  .default({ enabled: false, repo: "", minRuns: 1, lookbackDays: 14 });
+
 // Outward web sensing. `lookupBudget` is the burst capacity (search + page
 // reads share it); `lookupRefillPerHour` is the sustained rate, which is what
 // lets a session that lives for weeks keep working. Set the rate to 0 to get
@@ -301,6 +328,7 @@ export const ConfigSchema = z.object({
       usage: UsageSchema,
       atlassian: AtlassianSchema,
       slack: SlackSchema,
+      actions: ActionsSchema,
     })
     .default({}),
   processes: z.record(z.string(), ProcessSchema).default({}),
@@ -377,6 +405,12 @@ adapters:
   slack:
     enabled: false
     channels: []
+  actions:
+    enabled: false          # read this repo's own CI runs — where the gates actually execute
+    repo: ""                # "owner/repo"; no default, because only you know which repo measures your product
+    minRuns: 1              # a day needs at least this many runs to become an evidence item
+    lookbackDays: 14        # how far back to ask on a cold start
+                            # public repos need no credential; a private one needs GITHUB_TOKEN with actions:read
 
 web:
   lookupBudget: 10          # burst: web lookups (search + page reads) available at once

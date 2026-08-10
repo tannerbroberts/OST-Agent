@@ -242,7 +242,16 @@ export function readEvidenceScan(dir: string): EvidenceScan {
  * must resolve": it is "a source that *claims to name a stored evidence record* must name
  * one that exists."
  */
-export const EVIDENCE_ID_PREFIXES = ["INBOX", "TRANSCRIPT", "SLACK", "JIRA", "CONFLUENCE", "USAGE"] as const;
+export const EVIDENCE_ID_PREFIXES = [
+  "INBOX",
+  "TRANSCRIPT",
+  "SLACK",
+  "JIRA",
+  "CONFLUENCE",
+  "USAGE",
+  // `ACTIONS:<day>` (`adapters/actions.ts`) — a day of the repository's own CI runs.
+  "ACTIONS",
+] as const;
 
 const EVIDENCE_ID_SHAPE = new RegExp(`^(?:${EVIDENCE_ID_PREFIXES.join("|")}):`, "i");
 

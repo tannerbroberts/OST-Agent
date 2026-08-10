@@ -38,13 +38,24 @@ import { httpGetAction, HTTP_GET, type RawFetch } from "../security/brokered-fet
 export const CREDENTIAL_SLACK = "slack";
 export const CREDENTIAL_ATLASSIAN = "atlassian";
 export const CREDENTIAL_SEARCH = "search";
+export const CREDENTIAL_GITHUB = "github";
 
 export const ASKER_SLACK = "adapter:slack";
 export const ASKER_ATLASSIAN = "adapter:atlassian";
 export const ASKER_SEARCH = "web:search";
+export const ASKER_ACTIONS = "adapter:actions";
 
 const SLACK_SCOPE = "https://slack.com/api/*";
 const BRAVE_SCOPE = "https://api.search.brave.com/res/v1/*";
+/**
+ * The run-listing endpoint of one repository, and nothing else under it.
+ *
+ * Narrow to the `/actions/` subtree on purpose: a GitHub token is the broadest
+ * credential in this file — the same string that reads a workflow run can open an
+ * issue, push a branch or publish a release. The grant is what makes the adapter's
+ * read-only claim enforced rather than asserted, so it names the repo and the path.
+ */
+const githubActionsScope = (repo: string) => `https://api.github.com/repos/${repo}/actions/*`;
 
 export interface EnvBrokerOptions {
   /** The environment to read. Passed in rather than reached for, so tests are not global state. */
@@ -54,6 +65,16 @@ export interface EnvBrokerOptions {
   /** Injected fetch for the brokered GET action. */
   fetchFn?: RawFetch;
   now?: () => string;
+  /**
+   * The "owner/repo" the `actions` adapter is configured to read, if any.
+   *
+   * Passed in rather than read from the environment because it is a *config*
+   * fact, and the grant has to name it: a GitHub token scoped by this broker to
+   * no particular repository would authenticate a read of any repository the
+   * token can see, which is the opposite of what a narrow grant is for. No repo
+   * configured ⇒ no grant issued, even when the token is held.
+   */
+  githubRepo?: string;
 }
 
 export interface EnvBroker {
@@ -87,6 +108,7 @@ export function credentialBrokerFromEnv(opts: EnvBrokerOptions = {}): EnvBroker 
   offer(CREDENTIAL_SLACK, env.SLACK_BOT_TOKEN, "SLACK_BOT_TOKEN is not set");
   offer(CREDENTIAL_ATLASSIAN, env.ATLASSIAN_API_TOKEN, "ATLASSIAN_API_TOKEN is not set");
   offer(CREDENTIAL_SEARCH, env.BRAVE_SEARCH_API_KEY, "BRAVE_SEARCH_API_KEY is not set");
+  offer(CREDENTIAL_GITHUB, env.GITHUB_TOKEN, "GITHUB_TOKEN is not set (only needed for a private repository)");
 
   const base = env.ATLASSIAN_BASE_URL?.trim().replace(/\/$/, "");
   const grants: Grant[] = [];
@@ -105,6 +127,15 @@ export function credentialBrokerFromEnv(opts: EnvBrokerOptions = {}): EnvBroker 
   }
   if (credentials[CREDENTIAL_SEARCH]) {
     grants.push({ asker: ASKER_SEARCH, action: HTTP_GET, credential: CREDENTIAL_SEARCH, targets: [BRAVE_SCOPE] });
+  }
+  const githubRepo = opts.githubRepo?.trim();
+  if (credentials[CREDENTIAL_GITHUB] && githubRepo) {
+    grants.push({
+      asker: ASKER_ACTIONS,
+      action: HTTP_GET,
+      credential: CREDENTIAL_GITHUB,
+      targets: [githubActionsScope(githubRepo)],
+    });
   }
 
   return {

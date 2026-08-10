@@ -244,6 +244,12 @@ export function actorTrustKey(actor: Actor): ActorKey {
       return { kind: "channel", id: actor };
     case "transcript":
     case "usage":
+    // CI is a measuring device, not a channel: `actions` carries the exit codes of
+    // the same gates this project merges on, recorded by the thing that ran them.
+    // It sits at the instrument ceiling for the reason `usage` does — a machine
+    // recorded it and no narrator touched it — and emphatically not at a channel's,
+    // which would let the project's own build server vouch for external demand.
+    case "actions":
       return { kind: "instrument", id: actor };
     case "unknown":
       return UNATTRIBUTED_KEY;
