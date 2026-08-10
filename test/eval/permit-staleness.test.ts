@@ -70,6 +70,11 @@ afterEach(() => {
  */
 function repoWithSpec(code: number) {
   fs.mkdirSync(path.join(repo, "node_modules", ".bin"), { recursive: true });
+  // The spec has to exist for this to be a red about behaviour rather than a
+  // `no-spec` about a missing file — see test/eval/vacuous-red.test.ts, which
+  // pins the difference these cases assume.
+  fs.mkdirSync(path.join(repo, "test"), { recursive: true });
+  fs.writeFileSync(path.join(repo, "test", "a.test.ts"), "// a spec that exists\n", "utf8");
   const bin = path.join(repo, "node_modules", ".bin", "vitest");
   fs.writeFileSync(bin, `#!/bin/sh\necho "FAIL test/a.test.ts"\nexit ${code}\n`, "utf8");
   fs.chmodSync(bin, 0o755);

@@ -56,9 +56,18 @@ function withInstrument(instrument?: string) {
  * A repo whose named spec exits with `code`. Real process, real exit status —
  * the point of an observation is that something was watched, so stubbing the
  * runner would pin the wrong thing.
+ *
+ * The spec FILE is written too, and that is not incidental. Before `no-spec`
+ * existed this helper created a runner and no `test/a.test.ts`, so every case
+ * below was quietly exercising the vacuous shape — a command red because a file
+ * was missing — while claiming to exercise a red about behaviour. That the
+ * fixture drifted there without anyone deciding to is the same accident the
+ * distinction now catches in the tree.
  */
 function repoWithSpec(code: number) {
   fs.mkdirSync(path.join(repo, "node_modules", ".bin"), { recursive: true });
+  fs.mkdirSync(path.join(repo, "test"), { recursive: true });
+  fs.writeFileSync(path.join(repo, "test", "a.test.ts"), "// a spec that exists\n", "utf8");
   const bin = path.join(repo, "node_modules", ".bin", "vitest");
   fs.writeFileSync(bin, `#!/bin/sh\necho "FAIL test/a.test.ts"\nexit ${code}\n`, "utf8");
   fs.chmodSync(bin, 0o755);

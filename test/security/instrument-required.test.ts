@@ -61,6 +61,14 @@ afterEach(() => {
 /** A repo whose named spec exits with `code`. */
 function repoWithSpec(code: number) {
   fs.mkdirSync(path.join(repo, "node_modules", ".bin"), { recursive: true });
+  // Every spec this fixture's instruments can name has to exist, or the run is a
+  // `no-spec` about a missing file rather than a red about behaviour
+  // (test/eval/vacuous-red.test.ts). The swap cases below are about which
+  // observation a permit may inherit, which presumes real observations.
+  fs.mkdirSync(path.join(repo, "test"), { recursive: true });
+  for (const spec of ["a.test.ts", "b.test.ts", "guard.test.ts", "resolver.test.ts", "first.test.ts", "second.test.ts", "pay.test.ts"]) {
+    fs.writeFileSync(path.join(repo, "test", spec), "// a spec that exists\n", "utf8");
+  }
   const bin = path.join(repo, "node_modules", ".bin", "vitest");
   fs.writeFileSync(bin, `#!/bin/sh\necho "FAIL"\nexit ${code}\n`, "utf8");
   fs.chmodSync(bin, 0o755);
