@@ -149,6 +149,31 @@ trap 'rm -rf "$LOCK"' EXIT
 cd "$VAULT_DIR" || { report "Build loop could not enter the vault at $VAULT_DIR. Nothing ran."; exit 1; }
 
 # ---------------------------------------------------------------------------
+# Inherited-tree build check, before ANY work is planned on the repository.
+#
+# A merge conflict once got committed into src/cli/index.ts, and the run that
+# inherited it formed a plan, began work, and only then discovered the repo did
+# not compile. The expensive part was not the conflict; it was everything spent
+# before anyone asked whether the foundation was sound.
+#
+# This sits BEFORE the instrument preflight on purpose, not just before the
+# model call: `verify` runs the repo's own test runner, and every instrument
+# run against a repository that cannot compile comes back red — a false red,
+# recorded into the vault as a build permit nobody issued. On a broken repo
+# this loop would manufacture up to VERIFY_CAP bogus permits per firing and
+# then spend a model call on one of them.
+#
+# The stamp is written before the refusal exits: a broken repo has consumed its
+# window, same as a crashing build — retrying every tick turns a bug into a
+# bill, and the repo will not have fixed itself in ninety seconds.
+# ---------------------------------------------------------------------------
+if ! BUILD_CHECK="$(node "$CLI" build-check --repo "$OST_AGENT_DIR" 2>&1)"; then
+  echo "$NOW" >"$STAMP"
+  report "Build loop refused this firing: the repository it inherited does not build, so there is nothing sound to plan work on. $BUILD_CHECK No instrument was run and no model call was spent — a test run against a repo that cannot compile records a false red, and a false red is a build permit nobody issued. Fix or revert the named commit and the next firing proceeds normally."
+  exit 0
+fi
+
+# ---------------------------------------------------------------------------
 # Preflight: which solutions does the tree's own gate permit? No model call.
 #
 # `## Results` on an AssumptionTest is the marker `hasRecordedResult` reads to clear

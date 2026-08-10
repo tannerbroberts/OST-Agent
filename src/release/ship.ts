@@ -170,7 +170,7 @@ export function tail(output: string, lines = 20): string {
 /** How a command is actually run. Injectable so tests never spawn anything. */
 export type Runner = (argv: readonly string[], cwd: string) => { status: number | null; output: string };
 
-const spawnRunner: Runner = (argv, cwd) => {
+export const spawnRunner: Runner = (argv, cwd) => {
   const [command, ...args] = argv;
   // shell:false is the default and is the point — see the module note on laundering.
   const run = spawnSync(command!, args, { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
