@@ -3080,8 +3080,15 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2546 tests across 193 files, verified 2026-08-10 (`npx vitest run`,
-> after the refusal-coverage census landed: of the **24** distinct refusal classes in 646
+> *Today:* **met** — 2584 tests across 194 files, verified 2026-08-10 (`npx vitest run`,
+> after the hand-exclusion census landed: **4** distinct test files have ever been
+> suppressed by hand across 657 recorded sessions, against a bar the assumption test fixed
+> at 3 before anyone counted — so a committed quarantine list has subjects. What the same
+> census refutes is the argument for it: **0** of the 4 was excluded in a second session,
+> three of the four were excluded by one subagent inside two minutes, and hand exclusion is
+> 14 of 1912 runner invocations (`src/telemetry/hand-exclusion.ts`,
+> `test/telemetry/hand-exclusion-census.test.ts`, `test/fixtures/hand-exclusion/PROVENANCE.md`).
+> Earlier, after the refusal-coverage census landed: of the **24** distinct refusal classes in 646
 > recorded sessions, a manifest folded from tool schemas alone could have named **8**
 > (33%) against a bar the assumption test fixed at 60% before anyone counted — and on the
 > reading the solution's own cost argument means, a rule a schema *keyword* carries, **0

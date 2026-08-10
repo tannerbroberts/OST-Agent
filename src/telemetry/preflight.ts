@@ -550,18 +550,46 @@ export function readUsageEvents(vaultDir: string): UsageEvent[] {
   return events;
 }
 
-/** Read every `*.jsonl` session transcript in a directory, oldest name first. */
+/**
+ * Read every `*.jsonl` session transcript under a directory, oldest name first.
+ *
+ * **The walk recurses, and that is a correction rather than a convenience.** It
+ * read one directory deep until 2026-08-10, and Claude Code does not store a
+ * project's transcripts flat: a subagent's session lands under
+ * `<project>/subagents/**`, and on the machine that produced this vault those
+ * nested files are **346 of 658** — more than half the record. Every census
+ * built on this function was therefore reporting a share of the sessions that
+ * happened to be top level while calling it "the captured sessions".
+ *
+ * That is not hypothetical. Three of the four distinct test files the
+ * hand-exclusion census counts (`src/telemetry/hand-exclusion.ts`) were excluded
+ * by a subagent, so a flat read would have found one file, missed the other
+ * three, and reported the census red — a finding manufactured by the reader.
+ *
+ * A session's id stays its file's basename, so a nested transcript is named the
+ * same way whoever needs to find it by hand would name it.
+ */
 export function readTranscriptSessions(dir: string): TranscriptSession[] {
-  let names: string[];
-  try {
-    names = fs.readdirSync(dir).filter((n) => n.endsWith(".jsonl")).sort();
-  } catch {
-    return [];
-  }
-  const sessions: TranscriptSession[] = [];
-  for (const name of names) {
+  const files: string[] = [];
+  const walk = (at: string) => {
+    let entries: fs.Dirent[];
     try {
-      sessions.push({ id: name.replace(/\.jsonl$/, ""), jsonl: fs.readFileSync(path.join(dir, name), "utf8") });
+      entries = fs.readdirSync(at, { withFileTypes: true });
+    } catch {
+      return; // an unreadable directory is fewer sessions, never a thrown census
+    }
+    for (const entry of entries.sort((a, b) => (a.name < b.name ? -1 : 1))) {
+      const full = path.join(at, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith(".jsonl")) files.push(full);
+    }
+  };
+  walk(dir);
+
+  const sessions: TranscriptSession[] = [];
+  for (const file of files) {
+    try {
+      sessions.push({ id: path.basename(file).replace(/\.jsonl$/, ""), jsonl: fs.readFileSync(file, "utf8") });
     } catch {
       // an unreadable transcript is one fewer session, reported as `unread` coverage
     }

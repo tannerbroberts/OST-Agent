@@ -1,0 +1,13 @@
+{
+ "projectsRoot": "/Users/tanner/.claude/projects",
+ "transcriptsFound": 658,
+ "transcriptsNested": 346,
+ "excludedSessions": [
+  "5bca8279-ec67-41c1-a832-b32a3dad66a0"
+ ],
+ "sessionsRead": 657,
+ "invocations": 1912,
+ "narrowed": 1351,
+ "unread": 320,
+ "unreadableMentioningExclude": 1
+}

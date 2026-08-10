@@ -81,6 +81,9 @@ import {
   formatPathFailureCensus, pathFailureCensus, readPathFailures,
 } from "../telemetry/path-failure-attribution.js";
 import {
+  formatHandExclusionCensus, handExclusionCensus, readHandExclusions,
+} from "../telemetry/hand-exclusion.js";
+import {
   formatRefusalCoverageCensus, refusalCoverageCensus,
 } from "../telemetry/refusal-coverage.js";
 import {
@@ -926,6 +929,32 @@ program
     // A census that read no argument has not found "no patterns" — it has found
     // nothing, and an automation has to learn that through the exit code.
     if (census.args === 0) process.exitCode = 1;
+  });
+
+program
+  .command("exclusions")
+  .description("how many distinct test files were ever suppressed by hand — the census behind committing a quarantine list")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option(
+    "--transcripts <dir>",
+    "a directory of session transcripts to read the exclusions out of (repeatable); defaults to this project's own",
+    collect,
+    [],
+  )
+  .action((opts: { vault: string; transcripts: string[] }) => {
+    // Deliberately NOT `buildPassContext`, for the reason `preflight` gives: this
+    // reads transcripts and answers a question about them, and opening a Vault
+    // handle would create the directory a mistyped path names.
+    const vault = path.resolve(opts.vault);
+    const dirs = opts.transcripts.length ? opts.transcripts : [defaultTranscriptDir(vault)];
+    const sessions = dirs.flatMap((d) => readTranscriptSessions(path.resolve(d)));
+    const { exclusions, unread, invocations, narrowed } = readHandExclusions(sessions);
+    const census = handExclusionCensus(exclusions, { sessionsRead: sessions.length, invocations, narrowed, unread });
+    console.log(formatHandExclusionCensus(census));
+    // Reading no runner invocation is not "nobody excludes anything" — it is a
+    // sweep that could not read its subject, and an automation has to learn that
+    // through the exit code rather than off a report that looks clean.
+    if (census.invocations === 0) process.exitCode = 1;
   });
 
 program

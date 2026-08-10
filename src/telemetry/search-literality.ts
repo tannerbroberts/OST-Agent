@@ -63,6 +63,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { TranscriptSession } from "./preflight.js";
+import { SHELL_GROUPING, SHELL_OPERATORS, SHELL_UNREADABLE, shellWords } from "./shell.js";
 
 /**
  * Which language an argument was written in, and therefore what may malform it.
@@ -641,84 +642,6 @@ export function classifyProvenance(
 
 // ── reading the searches out of the record ───────────────────────────────────
 
-/** The unquoted operators that end one command and begin another. */
-const SHELL_OPERATORS = ["||", "&&", "|", ";", "&", "\n", ">>", ">", "<"];
-
-/**
- * Split a shell command into words, or refuse it. Quoting is preserved as data,
- * and an operator is its own word whether or not spaces were typed around it —
- * `ls|grep x` is two commands, and a reader that missed that would hand `grep`'s
- * flags to `ls`.
- */
-function shellWords(command: string): { words: string[]; quoted: boolean[] } | null {
-  const words: string[] = [];
-  const quoted: boolean[] = [];
-  let current = "";
-  let started = false;
-  let wasQuoted = false;
-  let quote: '"' | "'" | null = null;
-
-  const flush = () => {
-    if (!started) return;
-    words.push(current);
-    quoted.push(wasQuoted);
-    current = "";
-    started = false;
-    wasQuoted = false;
-  };
-
-  for (let i = 0; i < command.length; i++) {
-    const ch = command[i];
-    if (quote) {
-      if (ch === quote) {
-        quote = null;
-        continue;
-      }
-      // Inside double quotes a backslash escapes only these four; before anything
-      // else it is a backslash, and `"\|"` reaching grep as `\|` is the difference
-      // between an alternation and a literal pipe.
-      if (ch === "\\" && quote === '"' && '$`"\\'.includes(command[i + 1] ?? "")) {
-        current += command[++i];
-        started = true;
-        continue;
-      }
-      current += ch;
-      started = true;
-      continue;
-    }
-    if (ch === "'" || ch === '"') {
-      quote = ch;
-      started = true;
-      wasQuoted = true;
-      continue;
-    }
-    if (ch === "\\" && i + 1 < command.length) {
-      current += command[++i];
-      started = true;
-      continue;
-    }
-    if (/\s/.test(ch) && ch !== "\n") {
-      flush();
-      continue;
-    }
-    const operator = SHELL_OPERATORS.find((op) => command.startsWith(op, i));
-    if (operator) {
-      flush();
-      words.push(operator);
-      quoted.push(false);
-      i += operator.length - 1;
-      continue;
-    }
-    current += ch;
-    started = true;
-  }
-  if (quote) return null; // unbalanced quoting: this module will not guess
-  flush();
-  return { words, quoted };
-}
-
-/** Commands whose text this module refuses to read as a fixed argument. */
-const SHELL_UNREADABLE = /\$\(|`|\$\{|<\(/;
 
 interface ShellSearch {
   /** The words of one `rg`/`grep`/`ls`/`find` invocation, without the command name. */
@@ -761,7 +684,7 @@ function shellSearches(command: string, cwd: string): ShellSearch[] | null {
 
   for (let i = 0; i < parsed.words.length; i++) {
     const word = parsed.words[i];
-    if (!parsed.quoted[i] && (SHELL_OPERATORS.includes(word) || ["(", ")", "{", "}"].includes(word))) {
+    if (!parsed.quoted[i] && (SHELL_OPERATORS.includes(word) || SHELL_GROUPING.includes(word))) {
       flush();
       segmentStart = true;
       continue;
