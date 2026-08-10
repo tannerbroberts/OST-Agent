@@ -21,6 +21,17 @@
  * instrument passes, the solution has been built and the ticket is spent. So a
  * test that has gone green stops being a reason to start work.
  *
+ * **A red only counts when it is red about something.** An instrument naming a
+ * spec file nobody has written also exits non-zero, and that failure is about the
+ * filesystem rather than the solution: it would be identical under any title,
+ * any threshold, any question, and an empty spec file would flip it green. Such
+ * a run is filed as `no-spec` rather than red ({@link ../ost/instrument.ts}) and
+ * mints no permit. Reds recorded before that distinction existed are caught at
+ * spend time by {@link confirmPermit}, because the log is append-only and cannot
+ * be corrected in place — the command can be re-run, and the re-run tells the
+ * truth. The remaining work on such a test is to write the failing spec, which
+ * is the thing that actually hands a builder a definition of done.
+ *
  * **A recorded observation is a fact about the past, and a permit is a claim
  * about now.** Everything above reads the node and nothing runs the command, so
  * a permit stays cleared for exactly as long as nobody re-observes it — and the
@@ -174,6 +185,27 @@ export function confirmPermit(
 
   const observed = run(parsed, repoDir);
   if (observed.observation === "red") return permit;
+
+  // Fail-closed on a vacuous red, and this is the direction that matters most on
+  // a tree with history. A permit minted before `no-spec` existed reads `**red**`
+  // in an append-only log that must not be rewritten, so the recorded line cannot
+  // be corrected — but the command can be re-run, and re-running it now says
+  // plainly that nothing was ever measured. Catching it here rather than in
+  // `buildPermit` keeps the hot path pure and puts the check exactly where
+  // something is about to be spent.
+  if (observed.observation === "no-spec") {
+    return {
+      cleared: false,
+      test: permit.test,
+      instrument: permit.instrument,
+      reason:
+        `"${permit.test}" is recorded red, but \`${permit.instrument}\` collects no spec against this repository ` +
+        `(${observed.excerpt}) — so the red says a file is missing, not that any behaviour is. That is not a ` +
+        `definition of done: every question written on that filename would be equally red, and an empty spec ` +
+        `would turn it green. The work is to write the failing spec first — one assertion that names what the ` +
+        `solution must do and fails because it does not do it yet — and then build until it passes.`,
+    };
+  }
 
   return {
     cleared: false,

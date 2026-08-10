@@ -27,20 +27,58 @@
  * for a metacharacter to reach even if one survived the parse.
  */
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { isInstrument, parseInstrument, type ParsedInstrument } from "../knowledge/instruments.js";
 import { INSTRUMENT_LOG_HEADING } from "./headings.js";
 import type { OstNode } from "./node.js";
 import { Vault } from "./vault.js";
 
-/** How an instrument's exit code reads. */
-export type Observation = "red" | "green";
+/**
+ * How an instrument's exit code reads.
+ *
+ * `no-spec` is a third answer, and adding it is the point of this distinction.
+ * A command that exits non-zero because the runner found nothing to collect has
+ * not measured the behaviour — it has measured the absence of a file. Both look
+ * like "exit 1" and only one of them is a test.
+ */
+export type Observation = "red" | "green" | "no-spec";
 
 export interface InstrumentRun {
   observation: Observation;
   exitCode: number | null;
   /** First meaningful line of output, for the log line. Never the whole run. */
   excerpt: string;
+}
+
+/**
+ * Did this run fail because no spec was collected, rather than because one
+ * failed?
+ *
+ * **This is the difference between a falsifiable prediction and a filename.** An
+ * instrument is supposed to be red because the behaviour it names does not exist
+ * yet — the agent stakes a claim and the repository refutes it. But `npx vitest
+ * run test/thing.test.ts` against a repository with no `test/thing.test.ts` also
+ * exits non-zero, for a reason that has nothing to do with the node: swap the
+ * test's title, its threshold, its whole question, and the command stays exactly
+ * as red. Every question is equally "refuted" by a file that was never written,
+ * which means the observation distinguishes nothing and the red is vacuous.
+ *
+ * That is not hypothetical either. Of 266 recorded reds in the meta vault on
+ * 2026-08-09, 260 read "No test files found" — the tree's entire stock of
+ * evidence that its tests could fail was, on inspection, evidence that 241 spec
+ * files had never been written. {@link ../knowledge/instruments.ts} justifies the
+ * closed form on the grounds that "an agent cannot author the outcome — only name
+ * the file", and that argument holds only while the file exists. Naming a file
+ * that does not authors the outcome completely.
+ *
+ * Kept deliberately narrow, so it fails toward treating a red as genuine: only
+ * "the runner collected no spec at all" counts. A spec that exists and throws on
+ * import — because it imports a module the solution has not created yet — is a
+ * real red, and the commonest honest one in test-first work.
+ */
+function collectedNothing(output: string): boolean {
+  return /no test files found/i.test(output);
 }
 
 /** The declared instrument on a node, or undefined when there is none that parses. */
@@ -72,9 +110,24 @@ function currentObservations(node: OstNode): string[] {
 /**
  * Has the CURRENT instrument been observed red? The precondition for a green
  * being meaningful, and the signal the build permit reads.
+ *
+ * A `no-spec` line is deliberately not a red here, and the marker is what keeps
+ * the two apart in an append-only log that cannot be rewritten: a vacuous run
+ * files `**no-spec**`, which this pattern does not match, so it never mints a
+ * permit. Reds recorded before that distinction existed still say `**red**` and
+ * still match — {@link ../eval/buildable.ts#confirmPermit} is what catches those,
+ * by re-running the command before anything is spent on it.
  */
 export function observedRed(node: OstNode): boolean {
   return currentObservations(node).some((l) => /\*\*red\*\*/i.test(l));
+}
+
+/**
+ * Has the CURRENT instrument been observed to collect nothing? The state where a
+ * test names a spec that nobody has written, which is work rather than a fault.
+ */
+export function observedNoSpec(node: OstNode): boolean {
+  return currentObservations(node).some((l) => /\*\*no-spec\*\*/i.test(l));
 }
 
 /** Has the CURRENT instrument been observed green — i.e. is it already built? */
@@ -98,6 +151,20 @@ export function instrumentLog(node: OstNode): string[] {
 
 /** Run an instrument against a repository. Never through a shell. */
 export function runInstrument(instrument: ParsedInstrument, repoDir: string): InstrumentRun {
+  // Short-circuit the commonest vacuous red without paying for a runner start.
+  // A missing spec file is answerable from the filesystem, and answering it here
+  // means a queue full of un-written specs costs nothing to re-check every pass —
+  // which matters, because that queue is meant to be re-checked until somebody
+  // writes them.
+  const target = path.resolve(repoDir, instrument.target);
+  if (!existsSync(target)) {
+    return {
+      observation: "no-spec",
+      exitCode: null,
+      excerpt: `${instrument.target} does not exist — no spec was collected, so nothing was measured`,
+    };
+  }
+
   const run = spawnSync("npx", instrument.argv, {
     cwd: path.resolve(repoDir),
     encoding: "utf8",
@@ -108,11 +175,19 @@ export function runInstrument(instrument: ParsedInstrument, repoDir: string): In
 
   const exitCode = run.status;
   const output = `${run.stdout ?? ""}\n${run.stderr ?? ""}`;
-  return {
-    observation: exitCode === 0 ? "green" : "red",
-    exitCode,
-    excerpt: firstMeaningfulLine(output, run.error?.message),
-  };
+  if (exitCode === 0) {
+    return { observation: "green", exitCode, excerpt: firstMeaningfulLine(output, run.error?.message) };
+  }
+  // The file is there but the runner still collected nothing from it — an empty
+  // spec, or one whose cases are all skipped. Non-zero, and still not a measurement.
+  if (collectedNothing(output)) {
+    return {
+      observation: "no-spec",
+      exitCode,
+      excerpt: `${instrument.target} collected no test cases — nothing in it can fail, so nothing was measured`,
+    };
+  }
+  return { observation: "red", exitCode, excerpt: firstMeaningfulLine(output, run.error?.message) };
 }
 
 /**
@@ -178,6 +253,21 @@ export function verifyInstrument(vaultDir: string, filing: VerifyFiling): Verify
 
   const run = runInstrument(parsed, filing.repo);
   const alreadyRed = observedRed(node);
+
+  // A vacuous run is filed, not refused. Refusing would throw away the one fact
+  // worth having — that this test's spec has never been written — and leave the
+  // node looking un-run, which is a different and less actionable state. Filed
+  // under its own marker, it stays visible, stays in the verification queue, and
+  // mints no permit, so the next pass re-checks it the moment somebody writes the
+  // spec. The message says what to do rather than what went wrong, because
+  // writing that spec IS the work: a failing assertion is the definition of done
+  // a builder can act on, and a missing file is not.
+  if (run.observation === "no-spec") {
+    const on = filing.on ?? new Date().toISOString().slice(0, 10);
+    const line = `- ${on} **no-spec** (exit ${run.exitCode ?? "none"}) \`${parsed.command}\` — ${run.excerpt}`;
+    vault.appendUnderSection(filing.test, INSTRUMENT_LOG_HEADING, line);
+    return { line, run, instrument: parsed, transitioned: false };
+  }
 
   // The validity rule. A first observation that is green means the instrument
   // does not measure the solution — it measures something that was already true,

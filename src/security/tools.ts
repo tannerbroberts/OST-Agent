@@ -749,7 +749,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
           instrument: {
             type: "string",
             description:
-              "AssumptionTest only, and REQUIRED for one unless `humansRequired` is given: the command whose exit code answers this test — the executable half of the threshold. Exactly one spec file in the repository's own suite, e.g. 'npx vitest run test/git/conflict-guard.test.ts'. It MUST fail against the repository today and pass only once the solution is built: an instrument that already passes cannot fail, so it measures nothing and gives a builder no definition of done. Nothing else is accepted — no shell punctuation, no arbitrary command — because a verdict has to come from committed code rather than from a string you chose.",
+              "AssumptionTest only, and REQUIRED for one unless `humansRequired` is given: the command whose exit code answers this test — the executable half of the threshold. Exactly one spec file in the repository's own suite, e.g. 'npx vitest run test/git/conflict-guard.test.ts'. It MUST fail against the repository today and pass only once the solution is built: an instrument that already passes cannot fail, so it measures nothing and gives a builder no definition of done. It must also fail for a reason specific to THIS test — a spec file that does not exist yet fails identically no matter what question you wrote on it, so that run is filed as `no-spec`, grants no build permit, and leaves the test unfinished until the spec exists and an assertion in it fails. Nothing else is accepted — no shell punctuation, no arbitrary command — because a verdict has to come from committed code rather than from a string you chose.",
           },
           humansRequired: {
             type: "string",
@@ -1009,7 +1009,8 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
           },
           why: {
             type: "string",
-            description: "What this command measures, and why it fails today — one sentence, recorded in the node's History.",
+            description:
+              "What this command measures, and why it fails today — one sentence, recorded in the node's History. Say what the spec asserts, not just which file it lives in: a command is only meaningfully red when a spec exists and an assertion in it fails. A file that has not been written yet also exits non-zero, identically for every question anyone could write on it, so it is filed as `no-spec` and grants no build permit.",
           },
         },
         required: ["test", "instrument", "why"],
