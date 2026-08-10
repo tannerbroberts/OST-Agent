@@ -189,13 +189,20 @@ const TRACE_READER_MODULES: Record<string, string> = {
  * property, and it is the reason the census may be printed unconditionally on every
  * firing while the degraded banner may not.
  *
+ * `question-bank.ts` is the fourth: a banked question's partition is advice to
+ * the next pass about what an unanswered fork holds up. Nothing branches on it,
+ * no exit code carries it — `ost-agent bank-question` exits non-zero only for a
+ * bank it cannot locate, never as a verdict on the work. The bank lives in
+ * `.git/ost-agent/` beside the claim ledger, so the same part-2 property covers
+ * the file: no vault-writing tool can reach it.
+ *
  * The property that keeps this class from being a hole is asserted below: no
  * decider imports a reporter. The moment one does, its reads become decider inputs
  * and this classification fails the build rather than silently going stale. That
  * assertion is doing real work for `senses.ts` specifically: it is the line that
  * would fail the build if a future change ever let the census decide anything.
  */
-const REPORTER_MODULES = ["questions.ts", "corrections.ts", "senses.ts"];
+const REPORTER_MODULES = ["questions.ts", "corrections.ts", "senses.ts", "question-bank.ts"];
 
 /**
  * The fifth class, and the one that could most easily have been a hole.

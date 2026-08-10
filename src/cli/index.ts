@@ -28,6 +28,7 @@
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
  *   ost-agent corrections [--state DIR]       refusals this workspace already paid for, for the next session to read
  *   ost-agent claim "<work>" --briefing F     take the work before building it, so a second pass sees it is taken
+ *   ost-agent bank-question "<q>" ...         bank a fork instead of stopping at it, costed by the work it holds up
  *   ost-agent allowlist --skill F --settings F  derive a run's permission grant from the skill's own allowed-tools
  *   ost-agent grants --skill F --settings F   name every tool a run declares that its grant does not cover
  *   ost-agent ship --repo DIR                 run the gates locally and merge the branch if they are green
@@ -106,6 +107,7 @@ import { runAllowlistGenerator } from "../security/allowlist-generator.js";
 import { runGrantPreflight } from "../runner/grant-preflight.js";
 import { REQUIRED_TOOLS_EXIT, checkRequiredTools } from "../mcp/required-tools.js";
 import { loopStateDir, workingTreeStatus, type VaultTreeStatus } from "../loop/state.js";
+import { bankQuestion, readQuestionBank } from "../loop/question-bank.js";
 import {
   DEFAULT_QUIET_MINUTES, emptyCorrectionsLedger, readLedger, recordCorrections, renderCorrections,
 } from "../loop/corrections.js";
@@ -1253,6 +1255,84 @@ program
     if (outcome.status === "already-claimed") process.exitCode = CLAIM_EXIT.alreadyClaimed;
     else if (outcome.status === "unresolved") process.exitCode = CLAIM_EXIT.unresolved;
   });
+
+program
+  .command("bank-question")
+  .argument("[question]", "the question the run cannot answer, verbatim")
+  .description(
+    "bank a fork instead of stopping at it: record the question, the option the run would pick, and the outstanding " +
+      "work — partitioned by the committed dependence rule into what can proceed and what the answer holds up",
+  )
+  .option("--header <text>", "short label for the fork")
+  .option("-o, --option <text...>", "an option as the run saw it, `label — description` (repeatable)")
+  .option("--pick <label>", "the option the run would take on its own")
+  .option("--why <text>", "why the run would take it")
+  .option("-w, --holds <item...>", "one item of the run's outstanding work at this fork (repeatable)")
+  .option("--state <dir>", "where the bank lives (default: <vault>/.git/ost-agent)")
+  .option("--list", "print the banked questions and bank nothing")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action(
+    (
+      question: string | undefined,
+      opts: {
+        header?: string;
+        option?: string[];
+        pick?: string;
+        why?: string;
+        holds?: string[];
+        state?: string;
+        list?: boolean;
+        vault: string;
+      },
+    ) => {
+      // Same fail-closed shape as `claim`, for the same reason: a bank that
+      // silently lands nowhere is a question the next pass never drains.
+      const state = opts.state ? path.resolve(opts.state) : loopStateDir(opts.vault);
+      if (state === null) {
+        console.error(
+          "cannot locate a question bank: pass --state <dir>, or point --vault at a git checkout — the bank lives under its .git/, never in the working tree.",
+        );
+        process.exitCode = 1;
+        return;
+      }
+
+      if (opts.list) {
+        const banked = readQuestionBank(state);
+        if (banked.length === 0) {
+          console.log("question bank: empty — no fork has been banked here.");
+          return;
+        }
+        for (const q of banked) {
+          console.log(`[${q.askedAt}] ${q.fork.header ? `(${q.fork.header}) ` : ""}${q.fork.question}`);
+          if (q.wouldPick) console.log(`  would pick: ${q.wouldPick}${q.why ? ` — ${q.why}` : ""}`);
+          console.log(`  holds up ${q.cost} item(s); ${q.partition.canProceed.length} can proceed without it`);
+          for (const w of q.partition.turnsOnAnswer) console.log(`    blocked: ${w}`);
+        }
+        return;
+      }
+
+      if (!question) {
+        console.error('not banked: say what the question is — `ost-agent bank-question "<question>" ...`.');
+        process.exitCode = 1;
+        return;
+      }
+
+      const banked = bankQuestion(state, {
+        askedAt: new Date().toISOString(),
+        fork: { header: opts.header ?? "", question, options: opts.option ?? [] },
+        wouldPick: opts.pick,
+        why: opts.why,
+        outstanding: opts.holds ?? [],
+      });
+      console.log(
+        `BANKED — the answer holds up ${banked.cost} of ${banked.partition.calls.length} outstanding item(s).`,
+      );
+      for (const call of banked.partition.calls) {
+        console.log(`  ${call.turnsOnAnswer ? "blocked " : "proceed "} ${call.work}`);
+        console.log(`           ${call.why}`);
+      }
+    },
+  );
 
 program
   .command("allowlist")
