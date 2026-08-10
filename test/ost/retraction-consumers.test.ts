@@ -53,6 +53,7 @@ import { checkInvariants } from "../../src/eval/invariants.js";
 import { renderCheck, renderDebt, renderGate, renderStatus } from "../../src/eval/render.js";
 import { rollupTree } from "../../src/eval/rollup.js";
 import { computeNextWork } from "../../src/mcp/next-work.js";
+import { readNodeBody } from "../../src/mcp/node-body.js";
 import { MCP_TOOL_NAMES } from "../../src/mcp/server.js";
 import { formatCensus, isRetractedNode, retractionReason } from "../../src/ost/census.js";
 import { RESERVED_HEADINGS, RETRACTION_HEADING, declaresHeading } from "../../src/ost/headings.js";
@@ -169,10 +170,19 @@ describe("the consumer set, enumerated and held there", () => {
     // `ost/stranded.ts` is the sixth, added with that argument made: the stranded
     // census asks which nodes quote an evidence id, and a retracted node's prose
     // must not be able to answer yes — see the assertion below.
+    //
+    // `mcp/node-body.ts` is the seventh, and honouring retraction is the reason
+    // it reads through `readTree()` at all: the body read resolves a title
+    // against the NODE SET rather than the directory, so a retracted node is
+    // refused as a miss instead of served — a full-body read of a node every
+    // other consumer withholds would be a brand-new channel for exactly the
+    // content retraction exists to take out of circulation. Asserted below
+    // ("the body read — a retracted node's body is refused, not served").
     expect(readers).toEqual([
       path.join("cli", "index.ts"),
       path.join("mcp", "bootstrap.ts"),
       path.join("mcp", "next-work.ts"),
+      path.join("mcp", "node-body.ts"),
       path.join("ost", "stranded.ts"),
       path.join("runner", "set-outcome.ts"),
       path.join("security", "tools.ts"),
@@ -286,6 +296,16 @@ describe("a retracted node is in no count, scan, gate or rollup", () => {
   test("the duplicate scan — and unlike `deferred`, without asking for a filter", () => {
     retract(REGRETTED);
     expect(work().hygieneIssues.filter((i) => i.rule === "near-duplicate")).toEqual([]);
+  });
+
+  test("the body read — a retracted node's body is refused, not served", () => {
+    // The seventh reader's argument, made load-bearing. A full-body read is the
+    // highest-bandwidth channel a node has, so a retraction it did not honour
+    // would put back into circulation exactly the content every other consumer
+    // withholds. Before the retraction it serves (the control); after, a miss.
+    expect(readNodeBody(vault, REGRETTED).prose).toContain(`prose for ${REGRETTED}`);
+    retract(REGRETTED);
+    expect(() => readNodeBody(new Vault(dir), REGRETTED)).toThrow(/no node on the tree/);
   });
 
   test("the sweep — it is in no hygiene issue, and it is still named as retired", () => {

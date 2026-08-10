@@ -381,7 +381,7 @@ interface Row {
 }
 
 const ROWS: Record<string, Row> = {
-  ost_read_tree: { why: "read-only, no arguments", aim: () => ({}) },
+  ost_read_tree: { why: "read-only; `node` serves one body and writes nothing", aim: () => ({}) },
   ost_next_work: { why: "read-only, no arguments", aim: () => ({}) },
   ost_check: { why: "read-only, no arguments", aim: () => ({}) },
   ost_debt: { why: "read-only, no arguments", aim: () => ({}) },
