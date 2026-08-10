@@ -1,0 +1,285 @@
+/**
+ * The consumer census the assumption test asked for — every place that reads a
+ * suite result as a pass-or-fail boolean, enumerated and held there.
+ *
+ * The candidate this sizes: "A result carries its own exclusion set, so a gate
+ * cannot read it as full coverage." Its cost is not building the richer result —
+ * it is that every consumer of a suite verdict has to be taught to read the new
+ * shape, and an untaught one keeps reading the boolean beside a live exclusion
+ * set and becomes MORE wrong than before. A partial rollout is worse than none,
+ * so the question that decides whether to start is how many places must change,
+ * and whether any of them can only move in lockstep.
+ *
+ * The unit is a CHANNEL, not a call site — the argument
+ * `test/ost/retraction-consumers.test.ts` already made for node readers:
+ * seventeen call sites that all read one function are one consumer, and
+ * counting them separately fails a census on a number that says nothing about
+ * the migration. A channel here is one conversion of a suite's exit status (or
+ * CI conclusion) into a verdict, together with the closed set of files that
+ * read the shape it produces. The closed sets are what turn "can be migrated in
+ * a single change" from a judgement into a scan: a channel whose readers are
+ * pinned is a channel one commit can teach.
+ *
+ * The answer, pinned below: FIVE channels — exactly the threshold's bar, with
+ * no room left in it.
+ *
+ *   1. The ship gate — `runGates` reads `status === 0` on `npx vitest run`, and
+ *      the merge to main turns on it.
+ *   2. The instrument observation — `runInstrument` maps exit 0 to green, and a
+ *      green is a spent build permit.
+ *   3. The loop's own build check — `loop step` records the phase command's
+ *      exit, and `computeVerdict` reads any non-zero step as unhealthy.
+ *   4. GitHub CI — the `npm test` step's exit is the job's whole verdict.
+ *   5. The CI-run digest — the actions adapter reads a run's `conclusion`
+ *      string as pass/fail, secondhand from #4.
+ *
+ * Three migrate independently. The last two only in lockstep with each other:
+ * GitHub's `conclusion` field is one bit wide and neither side of it can widen
+ * it, so a richer result there means CI publishing the exclusion set through
+ * some new channel and the digest reading it — a writer and a reader that must
+ * move together. Both live in this repository, so the pair is still one commit,
+ * and the threshold's second clause ("every one can be migrated in a single
+ * change") holds for all five.
+ *
+ * What this deliberately does NOT count. Readers of suite OUTPUT rather than of
+ * the boolean: a human or an agent running `npx vitest run` is shown "2
+ * skipped" in the report, so the invisibility this candidate exists to fix
+ * lives only in code that collapses the result to one bit. And it counts
+ * consumers, not the undeclared shortfalls they would newly catch — the node
+ * itself says sizing that upside needs its own replay over past runs, and
+ * nothing here claims it.
+ */
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, test } from "vitest";
+
+const ROOT = path.resolve(fileURLToPath(new URL("../..", import.meta.url)));
+const SRC = path.join(ROOT, "src");
+
+/** Every `.ts` file under `src/`, read once. */
+function sources(): Array<{ rel: string; text: string }> {
+  const out: Array<{ rel: string; text: string }> = [];
+  const walk = (d: string): void => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith(".ts")) out.push({ rel: path.relative(SRC, p), text: fs.readFileSync(p, "utf8") });
+    }
+  };
+  walk(SRC);
+  return out;
+}
+
+/** A repo-relative file, read as committed. */
+function readRepo(rel: string): string {
+  return fs.readFileSync(path.join(ROOT, ...rel.split("/")), "utf8");
+}
+
+interface Anchor {
+  /** Repo-relative file the one-bit read lives in. */
+  readonly file: string;
+  /** The read itself. When this stops matching, the census has rotted. */
+  readonly reads: RegExp;
+}
+
+interface Consumer {
+  readonly name: string;
+  readonly anchors: readonly Anchor[];
+  /** Every file a migration to the richer shape must touch, together. */
+  readonly migration: readonly string[];
+  /** Census names this consumer can only migrate in lockstep with. */
+  readonly lockstepWith: readonly string[];
+}
+
+const CENSUS: readonly Consumer[] = [
+  {
+    name: "the ship gate",
+    anchors: [
+      { file: "src/release/ship.ts", reads: /const passed = status === 0;/ },
+      { file: "src/release/ship.ts", reads: /argv: \["npx", "vitest", "run"\]/ },
+    ],
+    // `runGates` converts, `shipRepo` acts on it, the CLI reads `.shipped` and
+    // prints the summary. All three are asserted closed below.
+    migration: ["src/release/ship.ts", "src/release/ship-repo.ts", "src/cli/index.ts"],
+    lockstepWith: [],
+  },
+  {
+    name: "the instrument observation",
+    anchors: [
+      { file: "src/ost/instrument.ts", reads: /if \(exitCode === 0\) \{/ },
+      // This channel already reads PAST the boolean — `no-spec` is decided by
+      // inspecting output, not the exit code — which is the existence proof for
+      // the whole migration: one consumer was taught to read a richer result
+      // and nothing downstream broke, because everything downstream reads
+      // `InstrumentRun` through the one function.
+      { file: "src/ost/instrument.ts", reads: /no test files found/i },
+    ],
+    migration: ["src/ost/instrument.ts", "src/eval/buildable.ts", "src/cli/index.ts"],
+    lockstepWith: [],
+  },
+  {
+    name: "the loop's own build check",
+    anchors: [
+      { file: "src/loop/health.ts", reads: /run\.steps\.some\(\(s\) => s\.exit !== 0\)/ },
+      // The recorder: `loop step` spawns the phase command as argv and records
+      // the exit it actually produced. `exitLaundering.ts` guards this channel;
+      // it does not read it.
+      { file: "src/cli/loop.ts", reads: /spawnSync\(command\[0\]/ },
+    ],
+    migration: ["src/loop/health.ts", "src/cli/loop.ts"],
+    lockstepWith: [],
+  },
+  {
+    name: "GitHub CI",
+    anchors: [{ file: ".github/workflows/ci.yml", reads: /run: npm test/ }],
+    migration: [".github/workflows/ci.yml"],
+    lockstepWith: ["the CI-run digest"],
+  },
+  {
+    name: "the CI-run digest",
+    anchors: [{ file: "src/adapters/actions.ts", reads: /conclusion === "failure"/ }],
+    migration: ["src/adapters/actions.ts"],
+    lockstepWith: ["GitHub CI"],
+  },
+];
+
+describe("the consumer set, enumerated and held there", () => {
+  test("every subprocess door under src/ is one of five files, and only three of them can run a suite", () => {
+    // A suite verdict enters this codebase through a spawned process, so the
+    // spawners bound the firsthand consumers. Exact, like the retraction
+    // census's pin: a sixth spawner is an argument someone makes in a diff —
+    // "does this read a suite verdict, and if so, which channel is it?" —
+    // rather than a line that slips through.
+    const doors = sources()
+      .filter((f) => f.text.includes('"node:child_process"'))
+      .map((f) => f.rel)
+      .sort();
+    expect(doors).toEqual([
+      path.join("cli", "loop.ts"),
+      path.join("loop", "state.ts"),
+      path.join("ost", "instrument.ts"),
+      path.join("release", "ship-repo.ts"),
+      path.join("release", "ship.ts"),
+    ]);
+
+    // `loop/state.ts` is provably git-only: every spawn names "git" as a
+    // literal, so it cannot receive a suite and is not a consumer. The other
+    // four are the census's channels 1–3 (`ship-repo.ts` is the ship gate's
+    // injected runner, not a channel of its own).
+    const state = readRepo("src/loop/state.ts");
+    const spawns = state.match(/spawnSync\(/g) ?? [];
+    const gitSpawns = state.match(/spawnSync\("git"/g) ?? [];
+    expect(spawns.length).toBeGreaterThan(0);
+    expect(gitSpawns.length).toBe(spawns.length);
+  });
+
+  test("five channels — the threshold's own number — each still reading the boolean where the census says", () => {
+    for (const c of CENSUS) {
+      for (const a of c.anchors) {
+        expect(
+          readRepo(a.file),
+          `${c.name}: ${a.file} no longer contains the read this census pinned (${a.reads}). ` +
+            `If the read moved, move the anchor; if the channel is gone, strike it from the census.`,
+        ).toMatch(a.reads);
+      }
+    }
+
+    // Exact, so a sixth consumer enters the census consciously or fails here.
+    expect(CENSUS.map((c) => c.name)).toEqual([
+      "the ship gate",
+      "the instrument observation",
+      "the loop's own build check",
+      "GitHub CI",
+      "the CI-run digest",
+    ]);
+
+    // The assumption test's threshold, stated in its own units: at most 5
+    // distinct consumers. The census lands exactly ON the bar, not under it.
+    expect(CENSUS.length).toBeLessThanOrEqual(5);
+  });
+
+  test("three migrate independently, the CI pair only in lockstep, and every migration is one commit here", () => {
+    const independent = CENSUS.filter((c) => c.lockstepWith.length === 0).map((c) => c.name);
+    expect(independent).toEqual(["the ship gate", "the instrument observation", "the loop's own build check"]);
+
+    // Lockstep declarations resolve and are symmetric — a one-way lockstep is a
+    // consumer that believes it can move alone while another waits on it.
+    for (const c of CENSUS) {
+      for (const other of c.lockstepWith) {
+        const o = CENSUS.find((x) => x.name === other);
+        expect(o, `${c.name} declares lockstep with "${other}", which is not in the census`).toBeDefined();
+        expect(o!.lockstepWith).toContain(c.name);
+      }
+    }
+
+    // The threshold's second clause. "A single change" means one commit in this
+    // repository, so every file a migration touches must live here — a consumer
+    // whose migration reaches outside the repo (a coordinated release, someone
+    // else's reader) could not be taught atomically, and would fail this line.
+    for (const c of CENSUS) {
+      for (const f of c.migration) {
+        expect(
+          fs.existsSync(path.join(ROOT, ...f.split("/"))),
+          `${c.name}: ${f} left the repository without the census hearing about it`,
+        ).toBe(true);
+      }
+    }
+  });
+});
+
+describe("each channel's verdict shape has a closed reader set — the single-change claim, made mechanical", () => {
+  function filesMatching(pattern: RegExp): string[] {
+    return sources()
+      .filter((f) => pattern.test(f.text))
+      .map((f) => f.rel)
+      .sort();
+  }
+
+  test("gate verdicts are read only inside the ship boundary", () => {
+    // `GateRun.passed` is minted in ship.ts and consumed by ship-repo.ts;
+    // nothing else touches the type or the runner, so teaching the gate to
+    // carry an exclusion set is a change to two files plus the CLI that prints
+    // the outcome.
+    expect(filesMatching(/\b(GateRun|runGates|CORE_GATES)\b/)).toEqual([
+      path.join("release", "ship-repo.ts"),
+      path.join("release", "ship.ts"),
+    ]);
+    expect(filesMatching(/\bshipRepo\b|\bShipOutcome\b|\.shipped\b/)).toEqual([
+      path.join("cli", "index.ts"),
+      path.join("release", "ship-repo.ts"),
+      path.join("release", "ship.ts"),
+    ]);
+  });
+
+  test("instrument observations are read only by the permit and the one CLI filing door", () => {
+    // `InstrumentRun` is minted by `runInstrument` and read by `confirmPermit`;
+    // the only filing path is `verifyInstrument`, reached from the CLI alone.
+    // An MCP tool that could read or file one would be a second door, and the
+    // census's count would be wrong the day it opened.
+    expect(filesMatching(/\b(InstrumentRun|runInstrument)\b/)).toEqual([
+      path.join("eval", "buildable.ts"),
+      path.join("ost", "instrument.ts"),
+    ]);
+    expect(filesMatching(/\bverifyInstrument\b/)).toEqual([
+      path.join("cli", "index.ts"),
+      path.join("ost", "instrument.ts"),
+    ]);
+  });
+
+  test("loop step exits are compared to zero in exactly two files, and only one computes a verdict", () => {
+    expect(filesMatching(/\.exit\s*[!=]==\s*0/)).toEqual([path.join("cli", "loop.ts"), path.join("loop", "health.ts")]);
+    expect(filesMatching(/function computeVerdict/)).toEqual([path.join("loop", "health.ts")]);
+  });
+
+  test("the CI conclusion is read as a verdict in exactly one file, and the workflow cannot launder its own", () => {
+    expect(filesMatching(/\.conclusion\b|conclusion\s*[=!]==/)).toEqual([path.join("adapters", "actions.ts")]);
+
+    const workflow = readRepo(".github/workflows/ci.yml");
+    expect(workflow).toMatch(/run: npm test/);
+    // A step allowed to fail without failing the job would be this channel's
+    // own exclusion set, undeclared — the exact shape the candidate exists to
+    // make visible, arriving through the one consumer that cannot be taught.
+    expect(workflow).not.toMatch(/continue-on-error/);
+  });
+});
