@@ -230,3 +230,65 @@ describe("a red recorded before the distinction existed is caught at spend time"
     expect(confirmPermit(permit, repo).cleared).toBe(true);
   });
 });
+
+/**
+ * The carve-out, and the evidence that set it.
+ *
+ * The opportunity "My instruments are red because a file is absent, not because
+ * the behaviour is" carries an addendum dated 2026-08-09 that argues against
+ * refusing weak reds outright, on an observed instance: "Declare a required tool
+ * set and check a pass refuses before doing any work" was recorded red on
+ * 2026-08-06 with "No test files found" and green on 2026-08-07, because the
+ * builder found the path empty and built to the node's pre-committed threshold
+ * instead. Blocking every weak red would have blocked the one full weak-red
+ * lifecycle this vault has watched succeed.
+ *
+ * So the gate is the threshold rather than the file, and these cases pin that a
+ * bound bar is what keeps the permit — not the presence of a spec.
+ */
+describe("a weak red still carries a builder when the threshold is fixed", () => {
+  /** The same legacy line, on its own solution whose test carries `threshold`. */
+  function legacyRedWithThreshold(threshold: string) {
+    const solution = `Onboarding checklist (${threshold.slice(0, 12)})`;
+    const test = `Checklist audit (${threshold.slice(0, 12)})`;
+    const v = buildPassContext(dir).vault;
+    v.createNode({ title: solution, layer: "Solution", evidence: "assertion", body: "x", tags: [], links: [] });
+    v.createNode({
+      title: test,
+      layer: "AssumptionTest",
+      evidence: "assertion",
+      body: "x",
+      tags: [],
+      links: [],
+      instrument: INSTRUMENT,
+      threshold,
+    });
+    v.linkNodes("Users churn", solution);
+    v.linkNodes(solution, test);
+    v.appendUnderSection(test, "## Instrument log", `- 2026-08-05 **red** (exit 1) \`${INSTRUMENT}\` — No test files found, exiting with code 1`);
+    return buildPermit(buildPassContext(dir).vault.readTree(), solution);
+  }
+
+  test("a bound threshold keeps the permit even when the spec was never written", () => {
+    const permit = legacyRedWithThreshold("at least 8 of 10 runs record zero vault writes");
+    expect(permit.thresholdBound).toBe(true);
+    runnerCollectingNothing();
+
+    // The 2026-08-07 case, reproduced: no spec on disk, and a builder that still
+    // has a number to build to.
+    expect(confirmPermit(permit, repo).cleared).toBe(true);
+  });
+
+  test("an unfixed threshold loses it — neither a spec nor a bar is nothing at all", () => {
+    const permit = legacyRedWithThreshold("decide what a good refusal rate would be");
+    expect(permit.thresholdBound).toBe(false);
+    runnerCollectingNothing();
+
+    const confirmed = confirmPermit(permit, repo);
+    expect(confirmed.cleared).toBe(false);
+    // The refusal has to name both ways out, because either one is a real fix and
+    // the builder is the one who picks.
+    expect(confirmed.reason).toMatch(/write the failing spec/i);
+    expect(confirmed.reason).toMatch(/pre-commit the bar/i);
+  });
+});

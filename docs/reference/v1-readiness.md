@@ -3061,19 +3061,23 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2383 tests across 187 files, verified 2026-08-09 (`npx vitest run`,
+> *Today:* **met** — 2385 tests across 187 files, verified 2026-08-09 (`npx vitest run`,
 > after the vacuous-red distinction landed: an instrument naming a spec file nobody had
 > written exited non-zero, was recorded `**red**`, and minted a build permit whose stated
 > definition of done an empty file would have satisfied. It was not a rare edge — of the
 > meta vault's 266 recorded reds on 2026-08-09, 260 read "No test files found" and 241
 > pointed at specs that never existed, so the tree's whole stock of evidence that its tests
 > could fail was evidence that they had not been written. Such a run is now observed
-> `no-spec` rather than red, mints no permit, and is filed rather than refused so the node
-> keeps the actionable fact; reds recorded before the distinction are caught at spend time
-> by `confirmPermit`, because the log is append-only and a re-run is the only honest
-> correction (`src/ost/instrument.ts`, `src/eval/buildable.ts`,
-> `test/eval/vacuous-red.test.ts`). Previously 2373 tests across 186 files, verified
-> 2026-08-09,
+> `no-spec` rather than red and is filed rather than refused, so the node keeps the
+> actionable fact. Whether it also loses the permit is set by the tree's own evidence
+> rather than by the rule of thumb: the opportunity "My instruments are red because a file
+> is absent, not because the behaviour is" records one complete weak-red lifecycle that
+> ended green in a day, carried by the node's pre-committed threshold after the builder
+> found the path empty — so a weak red keeps its permit when the threshold is bound, and
+> loses it only when there is neither a spec nor a fixed bar. Measured against the meta
+> vault, that leaves 180 of 241 affected permits standing and withdraws 61
+> (`src/ost/instrument.ts`, `src/eval/buildable.ts`, `test/eval/vacuous-red.test.ts`).
+> Previously 2373 tests across 186 files, verified 2026-08-09,
 > after the category exemption landed: `underservedOpportunities` counted an opportunity's
 > DIRECT solution children, so a heading holding dozens of solutions two levels down still
 > read as under-served and sent every pass to ideate under it — the one place a solution

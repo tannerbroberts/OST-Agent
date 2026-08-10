@@ -25,12 +25,19 @@
  * spec file nobody has written also exits non-zero, and that failure is about the
  * filesystem rather than the solution: it would be identical under any title,
  * any threshold, any question, and an empty spec file would flip it green. Such
- * a run is filed as `no-spec` rather than red ({@link ../ost/instrument.ts}) and
- * mints no permit. Reds recorded before that distinction existed are caught at
- * spend time by {@link confirmPermit}, because the log is append-only and cannot
- * be corrected in place — the command can be re-run, and the re-run tells the
- * truth. The remaining work on such a test is to write the failing spec, which
- * is the thing that actually hands a builder a definition of done.
+ * a run is filed as `no-spec` rather than red ({@link ../ost/instrument.ts}), so
+ * it is always visible as what it is. Whether it also loses the permit turns on
+ * the threshold, and the tree's own evidence set that bar rather than a rule of
+ * thumb: the vault holds one complete weak-red lifecycle ("Declare a required
+ * tool set and check a pass refuses before doing any work", red 2026-08-06 with
+ * "No test files found", green 2026-08-07) where the builder was carried by the
+ * node's pre-committed threshold after finding the path empty. Refusing every
+ * weak red would have blocked that. So a weak red keeps its permit when the test
+ * names a bound threshold, and loses it only when there is neither a spec nor a
+ * fixed bar — the case that genuinely hands a builder nothing. Reds recorded
+ * before the distinction existed are re-checked at spend time by
+ * {@link confirmPermit}, because the log is append-only and a re-run is the only
+ * honest correction.
  *
  * **A recorded observation is a fact about the past, and a permit is a claim
  * about now.** Everything above reads the node and nothing runs the command, so
@@ -52,6 +59,7 @@ import { nodeInstrument, observedGreen, observedRed, runInstrument, type Instrum
 import { CAUTIOUS_LANE } from "../knowledge/lanes.js";
 import type { OstNode } from "../ost/node.js";
 import { isInstrument, parseInstrument, type ParsedInstrument } from "../knowledge/instruments.js";
+import { thresholdKindOf } from "./coverage.js";
 import { testsUnderSolution } from "../processes/tree.js";
 
 export interface BuildPermit {
@@ -68,6 +76,16 @@ export interface BuildPermit {
    * to go and record the green on that test.
    */
   spent?: boolean;
+  /**
+   * Does the chosen test carry a pre-committed bar, rather than prose or an
+   * instruction to pick one later?
+   *
+   * Read by {@link confirmPermit} when the instrument turns out to name a spec
+   * nobody wrote. Carried on the permit because `permitFrom` has the node and
+   * `confirmPermit` has only strings, and threading the tree through the second
+   * one would put a whole index on a path that exists to run a single command.
+   */
+  thresholdBound?: boolean;
 }
 
 /**
@@ -150,6 +168,7 @@ function permitFrom(index: Map<string, OstNode>, title: string): BuildPermit {
       `"${title}" is built. That is the definition of done.`,
     instrument: instrument.command,
     test: chosen.title,
+    thresholdBound: thresholdKindOf(chosen) === "bound",
   };
 }
 
@@ -194,16 +213,29 @@ export function confirmPermit(
   // `buildPermit` keeps the hot path pure and puts the check exactly where
   // something is about to be spent.
   if (observed.observation === "no-spec") {
+    // A weak red is not inert, and the tree has an observed case saying so. On
+    // 2026-08-06 "Declare a required tool set and check a pass refuses before
+    // doing any work" was recorded red with "No test files found", and went green
+    // on 2026-08-07 — a builder read the path, found nothing there, and built to
+    // the node's pre-committed threshold instead. The threshold did the work the
+    // missing spec could not.
+    //
+    // So the bar is the threshold, not the file. A test that names a bound one
+    // still hands a builder a definition of done and keeps its permit; a test
+    // with neither a spec nor a fixed bar hands over nothing at all, and that is
+    // the case being refused. Refusing both would have blocked the one lifecycle
+    // this vault has actually watched succeed.
+    if (permit.thresholdBound) return permit;
     return {
       cleared: false,
       test: permit.test,
       instrument: permit.instrument,
       reason:
         `"${permit.test}" is recorded red, but \`${permit.instrument}\` collects no spec against this repository ` +
-        `(${observed.excerpt}) — so the red says a file is missing, not that any behaviour is. That is not a ` +
-        `definition of done: every question written on that filename would be equally red, and an empty spec ` +
-        `would turn it green. The work is to write the failing spec first — one assertion that names what the ` +
-        `solution must do and fails because it does not do it yet — and then build until it passes.`,
+        `(${observed.excerpt}) — so the red says a file is missing, not that any behaviour is. Every question ` +
+        `written on that filename would be equally red, and an empty spec would turn it green. Nothing else here ` +
+        `carries a definition of done either: this test's threshold is not a fixed bar, so there is no number to ` +
+        `build to. Fix one of the two — write the failing spec, or pre-commit the bar — and the permit stands.`,
     };
   }
 

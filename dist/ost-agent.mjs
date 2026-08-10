@@ -41529,118 +41529,6 @@ function verifyInstrument(vaultDir, filing) {
   return { line, run, instrument: parsed, transitioned: run.observation === "green" && alreadyRed };
 }
 
-// src/eval/buildable.ts
-function indexByTitle(tree) {
-  const index = /* @__PURE__ */ new Map();
-  for (const n of tree) index.set(n.title, n);
-  return index;
-}
-function testsUnder(index, solution) {
-  return testsUnderSolution(solution, index);
-}
-function buildPermit(tree, title) {
-  return permitFrom(indexByTitle(tree), title);
-}
-function permitFrom(index, title) {
-  const solution = index.get(title);
-  if (!solution || solution.layer !== "Solution") {
-    return { cleared: false, reason: `no Solution node titled "${title}"` };
-  }
-  const tests = testsUnder(index, solution);
-  if (tests.length === 0) {
-    return {
-      cleared: false,
-      reason: `"${title}" has no assumption test beneath it \u2014 there is nothing that could tell a builder what to build`
-    };
-  }
-  const withInstruments = tests.filter((t2) => nodeInstrument(t2));
-  if (withInstruments.length === 0) {
-    return {
-      cleared: false,
-      reason: `none of the ${tests.length} test(s) under "${title}" declares a runnable instrument, so none of them can go red or green. Add an \`instrument:\` naming one spec file to: ${tests.map((t2) => t2.title).join("; ")}`
-    };
-  }
-  const live = withInstruments.filter((t2) => observedRed(t2) && !observedGreen(t2));
-  if (live.length === 0) {
-    const built = withInstruments.filter((t2) => observedGreen(t2));
-    if (built.length > 0 && built.length === withInstruments.length) {
-      return {
-        cleared: false,
-        reason: `every instrument under "${title}" is already green \u2014 this solution has been built`
-      };
-    }
-    return {
-      cleared: false,
-      reason: `"${title}" declares an instrument that has never been run, so nobody knows whether it fails today. Run \`ost-agent verify\` on: ${withInstruments.map((t2) => t2.title).join("; ")}`
-    };
-  }
-  const chosen = live[0];
-  const instrument = nodeInstrument(chosen);
-  return {
-    cleared: true,
-    reason: `"${chosen.title}" is red against the repository \u2014 \`${instrument.command}\` fails today and passes when "${title}" is built. That is the definition of done.`,
-    instrument: instrument.command,
-    test: chosen.title
-  };
-}
-function confirmPermit(permit, repoDir, run = runInstrument) {
-  if (!permit.cleared || !permit.instrument) return permit;
-  const parsed = parseInstrument(permit.instrument);
-  if (!isInstrument(parsed)) return permit;
-  const observed = run(parsed, repoDir);
-  if (observed.observation === "red") return permit;
-  if (observed.observation === "no-spec") {
-    return {
-      cleared: false,
-      test: permit.test,
-      instrument: permit.instrument,
-      reason: `"${permit.test}" is recorded red, but \`${permit.instrument}\` collects no spec against this repository (${observed.excerpt}) \u2014 so the red says a file is missing, not that any behaviour is. That is not a definition of done: every question written on that filename would be equally red, and an empty spec would turn it green. The work is to write the failing spec first \u2014 one assertion that names what the solution must do and fails because it does not do it yet \u2014 and then build until it passes.`
-    };
-  }
-  return {
-    cleared: false,
-    spent: true,
-    test: permit.test,
-    instrument: permit.instrument,
-    reason: `"${permit.test}" was observed red, but \`${permit.instrument}\` passes against this repository today (exit ${observed.exitCode ?? "none"}) \u2014 the solution has been built since that observation was filed, and the permit is spent. Nothing has been recorded here: \`ost-agent verify "${permit.test}"\` files the green.`
-  };
-}
-function buildableSolutions(tree) {
-  const index = indexByTitle(tree);
-  const out = [];
-  for (const n of tree) {
-    if (n.layer !== "Solution") continue;
-    const permit = permitFrom(index, n.title);
-    if (permit.cleared && permit.test && permit.instrument) {
-      out.push({ solution: n.title, test: permit.test, instrument: permit.instrument });
-    }
-  }
-  return out;
-}
-function testsAwaitingVerification(tree) {
-  const out = [];
-  for (const n of tree) {
-    if (n.layer !== "AssumptionTest") continue;
-    if (n.lane === CAUTIOUS_LANE) continue;
-    if (!nodeInstrument(n)) continue;
-    if (observedRed(n) || observedGreen(n)) continue;
-    out.push(n.title);
-  }
-  return out;
-}
-function solutionsMissingInstruments(tree) {
-  const index = indexByTitle(tree);
-  const out = [];
-  for (const n of tree) {
-    if (n.layer !== "Solution") continue;
-    const tests = testsUnder(index, n);
-    if (tests.length === 0) continue;
-    if (tests.some((t2) => nodeInstrument(t2))) continue;
-    out.push(n.title);
-  }
-  return out;
-}
-
 // src/eval/coverage.ts
 function countEntriesUnder(body, heading) {
   return entriesUnder(body, heading).length;
@@ -41728,6 +41616,120 @@ function computeCoverageDebt(tree) {
       unbounded: gaps.length
     }
   };
+}
+
+// src/eval/buildable.ts
+function indexByTitle(tree) {
+  const index = /* @__PURE__ */ new Map();
+  for (const n of tree) index.set(n.title, n);
+  return index;
+}
+function testsUnder(index, solution) {
+  return testsUnderSolution(solution, index);
+}
+function buildPermit(tree, title) {
+  return permitFrom(indexByTitle(tree), title);
+}
+function permitFrom(index, title) {
+  const solution = index.get(title);
+  if (!solution || solution.layer !== "Solution") {
+    return { cleared: false, reason: `no Solution node titled "${title}"` };
+  }
+  const tests = testsUnder(index, solution);
+  if (tests.length === 0) {
+    return {
+      cleared: false,
+      reason: `"${title}" has no assumption test beneath it \u2014 there is nothing that could tell a builder what to build`
+    };
+  }
+  const withInstruments = tests.filter((t2) => nodeInstrument(t2));
+  if (withInstruments.length === 0) {
+    return {
+      cleared: false,
+      reason: `none of the ${tests.length} test(s) under "${title}" declares a runnable instrument, so none of them can go red or green. Add an \`instrument:\` naming one spec file to: ${tests.map((t2) => t2.title).join("; ")}`
+    };
+  }
+  const live = withInstruments.filter((t2) => observedRed(t2) && !observedGreen(t2));
+  if (live.length === 0) {
+    const built = withInstruments.filter((t2) => observedGreen(t2));
+    if (built.length > 0 && built.length === withInstruments.length) {
+      return {
+        cleared: false,
+        reason: `every instrument under "${title}" is already green \u2014 this solution has been built`
+      };
+    }
+    return {
+      cleared: false,
+      reason: `"${title}" declares an instrument that has never been run, so nobody knows whether it fails today. Run \`ost-agent verify\` on: ${withInstruments.map((t2) => t2.title).join("; ")}`
+    };
+  }
+  const chosen = live[0];
+  const instrument = nodeInstrument(chosen);
+  return {
+    cleared: true,
+    reason: `"${chosen.title}" is red against the repository \u2014 \`${instrument.command}\` fails today and passes when "${title}" is built. That is the definition of done.`,
+    instrument: instrument.command,
+    test: chosen.title,
+    thresholdBound: thresholdKindOf(chosen) === "bound"
+  };
+}
+function confirmPermit(permit, repoDir, run = runInstrument) {
+  if (!permit.cleared || !permit.instrument) return permit;
+  const parsed = parseInstrument(permit.instrument);
+  if (!isInstrument(parsed)) return permit;
+  const observed = run(parsed, repoDir);
+  if (observed.observation === "red") return permit;
+  if (observed.observation === "no-spec") {
+    if (permit.thresholdBound) return permit;
+    return {
+      cleared: false,
+      test: permit.test,
+      instrument: permit.instrument,
+      reason: `"${permit.test}" is recorded red, but \`${permit.instrument}\` collects no spec against this repository (${observed.excerpt}) \u2014 so the red says a file is missing, not that any behaviour is. Every question written on that filename would be equally red, and an empty spec would turn it green. Nothing else here carries a definition of done either: this test's threshold is not a fixed bar, so there is no number to build to. Fix one of the two \u2014 write the failing spec, or pre-commit the bar \u2014 and the permit stands.`
+    };
+  }
+  return {
+    cleared: false,
+    spent: true,
+    test: permit.test,
+    instrument: permit.instrument,
+    reason: `"${permit.test}" was observed red, but \`${permit.instrument}\` passes against this repository today (exit ${observed.exitCode ?? "none"}) \u2014 the solution has been built since that observation was filed, and the permit is spent. Nothing has been recorded here: \`ost-agent verify "${permit.test}"\` files the green.`
+  };
+}
+function buildableSolutions(tree) {
+  const index = indexByTitle(tree);
+  const out = [];
+  for (const n of tree) {
+    if (n.layer !== "Solution") continue;
+    const permit = permitFrom(index, n.title);
+    if (permit.cleared && permit.test && permit.instrument) {
+      out.push({ solution: n.title, test: permit.test, instrument: permit.instrument });
+    }
+  }
+  return out;
+}
+function testsAwaitingVerification(tree) {
+  const out = [];
+  for (const n of tree) {
+    if (n.layer !== "AssumptionTest") continue;
+    if (n.lane === CAUTIOUS_LANE) continue;
+    if (!nodeInstrument(n)) continue;
+    if (observedRed(n) || observedGreen(n)) continue;
+    out.push(n.title);
+  }
+  return out;
+}
+function solutionsMissingInstruments(tree) {
+  const index = indexByTitle(tree);
+  const out = [];
+  for (const n of tree) {
+    if (n.layer !== "Solution") continue;
+    const tests = testsUnder(index, n);
+    if (tests.length === 0) continue;
+    if (tests.some((t2) => nodeInstrument(t2))) continue;
+    out.push(n.title);
+  }
+  return out;
 }
 
 // src/eval/render.ts
