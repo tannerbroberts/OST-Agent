@@ -632,6 +632,12 @@ loop:                       # absent ⇒ this vault never fires unattended, and 
     budget: 3               # times this vault may interrupt you; 0 ⇒ ask nothing, bank everything
     windowHours: 24
     sessionsDir: "~/.claude/projects/<slug>"
+  updates:                  # absent ⇒ this vault takes NO pushed update and refuses to spool one
+    channel: "ost-agent"    # a version announced here is applied BETWEEN passes, never mid-pass.
+                            # Read `src/loop/updates.ts` before switching this on: it is the one
+                            # setting that lets something off this machine change what your
+                            # unattended agent runs. It moves a version pin and nothing else — an
+                            # announcement cannot carry a command, a path or a URL.
 
 processes:
   P3_ideate:

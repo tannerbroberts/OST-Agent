@@ -302,6 +302,17 @@ const LoopQuestionsSchema = z.object({
   sessionsDir: z.string().min(1).nullish(),
 });
 
+// The push channel this vault subscribes to, and the only key that turns it on.
+// Absent ⇒ subscribed to nothing: the vault refuses to spool an announcement and
+// can never apply one. Same no-default rule as `loop.cadence`, and a stronger
+// reason for it — a default channel would mean a fresh vault that lets somebody
+// off this machine change what its unattended agent does, chosen by us rather
+// than by the operator. See `src/loop/updates.ts`.
+const LoopUpdatesSchema = z.object({
+  /** The channel name a subscriber announces on. Absent or malformed ⇒ no subscription. */
+  channel: z.string().nullish(),
+});
+
 const LoopSchema = z
   .object({
     /** How often this vault may fire: `"30m"`, `"6h"`, `"1d"`. Absent ⇒ never. */
@@ -310,6 +321,7 @@ const LoopSchema = z
     lockTtlMinutes: z.number().int().positive().default(60),
     spend: LoopSpendSchema.nullish(),
     questions: LoopQuestionsSchema.nullish(),
+    updates: LoopUpdatesSchema.nullish(),
   })
   .nullish();
 
