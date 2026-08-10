@@ -3061,7 +3061,18 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2404 tests across 188 files, verified 2026-08-09 (`npx vitest run`,
+> *Today:* **met** — 2444 tests across 189 files, verified 2026-08-09 (`npx vitest run`,
+> after the path-failure attribution census landed: of 76 path-shaped failures in 646
+> recorded sessions, **0** arrived through a tool this repository controls, against a bar
+> the assumption test fixed at 40% before anyone counted — so "make the first path failure
+> answer with the layout it was addressed against" is refuted as stated, and what is
+> committed is the census that refuted it rather than the improvement it was meant to
+> license (`src/telemetry/path-failure-attribution.ts`,
+> `test/friction/path-failure-attribution.test.ts`). That command being green means the
+> count has been taken, never that the assumption held — `census.meetsBar` is asserted
+> `false` by name, on the convention `test/telemetry/preflight-uncertainty-census.test.ts`
+> already runs under.
+> Previously 2404 tests across 188 files, verified 2026-08-09,
 > after the sense census landed: a firing's closing report now enumerates every sense it
 > reads with — the tree, the product repo, both web senses, every declared channel — each
 > carrying a state derived from config and grant rather than from what the pass happened to
