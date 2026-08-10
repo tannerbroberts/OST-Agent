@@ -50,6 +50,7 @@ import { claimsPath } from "../../src/loop/claim.js";
 import { openRunPath, runsPath } from "../../src/loop/health.js";
 import { firingLockPath } from "../../src/loop/lock.js";
 import { loopStateDir } from "../../src/loop/state.js";
+import { announcedPath, appliedPath } from "../../src/loop/updates.js";
 import { MCP_TOOL_NAMES } from "../../src/mcp/server.js";
 import { buildOstTools } from "../../src/security/tools.js";
 import { Vault } from "../../src/ost/vault.js";
@@ -217,13 +218,31 @@ const REPORTER_MODULES = ["questions.ts", "corrections.ts", "senses.ts"];
  */
 const OFF_GATE_DECIDER_MODULES: Record<string, string> = {
   "claim.ts": "the work claim — decides whether a pass may start, not whether a firing may",
+  "updates.ts": "the update channel — decides which VERSION a pass runs, not whether a firing may",
 };
 
 /**
  * Files read by deciders that are not Gate F deciders. Snapshotted beside the
  * Gate F inputs in part 2 for the reason above.
+ *
+ * **`updates.ts` is the one entry here whose threat model is not the agent**, and
+ * it is worth stating rather than filing quietly. The other deciders are proved
+ * safe by showing the unattended surface cannot write them; the update spool has
+ * exactly that property, for exactly the same reason (`.git/ost-agent/`, which
+ * `git add -A` cannot reach), and it is nonetheless the one decider a push
+ * channel intends somebody OFF this machine to write. That is what the feature
+ * is. So what part 2 proves about it is the same thing it proves about the rest —
+ * the agent cannot forge a version pin for itself — and the question of whether
+ * an operator should accept a remote writer at all is a question about people,
+ * settled by the assumption test under the solution and not by this file. Listing
+ * the two paths here is what makes a future move out of `.git/` fail the build
+ * instead of quietly handing the agent its own version pin.
  */
-const OFF_GATE_DECIDER_PATHS = (v: string): string[] => [claimsPath(loopStateDir(v)!)];
+const OFF_GATE_DECIDER_PATHS = (v: string): string[] => [
+  claimsPath(loopStateDir(v)!),
+  announcedPath(v)!,
+  appliedPath(v)!,
+];
 
 /**
  * A throwaway checkout, for the two enumeration assertions that need a vault

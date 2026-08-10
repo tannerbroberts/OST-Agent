@@ -1,9 +1,12 @@
 /**
  * `ost-agent loop …` — the unattended firing's deterministic bookends.
  *
- * Four commands, in the order a firing uses them:
+ * Five commands, in the order a firing uses them:
  *
  *   due    may this vault fire right now? cadence + spend, both fail-closed.
+ *   update apply a pushed update, but only between passes. `start` does this
+ *          itself; the command exists for a wrapper that wants the checkpoint
+ *          on its own schedule, and for an operator who wants to see the answer.
  *   start  refuse a dirty vault, take the overlap lock, open a health record.
  *   step   run one phase, record the exit code it actually produced.
  *   seal   compute the verdict from what was recorded, append it, unlock.
@@ -26,7 +29,8 @@ import type { LoopConfig } from "../config/schema.js";
 import { evaluateCadence, parseCadence } from "../loop/cadence.js";
 import { detectLaunderedExit, launderedExitMessage } from "../loop/exitLaundering.js";
 import { degradedReport, observeDegradation } from "../loop/degraded.js";
-import { appendStep, readOpenRun, readRuns, sealRun, startRun } from "../loop/health.js";
+import { appendStep, readOpenRun, readRuns, sealRun, startRun, sweepCrashed } from "../loop/health.js";
+import { announceUpdate, applyAtCheckpoint, subscriptionOf, updateStatusLine } from "../loop/updates.js";
 import { observeSenses, senseCensusReport } from "../loop/senses.js";
 import { assessStall } from "../loop/stall.js";
 import { acquireFiringLock, releaseFiringLock, stampFiringLock } from "../loop/lock.js";
@@ -62,6 +66,22 @@ export const LOOP_EXIT = {
    * unattended caller reads as clean.
    */
   degraded: 17,
+  /**
+   * `loop update` only: an update is pending and this moment is not a checkpoint.
+   *
+   * Routine, like `notElapsed`, and non-zero for the same reason — a wrapper that
+   * read 0 here would report "up to date" for a vault that has been holding the
+   * same fix through every pass for a week. The way out is time, not a human: the
+   * next `loop start` applies it before it opens its run.
+   */
+  updateHeld: 18,
+  /**
+   * `loop update` only: this vault subscribes to no channel, so there is nothing
+   * to apply and never will be. Non-zero because the operator who typed a
+   * half-formed `loop.updates` block believes they subscribed, and silence is the
+   * one answer that leaves them believing it.
+   */
+  updateUnsubscribed: 19,
 } as const;
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -363,6 +383,81 @@ export function registerLoopCommands(program: Command): void {
     });
 
   loop
+    .command("announce")
+    .description("record an update this vault's subscriber heard (writes nothing but a spool line; applies nothing)")
+    // `--release`, not `--version`: commander's program-level `--version` is
+    // inherited by every subcommand, so `loop announce --version 0.12.0` printed
+    // the CLI's own version and exited 0 — a subscriber whose announcements
+    // silently went nowhere, reporting success on every one.
+    .requiredOption("--release <version>", "the version announced")
+    .option("--channel <name>", "the channel it was announced on (default: the one this vault subscribes to)")
+    .option("--source <who>", "who announced it — informational, nothing branches on it")
+    .option("--notes <text>", "what is in it, for a human reading the spool")
+    .option("--announced-at <iso>", "when the publisher announced it (default: now)")
+    .option("--vault <dir>", VAULT_OPTION_HELP)
+    .action((opts: { release: string; channel?: string; source?: string; notes?: string; announcedAt?: string; vault: string }) => {
+      /*
+       * The subscriber's end of the push channel, and deliberately the dumbest
+       * thing in the loop. It appends one line. It cannot apply anything, cannot
+       * decide anything, and holds no lock — which is what lets the process that
+       * listens to an outside channel be the least-trusted component here, since
+       * the barrier that matters runs at the checkpoint and not at arrival.
+       */
+      const config = loadConfig(opts.vault);
+      const subscription = subscriptionOf(config.loop?.updates);
+      const result = announceUpdate(
+        opts.vault,
+        {
+          channel: opts.channel ?? subscription?.channel ?? "",
+          version: opts.release,
+          ...(opts.announcedAt ? { announcedAt: opts.announcedAt } : {}),
+          ...(opts.source ? { source: opts.source } : {}),
+          ...(opts.notes ? { notes: opts.notes } : {}),
+        },
+        { subscription },
+      );
+      if (!result.ok) {
+        console.error(`not recorded: ${result.reason}`);
+        process.exitCode = subscription === null ? LOOP_EXIT.updateUnsubscribed : 2;
+        return;
+      }
+      console.log(`announced ${result.announcement.version} on ${result.announcement.channel} — applies at the next checkpoint`);
+    });
+
+  loop
+    .command("update")
+    .description("apply a pushed update, but only between passes (holds it otherwise; never applies mid-pass)")
+    .option("--vault <dir>", VAULT_OPTION_HELP)
+    .action((opts: { vault: string }) => {
+      /*
+       * `loop start` runs this same barrier itself, so a vault on a cron
+       * propagates without anyone adding a step. This command exists for the two
+       * cases that one does not serve: a wrapper that wants the checkpoint on its
+       * own schedule (between a pass sealing and the next one becoming due, which
+       * may be hours), and an operator who wants to see what is waiting.
+       *
+       * The exit code is the interface, and `held` gets its own. A wrapper that
+       * could not tell "applied" from "held" would report a fleet as up to date
+       * while every instance in it sat one version behind.
+       */
+      const config = loadConfig(opts.vault);
+      const subscription = subscriptionOf(config.loop?.updates);
+      const ttlMs = (config.loop?.lockTtlMinutes ?? 60) * 60_000;
+      const outcome = applyAtCheckpoint(opts.vault, { subscription, ttlMs });
+      if (outcome.action === "unsubscribed") {
+        console.error(`no update channel: ${outcome.reason}`);
+        process.exitCode = LOOP_EXIT.updateUnsubscribed;
+        return;
+      }
+      if (outcome.action === "held") {
+        console.error(`held: ${outcome.reason}`);
+        process.exitCode = LOOP_EXIT.updateHeld;
+        return;
+      }
+      console.log(outcome.action === "applied" ? `applied: ${outcome.reason}` : `no update: ${outcome.reason}`);
+    });
+
+  loop
     .command("start")
     .description(
       "refuse a dirty working tree, take the overlap lock, open a health record (sweeps any crashed prior run first)",
@@ -428,6 +523,28 @@ export function registerLoopCommands(program: Command): void {
         return;
       }
       if (lock.broke) console.error(`broke a stale firing lock — ${lock.broke.why}`);
+
+      // THE CHECKPOINT. This is the one instant in the whole loop that is
+      // provably between passes: the lock is held so no other firing can be in
+      // one, and this firing's run is not open yet. An update applied here
+      // cannot land on a half-finished write; an update applied anywhere else
+      // can. Doing it inside `loop start` rather than only in `loop update` is
+      // what makes propagation independent of the operator remembering to add a
+      // cron step, which is the whole reason a push channel beats a pull.
+      //
+      // The sweep runs first and is not an extra mutation: `startRun` sweeps a
+      // crashed marker three lines below, and doing it here just means the
+      // checkpoint sees the state that firing will. Without it a vault whose
+      // previous pass died would hold every update forever, because the barrier
+      // reads an unswept open marker as a pass in flight — correctly, and with
+      // no way out.
+      const subscription = subscriptionOf(config.loop?.updates);
+      if (subscription !== null) {
+        sweepCrashed(opts.vault);
+        const checkpoint = applyAtCheckpoint(opts.vault, { subscription, ttlMs, holdsLock: true });
+        if (checkpoint.action === "applied") console.log(`update: ${checkpoint.reason}`);
+        else if (checkpoint.action === "held") console.error(`update: ${checkpoint.reason}`);
+      }
 
       // If this throws, the firing does not happen. That is the point: a firing
       // nobody can read afterwards would leave the cadence window unconsumed and
@@ -537,6 +654,14 @@ export function registerLoopCommands(program: Command): void {
       // `blocked:` / `blocking: none` are the two spellings a caller greps for,
       // so the line is stable even as the reasons behind it change.
       console.log(spend.ok ? "blocking: none" : `blocked: ${spend.reason}`);
+
+      // Printed only for a vault that subscribed to something. A line saying
+      // "update-channel: none" on every vault that never wanted one is noise, and
+      // this report's whole value is that an operator reads all of it. What a
+      // subscriber gets instead is the fact they cannot see any other way: which
+      // version this machine is actually on, and whether one has been waiting.
+      const subscription = subscriptionOf(config.loop?.updates);
+      if (subscription !== null) console.log(updateStatusLine(opts.vault, subscription, now));
     });
 
   loop
