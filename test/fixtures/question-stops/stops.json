@@ -1,0 +1,554 @@
+{
+  "corpus": "Every answered AskUserQuestion stop in the transcripts the meta vault held evidence for when the assumption test was written (2026-08-03): 17 stops across 9 conversations, forks deduplicated. See PROVENANCE.md for the cut, and for how each label was read off the unsealed transcript.",
+  "stops": [
+    {
+      "session": "16e9596b-7c8f-445b-a8ff-f822ed211ea5",
+      "entry": 40,
+      "askedAt": "2026-07-27T16:47:26.675Z",
+      "header": "Scope",
+      "question": "\"Only serve Claude subscription users\" — does that mean just changing how it's shipped, or also cutting the API-key-billed autonomous runner?",
+      "options": [
+        "Distribution only — Stop publishing to npm; the plugin becomes the sole install path. Keep the CLI, `loop`, `schedule`, and the API-key runner in the repo.",
+        "Distribution + drop the API runner — Also delete src/runner (Anthropic SDK driver), `loop`, `schedule`, eval, and the ANTHROPIC_API_KEY paths. The MCP server + skill + commands become the entire product. Biggest simplification, irreversible-ish.",
+        "Distribution + shrink the CLI — Drop npm and keep the runner code, but reduce the CLI to what the plugin actually invokes and move the rest behind a dev-only entry point."
+      ],
+      "answer": "Distribution + drop the API runner (entry 41)",
+      "outstanding": [
+        {
+          "work": "Choose how the plugin starts the MCP server once npm is gone",
+          "turnsOnAnswer": false,
+          "why": "Asked next (entry 51) in a form identical under every scope option — all three keep the plugin and its MCP server."
+        },
+        {
+          "work": "Choose the fate of the already-published npm package",
+          "turnsOnAnswer": false,
+          "why": "Taken up at entries 54–58; the retreat from npm is common to all three scope options."
+        },
+        {
+          "work": "Write the design spec for the retreat from npm",
+          "turnsOnAnswer": true,
+          "why": "The spec's first section, 'what actually gets cut' (entries 82–105), is the scope answer restated."
+        },
+        {
+          "work": "Trace which source files the runner cut removes (imports of src/runner, src/eval, src/loop)",
+          "turnsOnAnswer": true,
+          "why": "The import analysis at entries 87–102 exists only because the answer cut the runner."
+        }
+      ]
+    },
+    {
+      "session": "16e9596b-7c8f-445b-a8ff-f822ed211ea5",
+      "entry": 51,
+      "askedAt": "2026-07-27T16:48:24.272Z",
+      "header": "Launch",
+      "question": "How should the plugin start the MCP server once npm is gone?",
+      "options": [
+        "Commit a bundled single file (Recommended) — Add esbuild, bundle the whole CLI + MCP server and all deps into one committed dist/ost-agent.mjs. Zero install, works offline, version can't drift from the plugin.",
+        "Bootstrap install on first run — Ship TypeScript source in the plugin; a wrapper script installs into the plugin dir on first launch. Slow and failure-prone first launch.",
+        "Rewrite to zero dependencies — Hand-roll the MCP stdio protocol, frontmatter parsing, and git calls so the server has no deps at all. Substantial rewrite and real risk of protocol bugs."
+      ],
+      "answer": "Commit a bundled single file (entry 52)",
+      "outstanding": [
+        {
+          "work": "Settle the fate of the already-published npm package",
+          "turnsOnAnswer": false,
+          "why": "Investigated and asked immediately (entries 54–58); the deprecate/unpublish choice never references the launch mechanism."
+        },
+        {
+          "work": "Settle the fate of the CLI's model-free subcommands",
+          "turnsOnAnswer": false,
+          "why": "Asked at entry 58 and resolved (promote to MCP tools) without reference to how the server is launched."
+        },
+        {
+          "work": "Write the design spec for the plugin-only distribution",
+          "turnsOnAnswer": true,
+          "why": "The spec (entries 103–116) carries the bundling decision as its distribution spine."
+        }
+      ]
+    },
+    {
+      "session": "16e9596b-7c8f-445b-a8ff-f822ed211ea5",
+      "entry": 58,
+      "askedAt": "2026-07-27T16:49:53.108Z",
+      "header": "npm fate | CLI surface",
+      "question": "What happens to the already-published `ost-agent` package on npm? The CLI has many model-free subcommands (`check`, `debt`, `lanes`, `gate`, `status`, `result`, `friction`). What's their fate?",
+      "options": [
+        "Deprecate with a pointer (Recommended) — npm deprecate with a redirect message; existing installs keep working and every install prints the redirect.",
+        "Deprecate + publish a final 0.23.0 — First publish one last version whose mcp command prints the migration message and exits non-zero.",
+        "Just stop publishing — Delete the workflow and mark the package private; leave what's on npm untouched.",
+        "Keep, reachable via the bundle — They stay in the bundled dist and the plugin's Bash allowlist points at them. Smallest change.",
+        "Keep, and promote to MCP tools — Additionally expose the read-only ones as MCP tools so Claude calls them directly instead of shelling out.",
+        "Cut them too — Delete them alongside the runner and keep only what the plugin invokes."
+      ],
+      "answer": "Nobody's used it. Just delete it. / Keep, and promote to MCP tools (entry 59)",
+      "outstanding": [
+        {
+          "work": "Check git tags and branches against the published npm versions before anything is deleted",
+          "turnsOnAnswer": true,
+          "why": "The tags check (entries 62–71) mattered because the answer was unpublish — the npm tarballs turned out to be the only copy of three releases."
+        },
+        {
+          "work": "Read the model-free command implementations (check, debt, status, gate)",
+          "turnsOnAnswer": true,
+          "why": "Read at entries 72–77 to design the MCP promotion the answer chose."
+        },
+        {
+          "work": "Trace how src/runner's shared machinery is imported, so the cut can be surgical",
+          "turnsOnAnswer": false,
+          "why": "Needed whatever these answers were — the scope answer (entry 41) had already cut the runner; done at entries 79–102."
+        },
+        {
+          "work": "Write the design spec for the retreat from npm",
+          "turnsOnAnswer": true,
+          "why": "The spec (entries 103–116) incorporates both answers directly."
+        }
+      ]
+    },
+    {
+      "session": "16e9596b-7c8f-445b-a8ff-f822ed211ea5",
+      "entry": 216,
+      "askedAt": "2026-07-27T17:27:21.450Z",
+      "header": "Workspace",
+      "question": "Where should the implementation happen?",
+      "options": [
+        "Isolated worktree (Recommended) — Use the native EnterWorktree tool to get a separate checkout on its own branch. Merge back at the end.",
+        "Feature branch in place — Create a branch in this working directory and implement here. No second checkout to manage, but your current directory changes under you.",
+        "Directly on main — No isolation. Every task commits straight to main. Fastest to merge, nothing to reconcile, but nothing to abandon cleanly either."
+      ],
+      "answer": "Directly on main (entry 217)",
+      "outstanding": [
+        {
+          "work": "Rerun the baseline test suite before anything moves",
+          "turnsOnAnswer": false,
+          "why": "Ran identically wherever implementation lands (entries 220–226); nothing in it references the workspace."
+        },
+        {
+          "work": "Commit the plan fix (the vacuous .git/HEAD assertion) and the scratch-dir gitignore",
+          "turnsOnAnswer": true,
+          "why": "The commit (entry 246) landed on main because that was the answer; a commit has to land somewhere."
+        },
+        {
+          "work": "Dispatch the plan's ten implementation tasks",
+          "turnsOnAnswer": true,
+          "why": "Every task ends in a commit, and where those commits go is exactly what was asked (dispatch begins entry 255)."
+        }
+      ]
+    },
+    {
+      "session": "16e9596b-7c8f-445b-a8ff-f822ed211ea5",
+      "entry": 282,
+      "askedAt": "2026-07-27T17:40:30.016Z",
+      "header": "Duplication",
+      "question": "The refusal message now exists as two identical string templates — one in `src/runner/tool.ts`, one in `src/mcp/server.ts`. That violates the plan's own \"wording is single-sourced\" constraint, but Task 6 deletes `src/runner/tool.ts` and resolves it. Which governs?",
+      "options": [
+        "Accept as transient (Recommended) — Leave both copies; Task 6 deletes the CLI one in four tasks. Logged in the ledger so the final review re-checks it.",
+        "Extract a shared formatter now — Add one function both surfaces call. Costs a small extra round on Task 2, and the extracted function loses its second caller at Task 6.",
+        "Amend the constraint — Narrow its wording so it stops flagging transient duplication during a deletion sequence."
+      ],
+      "answer": "Accept as transient (entry 283)",
+      "outstanding": [
+        {
+          "work": "Log the Task 2 ruling in the SDD ledger",
+          "turnsOnAnswer": true,
+          "why": "The log line (entry 284) is the answer itself, recorded."
+        },
+        {
+          "work": "Task 3: replace the SDK's betaTool with a local helper",
+          "turnsOnAnswer": false,
+          "why": "Dispatched next (entries 286–297) with no reference to the ruling."
+        },
+        {
+          "work": "Task 4: extract the four analysis renderers",
+          "turnsOnAnswer": false,
+          "why": "Proceeded unchanged (entries 300–310)."
+        },
+        {
+          "work": "Task 5: promote the renderers to MCP tools",
+          "turnsOnAnswer": false,
+          "why": "Proceeded unchanged (entries 314–317)."
+        },
+        {
+          "work": "Task 6: excise the model layer",
+          "turnsOnAnswer": true,
+          "why": "The chosen ruling attached a duty to Task 6 — verify the duplicate is actually gone (entries 283, 297)."
+        }
+      ]
+    },
+    {
+      "session": "16e9596b-7c8f-445b-a8ff-f822ed211ea5",
+      "entry": 323,
+      "askedAt": "2026-07-27T18:12:34.289Z",
+      "header": "ost_status",
+      "question": "`ost-agent tool ost_status` throws \"needs a pass context\" as of this commit. Task 6 (next) deletes `src/runner/tool.ts` and the `tool` command entirely. The reviewer says Needs fixes; the plan says delete it next. Which governs?",
+      "options": [
+        "Proceed to Task 6 (Recommended) — Accept it, consistent with the Task 2 ruling on transient defects. Logged, with Task 6 required to verify the path is gone.",
+        "Guard it first — Add a one-line fix now so the CLI path returns something actionable instead of throwing, then delete it within the hour.",
+        "Drop ost_status from the CLI allowlist — Narrower than a guard, but the allowlist is shared with MCP, so removing it defeats the task."
+      ],
+      "answer": "Proceed to Task 6 (entry 324)",
+      "outstanding": [
+        {
+          "work": "Log the Task 5 ruling in the ledger",
+          "turnsOnAnswer": true,
+          "why": "The log line (entry 325) records the answer."
+        },
+        {
+          "work": "Task 6: excise the model layer",
+          "turnsOnAnswer": true,
+          "why": "The chosen ruling required Task 6 to verify the throwing path is gone (entries 328–329)."
+        },
+        {
+          "work": "Tasks 7–10: bundle the CLI, point the plugin manifest at it, rewrite the docs, final whole-branch review",
+          "turnsOnAnswer": false,
+          "why": "Proceeded as planned regardless of the ruling (entries 328 onward)."
+        }
+      ]
+    },
+    {
+      "session": "16e9596b-7c8f-445b-a8ff-f822ed211ea5",
+      "entry": 345,
+      "askedAt": "2026-07-27T18:23:34.553Z",
+      "header": "Ingestion",
+      "question": "Deleting the runner severed evidence ingestion — the MCP surface never had it. How should we close it?",
+      "options": [
+        "Add an ost_ingest_inbox tool (Recommended) — New read-and-append MCP tool wiring the existing InboxSource to the existing writeEvidence. Adds one task to the plan and one tool to the surface.",
+        "Fold ingestion into ost_next_work — No new tool, but it makes a read-only tool write files, which fights the commit model.",
+        "Ship without it, fix in a follow-up — Finish the ten tasks as planned and open an issue; ships a plugin whose /ost-map can never do anything."
+      ],
+      "answer": "Add an ost_ingest_inbox tool (entry 346)",
+      "outstanding": [
+        {
+          "work": "Finish Task 6's review fix round (two Important findings)",
+          "turnsOnAnswer": false,
+          "why": "The fix round proceeded in the background regardless (entries 348–357); the gap was a plan defect, not an implementation defect."
+        },
+        {
+          "work": "Add the evidence-ingestion task to the plan",
+          "turnsOnAnswer": true,
+          "why": "Task 6b (entries 366–372) exists only because the answer chose the new tool."
+        },
+        {
+          "work": "Tasks 7–10: bundle the CLI, point the plugin manifest at it, rewrite the docs, final whole-branch review",
+          "turnsOnAnswer": false,
+          "why": "Proceeded as planned (entry 348 onward)."
+        }
+      ]
+    },
+    {
+      "session": "e42cd03d-b2a4-44ba-989a-9e01cc368f77",
+      "entry": 144,
+      "askedAt": "2026-07-28T21:07:42.085Z",
+      "header": "Discovery",
+      "question": "Should OST-Agent do its own web discovery, or delegate it to the host agent?",
+      "options": [
+        "Both — host first, federated fallback (Recommended) — ost_search_web tries the host's search when the host exposes one, and falls back to keyless federated APIs when it doesn't.",
+        "Self-contained only — federated keyless APIs — One code path, identical behavior in every host, but coverage is limited to the sources you register.",
+        "Host-delegated only — drop ost_search_web — The calling agent searches with its own tools and feeds URLs to ost_read_web.",
+        "Keyless general web — DuckDuckGo or SearXNG — Real general-web results, no key, but it is scraping or volunteer infrastructure."
+      ],
+      "answer": "Reframed in the operator's own words: whatever we do, it must run for weeks on end in a Claude Code terminal (entry 145)",
+      "outstanding": [
+        {
+          "work": "Write the discovery half of the design (provider architecture)",
+          "turnsOnAnswer": true,
+          "why": "The design section written next (entries 147–183) is shaped entirely by the answer's weeks-long constraint."
+        },
+        {
+          "work": "Write the spec document",
+          "turnsOnAnswer": true,
+          "why": "The spec (entries 187–192) follows from the design the answer selected."
+        },
+        {
+          "work": "Fix the title round-trip defect in the reader",
+          "turnsOnAnswer": false,
+          "why": "The session itself ruled it out of the fork: 'a defect in a different subsystem and shouldn't wait on a design cycle' (entry 173)."
+        }
+      ]
+    },
+    {
+      "session": "e42cd03d-b2a4-44ba-989a-9e01cc368f77",
+      "entry": 344,
+      "askedAt": "2026-07-28T21:49:01.696Z",
+      "header": "Conflict fix",
+      "question": "How should the committed merge conflict in src/cli/index.ts be resolved?",
+      "options": [
+        "Port census into renderCheck (Recommended) — Keep the wording centralization, but teach renderCheck the denominator and git reconciliation from HEAD. Most work, loses nothing.",
+        "Take HEAD side, drop the refactor — Fastest, preserves the v0.22.0 property, but leaves wording split across two places again.",
+        "Take incoming side, accept the regression — Compiles immediately but silently drops the denominator and the git reconciliation.",
+        "Leave it, I'll fix it myself — I continue Tasks 2–5 and stop before Task 6 Step 10's build step. You resolve the merge separately."
+      ],
+      "answer": "Port census into renderCheck (entry 345)",
+      "outstanding": [
+        {
+          "work": "Resolve the committed conflict markers",
+          "turnsOnAnswer": true,
+          "why": "The resolution dispatched at entry 348 is the answer, executed."
+        },
+        {
+          "work": "Task 2: introduce the SearchProvider seam",
+          "turnsOnAnswer": false,
+          "why": "Proceeded next (entries 360–367), content untouched by how the conflict was resolved."
+        },
+        {
+          "work": "Tasks 3–5: delegation default, federated sources, provider wiring",
+          "turnsOnAnswer": false,
+          "why": "Proceeded unchanged (entries 373 onward)."
+        },
+        {
+          "work": "Task 6: rebuild the committed dist bundle",
+          "turnsOnAnswer": true,
+          "why": "The session's own fourth option names Task 6 Step 10's build step as the point that cannot pass a tree with conflict markers."
+        }
+      ]
+    },
+    {
+      "session": "e42cd03d-b2a4-44ba-989a-9e01cc368f77",
+      "entry": 704,
+      "askedAt": "2026-07-28T23:22:45.449Z",
+      "header": "Rebase plan",
+      "question": "How should the keyless-search work land on the real origin/main?",
+      "options": [
+        "Rebase minus budget, then redo refill as a gene (Recommended) — Drop the two redundant commits and the budget commit; rebase the search stack; add refillPerHour as a BudgetsGene allele in a fresh commit.",
+        "Rebase everything, resolve conflicts as they come — Keep all 12 non-redundant commits including the token bucket; leaves refill as a config knob parallel to the genome's budgets gene.",
+        "Search stack only, drop refill entirely for now — Smallest, safest change; the weeks-long budget problem stays open.",
+        "Stop and let me look first — I leave the branch as-is and touch nothing further."
+      ],
+      "answer": "Rebase everything, resolve conflicts as they come (entry 705)",
+      "outstanding": [
+        {
+          "work": "Rebase the search-stack commits onto origin/main",
+          "turnsOnAnswer": true,
+          "why": "The cherry-pick sequence (entries 707–720) is the answer, executed."
+        },
+        {
+          "work": "Land the budget-refill commit, or redo it against the upstream gene",
+          "turnsOnAnswer": true,
+          "why": "The hand-resolution of budget.ts (entries 720–745) took the shape the answer chose."
+        },
+        {
+          "work": "Drop the two commits that duplicate what origin/main already has",
+          "turnsOnAnswer": true,
+          "why": "Which commits survive is the question; the drop happened inside the chosen rebase (entry 707)."
+        }
+      ]
+    },
+    {
+      "session": "748498c4-31fb-4110-9012-464c441a463f",
+      "entry": 96,
+      "askedAt": "2026-07-29T00:36:30.861Z",
+      "header": "Environment | Control arm",
+      "question": "Which environment should Vault 11 be? Should I build the control arm (criterion 1) now or after the first loop closes?",
+      "options": [
+        "Simulated market (Recommended) — Hidden need model, costly noisy sense channels, config as the build surface. Costs ~400 lines of simulator before the first cycle runs.",
+        "Algorithmic game (2048 bot) — Cheapest to stand up, but opportunities degenerate into failure modes and there is no hidden customer.",
+        "Real goal in this repo — No simulator to build, but a weak answer key, and it entangles the benchmark with the product it is judging.",
+        "After first close (Recommended) — Get one full tree-driven cycle working end to end first, then run the no-tree control against the same seeds.",
+        "Build both now — Stand up the control arm alongside, so the first result is already comparative."
+      ],
+      "answer": "Simulated market / After first close (entry 97)",
+      "outstanding": [
+        {
+          "work": "Build the Vault 11 environment",
+          "turnsOnAnswer": true,
+          "why": "The engine written next (entries 99–130) is the simulated market the answer chose; the other options are different code entirely."
+        },
+        {
+          "work": "Build the scoring engine and its answer key",
+          "turnsOnAnswer": true,
+          "why": "score.mjs and the hidden model (entries 111–130) only have this shape under the chosen environment."
+        },
+        {
+          "work": "Stand up and run the control arm against the same seeds",
+          "turnsOnAnswer": true,
+          "why": "Deferred, because that is what the answer said to do (entry 97)."
+        }
+      ]
+    },
+    {
+      "session": "470cb94a-d709-43b1-85aa-dedd917ac866",
+      "entry": 68,
+      "askedAt": "2026-07-30T01:06:56.699Z",
+      "header": "Scope",
+      "question": "The new criteria describe mechanisms that don't exist yet (a scheduler, a spend ceiling, a stuck-detector). Should this turn ship the spec only, or also build the cheap ones?",
+      "options": [
+        "Spec only (Recommended) — Update v1-readiness.md; every new criterion states a runnable absence check that comes out false today. No src/ changes.",
+        "Spec + the one-line closures — Same, plus actually build the criteria that are one-liners today, each with a committed test.",
+        "Spec + build everything — Write the criteria and implement the scheduler, spend ceiling, lock, and stuck-detector behind them. Several are product decisions I'd have to pick for you."
+      ],
+      "answer": "Spec + build everything (entry 69)",
+      "outstanding": [
+        {
+          "work": "Update v1-readiness.md with the Gate F function criteria and their verifiability clauses",
+          "turnsOnAnswer": false,
+          "why": "Every option ships the document update; it proceeded under the answer exactly as it would have under the others."
+        },
+        {
+          "work": "Fix D1's stale count and P10's missing citation sites",
+          "turnsOnAnswer": false,
+          "why": "Named in every option; independent of how much gets built."
+        },
+        {
+          "work": "Implement the scheduler, spend ceiling and stuck-detector behind the new criteria",
+          "turnsOnAnswer": true,
+          "why": "Only exists under 'build everything' — the design fan-out began at entry 75 because of the answer."
+        },
+        {
+          "work": "Pick the cadence and the ceiling value",
+          "turnsOnAnswer": true,
+          "why": "The session made both decisions at entry 74, needed only because the answer chose building."
+        }
+      ]
+    },
+    {
+      "session": "a615eb46-cc50-41a9-a77f-931c0dc67db0",
+      "entry": 362,
+      "askedAt": "2026-07-30T03:13:47.847Z",
+      "header": "Schedule",
+      "question": "This loop stops when you close this session. Set it up as a cloud schedule instead so it keeps running?",
+      "options": [
+        "Cloud schedule (recommended) — Runs in Anthropic's cloud even after you close this session",
+        "This session only — Runs in this terminal until you exit"
+      ],
+      "answer": "This session only (entry 363)",
+      "outstanding": [
+        {
+          "work": "Start the recurring loop",
+          "turnsOnAnswer": true,
+          "why": "Where the loop runs is the question; nothing else was outstanding — the work itself had already merged (entry 361)."
+        }
+      ]
+    },
+    {
+      "session": "424486ec-3489-4b53-8e2b-012232d221ab",
+      "entry": 264,
+      "askedAt": "2026-07-30T19:04:46.164Z",
+      "header": "Concurrency",
+      "question": "Another process is writing to this repo right now (HEAD moved to the PR #22 merge, and ~14 source files have uncommitted changes touched seconds ago, including a brand-new `pushTargetFor` that implements P9). How should I proceed?",
+      "options": [
+        "Isolate in a worktree (Recommended) — I branch off the current HEAD in a separate git worktree, write the readiness changes there, re-resolve every citation against that snapshot, and open a PR.",
+        "Proceed here, doc-only — I keep editing the readiness document in this working tree and commit only that file. The other session may edit the same document.",
+        "Wait for the other session — I stop until you tell me the other session is done, then finalize against a stable tree."
+      ],
+      "answer": "Wait for the other session (entry 265)",
+      "outstanding": [
+        {
+          "work": "Finish the P11 criterion row in v1-readiness.md",
+          "turnsOnAnswer": true,
+          "why": "The answer was 'wait', and the row stopped with it (entries 267–274)."
+        },
+        {
+          "work": "Re-verify every file:line citation against a stable tree",
+          "turnsOnAnswer": true,
+          "why": "Which snapshot the citations resolve against is exactly what the options differ on."
+        },
+        {
+          "work": "Copy the in-progress edits out of the shared tree (scratchpad and resume notes)",
+          "turnsOnAnswer": false,
+          "why": "Done immediately and identically under any answer (entries 268–270) — protecting the edits was safe ground everywhere."
+        }
+      ]
+    },
+    {
+      "session": "87a025f8-c6b0-474f-9a13-0b5ec5c922ea",
+      "entry": 544,
+      "askedAt": "2026-07-31T00:29:16.826Z",
+      "header": "PR #3 | Stale branches",
+      "question": "PR #3 (\"ci: publish to npm on version-tag push\", draft, opened 2026-07-26) is obsolete. Two days after it was opened, commit 563b245 deliberately deleted the whole npm-publish workflow, set package.json private, and moved distribution to the committed dist/ost-agent.mjs bundle — and the package was unpublished from npm. Merging it would re-add a workflow that was removed on purpose. What should I do with it? Also: three branches carry content that already reached main by another route, and three more had their PRs merged but were never deleted.",
+      "options": [
+        "Close it, citing 563b245 (Recommended) — Close the draft with a comment naming the commit that superseded it. Reopenable if npm distribution ever comes back.",
+        "Leave it open — Take no action; it stays as a draft record of the idea.",
+        "Merge it anyway — Re-add the npm publish workflow on tag push.",
+        "Delete all six (Recommended) — Delete the stale remote branches; commits stay reachable by SHA.",
+        "Delete only the three merged-PR ones — Leave the three content-superseded branches alone.",
+        "Leave them all — No branch cleanup."
+      ],
+      "answer": "Close it, citing 563b245 / Delete all six (entry 545)",
+      "outstanding": [
+        {
+          "work": "Merge PR #25 (earned-belief) once its checks finish",
+          "turnsOnAnswer": false,
+          "why": "Merged first (entries 549–550) with no reference to either answer — it was the session's own in-flight change."
+        },
+        {
+          "work": "Close draft PR #3, citing what superseded it",
+          "turnsOnAnswer": true,
+          "why": "Executed at entry 554; the disposition is the answer."
+        },
+        {
+          "work": "Clean up the six stale branches",
+          "turnsOnAnswer": true,
+          "why": "Which branches die is the answer (entries 552–557)."
+        }
+      ]
+    },
+    {
+      "session": "0d27cebf-9b5d-4cff-906c-0134512573bc",
+      "entry": 106,
+      "askedAt": "2026-08-02T13:16:17.301Z",
+      "header": "Loop driver | Cadence",
+      "question": "How should the loop be driven? How often should a pass fire?",
+      "options": [
+        "/loop in this session (Recommended) — I start a self-paced or interval /loop right now; runs while this session is alive; you can watch and interrupt.",
+        "Local cron + `ost-agent loop` — Wire a real crontab entry using the repo's own firing bookends so it survives session end. Needs a loop: block in ost.config.yaml.",
+        "Both — Start /loop now for an immediate supervised run, and also land the cron + loop config.",
+        "Every 6h — Matches the vault's existing P3_ideate cron.",
+        "Every 30m — Aggressive; spends fast.",
+        "Daily — Conservative; matches P5_hygiene's cron.",
+        "Self-paced — No fixed interval."
+      ],
+      "answer": "Local cron + ost-agent loop / every hour, in the operator's own words (entry 107)",
+      "outstanding": [
+        {
+          "work": "Wire the chosen loop driver end to end",
+          "turnsOnAnswer": true,
+          "why": "The crontab work (entries 109–124) is the answer, executed; the /loop path would have been different work."
+        },
+        {
+          "work": "Declare the pass cadence and spend ceiling in ost.config.yaml",
+          "turnsOnAnswer": true,
+          "why": "The values written are the cadence answer (entries 111 onward)."
+        },
+        {
+          "work": "Reconcile the duplicate vault clones (dev/ against the home-directory one)",
+          "turnsOnAnswer": false,
+          "why": "Discovered and fixed (entries 131–143) with no reference to driver or cadence — the canonical clone matters under every option."
+        }
+      ]
+    },
+    {
+      "session": "3d729ebc-348f-4d45-8f3c-25df1de8fbc9",
+      "entry": 129,
+      "askedAt": "2026-08-03T15:02:01.443Z",
+      "header": "Gate policy | Merge authority | Build cadence",
+      "question": "What should the build loop do when the tree's own gate refuses a candidate? How far should the build loop carry a change on its own? How often should the build loop fire?",
+      "options": [
+        "Build the loop's own blockers only (Recommended) — Restrict it to internal tooling rows the discovery passes keep naming as blocking themselves.",
+        "Build top-ranked anyway, flag the debt — Ignore the gate; each pass builds the highest-ranked solution and the report names every untested assumption.",
+        "Respect the gate strictly — Build only solutions with a recorded assumption-test result; today that is zero.",
+        "Open a PR and stop (Recommended) — Branch, commit, push, open PR with gates green — then wait for you.",
+        "Merge to main when CI is green — Full ship-it flow, unattended.",
+        "Every 6 hours (Recommended) — Four a day leaves room under a spend ceiling.",
+        "Every 2 hours — More throughput; PRs may stack up faster than you review them.",
+        "Hourly, matching discovery — Same cadence as the discovery loop, offset so they don't collide."
+      ],
+      "answer": "Respect the gate strictly / Merge to main when CI is green / Hourly (entry 130)",
+      "outstanding": [
+        {
+          "work": "Record the ActiveGraph paper in the vault as a Solution node with its assumption test",
+          "turnsOnAnswer": false,
+          "why": "Created straight after (entries 148–159), content untouched by any of the three answers — mapping evidence is not governed by loop policy."
+        },
+        {
+          "work": "Stand up the build loop (gate check, cron entry, pass script)",
+          "turnsOnAnswer": true,
+          "why": "All three answers shape it: what it may build, how far it carries a change, and how often it fires (entries 136 onward)."
+        },
+        {
+          "work": "Set up operator notifications (the terminal popup)",
+          "turnsOnAnswer": false,
+          "why": "Checked at entries 163–164; wanted under every policy and cadence — it is about telling the operator, not about what the loop builds."
+        }
+      ]
+    }
+  ]
+}
