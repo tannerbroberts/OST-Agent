@@ -1,0 +1,14 @@
+{
+ "projectsRoot": "/Users/tanner/.claude/projects",
+ "transcriptsFound": 647,
+ "excludedSessions": [
+  "598061c2-bd9c-4964-b0d3-017cb5f78f2a"
+ ],
+ "transcriptsRead": 646,
+ "calls": 26132,
+ "errors": 719,
+ "maxErrorChars": 800,
+ "maxCommandChars": 600,
+ "pathShapedBounded": 76,
+ "pathShapedUnbounded": 76
+}
