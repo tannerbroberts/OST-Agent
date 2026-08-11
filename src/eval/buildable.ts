@@ -60,6 +60,7 @@ import { CAUTIOUS_LANE } from "../knowledge/lanes.js";
 import type { OstNode } from "../ost/node.js";
 import { isInstrument, parseInstrument, type ParsedInstrument } from "../knowledge/instruments.js";
 import { thresholdKindOf } from "./coverage.js";
+import { trustsShippedStatus } from "./shipped-audit.js";
 import { testsUnderSolution } from "../processes/tree.js";
 
 export interface BuildPermit {
@@ -304,12 +305,24 @@ export function testsAwaitingVerification(tree: readonly OstNode[]): string[] {
  * count. A solution here has been ideated and has had its assumptions surfaced,
  * and still cannot reach a builder, because everything written about it is
  * prose.
+ *
+ * A solution that already ships is not here, because it is not missing anything
+ * this list can ask for: an instrument must be red today and green when the
+ * solution is built, and for built behaviour any honest spec passes on arrival.
+ * Four solutions correctly parked as `shipped` recurred in this list on every
+ * pass until each future sweep either re-derived the same conclusion or was
+ * tempted to invent a command that could not fail. The exclusion does not trust
+ * the bare field — `status: shipped` is agent-settable — only a promotion
+ * recorded in `## History` with reasoning attached leaves the queue
+ * ({@link trustsShippedStatus}), and `test/ost/shipped-status-audit.test.ts`
+ * holds the trusted set to code that actually exists.
  */
 export function solutionsMissingInstruments(tree: readonly OstNode[]): string[] {
   const index = indexByTitle(tree);
   const out: string[] = [];
   for (const n of tree) {
     if (n.layer !== "Solution") continue;
+    if (trustsShippedStatus(n)) continue;
     const tests = testsUnder(index, n);
     if (tests.length === 0) continue; // already counted by solutionsMissingAssumptions
     if (tests.some((t) => nodeInstrument(t))) continue;
