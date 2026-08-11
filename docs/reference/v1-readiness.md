@@ -3080,7 +3080,13 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2618 tests across 199 files, verified 2026-08-10 (`npx vitest run`,
+> *Today:* **met** — 2622 tests across 200 files, verified 2026-08-10 (`npx vitest run`,
+> after the exit-code-observation containment spec landed: a recorded exit code writes only
+> to the instrument log, never to `## Results`, never changes status, and leaves the
+> evidence gate BLOCKED — asserted for red, for green-after-red, and for the refused
+> first-run green, which must leave the node byte-for-byte untouched
+> (`test/runner/exit-code-observation.test.ts`).
+> Previously 2618 tests across 199 files, verified 2026-08-10 (`npx vitest run`),
 > after the run-journal interruption spec landed: ten runs SIGKILLed at seeded points, and
 > **0 of 10** journals overstated with **0** understating, against a bar of 0 overstating /
 > at most 2 understating fixed by the assumption test before the journal existed
