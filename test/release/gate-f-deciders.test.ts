@@ -147,7 +147,7 @@ const READER_MODULES: Record<string, string> = {
  * trusted: a pure module that quietly grows a `readFileSync` is a new decider
  * input nobody enumerated.
  */
-const PURE_MODULES = ["cadence.ts", "exitLaundering.ts", "stall.ts"];
+const PURE_MODULES = ["cadence.ts", "exitLaundering.ts", "stall.ts", "authority-contract.ts"];
 
 /**
  * The third class, and the reason it exists rather than being folded into the

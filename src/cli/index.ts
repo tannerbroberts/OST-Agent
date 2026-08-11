@@ -31,6 +31,7 @@
  *   ost-agent claim "<work>" --briefing F     take the work before building it, so a second pass sees it is taken
  *   ost-agent next-build [--rewrite F]        the standing briefing at its one address: read it, or supersede it keeping every prior reading
  *   ost-agent bank-question "<q>" ...         bank a fork instead of stopping at it, costed by the work it holds up
+ *   ost-agent authority                       the standing contract: which classes of decision compute may take alone
  *   ost-agent allowlist --skill F --settings F  derive a run's permission grant from the skill's own allowed-tools
  *   ost-agent grants --skill F --settings F   name every tool a run declares that its grant does not cover
  *   ost-agent build-check --repo DIR          does the tree a run inherited actually build? checked before work is planned on it
@@ -114,6 +115,7 @@ import { runGrantPreflight } from "../runner/grant-preflight.js";
 import { REQUIRED_TOOLS_EXIT, checkRequiredTools } from "../mcp/required-tools.js";
 import { loopStateDir, workingTreeStatus, type VaultTreeStatus } from "../loop/state.js";
 import { bankQuestion, readQuestionBank } from "../loop/question-bank.js";
+import { renderAuthorityContract } from "../loop/authority-contract.js";
 import {
   DEFAULT_QUIET_MINUTES, emptyCorrectionsLedger, readLedger, recordCorrections, renderCorrections,
 } from "../loop/corrections.js";
@@ -1405,6 +1407,17 @@ program
       }
     },
   );
+
+program
+  .command("authority")
+  .description(
+    "the standing authority contract: which classes of decision compute may take alone. A run at a fork reads this " +
+      "and either proceeds under the clause that covers it (recording which) or stops and cites the clause — or " +
+      "'uncovered', which is a stop exactly as before the contract existed",
+  )
+  .action(() => {
+    console.log(renderAuthorityContract());
+  });
 
 program
   .command("allowlist")

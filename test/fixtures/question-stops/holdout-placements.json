@@ -1,0 +1,59 @@
+{
+  "corpus": "The nine newest stops of stops.json — everything after the authority contract's drafting cutoff (2026-07-28T21:07:42.085Z) — each placed into a class of src/loop/authority-contract.ts, or null when no drafted clause covers it. Placement was allowed to use only the classes already written; the whys cite the clause criteria, never the recorded answer. See the holdout section of PROVENANCE.md for the discipline and its limits.",
+  "placements": [
+    {
+      "session": "e42cd03d-b2a4-44ba-989a-9e01cc368f77",
+      "entry": 344,
+      "class": "authority:mechanics",
+      "why": "All four options are ways to repair a committed conflict inside the repository, and the recommended one ('most work, loses nothing') reaches the already-decided goal — renderCheck's merged behavior — with nothing lost. The fork is how, never whether."
+    },
+    {
+      "session": "e42cd03d-b2a4-44ba-989a-9e01cc368f77",
+      "entry": 704,
+      "class": "authority:mechanics",
+      "why": "Every option is a way to land already-directed work on the project's own main — which commits survive the rebase and in what shape. The content was decided when the work was; each option stays confined to the project's branches."
+    },
+    {
+      "session": "748498c4-31fb-4110-9012-464c441a463f",
+      "entry": 96,
+      "class": "authority:product-direction",
+      "why": "Choosing which environment Vault 11 is decides what the benchmark fundamentally is — the simulator, its hidden need model and its answer key outlive any single change and shape every evaluation after. Identity, not mechanics."
+    },
+    {
+      "session": "470cb94a-d709-43b1-85aa-dedd917ac866",
+      "entry": 68,
+      "class": "authority:plan-gap",
+      "why": "The new criteria name mechanisms nothing builds (a scheduler, a spend ceiling, a stuck-detector), and the fork is how much of the closing work this turn takes on — the same shape the clause was drafted from, where a deletion severed ingestion and the options were likewise close-now against defer."
+    },
+    {
+      "session": "a615eb46-cc50-41a9-a77f-931c0dc67db0",
+      "entry": 362,
+      "class": null,
+      "why": "Whether the loop persists in Anthropic's cloud after the session closes is a question about the run's own persistence and standing spend. No drafting stop raised one, so no drafted clause covers it — recorded uncovered rather than stretching run-footing, whose criteria are about where work happens, not whether standing compute exists."
+    },
+    {
+      "session": "424486ec-3489-4b53-8e2b-012232d221ab",
+      "entry": 264,
+      "class": "authority:run-footing",
+      "why": "Worktree, proceed-in-place, or wait for the other session — the options differ only in where the run stands while another writer holds the tree; the readiness work itself is identical under each."
+    },
+    {
+      "session": "87a025f8-c6b0-474f-9a13-0b5ec5c922ea",
+      "entry": 544,
+      "class": "authority:outward-state",
+      "why": "PR #3 is a public record whose merge would republish to npm, and the six stale branches live on the shared remote; both halves of the stop dispose of state a third party can already see."
+    },
+    {
+      "session": "0d27cebf-9b5d-4cff-906c-0134512573bc",
+      "entry": 106,
+      "class": null,
+      "why": "The driver half could be read as footing, but the stop's other half sets how often autonomous work fires — a spend-rate authorization the drafting half never saw a single instance of. A stop is placed whole, and no drafted clause rules on spend."
+    },
+    {
+      "session": "3d729ebc-348f-4d45-8f3c-25df1de8fbc9",
+      "entry": 129,
+      "class": "authority:governance",
+      "why": "What the build loop does when the tree's own gate refuses a candidate, and how far it carries a change alone, is the governance of the tree itself — the class fixed before drafting began. Its cadence third does not rescue any other reading; governance outranks everything it touches."
+    }
+  ]
+}

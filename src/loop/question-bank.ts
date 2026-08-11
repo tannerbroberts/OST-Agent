@@ -30,7 +30,9 @@
  * number — the rule was authored against that same corpus, so what the test
  * certifies is on-corpus agreement pinned as a regression bar, not
  * generalization. Generalization is the sibling holdout test's question
- * (`test/loop/authority-class-holdout.test.ts`, not yet built).
+ * (`test/loop/authority-class-holdout.test.ts`, which drafts the authority
+ * contract's decision classes from the oldest eight stops and places the nine
+ * newest against them — see `src/loop/authority-contract.ts`).
  */
 import fs from "node:fs";
 import path from "node:path";
