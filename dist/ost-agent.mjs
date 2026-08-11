@@ -51759,6 +51759,7 @@ function startRun(dir, meta) {
     loopVersion: meta.loopVersion,
     cliVersion: meta.cliVersion,
     ...meta.headBefore ? { headBefore: meta.headBefore } : {},
+    ...meta.ceiling ? { ceiling: meta.ceiling } : {},
     steps: []
   };
   fs40.writeFileSync(openRunPath(dir), JSON.stringify(run, null, 2));
@@ -52895,10 +52896,12 @@ function registerLoopCommands(program3) {
       if (checkpoint.action === "applied") console.log(`update: ${checkpoint.reason}`);
       else if (checkpoint.action === "held") console.error(`update: ${checkpoint.reason}`);
     }
+    const stampedCeiling = ceilingOf(opts.vault, config2.loop?.spend);
     const opened = startRun(opts.vault, {
       loopVersion: VERSION,
       cliVersion: VERSION,
-      headBefore: gitHead(opts.vault)
+      headBefore: gitHead(opts.vault),
+      ...stampedCeiling ? { ceiling: stampedCeiling } : {}
     });
     stampFiringLock(opts.vault, lock.record, opened.runId);
     console.log(`loop run ${opened.runId} open`);
@@ -52909,6 +52912,30 @@ function registerLoopCommands(program3) {
       console.error(launderedExitMessage(laundered));
       process.exitCode = 2;
       return;
+    }
+    const open = readOpenRun(opts.vault);
+    if (open?.ceiling) {
+      const halt = checkCeiling(
+        open.ceiling,
+        measureFiring(open.ceiling.sessionsDir, {
+          vaultDir: opts.vault,
+          sinceMs: Date.now() - open.ceiling.windowHours * HOUR_MS
+        })
+      );
+      if (!halt.ok) {
+        console.error(`halting mid-firing, not running phase \`${opts.phase}\`: ${halt.reason}`);
+        appendStep(opts.vault, {
+          phase: opts.phase,
+          command: command.join(" "),
+          argv: command,
+          cwd: process.cwd(),
+          exit: LOOP_EXIT.ceilingBlocked,
+          durationMs: 0,
+          refused: "spend-ceiling"
+        });
+        process.exitCode = LOOP_EXIT.ceilingBlocked;
+        return;
+      }
     }
     const startedAt = Date.now();
     const cwd = process.cwd();

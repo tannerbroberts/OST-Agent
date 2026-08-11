@@ -25,6 +25,7 @@ import { appendJournal } from "./journal.js";
 // reads the run record it classifies, and this file only needs the shape of what
 // it hands back.
 import type { Degradation } from "./degraded.js";
+import type { SpendCeiling } from "./spend.js";
 
 /**
  * `degraded` is the newest and the only one that is not about the tree.
@@ -59,6 +60,13 @@ export interface LoopStepRecord {
   exit: number;
   durationMs: number;
   at: string;
+  /**
+   * Present when the loop REFUSED to run this phase, with the reason class.
+   * Without it a reader cannot tell "the command ran and exited 13" from "the
+   * command was never spawned" — and the whole point of recording the halt is
+   * that the ledger says the firing was stopped, not that the phase failed.
+   */
+  refused?: "spend-ceiling";
 }
 
 export interface LoopRunRecord {
@@ -71,6 +79,15 @@ export interface LoopRunRecord {
   headBefore?: string;
   headAfter?: string;
   steps: LoopStepRecord[];
+  /**
+   * The spend ceiling this firing runs under, resolved from config at `loop
+   * start` and stamped here so `loop step` never re-reads it. That is
+   * `web.lookupBudget`'s rule (`src/security/tools.ts`) applied to the firing:
+   * a budget re-read from a file mid-run is a budget its spender can widen.
+   * Absent on a run started before this field existed, or started directly
+   * without a declared `loop.spend` — the `due` gate owns that refusal.
+   */
+  ceiling?: SpendCeiling;
   verdict?: LoopVerdict;
   /**
    * What this firing could not attempt, observed from outside it and stamped at
@@ -174,7 +191,7 @@ function nextRunId(startedAt: string): string {
 
 export function startRun(
   dir: string,
-  meta: { loopVersion: string; cliVersion: string; headBefore?: string },
+  meta: { loopVersion: string; cliVersion: string; headBefore?: string; ceiling?: SpendCeiling },
 ): LoopRunRecord {
   sweepCrashed(dir);
   const startedAt = new Date().toISOString();
@@ -184,6 +201,7 @@ export function startRun(
     loopVersion: meta.loopVersion,
     cliVersion: meta.cliVersion,
     ...(meta.headBefore ? { headBefore: meta.headBefore } : {}),
+    ...(meta.ceiling ? { ceiling: meta.ceiling } : {}),
     steps: [],
   };
   fs.writeFileSync(openRunPath(dir), JSON.stringify(run, null, 2));
