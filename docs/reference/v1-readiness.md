@@ -3089,7 +3089,13 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2737 tests across 210 files, verified 2026-08-11 (`npx vitest run`,
+> *Today:* **met** — 2742 tests across 211 files, verified 2026-08-11 (`npx vitest run`,
+> after the tightening migration landed: `ost-agent migrate evidence-class` remediates
+> the one past tightening that flagged every pre-existing node, with frontmatter-only
+> edits a test holds byte-identical after the closing delimiter, a node-by-node report,
+> and a refusal list naming what only a human may decide
+> (`src/ost/migrate.ts`, `test/ost/tightening-migration-meaning.test.ts`).
+> Previously 2737 tests across 210 files, verified 2026-08-11 (`npx vitest run`,
 > after the standing pending-ask queue landed: every needs-a-person lane classification
 > files an aged ask carrying its clearing command, `outstandingAsks` assembled from the
 > ledger plus every labelled needs-a-person test rather than `blockedOnPermission`
