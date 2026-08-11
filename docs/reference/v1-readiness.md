@@ -3080,7 +3080,14 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2688 tests across 205 files, verified 2026-08-11 (`npx vitest run`,
+> *Today:* **met** — 2696 tests across 206 files, verified 2026-08-11 (`npx vitest run`,
+> after evidence-extent decorrelation landed: sibling opportunities whose cited evidence
+> collapses, nests, or entangles are hygiene issues (`shared-extent` / `subset-extent` /
+> `entangled-extent`, `src/ost/extent.ts`) — the provenance half of duplicate detection,
+> clustered and posting-list-indexed so the wall-clock budget holds on the 10,000-node
+> fixture whose 2,000 siblings share one record
+> (`test/ost/extent.test.ts`, `test/mcp/wall-clock-budget.test.ts`).
+> Previously 2688 tests across 205 files, verified 2026-08-11 (`npx vitest run`,
 > after branch-scoped discovery landed: a human-set `discovery.target` scopes the sweep
 > and `done` to one opportunity's subtree, everything scoped away is counted in
 > `scope.excluded`, a mistyped target runs unscoped and loud, and the tool surface has
