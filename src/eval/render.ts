@@ -19,6 +19,7 @@ import { computeEvidenceDebt, gateSolution } from "./evidence-debt.js";
 import { solutionsMissingInstruments } from "./buildable.js";
 import { computeCoverageDebt, computeCoveragePairs, computeUnfixedThresholds } from "./coverage.js";
 import { BELIEVABILITY_LADDER, believabilityRollup } from "../knowledge/believability.js";
+import { COMPRESSION_SURFACES } from "../compression/registry.js";
 import type { PassContext } from "../processes/types.js";
 import { LAYERS, type OstNode } from "../ost/node.js";
 import { formatCensus, SUSPECT_SOURCE_RULE, type TreeCensus } from "../ost/census.js";
@@ -768,6 +769,17 @@ export function renderStatus(ctx: PassContext, census: TreeCensus): string {
         `(${instruction} still an instruction, ${absent} unwritten) — see \`debt\``,
     );
   }
+  // The product's own compression posture, from the surface registry
+  // (`src/compression/registry.ts`): how many bounded outputs are under a
+  // declared contract, how many contracts a test actually drives, and how many
+  // surfaces still clip without recording the loss. One line, all totals —
+  // never charged to the budget, like every other total here.
+  const silent = COMPRESSION_SURFACES.filter((s) => s.drops === "silent").length;
+  const proven = COMPRESSION_SURFACES.filter((s) => s.proof === "behavioral").length;
+  lines.push(
+    `Compression: ${COMPRESSION_SURFACES.length} bounded surface(s) under contract ` +
+      `(${proven} proven by test, ${COMPRESSION_SURFACES.length - proven} declared; ${silent} still clip silently)`,
+  );
   appendElisionCoda(
     lines,
     hidden,

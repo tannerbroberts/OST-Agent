@@ -42195,6 +42195,333 @@ function solutionsMissingInstruments(tree) {
   return out;
 }
 
+// src/compression/registry.ts
+var COMPRESSION_SURFACES = [
+  {
+    name: "actions history fetch",
+    module: "src/adapters/actions.ts",
+    caps: ["DEFAULT_MAX_PAGES"],
+    kind: "walk-bound",
+    decision: "how much CI-run history one cold fetch may pull before it is treated as caught up",
+    reads: ["the page walk stops at the cap instead of running away on a cold start"],
+    drops: "silent",
+    proof: "declaration"
+  },
+  {
+    name: "friction filing clip",
+    module: "src/adapters/friction.ts",
+    caps: ["MAX_NOTE_CHARS", "MAX_CONTEXT_CHARS"],
+    kind: "input-bound",
+    decision: "whether a filed friction note is specific enough to map into the tree",
+    reads: ["the leading characters of the note survive, because the point of pain is stated first"],
+    drops: "silent",
+    proof: "declaration"
+  },
+  {
+    name: "transcript reading served to the model reader",
+    module: "src/adapters/transcript-model-reader.ts",
+    caps: ["MAX_QUOTE_CHARS", "MAX_READING_CHARS"],
+    kind: "bounded-output",
+    decision: "which stalls and dead ends in a finished session are worth filing as evidence",
+    reads: [
+      "an elision marks its omitted character count inline, so a filed quote stays locatable",
+      "head and tail both survive \u2014 the clip removes the middle, never the frame"
+    ],
+    drops: "prose-note",
+    proof: "declaration"
+  },
+  {
+    name: "transcript adapter event digest",
+    module: "src/adapters/transcript.ts",
+    caps: ["DEFAULT_MAX_EVENTS", "DEFAULT_MAX_SESSIONS", "MAX_DETAIL_CHARS"],
+    kind: "bounded-output",
+    decision: "which sessions' friction events become evidence records in the vault",
+    reads: ["event counts per session are taken before the display cap"],
+    drops: "silent",
+    proof: "declaration"
+  },
+  {
+    name: "dirty-path refusal listing",
+    module: "src/cli/loop.ts",
+    caps: ["DIRTY_PATHS_SHOWN"],
+    kind: "bounded-output",
+    decision: "whether an operator can tell what made the working tree dirty enough to refuse a firing",
+    reads: ["the dirty-file count is exact even when the listing is cut"],
+    drops: "prose-note",
+    proof: "declaration"
+  },
+  {
+    name: "analysis renders",
+    module: "src/eval/render.ts",
+    caps: ["MAX_ITEMS_PER_LIST", "RENDER_BUDGET_BYTES", "DETAIL_BUDGET_BYTES"],
+    kind: "bounded-output",
+    decision: "what a human acts on from check, debt, gate and status without opening the vault",
+    reads: [
+      "every shortened list names how many it is not showing and the full total",
+      "every verdict and count is computed over the full set \u2014 the elision coda says so",
+      "a sample is a prefix, never a selection: an unaffordable line stops the list"
+    ],
+    drops: "prose-note",
+    proof: "declaration"
+  },
+  {
+    name: "near-miss directory listing",
+    module: "src/fs/near-miss.ts",
+    caps: ["MAX_PRESENT"],
+    kind: "bounded-output",
+    decision: "whether a failed path was a typo \u2014 judged against what actually exists nearby",
+    reads: ["the listing marks itself truncated, so an absence is never read as proof"],
+    drops: "boolean-flag",
+    proof: "declaration"
+  },
+  {
+    name: "near-miss ancestor walk",
+    module: "src/fs/near-miss.ts",
+    caps: ["MAX_ANCESTOR_HOPS"],
+    kind: "walk-bound",
+    decision: "how far up the tree a path diagnosis may look for the intended directory",
+    reads: ["the walk terminates at the cap instead of scanning to the filesystem root"],
+    drops: "silent",
+    proof: "declaration"
+  },
+  {
+    name: "corrections ledger",
+    module: "src/loop/corrections.ts",
+    caps: ["MAX_CORRECTIONS", "MAX_PERMITTED_CHARS", "MAX_ATTEMPTED_CHARS"],
+    kind: "bounded-output",
+    decision: "whether the loop repeats a correction it has already been given",
+    reads: ["overflow accumulates into a dropped-count the briefing names, so age-out is visible"],
+    drops: "dropped-count",
+    proof: "declaration"
+  },
+  {
+    name: "sense census detail",
+    module: "src/loop/senses.ts",
+    caps: ["MAX_DETAIL_CHARS"],
+    kind: "bounded-output",
+    decision: "which senses an operator repairs after reading a firing's closing report",
+    reads: ["the state and the reach clause survive whatever the detail clip does"],
+    drops: "silent",
+    proof: "declaration"
+  },
+  {
+    name: "next-work sweep",
+    module: "src/mcp/next-work.ts",
+    caps: ["MAX_ITEMS_PER_LIST", "MAX_LISTED_CHILDREN", "EXCERPT_CHARS"],
+    kind: "bounded-output",
+    decision: "what an unattended pass does next, and whether the sweep is done",
+    reads: [
+      "every count and the done verdict are computed over the full set, never the shown one",
+      "each capped list carries a truncation record whose hidden equals total minus shown",
+      "the hidden totals appear in the summary prose, not only in a field",
+      "an excerpt travels with the true body length, and the full-body channel is named"
+    ],
+    drops: "truncation-record",
+    proof: "behavioral"
+  },
+  {
+    name: "evidence body channel",
+    module: "src/mcp/next-work.ts",
+    caps: ["MAX_BODY_CHARS"],
+    kind: "bounded-output",
+    decision: "whether one evidence record, read in full, changes how it should be mapped",
+    reads: ["the served body names its true character count, and the truncation label names its units"],
+    drops: "truncation-record",
+    proof: "behavioral"
+  },
+  {
+    name: "census quoted sources",
+    module: "src/ost/census.ts",
+    caps: ["MAX_QUOTED_SOURCE_LENGTH"],
+    kind: "bounded-output",
+    decision: "whether the census's response-size bound argument holds \u2014 every quoted string is clamped",
+    reads: ["no quoted source exceeds the clamp, because the per-list caps' size argument rests on it"],
+    drops: "silent",
+    proof: "declaration"
+  },
+  {
+    name: "title sanitization",
+    module: "src/ost/sanitize.ts",
+    caps: ["MAX_TITLE_LENGTH"],
+    kind: "input-bound",
+    decision: "the base assumption every response-size argument in the product rests on",
+    reads: ["no stored title exceeds the bound, so every downstream cap can price a line"],
+    drops: "silent",
+    proof: "declaration"
+  },
+  {
+    name: "capability record refs",
+    module: "src/product/capability.ts",
+    caps: ["MAX_REFS"],
+    kind: "bounded-output",
+    decision: "what a builder-capability profile cites as its evidence",
+    reads: ["a truncated clone is marked shallow before anything is read from it"],
+    drops: "boolean-flag",
+    proof: "declaration"
+  },
+  {
+    name: "repo file read",
+    module: "src/product/repo.ts",
+    caps: ["MAX_FILE_CHARS"],
+    kind: "bounded-output",
+    decision: "whether an idea is grounded in what the product's source actually says",
+    reads: ["the cap applies to content and never to the frame \u2014 the truncation marker always survives"],
+    drops: "boolean-flag",
+    proof: "declaration"
+  },
+  {
+    name: "repo listing",
+    module: "src/product/repo.ts",
+    caps: ["MAX_LIST_ENTRIES"],
+    kind: "bounded-output",
+    decision: "which files a repo-grounding pass believes exist",
+    reads: ["the entry cap is declared here because the listing itself does not admit it"],
+    drops: "silent",
+    proof: "declaration"
+  },
+  {
+    name: "broker detail clip",
+    module: "src/security/broker.ts",
+    caps: ["MAX_DETAIL_CHARS"],
+    kind: "bounded-output",
+    decision: "what an operator learns about a brokered action from its logged detail",
+    reads: ["the leading characters survive, where the action names itself"],
+    drops: "silent",
+    proof: "declaration"
+  },
+  {
+    name: "ingest report titles",
+    module: "src/security/tools.ts",
+    caps: ["MAX_TITLE_DISPLAY_LENGTH", "MAX_TITLES_LISTED"],
+    kind: "bounded-output",
+    decision: "whether an ingest run captured what the operator dropped in \u2014 bodies never reach the transcript",
+    reads: ["overflow is rendered as a named '+N more', never dropped without count"],
+    drops: "prose-note",
+    proof: "declaration"
+  },
+  {
+    name: "tree read",
+    module: "src/security/tools.ts",
+    caps: ["READ_TREE_BUDGET_BYTES", "MAX_EDGES_LISTED_PER_NODE"],
+    kind: "bounded-output",
+    decision: "which neighbourhood of the tree a session decides to work in",
+    reads: [
+      "count is always the whole tree \u2014 the number that says what was left out is never capped",
+      "shown plus hidden equals count",
+      "per-node tagCount and linkCount appear exactly when the arrays are samples",
+      "the note says the verdicts are computed over all nodes, so a cap cannot read as a smaller tree"
+    ],
+    drops: "count-frame",
+    proof: "behavioral"
+  },
+  {
+    name: "hand-exclusion command clip",
+    module: "src/telemetry/hand-exclusion.ts",
+    caps: ["MAX_COMMAND_CHARS"],
+    kind: "bounded-output",
+    decision: "which hand-run commands are excluded from the loop's own telemetry",
+    reads: ["the leading characters survive, where the command names itself"],
+    drops: "silent",
+    proof: "declaration"
+  },
+  {
+    name: "path-failure attribution clips",
+    module: "src/telemetry/path-failure-attribution.ts",
+    caps: ["MAX_ERROR_CHARS", "MAX_COMMAND_CHARS"],
+    kind: "bounded-output",
+    decision: "which directory a captured path failure is attributed to",
+    reads: ["the leading characters of command and error survive, where the path appears"],
+    drops: "silent",
+    proof: "declaration"
+  },
+  {
+    name: "preflight excerpt clip",
+    module: "src/telemetry/preflight.ts",
+    caps: ["MAX_EXCERPT_CHARS"],
+    kind: "bounded-output",
+    decision: "whether a preflight statement was read before the tool ran",
+    reads: ["the leading characters survive"],
+    drops: "silent",
+    proof: "declaration"
+  },
+  {
+    name: "search-literality excerpt clip",
+    module: "src/telemetry/search-literality.ts",
+    caps: ["MAX_EXCERPT_CHARS"],
+    kind: "bounded-output",
+    decision: "whether a search was taken literally or paraphrased",
+    reads: ["the leading characters survive"],
+    drops: "silent",
+    proof: "declaration"
+  },
+  {
+    name: "usage rollup error clip",
+    module: "src/telemetry/usage.ts",
+    caps: ["MAX_ERR_CHARS"],
+    kind: "bounded-output",
+    decision: "which failure shapes recur across a window of runs",
+    reads: ["the leading characters survive, where the error names its shape"],
+    drops: "silent",
+    proof: "declaration"
+  },
+  {
+    name: "web redirect walk",
+    module: "src/web/guard.ts",
+    caps: ["MAX_REDIRECTS"],
+    kind: "walk-bound",
+    decision: "how many hops a fetched URL may take before the fetch is refused",
+    reads: ["the walk terminates at the cap"],
+    drops: "silent",
+    proof: "declaration"
+  },
+  {
+    name: "web page read",
+    module: "src/web/guard.ts",
+    caps: ["MAX_PAGE_CHARS"],
+    kind: "bounded-output",
+    decision: "what a budgeted lookup brings back into the context",
+    reads: ["the read marks itself truncated and the rendering names the served length"],
+    drops: "boolean-flag",
+    proof: "declaration"
+  },
+  {
+    name: "web search request",
+    module: "src/web/search.ts",
+    caps: ["MAX_SEARCH_RESULTS"],
+    kind: "input-bound",
+    decision: "how many results one budgeted search may request",
+    reads: ["the request clamp is applied at both the search and the tool boundary"],
+    drops: "silent",
+    proof: "declaration"
+  },
+  {
+    name: "computed rollup",
+    module: "src/eval/rollup.ts",
+    caps: [],
+    kind: "bounded-output",
+    decision: "the top-level state of the whole tree, one line per bucket, on demand",
+    reads: [
+      "every figure is derived from the full tree at read time \u2014 nothing is narrated or stored",
+      "nodes the walk could not file are reported as unfiled, never silently omitted"
+    ],
+    drops: "derived",
+    proof: "behavioral"
+  },
+  {
+    name: "standing briefing recent-node window",
+    module: "src/ost/standing-briefing.ts",
+    caps: [],
+    kind: "bounded-output",
+    decision: "what a returning operator re-learns about the tree without opening it \u2014 the 10-node window is an inline literal",
+    reads: ["the recent-node list names how many more the week held when it stops early"],
+    drops: "prose-note",
+    proof: "declaration"
+  }
+];
+var SURFACE_BY_NAME = new Map(
+  COMPRESSION_SURFACES.map((s) => [s.name, s])
+);
+
 // src/eval/render.ts
 var MAX_ITEMS_PER_LIST = 25;
 var RENDER_BUDGET_BYTES = 48 * 1024;
@@ -42574,6 +42901,11 @@ function renderStatus(ctx, census) {
       `Thresholds: ${instruction + absent}/${tests} assumption test(s) have no fixed bar (${instruction} still an instruction, ${absent} unwritten) \u2014 see \`debt\``
     );
   }
+  const silent = COMPRESSION_SURFACES.filter((s) => s.drops === "silent").length;
+  const proven = COMPRESSION_SURFACES.filter((s) => s.proof === "behavioral").length;
+  lines.push(
+    `Compression: ${COMPRESSION_SURFACES.length} bounded surface(s) under contract (${proven} proven by test, ${COMPRESSION_SURFACES.length - proven} declared; ${silent} still clip silently)`
+  );
   appendElisionCoda(
     lines,
     hidden,

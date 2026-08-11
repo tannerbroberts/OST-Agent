@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { initVault } from "../../src/runner/init.js";
 import { buildPassContext } from "../../src/runner/context.js";
 import { renderCheck, renderDebt, renderGate, renderStatus } from "../../src/eval/render.js";
+import { COMPRESSION_SURFACES } from "../../src/compression/registry.js";
 import { recordAttention } from "../../src/telemetry/attention.js";
 import { usageLogPath } from "../../src/telemetry/usage.js";
 
@@ -136,6 +137,14 @@ describe("renderStatus — the attention section", () => {
         "Unvalidated (agent-ideated, awaiting review): 0",
         "Believability: money 0, observed 0, stated 0, expert 0, assertion 1",
         "  the tree as a whole rests on its weakest rung: assertion",
+        // The compression posture is a property of the PRODUCT, not the vault,
+        // so it renders even here — its numbers are derived from the registry
+        // the same way `${ctx.dir}` is derived, keeping this pin verbatim about
+        // the format without rotting each time a surface is registered.
+        `Compression: ${COMPRESSION_SURFACES.length} bounded surface(s) under contract ` +
+          `(${COMPRESSION_SURFACES.filter((s) => s.proof === "behavioral").length} proven by test, ` +
+          `${COMPRESSION_SURFACES.filter((s) => s.proof === "declaration").length} declared; ` +
+          `${COMPRESSION_SURFACES.filter((s) => s.drops === "silent").length} still clip silently)`,
       ].join("\n"),
     );
   });
