@@ -3089,7 +3089,14 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2,769 tests across 214 files, verified 2026-08-11 (`npx vitest run`,
+> *Today:* **met** — 2,789 tests across 215 files, verified 2026-08-11 (`npx vitest run`,
+> after credential intake landed: each form the operator already holds — an env var
+> another tool set, a personal access token, a session token, an OAuth grant, `gh`'s
+> stored login — resolves to the one secret shape the broker holds, refusals name every
+> route tried without echoing the value, and the accepted-form registry is counted
+> against the assumption's at-most-six bar
+> (`src/security/credential-forms.ts`, `test/security/credential-forms.test.ts`).
+> Previously 2,769 tests across 214 files, verified 2026-08-11 (`npx vitest run`,
 > after the early-push collision window landed: the recorded 2026-07-26 collision
 > replayed against real git with skeleton pushes on a cadence, git's own
 > non-fast-forward refusal arriving within 21 minutes of the colliding commit at a
