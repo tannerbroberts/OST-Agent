@@ -42036,6 +42036,27 @@ function computeCoverageDebt(tree) {
   };
 }
 
+// src/eval/shipped-audit.ts
+var HISTORY_HEADING = "## History";
+var SHIPPED_PROMOTION = /^[-*]\s+\d{4}-\d{2}-\d{2}\b.*status:.*(?:→|->)\s*shipped\s*(?:—|--)\s*\S/;
+function historyLines(body) {
+  const lines = body.split("\n");
+  const start = lines.findIndex((l) => isHeadingLine(l, HISTORY_HEADING));
+  if (start === -1) return [];
+  const out = [];
+  for (const line of lines.slice(start + 1)) {
+    if (/^#{1,6}\s/.test(line.trim())) break;
+    out.push(line.trim());
+  }
+  return out;
+}
+function shippedPromotionLine(node) {
+  return historyLines(node.body).find((l) => SHIPPED_PROMOTION.test(l));
+}
+function trustsShippedStatus(node) {
+  return node.layer === "Solution" && node.status === "shipped" && shippedPromotionLine(node) !== void 0;
+}
+
 // src/eval/buildable.ts
 function indexByTitle(tree) {
   const index = /* @__PURE__ */ new Map();
@@ -42142,6 +42163,7 @@ function solutionsMissingInstruments(tree) {
   const out = [];
   for (const n of tree) {
     if (n.layer !== "Solution") continue;
+    if (trustsShippedStatus(n)) continue;
     const tests = testsUnder(index, n);
     if (tests.length === 0) continue;
     if (tests.some((t2) => nodeInstrument(t2))) continue;
