@@ -20,6 +20,7 @@ import {
 import type { Actor } from "../adapters/source.js";
 import { checkInvariants } from "../eval/invariants.js";
 import { scanNearDuplicates } from "../ost/dedupe.js";
+import { EXTENT_RULES, scanExtentOverlap } from "../ost/extent.js";
 import {
   quotableSource,
   reconcileWithTrust,
@@ -435,7 +436,12 @@ export const HYGIENE_LABELS: Readonly<Record<string, string>> = {
  * gate lying, because a stricter `done` never reports complete over a red tree.
  * The reverse — `check` stricter than `done` — is the R4 defect.
  */
-export const HYGIENE_ONLY_RULES = ["near-duplicate", "unresolved-citation", SUSPECT_SOURCE_RULE] as const;
+export const HYGIENE_ONLY_RULES = [
+  "near-duplicate",
+  "unresolved-citation",
+  SUSPECT_SOURCE_RULE,
+  ...EXTENT_RULES,
+] as const;
 
 /**
  * The `rule` a dangling evidence citation is reported under, and the sentence a
@@ -618,6 +624,11 @@ function detectHygiene(
   // Pulled from a generator so a 5,000-node duplicated vault costs the ~25
   // objects it displays instead of the 12.5M pairs it contains.
   for (const d of scanNearDuplicates(live)) take({ ...d, rule: "near-duplicate" });
+  // Decorrelation: sibling opportunities whose evidence extents collapse, nest,
+  // or entangle (see src/ost/extent.ts). Same channel and same live set as the
+  // wording scan — the two are the two halves of duplicate detection, and
+  // retiring a node clears both for the same reason.
+  for (const d of scanExtentOverlap(live)) take(d);
   return { issues, total, excluded };
 }
 

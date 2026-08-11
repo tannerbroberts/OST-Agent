@@ -69,7 +69,8 @@ export const OST_RULESET = {
     "Source opportunities from story-based, past-behavior customer interviews rather than internal brainstorming.",
     "Derive top-level opportunities from key moments in a customer experience map, then nest sub-opportunities under the relevant parent.",
     "Reframe solution-shaped or business-shaped inputs into need-shaped opportunities, or hold them for human review; never assert them as validated needs.",
-    "Attach every opportunity so it ladders up to the desired outcome."
+    "Attach every opportunity so it ladders up to the desired outcome.",
+    "Keep sibling opportunities decorrelated, and use Torres's test to decide: siblings are distinct only if you could address one without addressing the other — name a solution that would serve one and not its sibling, and if none can exist they are one opportunity wearing two titles, so merge them. The sweep measures this over cited evidence: siblings resting on the same records (`shared-extent`), on a subset of a sibling's records (`subset-extent` — usually a child mis-hung as a peer), or on substantially overlapping records (`entangled-extent`) are reported as hygiene issues. Resolve an entangled pair by rewriting each node from its own evidence so each statement carries what separates it from the other — two totally separate ideas, not two phrasings of one."
   ],
   "solutionRules": [
     "Attach each solution to the single target opportunity it addresses.",
