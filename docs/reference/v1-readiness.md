@@ -3089,7 +3089,13 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2752 tests across 212 files, verified 2026-08-11 (`npx vitest run`,
+> *Today:* **met** — 2765 tests across 213 files, verified 2026-08-11 (`npx vitest run`,
+> after the whole-tree ranked ledger landed: every Solution in one order at
+> `<vault>/.ost-agent/RANKED-LEDGER.md`, a row whose reason is missing, empty, or cites
+> no node title or stored evidence id refused a rank into a named unranked tail, with an
+> `ost-agent ledger` CLI surface
+> (`src/ost/ranked-ledger.ts`, `test/ost/ranked-ledger-reasons.test.ts`).
+> Previously 2752 tests across 212 files, verified 2026-08-11 (`npx vitest run`,
 > after the tightening migration landed: `ost-agent migrate evidence-class` remediates
 > the one past tightening that flagged every pre-existing node, with frontmatter-only
 > edits a test holds byte-identical after the closing delimiter, a node-by-node report,
