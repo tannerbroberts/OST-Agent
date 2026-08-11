@@ -81,6 +81,24 @@ const KNOWN_UNREACHABLE: Record<string, string> = {
    */
   "src/adapters/transcript-model-reader.ts":
     "built and tested; parked pending its node's blind-rating test, which is human-only",
+  /*
+   * The early-push cadence: replay the recorded 2026-07-26 collision with
+   * skeleton pushes at an interval and measure when git's non-fast-forward
+   * rejection first arrives. Its instrument is green — a 30-minute cadence
+   * bounds the loss at 30 minutes from the colliding commit, against the eight
+   * hours actually spent (`test/loop/early-push-collision-window.test.ts`).
+   *
+   * It is parked rather than wired because wiring it means the build loop
+   * pushes unfinished work to a shared branch on a timer, and the solution
+   * node itself names that a policy question for people — some repositories
+   * refuse WIP on shared branches outright, and nobody has answered for this
+   * one. The measurement the tree cleared is done; the adoption is a decision
+   * the vault records, not one this register should smuggle in. It comes off
+   * when the loop harness adopts `pushSchedule`, or goes when the node is
+   * deferred.
+   */
+  "src/loop/early-push.ts":
+    "built and tested; parked pending the operator's call on pushing WIP to a shared branch on a cadence",
 };
 
 function tsFiles(dir: string): string[] {
