@@ -1285,25 +1285,34 @@ surfaced.**
 > (`src/knowledge/asks.ts`), the same shape B5 sharpened for the trust ledger: read as
 > a *history* keyed by test title, never last-record-wins, with the clock injected so
 > age is deterministic under test (`src/knowledge/actor-trust.ts:405-520` is the
-> pattern it copies). `setLane` (`src/ost/lanes.ts:449-483`) is the one write path
-> every route to `pending-permission` goes through — the CLI's `ost-agent lane --set`
-> directly, `ost_flag_humans_required` never (it only ever sets the cautious lane) —
-> so it is the one place that needed the hook: landing on `pending-permission` files
-> an ask, attributed to whoever made the call. `NextWork.outstandingAsks`
-> (`src/mcp/next-work.ts`) is the declared field: every title in
-> `assumptionWork.blockedOnPermission`, joined against the ledger's latest record for
-> that title, reporting `ageDays: null` rather than `0` when no ask is on file — a test
-> that entered the lane before this ledger existed reads as *unmeasured*, not fresh,
-> so a stale ask can never masquerade as a new one. There is no "answered" record type:
-> a test leaves `blockedOnPermission` (a result is recorded, or a human re-classifies
-> it) through the same read `disposeAssumptionTests` already does, so a second ledger
-> tracking resolution would be a second place that fact could disagree with the first.
+> pattern it copies). `setLane` (`src/ost/lanes.ts`) is the one write path every
+> lane classification goes through — the CLI's `ost-agent lane --set` directly,
+> `ost_flag_humans_required` via its cautious-lane call — so it is the one place that
+> needed the hook: landing on any needs-a-person lane files an ask, attributed to
+> whoever made the call and carrying the command that would clear it. (Widened from
+> `pending-permission` alone on 2026-08-11, when the standing pending-ask queue
+> landed — before that, an ask a run raised mid-pass by flagging `humans-required`
+> was never persisted, so the queue showed it ageless or not at all.)
+> `NextWork.outstandingAsks` (`src/mcp/next-work.ts`) is the declared field,
+> assembled by `pendingAskQueue` (`src/ost/pending-asks.ts`) — the same derivation
+> the operator's `ost-agent asks` reads, so the two surfaces can never disagree:
+> every unresulted test labelled into a needs-a-person lane or carrying a ledger ask,
+> joined against the ledger's latest record for that title, reporting `ageDays: null`
+> rather than `0` when no ask is on file — a test that entered its lane before this
+> ledger existed reads as *unmeasured*, not fresh, so a stale ask can never
+> masquerade as a new one. There is no "answered" record type: a test leaves the
+> queue (a result is recorded, or a human re-classifies it `compute-only`) through
+> the same read `disposeAssumptionTests` already does, so a second ledger tracking
+> resolution would be a second place that fact could disagree with the first.
 > Pinned by `test/knowledge/asks.test.ts` (ledger mechanics: append, history-not-fold,
 > damaged-line survival), `test/ost/lanes.test.ts`'s `setLane` block (an ask is filed
-> exactly on `pending-permission` and nowhere else, and a second ask appends rather
-> than overwrites), and `test/mcp/next-work.test.ts`'s `outstandingAsks` block
+> on every needs-a-person lane and never on `compute-only`, and a second ask appends
+> rather than overwrites), `test/mcp/next-work.test.ts`'s `outstandingAsks` block
 > (age computed from the *latest* ask after a re-ask, `null` on an unrecorded ask,
-> cleared automatically once a result lands, and never blocking `done`). **Ask latency
+> cleared automatically once a result lands, and never blocking `done`), and
+> `test/ost/pending-ask-queue.test.ts` (an ask raised mid-pass by one run is still
+> in the queue on a later run, aged non-null and carrying its clearing command; an
+> unlabelled test is triage backlog, never an ask). **Ask latency
 > is the one genuinely sponsor-specific measurement** — the rest of the sponsor
 > relationship is B5 and B6 applied to one actor, and that half closed on
 > 2026-07-30 (P5). What P2 closes is exactly the part a ledger of outcomes cannot see:
@@ -3080,7 +3089,13 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2731 tests across 209 files, verified 2026-08-11 (`npx vitest run`,
+> *Today:* **met** — 2737 tests across 210 files, verified 2026-08-11 (`npx vitest run`,
+> after the standing pending-ask queue landed: every needs-a-person lane classification
+> files an aged ask carrying its clearing command, `outstandingAsks` assembled from the
+> ledger plus every labelled needs-a-person test rather than `blockedOnPermission`
+> alone, and an `ost-agent asks` CLI surface the operator clears at their own cadence
+> (`src/ost/pending-asks.ts`, `test/ost/pending-ask-queue.test.ts`).
+> Previously 2731 tests across 209 files, verified 2026-08-11 (`npx vitest run`,
 > after the standing tree briefing landed: `<vault>/.ost-agent/BRIEFING.md` regenerated
 > in full from the tree each pass, naming the weakest rung of the believability rollup
 > as the belief the tree rests on (`src/ost/standing-briefing.ts`,

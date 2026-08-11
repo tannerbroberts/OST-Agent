@@ -26,8 +26,25 @@ export interface AskRecord {
   test: string;
   /** Who filed it — an unattributed ask cannot be traced to a surface. */
   by: string;
-  /** Why the lane call landed on pending-permission, carried over from the filing. */
+  /** Why the lane call landed on a needs-a-person lane, carried over from the filing. */
   why: string;
+  /**
+   * The command that would clear this ask, when the filer knew it. Absent on
+   * lines written before the pending-ask queue existed; a reader that needs one
+   * falls back to {@link defaultClearingCommand}, so the queue never shows an
+   * ask with no way to act on it.
+   */
+  command?: string;
+}
+
+/**
+ * The one command that clears ANY ask: recording what happened. A result is the
+ * only event that drops a test out of every needs-a-person lane at once, which
+ * is why this — and not a lane re-classification — is the fallback a queue
+ * entry carries when its filing named nothing more specific.
+ */
+export function defaultClearingCommand(test: string): string {
+  return `ost-agent result "${test}" -v <supported|refuted|inconclusive> -n "<what happened>" -b <you> -u "<what this run left uncovered>"`;
 }
 
 export function askLedgerPath(dir: string): string {
@@ -45,6 +62,7 @@ export function appendAsk(dir: string, rec: Omit<AskRecord, "ts">, now: () => Da
   if (!rec.test.trim()) throw new Error("an ask needs the test it was filed for");
   if (!rec.by.trim()) throw new Error("an ask needs attribution — say who filed it");
   const record: AskRecord = { ts: now().toISOString(), test: rec.test, by: rec.by, why: rec.why };
+  if (rec.command?.trim()) record.command = rec.command.trim();
   const file = askLedgerPath(dir);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.appendFileSync(file, JSON.stringify(record) + "\n");
@@ -73,7 +91,9 @@ function parseAsk(raw: string): AskRecord | null {
   if (!rec || typeof rec !== "object") return null;
   if (typeof rec.ts !== "string" || !rec.ts) return null;
   if (typeof rec.test !== "string" || !rec.test.trim()) return null;
-  return { ts: rec.ts, test: rec.test, by: String(rec.by ?? ""), why: String(rec.why ?? "") };
+  const parsed: AskRecord = { ts: rec.ts, test: rec.test, by: String(rec.by ?? ""), why: String(rec.why ?? "") };
+  if (typeof rec.command === "string" && rec.command.trim()) parsed.command = rec.command;
+  return parsed;
 }
 
 export function readAskLedger(dir: string): AskLedger {

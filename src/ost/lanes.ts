@@ -10,7 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { CAUTIOUS_LANE, computeMayRun, isLane, LANES, type LaneId } from "../knowledge/lanes.js";
 import { hasRecordedResult } from "../eval/evidence-debt.js";
-import { appendAsk } from "../knowledge/asks.js";
+import { appendAsk, defaultClearingCommand } from "../knowledge/asks.js";
 import type { OstNode } from "./node.js";
 import { Vault } from "./vault.js";
 
@@ -411,7 +411,7 @@ export interface FlagFiling {
  * guarded, because a human who decides the prose is stale is exactly the actor
  * this contradiction is being reserved for.
  */
-export function flagHumansRequired(vaultDir: string, filing: FlagFiling): string {
+export function flagHumansRequired(vaultDir: string, filing: FlagFiling, now: () => Date = () => new Date()): string {
   const node = new Vault(path.resolve(vaultDir)).read(filing.test);
   // Read the node's OWN prose, not `proseDeclaredLane`: that helper stays silent
   // when the frontmatter already agrees with the sentence, and "already labelled
@@ -429,7 +429,7 @@ export function flagHumansRequired(vaultDir: string, filing: FlagFiling): string
         `can correct the declaration in the note and then run: ost-agent lane "${filing.test}" --set ${CAUTIOUS_LANE}.`,
     );
   }
-  return setLane(vaultDir, { ...filing, lane: CAUTIOUS_LANE });
+  return setLane(vaultDir, { ...filing, lane: CAUTIOUS_LANE }, now);
 }
 
 export interface LaneFiling {
@@ -447,12 +447,18 @@ export interface LaneFiling {
  * reason are both required: the lane decides whether an unattended agent may run
  * the test, so a label nobody can trace back is worse than no label at all.
  *
- * Landing on `pending-permission` also files an ask (P2): this is the one write
- * path every route to that lane goes through — the CLI's `ost-agent lane --set`
- * directly, `flagHumansRequired` never (it only ever sets {@link CAUTIOUS_LANE}) —
- * so it is the one place the ask ledger needs a hook. `now` is injected for the
- * same reason {@link import("../knowledge/asks.js").appendAsk} takes it: an ask's
- * age is read back in `ost_next_work`, and a test asserting how stale it is cannot
+ * Landing on any needs-a-person lane also files an ask (P2): this is the one
+ * write path every route to those lanes goes through — the CLI's `ost-agent lane
+ * --set` directly, `flagHumansRequired` via its {@link CAUTIOUS_LANE} call — so
+ * it is the one place the ask ledger needs a hook. It used to fire only on
+ * `pending-permission`, which meant an ask a run raised mid-pass by flagging
+ * humans-required was never persisted: the queue showed it ageless or not at
+ * all, and the run that filed it was gone before anyone looked. The ask carries
+ * the command that would clear it, so the standing queue
+ * (`src/ost/pending-asks.ts`) can hand the operator an action rather than a
+ * title. `now` is injected for the same reason
+ * {@link import("../knowledge/asks.js").appendAsk} takes it: an ask's age is
+ * read back in `ost_next_work`, and a test asserting how stale it is cannot
  * afford to race the wall clock.
  */
 export function setLane(vaultDir: string, filing: LaneFiling, now: () => Date = () => new Date()): string {
@@ -476,8 +482,8 @@ export function setLane(vaultDir: string, filing: LaneFiling, now: () => Date = 
   }
 
   const line = vault.setLane(filing.test, filing.lane, `by ${by} — ${why}`);
-  if (filing.lane === "pending-permission") {
-    appendAsk(dir, { test: filing.test, by, why }, now);
+  if (!computeMayRun(filing.lane)) {
+    appendAsk(dir, { test: filing.test, by, why, command: defaultClearingCommand(filing.test) }, now);
   }
   return line;
 }

@@ -11,6 +11,7 @@
  *   ost-agent lanes [--vault DIR]             assumption tests by the human minutes they cost
  *   ost-agent lanes --flag-cautious <who>     bulk: humans-required for every test naming an outside person
  *   ost-agent lane "<test>" --set <lane> ...  classify one test into a lane
+ *   ost-agent asks [--vault DIR]              the standing queue of pending asks, aged, with the command that clears each
  *   ost-agent dispose "<subject>" ...        settle one item so no work bucket lists it again (--reopen reverses)
  *   ost-agent dispositions [--vault DIR]     every item currently settled, dated and attributed
  *   ost-agent gate "<solution>" [--vault DIR] block building against untested assumptions
@@ -102,6 +103,7 @@ import { buildOstTools } from "../security/tools.js";
 import { Vault } from "../ost/vault.js";
 import { defaultTranscriptDir } from "../adapters/transcript.js";
 import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
+import { readPendingAskQueue } from "../ost/pending-asks.js";
 import { laneDef, LANES, type LaneId } from "../knowledge/lanes.js";
 import {
   appendDisposition, DISPOSITION_KINDS, formatDispositions, isDispositionKind, latestDisposition,
@@ -594,6 +596,34 @@ program
     console.log(`classified "${test}": ${line}`);
     const def = laneDef(opts.set as LaneId);
     console.log(def.computeMayRun ? "  an unattended pass MAY now run this test." : "  a person is still required.");
+  });
+
+/*
+ * `asks` — the standing queue of pending asks, visited at whatever cadence suits
+ * the operator. Everything here is derived (lanes + the ask ledger), so the
+ * queue clears itself: recording a result drops an entry without anyone marking
+ * it answered. Age leads because it is the one thing the run that filed the ask
+ * could not know — it was gone before the days elapsed.
+ */
+program
+  .command("asks")
+  .description("the standing queue of pending asks — aged, oldest first, each with the command that clears it")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((opts: { vault: string }) => {
+    const ctx = buildPassContext(opts.vault);
+    const queue = readPendingAskQueue(path.resolve(opts.vault), ctx.vault.readTree());
+    if (queue.length === 0) {
+      console.log("The queue is empty — nothing is waiting on you.");
+      console.log("(An unlabelled test is triage backlog, not an ask; see `ost-agent lanes`.)");
+      return;
+    }
+    console.log(`${queue.length} pending ask(s), oldest first. Each clears itself once you run its command.\n`);
+    for (const ask of queue) {
+      const age = ask.ageDays === null ? "age unknown (no ask on record)" : `${ask.ageDays} day(s) waiting`;
+      console.log(`- ${ask.test}  [${ask.lane ?? "unclassified"}] — ${age}`);
+      if (ask.why) console.log(`    why: ${ask.why}`);
+      console.log(`    clear it: ${ask.command}`);
+    }
   });
 
 /*

@@ -197,12 +197,25 @@ describe("setLane", () => {
     expect(ask).toMatchObject({ ts: "2026-01-01T00:00:00.000Z", test: "A test", by: "tanner", why: "waiting on legal sign-off" });
   });
 
-  test("any other lane files no ask", () => {
+  test("compute-only — the one lane that waits on nobody — files no ask", () => {
     setLane(dir, { test: "A test", lane: "compute-only", by: "tanner", why: "replays journals" });
     expect(fs.existsSync(askLedgerPath(dir))).toBe(false);
   });
 
-  test("re-classifying into pending-permission twice appends a second ask, keeping the first", () => {
+  test("humans-required files an ask too — a mid-pass flag must survive the run that raised it", () => {
+    setLane(
+      dir,
+      { test: "A test", lane: "humans-required", by: "run-one", why: "a person's reaction is the measurement" },
+      () => new Date("2026-01-01T00:00:00.000Z"),
+    );
+    const ask = latestAsk(readAskLedger(dir), "A test");
+    expect(ask).toMatchObject({ ts: "2026-01-01T00:00:00.000Z", test: "A test", by: "run-one" });
+    // The filing carries the command that clears it, so the standing queue can
+    // hand the operator an action rather than a title.
+    expect(ask?.command).toContain('ost-agent result "A test"');
+  });
+
+  test("every needs-a-person classification appends an ask, keeping the earlier ones", () => {
     setLane(
       dir,
       { test: "A test", lane: "pending-permission", by: "tanner", why: "first ask" },
@@ -215,7 +228,7 @@ describe("setLane", () => {
       () => new Date("2026-02-01T00:00:00.000Z"),
     );
     const ledger = readAskLedger(dir);
-    expect(ledger.histories.get("A test")).toHaveLength(2);
+    expect(ledger.histories.get("A test")).toHaveLength(3);
     expect(latestAsk(ledger, "A test")?.why).toBe("re-asked");
   });
 });

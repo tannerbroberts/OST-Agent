@@ -260,7 +260,12 @@ describe("outstandingAsks (P2) — an ask has an age, and silence is measured by
     await withOneTestIn("pending-permission");
     const work = computeNextWork(buildPassContext(dir).vault, dir, 3, () => new Date("2026-01-11T00:00:00.000Z"));
     expect(work.outstandingAsks).toEqual([
-      { test: "Checklist audit", askedAt: "2026-01-01T00:00:00.000Z", ageDays: 10 },
+      {
+        test: "Checklist audit",
+        askedAt: "2026-01-01T00:00:00.000Z",
+        ageDays: 10,
+        command: expect.stringContaining('ost-agent result "Checklist audit"'),
+      },
     ]);
     expect(work.assumptionWork.blockedOnPermission).toContain("Checklist audit");
   });
@@ -277,10 +282,19 @@ describe("outstandingAsks (P2) — an ask has an age, and silence is measured by
     ctx.vault.setLane("Checklist audit", "pending-permission", "by tanner — legacy classification");
 
     const work = computeNextWork(buildPassContext(dir).vault, dir, 3);
-    expect(work.outstandingAsks).toEqual([{ test: "Checklist audit", askedAt: null, ageDays: null }]);
+    // Even a legacy entry carries the clearing command — an ask nobody can act
+    // on is furniture, whatever its age.
+    expect(work.outstandingAsks).toEqual([
+      {
+        test: "Checklist audit",
+        askedAt: null,
+        ageDays: null,
+        command: expect.stringContaining('ost-agent result "Checklist audit"'),
+      },
+    ]);
   });
 
-  test("a test in another lane files no ask and is absent from outstandingAsks", async () => {
+  test("a compute-only test files no ask and is absent from outstandingAsks", async () => {
     await withOneTestIn("compute-only");
     const work = computeNextWork(buildPassContext(dir).vault, dir, 3);
     expect(work.outstandingAsks).toEqual([]);
@@ -312,7 +326,12 @@ describe("outstandingAsks (P2) — an ask has an age, and silence is measured by
     );
     const work = computeNextWork(buildPassContext(dir).vault, dir, 3, () => new Date("2026-01-08T00:00:00.000Z"));
     expect(work.outstandingAsks).toEqual([
-      { test: "Checklist audit", askedAt: "2026-01-05T00:00:00.000Z", ageDays: 3 },
+      {
+        test: "Checklist audit",
+        askedAt: "2026-01-05T00:00:00.000Z",
+        ageDays: 3,
+        command: expect.stringContaining('ost-agent result "Checklist audit"'),
+      },
     ]);
   });
 

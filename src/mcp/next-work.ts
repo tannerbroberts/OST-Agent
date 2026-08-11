@@ -35,7 +35,8 @@ import { CAUTIOUS_LANE, isLane, type LaneId } from "../knowledge/lanes.js";
 import { hasRecordedResult } from "../eval/evidence-debt.js";
 import { solutionsMissingInstruments } from "../eval/buildable.js";
 import { DATA_FRAME, frameData } from "../security/framing.js";
-import { latestAsk, readAskLedger } from "../knowledge/asks.js";
+import { readAskLedger } from "../knowledge/asks.js";
+import { pendingAskQueue } from "../ost/pending-asks.js";
 import { omitDisposed, readDispositionLedger, type Withheld } from "../knowledge/dispositions.js";
 
 export interface UnmappedEvidence {
@@ -156,12 +157,14 @@ export interface AssumptionWork {
 }
 
 /**
- * One test currently sitting in `pending-permission`, with the age of the most
- * recent recorded ask (P2). Computed over every title in
- * {@link AssumptionWork.blockedOnPermission} — every ask that is still
- * outstanding, because a test that left the lane (a result was recorded, or a
- * human re-classified it) already left `blockedOnPermission`, and this list is
- * always taken from that set.
+ * One entry of the standing pending-ask queue (P2): a test waiting on a person,
+ * with the age of the most recent recorded ask. Computed by
+ * `pendingAskQueue` (`src/ost/pending-asks.ts`) over every labelled
+ * needs-a-person lane plus every ask on the ledger — not only
+ * `blockedOnPermission`, which is what this list used to be drawn from and why
+ * an ask a run raised mid-pass (a `humans-required` flag) never showed here. An
+ * entry drops out the moment a result is recorded or the test is re-classified
+ * `compute-only`, so the queue clears itself; nothing marks asks answered.
  */
 export interface OutstandingAsk {
   /** Title of the AssumptionTest the ask is about. */
@@ -170,11 +173,16 @@ export interface OutstandingAsk {
   askedAt: string | null;
   /**
    * Whole days since `askedAt`, or `null` when `askedAt` is `null` — a test that
-   * entered `pending-permission` before the ask ledger existed, or by a route
-   * this ledger never saw. Unknown, not zero: reporting `0` would read as asked
-   * moments ago, which is exactly the silent-clock failure P2 exists to close.
+   * entered its lane before the ask ledger existed, or by a route this ledger
+   * never saw. Unknown, not zero: reporting `0` would read as asked moments
+   * ago, which is exactly the silent-clock failure P2 exists to close.
    */
   ageDays: number | null;
+  /**
+   * The command that would clear this ask — the filing's own, or the fallback
+   * of recording a result. Never null: an ask nobody can act on is furniture.
+   */
+  command: string;
 }
 
 /**
@@ -1042,22 +1050,13 @@ export function computeNextWork(
     if (before > after) scopeExcluded.push({ list: "assumptionWork", count: before - after });
   }
 
-  // Every outstanding ask, aged (P2). Read from the same ledger `setLane` writes to
-  // (`src/ost/lanes.ts`), keyed off `blockedOnPermission` so the two can never name
-  // a different set of tests: a title is here iff it is there. Oldest first, so a
-  // capped display still shows the longest-waiting ask.
-  const askLedger = readAskLedger(dir);
-  const nowMs = now().getTime();
-  const allOutstandingAsks: OutstandingAsk[] = scopedAssumptionWork.blockedOnPermission
-    .map((test) => {
-      const ask = latestAsk(askLedger, test);
-      return {
-        test,
-        askedAt: ask?.ts ?? null,
-        ageDays: ask ? Math.floor((nowMs - new Date(ask.ts).getTime()) / 86_400_000) : null,
-      };
-    })
-    .sort((a, b) => (b.ageDays ?? -1) - (a.ageDays ?? -1));
+  // The standing pending-ask queue, aged (P2). Read from the same ledger `setLane`
+  // writes to (`src/ost/lanes.ts`), assembled by the one derivation the CLI's
+  // `ost-agent asks` also uses so the two surfaces can never disagree. Oldest
+  // first, so a capped display still shows the longest-waiting ask.
+  const allOutstandingAsks: OutstandingAsk[] = pendingAskQueue(tree, readAskLedger(dir), now)
+    .filter((a) => inScope(a.test))
+    .map(({ test, askedAt, ageDays, command }) => ({ test, askedAt, ageDays, command }));
 
   // Every cap is a display limit, never an amnesty: `done` and every count below
   // are taken over the full sets, and each hidden count is named — both in
