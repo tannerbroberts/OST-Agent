@@ -3080,7 +3080,12 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2630 tests across 201 files, verified 2026-08-10 (`npx vitest run`,
+> *Today:* **met** — 2664 tests across 202 files, verified 2026-08-11 (`npx vitest run`,
+> after the shell-necessity census landed: 14,802 recorded Bash invocations partitioned
+> into argv-expressible and shell-bound, the argv path proven shell-less against every
+> recorded failure class, and the assumption's 70% bar measured at 12.3% — NOT met
+> (`src/runner/shell-necessity.ts`, `test/runner/shell-necessity-census.test.ts`).
+> Previously 2630 tests across 201 files, verified 2026-08-10 (`npx vitest run`,
 > after the setup-check diagnosis spec landed: the four toolless scheduled passes replayed
 > as fixtures each get the missing `.claude/settings.json` and the exact
 > `"ost-agent@ost-agent": true` line named, and the shipped example vault's settings draw

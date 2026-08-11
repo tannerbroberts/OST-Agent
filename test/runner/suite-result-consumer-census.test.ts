@@ -145,12 +145,18 @@ const CENSUS: readonly Consumer[] = [
 ];
 
 describe("the consumer set, enumerated and held there", () => {
-  test("every subprocess door under src/ is one of five files, and only three of them can run a suite", () => {
+  test("every subprocess door under src/ is one of six files, and only three of them can run a suite", () => {
     // A suite verdict enters this codebase through a spawned process, so the
     // spawners bound the firsthand consumers. Exact, like the retraction
-    // census's pin: a sixth spawner is an argument someone makes in a diff —
+    // census's pin: a new spawner is an argument someone makes in a diff —
     // "does this read a suite verdict, and if so, which channel is it?" —
     // rather than a line that slips through.
+    //
+    // `runner/shell-necessity.ts` made that argument on 2026-08-11: `runArgv`
+    // is the shell-necessity census's argv execution path. It hands its exit
+    // status back raw, nothing maps it to a verdict, and its only callers
+    // today are that census's own probes. If a consumer ever runs a suite
+    // through it, that consumer joins this census then.
     const doors = sources()
       .filter((f) => f.text.includes('"node:child_process"'))
       .map((f) => f.rel)
@@ -161,6 +167,7 @@ describe("the consumer set, enumerated and held there", () => {
       path.join("ost", "instrument.ts"),
       path.join("release", "ship-repo.ts"),
       path.join("release", "ship.ts"),
+      path.join("runner", "shell-necessity.ts"),
     ]);
 
     // `loop/state.ts` is provably git-only: every spawn names "git" as a
