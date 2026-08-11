@@ -48,6 +48,7 @@ import { configPath } from "../../src/config/load.js";
 import { resolveSessionsDir } from "../../src/cli/loop.js";
 import { claimsPath } from "../../src/loop/claim.js";
 import { openRunPath, runsPath } from "../../src/loop/health.js";
+import { journalPath } from "../../src/loop/journal.js";
 import { firingLockPath } from "../../src/loop/lock.js";
 import { loopStateDir } from "../../src/loop/state.js";
 import { announcedPath, appliedPath } from "../../src/loop/updates.js";
@@ -107,7 +108,14 @@ const DECIDERS: readonly Decider[] = [
     criterion: "F4 / H1 / H4",
     name: "health verdict",
     module: "src/loop/health.ts",
-    reads: (v) => [runsPath(v), openRunPath(v), path.join(v, ".git", "HEAD")],
+    // The journal is enumerated here by the conservative rule this file's part 1
+    // states, not because the verdict reads it today — `computeVerdict` does not.
+    // `health.ts` imports `journal.ts`, so its file is one refactor away from
+    // being a verdict input, and it independently needs exactly this proof: the
+    // journal is the record a reader trusts about what an interrupted run
+    // finished, and a journal the surface could write is a step the agent could
+    // claim without running it.
+    reads: (v) => [runsPath(v), openRunPath(v), journalPath(v), path.join(v, ".git", "HEAD")],
   },
 ];
 
@@ -127,6 +135,11 @@ const READER_MODULES: Record<string, string> = {
   // Resolves <vault>/.git and reads HEAD via `git rev-parse`; both files are
   // enumerated under the health verdict.
   "state.ts": "F4 / H1 / H4",
+  // Opens `journal.jsonl` and decides nothing — but `health.ts` imports it, so
+  // the reporter class is closed to it by the no-decider-imports-a-reporter
+  // assertion, and the honest filing is the conservative one: its file is
+  // enumerated under the decider that links it. See the note on the F4 entry.
+  "journal.ts": "F4 / H1 / H4",
 };
 
 /**
@@ -451,6 +464,7 @@ beforeEach(() => {
     "utf8",
   );
   fs.writeFileSync(openRunPath(vault), JSON.stringify({ runId: "r2", startedAt: "2026-07-02T00:00:00.000Z" }), "utf8");
+  fs.writeFileSync(journalPath(vault), JSON.stringify({ kind: "open", runId: "r2", at: "2026-07-02T00:00:00.000Z" }) + "\n", "utf8");
   fs.writeFileSync(firingLockPath(vault)!, JSON.stringify({ pid: 1, acquiredAt: "2026-07-02T00:00:00.000Z" }), "utf8");
   fs.writeFileSync(
     claimsPath(loopStateDir(vault)!),
