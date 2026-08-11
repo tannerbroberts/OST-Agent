@@ -29,7 +29,8 @@
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
  *   ost-agent corrections [--state DIR]       refusals this workspace already paid for, for the next session to read
  *   ost-agent claim "<work>" --briefing F     take the work before building it, so a second pass sees it is taken
- *   ost-agent next-build [--rewrite F]        the standing briefing at its one address: read it, or supersede it keeping every prior reading
+ *   ost-agent next-build [--rewrite F]        the standing Next Build reading at its one address: read it, or supersede it keeping every prior reading
+ *   ost-agent briefing [--vault DIR]          the standing tree briefing, regenerated in full from the tree — teaches the tree back to a cold reader
  *   ost-agent bank-question "<q>" ...         bank a fork instead of stopping at it, costed by the work it holds up
  *   ost-agent authority                       the standing contract: which classes of decision compute may take alone
  *   ost-agent allowlist --skill F --settings F  derive a run's permission grant from the skill's own allowed-tools
@@ -124,6 +125,7 @@ import {
   renderClaim, renderClaims, resolveWorkItem,
 } from "../loop/claim.js";
 import { nextBuildPath, readBriefing, renderBriefing, rewriteBriefing } from "../ost/briefing.js";
+import { composeStandingBriefing, regenerateStandingBriefing, standingBriefingPath } from "../ost/standing-briefing.js";
 import { entriesRequiringAHuman, registerLoopCommands, resolveSessionsDir } from "./loop.js";
 import { installVaultResolution, resolvedVaultSource, VAULT_OPTION_HELP } from "./vault-option.js";
 import { describeVaultSource } from "../config/pointer.js";
@@ -1328,6 +1330,36 @@ program
       return;
     }
     console.log(renderBriefing(readBriefing(opts.vault), nextBuildPath(opts.vault), opts.history === true));
+  });
+
+program
+  .command("briefing")
+  .description(
+    "the standing tree briefing at its one stable address (<vault>/.ost-agent/BRIEFING.md): regenerated in full " +
+      "from the tree — where it stands, the live branch, the last week's delta, and the belief it all rests on. " +
+      "Run it at the end of every pass; unlike next-build, it keeps no history of itself, because every line is " +
+      "recomputed from the nodes and its history is the vault's git history",
+  )
+  .option("--date <date>", "the date the briefing is generated under (default: today, UTC)")
+  .option("--dry-run", "print the briefing without writing it")
+  .option("--path", "print the stable address and nothing else")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((opts: { vault: string; date?: string; dryRun?: boolean; path?: boolean }) => {
+    if (opts.path) {
+      console.log(standingBriefingPath(opts.vault));
+      return;
+    }
+    const ctx = buildPassContext(opts.vault);
+    const today = opts.date ?? new Date().toISOString().slice(0, 10);
+    const tree = ctx.vault.readTree();
+    if (!opts.dryRun) {
+      const address = regenerateStandingBriefing(ctx.dir, tree, today);
+      // The content on stdout, the address on stderr: the one caller that captures
+      // output is a wrapper pasting the briefing into a prompt or notification, and
+      // it wants the briefing, not a path it already knows.
+      console.error(`REGENERATED ${address} — in full, from ${tree.length} node(s); the previous briefing survives only in git.`);
+    }
+    console.log(composeStandingBriefing(tree, today));
   });
 
 program
