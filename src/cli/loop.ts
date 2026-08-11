@@ -549,10 +549,17 @@ export function registerLoopCommands(program: Command): void {
       // If this throws, the firing does not happen. That is the point: a firing
       // nobody can read afterwards would leave the cadence window unconsumed and
       // the vault firing forever with nothing on record.
+      //
+      // The ceiling is resolved HERE, once, and stamped into the run record —
+      // `loop step` enforces the stamp and never re-reads the config, so an edit
+      // to `ost.config.yaml` mid-firing cannot widen the budget of the firing
+      // that is spending it. See `LoopRunRecord.ceiling`.
+      const stampedCeiling = ceilingOf(opts.vault, config.loop?.spend);
       const opened = startRun(opts.vault, {
         loopVersion: VERSION,
         cliVersion: VERSION,
         headBefore: gitHead(opts.vault),
+        ...(stampedCeiling ? { ceiling: stampedCeiling } : {}),
       });
       stampFiringLock(opts.vault, lock.record, opened.runId);
       console.log(`loop run ${opened.runId} open`);
@@ -575,6 +582,46 @@ export function registerLoopCommands(program: Command): void {
         console.error(launderedExitMessage(laundered));
         process.exitCode = 2;
         return;
+      }
+
+      // THE MID-FIRING HALT. `loop due` bounds the loop between firings; this
+      // bounds it inside one. A pass that crosses the ceiling while it runs is
+      // stopped at the next phase boundary, however much work it believes
+      // remains — the limit is external to the firing's own judgement, which is
+      // the whole claim a ceiling makes. The stamp comes from the run record,
+      // never from config (see `loop start`), so the one thing spending the
+      // budget cannot be the thing that widens it. Enforced against a stamped
+      // ceiling only: a run opened without one was let past `due`'s undeclared
+      // refusal deliberately (a direct/manual bracket), and inventing a bound
+      // nobody declared is the one thing the spend gate never does.
+      //
+      // The refusal is RECORDED, with `refused` marking that the command never
+      // ran — a halt whose only trace is an exit code would leave a ledger that
+      // reads as a phase that mysteriously vanished. The nonzero exit makes the
+      // seal `unhealthy`, which is honest: this firing did not finish its job.
+      const open = readOpenRun(opts.vault);
+      if (open?.ceiling) {
+        const halt = checkCeiling(
+          open.ceiling,
+          measureFiring(open.ceiling.sessionsDir, {
+            vaultDir: opts.vault,
+            sinceMs: Date.now() - open.ceiling.windowHours * HOUR_MS,
+          }),
+        );
+        if (!halt.ok) {
+          console.error(`halting mid-firing, not running phase \`${opts.phase}\`: ${halt.reason}`);
+          appendStep(opts.vault, {
+            phase: opts.phase,
+            command: command.join(" "),
+            argv: command,
+            cwd: process.cwd(),
+            exit: LOOP_EXIT.ceilingBlocked,
+            durationMs: 0,
+            refused: "spend-ceiling",
+          });
+          process.exitCode = LOOP_EXIT.ceilingBlocked;
+          return;
+        }
       }
 
       const startedAt = Date.now();
