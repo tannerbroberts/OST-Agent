@@ -1,30 +1,44 @@
 # OST-Agent
 
-> **Define a software as: the thing that draws the most efficient action map from where
-> people are to where people want to be.**
+> **The problem: autonomous agents fail at long-horizon work because they drown in
+> unbounded context.** Every channel an agent could read emits more than any context
+> window holds, and an agent that reads everything retains nothing. What is missing is
+> not more intelligence — it is retina-grade compression: the discipline a retina applies
+> when it distills millions of ambient photons into the handful of signals a mind can
+> act on.
 
-OST-Agent draws that map, continuously, using an AI that is structurally incapable of
-walking it for you.
+OST-Agent is a harness built around that compression. It commissions its own
+reality-sensing channels — inboxes, friction filings, its own session transcripts and
+tool traces, budgeted web lookups, repo reads — and distills everything they deliver
+into one bounded, navigable abstraction: a Teresa Torres–style
+[Opportunity Solution Tree](https://www.producttalk.org/opportunity-solution-tree/).
+One human-set **outcome** at the root (where people want to be), the **opportunities**
+beneath it (where people actually are — their needs, pains and desires), the
+**solutions** that might close that distance, the **assumptions** each solution rests
+on, and the **tests** that would tell you whether those assumptions hold. It is plain
+Markdown, one file per node, committed to git on every write, and it opens in
+[Obsidian](https://obsidian.md) as a navigable graph — the most efficient action map
+from where people are to where people want to be, drawn by an AI that is structurally
+incapable of walking it for you.
 
-The map is a Teresa Torres–style
-[Opportunity Solution Tree](https://www.producttalk.org/opportunity-solution-tree/): one
-human-set **outcome** at the root (where people want to be), the **opportunities** beneath
-it (where people actually are — their needs, pains and desires), the **solutions** that
-might close that distance, the **assumptions** each solution rests on, and the **tests**
-that would tell you whether those assumptions hold. It is plain Markdown, one file per
-node, committed to git on every write, and it opens in [Obsidian](https://obsidian.md) as
-a navigable graph.
+And the harness is built to compound: it recycles its own reasoning traces — finished
+sessions, refusals, tool invocations, token flows — back into its own repair, under a
+standing mandate to patch its own failures faster than new ones appear. The
+intelligence is rented by the session; the structure, the senses, and the accumulated
+trace are owned by the operator.
 
-Four claims follow from that definition. This README is organised around **how far each
-one is actually built**, because a map of the product that flatters the product is the one
-failure this product cannot survive.
+The claims that vision makes, and **how far each one is actually built** — because a
+map of the product that flatters the product is the one failure this product cannot
+survive:
 
 | The claim | Where it stands |
 |---|---|
+| **It compresses an unbounded environment into a bounded map** — every response capped, every verdict computed over the full set | **Built, as the core discipline.** See [Compression](#the-retina--compression-is-the-discipline) |
 | **It draws the path and never walks it**, so a misaligned goal has a human to answer for it | **Built, and the most finished part of the system.** No tool that acts on the world is ever constructed — see [It draws; it does not act](#1-it-draws-the-path--it-does-not-walk-it) |
 | **AI is an agnostic power source**; this repo is the harness around it | **Built at the core, single-host at the edges.** The server holds no model and no API key; the packaging is Claude Code–shaped — see [The harness](#2-ai-is-the-power-source--this-is-the-harness) |
-| **More operators surface unknown failure modes faster** | **Half built.** The instruments that catch a failure mode exist and run; the number of operators they run for is one — see [Failure modes](#3-more-operators-more-failure-modes-found-faster) |
-| **The harness improves the harness** | **Built and running unattended,** on one laptop, where nobody else can watch it — see [Recursion](#4-the-harness-improves-the-harness) |
+| **It commissions its own senses**, and more operators surface unknown failure modes faster | **Senses: built and censused. Operators: half built** — the instruments exist and run; the number of operators they run for is one — see [Failure modes](#3-more-operators-more-failure-modes-found-faster) |
+| **It recycles its own reasoning traces for self-repair** | **Built and running unattended,** on one laptop, where nobody else can watch it — see [Recursion](#4-the-harness-improves-the-harness) |
+| **Those traces become a privatized post-training moat** | **Not built — and deliberately not unattended today.** The traces are harvested, structured and owned; nothing trains on them, and no policy evolves without a human. The boundary and the reason are stated in [Recursion](#4-the-harness-improves-the-harness) |
 | **Many people plug their own AI compute into one map** | **Not built.** See [What parallelising would take](#what-parallelising-would-actually-take) |
 
 > **Distribution status:** OST-Agent ships only as a Claude Code plugin — no npm package,
@@ -65,6 +79,43 @@ Each node file:
 - Agent-ideated ideas are appended with `status: unvalidated` and an **`#unvalidated`** tag
   stamped by the server, so speculation is always visually distinct from validated
   knowledge — and no allowlisted tool can take the tag back off.
+
+---
+
+## The retina — compression is the discipline
+
+The tree is the abstraction; these are the rules that keep it smaller than the reality
+it senses. None of them is a feature bolted on — each was cut into the surface after an
+unbounded read or an unbounded report did real damage:
+
+- **Every unbounded list in a tool response is capped, with the hidden count named.**
+  The pattern, held by readiness criterion Z2: cap the display, compute every verdict
+  over the full set, name what was hidden — so a cap can never read as amnesty.
+- **A sweep serves excerpts, with one explicit channel to the full body.**
+  `ost_next_work` answers with 280-character excerpts and the true length of each
+  record, because a sweep that dumped every body would pour unbounded untrusted text
+  into a context that has not yet decided to read anything
+  ([`src/mcp/next-work.ts`](src/mcp/next-work.ts)).
+- **Tree reads run on a byte budget, not a node count** — the budget is on what enters
+  the context, because that is the resource being protected.
+- **Long-horizon state is computed, never narrated.** The rollup is derived from the
+  tree on demand ([`src/eval/rollup.ts`](src/eval/rollup.ts)); the alternative was
+  tried, and after twenty appended status ledgers the root node was 89KB of narration
+  no program could read and no human would.
+- **The standing briefing teaches the tree back instead of reporting a changelog** — a
+  changelog assumes the reader holds the tree in their head; the briefing rebuilds it
+  there each time ([`src/ost/standing-briefing.ts`](src/ost/standing-briefing.ts)).
+- **Attention is budgeted beside tokens.** The spend ceiling bounds what a firing
+  costs in tokens; the question budget bounds what it costs in operator attention
+  ([`src/loop/questions.ts`](src/loop/questions.ts)), and the attention ledger records
+  what each open unknown cost and what it bought
+  ([`src/telemetry/attention.ts`](src/telemetry/attention.ts)).
+- **A sense that was never reached is distinguishable from a sense that worked.** The
+  sense census keeps "live" and "reached" on separate axes
+  ([`src/loop/senses.ts`](src/loop/senses.ts)), because a channel nobody consulted
+  reads exactly like a channel that delivered nothing — and commissioning a missing
+  sense is itself tree work: an unknown that cannot state a methodology is the signal
+  to build observability rather than to keep guessing.
 
 ---
 
@@ -226,6 +277,30 @@ because a cadence nobody chose is a spend rate the tool picked for you), a lock 
 holder's pid, a run of dry firings that escalates rather than reading as steady state, and a
 firing that skipped a phase recorded *unhealthy* — omission does not get to look like a
 clean run.
+
+The raw material of that recursion is the agent's own reasoning trace, harvested at
+three tiers: what the agent *said* (the `transcript` channel, plus a quote-verified
+model reader that may only surface a finding it can locate verbatim in the session —
+[`src/adapters/transcript-model-reader.ts`](src/adapters/transcript-model-reader.ts)),
+what it *chose to file* (`usage`), and what *no narrator touched* (the token trace,
+[`src/adapters/tokens.ts`](src/adapters/tokens.ts)). The corrections ledger is the
+sharpest working example of a trace repairing the harness: seven sessions across four
+days hit the identical refusal because the guard was the only memory in the system, so
+refusals that named a permitted form are now folded into a per-workspace ledger and
+handed to later sessions ([`src/loop/corrections.ts`](src/loop/corrections.ts)) — the
+trace became the memory, and the failure stopped recurring.
+
+**Where the compounding deliberately stops today: nothing post-trains on these traces,
+and no policy evolves unattended.** That is a stated boundary, not an accident —
+readiness criterion G4, pinned by
+[`test/release/no-evolvable-policy.test.ts`](test/release/no-evolvable-policy.test.ts).
+The one prior attempt at self-improving policy (an evolutionary genome over harness
+parameters) was built, measured and removed, for a reason worth keeping: with a model
+in the loop, run-to-run stochasticity swamps every parameter-level effect at any
+affordable sample size, so selection was rewarding noise. The traces are collected,
+structured, quote-verified and operator-owned precisely so that when a training loop
+over them is worth building, the data for it already exists — but flipping that switch
+is a human's mandate change, made where the mandate lives, not a pass's initiative.
 
 **What is honestly still true: the recursion runs on one laptop and nobody outside can watch
 it.** The meta vault is public, but the reports, the health of the loops, and the "what did
