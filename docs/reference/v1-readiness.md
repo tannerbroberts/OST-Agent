@@ -3080,7 +3080,13 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2679 tests across 204 files, verified 2026-08-11 (`npx vitest run`,
+> *Today:* **met** — 2688 tests across 205 files, verified 2026-08-11 (`npx vitest run`,
+> after branch-scoped discovery landed: a human-set `discovery.target` scopes the sweep
+> and `done` to one opportunity's subtree, everything scoped away is counted in
+> `scope.excluded`, a mistyped target runs unscoped and loud, and the tool surface has
+> no parameter that could carry a target — the selection is structurally human
+> (`src/mcp/next-work.ts`, `test/mcp/scoped-next-work.test.ts`).
+> Previously 2679 tests across 204 files, verified 2026-08-11 (`npx vitest run`,
 > after the mid-firing spend halt landed: the ceiling is stamped into the run record at
 > `loop start` and enforced at every `loop step`, so a pass that crosses it is stopped at
 > the next phase boundary — the phase is never spawned, the refusal is on the ledger, and
