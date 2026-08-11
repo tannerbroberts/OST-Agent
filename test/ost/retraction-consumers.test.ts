@@ -155,7 +155,7 @@ describe("the consumer set, enumerated and held there", () => {
     return out;
   }
 
-  test("every module that reads nodes is one of six, and the audit's bar is 12", () => {
+  test("every module that reads nodes is one of eight, and the audit's bar is 12", () => {
     const readers = sources()
       .filter((f) => f.rel !== path.join("ost", "vault.ts"))
       .filter((f) => /\.(readTree|readTreeCensus|readLiveTree)\(/.test(f.text))
@@ -178,11 +178,21 @@ describe("the consumer set, enumerated and held there", () => {
     // other consumer withholds would be a brand-new channel for exactly the
     // content retraction exists to take out of circulation. Asserted below
     // ("the body read — a retracted node's body is refused, not served").
+    //
+    // `ost/ranked-ledger.ts` is the eighth: the ledger's write boundary reads
+    // the world it validates reasons against through `readTree()`, where a
+    // `## Retraction` or an `archive/` move is withheld unconditionally — so a
+    // retracted node can neither hold a rank nor be the citation that earns
+    // one. It deliberately does NOT read the status-retired filter: `deferred`
+    // is one agent call, and must not be a way to make a rankable node vanish
+    // from the whole-tree ledger (`withoutRetiredNodes` stays bounded to the
+    // duplicate scan).
     expect(readers).toEqual([
       path.join("cli", "index.ts"),
       path.join("mcp", "bootstrap.ts"),
       path.join("mcp", "next-work.ts"),
       path.join("mcp", "node-body.ts"),
+      path.join("ost", "ranked-ledger.ts"),
       path.join("ost", "stranded.ts"),
       path.join("runner", "set-outcome.ts"),
       path.join("security", "tools.ts"),

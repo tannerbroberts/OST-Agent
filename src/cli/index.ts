@@ -31,6 +31,7 @@
  *   ost-agent corrections [--state DIR]       refusals this workspace already paid for, for the next session to read
  *   ost-agent claim "<work>" --briefing F     take the work before building it, so a second pass sees it is taken
  *   ost-agent next-build [--rewrite F]        the standing Next Build reading at its one address: read it, or supersede it keeping every prior reading
+ *   ost-agent ledger [--publish F]            the whole-tree ranked ledger: every rankable node in one order, each row carrying the reason it sits there — a reason that cites nothing is refused a rank
  *   ost-agent briefing [--vault DIR]          the standing tree briefing, regenerated in full from the tree — teaches the tree back to a cold reader
  *   ost-agent bank-question "<q>" ...         bank a fork instead of stopping at it, costed by the work it holds up
  *   ost-agent authority                       the standing contract: which classes of decision compute may take alone
@@ -46,6 +47,7 @@
  * its tree lives — before falling back to `$OST_VAULT` and then the current
  * directory. See `src/cli/vault-option.ts`.
  */
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
@@ -128,6 +130,7 @@ import {
   renderClaim, renderClaims, resolveWorkItem,
 } from "../loop/claim.js";
 import { nextBuildPath, readBriefing, renderBriefing, rewriteBriefing } from "../ost/briefing.js";
+import { publishRankedLedger, rankedLedgerPath, readRankedLedger, type LedgerRowInput } from "../ost/ranked-ledger.js";
 import { composeStandingBriefing, regenerateStandingBriefing, standingBriefingPath } from "../ost/standing-briefing.js";
 import { entriesRequiringAHuman, registerLoopCommands, resolveSessionsDir } from "./loop.js";
 import { installVaultResolution, resolvedVaultSource, VAULT_OPTION_HELP } from "./vault-option.js";
@@ -150,6 +153,26 @@ async function prompt(question: string, fallback?: string): Promise<string> {
 /** Commander's accumulator for a repeatable option: `--also a --also b` → `["a", "b"]`. */
 function collect(value: string, previous: string[]): string[] {
   return [...previous, value];
+}
+
+/**
+ * Rows for `ledger --publish`: a JSON array of `{title, reason}`, in the
+ * proposed order. Shape errors are named here so a malformed file fails as
+ * itself rather than as a refusal from the write boundary.
+ */
+function readLedgerRowsFile(file: string): LedgerRowInput[] {
+  const parsed: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
+  if (!Array.isArray(parsed)) throw new Error(`${file}: expected a JSON array of {title, reason} rows`);
+  return parsed.map((row, i) => {
+    const r = row as { title?: unknown; reason?: unknown };
+    if (typeof r?.title !== "string" || r.title.trim().length === 0) {
+      throw new Error(`${file}: row ${i} has no title`);
+    }
+    if (r.reason !== undefined && typeof r.reason !== "string") {
+      throw new Error(`${file}: row ${i} ("${r.title}") has a non-string reason`);
+    }
+    return { title: r.title, reason: r.reason };
+  });
 }
 
 interface CorrectionsOptions {
@@ -177,6 +200,13 @@ interface NextBuildCliOptions {
   date?: string;
   path?: boolean;
   history?: boolean;
+  vault: string;
+}
+
+interface LedgerCliOptions {
+  publish?: string;
+  date?: string;
+  path?: boolean;
   vault: string;
 }
 
@@ -1414,6 +1444,43 @@ program
       return;
     }
     console.log(renderBriefing(readBriefing(opts.vault), nextBuildPath(opts.vault), opts.history === true));
+  });
+
+program
+  .command("ledger")
+  .description(
+    "the whole-tree ranked ledger at its one stable address (<vault>/.ost-agent/RANKED-LEDGER.md): print it, or " +
+      "--publish a JSON array of {title, reason} rows — a row whose reason is missing, empty, or cites no live " +
+      "node title or stored evidence id is refused a rank and lands in the named unranked tail",
+  )
+  .option("--publish <file>", "publish this JSON array of {title, reason} rows, in the proposed order")
+  .option("--date <date>", "date the ledger is published under (default: today, UTC)")
+  .option("--path", "print the stable address and nothing else")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((opts: LedgerCliOptions) => {
+    if (opts.path) {
+      console.log(rankedLedgerPath(opts.vault));
+      return;
+    }
+    if (opts.publish) {
+      let address: string;
+      try {
+        const rows = readLedgerRowsFile(opts.publish);
+        address = publishRankedLedger(opts.vault, rows, opts.date ?? new Date().toISOString().slice(0, 10));
+      } catch (e) {
+        console.error(`not publishing: ${e instanceof Error ? e.message : String(e)}`);
+        process.exitCode = 1;
+        return;
+      }
+      console.log(`PUBLISHED ${address}`);
+      console.log(readRankedLedger(opts.vault));
+      return;
+    }
+    const raw = readRankedLedger(opts.vault);
+    console.log(
+      raw ??
+        `No ranked ledger yet — one would live at ${rankedLedgerPath(opts.vault)}. Publish the first with \`ost-agent ledger --publish <rows.json>\`.`,
+    );
   });
 
 program
