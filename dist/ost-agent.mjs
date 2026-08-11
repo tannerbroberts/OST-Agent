@@ -51209,6 +51209,85 @@ function readQuestionBank(stateDir2) {
   return records;
 }
 
+// src/loop/authority-contract.ts
+var AUTHORITY_CONTRACT = [
+  {
+    id: "authority:governance",
+    name: "Governance of the tree itself",
+    ruling: "stop-and-cite",
+    fixedBeforeDrafting: true,
+    clause: "Any question about the governance of the tree itself: what the gate is or does, what happens when the gate refuses a candidate, how far compute may carry a change without a person, or who may merge. This clause outranks every other reading of a stop it touches, and it is not eligible to become a proceed class under any redraft \u2014 a contract that let compute rule here would have delegated the gate that makes every other delegation safe.",
+    draftedFrom: []
+  },
+  {
+    id: "authority:outward-state",
+    name: "State visible beyond the project's own repositories",
+    ruling: "stop-and-cite",
+    clause: "The fork disposes of state a third party can already see or depend on \u2014 a published package, existing installs, a public PR or release record, anything on a registry. Reversibility inside the repo does not reach state outside it, so this is never compute's to change alone.",
+    draftedFrom: ["16e9596b-7c8f-445b-a8ff-f822ed211ea5@58"]
+  },
+  {
+    id: "authority:product-direction",
+    name: "What the product is",
+    ruling: "stop-and-cite",
+    clause: "The fork decides what the product is \u2014 adding, cutting or keeping a capability, or choosing between architectures whose consequences outlive any single change. Reversibility is not the test here; identity is. A fork where every option builds a different product belongs to the person whose product it is.",
+    draftedFrom: [
+      "16e9596b-7c8f-445b-a8ff-f822ed211ea5@40",
+      "e42cd03d-b2a4-44ba-989a-9e01cc368f77@144"
+    ]
+  },
+  {
+    id: "authority:transient-defect",
+    name: "Transient defect under a planned fix",
+    ruling: "proceed",
+    clause: "A defect, duplication or rule violation exists now, and a step already in the plan removes the code that carries it; the fork is whether to fix it now or let the planned removal resolve it. The defect is real but its lifetime is already bounded by work everyone has agreed to.",
+    defaultUnderClause: "Accept the transient state, log the ruling where the plan's ledger lives, and attach to the removing step the explicit duty to verify the defect is gone.",
+    draftedFrom: [
+      "16e9596b-7c8f-445b-a8ff-f822ed211ea5@282",
+      "16e9596b-7c8f-445b-a8ff-f822ed211ea5@323"
+    ]
+  },
+  {
+    id: "authority:plan-gap",
+    name: "A gap the plan's own execution exposed",
+    ruling: "proceed",
+    clause: "Executing the plan exposed work the outcome needs that no planned step provides \u2014 a capability severed, a mechanism the spec names but nothing builds \u2014 and the fork is whether and how much of the closing work to take on now. The outcome is not in question; only the timing and size of the close is.",
+    defaultUnderClause: "Add the smallest closing increment as explicit new work, defer what that increment does not need, and log the plan amendment. Neither ship a knowingly severed outcome silently, nor silently expand scope past the smallest close.",
+    draftedFrom: ["16e9596b-7c8f-445b-a8ff-f822ed211ea5@345"]
+  },
+  {
+    id: "authority:run-footing",
+    name: "The run's own footing",
+    ruling: "proceed",
+    clause: "The options differ only in where or under what isolation the run does the work \u2014 a worktree, a branch, in place, or waiting out a competing writer \u2014 while the work itself is identical under every option. Nothing stands on ground the answer does not choose, because the answer chooses only the ground.",
+    defaultUnderClause: "Take the most isolated option that still makes progress, and never resolve a footing fork by taking the least reversible path.",
+    draftedFrom: ["16e9596b-7c8f-445b-a8ff-f822ed211ea5@216"]
+  },
+  {
+    id: "authority:mechanics",
+    name: "Reversible implementation mechanics",
+    ruling: "proceed",
+    clause: "The goal is already decided, every option is a way of building it that stays confined to the project's own repositories and branches, and at least one option reaches the goal with nothing lost \u2014 no capability cut, no behavior silently dropped. The fork is how, never whether or what.",
+    defaultUnderClause: "Take the recommended option when one is marked and it loses nothing; otherwise the most reversible option that loses nothing. Record the choice and why.",
+    draftedFrom: ["16e9596b-7c8f-445b-a8ff-f822ed211ea5@51"]
+  }
+];
+function renderAuthorityContract() {
+  const lines = [
+    "STANDING AUTHORITY CONTRACT \u2014 consult top to bottom; first clause that covers the fork rules it.",
+    "A fork no clause covers is a stop, and 'uncovered' is the citation.",
+    "Generalization is tested (test/loop/authority-class-holdout.test.ts); the grant itself is still the operator's.",
+    ""
+  ];
+  for (const c3 of AUTHORITY_CONTRACT) {
+    lines.push(`[${c3.id}] ${c3.name} \u2014 ${c3.ruling.toUpperCase()}`);
+    lines.push(`  ${c3.clause}`);
+    if (c3.defaultUnderClause) lines.push(`  Default under the clause: ${c3.defaultUnderClause}`);
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+
 // src/loop/corrections.ts
 import fs37 from "node:fs";
 import path39 from "node:path";
@@ -53975,6 +54054,11 @@ program2.command("bank-question").argument("[question]", "the question the run c
     }
   }
 );
+program2.command("authority").description(
+  "the standing authority contract: which classes of decision compute may take alone. A run at a fork reads this and either proceeds under the clause that covers it (recording which) or stops and cites the clause \u2014 or 'uncovered', which is a stop exactly as before the contract existed"
+).action(() => {
+  console.log(renderAuthorityContract());
+});
 program2.command("allowlist").description(
   "derive a session's permission allowlist from the skill's own allowed-tools (human-only, at install time)"
 ).requiredOption("--skill <file>", "the SKILL.md (or command file) whose `allowed-tools` line is the declaration").requiredOption("--settings <file>", "the settings.json whose permissions.allow is derived from it").option(

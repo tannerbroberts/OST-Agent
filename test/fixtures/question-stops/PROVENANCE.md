@@ -69,3 +69,31 @@ The direction of the rule's errors is the deliberate part: on this corpus every
 disagreement is a conservative one — independent work misread as dependent, which costs
 throughput, never a false-independent, which costs correctness. The assumption test's own
 framing says those are not equally important, and the rule is tilted accordingly.
+
+## The holdout: drafting from the older half, placing the newer
+
+`test/loop/authority-class-holdout.test.ts` implements the sibling assumption test named
+above ("Draft the decision classes from the older half of the stops and test them on the
+newer half"). The same seventeen stops, ordered by `askedAt`: the oldest eight are the
+drafting pool for the authority contract's decision classes
+(`src/loop/authority-contract.ts`, each class citing the drafting stops it was read from),
+and the nine newest are placed against those classes in `holdout-placements.json` — each
+placement allowed to reference only a class already written, with `null` where no clause
+covers the stop.
+
+What is mechanical: the split by timestamp, the rule that no class may cite a stop newer
+than the cutoff, the rule that no placement may name a class outside the contract, the two
+pre-committed bars (at least 6 of 9 covered, at least 4 of 9 proceed-classed), and the
+fixed placement of the gate-refusal stop (`3d729ebc@129`) in the never-proceed governance
+class. What is **authored**: the class clauses and the placements' whys, exactly as the
+`turnsOnAnswer` labels above are authored readings.
+
+The honesty limit, stated before the green is believed: both halves were performed by one
+agent in one pass, and that agent had access to the whole corpus. The sealing is
+procedural — the contract was written and committed citing only pre-cutoff stops before
+the placements were written, and the citations are the audit trail — but it is discipline,
+not structure. A reader who suspects fitting should argue with the clauses by name: each
+placement's `why` states which criteria placed it, and a clause that only makes sense in
+the light of a held-out stop is the tell to look for. The two uncovered stops (`a615eb46@362`,
+`0d27cebf@106`) are the drafting window's real edge: both are about the run's own
+persistence, cadence and spend, of which the older eight contained no instance.
