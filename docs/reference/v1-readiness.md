@@ -3080,7 +3080,12 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2696 tests across 206 files, verified 2026-08-11 (`npx vitest run`,
+> *Today:* **met** — 2704 tests across 207 files, verified 2026-08-11 (`npx vitest run`,
+> after the standing Next Build briefing landed: one stable address per vault
+> (`<vault>/.ost-agent/NEXT-BUILD.md`), rewrites that fold the superseded reading into
+> History so the file only ever grows, and a `next-build` CLI surface to read and
+> rewrite it (`src/ost/briefing.ts`, `test/ost/next-build-briefing.test.ts`).
+> Previously 2696 tests across 206 files, verified 2026-08-11 (`npx vitest run`,
 > after evidence-extent decorrelation landed: sibling opportunities whose cited evidence
 > collapses, nests, or entangles are hygiene issues (`shared-extent` / `subset-extent` /
 > `entangled-extent`, `src/ost/extent.ts`) — the provenance half of duplicate detection,

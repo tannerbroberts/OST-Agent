@@ -29,6 +29,7 @@
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
  *   ost-agent corrections [--state DIR]       refusals this workspace already paid for, for the next session to read
  *   ost-agent claim "<work>" --briefing F     take the work before building it, so a second pass sees it is taken
+ *   ost-agent next-build [--rewrite F]        the standing briefing at its one address: read it, or supersede it keeping every prior reading
  *   ost-agent bank-question "<q>" ...         bank a fork instead of stopping at it, costed by the work it holds up
  *   ost-agent allowlist --skill F --settings F  derive a run's permission grant from the skill's own allowed-tools
  *   ost-agent grants --skill F --settings F   name every tool a run declares that its grant does not cover
@@ -120,6 +121,7 @@ import {
   CLAIM_EXIT, DEFAULT_CLAIM_TTL_HOURS, claimWork, liveClaims, readBriefingFile, releaseClaim,
   renderClaim, renderClaims, resolveWorkItem,
 } from "../loop/claim.js";
+import { nextBuildPath, readBriefing, renderBriefing, rewriteBriefing } from "../ost/briefing.js";
 import { entriesRequiringAHuman, registerLoopCommands, resolveSessionsDir } from "./loop.js";
 import { installVaultResolution, resolvedVaultSource, VAULT_OPTION_HELP } from "./vault-option.js";
 import { describeVaultSource } from "../config/pointer.js";
@@ -160,6 +162,14 @@ interface ClaimCliOptions {
   ttlHours?: string;
   release?: boolean;
   list?: boolean;
+  vault: string;
+}
+
+interface NextBuildCliOptions {
+  rewrite?: string;
+  date?: string;
+  path?: boolean;
+  history?: boolean;
   vault: string;
 }
 
@@ -1275,6 +1285,47 @@ program
     console.log(renderClaim(outcome));
     if (outcome.status === "already-claimed") process.exitCode = CLAIM_EXIT.alreadyClaimed;
     else if (outcome.status === "unresolved") process.exitCode = CLAIM_EXIT.unresolved;
+  });
+
+program
+  .command("next-build")
+  .description(
+    "the standing Next Build briefing at its one stable address (<vault>/.ost-agent/NEXT-BUILD.md): print the " +
+      "current reading, or --rewrite it — the superseded reading is kept under History, never overwritten",
+  )
+  .option("--rewrite <file>", "supersede the current reading with this file's content")
+  .option("--date <date>", "date the rewrite is recorded under (default: today, UTC)")
+  .option("--path", "print the stable address and nothing else")
+  .option("--history", "print every prior reading after the current one")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((opts: NextBuildCliOptions) => {
+    if (opts.path) {
+      console.log(nextBuildPath(opts.vault));
+      return;
+    }
+    if (opts.rewrite) {
+      let body: string;
+      try {
+        body = readBriefingFile(opts.rewrite);
+      } catch (e) {
+        console.error(`not rewriting: ${e instanceof Error ? e.message : String(e)}`);
+        process.exitCode = 1;
+        return;
+      }
+      const date = opts.date ?? new Date().toISOString().slice(0, 10);
+      let address: string;
+      try {
+        address = rewriteBriefing(opts.vault, { date, body });
+      } catch (e) {
+        console.error(`not rewriting: ${e instanceof Error ? e.message : String(e)}`);
+        process.exitCode = 1;
+        return;
+      }
+      const kept = readBriefing(opts.vault).history.length;
+      console.log(`REWRITTEN ${address} — current reading dated ${date}; ${kept} prior reading(s) preserved under History.`);
+      return;
+    }
+    console.log(renderBriefing(readBriefing(opts.vault), nextBuildPath(opts.vault), opts.history === true));
   });
 
 program
