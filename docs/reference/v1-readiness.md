@@ -3080,7 +3080,12 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2614 tests across 198 files, verified 2026-08-10 (`npx vitest run`,
+> *Today:* **met** — 2618 tests across 199 files, verified 2026-08-10 (`npx vitest run`,
+> after the run-journal interruption spec landed: ten runs SIGKILLed at seeded points, and
+> **0 of 10** journals overstated with **0** understating, against a bar of 0 overstating /
+> at most 2 understating fixed by the assumption test before the journal existed
+> (`src/loop/journal.ts`, `test/loop/run-journal-interruption.test.ts`).
+> Previously 2614 tests across 198 files, verified 2026-08-10,
 > after the hand-exclusion census landed: **4** distinct test files have ever been
 > suppressed by hand across 657 recorded sessions, against a bar the assumption test fixed
 > at 3 before anyone counted — so a committed quarantine list has subjects. What the same

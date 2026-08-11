@@ -20,6 +20,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { requireLoopStateDir, loopStateDir } from "./state.js";
+import { appendJournal } from "./journal.js";
 // Type-only, so nothing at runtime imports back into this file: `degraded.ts`
 // reads the run record it classifies, and this file only needs the shape of what
 // it hands back.
@@ -151,6 +152,7 @@ export function sweepCrashed(dir: string): LoopRunRecord | null {
       };
   appendRun(dir, crashed);
   fs.rmSync(p, { force: true });
+  appendJournal(dir, { kind: "crash", runId: crashed.runId, at: now });
   return crashed;
 }
 
@@ -185,6 +187,10 @@ export function startRun(
     steps: [],
   };
   fs.writeFileSync(openRunPath(dir), JSON.stringify(run, null, 2));
+  // Journaled after the marker exists, so an "open" line always names a run
+  // the sweeper could find. See journal.ts — every journal line records a
+  // thing that has already fully happened.
+  appendJournal(dir, { kind: "open", runId: run.runId, at: startedAt });
   return run;
 }
 
@@ -196,8 +202,23 @@ function requireOpenRun(dir: string): LoopRunRecord {
 
 export function appendStep(dir: string, step: Omit<LoopStepRecord, "at">): LoopRunRecord {
   const open = requireOpenRun(dir);
-  open.steps.push({ ...step, at: new Date().toISOString() });
+  const at = new Date().toISOString();
+  open.steps.push({ ...step, at });
   fs.writeFileSync(openRunPath(dir), JSON.stringify(open, null, 2));
+  // Appended last, and only ever for a command whose exit code is already in
+  // hand. The marker above is rewritten wholesale — a kill mid-write can lose
+  // it — so this line is the durable claim, and it must never say more than
+  // the marker did: a journal that understates by the final step is a re-check;
+  // one that overstates is a false lead. journal.ts states the choice in full.
+  appendJournal(dir, {
+    kind: "step",
+    runId: open.runId,
+    phase: step.phase,
+    command: step.command,
+    ...(step.cwd ? { cwd: step.cwd } : {}),
+    exit: step.exit,
+    at,
+  });
   return open;
 }
 
@@ -251,6 +272,10 @@ export function sealRun(
   };
   appendRun(dir, sealed);
   fs.rmSync(openRunPath(dir), { force: true });
+  // The seal line is what lets a reader tell "interrupted" from "finished"
+  // at the journal's tail: a run whose last line is a step ended before it
+  // could account for itself, and the steps above that line are its account.
+  appendJournal(dir, { kind: "seal", runId: sealed.runId, verdict: sealed.verdict!, at: sealed.endedAt! });
   return sealed;
 }
 
