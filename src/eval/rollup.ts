@@ -109,7 +109,7 @@ function weakest(rungs: (RungId | undefined)[]): RungId | null {
  * taxonomy is that overlap should be small, not zero — so the rollup has to be
  * able to show overlap rather than silently assigning each node one home.
  */
-function subtree(start: string, index: Map<string, OstNode>): OstNode[] {
+export function subtree(start: string, index: Map<string, OstNode>): OstNode[] {
   const seen = new Set<string>();
   const out: OstNode[] = [];
   const queue = [start];
