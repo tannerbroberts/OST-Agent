@@ -103,6 +103,7 @@ import { buildOstTools } from "../security/tools.js";
 import { Vault } from "../ost/vault.js";
 import { defaultTranscriptDir } from "../adapters/transcript.js";
 import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
+import { formatMigrationReport, migrateEvidenceClass } from "../ost/migrate.js";
 import { readPendingAskQueue } from "../ost/pending-asks.js";
 import { laneDef, LANES, type LaneId } from "../knowledge/lanes.js";
 import {
@@ -377,6 +378,59 @@ program
     const { text, violations } = renderCheck(census);
     console.log(text);
     if (violations > 0) process.exitCode = 1;
+  });
+
+/**
+ * The other half of a tightening. A new invariant flags every node written
+ * before it, and an append-only surface offers no compliant path back — the
+ * evidence-class rule landed on all 57 then-existing meta-vault nodes with no
+ * generic remediation. This command is where the author of a tightening ships
+ * the mechanical remediation: frontmatter-only edits (prose byte-identical, a
+ * test holds it there), a node-by-node report, and a refusal list naming what
+ * only a human may decide. Dry run by default; `--write` applies and commits.
+ */
+program
+  .command("migrate")
+  .description("run the migration a tightening should have shipped with — reports by default, applies and commits with --write")
+  .argument("<rule>", "the check rule to remediate (available: evidence-class)")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option("--write", "apply the changes and commit them (default: report what would change)")
+  .action(async (rule: string, opts: { vault: string; write?: boolean }) => {
+    if (rule !== "evidence-class") {
+      console.error(
+        `no migration for "${rule}" — available: evidence-class. A tightening with no entry here shipped without the half that brings the existing tree with it.`,
+      );
+      process.exitCode = 1;
+      return;
+    }
+    const dir = path.resolve(opts.vault);
+    if (opts.write) {
+      // Same stance as `friction`: gitCommit stages with `git add -A`, so from a
+      // dirty tree it would put a stranger's edits into history under the
+      // migration's name — the one attribution a meaning-preserving pass cannot afford.
+      const before = workingTreeStatus(dir);
+      const foreign = before.kind === "dirty" ? entriesRequiringAHuman(before.entries) : [];
+      if (foreign.length > 0) {
+        console.error(`refusing to migrate: ${foreign.length} path(s) were already dirty here before this run:`);
+        for (const f of foreign) console.error(`    ${f}`);
+        console.error("  Committing would put those into history under the migration's name. Deal with them and re-run.");
+        process.exitCode = 1;
+        return;
+      }
+    }
+    const report = migrateEvidenceClass(dir, { write: opts.write });
+    console.log(formatMigrationReport(report));
+    if (opts.write && report.touched.length > 0) {
+      const r = await gitCommit(dir, `migrate(${report.rule}): ${report.touched.length} node(s) to the floor rung — frontmatter only, prose untouched`);
+      console.log(
+        r.committed
+          ? `  committed ${r.sha.slice(0, 8)} — every touched node is named above and recoverable from history`
+          : "  NOT committed — git saw nothing to commit; something is ignoring these files, and nothing has versioned this rewrite",
+      );
+    }
+    // A non-empty refusal list means the tree is not fully across; the exit
+    // code says so, so a script cannot read a partial migration as a finished one.
+    if (report.humansRequired.length > 0) process.exitCode = 1;
   });
 
 program
