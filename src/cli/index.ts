@@ -4,6 +4,7 @@
  *
  *   ost-agent init [folder] --outcome "..."   create/adopt a vault
  *   ost-agent status [--vault DIR]            read-only tree summary
+ *   ost-agent setup-check [dir]               can a session opened on this project launch the vault's tools?
  *   ost-agent result "<test>" ...             record a human-run test's outcome
  *   ost-agent promote "<node>" ...            move a node to validated (the agent cannot)
  *   ost-agent debt [--vault DIR]              evidence each solution still owes + unbounded results + unfixed thresholds
@@ -41,11 +42,13 @@
  * its tree lives — before falling back to `$OST_VAULT` and then the current
  * directory. See `src/cli/vault-option.ts`.
  */
+import os from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { Command } from "commander";
 import { buildPassContext } from "../runner/context.js";
 import { readConfig } from "../config/load.js";
+import { diagnoseSetup, formatSetupDiagnosis } from "../config/setup-check.js";
 import { ailingChannels, allChannels, channelHealth, renderChannels } from "../adapters/channels.js";
 import { initVault } from "../runner/init.js";
 import { setOutcome } from "../runner/set-outcome.js";
@@ -358,6 +361,22 @@ program
     const { text, violations } = renderCheck(census);
     console.log(text);
     if (violations > 0) process.exitCode = 1;
+  });
+
+program
+  .command("setup-check")
+  .description("can a session opened on this project launch the vault's tools? names the missing file and the exact line if not")
+  .argument("[dir]", "the project directory a session opens (default: $CLAUDE_PROJECT_DIR, else the current directory)")
+  .action((dir?: string) => {
+    // The gap this diagnoses lives in the *project* the session has open, not in
+    // the vault it points at — which is why this command takes a directory
+    // argument instead of `--vault`: a vault can be perfect while the project
+    // beside it launches nothing. Four scheduled passes ran toolless that way.
+    const project = path.resolve(dir ?? process.env.CLAUDE_PROJECT_DIR ?? ".");
+    const userSettings = path.join(os.homedir(), ".claude", "settings.json");
+    const d = diagnoseSetup(project, { extraSettingsFiles: [userSettings] });
+    console.log(formatSetupDiagnosis(d));
+    if (!d.ok) process.exitCode = 1;
   });
 
 program

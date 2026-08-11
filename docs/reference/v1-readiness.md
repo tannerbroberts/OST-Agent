@@ -3080,7 +3080,12 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2622 tests across 200 files, verified 2026-08-10 (`npx vitest run`,
+> *Today:* **met** — 2630 tests across 201 files, verified 2026-08-10 (`npx vitest run`,
+> after the setup-check diagnosis spec landed: the four toolless scheduled passes replayed
+> as fixtures each get the missing `.claude/settings.json` and the exact
+> `"ost-agent@ost-agent": true` line named, and the shipped example vault's settings draw
+> no accusation (`src/config/setup-check.ts`, `test/config/setup-check-diagnosis.test.ts`).
+> Previously 2622 tests across 200 files, verified 2026-08-10 (`npx vitest run`),
 > after the exit-code-observation containment spec landed: a recorded exit code writes only
 > to the instrument log, never to `## Results`, never changes status, and leaves the
 > evidence gate BLOCKED — asserted for red, for green-after-red, and for the refused
