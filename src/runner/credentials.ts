@@ -23,15 +23,17 @@
  * that into the same NAMED unavailability a missing variable already produces.
  * An adapter silently missing its credential is the failure `context.ts` was
  * rewritten to stop.
+ *
+ * **A credential is accepted in whatever form the operator already has it.**
+ * Each name below resolves through `security/credential-forms.ts` from an
+ * ordered list of offers — an explicit variable first, then ambient routes like
+ * `GH_TOKEN` or the token `gh auth login` stored on this machine — and the
+ * broker holds whichever usable form arrived first. When none is usable, the
+ * problem string names every route tried, so the operator learns each way in
+ * rather than the one the tool would have preferred.
  */
-import {
-  createCredentialBroker,
-  MIN_SECRET_CHARS,
-  usableSecret,
-  type AuditSink,
-  type CredentialBroker,
-  type Grant,
-} from "../security/broker.js";
+import { createCredentialBroker, type AuditSink, type CredentialBroker, type Grant } from "../security/broker.js";
+import { ghCliStoredAuth, resolveCredential, type CredentialOffer } from "../security/credential-forms.js";
 import { httpGetAction, HTTP_GET, type RawFetch } from "../security/brokered-fetch.js";
 
 /** The names credentials are held under, and the askers allowed to spend them. */
@@ -83,32 +85,58 @@ export interface EnvBroker {
   problems: Record<string, string>;
 }
 
+/**
+ * The forms each credential is accepted in, in preference order — the ONE list
+ * both the broker and the `channels` health probe resolve, so "present" cannot
+ * mean two different things (see `test/cli/channels.test.ts`).
+ *
+ * An explicit variable always outranks anything scavenged: an operator who set
+ * `SLACK_BOT_TOKEN` or `GITHUB_TOKEN` said which authority to spend, and a
+ * broader ambient credential must not silently win over that.
+ */
+export function slackOffers(env: NodeJS.ProcessEnv): CredentialOffer[] {
+  return [
+    { form: "env-var", variable: "SLACK_BOT_TOKEN", value: env.SLACK_BOT_TOKEN },
+    // A user token is session-shaped authority the operator already holds; the
+    // grant still confines it to the same read-only /api/ prefix as a bot's.
+    { form: "session-token", source: "SLACK_USER_TOKEN", token: env.SLACK_USER_TOKEN },
+  ];
+}
+
+export function atlassianOffers(env: NodeJS.ProcessEnv): CredentialOffer[] {
+  return [{ form: "env-var", variable: "ATLASSIAN_API_TOKEN", value: env.ATLASSIAN_API_TOKEN }];
+}
+
+export function searchOffers(env: NodeJS.ProcessEnv): CredentialOffer[] {
+  return [{ form: "env-var", variable: "BRAVE_SEARCH_API_KEY", value: env.BRAVE_SEARCH_API_KEY }];
+}
+
+export function githubOffers(env: NodeJS.ProcessEnv): CredentialOffer[] {
+  return [
+    { form: "env-var", variable: "GITHUB_TOKEN", value: env.GITHUB_TOKEN },
+    // Set by GitHub Actions and by `gh` itself — the commonest "env var set by
+    // something else" an operator is already carrying.
+    { form: "env-var", variable: "GH_TOKEN", value: env.GH_TOKEN },
+    { form: "cli-stored-auth", ...ghCliStoredAuth(env) },
+  ];
+}
+
 export function credentialBrokerFromEnv(opts: EnvBrokerOptions = {}): EnvBroker {
   const env = opts.env ?? process.env;
   const credentials: Record<string, string> = {};
   const problems: Record<string, string> = {};
 
-  /** Hold it, or say why not. The two reasons are different facts and get different words. */
-  function offer(name: string, value: string | undefined, missing: string): void {
-    const trimmed = value?.trim();
-    if (!trimmed) {
-      problems[name] = missing;
-      return;
-    }
-    if (!usableSecret(trimmed)) {
-      problems[name] =
-        `the value supplied is ${trimmed.length} characters, under the ${MIN_SECRET_CHARS} the broker requires — ` +
-        `too short to redact from a log or a result without mangling unrelated text, ` +
-        `so it is refused rather than held unscrubbable`;
-      return;
-    }
-    credentials[name] = trimmed;
+  /** Hold the first usable form, or say which routes were tried and why each failed. */
+  function offer(name: string, offers: CredentialOffer[], note?: string): void {
+    const intake = resolveCredential(offers, opts.now ? { now: opts.now } : {});
+    if (intake.accepted) credentials[name] = intake.accepted.secret;
+    else problems[name] = note ? `${intake.problem} ${note}` : intake.problem;
   }
 
-  offer(CREDENTIAL_SLACK, env.SLACK_BOT_TOKEN, "SLACK_BOT_TOKEN is not set");
-  offer(CREDENTIAL_ATLASSIAN, env.ATLASSIAN_API_TOKEN, "ATLASSIAN_API_TOKEN is not set");
-  offer(CREDENTIAL_SEARCH, env.BRAVE_SEARCH_API_KEY, "BRAVE_SEARCH_API_KEY is not set");
-  offer(CREDENTIAL_GITHUB, env.GITHUB_TOKEN, "GITHUB_TOKEN is not set (only needed for a private repository)");
+  offer(CREDENTIAL_SLACK, slackOffers(env));
+  offer(CREDENTIAL_ATLASSIAN, atlassianOffers(env));
+  offer(CREDENTIAL_SEARCH, searchOffers(env));
+  offer(CREDENTIAL_GITHUB, githubOffers(env), "(a credential is only needed for a private repository)");
 
   const base = env.ATLASSIAN_BASE_URL?.trim().replace(/\/$/, "");
   const grants: Grant[] = [];

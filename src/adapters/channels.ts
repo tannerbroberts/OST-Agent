@@ -25,7 +25,9 @@ import { parseCadence } from "../loop/cadence.js";
 import { defaultTranscriptDir } from "./transcript.js";
 import { usageLogPath } from "../telemetry/usage.js";
 import { loadCursorRecord } from "./source.js";
-import { MIN_SECRET_CHARS, usableSecret } from "../security/broker.js";
+import { MIN_SECRET_CHARS } from "../security/broker.js";
+import { resolveCredential } from "../security/credential-forms.js";
+import { atlassianOffers, slackOffers } from "../runner/credentials.js";
 
 /**
  * Channel zero: the drop folder every vault has already had, under the name its
@@ -362,12 +364,13 @@ const COMMISSIONED: readonly CommissionedSpec[] = [
       const scope = [...c.adapters.atlassian.projects, ...c.adapters.atlassian.spaces].join(", ");
       return `Atlassian Cloud${scope ? ` (${scope})` : ""}`;
     },
-    // `usableSecret`, not truthiness: what counts as a credential being present
-    // is the credential broker's answer, because the broker is what will hold it.
-    // A second definition here is how this probe and `buildSources` come to
-    // disagree, which is the one thing this table exists not to do.
+    // The same intake the broker resolves, not truthiness: what counts as a
+    // credential being present is the credential broker's answer, because the
+    // broker is what will hold it. A second definition here is how this probe
+    // and `buildSources` come to disagree, which is the one thing this table
+    // exists not to do.
     unavailable: (_c, env) =>
-      env.ATLASSIAN_BASE_URL && env.ATLASSIAN_EMAIL && usableSecret(env.ATLASSIAN_API_TOKEN)
+      env.ATLASSIAN_BASE_URL && env.ATLASSIAN_EMAIL && resolveCredential(atlassianOffers(env)).accepted
         ? null
         : "enabled but ATLASSIAN_BASE_URL / ATLASSIAN_EMAIL / ATLASSIAN_API_TOKEN are not all set in this environment " +
           `(the token must be at least ${MIN_SECRET_CHARS} characters — the broker refuses to hold one it cannot redact).`,
@@ -380,11 +383,10 @@ const COMMISSIONED: readonly CommissionedSpec[] = [
       const scope = c.adapters.slack.channels.join(", ");
       return `Slack${scope ? ` (${scope})` : ""}`;
     },
-    unavailable: (_c, env) =>
-      usableSecret(env.SLACK_BOT_TOKEN)
-        ? null
-        : "enabled but SLACK_BOT_TOKEN is not set in this environment " +
-          `(or is under ${MIN_SECRET_CHARS} characters, which the credential broker refuses to hold).`,
+    unavailable: (_c, env) => {
+      const intake = resolveCredential(slackOffers(env));
+      return intake.accepted ? null : `enabled but no Slack credential was found in any accepted form: ${intake.problem}.`;
+    },
   },
   {
     name: "actions",
