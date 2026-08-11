@@ -110,6 +110,16 @@ unbounded read or an unbounded report did real damage:
   ([`src/loop/questions.ts`](src/loop/questions.ts)), and the attention ledger records
   what each open unknown cost and what it bought
   ([`src/telemetry/attention.ts`](src/telemetry/attention.ts)).
+- **Every bounded surface is registered, with the contract its squeeze must preserve.**
+  The compression-surface registry ([`src/compression/registry.ts`](src/compression/registry.ts))
+  censuses every cap in the product — the decision each bounded output serves, the fields
+  that decision reads, and how the drop is admitted. A new cap constant fails the build
+  until its contract is written down, the surfaces that still clip silently are pinned by
+  name so that list can only shrink, and the core contracts are driven over real fixtures
+  ([`test/compression/fidelity-contract.test.ts`](test/compression/fidelity-contract.test.ts)).
+  `ost-agent status` reports the posture as one line. This is the fitness function the
+  retina analogy demands: a distillation that loses what the decision reads goes red now,
+  instead of being tuned by the next injury.
 - **A sense that was never reached is distinguishable from a sense that worked.** The
   sense census keeps "live" and "reached" on separate axes
   ([`src/loop/senses.ts`](src/loop/senses.ts)), because a channel nobody consulted
