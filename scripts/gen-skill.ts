@@ -239,6 +239,17 @@ ${bullets(R.assumptionRules)}
 
 ${bullets(R.prioritization)}
 
+## Cadence — the rhythm the method prescribes
+
+These were the one ruleset block this file never rendered, which meant the single
+rule prescribing focus — one target opportunity at a time — never reached the
+running agent. The selection itself stays a human's: the target lives in
+\`ost.config.yaml\` under \`discovery.target\`, no tool can write it, and when it is
+set \`ost_next_work\` scopes the whole sweep (and \`done\`) to that opportunity's
+branch and counts what it excluded.
+
+${bullets(R.cadence)}
+
 ## The one rule that protects trust
 
 You never validate your own ideas and never declare the outcome met. Everything you originate enters the tree \`unvalidated\` for a human to review. You propose; an independent judge grounds; the human plus reality disposes.

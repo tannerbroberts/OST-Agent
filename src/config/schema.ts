@@ -313,6 +313,27 @@ const LoopUpdatesSchema = z.object({
   channel: z.string().nullish(),
 });
 
+// The discovery pass's focus, and the only place it can come from. Torres's
+// method prioritizes top-down to a SINGLE target opportunity and ignores the
+// other branches while working it; the ruleset forbids the agent from
+// auto-selecting that target ("Opportunity and solution selection are human
+// decisions"). Holding the target in config — a file no agent tool can write —
+// is what makes the selection structurally human rather than disciplinarily
+// human: there is no tool parameter to pass, so the agent cannot scope its own
+// sweep. Absent ⇒ the whole-tree sweep, unchanged.
+const DiscoverySchema = z
+  .object({
+    /**
+     * Exact title of the Opportunity the discovery pass focuses on. When set,
+     * `ost_next_work` scopes every done-blocking bucket to that opportunity's
+     * subtree and reports what it excluded, by count. A title that names no
+     * Opportunity in the tree leaves the sweep unscoped and is called out in
+     * the summary — a mistyped focus must be loud, never a silent narrowing.
+     */
+    target: z.string().nullish(),
+  })
+  .nullish();
+
 const LoopSchema = z
   .object({
     /** How often this vault may fire: `"30m"`, `"6h"`, `"1d"`. Absent ⇒ never. */
@@ -346,6 +367,7 @@ export const ConfigSchema = z.object({
   processes: z.record(z.string(), ProcessSchema).default({}),
   web: WebSchema,
   product: ProductSchema,
+  discovery: DiscoverySchema,
   loop: LoopSchema,
 });
 
@@ -440,5 +462,10 @@ product:
 processes:
   P3_ideate:
     minSolutionsPerOpportunity: ${DEFAULT_MIN_SOLUTIONS_PER_OPPORTUNITY}   # how many candidate solutions an opportunity needs before \`ost_next_work\` stops calling it under-served
+
+# discovery:
+#   target: "Some opportunity title"   # focus the discovery pass on ONE opportunity's branch (Torres's
+                                       # single target opportunity). Human-set only — there is deliberately
+                                       # no tool that writes it. Absent: the pass sweeps the whole tree.
 `;
 }

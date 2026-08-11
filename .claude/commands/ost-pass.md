@@ -9,6 +9,8 @@ Run one complete, autonomous maintenance pass over the OST vault. Follow the `op
 
 **Do not write a ledger of this pass onto the Outcome node.** That habit is what the rollup replaces: twenty appended sections restating, every pass, what the tree already knew structurally, until the root was 86KB nobody could read. What you learn belongs on the node it is about. The Outcome carries the mandate and its `## History`, and nothing else grows there.
 
+**If the response carries a `scope` field, the operator has set `discovery.target` and this firing is for ONE branch.** Work only what the buckets list — they are already scoped to that opportunity's subtree, and `done` means *the branch* is current. Do not go find the excluded work: `scope.excluded` is accounting for the human's report, not a queue, and mapping new evidence waits for an unscoped sweep. You cannot change or choose the target — it is the operator's, in `ost.config.yaml` — and if `scope.resolved` is false, say prominently in your report that the configured target names no Opportunity, because the operator believes the pass is focused and it is not.
+
 Loop until the tree is current:
 
 1. Call `ost_ingest_inbox`, then `ost_next_work`.
