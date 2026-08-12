@@ -3089,7 +3089,11 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2,892 tests across 227 files, verified 2026-08-12 (`npx vitest run`,
+> *Today:* **met** — 2,895 tests across 228 files, verified 2026-08-12 (`npx vitest run`,
+> after the multi-level subtree count landed: `opportunitiesServedBeneath`'s existing
+> exemption is now pinned at arbitrary depth, not only the one hop the category-exemption
+> spec already covered (`test/ost/underserved-subtree-count.test.ts`).
+> Previously 2,892 tests across 227 files, verified 2026-08-12 (`npx vitest run`,
 > after condition-based suppression landed: a pass's decline recorded against a
 > machine-checkable fact takes the item off every work bucket only while the fact holds —
 > re-evaluated on each read, disclosed on the response, prose refused at the write funnel
