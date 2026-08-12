@@ -310,6 +310,16 @@ function makeVault(): { dir: string; vault: Vault } {
   put(vault, SECOND_OPPORTUNITY, "Opportunity");
   fs.mkdirSync(path.join(dir, "product"), { recursive: true });
   fs.writeFileSync(path.join(dir, "product", "README.md"), "the product\n", "utf8");
+  // Every spec the AIM rows can name has to exist in the product repo: the
+  // write boundary resolves an instrument's path against `productRepos` and
+  // refuses one that is not there, and a driven call refused on its own input
+  // proves nothing about the push path. driven-N covers both driver rounds
+  // (`n++` and `100 + n++`) with room for the tool list to grow.
+  fs.mkdirSync(path.join(dir, "product", "test"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "product", "test", "driven.test.ts"), "// a spec that exists\n", "utf8");
+  for (let n = 0; n < 200; n++) {
+    fs.writeFileSync(path.join(dir, "product", "test", `driven-${n}.test.ts`), "// a spec that exists\n", "utf8");
+  }
   return { dir, vault };
 }
 

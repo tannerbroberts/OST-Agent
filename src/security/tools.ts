@@ -16,6 +16,8 @@ import { gitCommit, gitPush, pushTargetFor } from "../git/safe-git.js";
 import { AGENT_IDEATED_TAG, type NodeStatus, type OstNode } from "../ost/node.js";
 import { BELIEVABILITY_LADDER, isRung, rungRank, type RungId } from "../knowledge/believability.js";
 import { isInstrument, parseInstrument } from "../knowledge/instruments.js";
+import { specResolves } from "../ost/instrument.js";
+import { thresholdKindOf } from "../eval/coverage.js";
 import { classifyUnknown } from "../knowledge/unknowns.js";
 import { titlesMatch } from "../ost/sanitize.js";
 import { Vault } from "../ost/vault.js";
@@ -85,6 +87,41 @@ const VALIDATED_REFUSAL =
   `declaring itself cleared is the forgery this surface exists to prevent. Promotion is a human's ` +
   `call, made on the CLI: ost-agent promote "<title>" --by "<who>" --why "<the evidence>". ` +
   `Use "in-discovery" while a test is running, or "deferred" to record abandonment.`;
+
+/**
+ * Refuse an instrument whose spec path resolves to nothing — at the boundary
+ * that writes it, not just at the run that discovers it.
+ *
+ * The measurement behind the rule: of 266 recorded reds in this product's own
+ * meta vault on 2026-08-09, 260 read "No test files found" — 241 instruments
+ * named spec files nobody had written, and seventeen named seven `test/`
+ * directories that do not exist in the suite at all. A red like that is about
+ * the filesystem rather than the behaviour: every question written on the
+ * filename is equally red, and an empty file turns it green. The parse-level
+ * allowlist stops one character short of catching it, because "a spec file in
+ * the repository's own suite" holds only while the file exists.
+ *
+ * Callers gate on two things this message assumes:
+ * - at least one product repo is configured. With none there is nothing to
+ *   resolve against, and firing anyway would refuse EVERY instrument — a
+ *   quality rule become a total block, which is the stated dependency of the
+ *   rule this implements.
+ * - the test does not carry a bound threshold. Genuinely new behaviour needs a
+ *   new spec path, so the refusal has an escape, and the escape is the one
+ *   thing this tree has watched carry a builder through a missing spec: a
+ *   pre-committed bar (the same line `confirmPermit` draws for a vacuous red).
+ */
+function unresolvedSpecRefusal(repos: readonly string[], target: string): string {
+  const checked = repos.map((r) => path.basename(r)).join(", ");
+  return (
+    `\`${target}\` does not exist in the configured product repo${repos.length === 1 ? "" : "s"} (${checked}), so ` +
+    `its red would say a file is missing rather than that any behaviour is — every question written on that ` +
+    `filename is equally red, and an empty spec would turn it green. Two ways out, and either is a real fix: ` +
+    `name a spec that exists and whose assertions go red for this behaviour, or pre-commit a fixed bar in the ` +
+    `test's \`threshold\` — a bound threshold still hands the builder a definition of done, so it may name a ` +
+    `spec that is yet to be written.`
+  );
+}
 
 /**
  * A captured note's title comes straight from an untrusted filename — "the user
@@ -842,6 +879,18 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
                 `An instrument must also FAIL today — it names behaviour the solution does not have yet.`,
             );
           }
+          // And it has to resolve, the same rule `ost_set_instrument` applies —
+          // a second door into the same field is a second place the weak form
+          // gets minted. The draft node exists only so `thresholdKindOf` can
+          // read the threshold/body the caller is proposing, exactly as it will
+          // read them once written.
+          const repos = ctx.productRepos ?? [];
+          if (repos.length > 0 && !specResolves(repos, parsed.target)) {
+            const draft = { title: input.title, layer: "AssumptionTest", body: input.body, threshold: input.threshold, tags: [], links: [] } as OstNode;
+            if (thresholdKindOf(draft) !== "bound") {
+              throw new Error(`"${input.title}" cannot carry that instrument: ${unresolvedSpecRefusal(repos, parsed.target)}`);
+            }
+          }
         }
         // A new assumption test must be runnable, or must say out loud that it
         // cannot be.
@@ -1079,6 +1128,15 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
               `\`ost-agent lane "${input.test}" --set compute-only\`. Removing a caution is not a call this ` +
               `surface makes.`,
           );
+        }
+        // The path has to resolve, not merely parse. Skipped when no product
+        // repo is configured (nothing to resolve against — refusing then would
+        // block every instrument, not just the weak ones), and waived for a
+        // test carrying a bound threshold (the bar is a definition of done the
+        // builder can work to, so a new spec path is legitimate under it).
+        const repos = ctx.productRepos ?? [];
+        if (repos.length > 0 && !specResolves(repos, parsed.target) && thresholdKindOf(node) !== "bound") {
+          throw new Error(`cannot set that instrument on "${input.test}": ${unresolvedSpecRefusal(repos, parsed.target)}`);
         }
         const line = vault.setInstrument(input.test, parsed.command, why);
         return (
