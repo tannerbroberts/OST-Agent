@@ -38,6 +38,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { isHeadingLine } from "../ost/headings.js";
 import type { OstNode } from "../ost/node.js";
+import { testsUnderSolution } from "../processes/tree.js";
 
 const HISTORY_HEADING = "## History";
 
@@ -75,6 +76,25 @@ export function shippedPromotionLine(node: OstNode): string | undefined {
  */
 export function trustsShippedStatus(node: OstNode): boolean {
   return node.layer === "Solution" && node.status === "shipped" && shippedPromotionLine(node) !== undefined;
+}
+
+/**
+ * Does this AssumptionTest answer for a solution trusted as shipped?
+ *
+ * The write boundary's version of {@link trustsShippedStatus} — a test asks a
+ * command to fail, but a test one hop from a trusted promotion is allowed to
+ * ask it to pass instead, because there is no unbuilt behaviour left for a red
+ * to stake a claim about. Used by the write boundary in `ost/instrument.ts`
+ * to tell a genuine first observation apart from the first-run-green it
+ * refuses for everything else.
+ */
+export function testAnswersForShippedSolution(tree: readonly OstNode[], testTitle: string): boolean {
+  const index = new Map(tree.map((n) => [n.title, n]));
+  for (const n of tree) {
+    if (n.layer !== "Solution" || !trustsShippedStatus(n)) continue;
+    if (testsUnderSolution(n, index).some((t) => t.title === testTitle)) return true;
+  }
+  return false;
 }
 
 /**

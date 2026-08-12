@@ -330,3 +330,38 @@ export function solutionsMissingInstruments(tree: readonly OstNode[]): string[] 
   }
   return out;
 }
+
+/**
+ * Shipped solutions nobody has asked to prove it: a trusted promotion with no
+ * recorded run.
+ *
+ * This is the queue {@link solutionsMissingInstruments} leaves behind on
+ * purpose. That list asks every unbuilt solution for a command that is red
+ * today — a question a shipped solution cannot honestly answer, which is why
+ * `trustsShippedStatus` drops it from that list entirely. But dropping it
+ * there was never "nothing left to ask" — it was "not this question". The
+ * mechanism a shipped solution names is a claim same as any other, and the
+ * repository can settle it the only way a machine ever settles anything: run
+ * the command and read the exit code. A green run here is not a red→green
+ * transition — nothing was ever staked — so it is an *observation*, not a
+ * build permit, and the write boundary in {@link ../ost/instrument.ts} must
+ * tell the two apart before it will accept one.
+ *
+ * A solution with tests that have already recorded a green observation is not
+ * here — it has been asked and answered. One still owed the question stays,
+ * whether or not it even carries an instrument yet: "no recorded run" is the
+ * condition, and a test with no `instrument:` field has certainly never run.
+ */
+export function solutionsAwaitingObservation(tree: readonly OstNode[]): string[] {
+  const index = indexByTitle(tree);
+  const out: string[] = [];
+  for (const n of tree) {
+    if (n.layer !== "Solution") continue;
+    if (!trustsShippedStatus(n)) continue;
+    const tests = testsUnder(index, n);
+    if (tests.length === 0) continue;
+    if (tests.some((t) => observedGreen(t))) continue;
+    out.push(n.title);
+  }
+  return out;
+}

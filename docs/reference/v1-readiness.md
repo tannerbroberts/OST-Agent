@@ -3089,7 +3089,11 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2,906 tests across 231 files, verified 2026-08-12 (`npx vitest run`,
+> *Today:* **met** — 2,911 tests across 232 files, verified 2026-08-12 (`npx vitest run`,
+> after a shipped solution's claim became something the repository settles as an
+> observation rather than a red-now instrument (`src/ost/instrument.ts`,
+> `test/ost/shipped-observation-queue.test.ts`).
+> Previously 2,906 tests across 231 files, verified 2026-08-12 (`npx vitest run`,
 > after the MCP auto-commit message gained the affected node's `source:` frontmatter
 > when it has one, so an operator replaying `git log` can attribute a change without
 > opening the vault (`src/mcp/server.ts`, `test/git/commit-provenance.test.ts`).
