@@ -28,6 +28,9 @@ import { redactSecrets } from "../adapters/transcript.js";
 import { DEPOSIT_PROMPT, fileDeposit } from "../adapters/deposit.js";
 import { flagHumansRequired } from "../ost/lanes.js";
 import { CAUTIOUS_LANE } from "../knowledge/lanes.js";
+import { readPendingAskQueue } from "../ost/pending-asks.js";
+import { defaultClearingCommand } from "../knowledge/asks.js";
+import { renderBlockAnnouncementInstruction } from "../loop/block-announcement.js";
 import { ALLOWED_TOOL_NAMES, assertNoDestructiveTool } from "./policy.js";
 import { withUsageTracing } from "../telemetry/usage.js";
 import { readWebPage, type WebFetchFn } from "../web/reader.js";
@@ -1189,7 +1192,16 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
           by: `agent${ctx.surface ? `:${ctx.surface}` : ""}`,
           why: input.why,
         });
-        return `"${input.test}" is now humans-required — an unattended pass will not run it. ${line}`;
+        // The block is filed above; the announcement is built from the queue as
+        // it stands immediately after, in the same call — the moment this
+        // response reaches the agent IS the moment the wait starts being known,
+        // not whenever the pass next reports.
+        const queue = readPendingAskQueue(dir, ctx.vault.readTree());
+        const instruction = renderBlockAnnouncementInstruction(
+          { test: input.test, command: defaultClearingCommand(input.test), why: input.why },
+          queue,
+        );
+        return `"${input.test}" is now humans-required — an unattended pass will not run it. ${line}\n\n${instruction}`;
       },
     }),
 

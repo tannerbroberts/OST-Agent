@@ -48619,6 +48619,21 @@ function fileDeposit(vaultDir, filing) {
   return target;
 }
 
+// src/loop/block-announcement.ts
+function renderBlockAnnouncement(filing, queue) {
+  const behind = queue.filter((a) => a.test !== filing.test);
+  const behindLine = behind.length === 0 ? "nothing else queued behind it" : `${behind.length} more queued behind it: ${behind.map((a) => a.test).join("; ")}`;
+  return [
+    `BLOCKED \u2014 needs you now: "${filing.test}"`,
+    `why: ${filing.why}`,
+    `clear it: ${filing.command}`,
+    behindLine
+  ].join("\n");
+}
+function renderBlockAnnouncementInstruction(filing, queue) {
+  return "ANNOUNCE THIS NOW, before doing anything else in this pass: push it to whatever channel actually reaches the operator (a push notification, a message) \u2014 the wait starts the moment they read this, not at the end of the pass.\n" + renderBlockAnnouncement(filing, queue);
+}
+
 // src/security/policy.ts
 var ALLOWED_TOOL_NAMES = [
   "ost_read_tree",
@@ -49481,7 +49496,14 @@ This is not a build permit. Nothing is buildable until \`ost-agent verify\` watc
           by: `agent${ctx.surface ? `:${ctx.surface}` : ""}`,
           why: input.why
         });
-        return `"${input.test}" is now humans-required \u2014 an unattended pass will not run it. ${line}`;
+        const queue = readPendingAskQueue(dir, ctx.vault.readTree());
+        const instruction = renderBlockAnnouncementInstruction(
+          { test: input.test, command: defaultClearingCommand(input.test), why: input.why },
+          queue
+        );
+        return `"${input.test}" is now humans-required \u2014 an unattended pass will not run it. ${line}
+
+${instruction}`;
       }
     }),
     tool({
