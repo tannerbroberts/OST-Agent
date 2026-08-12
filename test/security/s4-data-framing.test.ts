@@ -193,6 +193,10 @@ const EXERCISE: Record<string, unknown[]> = {
   ost_status: [{}],
   ost_gate: [{ solution: "Setup is slow" }],
   ost_ingest_inbox: [{}],
+  // No canary here on purpose — the fixture's premise is that no tool INPUT
+  // carries it. The response only names the file written, and the answer's own
+  // bytes reach the model, if ever, through the ingest path checked above.
+  ost_deposit: [{ answer: "what I considered and rejected", from: "an operator", closing: "session" }],
   git_commit: [{ message: "chore: test" }],
   git_push: [{}],
 };

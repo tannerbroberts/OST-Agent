@@ -22,7 +22,7 @@ afterEach(() => {
 });
 
 describe("policy", () => {
-  test("the allowlist is exactly the 24 expected tools", () => {
+  test("the allowlist is exactly the 25 expected tools", () => {
     expect([...ALLOWED_TOOL_NAMES].sort()).toEqual(
       [
         "git_commit",
@@ -55,6 +55,7 @@ describe("policy", () => {
         "ost_status",
         "ost_gate",
         "ost_ingest_inbox",
+        "ost_deposit",
       ].sort(),
     );
   });

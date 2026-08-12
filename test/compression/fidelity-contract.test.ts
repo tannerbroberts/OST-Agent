@@ -133,6 +133,10 @@ const SILENT_SURFACES = [
   "actions history fetch",
   "broker detail clip",
   "census quoted sources",
+  // Grown deliberately with the deposit channel: the clip binds only the
+  // agent-authored from/closing metadata — the collaborator's answer is never
+  // clipped, which is the surface's whole contract.
+  "deposit metadata clip",
   "friction filing clip",
   "hand-exclusion command clip",
   "near-miss ancestor walk",
@@ -155,6 +159,7 @@ const DECLARATION_ONLY_SURFACES = [
   "capability record refs",
   "census quoted sources",
   "corrections ledger",
+  "deposit metadata clip",
   "dirty-path refusal listing",
   "friction filing clip",
   "hand-exclusion command clip",

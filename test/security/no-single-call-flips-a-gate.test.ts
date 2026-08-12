@@ -492,6 +492,15 @@ const ROWS: Record<string, Row> = {
     why: "writes evidence records from the operator's drop folder — no agent-supplied argument at all",
     aim: () => ({}),
   },
+  ost_deposit: {
+    // A deposit is a file in `.ost-agent/deposits/`, not a node: no gate reads
+    // that folder, and the forgery payloads below land verbatim inside a body
+    // whose whole contract is that nothing interprets it. The route back to the
+    // tree runs through `ost_ingest_inbox` + `ost_create_node`, where the
+    // content funnel and the assertion floor already stand.
+    why: "stores a collaborator's answer verbatim outside every node — a gate clears on nodes, and this writes none",
+    aim: () => ({ answer: "what I considered and rejected", from: "a collaborator", closing: "session" }),
+  },
 };
 
 /**
@@ -793,6 +802,9 @@ describe("2 — no single call flips renderGate(tree, solution).cleared from fal
       "ost_annotate",
       "ost_append_to_node",
       "ost_create_node",
+      // Lands by writing a deposit file under `.ost-agent/deposits/` — a write
+      // no gate reads, which is its row's whole argument.
+      "ost_deposit",
       "ost_detach_nodes",
       "ost_edit_node",
       "ost_flag_humans_required",

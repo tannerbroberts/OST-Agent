@@ -43,7 +43,10 @@ function twoChannels() {
   const { channels, problems } = resolveChannels(dir, cfg);
   expect(problems).toEqual([]);
   for (const c of channels) fs.mkdirSync(c.dir, { recursive: true });
-  return channels;
+  // By name, not by position: the resolver also returns the first-party
+  // channels (`friction`, `deposit`), and their number is not this test's
+  // subject — the two under test are channel zero and the config-declared one.
+  return [channels.find((c) => c.name === "inbox")!, channels.find((c) => c.name === "support")!];
 }
 
 const cursorFile = (name: string) => path.join(dir, ".ost-agent", "state", `${name}.json`);
@@ -60,7 +63,7 @@ async function ingest(channel: { name: string; dir: string }): Promise<string[]>
 
 describe("two channels, two cursors, two namespaces", () => {
   test("each channel gets its own cursor FILE and its own id PREFIX", async () => {
-    const [zero, , support] = twoChannels();
+    const [zero, support] = twoChannels();
     expect(support.name).toBe("support");
     fs.writeFileSync(path.join(zero.dir, "note.md"), "from the operator\n");
     fs.writeFileSync(path.join(support.dir, "note.md"), "from support\n");
@@ -79,7 +82,7 @@ describe("two channels, two cursors, two namespaces", () => {
 
   /** The part that actually catches the bug the criterion is about. */
   test("ingesting one channel does not consume the other's cursor", async () => {
-    const [zero, , support] = twoChannels();
+    const [zero, support] = twoChannels();
     fs.writeFileSync(path.join(zero.dir, "a.md"), "a\n");
     fs.writeFileSync(path.join(support.dir, "b.md"), "b\n");
 
@@ -104,7 +107,7 @@ describe("two channels, two cursors, two namespaces", () => {
    * the ingesting surface rather than read off the file.
    */
   test("the same filename in both channels produces two records", async () => {
-    const [zero, , support] = twoChannels();
+    const [zero, support] = twoChannels();
     fs.writeFileSync(path.join(zero.dir, "churn.md"), "operator's copy\n");
     fs.writeFileSync(path.join(support.dir, "churn.md"), "support's copy\n");
 
@@ -122,7 +125,7 @@ describe("two channels, two cursors, two namespaces", () => {
   });
 
   test("every drop folder still stamps one actor — config mints instances, never trust kinds", async () => {
-    const [zero, , support] = twoChannels();
+    const [zero, support] = twoChannels();
     fs.writeFileSync(path.join(zero.dir, "a.md"), "a\n");
     fs.writeFileSync(path.join(support.dir, "a.md"), "a\n");
     await ingest(zero);

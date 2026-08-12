@@ -30,14 +30,16 @@ export const CHANNEL_NAME_PATTERN = /^[a-z0-9][a-z0-9-]{0,31}$/;
  * Names an operator may not take, because something already owns that cursor file.
  *
  * A channel called `usage` would write `.ost-agent/state/usage.json` — the usage
- * adapter's cursor — and the two would consume each other's watermark. `inbox` and
- * `friction` are reserved for the two channels this file declares itself: `inbox`
- * is channel zero, whose id shape is frozen (see `channelIdPrefix`), and `friction`
- * is where the agent files its own record.
+ * adapter's cursor — and the two would consume each other's watermark. `inbox`,
+ * `friction` and `deposit` are reserved for the channels this file declares
+ * itself: `inbox` is channel zero, whose id shape is frozen (see
+ * `channelIdPrefix`), `friction` is where the agent files its own record, and
+ * `deposit` is where a collaborator's end-of-session answer lands verbatim.
  */
 export const RESERVED_CHANNEL_NAMES = [
   "inbox",
   "friction",
+  "deposit",
   "transcript",
   "usage",
   "atlassian",

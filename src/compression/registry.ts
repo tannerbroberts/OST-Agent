@@ -123,6 +123,18 @@ export const COMPRESSION_SURFACES = [
     proof: "declaration",
   },
   {
+    name: "deposit metadata clip",
+    module: "src/adapters/deposit.ts",
+    caps: ["MAX_META_CHARS"],
+    kind: "input-bound",
+    decision: "keeping the agent-authored frame around a deposit short enough to stay a frame",
+    reads: [
+      "the collaborator's answer is NEVER clipped — the cap binds only the from/closing metadata, so the verbatim contract survives any input",
+    ],
+    drops: "silent",
+    proof: "declaration",
+  },
+  {
     name: "friction filing clip",
     module: "src/adapters/friction.ts",
     caps: ["MAX_NOTE_CHARS", "MAX_CONTEXT_CHARS"],

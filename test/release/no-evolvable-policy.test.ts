@@ -321,6 +321,10 @@ describe("the unattended surface writes no policy into the vault", () => {
     { name: "ost_detach_nodes", arguments: { parent: "I want a reason to come back", child: "A streak counter", why: "re-parenting under the surviving solution" } },
     { name: "ost_merge_nodes", arguments: { from: "A streak counter", into: "Daily streak", prose: "One framing covering both.", why: "the same solution, written twice" } },
     { name: "ost_ingest_inbox", arguments: {} },
+    // The deposit writes a file, so it is exercised rather than declared
+    // read-only: what it stores must land in `.ost-agent/deposits/` and nowhere
+    // else, and the walks below see exactly that.
+    { name: "ost_deposit", arguments: { answer: "I considered a queue and rejected it.", from: "an operator", closing: "session" } },
   ];
 
   /** The rest of the surface, with the reason calling it would prove nothing here. */

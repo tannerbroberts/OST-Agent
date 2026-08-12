@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { ConfigSchema } from "../../src/config/schema.js";
 import {
   CHANNEL_ZERO,
+  DEPOSIT_CHANNEL,
   FRICTION_CHANNEL,
   channelHealth,
   channelIdPrefix,
@@ -85,7 +86,7 @@ describe("channel zero is the key every existing vault already carries", () => {
       config({ adapters: { inbox: { channels: [{ name: "support", path: ".ost-agent/support" }] } } }),
     );
     expect(problems).toHaveLength(1);
-    expect(channels.map((c) => c.name)).toEqual([CHANNEL_ZERO, FRICTION_CHANNEL]);
+    expect(channels.map((c) => c.name)).toEqual([CHANNEL_ZERO, FRICTION_CHANNEL, DEPOSIT_CHANNEL]);
   });
 
   test("the friction channel is first-party, inside the vault, and follows the inbox switch", () => {

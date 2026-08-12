@@ -370,6 +370,7 @@ const AIM: Record<string, (n: number) => Record<string, unknown>> = {
   ost_debt: () => ({}),
   ost_status: () => ({}),
   ost_ingest_inbox: () => ({}),
+  ost_deposit: (n) => ({ answer: `what I considered and rejected, take ${n}`, from: "an operator", closing: "session" }),
   ost_gate: () => ({ solution: SOLUTION }),
   // `instrument` is aimed rather than left to the schema filler: the boundary
   // refuses anything that is not a spec-file command, so the generic `text for
@@ -512,6 +513,7 @@ describe("(b) no tool the server exposes reaches gitPush", () => {
       // sweep, where the merge row aims the borrowed-result attack and is
       // refused — because these targets are ordinary duplicates with no recorded
       // result between them, which is the case the tool exists for.
+      "ost_deposit",
       "ost_detach_nodes",
       "ost_edit_node",
       "ost_flag_humans_required",
