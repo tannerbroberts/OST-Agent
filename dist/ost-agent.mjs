@@ -52125,6 +52125,30 @@ function notReadyResult(readiness, name) {
   }
   return { content: [{ type: "text", text: setupGuidance(readiness) }], isError: true };
 }
+var PRIMARY_NODE_KEY = {
+  ost_create_node: "title",
+  ost_append_to_node: "title",
+  ost_set_status: "title",
+  ost_set_instrument: "test",
+  ost_flag_humans_required: "test",
+  ost_set_evidence: "title",
+  ost_annotate: "title",
+  ost_edit_node: "title",
+  ost_detach_nodes: "parent",
+  ost_link_nodes: "parent",
+  ost_merge_nodes: "into"
+};
+function referencedNodeTitle(name, args) {
+  const key = PRIMARY_NODE_KEY[name];
+  if (!key || !args || typeof args !== "object") return void 0;
+  const v = args[key];
+  return typeof v === "string" && v.trim().length > 0 ? v.trim() : void 0;
+}
+function provenanceSuffix(vault, title) {
+  if (!title || !vault.has(title)) return "";
+  const source = vault.read(title).source;
+  return source && source.trim().length > 0 ? ` (source: ${source.trim()})` : "";
+}
 function declaredUnknown(args) {
   if (!args || typeof args !== "object") return void 0;
   const value = args.unknown;
@@ -52159,7 +52183,8 @@ Nothing was written. Fix the call and retry \u2014 this vault is append-only, so
     const out = await withAttribution({ session, ...marker ? { unknown: marker } : {} }, () => tool2.run(args));
     let text2 = typeof out === "string" ? out : JSON.stringify(out);
     if (MUTATING.has(name)) {
-      const commit = await enqueueCommit(ctx.dir, `mcp: ${name} \u2014 ${text2}`);
+      const provenance = provenanceSuffix(ctx.vault, referencedNodeTitle(name, args));
+      const commit = await enqueueCommit(ctx.dir, `mcp: ${name} \u2014 ${text2}${provenance}`);
       text2 += commit.committed ? `
 committed ${commit.sha.slice(0, 8)}` : `
 (no changes to commit)`;
