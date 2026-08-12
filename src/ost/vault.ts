@@ -55,6 +55,7 @@ import {
   type Layer,
   type NodeStatus,
   type OstNode,
+  type RepoSight,
   LAYERS,
 } from "./node.js";
 import { parseFrontmatter } from "./frontmatter.js";
@@ -546,12 +547,16 @@ export class Vault {
    * says something else. Swapping the instrument therefore un-clears the build
    * permit rather than inheriting it, and the test has to be verified again.
    */
-  setInstrument(title: string, instrument: string, note?: string): string {
+  setInstrument(title: string, instrument: string, note?: string, sight?: RepoSight): string {
     assertWritableNote(`the instrument note on "${title}"`, note);
     const node = this.read(title);
     const prev = node.instrument ?? "(none)";
     node.instrument = instrument;
-    const line = `- ${isoToday()} instrument: ${prev} → ${instrument}${note ? ` — ${note}` : ""}`;
+    // The sight of the WRITE that set this command, replacing whatever the
+    // prior write's sight was — the field describes the current instrument,
+    // and the History line below is where the old pairing survives.
+    if (sight) node.sight = sight;
+    const line = `- ${isoToday()} instrument: ${prev} → ${instrument}${sight ? ` [sight: ${sight}]` : ""}${note ? ` — ${note}` : ""}`;
     node.body = appendUnderHeading(node.body, "## History", line);
     fs.writeFileSync(this.nodePath(title), serialize(node), "utf8");
     return line;

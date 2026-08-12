@@ -19,6 +19,7 @@ import path from "node:path";
 import { redactSecrets } from "../adapters/transcript.js";
 import { nearMiss, renderNearMiss } from "../fs/near-miss.js";
 import { DATA_FRAME, frameData } from "../security/framing.js";
+import type { RepoSight } from "../ost/node.js";
 
 export const MAX_FILE_CHARS = 20_000;
 export const MAX_LIST_ENTRIES = 500;
@@ -120,6 +121,39 @@ function missingPathMessage(roots: readonly string[], root: string, rel: string)
     ? `did you mean ${inRepo(path.resolve(root, miss.suggestion.path))}?`
     : "nothing there is close enough to name, so this is not a typo to correct";
   return `"${rel}" does not exist in ${path.basename(root)} — ${where}; ${then}`;
+}
+
+/**
+ * Could a pass writing an instrument right now actually see the product?
+ *
+ * `grounded` iff at least one configured repo resolves to a directory this
+ * process can list — the same probe `loop/senses.ts` uses for its census, asked
+ * at the moment of the write rather than at the start of the pass, because a
+ * grant can differ between the two. Derived from the grant table and the
+ * filesystem only: there is deliberately no parameter through which a caller
+ * could assert sight it does not have, since the whole value of the flag is
+ * that the party being graded cannot set its own grade.
+ *
+ * An empty `repos` is `blind`, not an error — a pass with no repo configured
+ * never had sight of the product, which is a fact worth recording, never a
+ * reason to refuse the write (the spec-resolution guard makes that call
+ * separately). Known residue, recorded on the node that specified this: a repo
+ * that is listable here but whose FILES a sandbox denies still reads
+ * `grounded` — only the failures visible at this boundary are countable here.
+ */
+export function repoSight(repos: readonly string[]): RepoSight {
+  return repos.some((repo) => {
+    try {
+      const resolved = path.resolve(repo);
+      if (!fs.statSync(resolved).isDirectory()) return false;
+      fs.readdirSync(resolved);
+      return true;
+    } catch {
+      return false;
+    }
+  })
+    ? "grounded"
+    : "blind";
 }
 
 export interface RepoEntry {

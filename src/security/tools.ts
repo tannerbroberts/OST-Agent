@@ -57,7 +57,7 @@ import {
   type ActorKey,
   type TrustKind,
 } from "../knowledge/actor-trust.js";
-import { readProductRepo } from "../product/repo.js";
+import { readProductRepo, repoSight } from "../product/repo.js";
 import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/render.js";
 import { hasRecordedResult } from "../eval/evidence-debt.js";
 import { declaresHeading, RESULTS_HEADING } from "../ost/headings.js";
@@ -952,6 +952,11 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
           evidence: input.evidence as RungId,
           threshold: input.threshold,
           instrument: input.instrument,
+          // Stamped server-side like the tag above, and only when an
+          // instrument is actually born here: whether the pass that wrote
+          // this command could see the repository, from the grant table and
+          // never from the caller ({@link ../product/repo.ts#repoSight}).
+          sight: input.instrument !== undefined ? repoSight(ctx.productRepos ?? []) : undefined,
           // Born in the restrictive lane when the caller says a person is the
           // measurement. Stamped here, server-side, for the same reason the
           // `unvalidated` marker is: a classification the caller could describe
@@ -1138,7 +1143,12 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         if (repos.length > 0 && !specResolves(repos, parsed.target) && thresholdKindOf(node) !== "bound") {
           throw new Error(`cannot set that instrument on "${input.test}": ${unresolvedSpecRefusal(repos, parsed.target)}`);
         }
-        const line = vault.setInstrument(input.test, parsed.command, why);
+        // Whether THIS write could see the repository, taken from the grant
+        // table at this moment and from nowhere else. `input` has no sight
+        // parameter and never will: a pass that could claim `grounded` while
+        // blind would reintroduce the exact indistinguishability the flag
+        // exists to end.
+        const line = vault.setInstrument(input.test, parsed.command, why, repoSight(repos));
         return (
           `instrument of "${input.test}" set: ${line}\n` +
           `This is not a build permit. Nothing is buildable until \`ost-agent verify\` watches this command fail.`
