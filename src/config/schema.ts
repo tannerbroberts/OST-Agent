@@ -336,6 +336,19 @@ const DiscoverySchema = z
   })
   .nullish();
 
+// How long an unmapped evidence item may sit unread before `ost_next_work` stops
+// listing it individually — but ONLY when it also says nothing an already-mapped
+// record hasn't already said (see `agedOutEvidence` in `src/mcp/next-work.ts`).
+// Absent ⇒ nothing ages out, the same no-default rule `loop.cadence` and
+// `discovery.target` already keep: a number that decides when unread work stops
+// being shown is exactly the kind of call this schema refuses to make on the
+// operator's behalf.
+const EvidenceSchema = z
+  .object({
+    ageOutDays: z.number().int().positive().nullish(),
+  })
+  .nullish();
+
 const LoopSchema = z
   .object({
     /** How often this vault may fire: `"30m"`, `"6h"`, `"1d"`. Absent ⇒ never. */
@@ -370,6 +383,7 @@ export const ConfigSchema = z.object({
   web: WebSchema,
   product: ProductSchema,
   discovery: DiscoverySchema,
+  evidence: EvidenceSchema,
   loop: LoopSchema,
 });
 
@@ -469,5 +483,10 @@ processes:
 #   target: "Some opportunity title"   # focus the discovery pass on ONE opportunity's branch (Torres's
                                        # single target opportunity). Human-set only — there is deliberately
                                        # no tool that writes it. Absent: the pass sweeps the whole tree.
+
+# evidence:
+#   ageOutDays: 14        # an unmapped item stops being listed individually once it is this old AND its
+                          # content already matches something a node has cited — never on age alone.
+                          # No default: absent means nothing ages out.
 `;
 }

@@ -16,6 +16,7 @@ import {
   opportunitiesServedBeneath,
   readEvidence,
   testsUnderSolution,
+  type EvidenceRecord,
 } from "../processes/tree.js";
 import type { Actor } from "../adapters/source.js";
 import { checkInvariants } from "../eval/invariants.js";
@@ -68,6 +69,18 @@ export interface UnmappedEvidence {
    */
   actor: Actor;
 }
+
+/**
+ * The standing backlog line for evidence that ages out of {@link UnmappedEvidence}
+ * — see the field of the same name on {@link NextWork} for the rule that fills it.
+ */
+export interface AgedOutBacklog {
+  /** How many unmapped items currently qualify. Never capped — there is one line, not a list. */
+  count: number;
+  /** The oldest qualifying item's captured timestamp (verbatim, as stamped at capture), or `null` when `count` is 0. */
+  oldest: string | null;
+}
+
 export interface UnderservedOpportunity {
   title: string;
   /** How many solutions it actually has. Never capped — this is the count `needed` is compared against. */
@@ -296,8 +309,23 @@ export interface NextWork {
   /**
    * P2 — evidence captured but not yet distilled into opportunities.
    * May be capped; see {@link NextWork.truncated}.
+   *
+   * Excludes whatever {@link agedOutEvidence} counts — those items still exist,
+   * are still unmapped, and are reported on every response; they are just no
+   * longer listed one row each.
    */
   unmappedEvidence: UnmappedEvidence[];
+  /**
+   * P2 — the standing backlog line: unmapped items old enough to have crossed
+   * `ost.config.yaml`'s `evidence.ageOutDays` AND redundant with something a node
+   * has already cited (see {@link agedOutRecords} in `computeNextWork`). Always
+   * present, `count: 0` when nothing qualifies or `ageOutDays` is unset — never
+   * omitted, so "is anything aged out?" never depends on whether this field
+   * appears. Never part of `done`, for the same reason `openUnknowns` is not:
+   * this is a visibility change, not work that was resolved. Zeroed under a
+   * `discovery.target` scope, alongside `unmappedEvidence` itself.
+   */
+  agedOutEvidence: AgedOutBacklog;
   /** P3 — opportunities with fewer than `min` candidate solutions. May be capped. */
   underservedOpportunities: UnderservedOpportunity[];
   /** P4 — solutions with no assumption test surfaced yet. May be capped. */
@@ -741,6 +769,23 @@ export const MAX_LISTED_CHILDREN = 5;
 export const EXCERPT_CHARS = 280;
 
 /**
+ * A body reduced to what it says rather than how it is spaced or cased — the
+ * ageing-out rule's ONLY judgement, and deliberately the cheapest one that could
+ * still be called a judgement: exact text after whitespace/case folding, nothing
+ * fuzzy, nothing semantic. Two records are the "same signature" here iff a human
+ * skimming them would say they are the same note copied twice, never merely
+ * "about the same thing" — that broader claim is the near-duplicate scanner's
+ * (`ost/dedupe.ts`) and stays out of this rule on purpose, because a false match
+ * here is exactly the failure the parent solution names: burying an item that
+ * was never actually said before.
+ */
+function contentSignature(body: string): string {
+  return body.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
  * How much of one body {@link readEvidenceBody} returns.
  *
  * Generous by design — this is the criterion's "retrievable in full", and the
@@ -843,6 +888,11 @@ function capList<T>(list: T[], name: string, into: Truncation[], limit = MAX_ITE
  * wholesale under a scope, deliberately: an evidence record has no branch until
  * it is mapped, so mapping belongs to the whole-tree sweep — a scoped firing is
  * for going deep, not for filing.
+ *
+ * `ageOutDays` is `ost.config.yaml`'s `evidence.ageOutDays`, human-set the same
+ * way `target` is: `undefined`/`null` means the feature is off and every
+ * unmapped item lists individually forever, unchanged from before this knob
+ * existed.
  */
 export function computeNextWork(
   vault: Vault,
@@ -850,6 +900,7 @@ export function computeNextWork(
   min: number,
   now: () => Date = () => new Date(),
   target?: string | null,
+  ageOutDays?: number | null,
 ): NextWork {
   // ONE parse. The census is read rather than `readTree()` so the retired
   // accounting Z4 needs comes from the same walk that produced the nodes —
@@ -946,34 +997,60 @@ export function computeNextWork(
   const evidence = readEvidence(dir);
   const storedEvidenceIds = new Set(evidence.map((e) => e.id));
   const citedSources = new Set(tree.map((n) => n.source).filter((s): s is string => !!s));
-  const allUnmappedEvidence: UnmappedEvidence[] = omitSuppressed(
-    omitDisposed(
-      evidence
-        .filter((e) => !citedSources.has(e.id))
-        .map((e) => ({
-          id: e.id,
-          source: e.source,
-          title: e.title,
-          excerpt: frameData(e.body.slice(0, EXCERPT_CHARS)),
-          bodyChars: e.body.length,
-          actor: e.actor,
-        })),
-      (e) => e.id,
-      dispositions,
-      "unmappedEvidence",
-      withheld,
-    ),
-    (e) => e.id,
-    suppressions,
-    index,
-    "unmappedEvidence",
-    suppressed,
+
+  // The signatures a MAPPED record already carries — the only thing an unmapped
+  // item is allowed to be aged out for saying again. Built from `evidence`
+  // directly rather than from a node body: a node's `source` is the pointer, the
+  // evidence file behind it is what was actually said.
+  const mappedSignatures = new Set(
+    evidence.filter((e) => citedSources.has(e.id)).map((e) => contentSignature(e.body)),
   );
+
+  const undisposedRecords = omitDisposed(
+    evidence.filter((e) => !citedSources.has(e.id)),
+    (e) => e.id,
+    dispositions,
+    "unmappedEvidence",
+    withheld,
+  );
+  const liveRecords = omitSuppressed(undisposedRecords, (e) => e.id, suppressions, index, "unmappedEvidence", suppressed);
+
+  // The ageing-out split (P2's "standing backlog line"). An item leaves the
+  // individual list ONLY when BOTH hold: it is past `ageOutDays`, and its
+  // content signature already belongs to something a node has cited. Age alone
+  // never buries anything — a novel item (no matching mapped signature) stays
+  // listed at any age, which is the whole finding this candidate's assumption
+  // test exists to pin.
+  const ageOutMs = ageOutDays != null ? ageOutDays * MS_PER_DAY : null;
+  const nowMs = now().getTime();
+  const agedOutRecords: EvidenceRecord[] = [];
+  const individualRecords: EvidenceRecord[] = [];
+  for (const rec of liveRecords) {
+    const capturedMs = Date.parse(rec.timestamp);
+    const isPastLimit = ageOutMs != null && Number.isFinite(capturedMs) && nowMs - capturedMs >= ageOutMs;
+    const isRedundant = mappedSignatures.has(contentSignature(rec.body));
+    if (isPastLimit && isRedundant) agedOutRecords.push(rec);
+    else individualRecords.push(rec);
+  }
+
+  const allUnmappedEvidence: UnmappedEvidence[] = individualRecords.map((e) => ({
+    id: e.id,
+    source: e.source,
+    title: e.title,
+    excerpt: frameData(e.body.slice(0, EXCERPT_CHARS)),
+    bodyChars: e.body.length,
+    actor: e.actor,
+  }));
   // Under a scope, mapping is out of scope wholesale — an unmapped record has no
   // branch yet, so no membership test can keep it honestly. Counted, never silent.
   const scopedUnmappedEvidence = membership === null ? allUnmappedEvidence : [];
-  if (membership !== null && allUnmappedEvidence.length)
-    scopeExcluded.push({ list: "unmappedEvidence", count: allUnmappedEvidence.length });
+  const liveRecordCount = individualRecords.length + agedOutRecords.length;
+  if (membership !== null && liveRecordCount)
+    scopeExcluded.push({ list: "unmappedEvidence", count: liveRecordCount });
+  const agedOutEvidence: AgedOutBacklog =
+    membership === null && agedOutRecords.length
+      ? { count: agedOutRecords.length, oldest: agedOutRecords.map((r) => r.timestamp).sort()[0] }
+      : { count: 0, oldest: null };
 
   /*
    * The category exemption.
@@ -1215,6 +1292,13 @@ export function computeNextWork(
   const damagedLedgerNote = dispositions.damaged
     ? ` ${dispositions.damaged} disposition ledger line(s) would not parse and were dropped; a dropped line closes nothing, so any subject they named is listed above.`
     : "";
+  // The standing backlog line (P2). Named in every branch, like every other
+  // count that removes something from a list above without anyone having acted
+  // on it — an item here is still unmapped and still on disk, just no longer
+  // listed one row each.
+  const agedOutNote = agedOutEvidence.count
+    ? ` ${agedOutEvidence.count} unmapped evidence item(s) aged out of the individual list (past evidence.ageOutDays and redundant with an already-mapped record) — oldest captured ${agedOutEvidence.oldest}. See agedOutEvidence; not part of done.`
+    : "";
   // Every held suppression is named, in every branch, for the same reason every
   // dismissal is: a demand a pass declined out of sight is an amnesty. Counted
   // over the full set; revival needs no note because a flipped condition simply
@@ -1311,9 +1395,9 @@ export function computeNextWork(
   // can be the only capped lists, and a cap that named nothing would read as amnesty.
   const summary = done
     ? scopedOpenUnknowns.length
-      ? `${doneLead} ${scopedOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}`
-      : `${doneLead}${assumptionNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}`
-    : `${outstandingLead} ${parts.join("; ")}.${assumptionNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${excerptNote}${retirementNote}`;
+      ? `${doneLead} ${scopedOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}`
+      : `${doneLead}${assumptionNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}`
+    : `${outstandingLead} ${parts.join("; ")}.${assumptionNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${excerptNote}${retirementNote}${agedOutNote}`;
 
   return {
     framing: DATA_FRAME,
@@ -1321,6 +1405,7 @@ export function computeNextWork(
     summary,
     scope,
     unmappedEvidence,
+    agedOutEvidence,
     underservedOpportunities,
     solutionsMissingAssumptions,
     solutionsMissingInstruments: solutionsMissingInstrumentsList,
