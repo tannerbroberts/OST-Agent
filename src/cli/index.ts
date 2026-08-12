@@ -138,6 +138,7 @@ import { REQUIRED_TOOLS_EXIT, checkRequiredTools } from "../mcp/required-tools.j
 import { loopStateDir, workingTreeStatus, type VaultTreeStatus } from "../loop/state.js";
 import { bankQuestion, readQuestionBank } from "../loop/question-bank.js";
 import { renderAuthorityContract } from "../loop/authority-contract.js";
+import { renderHostSurfaces } from "../security/host-delegation.js";
 import {
   DEFAULT_QUIET_MINUTES, emptyCorrectionsLedger, readLedger, recordCorrections, renderCorrections,
 } from "../loop/corrections.js";
@@ -1864,6 +1865,16 @@ program
   )
   .action(() => {
     console.log(renderAuthorityContract());
+  });
+
+program
+  .command("host-delegation")
+  .description(
+    "for every host surface this repository ships an entry point for, whether it already resolves a " +
+      "credential the host holds instead of asking the operator for a second one, and where that is implemented",
+  )
+  .action(() => {
+    console.log(renderHostSurfaces());
   });
 
 program
