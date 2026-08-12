@@ -3089,7 +3089,14 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2,829 tests across 220 files, verified 2026-08-11 (`npx vitest run`,
+> *Today:* **met** — 2,845 tests across 221 files, verified 2026-08-12 (`npx vitest run`,
+> after the upward vault search landed: with three nested vaults and two sibling vaults on
+> one machine, ten start directories each resolve to the vault that contains them —
+> nearest first, never a sibling — a start contained by no vault returns nothing rather
+> than guessing, and the derived answer ranks below every recorded one and is announced
+> on stderr whenever it redirects a command away from its cwd
+> (`src/config/vault-search.ts`, `test/config/upward-vault-search.test.ts`).
+> Previously 2,829 tests across 220 files, verified 2026-08-11 (`npx vitest run`,
 > after acknowledgement verdicts landed: an acknowledged evidence item leaves
 > `unmappedEvidence` without being deleted or mapped, its reason persists append-only, and
 > `corroborates [[X]]` is stored as a typed verdict distinct from "no genuine need" — only
