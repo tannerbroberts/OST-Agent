@@ -16,6 +16,8 @@
  *   ost-agent asks [--vault DIR]              the standing queue of pending asks, aged, with the command that clears each
  *   ost-agent dispose "<subject>" ...        settle one item so no work bucket lists it again (--reopen reverses)
  *   ost-agent dispositions [--vault DIR]     every item currently settled, dated and attributed
+ *   ost-agent suppress "<subject>" ...       decline one item until a machine-checkable fact flips (it revives by itself)
+ *   ost-agent suppressions [--vault DIR]     every suppression, with whether its condition still holds right now
  *   ost-agent gate "<solution>" [--vault DIR] block building against untested assumptions
  *   ost-agent verify "<test>" --repo DIR      run a test's instrument; record red/green as an observed fact
  *   ost-agent buildable ["<solution>"]        is it defined well enough to build, and against what command?
@@ -119,6 +121,9 @@ import {
   appendDisposition, DISPOSITION_KINDS, formatDispositions, isDispositionKind, latestDisposition,
   readDispositionLedger,
 } from "../knowledge/dispositions.js";
+import {
+  appendSuppression, formatSuppressions, readSuppressionLedger, renderCondition, SUPPRESSION_CONDITION_KINDS,
+} from "../knowledge/suppressions.js";
 import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapters/friction.js";
 import {
   decideRulesetProposal, draftRulesetProposal, effectiveRuleset, PROPOSABLE_SECTIONS, PROPOSALS_DIR,
@@ -959,6 +964,74 @@ program
   .option("--vault <dir>", VAULT_OPTION_HELP)
   .action((opts: { vault: string }) => {
     console.log(formatDispositions(readDispositionLedger(opts.vault)));
+  });
+
+/*
+ * `suppress` and `suppressions` — the write path and the audit surface for the ledger
+ * of declines that expire on a fact (`src/knowledge/suppressions.ts`).
+ *
+ * A suppression is lighter than a disposition — it postpones the offer rather than
+ * settling the work, and the fact flipping reverses it with no command — but the
+ * write still sits on the CLI and off the agent's tool surface, for the residual
+ * risk no condition vocabulary can close: a pass choosing a condition because it
+ * will never flip. Whether a pass should hold this write is a question about
+ * operators reading suppressions over time, and it has not been answered.
+ */
+program
+  .command("suppress")
+  .description("decline one item until a machine-checkable fact flips — it leaves every work bucket while the condition holds and comes back by itself")
+  .argument("<subject>", "an evidence id, or a node title, exactly as the work list printed it")
+  .requiredOption(
+    "--holds-while <kind>",
+    `the fact the decline stands on, from the closed vocabulary: ${SUPPRESSION_CONDITION_KINDS.join(", ")} — prose is refused, because a condition nobody can evaluate is a delete`,
+  )
+  .option("--node <title>", "the node whose fact the condition reads (defaults to the subject itself)")
+  .option("--status <status>", "for status-is: the status the suppression holds on, e.g. shipped")
+  .option("--lane <lane>", "for lane-is: the lane the suppression holds on, e.g. humans-required")
+  .option("--section <name>", "for section-missing: the `## <section>` whose absence the suppression holds on, e.g. Format")
+  .requiredOption("-b, --by <who>", "who declined it — the condition-that-never-flips abuse is caught by a human reading these, and the human needs a name")
+  .requiredOption("-w, --why <text>", "why it was declined, in words — the condition says when the decline ends, not why it started")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action(
+    (
+      subject: string,
+      opts: { holdsWhile: string; node?: string; status?: string; lane?: string; section?: string; by: string; why: string; vault: string },
+    ) => {
+      let rec;
+      try {
+        rec = appendSuppression(opts.vault, {
+          subject,
+          condition: {
+            holdsWhile: opts.holdsWhile,
+            node: opts.node ?? subject,
+            status: opts.status,
+            lane: opts.lane,
+            section: opts.section,
+          },
+          reason: opts.why,
+          by: opts.by,
+        });
+      } catch (e) {
+        console.error(`ost-agent suppress: ${e instanceof Error ? e.message : String(e)}`);
+        process.exitCode = 1;
+        return;
+      }
+      console.log(
+        `suppressed "${subject}" ${renderCondition(rec.condition)}.\n` +
+          "  No bucket will offer it while that fact holds; the moment it flips, the item is back — no command clears it.\n" +
+          "  It stays counted and named on every ost_next_work response, under suppressedByCondition.",
+      );
+    },
+  );
+
+program
+  .command("suppressions")
+  .description("every suppression on the ledger, with whether its condition still holds — read for the one that can never flip")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((opts: { vault: string }) => {
+    const tree = buildPassContext(opts.vault).vault.readTree();
+    const index = new Map(tree.map((n) => [n.title, n]));
+    console.log(formatSuppressions(readSuppressionLedger(opts.vault), index));
   });
 
 program
