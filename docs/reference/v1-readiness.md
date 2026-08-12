@@ -3089,7 +3089,13 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2,855 tests across 222 files, verified 2026-08-12 (`npx vitest run`,
+> *Today:* **met** — 2,856 tests across 223 files, verified 2026-08-12 (`npx vitest run`,
+> after the corroboration-filing spec landed: thirty evidence items from one channel filed
+> against one existing opportunity leave `unmappedEvidence` genuinely empty rather than
+> cap-hidden, count as 30 corroborations on that node, create no node, and leave the node
+> file byte-identical — the evidence rung and the rollup's source count both unmoved
+> (`test/evidence/corroborate-disposition.test.ts`).
+> Previously 2,855 tests across 222 files, verified 2026-08-12 (`npx vitest run`,
 > after the end-of-session deposit channel landed: a collaborator's answer is stored
 > byte-for-byte verbatim in `.ost-agent/deposits/`, ingests at the assertion floor, and
 > the deposit path appends nothing to the trust ledger
