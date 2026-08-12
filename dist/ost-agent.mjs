@@ -52906,6 +52906,61 @@ function renderAuthorityContract() {
   return lines.join("\n");
 }
 
+// src/security/host-delegation.ts
+var HOST_SURFACES = [
+  {
+    id: "agent-session",
+    label: "agent session \u2014 an MCP client (Claude Code or another host) driving `ost-agent mcp` over stdio",
+    entryPoint: "ost-agent mcp",
+    delegable: true,
+    implementedBy: "No module under src/ reads ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN. The reasoning that drives the MCP tool calls is paid for by the host's own subscription auth (see examples/automation/autonomous-pass.sh and examples/automation/github-workflow.yml) \u2014 this server only ever serves reads and append-only writes, so the model credential the operator already gave the host is never asked for a second time here."
+  },
+  {
+    id: "vault-git-remote",
+    label: "the git remote every entry point commits and pushes the vault to",
+    entryPoint: "the `git_commit` / `git_push` MCP tools (src/security/tools.ts) and `ost-agent init` (src/runner/init.ts)",
+    delegable: true,
+    implementedBy: "src/git/safe-git.ts#gitPush shells to the system `git`, which authenticates with whatever credential helper or SSH agent the host already has configured. Neither ost.config.yaml (src/config/schema.ts) nor any call site reads a push credential from the environment \u2014 the destination is configured, the authority to reach it never is."
+  },
+  {
+    id: "terminal-cli",
+    label: "terminal CLI \u2014 an operator's shell where `gh auth login` already ran",
+    entryPoint: "`ost-agent ship` (src/release/ship-repo.ts) and the `actions` adapter's credential (src/runner/credentials.ts#githubOffers)",
+    delegable: true,
+    implementedBy: "src/release/ship-repo.ts merges with `gh pr merge`, authenticated by gh's own stored login \u2014 no token is passed by this repository's code. Separately, src/security/credential-forms.ts#ghCliStoredAuth reads that same stored login directly, offered to githubOffers ahead of asking the operator to set a variable."
+  },
+  {
+    id: "scheduled-job",
+    label: "scheduled job \u2014 a GitHub Actions runner",
+    entryPoint: "examples/automation/github-workflow.yml, and any adapter reading GITHUB_TOKEN via githubOffers",
+    delegable: true,
+    implementedBy: "src/runner/credentials.ts#githubOffers reads GITHUB_TOKEN first \u2014 the repo-scoped secret Actions injects into every job automatically \u2014 before falling back to GH_TOKEN or a variable an operator set."
+  },
+  {
+    id: "editor-extension",
+    label: "editor extension",
+    entryPoint: "(none)",
+    delegable: false,
+    reason: "This repository ships no editor-extension entry point \u2014 there is no host code path to check, so there is nothing here to borrow authority from yet."
+  }
+];
+function delegableHostSurfaces() {
+  return HOST_SURFACES.filter((s) => s.delegable);
+}
+function renderHostSurfaces() {
+  const delegable = delegableHostSurfaces();
+  const lines = [
+    `Host surfaces: ${HOST_SURFACES.length}  (${delegable.length} delegable, ${HOST_SURFACES.length - delegable.length} ask the operator directly)`
+  ];
+  for (const s of HOST_SURFACES) {
+    lines.push("");
+    lines.push(`[${s.id}] ${s.label}`);
+    lines.push(`  entry point: ${s.entryPoint}`);
+    lines.push(s.delegable ? `  DELEGABLE \u2014 ${s.implementedBy}` : `  not delegable \u2014 ${s.reason}`);
+  }
+  return lines.join("\n");
+}
+
 // src/loop/corrections.ts
 import fs42 from "node:fs";
 import path45 from "node:path";
@@ -56148,6 +56203,11 @@ program2.command("authority").description(
   "the standing authority contract: which classes of decision compute may take alone. A run at a fork reads this and either proceeds under the clause that covers it (recording which) or stops and cites the clause \u2014 or 'uncovered', which is a stop exactly as before the contract existed"
 ).action(() => {
   console.log(renderAuthorityContract());
+});
+program2.command("host-delegation").description(
+  "for every host surface this repository ships an entry point for, whether it already resolves a credential the host holds instead of asking the operator for a second one, and where that is implemented"
+).action(() => {
+  console.log(renderHostSurfaces());
 });
 program2.command("allowlist").description(
   "derive a session's permission allowlist from the skill's own allowed-tools (human-only, at install time)"
