@@ -13056,7 +13056,7 @@ var require_dumper = __commonJS({
       var hasFoldableLine = false;
       var shouldTrackWidth = lineWidth !== -1;
       var previousLineBreak = -1;
-      var plain = isPlainSafeFirst(string3.charCodeAt(0)) && !isWhitespace(string3.charCodeAt(string3.length - 1));
+      var plain2 = isPlainSafeFirst(string3.charCodeAt(0)) && !isWhitespace(string3.charCodeAt(string3.length - 1));
       if (singleLineOnly) {
         for (i2 = 0; i2 < string3.length; i2++) {
           char = string3.charCodeAt(i2);
@@ -13064,7 +13064,7 @@ var require_dumper = __commonJS({
             return STYLE_DOUBLE;
           }
           prev_char = i2 > 0 ? string3.charCodeAt(i2 - 1) : null;
-          plain = plain && isPlainSafe(char, prev_char);
+          plain2 = plain2 && isPlainSafe(char, prev_char);
         }
       } else {
         for (i2 = 0; i2 < string3.length; i2++) {
@@ -13080,12 +13080,12 @@ var require_dumper = __commonJS({
             return STYLE_DOUBLE;
           }
           prev_char = i2 > 0 ? string3.charCodeAt(i2 - 1) : null;
-          plain = plain && isPlainSafe(char, prev_char);
+          plain2 = plain2 && isPlainSafe(char, prev_char);
         }
         hasFoldableLine = hasFoldableLine || shouldTrackWidth && (i2 - previousLineBreak - 1 > lineWidth && string3[previousLineBreak + 1] !== " ");
       }
       if (!hasLineBreak && !hasFoldableLine) {
-        return plain && !testAmbiguousType(string3) ? STYLE_PLAIN : STYLE_SINGLE;
+        return plain2 && !testAmbiguousType(string3) ? STYLE_PLAIN : STYLE_SINGLE;
       }
       if (indentPerLevel > 9 && needIndentIndicator(string3)) {
         return STYLE_DOUBLE;
@@ -43935,6 +43935,111 @@ function renderCritic(report) {
   return lines.join("\n");
 }
 
+// src/eval/judge-panel.ts
+function solutionProse(markdown) {
+  let text2 = markdown;
+  if (text2.startsWith("---")) {
+    const end = text2.indexOf("\n---", 3);
+    if (end !== -1) text2 = text2.slice(end + 4);
+  }
+  const firstSection = text2.search(/^## /m);
+  if (firstSection !== -1) text2 = text2.slice(0, firstSection);
+  return text2.split("\n").filter((line) => {
+    const t2 = line.trim();
+    if (t2.startsWith("#")) return false;
+    if (/^\[\[.*\]\]$/.test(t2)) return false;
+    if (t2.startsWith("\u26A0\uFE0F")) return false;
+    return true;
+  }).join("\n").trim();
+}
+function plain(text2) {
+  return text2.replace(/\*\*|\*|`|\[\[|\]\]/g, "");
+}
+var tokenize = (text2) => plain(text2).toLowerCase().match(/[a-z][a-z-]*/g) ?? [];
+function candidateAssumptions(prose) {
+  const sentences3 = plain(prose).replace(/\s+/g, " ").split(/(?<=[.?!])\s+(?=[A-Z"“(])/).map((s) => s.trim()).filter((s) => tokenize(s).length >= 6).filter((s) => !prose.includes(`**${s}**`));
+  return sentences3.map((text2, index) => ({ index, text: text2 }));
+}
+var weighted = (markers) => (candidate) => tokenize(candidate.text).reduce((sum2, t2) => sum2 + (markers.get(t2) ?? 0), 0);
+var marks = (weight, words) => words.map((w) => [w, weight]);
+var FRAGILITY = new Map([
+  ...marks(3, ["assumes", "assume", "assumption", "risk", "proxy", "uncertain", "unproven", "untested", "hope", "guess", "depends", "depend"]),
+  ...marks(2, ["if", "unless", "whether"]),
+  ...marks(1, ["may", "might", "could", "would", "sometimes"])
+]);
+function isAssumptionShaped(candidate) {
+  return tokenize(candidate.text).some((t2) => (FRAGILITY.get(t2) ?? 0) >= 2);
+}
+var CONSEQUENCE = new Map([
+  ...marks(2, ["wrong", "sink", "kill", "kills", "dangerous", "danger", "unacceptable", "worst", "harm", "misleading", "vanish", "vanished", "stranded", "breaks", "broken", "defeated"]),
+  ...marks(1, ["fail", "fails", "failure", "cannot", "never", "silently", "worse", "lost", "lose", "loses", "costs"])
+]);
+var COUNTERPARTY = new Map([
+  ...marks(2, ["accept", "accepts", "acceptable", "willing", "wants", "want", "trust", "trusts", "cares", "believes", "recognizes", "recognises"]),
+  ...marks(1, ["operator", "operators", "human", "humans", "person", "people", "customer", "customers", "user", "users", "reader", "readers", "collaborator", "collaborators", "founder", "they", "them", "their", "someone", "anyone", "nobody"])
+]);
+var PANEL = [
+  { name: "fragility", score: weighted(FRAGILITY) },
+  { name: "consequence", score: weighted(CONSEQUENCE) },
+  { name: "counterparty", score: weighted(COUNTERPARTY) }
+];
+function nominate(judge, candidates) {
+  let best;
+  let bestScore = 0;
+  for (const candidate of candidates) {
+    if (!isAssumptionShaped(candidate)) continue;
+    const score = judge.score(candidate);
+    if (score > bestScore) {
+      best = candidate;
+      bestScore = score;
+    }
+  }
+  return best ? { judge: judge.name, candidate: best } : { judge: judge.name };
+}
+function runPanel(solutions, judges = PANEL) {
+  const rows = solutions.map((solution) => {
+    const prose = solutionProse(solution.body);
+    const candidates = candidateAssumptions(prose);
+    const nominations = judges.map((judge) => nominate(judge, candidates));
+    const named = nominations.filter((n) => n.candidate);
+    const byIndex = /* @__PURE__ */ new Map();
+    for (const n of named) byIndex.set(n.candidate.index, (byIndex.get(n.candidate.index) ?? 0) + 1);
+    const majority = [...byIndex.entries()].find(([, count2]) => count2 >= 2);
+    return {
+      solution: solution.title,
+      nominations,
+      agreed: majority !== void 0,
+      scattered: named.length === judges.length && byIndex.size === judges.length,
+      consensus: majority ? candidates[majority[0]]?.text : void 0
+    };
+  });
+  return {
+    subject: { offered: solutions.length, read: rows.length },
+    rows,
+    agreementCount: rows.filter((r2) => r2.agreed).length,
+    scatterCount: rows.filter((r2) => r2.scattered).length
+  };
+}
+function renderPanel(report) {
+  const { offered, read } = report.subject;
+  if (read === 0) {
+    return `judge-panel: BLIND \u2014 read 0 of ${offered} solution(s), so no agreement figure exists.`;
+  }
+  const lines = [];
+  lines.push(
+    `judge-panel: majority agreement on ${report.agreementCount} of ${read} solution(s); full scatter on ${report.scatterCount}.`
+  );
+  for (const row of report.rows) {
+    const verdict = row.agreed ? "agreed" : row.scattered ? "SCATTERED" : "no majority";
+    lines.push(`
+- ${verdict} \u2014 "${row.solution}"`);
+    for (const n of row.nominations) {
+      lines.push(`    ${n.judge}: ${n.candidate ? `"${n.candidate.text}"` : "(abstained \u2014 no assumption its lens could rank)"}`);
+    }
+  }
+  return lines.join("\n");
+}
+
 // src/ost/sweep.ts
 import fs26 from "node:fs";
 import path28 from "node:path";
@@ -48397,7 +48502,7 @@ var CONSEQUENCE_TOKENS = /* @__PURE__ */ new Set([
   "webhook",
   "emit"
 ]);
-function tokenize(name) {
+function tokenize2(name) {
   return name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").split(/[^a-zA-Z0-9]+/).filter(Boolean).map((t2) => t2.toLowerCase());
 }
 function assertNoDestructiveTool(names) {
@@ -48413,7 +48518,7 @@ function assertNoDestructiveTool(names) {
   }
 }
 function isDestructiveToolName(name) {
-  return tokenize(name).some((t2) => DESTRUCTIVE_TOKENS.has(t2) || CONSEQUENCE_TOKENS.has(t2));
+  return tokenize2(name).some((t2) => DESTRUCTIVE_TOKENS.has(t2) || CONSEQUENCE_TOKENS.has(t2));
 }
 
 // src/web/reader.ts
@@ -54969,6 +55074,13 @@ program2.command("critic").description("attack the tree: for each claim that out
 annotated ${applied.annotated.length} node(s); ${applied.alreadyRaised.length} already carried their charge.`
     );
   }
+});
+program2.command("judge-panel").description(
+  "three independent judges each name every solution's riskiest assumption; disagreement means the solution has more than one (no model needed)"
+).option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
+  const ctx = buildPassContext(opts.vault);
+  const solutions = ctx.vault.readTree().filter((n) => n.layer === "Solution").map((n) => ({ title: n.title, body: n.body }));
+  console.log(renderPanel(runPanel(solutions)));
 });
 program2.command("lanes").description("assumption tests grouped by the human minutes they actually cost").option("--vault <dir>", VAULT_OPTION_HELP).option("--runnable", "print only the compute-only backlog, one title per line (for scripting)").option(
   "--flag-cautious <who>",

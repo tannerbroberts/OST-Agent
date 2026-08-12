@@ -9,6 +9,7 @@
  *   ost-agent promote "<node>" ...            move a node to validated (the agent cannot)
  *   ost-agent debt [--vault DIR]              evidence each solution still owes + unbounded results + unfixed thresholds
  *   ost-agent critic [--vault DIR]            attack the tree: every claim that outruns its backing, and what would settle it
+ *   ost-agent judge-panel [--vault DIR]       three judges name each solution's riskiest assumption; disagreement is the signal
  *   ost-agent lanes [--vault DIR]             assumption tests by the human minutes they cost
  *   ost-agent lanes --flag-cautious <who>     bulk: humans-required for every test naming an outside person
  *   ost-agent lane "<test>" --set <lane> ...  classify one test into a lane
@@ -72,6 +73,7 @@ import { promoteNode, recordResult, retractNode, VERDICTS, type Verdict } from "
 import { verifyInstrument } from "../ost/instrument.js";
 import { buildableSolutions, buildPermit, confirmPermit, testsAwaitingVerification } from "../eval/buildable.js";
 import { applyCritic, criticPass, renderCritic } from "../eval/critic.js";
+import { renderPanel, runPanel } from "../eval/judge-panel.js";
 import { formatCensus, reconcileWithGit, reconcileWithUsage } from "../ost/census.js";
 import { formatStrandedCensus, strandedEvidenceCensus } from "../ost/stranded.js";
 import { blindnessCensus, formatBlindnessCensus, readSweepRuns, recordSweepRun } from "../ost/sweep.js";
@@ -689,6 +691,21 @@ program
         `\nannotated ${applied.annotated.length} node(s); ${applied.alreadyRaised.length} already carried their charge.`,
       );
     }
+  });
+
+program
+  .command("judge-panel")
+  .description(
+    "three independent judges each name every solution's riskiest assumption; disagreement means the solution has more than one (no model needed)",
+  )
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((opts: { vault: string }) => {
+    const ctx = buildPassContext(opts.vault);
+    const solutions = ctx.vault
+      .readTree()
+      .filter((n) => n.layer === "Solution")
+      .map((n) => ({ title: n.title, body: n.body }));
+    console.log(renderPanel(runPanel(solutions)));
   });
 
 program
