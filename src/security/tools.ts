@@ -24,7 +24,7 @@ import { DATA_FRAME } from "./framing.js";
 import { redactSecrets } from "../adapters/transcript.js";
 import { flagHumansRequired } from "../ost/lanes.js";
 import { CAUTIOUS_LANE } from "../knowledge/lanes.js";
-import { ALLOWED_TOOL_NAMES } from "./policy.js";
+import { ALLOWED_TOOL_NAMES, assertNoDestructiveTool } from "./policy.js";
 import { withUsageTracing } from "../telemetry/usage.js";
 import { readWebPage, type WebFetchFn } from "../web/reader.js";
 import {
@@ -1704,6 +1704,16 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
     const schema = t.input_schema as { properties?: Record<string, unknown> };
     schema.properties = { ...(schema.properties ?? {}), unknown: unknownProperty() };
   }
+
+  // The allowlist audit, on the registration path itself rather than on any one
+  // caller. Until now only the MCP server ran this guard (in buildDefs); the CLI
+  // surfaces (`manifest`, `refusals`) built the full set unguarded, so the doc
+  // comment's "guaranteed to be in ALLOWED_TOOL_NAMES" was a reading of the code,
+  // not a property of it. Guarding `all` before narrowing means a rogue tool
+  // fails EVERY surface at construction, including the surfaces that would have
+  // filtered it out — a capability nobody decided about must not exist quietly
+  // just because this particular pass didn't ask for it.
+  assertNoDestructiveTool(all.map((t) => t.name));
 
   const names = allowedNames ? new Set(allowedNames) : null;
   const selected = names ? all.filter((t) => names.has(t.name)) : all;

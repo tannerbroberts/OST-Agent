@@ -49366,6 +49366,7 @@ This is not a build permit. Nothing is buildable until \`ost-agent verify\` watc
     const schema = t2.input_schema;
     schema.properties = { ...schema.properties ?? {}, unknown: unknownProperty() };
   }
+  assertNoDestructiveTool(all.map((t2) => t2.name));
   const names = allowedNames ? new Set(allowedNames) : null;
   const selected = names ? all.filter((t2) => names.has(t2.name)) : all;
   return withUsageTracing(degradeOnBrokenConfig(selected, ctx.configProblem), dir, ctx.surface ?? "unknown");
