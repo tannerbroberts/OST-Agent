@@ -149,6 +149,21 @@ export function instrumentLog(node: OstNode): string[] {
   return out;
 }
 
+/**
+ * Does the spec an instrument names exist in any of these repo roots?
+ *
+ * The set-time half of the `no-spec` rule, sharing {@link runInstrument}'s
+ * resolution exactly so the two cannot disagree about where a target lives. The
+ * run-time half files a vacuous red after the fact; this lets a write boundary
+ * refuse to mint one in the first place. Callers decide what a miss means —
+ * an empty `repos` is their case to handle, not this function's, because only
+ * the caller knows whether "nothing to resolve against" should stand down or
+ * refuse.
+ */
+export function specResolves(repos: readonly string[], target: string): boolean {
+  return repos.some((repo) => existsSync(path.resolve(repo, target)));
+}
+
 /** Run an instrument against a repository. Never through a shell. */
 export function runInstrument(instrument: ParsedInstrument, repoDir: string): InstrumentRun {
   // Short-circuit the commonest vacuous red without paying for a runner start.

@@ -3089,7 +3089,13 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2,863 tests across 224 files, verified 2026-08-12 (`npx vitest run`,
+> *Today:* **met** — 2,874 tests across 225 files, verified 2026-08-12 (`npx vitest run`,
+> after the spec-path resolution guard landed: `ost_set_instrument` and `ost_create_node`
+> resolve an instrument's spec path against the configured `product.repos` and refuse one
+> that resolves to nothing, unless the test pre-commits a bound threshold — the same
+> escape `confirmPermit` grants a vacuous red — or no repo is configured at all
+> (`src/security/tools.ts`, `test/instruments/spec-path-resolution.test.ts`).
+> Previously 2,863 tests across 224 files, verified 2026-08-12 (`npx vitest run`,
 > after the judge panel landed: three independently-configured lexical judges each nominate
 > every solution's riskiest assumption from the argument prose alone, majority agreement is
 > 7 of 10 over a committed corpus of real Solution bodies with zero full scatter, and a

@@ -42292,6 +42292,9 @@ function instrumentLog(node) {
   }
   return out;
 }
+function specResolves(repos, target) {
+  return repos.some((repo) => existsSync(path24.resolve(repo, target)));
+}
 function runInstrument(instrument, repoDir) {
   const target = path24.resolve(repoDir, instrument.target);
   if (!existsSync(target)) {
@@ -48703,6 +48706,10 @@ function checkCorroboration(tree, input) {
 // src/security/tools.ts
 var AGENT_SETTABLE_STATUSES = ["unvalidated", "in-discovery", "shipped", "deferred"];
 var VALIDATED_REFUSAL = `"validated" is not a status the agent can set \u2014 a node that clears its own evidence gate by declaring itself cleared is the forgery this surface exists to prevent. Promotion is a human's call, made on the CLI: ost-agent promote "<title>" --by "<who>" --why "<the evidence>". Use "in-discovery" while a test is running, or "deferred" to record abandonment.`;
+function unresolvedSpecRefusal(repos, target) {
+  const checked = repos.map((r2) => path38.basename(r2)).join(", ");
+  return `\`${target}\` does not exist in the configured product repo${repos.length === 1 ? "" : "s"} (${checked}), so its red would say a file is missing rather than that any behaviour is \u2014 every question written on that filename is equally red, and an empty spec would turn it green. Two ways out, and either is a real fix: name a spec that exists and whose assertions go red for this behaviour, or pre-commit a fixed bar in the test's \`threshold\` \u2014 a bound threshold still hands the builder a definition of done, so it may name a spec that is yet to be written.`;
+}
 var MAX_TITLE_DISPLAY_LENGTH = 80;
 var MAX_TITLES_LISTED = 20;
 var TITLE_CONTROL_CHARS = new RegExp("[\\u0000-\\u001F\\u007F]+", "g");
@@ -48979,6 +48986,13 @@ function buildOstTools(ctx, allowedNames) {
               `"${input.title}" cannot carry that instrument: ${parsed.reason} An instrument must also FAIL today \u2014 it names behaviour the solution does not have yet.`
             );
           }
+          const repos = ctx.productRepos ?? [];
+          if (repos.length > 0 && !specResolves(repos, parsed.target)) {
+            const draft = { title: input.title, layer: "AssumptionTest", body: input.body, threshold: input.threshold, tags: [], links: [] };
+            if (thresholdKindOf(draft) !== "bound") {
+              throw new Error(`"${input.title}" cannot carry that instrument: ${unresolvedSpecRefusal(repos, parsed.target)}`);
+            }
+          }
         }
         if (input.layer === "AssumptionTest" && input.instrument === void 0) {
           const stated = (input.humansRequired ?? "").trim();
@@ -49130,6 +49144,10 @@ A person outside the building is the measurement here: ${input.humansRequired.tr
           throw new Error(
             `refusing to instrument "${input.test}": it is labelled ${CAUTIOUS_LANE}, so a person is the measurement and no command can stand in for them. Attaching one would leave the node claiming both, and the verify sweep would go and run it. If you believe the repository really can settle this question, say so with ost_annotate and leave the label to a human, who can change it with \`ost-agent lane "${input.test}" --set compute-only\`. Removing a caution is not a call this surface makes.`
           );
+        }
+        const repos = ctx.productRepos ?? [];
+        if (repos.length > 0 && !specResolves(repos, parsed.target) && thresholdKindOf(node) !== "bound") {
+          throw new Error(`cannot set that instrument on "${input.test}": ${unresolvedSpecRefusal(repos, parsed.target)}`);
         }
         const line = vault.setInstrument(input.test, parsed.command, why);
         return `instrument of "${input.test}" set: ${line}
