@@ -29,6 +29,9 @@
  *   ost-agent refusals [--transcripts DIR]    how many of the refusals a pass hit a schema-derived manifest could have named
  *   ost-agent channels [--vault DIR]          every drop folder, its last delivery, and what has gone silent
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
+ *   ost-agent propose-rule "<rule>" ...       draft a change to the agent's own ruleset, with friction evidence attached
+ *   ost-agent proposals [--vault DIR]         the review queue: every ruleset proposal and its status
+ *   ost-agent proposal "<id>" --accept -b W   decide one pending proposal in one action (humans only)
  *   ost-agent corrections [--state DIR]       refusals this workspace already paid for, for the next session to read
  *   ost-agent claim "<work>" --briefing F     take the work before building it, so a second pass sees it is taken
  *   ost-agent next-build [--rewrite F]        the standing Next Build reading at its one address: read it, or supersede it keeping every prior reading
@@ -115,6 +118,10 @@ import {
   readDispositionLedger,
 } from "../knowledge/dispositions.js";
 import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapters/friction.js";
+import {
+  decideRulesetProposal, draftRulesetProposal, effectiveRuleset, PROPOSABLE_SECTIONS, PROPOSALS_DIR,
+  readRulesetProposals, type ProposableSection,
+} from "../knowledge/ruleset-proposal.js";
 import { createLazyOstMcpServer, MCP_TOOL_NAMES } from "../mcp/server.js";
 import { vaultReadiness } from "../mcp/bootstrap.js";
 import { gitCommit } from "../git/safe-git.js";
@@ -345,12 +352,12 @@ type FilingCommit =
  * than losing the commit — and the caller says out loud which of the two happened,
  * because an uncommitted filing is a firing the operator is about to lose.
  */
-async function commitFiling(vaultDir: string, before: VaultTreeStatus, written: string): Promise<FilingCommit> {
+async function commitFiling(vaultDir: string, before: VaultTreeStatus, written: string, label = "friction"): Promise<FilingCommit> {
   if (before.kind === "unknown") return { kind: "no-history", reason: before.reason };
   const foreign = before.kind === "dirty" ? entriesRequiringAHuman(before.entries) : [];
   if (foreign.length > 0) return { kind: "left-dirty", entries: foreign };
   try {
-    const r = await gitCommit(vaultDir, `friction: ${path.basename(written)}`);
+    const r = await gitCommit(vaultDir, `${label}: ${path.basename(written)}`);
     return r.committed
       ? { kind: "committed", sha: r.sha.slice(0, 8) }
       : // Nothing to commit right after writing a file means git cannot see it —
@@ -396,6 +403,118 @@ program
     }
     console.log(`  NOT committed (${result.reason}).`);
     console.log(`  The filing is on disk at ${written} and nothing has versioned it.`);
+  });
+
+/** Shared by `propose-rule` and `proposal`: report what happened to the commit, in the filer's terms. */
+function reportFilingCommit(result: FilingCommit, written: string): void {
+  if (result.kind === "committed") {
+    console.log(`  committed ${result.sha} — it is in the vault's history and the working tree is clean again`);
+    return;
+  }
+  if (result.kind === "left-dirty") {
+    console.log(`  NOT committed: ${result.entries.length} path(s) were already dirty here before this write:`);
+    for (const e of result.entries.slice(0, 5)) console.log(`      ${e}`);
+    console.log("  Committing would have put those into history under this write's name. Deal with them and commit,");
+    console.log("  or `ost-agent loop start` will refuse the next firing over this file as well.");
+    return;
+  }
+  console.log(`  NOT committed (${result.reason}).`);
+  console.log(`  The file is on disk at ${written} and nothing has versioned it.`);
+}
+
+program
+  .command("propose-rule")
+  .description("draft a change to the agent's own ruleset as a reviewable proposal (pending until a human decides it)")
+  .argument("<rule>", "the proposed rule text, in full")
+  .requiredOption("-s, --section <section>", `which rule list it belongs to — one of: ${PROPOSABLE_SECTIONS.join(", ")}`)
+  .requiredOption("-w, --why <text>", "rationale — what kept going wrong, in the drafter's words")
+  .requiredOption(
+    "-e, --evidence <id>",
+    "a friction filing that triggered this (INBOX:friction/… id or filename); repeatable",
+    collect,
+    [] as string[],
+  )
+  .option("-r, --replaces <text>", "exact text of the current rule this replaces (omit to add a new rule)")
+  .option("--source <text>", "who is drafting (loop, process, session)")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action(
+    async (
+      rule: string,
+      opts: { section: string; why: string; evidence: string[]; replaces?: string; source?: string; vault: string },
+    ) => {
+      // Read BEFORE the write, on `friction`'s argument verbatim.
+      const before = workingTreeStatus(opts.vault);
+      const proposal = draftRulesetProposal(opts.vault, {
+        section: opts.section as ProposableSection,
+        rule,
+        replaces: opts.replaces,
+        rationale: opts.why,
+        evidence: opts.evidence,
+        source: opts.source,
+      });
+      console.log(`drafted "${proposal.id}" (${proposal.section}, ${proposal.replaces !== undefined ? "replaces a rule" : "adds a rule"})`);
+      console.log(`  evidence: ${proposal.evidence.join(", ")}`);
+      console.log("  PENDING — it changes nothing until a human runs:");
+      console.log(`    ost-agent proposal "${proposal.id}" --accept -b "<you>"   # or --reject`);
+      reportFilingCommit(await commitFiling(opts.vault, before, proposal.file, "proposal"), proposal.file);
+    },
+  );
+
+program
+  .command("proposals")
+  .description("list every ruleset proposal and its status — the review queue for one-click adoption")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((opts: { vault: string }) => {
+    const { proposals, unreadable } = readRulesetProposals(opts.vault);
+    if (proposals.length === 0 && unreadable.length === 0) {
+      console.log(`No ruleset proposals in ${PROPOSALS_DIR}/ — the agent drafts one with \`ost-agent propose-rule\`.`);
+      return;
+    }
+    const pending = proposals.filter((p) => p.status === "pending");
+    console.log(`Proposals: ${proposals.length} (${pending.length} pending)`);
+    for (const p of proposals) {
+      console.log("");
+      console.log(`[${p.status}] ${p.id}`);
+      console.log(`  ${p.section}: ${p.replaces !== undefined ? "replace" : "add"} — ${p.rule}`);
+      console.log(`  why: ${p.rationale}`);
+      console.log(`  evidence: ${p.evidence.join(", ")}`);
+      if (p.decidedBy) console.log(`  decided by ${p.decidedBy} at ${p.decidedAt ?? "?"}`);
+      if (p.status === "pending") console.log(`  → ost-agent proposal "${p.id}" --accept -b "<you>"   # or --reject`);
+    }
+    if (unreadable.length > 0) {
+      console.log("");
+      console.log(`⚠ ${unreadable.length} file(s) in ${PROPOSALS_DIR}/ could not be read as proposals: ${unreadable.join(", ")}`);
+    }
+  });
+
+program
+  .command("proposal")
+  .description("accept or reject one pending ruleset proposal (humans only — the agent must never adopt its own proposal)")
+  .argument("<id>", "the proposal id, as `ost-agent proposals` lists it")
+  .option("--accept", "adopt it — the next pass runs the amended ruleset")
+  .option("--reject", "decline it — the ruleset stays exactly as it is")
+  .requiredOption("-b, --by <who>", "who decided — an unattributed adoption cannot be told apart from a fabricated one")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action(async (id: string, opts: { accept?: boolean; reject?: boolean; by: string; vault: string }) => {
+    if (Boolean(opts.accept) === Boolean(opts.reject)) {
+      throw new Error("say which way it goes: exactly one of --accept or --reject");
+    }
+    const before = workingTreeStatus(opts.vault);
+    const decided = decideRulesetProposal(opts.vault, id, {
+      decision: opts.accept ? "accept" : "reject",
+      by: opts.by,
+    });
+    console.log(`${decided.status}: "${decided.id}" by ${decided.decidedBy}`);
+    if (decided.status === "accepted") {
+      const { adopted, problems } = effectiveRuleset(opts.vault);
+      console.log(`  the next pass runs the amended ruleset (${adopted.length} adopted proposal(s) now fold in)`);
+      for (const problem of problems) console.log(`  ⚠ ${problem}`);
+      console.log("  durable form: port the rule into src/knowledge/ruleset.ts + `npm run gen:skill` — the generated");
+      console.log("  SKILL.md renders from source alone, so skill-driven sessions see the rule only once it is ported.");
+    } else {
+      console.log("  nothing changed, which is the point: a rejected proposal never touches the ruleset");
+    }
+    reportFilingCommit(await commitFiling(opts.vault, before, decided.file, "proposal-decision"), decided.file);
   });
 
 program
