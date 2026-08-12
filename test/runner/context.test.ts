@@ -40,7 +40,7 @@ function accountedFor(ctx: ReturnType<typeof buildPassContext>): string[] {
 describe("buildPassContext adapter wiring", () => {
   test("the drop folders and the mechanical usage trace by default", () => {
     const ctx = buildPassContext(dir);
-    expect(ctx.sources.map((s) => s.name).sort()).toEqual(["friction", "inbox", "usage"]);
+    expect(ctx.sources.map((s) => s.name).sort()).toEqual(["deposit", "friction", "inbox", "usage"]);
   });
 
   test("enabling Atlassian without credentials degrades that source and nothing else", () => {
@@ -56,7 +56,7 @@ describe("buildPassContext adapter wiring", () => {
     expect(gap?.kind).toBe("unavailable");
     expect(gap?.reason).toMatch(/ATLASSIAN_BASE_URL|API token/);
     // The rest of the surface is untouched — that is the whole point of degrading.
-    expect(ctx.sources.map((s) => s.name).sort()).toEqual(["friction", "inbox", "usage"]);
+    expect(ctx.sources.map((s) => s.name).sort()).toEqual(["deposit", "friction", "inbox", "usage"]);
     expect(ctx.vault.readTree().length).toBeGreaterThan(0);
   });
 
@@ -67,7 +67,7 @@ describe("buildPassContext adapter wiring", () => {
       "utf8",
     );
     const ctx = buildPassContext(dir);
-    expect(ctx.sources.map((s) => s.name).sort()).toEqual(["friction", "inbox", "transcript", "usage"]);
+    expect(ctx.sources.map((s) => s.name).sort()).toEqual(["deposit", "friction", "inbox", "transcript", "usage"]);
   });
 
   test("enabling the transcript adapter with neither path nor projectDir degrades it by name", () => {
@@ -188,14 +188,14 @@ describe("buildPassContext adapter wiring", () => {
     // is the failure this whole split exists to make impossible.
     enableAtlassian();
     const ctx = buildPassContext(dir);
-    expect(accountedFor(ctx)).toEqual(["actions", "atlassian", "friction", "inbox", "slack", "transcript", "usage"]);
+    expect(accountedFor(ctx)).toEqual(["actions", "atlassian", "deposit", "friction", "inbox", "slack", "transcript", "usage"]);
     // Non-vacuity: with credentials present the SAME channel moves lists rather than
     // disappearing, so the equality above is tracking config and env, not a constant.
     process.env.ATLASSIAN_BASE_URL = "https://x.atlassian.net";
     process.env.ATLASSIAN_EMAIL = "me@x.com";
     process.env.ATLASSIAN_API_TOKEN = "atlassian-api-token-fixture";
     const withCreds = buildPassContext(dir);
-    expect(accountedFor(withCreds)).toEqual(["actions", "atlassian", "friction", "inbox", "slack", "transcript", "usage"]);
+    expect(accountedFor(withCreds)).toEqual(["actions", "atlassian", "deposit", "friction", "inbox", "slack", "transcript", "usage"]);
     expect(withCreds.sources.map((s) => s.name)).toContain("atlassian");
   });
 
@@ -205,7 +205,7 @@ describe("buildPassContext adapter wiring", () => {
     process.env.ATLASSIAN_EMAIL = "me@x.com";
     process.env.ATLASSIAN_API_TOKEN = "atlassian-api-token-fixture";
     const ctx = buildPassContext(dir);
-    expect(ctx.sources.map((s) => s.name).sort()).toEqual(["atlassian", "friction", "inbox", "usage"]);
+    expect(ctx.sources.map((s) => s.name).sort()).toEqual(["atlassian", "deposit", "friction", "inbox", "usage"]);
   });
 
   test("skipSources claims nothing about the channels it did not build", () => {

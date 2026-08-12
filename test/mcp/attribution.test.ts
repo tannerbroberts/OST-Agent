@@ -323,9 +323,11 @@ describe("the environment cannot author the trace's attribution", () => {
 });
 
 describe("attribution added no tool", () => {
-  test("the allowlist is the same 24 names and the MCP surface the same 22 — a marker is an argument, not a verb", () => {
-    expect(ALLOWED_TOOL_NAMES).toHaveLength(24);
-    expect(MCP_TOOL_NAMES).toHaveLength(22);
+  // 25/23 since `ost_deposit` (the end-of-session deposit channel) — a count
+  // moved by a deliberate tool addition, not by attribution.
+  test("the allowlist is the same 25 names and the MCP surface the same 23 — a marker is an argument, not a verb", () => {
+    expect(ALLOWED_TOOL_NAMES).toHaveLength(25);
+    expect(MCP_TOOL_NAMES).toHaveLength(23);
     for (const name of [...ALLOWED_TOOL_NAMES, ...MCP_TOOL_NAMES]) {
       expect(name).not.toMatch(/unknown/i);
     }

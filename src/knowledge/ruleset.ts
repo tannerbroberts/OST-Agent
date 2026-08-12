@@ -130,7 +130,8 @@ export const OST_RULESET = {
     "Resolve duplicates by merging them, not by annotating both. Two nodes making the same claim are a debt the tree pays on every future pass — each one re-read, re-counted, and re-ideated under. `ost_merge_nodes` folds one into the other, repoints every inbound edge, and deletes the loser's file; you choose the survivor and write the merged prose. Annotate instead only when you are unsure they are the same claim, and say what would settle it.",
     "Keep every wikilink on one line. A hard-wrapped paragraph that breaks a [[Node title]] across two lines produces bracketed text and no edge: it reads correctly in the source, and the graph — the artifact this whole thing produces — simply lacks the line. Let the line run long rather than wrap inside the brackets. `check` fails on it (rule wrapped-wikilink) and the hygiene pass reports it, because discipline alone has repeatedly not been enough.",
     "State a test's lane once, in one sentence, and let it name exactly one lane. `**Lane: compute-only.**` is a declaration a tool can read back; `**Lane: compute-only for the census, humans-required for the fixing.**` is two tests wearing one node, and the reader refuses it rather than picking a half. If a test really does split, split the test. A lane written in prose is still only a suggestion: `check` fails when it contradicts the `lane:` field (rule lane-conflict), and nothing ever promotes prose to a label — only a human's `ost-agent lane --set` moves what compute may run.",
-    "Raise a flag or proposal for a human whenever an action is ambiguous or would generate/validate knowledge."
+    "Raise a flag or proposal for a human whenever an action is ambiguous or would generate/validate knowledge.",
+    "When a session, a PR or a review is closing, offer the human the deposit prompt — the one question `ost_deposit`'s own description carries — and store their answer with `ost_deposit` exactly as they gave it: no paraphrase, no summary, no inference. Declining is a normal answer and stores nothing. Ask once at the close, never mid-work, and never more than once per close — the moment answering feels like paperwork is the moment the channel dies."
   ],
   "agentMustNot": [
     "Run interviews, experiments, or assumption tests, or record synthetic results as evidence.",
@@ -260,6 +261,13 @@ export const OST_RULESET = {
   "skillTools": [
     // The maintenance loop, in the order the loop runs them.
     { "name": "ost_ingest_inbox", "grant": true },
+    // The end-of-session deposit. Granted because the prompt has to live in the
+    // surface the collaborator is already in, and the skill is that surface's
+    // instruction sheet: a channel nobody offers captures nothing. What bounds
+    // it is what it cannot do — it stores the answer verbatim in the deposit
+    // channel and touches no rung; the evidence it feeds enters at the
+    // assertion floor and rises only on a human-recorded result.
+    { "name": "ost_deposit", "grant": true },
     // `required: true` on these three, and on nothing else. It is a stronger
     // claim than `grant`, and it is checked before a pass starts rather than
     // discovered forty calls in (`src/mcp/required-tools.ts`): without one of

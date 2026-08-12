@@ -71,6 +71,11 @@ export const ALLOWED_TOOL_NAMES = [
   // note as an evidence record. Append-only and idempotent — the adapter's cursor
   // and writeEvidence both refuse to re-ingest. No credentials, no network.
   "ost_ingest_inbox",
+  // The end-of-session deposit: store a collaborator's answer to the closing
+  // prompt, verbatim, in the vault's deposit channel. Append-only — an earlier
+  // deposit is never replaced — and it touches no rung: what it stores enters at
+  // the assertion floor and rises only on a human-recorded result.
+  "ost_deposit",
   "git_commit",
   "git_push",
 ] as const;

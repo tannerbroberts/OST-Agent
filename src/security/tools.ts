@@ -10,6 +10,7 @@
  * than a Zod-bound one, so the tool schemas do not couple us to a specific Zod
  * major version — or, now that the API-key runner is gone, to any model SDK.
  */
+import path from "node:path";
 import { tool } from "./tool.js";
 import { gitCommit, gitPush, pushTargetFor } from "../git/safe-git.js";
 import { AGENT_IDEATED_TAG, type NodeStatus, type OstNode } from "../ost/node.js";
@@ -22,6 +23,7 @@ import { computeNextWork, readEvidenceBody } from "../mcp/next-work.js";
 import { readNodeBody } from "../mcp/node-body.js";
 import { DATA_FRAME } from "./framing.js";
 import { redactSecrets } from "../adapters/transcript.js";
+import { DEPOSIT_PROMPT, fileDeposit } from "../adapters/deposit.js";
 import { flagHumansRequired } from "../ost/lanes.js";
 import { CAUTIOUS_LANE } from "../knowledge/lanes.js";
 import { ALLOWED_TOOL_NAMES, assertNoDestructiveTool } from "./policy.js";
@@ -1649,6 +1651,39 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
           DATA_FRAME,
           ...lines,
         ].join("\n");
+      },
+    }),
+
+    tool({
+      name: "ost_deposit",
+      reversibility: "reversible",
+      description:
+        `Store a collaborator's end-of-session deposit, VERBATIM, in the vault's deposit channel. When a session, ` +
+        `a PR or a review is closing, offer the human this one question — "${DEPOSIT_PROMPT}" — and pass their ` +
+        `answer here exactly as they gave it: do not paraphrase, summarize, tidy, or infer anything from it, and ` +
+        `if they decline, store nothing (declining is a normal answer, not an error). Append-only: an earlier ` +
+        `deposit is never replaced. What this stores is narrated self-report and enters the tree at the ` +
+        `assertion floor when ingested; nothing on this path can raise it — standing is earned only by a test a ` +
+        `human records on the CLI.`,
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          answer: {
+            type: "string",
+            description: "The collaborator's answer, byte-for-byte as they gave it. Stored verbatim.",
+          },
+          from: { type: "string", description: "Who deposited — a name or handle, in their own terms. Optional." },
+          closing: { type: "string", description: 'What just closed: "session", "pr", "review". Optional.' },
+        },
+        required: ["answer"],
+      },
+      run: async (input: { answer: string; from?: string; closing?: string }) => {
+        const written = fileDeposit(dir, { answer: input.answer, from: input.from, closing: input.closing });
+        return (
+          `deposit stored verbatim at ${path.basename(written)} — it will enter the tree at the assertion ` +
+          `floor on the next ost_ingest_inbox`
+        );
       },
     }),
 

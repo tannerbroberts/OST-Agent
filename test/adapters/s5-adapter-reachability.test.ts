@@ -212,6 +212,7 @@ describe("S5 — the construction really happens, not just the text", () => {
     expect(ctx.unavailableSources.map((u) => u.name).sort()).toEqual([
       "actions",
       "atlassian",
+      "deposit",
       "friction",
       "inbox",
       "slack",

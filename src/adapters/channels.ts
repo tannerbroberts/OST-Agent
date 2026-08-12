@@ -51,6 +51,20 @@ export const CHANNEL_ZERO = "inbox";
 export const FRICTION_CHANNEL = "friction";
 export const FRICTION_CHANNEL_PATH = ".ost-agent/friction";
 
+/**
+ * Where a collaborator's end-of-session deposit lands, as a first-party channel.
+ *
+ * Inside the vault for the friction channel's exact reason: a deposit is the
+ * collaborator's own words, captured at the moment the reasoning is still in
+ * their head, and a filing outside the git working tree would silently stop
+ * being committed. Separate from `friction` because the two record different
+ * speakers — friction is the agent reporting on itself, a deposit is a human
+ * answering a question — and folding them together would blur the one
+ * distinction the capability work needs.
+ */
+export const DEPOSIT_CHANNEL = "deposit";
+export const DEPOSIT_CHANNEL_PATH = ".ost-agent/deposits";
+
 /** Where a channel came from, which is what decides how strictly it is judged. */
 export type ChannelOrigin =
   /** `adapters.inbox` — the key every existing vault already carries. */
@@ -248,6 +262,20 @@ export function resolveChannels(vaultDir: string, config: Config): ChannelResolu
     resolveOne(vault, {
       name: FRICTION_CHANNEL,
       declaredPath: FRICTION_CHANNEL_PATH,
+      enabled: inbox.enabled,
+      cadence: null,
+      origin: "first-party",
+    }),
+  );
+
+  // Same switch as friction, same argument: `adapters.inbox.enabled` governs
+  // whether drop folders are read, and a deposit is stored regardless — refusing
+  // to keep a collaborator's answer to honour an ingestion setting would throw
+  // away the one artifact they chose to give.
+  channels.push(
+    resolveOne(vault, {
+      name: DEPOSIT_CHANNEL,
+      declaredPath: DEPOSIT_CHANNEL_PATH,
       enabled: inbox.enabled,
       cadence: null,
       origin: "first-party",

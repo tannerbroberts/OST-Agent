@@ -3089,7 +3089,12 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2,845 tests across 221 files, verified 2026-08-12 (`npx vitest run`,
+> *Today:* **met** — 2,855 tests across 222 files, verified 2026-08-12 (`npx vitest run`,
+> after the end-of-session deposit channel landed: a collaborator's answer is stored
+> byte-for-byte verbatim in `.ost-agent/deposits/`, ingests at the assertion floor, and
+> the deposit path appends nothing to the trust ledger
+> (`src/adapters/deposit.ts`, `test/adapters/deposit-prompt.test.ts`).
+> Previously 2,845 tests across 221 files, verified 2026-08-12 (`npx vitest run`,
 > after the upward vault search landed: with three nested vaults and two sibling vaults on
 > one machine, ten start directories each resolve to the vault that contains them —
 > nearest first, never a sibling — a start contained by no vault returns nothing rather

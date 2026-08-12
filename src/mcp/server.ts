@@ -44,6 +44,7 @@ export const MCP_TOOL_NAMES = [
   "ost_status",
   "ost_gate",
   "ost_ingest_inbox",
+  "ost_deposit",
 ] as const;
 
 // The read-only tools carry no commit; every other exposed tool mutates and is
