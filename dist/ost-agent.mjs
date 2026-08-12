@@ -33645,6 +33645,9 @@ var LAYERS = [
   "Unknown"
 ];
 var AGENT_IDEATED_TAG = "unvalidated";
+function isRepoSight(value) {
+  return value === "grounded" || value === "blind";
+}
 var WIKILINK_LINE = /^\[\[(.+?)\]\]$/;
 function wrappedLinkTargets(text2) {
   const targets = [];
@@ -33666,6 +33669,7 @@ function serialize(node) {
   if (node.lane) data.lane = node.lane;
   if (node.threshold) data.threshold = node.threshold;
   if (node.instrument) data.instrument = node.instrument;
+  if (node.sight) data.sight = node.sight;
   const extraTags = node.tags.filter((t2) => !EVIDENCE_TAG.test(t2));
   const tagLine = [
     "#" + node.layer,
@@ -33716,6 +33720,7 @@ function deserialize(title, markdown) {
   if (typeof data.lane === "string" && isLane(data.lane)) node.lane = data.lane;
   if (typeof data.threshold === "string") node.threshold = data.threshold;
   if (typeof data.instrument === "string") node.instrument = data.instrument;
+  if (isRepoSight(data.sight)) node.sight = data.sight;
   return node;
 }
 
@@ -39844,12 +39849,13 @@ var Vault = class {
    * says something else. Swapping the instrument therefore un-clears the build
    * permit rather than inheriting it, and the test has to be verified again.
    */
-  setInstrument(title, instrument, note) {
+  setInstrument(title, instrument, note, sight) {
     assertWritableNote(`the instrument note on "${title}"`, note);
     const node = this.read(title);
     const prev = node.instrument ?? "(none)";
     node.instrument = instrument;
-    const line = `- ${isoToday()} instrument: ${prev} \u2192 ${instrument}${note ? ` \u2014 ${note}` : ""}`;
+    if (sight) node.sight = sight;
+    const line = `- ${isoToday()} instrument: ${prev} \u2192 ${instrument}${sight ? ` [sight: ${sight}]` : ""}${note ? ` \u2014 ${note}` : ""}`;
     node.body = appendUnderHeading(node.body, "## History", line);
     fs14.writeFileSync(this.nodePath(title), serialize(node), "utf8");
     return line;
@@ -42265,6 +42271,12 @@ function isInstrument(r2) {
 function collectedNothing(output) {
   return /no test files found/i.test(output);
 }
+function sightCensus(tree) {
+  const carriers = tree.filter((n) => n.layer === "AssumptionTest" && typeof n.instrument === "string");
+  const grounded = carriers.filter((n) => n.sight === "grounded").length;
+  const blind = carriers.filter((n) => n.sight === "blind").length;
+  return { total: carriers.length, grounded, blind, unlabelled: carriers.length - grounded - blind };
+}
 function nodeInstrument(node) {
   const parsed = parseInstrument(node.instrument);
   return isInstrument(parsed) ? parsed : void 0;
@@ -43135,6 +43147,12 @@ function renderDebt(tree) {
   lines.push(
     `Solutions: ${t2.solutions}  (untested ${t2.untested}, proposed-only ${t2.proposed}, tested ${t2.tested}; ${proseOnly} with tests that are prose only)`
   );
+  const sight = sightCensus(tree);
+  if (sight.total > 0) {
+    lines.push(
+      `Instruments: ${sight.total}  (grounded ${sight.grounded}, blind ${sight.blind}, unlabelled ${sight.unlabelled} \u2014 written before sight was recorded)`
+    );
+  }
   for (const state of DEBT_STATES) {
     const group = debt.solutions.filter((s) => s.state === state);
     if (group.length === 0) continue;
@@ -43317,6 +43335,12 @@ function renderStatus(ctx, census) {
     const { instruction, absent, tests } = thresholds.totals;
     lines.push(
       `Thresholds: ${instruction + absent}/${tests} assumption test(s) have no fixed bar (${instruction} still an instruction, ${absent} unwritten) \u2014 see \`debt\``
+    );
+  }
+  const sight = sightCensus(tree);
+  if (sight.total > 0) {
+    lines.push(
+      `Sight: ${sight.grounded}/${sight.total} instrument(s) written with repo sight (blind ${sight.blind}, unlabelled ${sight.unlabelled}) \u2014 see \`debt\``
     );
   }
   const silent = COMPRESSION_SURFACES.filter((s) => s.drops === "silent").length;
@@ -48603,6 +48627,18 @@ function missingPathMessage(roots, root, rel) {
   const then = miss.suggestion ? `did you mean ${inRepo(path37.resolve(root, miss.suggestion.path))}?` : "nothing there is close enough to name, so this is not a typo to correct";
   return `"${rel}" does not exist in ${path37.basename(root)} \u2014 ${where}; ${then}`;
 }
+function repoSight(repos) {
+  return repos.some((repo) => {
+    try {
+      const resolved = path37.resolve(repo);
+      if (!fs33.statSync(resolved).isDirectory()) return false;
+      fs33.readdirSync(resolved);
+      return true;
+    } catch {
+      return false;
+    }
+  }) ? "grounded" : "blind";
+}
 function readProductRepo(repos, input) {
   if (repos.length === 0) {
     throw new Error(
@@ -49024,6 +49060,11 @@ A person outside the building is the measurement here: ${input.humansRequired.tr
           evidence: input.evidence,
           threshold: input.threshold,
           instrument: input.instrument,
+          // Stamped server-side like the tag above, and only when an
+          // instrument is actually born here: whether the pass that wrote
+          // this command could see the repository, from the grant table and
+          // never from the caller ({@link ../product/repo.ts#repoSight}).
+          sight: input.instrument !== void 0 ? repoSight(ctx.productRepos ?? []) : void 0,
           // Born in the restrictive lane when the caller says a person is the
           // measurement. Stamped here, server-side, for the same reason the
           // `unvalidated` marker is: a classification the caller could describe
@@ -49149,7 +49190,7 @@ A person outside the building is the measurement here: ${input.humansRequired.tr
         if (repos.length > 0 && !specResolves(repos, parsed.target) && thresholdKindOf(node) !== "bound") {
           throw new Error(`cannot set that instrument on "${input.test}": ${unresolvedSpecRefusal(repos, parsed.target)}`);
         }
-        const line = vault.setInstrument(input.test, parsed.command, why);
+        const line = vault.setInstrument(input.test, parsed.command, why, repoSight(repos));
         return `instrument of "${input.test}" set: ${line}
 This is not a build permit. Nothing is buildable until \`ost-agent verify\` watches this command fail.`;
       }

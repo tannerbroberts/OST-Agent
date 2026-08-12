@@ -81,6 +81,31 @@ function collectedNothing(output: string): boolean {
   return /no test files found/i.test(output);
 }
 
+/**
+ * The tree's instruments counted by the sight of the pass that wrote them.
+ *
+ * Three figures, not two, and the third is the honest one: an instrument
+ * written before the flag existed carries no `sight` field, and folding those
+ * into either verdict would manufacture provenance nobody recorded. One place
+ * computes this and both reports (`debt`, `status`) read it — a second place
+ * to compute it is a second place for it to be wrong.
+ */
+export interface SightCensus {
+  /** AssumptionTests carrying an instrument declaration, parseable or not. */
+  total: number;
+  grounded: number;
+  blind: number;
+  /** Instruments written before sight was recorded. */
+  unlabelled: number;
+}
+
+export function sightCensus(tree: readonly OstNode[]): SightCensus {
+  const carriers = tree.filter((n) => n.layer === "AssumptionTest" && typeof n.instrument === "string");
+  const grounded = carriers.filter((n) => n.sight === "grounded").length;
+  const blind = carriers.filter((n) => n.sight === "blind").length;
+  return { total: carriers.length, grounded, blind, unlabelled: carriers.length - grounded - blind };
+}
+
 /** The declared instrument on a node, or undefined when there is none that parses. */
 export function nodeInstrument(node: OstNode): ParsedInstrument | undefined {
   const parsed = parseInstrument(node.instrument);

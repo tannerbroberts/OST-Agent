@@ -22,6 +22,7 @@ import { BELIEVABILITY_LADDER, believabilityRollup } from "../knowledge/believab
 import { COMPRESSION_SURFACES } from "../compression/registry.js";
 import type { PassContext } from "../processes/types.js";
 import { LAYERS, type OstNode } from "../ost/node.js";
+import { sightCensus } from "../ost/instrument.js";
 import { formatCensus, SUSPECT_SOURCE_RULE, type TreeCensus } from "../ost/census.js";
 
 /**
@@ -462,6 +463,18 @@ export function renderDebt(tree: OstNode[]): string {
     `Solutions: ${t.solutions}  (untested ${t.untested}, proposed-only ${t.proposed}, tested ${t.tested}` +
       `; ${proseOnly} with tests that are prose only)`,
   );
+  // Grounded and blind as separate figures, because as one figure they were
+  // the same string in the same field: a reader deciding whether 61 red
+  // instruments are progress or laundering needs to know how many were written
+  // by a pass that could see the repository at all. Unlabelled is the honest
+  // third column — provenance nobody recorded is not either verdict.
+  const sight = sightCensus(tree);
+  if (sight.total > 0) {
+    lines.push(
+      `Instruments: ${sight.total}  (grounded ${sight.grounded}, blind ${sight.blind}, ` +
+        `unlabelled ${sight.unlabelled} — written before sight was recorded)`,
+    );
+  }
   // Grouped by state and capped within each, for the same reason `ost_check`
   // groups by rule: on any real vault the `tested` solutions outnumber the
   // untested ones, and a flat cap would spend the whole window on the solutions
@@ -767,6 +780,16 @@ export function renderStatus(ctx: PassContext, census: TreeCensus): string {
     lines.push(
       `Thresholds: ${instruction + absent}/${tests} assumption test(s) have no fixed bar ` +
         `(${instruction} still an instruction, ${absent} unwritten) — see \`debt\``,
+    );
+  }
+  // One line, only when instruments exist, and never charged to the budget:
+  // the same figures `debt` breaks out, next to the tree's shape, so a stock
+  // of instruments written blind is visible without asking for it.
+  const sight = sightCensus(tree);
+  if (sight.total > 0) {
+    lines.push(
+      `Sight: ${sight.grounded}/${sight.total} instrument(s) written with repo sight ` +
+        `(blind ${sight.blind}, unlabelled ${sight.unlabelled}) — see \`debt\``,
     );
   }
   // The product's own compression posture, from the surface registry

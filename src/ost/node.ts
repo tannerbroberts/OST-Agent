@@ -76,6 +76,25 @@ export type NodeStatus =
  */
 export const AGENT_IDEATED_TAG = "unvalidated";
 
+/**
+ * Whether the surface that wrote an instrument could actually see the
+ * repository it names — `grounded` when at least one configured product repo
+ * resolved to a readable directory at the moment of the write, `blind` when
+ * none did.
+ *
+ * The value is derived from the surface's own grant table
+ * ({@link ../product/repo.ts#repoSight}) and never accepted from the caller:
+ * the party being graded must not set its own grade. A grounded instrument and
+ * a guessed one used to be the same string in the same field; this is the
+ * column that makes them countable.
+ */
+export type RepoSight = "grounded" | "blind";
+
+/** Type guard for {@link RepoSight} — an unrecognised value is dropped, not carried. */
+export function isRepoSight(value: unknown): value is RepoSight {
+  return value === "grounded" || value === "blind";
+}
+
 export interface OstNode {
   /** Node title; also the basis for the filename. */
   title: string;
@@ -119,6 +138,14 @@ export interface OstNode {
    * the author wrote, and the reader says so by name.
    */
   instrument?: string;
+  /**
+   * For an AssumptionTest: whether the pass that wrote the instrument could
+   * see the repository. Stamped server-side from the grant table whenever an
+   * allowlisted tool writes the `instrument` field; absent on nodes whose
+   * instrument predates the flag, which reads as "unlabelled", never as either
+   * verdict.
+   */
+  sight?: RepoSight;
   /** Extra tags beyond the layer tag (e.g. ["unvalidated"]). */
   tags: string[];
   /** Titles of child nodes, rendered as `[[wikilinks]]`. */
@@ -166,6 +193,7 @@ export function serialize(node: OstNode): string {
   if (node.lane) data.lane = node.lane;
   if (node.threshold) data.threshold = node.threshold;
   if (node.instrument) data.instrument = node.instrument;
+  if (node.sight) data.sight = node.sight;
 
   // The evidence tag is derived from `evidence`, never carried in `tags`, so a
   // round-trip cannot render it twice.
@@ -240,5 +268,8 @@ export function deserialize(title: string, markdown: string): OstNode {
   // Kept verbatim even when it does not parse: the reader names an unusable
   // declaration rather than pretending the author never made one.
   if (typeof data.instrument === "string") node.instrument = data.instrument;
+  // Same posture as `lane`: a sight value nobody defined must never be the
+  // reason an instrument counts as grounded.
+  if (isRepoSight(data.sight)) node.sight = data.sight;
   return node;
 }
