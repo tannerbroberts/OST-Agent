@@ -41541,10 +41541,10 @@ function unearnedRung(n, index) {
   if (!isMeasurementRung(n.evidence)) return null;
   const ownResult = hasRecordedResult(n);
   const childResult = n.links.map((t2) => index.get(t2)).find((c3) => c3 && hasRecordedResult(c3));
-  const resultBacked = ownResult || !!childResult;
+  const resultBacked2 = ownResult || !!childResult;
   const sourceRung = classifyProvenance(n.source ?? "");
   const sourceObserved = rungRank(sourceRung) <= rungRank("observed");
-  if (n.evidence === "money" && !resultBacked) {
+  if (n.evidence === "money" && !resultBacked2) {
     return {
       node: n.title,
       declared: "money",
@@ -41552,7 +41552,7 @@ function unearnedRung(n, index) {
       missing: "'money' means behavior with a cost attached, which only a result can show \u2014 record one (a `## Results` section on this node or on a test beneath it), or declare the rung its sources have earned"
     };
   }
-  if (n.evidence === "observed" && !resultBacked && !sourceObserved) {
+  if (n.evidence === "observed" && !resultBacked2 && !sourceObserved) {
     return {
       node: n.title,
       declared: "observed",
@@ -43543,6 +43543,131 @@ function retractNode(vaultDir, filing) {
   const line = `- ${on} **retracted** (by ${by}) \u2014 ${why}`;
   vault.appendUnderSection(filing.node, RETRACTION_HEADING, line);
   return line;
+}
+
+// src/eval/critic.ts
+var CRITIC_RULES = [
+  "validated-on-nothing",
+  "unearned-rung",
+  "borrowed-voice",
+  "graded-after-the-fact"
+];
+function oneLine2(text2) {
+  return text2.replace(/\s+/g, " ").trim();
+}
+function objection(node, rule, charge, missing, settledBy) {
+  for (const [field, value] of [["charge", charge], ["missing", missing], ["settledBy", settledBy]]) {
+    if (!value.trim()) {
+      throw new Error(
+        `refusing to raise an objection against "${node}" with an empty ${field}: an objection that does not name what is wrong and the evidence that would settle it is noise, and noise is what turns a critic off.`
+      );
+    }
+  }
+  return { node, rule, charge: oneLine2(charge), missing: oneLine2(missing), settledBy: oneLine2(settledBy) };
+}
+function resultBacked(n, index) {
+  if (declaresHeading(n.body, RESULTS_HEADING)) return true;
+  return n.links.some((t2) => {
+    const child = index.get(t2);
+    return !!child && hasRecordedResult(child);
+  });
+}
+function validatedOnNothing(n, index) {
+  if (n.layer === "Outcome" || n.layer === "AssumptionTest") return null;
+  if (n.status !== "validated" && n.status !== "shipped") return null;
+  if (resultBacked(n, index)) return null;
+  return objection(
+    n.title,
+    "validated-on-nothing",
+    n.status === "shipped" ? `status 'shipped' says the build went out, and nothing recorded says it did what the node promised` : `status 'validated' says a human was convinced, and nothing recorded shows what convinced them`,
+    "a recorded result on this node or on a test one level beneath it",
+    "a result recorded via `ost-agent result` on a test beneath this node \u2014 or the status this node has actually earned"
+  );
+}
+function unearnedMeasurement(n, index) {
+  const u = unearnedRung(n, index);
+  if (!u) return null;
+  return objection(
+    n.title,
+    "unearned-rung",
+    `declares '${u.declared}' \u2014 a claim that something was measured \u2014 but what it points at supports '${u.supported}'`,
+    u.missing,
+    "a recorded result on this node or on a test one level beneath it, or the weaker rung its sources have earned"
+  );
+}
+function borrowedVoice(n, index) {
+  if (n.evidence !== "stated" && n.evidence !== "expert") return null;
+  if (classifyProvenance(n.source ?? "") !== "assertion") return null;
+  if (resultBacked(n, index)) return null;
+  return objection(
+    n.title,
+    "borrowed-voice",
+    `declares '${n.evidence}' \u2014 an outside party's voice \u2014 and its provenance names no outside party (source is ${n.source ? `"${n.source}"` : "unset"}, which classifies as assertion)`,
+    "provenance that names the party the rung borrows its weight from",
+    "a source that IS the party's own trace (INTERVIEW:\u2026, SLACK:\u2026, TRANSCRIPT:\u2026), a recorded result, or the 'assertion' rung this actually rests on"
+  );
+}
+function gradedAfterTheFact(n) {
+  if (n.layer !== "AssumptionTest") return null;
+  if (!hasRecordedResult(n)) return null;
+  const kind = thresholdKindOf(n);
+  if (kind !== "absent" && kind !== "instruction") return null;
+  return objection(
+    n.title,
+    "graded-after-the-fact",
+    `records a result, and no bar was fixed before the run (threshold reads '${kind}') \u2014 this verdict could not have come out a failure`,
+    "a pre-committed threshold the result can be read against",
+    "a bar fixed before the next run \u2014 the `threshold:` field or a bold pre-commitment lead-in, written down first"
+  );
+}
+function criticPass(tree) {
+  const index = byTitle([...tree]);
+  const objections = [];
+  for (const n of tree) {
+    const hit = validatedOnNothing(n, index) ?? unearnedMeasurement(n, index) ?? borrowedVoice(n, index) ?? gradedAfterTheFact(n);
+    if (hit) objections.push(hit);
+  }
+  const byRule = Object.fromEntries(CRITIC_RULES.map((r2) => [r2, objections.filter((o2) => o2.rule === r2).length]));
+  return { subject: { offered: tree.length, read: tree.length }, objections, byRule };
+}
+function annotationFor(o2) {
+  return `critic (${o2.rule}): ${o2.charge}. Missing: ${o2.missing}. Settled by: ${o2.settledBy}`;
+}
+function applyCritic(vault, report) {
+  const annotated = [];
+  const alreadyRaised = [];
+  for (const o2 of report.objections) {
+    const line = annotationFor(o2);
+    const existing = entriesUnder(vault.read(o2.node).body, "## Issues");
+    if (existing.some((e) => e.includes(line))) {
+      alreadyRaised.push(o2.node);
+      continue;
+    }
+    vault.annotate(o2.node, line);
+    annotated.push(o2.node);
+  }
+  return { annotated, alreadyRaised };
+}
+function renderCritic(report) {
+  const { offered, read } = report.subject;
+  if (read === 0) {
+    return `critic: BLIND \u2014 read 0 of ${offered} node(s), so this pass objected to nothing because it saw nothing.`;
+  }
+  const lines = [];
+  lines.push(`critic: ${report.objections.length} objection(s) over ${read} of ${offered} node(s).`);
+  if (report.objections.length === 0) {
+    lines.push(`  Every claim this pass knows how to attack is backed \u2014 or honestly floored, which it does not attack.`);
+    return lines.join("\n");
+  }
+  const counts = CRITIC_RULES.filter((r2) => report.byRule[r2] > 0).map((r2) => `${r2} ${report.byRule[r2]}`).join(", ");
+  lines.push(`  by charge: ${counts}`);
+  for (const o2 of report.objections) {
+    lines.push(`
+- "${o2.node}" \u2014 ${o2.charge}`);
+    lines.push(`    missing: ${o2.missing}`);
+    lines.push(`    settled by: ${o2.settledBy}`);
+  }
+  return lines.join("\n");
 }
 
 // src/ost/sweep.ts
@@ -48126,7 +48251,7 @@ function displaySafeTitle(title) {
   const flat = redactSecrets(title).replace(TITLE_CONTROL_CHARS, " ").trim();
   return flat.length > MAX_TITLE_DISPLAY_LENGTH ? `${flat.slice(0, MAX_TITLE_DISPLAY_LENGTH)}\u2026` : flat;
 }
-function oneLine2(reason) {
+function oneLine3(reason) {
   return (reason instanceof Error ? reason.message : String(reason)).replace(/\s+/g, " ").trim();
 }
 var CHILD_HIERARCHY = {
@@ -48924,7 +49049,7 @@ This is not a build permit. Nothing is buildable until \`ost-agent verify\` watc
             fetched = await source.fetchSince(previous);
           } catch (e) {
             lines.push(
-              `  [${source.name}] COULD NOT READ \u2014 ${oneLine2(e)}. Nothing was captured from it and its cursor was not advanced.`
+              `  [${source.name}] COULD NOT READ \u2014 ${oneLine3(e)}. Nothing was captured from it and its cursor was not advanced.`
             );
             continue;
           }
@@ -48951,7 +49076,7 @@ This is not a build permit. Nothing is buildable until \`ost-agent verify\` watc
           const head = capturedTitles.length > 0 ? `captured ${capturedTitles.length}: ${list}` : "0 new";
           if (failure) {
             lines.push(
-              `  [${source.name}] ${head}. STOPPED at "${displaySafeTitle(failure.item.title)}" \u2014 ${oneLine2(failure.reason)}. It was NOT captured and the cursor was not advanced past it: fix the cause and call ost_ingest_inbox again to re-offer it and everything after it.`
+              `  [${source.name}] ${head}. STOPPED at "${displaySafeTitle(failure.item.title)}" \u2014 ${oneLine3(failure.reason)}. It was NOT captured and the cursor was not advanced past it: fix the cause and call ost_ingest_inbox again to re-offer it and everything after it.`
             );
           } else {
             lines.push(`  [${source.name}] ${head}`);
@@ -48959,7 +49084,7 @@ This is not a build permit. Nothing is buildable until \`ost-agent verify\` watc
         }
         for (const gap of unavailable) {
           lines.push(
-            gap.kind === "disabled" ? `  [${gap.name}] disabled \u2014 ${oneLine2(gap.reason)}` : `  [${gap.name}] UNAVAILABLE \u2014 ${oneLine2(gap.reason)}`
+            gap.kind === "disabled" ? `  [${gap.name}] disabled \u2014 ${oneLine3(gap.reason)}` : `  [${gap.name}] UNAVAILABLE \u2014 ${oneLine3(gap.reason)}`
           );
         }
         const total = sources.length + unavailable.length;
@@ -52808,7 +52933,7 @@ function assessDegradation(run, observed) {
   }
   return degradations;
 }
-function oneLine3(e) {
+function oneLine4(e) {
   return (e instanceof Error ? e.message : String(e)).replace(/\s+/g, " ").trim();
 }
 function countToolCallsSince(vaultDir, startedAt) {
@@ -52826,10 +52951,10 @@ function observeSurface(vaultDir, run) {
     return {
       toolCalls,
       unreadableSources: ctx.unavailableSources.filter((s) => s.kind === "unavailable").map((s) => ({ name: s.name, reason: s.reason })),
-      ...ctx.configProblem ? { configProblem: oneLine3(ctx.configProblem) } : {}
+      ...ctx.configProblem ? { configProblem: oneLine4(ctx.configProblem) } : {}
     };
   } catch (e) {
-    return { toolCalls, unreadableSources: [], observationFailure: oneLine3(e) };
+    return { toolCalls, unreadableSources: [], observationFailure: oneLine4(e) };
   }
 }
 function observeDegradation(vaultDir, run) {
@@ -53405,7 +53530,7 @@ function repoProblem(vaultDir, repo) {
     return (e instanceof Error ? e.message : String(e)).replace(/\s+/g, " ").trim();
   }
 }
-function oneLine4(e) {
+function oneLine5(e) {
   return (e instanceof Error ? e.message : String(e)).replace(/\s+/g, " ").trim();
 }
 function observeSenses(vaultDir, run) {
@@ -53420,7 +53545,7 @@ function observeSenses(vaultDir, run) {
       if (problem !== null) unreadableRepos.push({ path: repo, reason: problem });
     }
     return assembleCensus({
-      tree: readiness.ready ? { readable: true, detail: `the vault's own tree at ${ctx.dir}` } : { readable: false, detail: oneLine4(readiness.message) },
+      tree: readiness.ready ? { readable: true, detail: `the vault's own tree at ${ctx.dir}` } : { readable: false, detail: oneLine5(readiness.message) },
       productRepos: repos,
       unreadableRepos,
       search: ctx.web?.searchApiKey ? "credential" : ctx.web?.provider ? "federated" : "none",
@@ -53430,7 +53555,7 @@ function observeSenses(vaultDir, run) {
         ...ctx.unavailableSources.map((s) => ({
           name: s.name,
           kind: s.kind === "disabled" ? "disabled" : "unavailable",
-          reason: oneLine4(s.reason)
+          reason: oneLine5(s.reason)
         }))
       ],
       callsByTool
@@ -53444,7 +53569,7 @@ function observeSenses(vaultDir, run) {
       webLookupBudget: 0,
       channels: [],
       callsByTool,
-      observationFailure: oneLine4(e)
+      observationFailure: oneLine5(e)
     });
   }
 }
@@ -54353,6 +54478,18 @@ program2.command("retract").description("take a node out of the live tree withou
 program2.command("debt").description("what each solution owes in evidence before anyone builds it (no model needed)").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
   const ctx = buildPassContext(opts.vault);
   console.log(renderDebt(ctx.vault.readTree()));
+});
+program2.command("critic").description("attack the tree: for each claim that outruns its backing, the strongest case it is wrong and what would settle it (no model needed)").option("--vault <dir>", VAULT_OPTION_HELP).option("--annotate", "write each objection under its node's ## Issues (add-only; a charge lands once, not once per pass)").action((opts) => {
+  const ctx = buildPassContext(opts.vault);
+  const report = criticPass(ctx.vault.readTree());
+  console.log(renderCritic(report));
+  if (opts.annotate) {
+    const applied = applyCritic(ctx.vault, report);
+    console.log(
+      `
+annotated ${applied.annotated.length} node(s); ${applied.alreadyRaised.length} already carried their charge.`
+    );
+  }
 });
 program2.command("lanes").description("assumption tests grouped by the human minutes they actually cost").option("--vault <dir>", VAULT_OPTION_HELP).option("--runnable", "print only the compute-only backlog, one title per line (for scripting)").option(
   "--flag-cautious <who>",
