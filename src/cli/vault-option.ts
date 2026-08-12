@@ -30,7 +30,7 @@ import { describeVaultSource, resolveVaultDir, type VaultResolution } from "../c
  * defaults to depends on where the command was run.
  */
 export const VAULT_OPTION_HELP =
-  "vault directory (default: the vault named by ost.vault.yaml, else $OST_VAULT, else the current directory)";
+  "vault directory (default: the vault named by ost.vault.yaml, else $OST_VAULT, else the nearest vault at or above the current directory)";
 
 /**
  * Fill in `--vault` for any command that declares it and was not given one.
@@ -52,7 +52,13 @@ export function installVaultResolution(program: Command): void {
 
     lastResolution = resolveVaultDir();
     actionCommand.setOptionValue("vault", lastResolution.dir);
-    const complaint = lastResolution.problem ? describeVaultSource(lastResolution) : stalePointerWarning(lastResolution);
+    // A search-derived answer is announced every time: the upward search binds
+    // the command to a vault nothing recorded, and its failure mode is a wrong
+    // tree with no error. A pointer answer only speaks when it is broken or stale.
+    const complaint =
+      lastResolution.problem || lastResolution.via === "search"
+        ? describeVaultSource(lastResolution)
+        : stalePointerWarning(lastResolution);
     if (complaint) console.error(`ost-agent: ${complaint}`);
   });
 }

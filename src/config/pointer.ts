@@ -24,6 +24,7 @@ import os from "node:os";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
+import { findVaultAbove } from "./vault-search.js";
 
 /** The one filename. Committed at the project root, beside `package.json`. */
 export const VAULT_POINTER_FILENAME = "ost.vault.yaml";
@@ -119,7 +120,7 @@ export function findVaultPointer(startDir: string): VaultPointer | null {
 }
 
 /** Where the answer came from, in the order the answers are consulted. */
-export type VaultSource = "argument" | "pointer" | "environment" | "cwd";
+export type VaultSource = "argument" | "pointer" | "environment" | "search" | "cwd";
 
 export interface VaultResolution {
   /** Absolute path of the directory to treat as the vault. */
@@ -127,6 +128,11 @@ export interface VaultResolution {
   via: VaultSource;
   /** Set when `via` is `"pointer"` — the file that supplied the answer. */
   pointer?: VaultPointer;
+  /**
+   * Set when `via` is `"search"` — where the upward search started, so a caller
+   * can say which directory led it to a vault nothing recorded.
+   */
+  searchedFrom?: string;
   /**
    * Set when a pointer file exists and could not be read. The resolution then
    * falls through to the next source rather than failing: one typo in one file
@@ -157,7 +163,12 @@ export interface ResolveVaultOptions {
  *    (`.claude-plugin/plugin.json`), which is right whenever the vault *is* the
  *    project and wrong whenever it is not. A pointer file only exists in the
  *    second case, which is why it is consulted first.
- * 4. **The cwd**, the last-resort assumption that you are standing in the vault.
+ * 4. **The nearest vault above the cwd** (`findVaultAbove`) — derived, not
+ *    recorded, so it ranks below everything anyone wrote down. It replaces only
+ *    the blind assumption below it: `ost-agent status` run from a vault's
+ *    subdirectory now finds the vault instead of failing on a directory that
+ *    holds no config.
+ * 5. **The cwd**, the last-resort assumption that you are standing in the vault.
  */
 export function resolveVaultDir(explicit?: string, opts: ResolveVaultOptions = {}): VaultResolution {
   if (explicit != null && explicit !== "") return { dir: path.resolve(explicit), via: "argument" };
@@ -174,16 +185,25 @@ export function resolveVaultDir(explicit?: string, opts: ResolveVaultOptions = {
   }
 
   if (env) return { dir: path.resolve(env), via: "environment", problem };
+
+  const above = findVaultAbove(cwd);
+  if (above) return { dir: above, via: "search", searchedFrom: path.resolve(cwd), problem };
   return { dir: path.resolve(cwd), via: "cwd", problem };
 }
 
 /**
  * One line naming where the vault came from, for a surface that has somewhere to
- * put it. Only the pointer case is worth saying out loud: the other three are
- * what the operator already typed, exported, or stood in.
+ * put it. The pointer and the upward search are worth saying out loud, because
+ * both send the command somewhere the operator did not name; the rest is what
+ * the operator already typed, exported, or stood in. The search line exists
+ * because the convention's failure mode is a wrong tree with no error — a
+ * derived binding must never be a silent one.
  */
 export function describeVaultSource(r: VaultResolution): string | null {
   if (r.problem) return `${r.problem} — falling back to ${r.dir}`;
+  if (r.via === "search" && r.searchedFrom && r.searchedFrom !== r.dir) {
+    return `vault ${r.dir} — the nearest vault above ${r.searchedFrom} (found by upward search; nothing records this link)`;
+  }
   if (r.via !== "pointer" || !r.pointer) return null;
   const outcome = r.pointer.outcome ? ` (${r.pointer.outcome})` : "";
   return `vault ${r.dir}${outcome} — named by ${r.pointer.file}`;
