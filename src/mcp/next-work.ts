@@ -38,6 +38,7 @@ import { DATA_FRAME, frameData } from "../security/framing.js";
 import { readAskLedger } from "../knowledge/asks.js";
 import { pendingAskQueue } from "../ost/pending-asks.js";
 import { omitDisposed, readDispositionLedger, type Withheld } from "../knowledge/dispositions.js";
+import { omitSuppressed, readSuppressionLedger, type SuppressedItem } from "../knowledge/suppressions.js";
 
 export interface UnmappedEvidence {
   id: string;
@@ -373,6 +374,29 @@ export interface NextWork {
    * May be capped; see {@link NextWork.truncated}.
    */
   withheldByDisposition: Withheld[];
+  /**
+   * Every item a live suppression kept off a list above — a decline a pass wrote
+   * down, standing exactly as long as the machine-checkable fact it names still
+   * holds against this tree (`src/knowledge/suppressions.ts`).
+   *
+   * Disclosed for the same reason `withheldByDisposition` is: work removed from
+   * a list silently is an amnesty, whatever removed it. The difference between
+   * the two ledgers is what clears them. A disposition stands until somebody
+   * reverses it; a suppression's condition is RE-EVALUATED on every read, so the
+   * item is back on its bucket the moment the fact flips — no write, nobody
+   * remembering. That is also why suppression, unlike disposition, IS consulted
+   * by `assumptionWork` and `openUnknowns`: the argument for skipping them there
+   * ("both leave their list when the thing they name actually happens") fails
+   * for exactly the declines this ledger exists for — a humans-required test
+   * never leaves `needsHumans` by itself, and every unattended sweep pays to
+   * re-decline it. `outstandingAsks` deliberately does NOT consult it: the ask
+   * queue is a person's view, and a pass declining work must never mute what a
+   * human is being waited on for. `hygieneIssues` keeps its one clear path
+   * (`ost_annotate`), as with dispositions.
+   *
+   * May be capped; see {@link NextWork.truncated}.
+   */
+  suppressedByCondition: SuppressedItem[];
   /**
    * Present iff `discovery.target` is configured. See {@link ScopeAccounting} —
    * when `resolved` is true, every done-blocking list above (and `done` itself)
@@ -910,24 +934,40 @@ export function computeNextWork(
   const dispositions = readDispositionLedger(dir);
   const withheld: Withheld[] = [];
 
+  /*
+   * The suppression ledger, read ONCE and re-evaluated against THIS tree. An
+   * entry whose condition still holds withholds its item (disclosed below); an
+   * entry whose condition has flipped is inert, which IS the revival — no
+   * second mechanism puts an item back, the fact changing is the mechanism.
+   */
+  const suppressions = readSuppressionLedger(dir);
+  const suppressed: SuppressedItem[] = [];
+
   const evidence = readEvidence(dir);
   const storedEvidenceIds = new Set(evidence.map((e) => e.id));
   const citedSources = new Set(tree.map((n) => n.source).filter((s): s is string => !!s));
-  const allUnmappedEvidence: UnmappedEvidence[] = omitDisposed(
-    evidence
-      .filter((e) => !citedSources.has(e.id))
-      .map((e) => ({
-        id: e.id,
-        source: e.source,
-        title: e.title,
-        excerpt: frameData(e.body.slice(0, EXCERPT_CHARS)),
-        bodyChars: e.body.length,
-        actor: e.actor,
-      })),
+  const allUnmappedEvidence: UnmappedEvidence[] = omitSuppressed(
+    omitDisposed(
+      evidence
+        .filter((e) => !citedSources.has(e.id))
+        .map((e) => ({
+          id: e.id,
+          source: e.source,
+          title: e.title,
+          excerpt: frameData(e.body.slice(0, EXCERPT_CHARS)),
+          bodyChars: e.body.length,
+          actor: e.actor,
+        })),
+      (e) => e.id,
+      dispositions,
+      "unmappedEvidence",
+      withheld,
+    ),
     (e) => e.id,
-    dispositions,
+    suppressions,
+    index,
     "unmappedEvidence",
-    withheld,
+    suppressed,
   );
   // Under a scope, mapping is out of scope wholesale — an unmapped record has no
   // branch yet, so no membership test can keep it honestly. Counted, never silent.
@@ -987,17 +1027,32 @@ export function computeNextWork(
     "underservedOpportunities",
     withheld,
   );
-  const scopedUnderserved = excludeByScope(allUnderservedOpportunities, "underservedOpportunities", (o) => o.title);
+  const offeredUnderserved = omitSuppressed(
+    allUnderservedOpportunities,
+    (o) => o.title,
+    suppressions,
+    index,
+    "underservedOpportunities",
+    suppressed,
+  );
+  const scopedUnderserved = excludeByScope(offeredUnderserved, "underservedOpportunities", (o) => o.title);
 
-  const allSolutionsMissingAssumptions: BareSolution[] = omitDisposed(
-    tree
-      .filter((n) => n.layer === "Solution")
-      .filter((s) => testsUnderSolution(s, index).length === 0)
-      .map((s) => ({ title: s.title, opportunity: firstOpportunityParent.get(s.title) ?? null })),
+  const allSolutionsMissingAssumptions: BareSolution[] = omitSuppressed(
+    omitDisposed(
+      tree
+        .filter((n) => n.layer === "Solution")
+        .filter((s) => testsUnderSolution(s, index).length === 0)
+        .map((s) => ({ title: s.title, opportunity: firstOpportunityParent.get(s.title) ?? null })),
+      (s) => s.title,
+      dispositions,
+      "solutionsMissingAssumptions",
+      withheld,
+    ),
     (s) => s.title,
-    dispositions,
+    suppressions,
+    index,
     "solutionsMissingAssumptions",
-    withheld,
+    suppressed,
   );
   const scopedMissingAssumptions = excludeByScope(
     allSolutionsMissingAssumptions,
@@ -1013,20 +1068,39 @@ export function computeNextWork(
   const hygiene = detectHygiene(tree, liveCensus.nodes, MAX_ITEMS_PER_LIST, storedEvidenceIds, standing, inScope);
   if (hygiene.excluded) scopeExcluded.push({ list: "hygieneIssues", count: hygiene.excluded });
 
-  // Tree order — the order the walk produced.
-  const allOpenUnknowns: OpenUnknown[] = tree
-    .filter((n) => n.layer === "Unknown" && resolutionState(n) === "open")
-    .map((u) => ({
-      title: u.title,
-      klass: classifyUnknown(u),
-      darkens: firstNonUnknownParent.get(u.title) ?? null,
-      gaps: contractGaps(u),
-    }));
+  // Tree order — the order the walk produced. Suppression consulted for the
+  // same reason as `assumptionWork` — an unknown declined for want of a Format
+  // stays open by no act of its own.
+  const allOpenUnknowns: OpenUnknown[] = omitSuppressed(
+    tree
+      .filter((n) => n.layer === "Unknown" && resolutionState(n) === "open")
+      .map((u) => ({
+        title: u.title,
+        klass: classifyUnknown(u),
+        darkens: firstNonUnknownParent.get(u.title) ?? null,
+        gaps: contractGaps(u),
+      })),
+    (u) => u.title,
+    suppressions,
+    index,
+    "openUnknowns",
+    suppressed,
+  );
   const scopedOpenUnknowns = excludeByScope(allOpenUnknowns, "openUnknowns", (u) => u.title);
 
   // Assumption tests without a result, sorted by the lane that decides who may
   // run them. Computed over the whole tree, like every list but the duplicate scan.
-  const allAssumptionWork = disposeAssumptionTests(tree);
+  // Suppression IS consulted here, unlike disposition — see the field doc on
+  // {@link NextWork.suppressedByCondition}: a test waiting on people leaves this
+  // list by no act of its own, and re-declining it is the cost the ledger exists
+  // to stop paying.
+  const dispatchedAssumptionWork = disposeAssumptionTests(tree);
+  const allAssumptionWork: AssumptionWork = {
+    runnable: omitSuppressed(dispatchedAssumptionWork.runnable, (t) => t, suppressions, index, "assumptionWork.runnable", suppressed),
+    awaitingOneCommand: omitSuppressed(dispatchedAssumptionWork.awaitingOneCommand, (t) => t, suppressions, index, "assumptionWork.awaitingOneCommand", suppressed),
+    blockedOnPermission: omitSuppressed(dispatchedAssumptionWork.blockedOnPermission, (t) => t, suppressions, index, "assumptionWork.blockedOnPermission", suppressed),
+    needsHumans: omitSuppressed(dispatchedAssumptionWork.needsHumans, (t) => t, suppressions, index, "assumptionWork.needsHumans", suppressed),
+  };
   const scopedAssumptionWork: AssumptionWork =
     membership === null
       ? allAssumptionWork
@@ -1067,7 +1141,14 @@ export function computeNextWork(
   const underservedOpportunities = capList(scopedUnderserved, "underservedOpportunities", truncated);
   const solutionsMissingAssumptions = capList(scopedMissingAssumptions, "solutionsMissingAssumptions", truncated);
   const allSolutionsMissingInstruments = excludeByScope(
-    omitDisposed(solutionsMissingInstruments(tree), (title) => title, dispositions, "solutionsMissingInstruments", withheld),
+    omitSuppressed(
+      omitDisposed(solutionsMissingInstruments(tree), (title) => title, dispositions, "solutionsMissingInstruments", withheld),
+      (title) => title,
+      suppressions,
+      index,
+      "solutionsMissingInstruments",
+      suppressed,
+    ),
     "solutionsMissingInstruments",
     (title) => title,
   );
@@ -1083,6 +1164,7 @@ export function computeNextWork(
   const openUnknowns = capList(scopedOpenUnknowns, "openUnknowns", truncated);
   const retiredFromDuplicateScan = capList(allRetired, "retiredFromDuplicateScan", truncated);
   const withheldByDisposition = capList(withheld, "withheldByDisposition", truncated);
+  const suppressedByCondition = capList(suppressed, "suppressedByCondition", truncated);
   // Each lane's queue is capped the same way and names what it hid. On a done
   // tree these can be the only capped lists, which is why the truncation note is
   // now appended in every summary branch below and not only when there is
@@ -1132,6 +1214,19 @@ export function computeNextWork(
     : "";
   const damagedLedgerNote = dispositions.damaged
     ? ` ${dispositions.damaged} disposition ledger line(s) would not parse and were dropped; a dropped line closes nothing, so any subject they named is listed above.`
+    : "";
+  // Every held suppression is named, in every branch, for the same reason every
+  // dismissal is: a demand a pass declined out of sight is an amnesty. Counted
+  // over the full set; revival needs no note because a flipped condition simply
+  // puts the item back on its list above.
+  const suppressionNote = suppressed.length
+    ? ` ${suppressed.length} item(s) are suppressed by a declined pass's condition that still holds and are NOT offered above: ` +
+      suppressedByCondition.map((s) => `"${s.subject}" (${s.until} — ${s.by})`).join("; ") +
+      `${suppressed.length > suppressedByCondition.length ? ", …" : ""}. ` +
+      "Each revives by itself the moment its condition flips; `ost-agent suppressions` audits them all."
+    : "";
+  const damagedSuppressionNote = suppressions.damaged
+    ? ` ${suppressions.damaged} suppression ledger line(s) would not parse and were dropped; a dropped line suppresses nothing, so any subject they named is offered above.`
     : "";
   const truncationNote = truncated.length
     ? ` Lists are capped at ${MAX_ITEMS_PER_LIST}: ` +
@@ -1216,9 +1311,9 @@ export function computeNextWork(
   // can be the only capped lists, and a cap that named nothing would read as amnesty.
   const summary = done
     ? scopedOpenUnknowns.length
-      ? `${doneLead} ${scopedOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${askNote}${dispositionNote}${damagedLedgerNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}`
-      : `${doneLead}${assumptionNote}${askNote}${dispositionNote}${damagedLedgerNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}`
-    : `${outstandingLead} ${parts.join("; ")}.${assumptionNote}${askNote}${dispositionNote}${damagedLedgerNote}${exemptionNote}${scopeNote}${truncationNote}${excerptNote}${retirementNote}`;
+      ? `${doneLead} ${scopedOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}`
+      : `${doneLead}${assumptionNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}`
+    : `${outstandingLead} ${parts.join("; ")}.${assumptionNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${excerptNote}${retirementNote}`;
 
   return {
     framing: DATA_FRAME,
@@ -1235,6 +1330,7 @@ export function computeNextWork(
     openUnknowns,
     retiredFromDuplicateScan,
     withheldByDisposition,
+    suppressedByCondition,
     truncated,
   };
 }

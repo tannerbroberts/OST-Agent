@@ -57,12 +57,19 @@ export const LAYERS: readonly Layer[] = [
   "Unknown",
 ] as const;
 
-export type NodeStatus =
-  | "unvalidated"
-  | "validated"
-  | "in-discovery"
-  | "shipped"
-  | "deferred";
+/**
+ * The status vocabulary, as a runtime list so a caller validating a
+ * status-shaped input (e.g. a suppression condition naming the status it holds
+ * on) can fail closed against the same set the type checks — one vocabulary,
+ * not a union here and a hand-copied array drifting somewhere else.
+ */
+export const NODE_STATUSES = ["unvalidated", "validated", "in-discovery", "shipped", "deferred"] as const;
+
+export type NodeStatus = (typeof NODE_STATUSES)[number];
+
+export function isNodeStatus(v: unknown): v is NodeStatus {
+  return typeof v === "string" && (NODE_STATUSES as readonly string[]).includes(v);
+}
 
 /**
  * The marker every agent-created node carries until a human promotes it.
