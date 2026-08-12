@@ -42280,6 +42280,35 @@ function isInstrument(r2) {
   return r2.form !== void 0;
 }
 
+// src/eval/shipped-audit.ts
+var HISTORY_HEADING = "## History";
+var SHIPPED_PROMOTION = /^[-*]\s+\d{4}-\d{2}-\d{2}\b.*status:.*(?:→|->)\s*shipped\s*(?:—|--)\s*\S/;
+function historyLines(body) {
+  const lines = body.split("\n");
+  const start = lines.findIndex((l) => isHeadingLine(l, HISTORY_HEADING));
+  if (start === -1) return [];
+  const out = [];
+  for (const line of lines.slice(start + 1)) {
+    if (/^#{1,6}\s/.test(line.trim())) break;
+    out.push(line.trim());
+  }
+  return out;
+}
+function shippedPromotionLine(node) {
+  return historyLines(node.body).find((l) => SHIPPED_PROMOTION.test(l));
+}
+function trustsShippedStatus(node) {
+  return node.layer === "Solution" && node.status === "shipped" && shippedPromotionLine(node) !== void 0;
+}
+function testAnswersForShippedSolution(tree, testTitle) {
+  const index = new Map(tree.map((n) => [n.title, n]));
+  for (const n of tree) {
+    if (n.layer !== "Solution" || !trustsShippedStatus(n)) continue;
+    if (testsUnderSolution(n, index).some((t2) => t2.title === testTitle)) return true;
+  }
+  return false;
+}
+
 // src/ost/instrument.ts
 function collectedNothing(output) {
   return /no test files found/i.test(output);
@@ -42378,7 +42407,7 @@ function verifyInstrument(vaultDir, filing) {
     vault.appendUnderSection(filing.test, INSTRUMENT_LOG_HEADING, line2);
     return { line: line2, run, instrument: parsed, transitioned: false };
   }
-  if (run.observation === "green" && !alreadyRed) {
+  if (run.observation === "green" && !alreadyRed && !testAnswersForShippedSolution(vault.readTree(), filing.test)) {
     throw new Error(
       `refusing to record "${filing.test}": its instrument passed on the first run, against a repository where the solution has not been built. A test that is green before anything was built cannot fail, so it measures nothing and gives the builder no definition of done. Point the instrument at behaviour that does not exist yet \u2014 the command should FAIL today and pass once the solution is real.`
     );
@@ -42476,27 +42505,6 @@ function computeCoverageDebt(tree) {
       unbounded: gaps.length
     }
   };
-}
-
-// src/eval/shipped-audit.ts
-var HISTORY_HEADING = "## History";
-var SHIPPED_PROMOTION = /^[-*]\s+\d{4}-\d{2}-\d{2}\b.*status:.*(?:→|->)\s*shipped\s*(?:—|--)\s*\S/;
-function historyLines(body) {
-  const lines = body.split("\n");
-  const start = lines.findIndex((l) => isHeadingLine(l, HISTORY_HEADING));
-  if (start === -1) return [];
-  const out = [];
-  for (const line of lines.slice(start + 1)) {
-    if (/^#{1,6}\s/.test(line.trim())) break;
-    out.push(line.trim());
-  }
-  return out;
-}
-function shippedPromotionLine(node) {
-  return historyLines(node.body).find((l) => SHIPPED_PROMOTION.test(l));
-}
-function trustsShippedStatus(node) {
-  return node.layer === "Solution" && node.status === "shipped" && shippedPromotionLine(node) !== void 0;
 }
 
 // src/eval/buildable.ts
@@ -42609,6 +42617,19 @@ function solutionsMissingInstruments(tree) {
     const tests = testsUnder(index, n);
     if (tests.length === 0) continue;
     if (tests.some((t2) => nodeInstrument(t2))) continue;
+    out.push(n.title);
+  }
+  return out;
+}
+function solutionsAwaitingObservation(tree) {
+  const index = indexByTitle(tree);
+  const out = [];
+  for (const n of tree) {
+    if (n.layer !== "Solution") continue;
+    if (!trustsShippedStatus(n)) continue;
+    const tests = testsUnder(index, n);
+    if (tests.length === 0) continue;
+    if (tests.some((t2) => observedGreen(t2))) continue;
     out.push(n.title);
   }
   return out;
@@ -48432,6 +48453,23 @@ function computeNextWork(vault, dir, min, now = () => /* @__PURE__ */ new Date()
     "solutionsMissingInstruments",
     truncated
   );
+  const allSolutionsAwaitingObservation = excludeByScope(
+    omitSuppressed(
+      omitDisposed(solutionsAwaitingObservation(tree), (title) => title, dispositions, "solutionsAwaitingObservation", withheld),
+      (title) => title,
+      suppressions,
+      index,
+      "solutionsAwaitingObservation",
+      suppressed
+    ),
+    "solutionsAwaitingObservation",
+    (title) => title
+  );
+  const solutionsAwaitingObservationList = capList(
+    allSolutionsAwaitingObservation,
+    "solutionsAwaitingObservation",
+    truncated
+  );
   const hygieneIssues = capList(hygiene.issues, "hygieneIssues", truncated, MAX_ITEMS_PER_LIST2, hygiene.total);
   const openUnknowns = capList(scopedOpenUnknowns, "openUnknowns", truncated);
   const retiredFromDuplicateScan = capList(allRetired, "retiredFromDuplicateScan", truncated);
@@ -48487,6 +48525,7 @@ function computeNextWork(vault, dir, min, now = () => /* @__PURE__ */ new Date()
     underservedOpportunities,
     solutionsMissingAssumptions,
     solutionsMissingInstruments: solutionsMissingInstrumentsList,
+    solutionsAwaitingObservation: solutionsAwaitingObservationList,
     assumptionWork,
     outstandingAsks,
     hygieneIssues,

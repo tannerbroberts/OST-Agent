@@ -34,7 +34,7 @@ import type { Vault } from "../ost/vault.js";
 import { classifyUnknown, contractGaps, resolutionState, type UnknownClass } from "../knowledge/unknowns.js";
 import { CAUTIOUS_LANE, isLane, type LaneId } from "../knowledge/lanes.js";
 import { hasRecordedResult } from "../eval/evidence-debt.js";
-import { solutionsMissingInstruments } from "../eval/buildable.js";
+import { solutionsAwaitingObservation, solutionsMissingInstruments } from "../eval/buildable.js";
 import { DATA_FRAME, frameData } from "../security/framing.js";
 import { readAskLedger } from "../knowledge/asks.js";
 import { pendingAskQueue } from "../ost/pending-asks.js";
@@ -344,6 +344,19 @@ export interface NextWork {
    * nothing. May be capped; see {@link NextWork.truncated}.
    */
   solutionsMissingInstruments: string[];
+  /**
+   * P4c — shipped solutions with no recorded run: not asking to be built, but
+   * asking to be proven.
+   *
+   * Disjoint from `solutionsMissingInstruments` by construction — a solution
+   * only reaches this list once `trustsShippedStatus` has already dropped it
+   * from that one, so no title is ever counted on both. Does NOT block `done`,
+   * for the same reason `assumptionWork` does not: recording what a machine
+   * observed is available work, but this queue existing does not mean a tree
+   * is unmaintained the way an unrunnable test does. May be capped; see
+   * {@link NextWork.truncated}.
+   */
+  solutionsAwaitingObservation: string[];
   /**
    * Every assumption test that has not recorded a result, sorted by the lane that
    * decides who may run it — the runnable bucket a session may act on now, and the
@@ -1234,6 +1247,23 @@ export function computeNextWork(
     "solutionsMissingInstruments",
     truncated,
   );
+  const allSolutionsAwaitingObservation = excludeByScope(
+    omitSuppressed(
+      omitDisposed(solutionsAwaitingObservation(tree), (title) => title, dispositions, "solutionsAwaitingObservation", withheld),
+      (title) => title,
+      suppressions,
+      index,
+      "solutionsAwaitingObservation",
+      suppressed,
+    ),
+    "solutionsAwaitingObservation",
+    (title) => title,
+  );
+  const solutionsAwaitingObservationList = capList(
+    allSolutionsAwaitingObservation,
+    "solutionsAwaitingObservation",
+    truncated,
+  );
   // `hygiene.issues` is already bounded at the source (it is never fully
   // materialized), so the total has to come from the scan rather than from the
   // array's length — the one list here whose full set is never in memory.
@@ -1409,6 +1439,7 @@ export function computeNextWork(
     underservedOpportunities,
     solutionsMissingAssumptions,
     solutionsMissingInstruments: solutionsMissingInstrumentsList,
+    solutionsAwaitingObservation: solutionsAwaitingObservationList,
     assumptionWork,
     outstandingAsks,
     hygieneIssues,

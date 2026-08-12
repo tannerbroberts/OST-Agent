@@ -22,6 +22,14 @@
  * builder gets a definition of done it owns, and the transition from red to
  * green is a thing that happened rather than a thing that was asserted.
  *
+ * One case is deliberately exempted: a test answering for a solution
+ * {@link ../eval/shipped-audit.ts#trustsShippedStatus trusted as shipped} has
+ * no unbuilt behaviour left to stake a claim about, so a first-run green is not
+ * a failed prediction — it is the observation the solution owes instead
+ * ({@link ../eval/buildable.ts#solutionsAwaitingObservation}). Nothing else
+ * changes: a test under a solution that is not trusted-shipped still cannot
+ * pass on its first run, no matter what the caller believes about it.
+ *
  * Nothing here uses a shell. The command is argv, assembled by the form that
  * matched it ({@link ../knowledge/instruments.ts}), so there is no interpreter
  * for a metacharacter to reach even if one survived the parse.
@@ -30,6 +38,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { isInstrument, parseInstrument, type ParsedInstrument } from "../knowledge/instruments.js";
+import { testAnswersForShippedSolution } from "../eval/shipped-audit.js";
 import { INSTRUMENT_LOG_HEADING } from "./headings.js";
 import type { OstNode } from "./node.js";
 import { Vault } from "./vault.js";
@@ -312,8 +321,10 @@ export function verifyInstrument(vaultDir: string, filing: VerifyFiling): Verify
   // The validity rule. A first observation that is green means the instrument
   // does not measure the solution — it measures something that was already true,
   // so recording it would let a test that was never capable of failing count as
-  // one that passed.
-  if (run.observation === "green" && !alreadyRed) {
+  // one that passed. Waived for a test answering a solution trusted as shipped:
+  // there is no unbuilt behaviour left to stake a claim about, so a first-run
+  // green is the observation the solution owes rather than a failed prediction.
+  if (run.observation === "green" && !alreadyRed && !testAnswersForShippedSolution(vault.readTree(), filing.test)) {
     throw new Error(
       `refusing to record "${filing.test}": its instrument passed on the first run, against a repository where ` +
         `the solution has not been built. A test that is green before anything was built cannot fail, so it ` +

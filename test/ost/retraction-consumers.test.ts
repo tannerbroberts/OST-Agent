@@ -155,7 +155,7 @@ describe("the consumer set, enumerated and held there", () => {
     return out;
   }
 
-  test("every module that reads nodes is one of eight, and the audit's bar is 12", () => {
+  test("every module that reads nodes is one of nine, and the audit's bar is 12", () => {
     const readers = sources()
       .filter((f) => f.rel !== path.join("ost", "vault.ts"))
       .filter((f) => /\.(readTree|readTreeCensus|readLiveTree)\(/.test(f.text))
@@ -187,11 +187,20 @@ describe("the consumer set, enumerated and held there", () => {
     // is one agent call, and must not be a way to make a rankable node vanish
     // from the whole-tree ledger (`withoutRetiredNodes` stays bounded to the
     // duplicate scan).
+    //
+    // `ost/instrument.ts` is the ninth: the write boundary that decides whether
+    // a first-run green may be recorded now has to ask which Solution a test
+    // answers for, to tell a genuine shipped-observation apart from every other
+    // test the red-now rule still binds. It reads through `readTree()`, so a
+    // retracted node is unconditionally absent from that answer the same way it
+    // is absent everywhere else — nothing bespoke was added, and nothing needed
+    // to be.
     expect(readers).toEqual([
       path.join("cli", "index.ts"),
       path.join("mcp", "bootstrap.ts"),
       path.join("mcp", "next-work.ts"),
       path.join("mcp", "node-body.ts"),
+      path.join("ost", "instrument.ts"),
       path.join("ost", "ranked-ledger.ts"),
       path.join("ost", "stranded.ts"),
       path.join("runner", "set-outcome.ts"),
