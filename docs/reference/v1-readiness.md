@@ -3089,7 +3089,13 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2,818 tests across 218 files, verified 2026-08-11 (`npx vitest run`,
+> *Today:* **met** — 2,819 tests across 219 files, verified 2026-08-11 (`npx vitest run`,
+> after ambient-driver parity landed: the same fixed pass driven once by direct in-process
+> tool invocation — the deleted API runner's dispatch shape — and once through a real MCP
+> client/server pair produces identical node sets and edges over identical fixture vaults,
+> so the ambient session route demonstrably loses and misplaces nothing a dedicated driver
+> would have kept (`test/loop/ambient-driver-parity.test.ts`).
+> Previously 2,818 tests across 218 files, verified 2026-08-11 (`npx vitest run`,
 > after the allowlist registration audit landed: the fail-closed allowlist guard now runs
 > inside `buildOstTools` itself, so every surface — including the CLI `manifest`/`refusals`
 > commands that previously built the full set unguarded — refuses at construction if a
