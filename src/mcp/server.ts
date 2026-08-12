@@ -149,6 +149,55 @@ function notReadyResult(readiness: VaultNotReady, name: string): ToolCallResult 
 }
 
 /**
+ * Which argument names the node this call is primarily about, per tool.
+ *
+ * Deliberately ONE key per tool rather than every plausible one: `ost_create_node`
+ * also carries a `parent`, but the parent is where the new node attaches, not
+ * what this commit's provenance is about, and stamping the parent's source
+ * alongside would attribute the write to the wrong node. Tools not listed here
+ * (`ost_rank_source`, `ost_ingest_inbox`, `ost_deposit`) do not name a single
+ * existing tree node at all, so no provenance is attached for them.
+ */
+const PRIMARY_NODE_KEY: Readonly<Record<string, string>> = {
+  ost_create_node: "title",
+  ost_append_to_node: "title",
+  ost_set_status: "title",
+  ost_set_instrument: "test",
+  ost_flag_humans_required: "test",
+  ost_set_evidence: "title",
+  ost_annotate: "title",
+  ost_edit_node: "title",
+  ost_detach_nodes: "parent",
+  ost_link_nodes: "parent",
+  ost_merge_nodes: "into",
+};
+
+function referencedNodeTitle(name: string, args: unknown): string | undefined {
+  const key = PRIMARY_NODE_KEY[name];
+  if (!key || !args || typeof args !== "object") return undefined;
+  const v = (args as Record<string, unknown>)[key];
+  return typeof v === "string" && v.trim().length > 0 ? v.trim() : undefined;
+}
+
+/**
+ * The provenance a commit message needs to be attributable to a source
+ * without opening the vault.
+ *
+ * A commit already names the node (the tool's own return text does that); what
+ * it lacked was the node's `source:` frontmatter — the thing an operator
+ * replaying the log actually needs to tell a self-generated write from one
+ * that traces to a person or a channel. Read AFTER the tool ran, so a node
+ * `ost_create_node` just wrote is found too. A title that does not resolve to
+ * a node (a typo) is skipped rather than thrown on — the commit still has to
+ * happen.
+ */
+function provenanceSuffix(vault: PassContext["vault"], title: string | undefined): string {
+  if (!title || !vault.has(title)) return "";
+  const source = vault.read(title).source;
+  return source && source.trim().length > 0 ? ` (source: ${source.trim()})` : "";
+}
+
+/**
  * The attribution marker a call declares, if any.
  *
  * Reads the optional `unknown` property the attributable tools declare (see
@@ -242,7 +291,8 @@ async function handleOstCall(
     const out = await withAttribution({ session, ...(marker ? { unknown: marker } : {}) }, () => tool.run(args));
     let text = typeof out === "string" ? out : JSON.stringify(out);
     if (MUTATING.has(name)) {
-      const commit = await enqueueCommit(ctx.dir, `mcp: ${name} — ${text}`);
+      const provenance = provenanceSuffix(ctx.vault, referencedNodeTitle(name, args));
+      const commit = await enqueueCommit(ctx.dir, `mcp: ${name} — ${text}${provenance}`);
       text += commit.committed ? `\ncommitted ${commit.sha.slice(0, 8)}` : `\n(no changes to commit)`;
     }
     return { content: [{ type: "text", text }] };
