@@ -86,6 +86,48 @@ describe("ost-agent dispose", () => {
       cli(["dispose", "Never settled", "--reopen", "--by", "Tanner", "--why", "w", "--vault", dir]),
     ).rejects.toThrow(/no earlier entry/);
   }, 60_000);
+
+  test("--corroborates writes the typed verdict with the node it counts toward", async () => {
+    // The acknowledgement in its sharpened form: not "dismissed", but "read, counted
+    // toward an existing node" — the one verdict that can strengthen that node later.
+    const { stdout } = await cli([
+      "dispose", "TRANSCRIPT:ninth-session.md", "--kind", "evidence", "--corroborates", "Users churn after week one",
+      "--by", "Tanner", "--why", "ninth session with the same stall", "--vault", dir,
+    ]);
+    expect(stdout).toContain("corroborating");
+    const entry = readDispositionLedger(dir).histories.get("TRANSCRIPT:ninth-session.md")?.[0];
+    expect(entry?.verdict).toBe("corroborates");
+    expect(entry?.node).toBe("Users churn after week one");
+  }, 60_000);
+
+  test("--no-genuine-need writes the other verdict, and the two refuse to share an entry", async () => {
+    const { stdout } = await cli([
+      "dispose", "USAGE:clean-day.md", "--kind", "evidence", "--no-genuine-need",
+      "--by", "Tanner", "--why", "a clean day reveals no need of its own", "--vault", dir,
+    ]);
+    expect(stdout).toContain("no genuine need");
+    expect(readDispositionLedger(dir).histories.get("USAGE:clean-day.md")?.[0].verdict).toBe("no-genuine-need");
+
+    await expect(
+      cli([
+        "dispose", "X", "--kind", "evidence", "--no-genuine-need", "--corroborates", "Some node",
+        "--by", "Tanner", "--why", "w", "--vault", dir,
+      ]),
+    ).rejects.toThrow(/one verdict/);
+  }, 60_000);
+
+  test("a verdict on a reopen is refused — a reopen disputes an acknowledgement, it does not make one", async () => {
+    await cli([
+      "dispose", "USAGE:clean-day.md", "--kind", "evidence", "--no-genuine-need",
+      "--by", "Tanner", "--why", "clean day", "--vault", dir,
+    ]);
+    await expect(
+      cli([
+        "dispose", "USAGE:clean-day.md", "--reopen", "--corroborates", "Some node",
+        "--by", "Tanner", "--why", "w", "--vault", dir,
+      ]),
+    ).rejects.toThrow(/disputes/);
+  }, 60_000);
 });
 
 describe("ost-agent dispositions", () => {

@@ -874,31 +874,67 @@ program
     `what the subject is: ${DISPOSITION_KINDS.join(", ")} (for the auditor; the work lists read only the subject)`,
   )
   .option("--reopen", "put the subject back on its bucket — a wrong disposition is reversed, never deleted")
+  .option(
+    "--corroborates <node>",
+    "typed verdict: the item was read and counted toward this existing node — the one verdict that can strengthen a node's evidence later",
+  )
+  .option("--no-genuine-need", "typed verdict: the item was read and reveals no need anyone should act on")
   .option("--vault <dir>", VAULT_OPTION_HELP)
-  .action((subject: string, opts: { by: string; why: string; kind?: string; reopen?: boolean; vault: string }) => {
-    // `kind` is required on a close and irrelevant on a reopen: the reopen names a
-    // subject the ledger already carries a kind for, and asking again is one more
-    // chance for the two entries to disagree about the same subject.
-    const existing = latestDisposition(readDispositionLedger(opts.vault), subject);
-    const kind = opts.kind ?? existing?.kind;
-    if (!isDispositionKind(kind)) {
-      console.error(
-        `ost-agent dispose: --kind must be one of ${DISPOSITION_KINDS.join(", ")}` +
-          (opts.reopen ? " (the ledger carries no earlier entry for that subject to take it from)" : ""),
+  .action(
+    (
+      subject: string,
+      opts: { by: string; why: string; kind?: string; reopen?: boolean; corroborates?: string; genuineNeed?: boolean; vault: string },
+    ) => {
+      // Commander reads any `--no-X` flag as the negation of `X`: passing
+      // `--no-genuine-need` sets `genuineNeed` to false (and its absence leaves the
+      // default, true). The flag keeps the verdict's own name anyway — the operator
+      // types the vocabulary the ledger stores — at the cost of this one translation.
+      const noGenuineNeed = opts.genuineNeed === false;
+      // The verdicts are exclusive by meaning, not just by flag: "counted toward a
+      // node" and "nothing here" are the two readings the typed field exists to keep
+      // apart, so an entry carrying both would be exactly the blur it prevents. And a
+      // reopen disputes an acknowledgement rather than making one, so a verdict on it
+      // has no entry to live on.
+      if (opts.corroborates !== undefined && noGenuineNeed) {
+        console.error("ost-agent dispose: one verdict per acknowledgement — --corroborates and --no-genuine-need are different findings");
+        process.exitCode = 1;
+        return;
+      }
+      if (opts.reopen && (opts.corroborates !== undefined || noGenuineNeed)) {
+        console.error("ost-agent dispose: a reopen disputes an acknowledgement, it does not make one — drop the verdict flag");
+        process.exitCode = 1;
+        return;
+      }
+      // `kind` is required on a close and irrelevant on a reopen: the reopen names a
+      // subject the ledger already carries a kind for, and asking again is one more
+      // chance for the two entries to disagree about the same subject.
+      const existing = latestDisposition(readDispositionLedger(opts.vault), subject);
+      const kind = opts.kind ?? existing?.kind;
+      if (!isDispositionKind(kind)) {
+        console.error(
+          `ost-agent dispose: --kind must be one of ${DISPOSITION_KINDS.join(", ")}` +
+            (opts.reopen ? " (the ledger carries no earlier entry for that subject to take it from)" : ""),
+        );
+        process.exitCode = 1;
+        return;
+      }
+      const state = opts.reopen ? "reopened" : "closed";
+      const verdict = opts.corroborates !== undefined ? ("corroborates" as const) : noGenuineNeed ? ("no-genuine-need" as const) : undefined;
+      appendDisposition(opts.vault, { subject, kind, state, reason: opts.why, by: opts.by, verdict, node: opts.corroborates });
+      console.log(
+        opts.reopen
+          ? `reopened "${subject}" — it is back on its ${kind} bucket.`
+          : `settled "${subject}" (${kind}) — no bucket will list it again.\n` +
+              (verdict === "corroborates"
+                ? `  Recorded as corroborating "${opts.corroborates}" — the one verdict that can strengthen that node's evidence later.\n`
+                : verdict === "no-genuine-need"
+                  ? "  Recorded as revealing no genuine need — it can strengthen nothing.\n"
+                  : "") +
+              "  It is still counted and named on every ost_next_work response, under withheldByDisposition.\n" +
+              '  Reverse it with `ost-agent dispose "<subject>" --reopen --by <you> --why "<why>"`.',
       );
-      process.exitCode = 1;
-      return;
-    }
-    const state = opts.reopen ? "reopened" : "closed";
-    appendDisposition(opts.vault, { subject, kind, state, reason: opts.why, by: opts.by });
-    console.log(
-      opts.reopen
-        ? `reopened "${subject}" — it is back on its ${kind} bucket.`
-        : `settled "${subject}" (${kind}) — no bucket will list it again.\n` +
-            "  It is still counted and named on every ost_next_work response, under withheldByDisposition.\n" +
-            '  Reverse it with `ost-agent dispose "<subject>" --reopen --by <you> --why "<why>"`.',
-    );
-  });
+    },
+  );
 
 program
   .command("dispositions")
