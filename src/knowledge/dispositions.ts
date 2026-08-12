@@ -81,6 +81,30 @@ export function isDispositionState(v: unknown): v is DispositionState {
 }
 
 /**
+ * The two verdicts an acknowledgement can carry, and why they must be distinct.
+ *
+ * Three consecutive sweeps of this project's own vault classified their stranded
+ * evidence and found the same shape: most items corroborate a need the tree already
+ * holds, a few reveal nothing, and the difference is the fact a later reader most
+ * needs — a need corroborated by nine independent sessions is a different claim from
+ * one asserted once. A free-text `reason` records the difference for a human and
+ * erases it for every consumer: "corroborates X" and "nothing here" read identically
+ * to code. So the verdict is typed, and only `corroborates` — never `no-genuine-need`,
+ * never an entry with no verdict at all — can strengthen a node's evidence later
+ * (see {@link corroborationsFor}).
+ *
+ * Optional, not required: a plain disposition ("shipped", "lives on its children")
+ * settles work without passing judgement on an evidence item, and forcing a verdict
+ * onto it would blur exactly the distinction the vocabulary exists to keep.
+ */
+export const ACKNOWLEDGEMENT_VERDICTS = ["corroborates", "no-genuine-need"] as const;
+export type AcknowledgementVerdict = (typeof ACKNOWLEDGEMENT_VERDICTS)[number];
+
+export function isAcknowledgementVerdict(v: unknown): v is AcknowledgementVerdict {
+  return typeof v === "string" && (ACKNOWLEDGEMENT_VERDICTS as readonly string[]).includes(v);
+}
+
+/**
  * One disposition. The whole schema — there is not a second one, and the three kinds
  * differ only in what the `subject` string happens to name.
  */
@@ -101,6 +125,18 @@ export interface DispositionRecord {
   reason: string;
   /** Who wrote it. Required, for the same reason an ask is attributed. */
   by: string;
+  /**
+   * The typed verdict, when the entry is an acknowledgement of an evidence item.
+   * Like `kind`, {@link isDisposed} never reads it — it decides nothing about whether
+   * the subject leaves its bucket, only what the acknowledgement may do later.
+   */
+  verdict?: AcknowledgementVerdict;
+  /**
+   * The existing node the item was counted toward, exactly as titled. Present iff
+   * `verdict` is `corroborates` — the pointer is what lets the corroboration
+   * strengthen that node's evidence later.
+   */
+  node?: string;
 }
 
 export function dispositionLedgerPath(dir: string): string {
@@ -125,6 +161,15 @@ export function appendDisposition(
   if (!isDispositionState(rec.state)) throw new Error(`state must be one of: ${DISPOSITION_STATES.join(", ")}`);
   if (!rec.by.trim()) throw new Error("a disposition needs attribution — say who settled it");
   if (!rec.reason.trim()) throw new Error("a disposition needs a reason — this write removes work by asserting, and the assertion is the only thing anyone can audit");
+  if (rec.verdict !== undefined && !isAcknowledgementVerdict(rec.verdict)) {
+    throw new Error(`verdict must be one of: ${ACKNOWLEDGEMENT_VERDICTS.join(", ")}`);
+  }
+  if (rec.verdict === "corroborates" && !rec.node?.trim()) {
+    throw new Error('a "corroborates" verdict needs the node the item was counted toward — the pointer is what lets it strengthen that node later');
+  }
+  if (rec.verdict !== "corroborates" && rec.node !== undefined) {
+    throw new Error('only a "corroborates" verdict names a node — an item that counts toward a node corroborates it');
+  }
   const record: DispositionRecord = {
     ts: now().toISOString(),
     subject: rec.subject,
@@ -132,6 +177,10 @@ export function appendDisposition(
     state: rec.state,
     reason: rec.reason,
     by: rec.by,
+    // Spread rather than always-present keys, so an entry with no verdict writes the
+    // same six fields every kind writes — the one-entry-type shape a test pins.
+    ...(rec.verdict !== undefined ? { verdict: rec.verdict } : {}),
+    ...(rec.verdict === "corroborates" ? { node: rec.node } : {}),
   };
   const file = dispositionLedgerPath(dir);
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -168,6 +217,13 @@ function parseDisposition(raw: string): DispositionRecord | null {
   // `closed`: an unreadable field must never be the one that removes work.
   if (!isDispositionKind(rec.kind)) return null;
   if (!isDispositionState(rec.state)) return null;
+  // The verdict fails CLOSED too, in both of its directions: a mangled verdict must
+  // neither remove work (the whole line is damaged, so the subject stays on its
+  // bucket) nor strengthen a node (a corroboration is a claim about the tree, and an
+  // unreadable field must never be the one that makes it).
+  if (rec.verdict !== undefined && !isAcknowledgementVerdict(rec.verdict)) return null;
+  if (rec.verdict === "corroborates" && (typeof rec.node !== "string" || !rec.node.trim())) return null;
+  if (rec.verdict !== "corroborates" && rec.node !== undefined) return null;
   return {
     ts: rec.ts,
     subject: rec.subject,
@@ -175,6 +231,8 @@ function parseDisposition(raw: string): DispositionRecord | null {
     state: rec.state,
     reason: String(rec.reason ?? ""),
     by: String(rec.by ?? ""),
+    ...(rec.verdict !== undefined ? { verdict: rec.verdict } : {}),
+    ...(rec.verdict === "corroborates" ? { node: rec.node as string } : {}),
   };
 }
 
@@ -263,6 +321,26 @@ export function omitDisposed<T>(
   return kept;
 }
 
+/**
+ * Every live acknowledgement that counted an item toward `node` — the one read that
+ * can strengthen a node's evidence later, and the reason the verdict is typed at all.
+ *
+ * Only `corroborates` entries whose standing state is `closed` qualify. A
+ * `no-genuine-need` acknowledgement can never surface here for any node, an entry with
+ * no verdict carries no claim about the tree, and a reopened corroboration was
+ * disputed — the dispute wins until a new entry closes it again.
+ */
+export function corroborationsFor(ledger: DispositionLedger, node: string): DispositionRecord[] {
+  const live: DispositionRecord[] = [];
+  for (const [subject] of ledger.histories) {
+    const standing = latestDisposition(ledger, subject);
+    if (standing?.state === "closed" && standing.verdict === "corroborates" && standing.node === node) {
+      live.push(standing);
+    }
+  }
+  return live.sort((a, b) => a.ts.localeCompare(b.ts));
+}
+
 /** Every subject currently closed, oldest disposition first — the bulk-audit set. */
 export function liveDispositions(ledger: DispositionLedger): DispositionRecord[] {
   const live: DispositionRecord[] = [];
@@ -293,7 +371,11 @@ export function formatDispositions(ledger: DispositionLedger): string {
       if (of.length === 0) continue;
       lines.push(`${kind} (${of.length}):`);
       for (const d of of) {
-        lines.push(`  ${d.ts.slice(0, 10)}  ${d.subject}`);
+        // The verdict is the auditor's first sorting key — "counted toward a node" and
+        // "nothing here" are different dismissals — so it prints beside the subject.
+        const verdict =
+          d.verdict === "corroborates" ? `  → corroborates [[${d.node}]]` : d.verdict === "no-genuine-need" ? "  → no genuine need" : "";
+        lines.push(`  ${d.ts.slice(0, 10)}  ${d.subject}${verdict}`);
         lines.push(`      ${d.reason} — ${d.by}`);
       }
       lines.push("");
