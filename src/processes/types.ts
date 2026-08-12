@@ -6,7 +6,7 @@
  * the outward-sensing budget — gathered once by `buildPassContext`.
  */
 import type { Config } from "../config/schema.js";
-import type { OST_RULESET } from "../knowledge/ruleset.js";
+import type { EffectiveRuleset } from "../knowledge/ruleset-proposal.js";
 import type { RemoteConfig } from "../security/tools.js";
 import type { Source } from "../adapters/source.js";
 import type { Vault } from "../ost/vault.js";
@@ -61,7 +61,11 @@ export interface PassContext {
    * ones that do. See `CONFIG_DEPENDENT` in `src/security/tools.ts`.
    */
   configProblem?: string;
-  ruleset: typeof OST_RULESET;
+  /**
+   * `OST_RULESET` with every human-accepted ruleset proposal folded in; a pending
+   * proposal is invisible here (`src/knowledge/ruleset-proposal.ts`).
+   */
+  ruleset: EffectiveRuleset;
   /** Enabled read-only sources that were successfully constructed. */
   sources: Source[];
   /**

@@ -3089,7 +3089,13 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2,799 tests across 216 files, verified 2026-08-11 (`npx vitest run`,
+> *Today:* **met** — 2,813 tests across 217 files, verified 2026-08-11 (`npx vitest run`,
+> after ruleset proposals landed: the agent drafts a change to its own ruleset as a
+> reviewable proposal carrying the friction evidence ids that triggered it, a pending or
+> rejected proposal never alters the ruleset a pass executes, and adoption is one
+> attributed human CLI action
+> (`src/knowledge/ruleset-proposal.ts`, `test/knowledge/ruleset-proposal.test.ts`).
+> Previously 2,799 tests across 216 files, verified 2026-08-11 (`npx vitest run`,
 > after the adversarial grounding judge landed: a critic pass that attacks every claim
 > outrunning its backing, structurally unable to create or remove a node and refusing to
 > emit an objection that does not name the evidence that would settle it

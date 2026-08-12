@@ -210,6 +210,18 @@ export const COMPRESSION_SURFACES = [
     proof: "declaration",
   },
   {
+    name: "ruleset proposal bound",
+    module: "src/knowledge/ruleset-proposal.ts",
+    caps: ["MAX_RULE_CHARS", "MAX_RATIONALE_CHARS", "MAX_SOURCE_CHARS"],
+    kind: "input-bound",
+    decision: "whether a human adopts the agent's drafted rule change into the executing ruleset",
+    reads: [
+      "nothing is ever clipped: a draft past the cap is refused whole, so the reviewed text and the adopted text are the same bytes",
+    ],
+    drops: "derived",
+    proof: "behavioral",
+  },
+  {
     name: "sense census detail",
     module: "src/loop/senses.ts",
     caps: ["MAX_DETAIL_CHARS"],

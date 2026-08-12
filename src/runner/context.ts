@@ -36,7 +36,7 @@ import { braveProvider, type SearchProvider } from "../web/search.js";
 import { federatedProvider } from "../web/federated.js";
 import { wikipediaSource, hackerNewsSource, discourseSource } from "../web/sources.js";
 import type { Config } from "../config/schema.js";
-import { OST_RULESET } from "../knowledge/ruleset.js";
+import { effectiveRuleset } from "../knowledge/ruleset-proposal.js";
 import type { PassContext, UnavailableSource } from "../processes/types.js";
 import { brokeredFetch } from "../security/brokered-fetch.js";
 import { fileAuditSink } from "../security/credential-audit.js";
@@ -381,7 +381,9 @@ export function buildPassContext(vaultDir: string, opts: BuildPassContextOptions
     dir,
     config,
     ...(loaded.problem ? { configProblem: loaded.problem } : {}),
-    ruleset: OST_RULESET,
+    // The ruleset with every human-ACCEPTED proposal folded in. Pending and
+    // rejected proposals change nothing here — see src/knowledge/ruleset-proposal.ts.
+    ruleset: effectiveRuleset(dir).ruleset,
     sources,
     unavailableSources,
     remote: { enabled: config.remote.enabled, url: config.remote.url },

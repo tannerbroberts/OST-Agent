@@ -52,6 +52,8 @@ import {
 import { readTreeResponse } from "../../src/security/tools.js";
 import { rollupTree } from "../../src/eval/rollup.js";
 import { readEvidence, writeEvidence } from "../../src/processes/tree.js";
+import { draftRulesetProposal, MAX_RULE_CHARS } from "../../src/knowledge/ruleset-proposal.js";
+import { fileFriction } from "../../src/adapters/friction.js";
 import { UNKNOWN_ACTOR } from "../../src/adapters/source.js";
 import { DATA_FRAME } from "../../src/security/framing.js";
 import { buildLargeTree } from "../ost/fixture-vault.js";
@@ -201,7 +203,13 @@ describe("contracts — every surface states what its squeeze preserves", () => 
 });
 
 /** The surfaces part 3 drives. Kept beside the drives so totality is checkable above. */
-const DRIVEN_SURFACES = ["computed rollup", "evidence body channel", "next-work sweep", "tree read"] as const;
+const DRIVEN_SURFACES = [
+  "computed rollup",
+  "evidence body channel",
+  "next-work sweep",
+  "ruleset proposal bound",
+  "tree read",
+] as const;
 
 /** Big enough that the sweep truncates and the tree read overflows nothing — see each control. */
 const SHAPE = { opportunities: 60, solutions: 60, assumptionTests: 60 };
@@ -323,6 +331,40 @@ describe("fidelity — the behavioral surfaces preserve their declared reads", (
       const short = readEvidenceBody(dir, shortId);
       expect(short.truncated).toEqual([]);
       expect(short.body).toContain("small enough to serve whole");
+    },
+    120_000,
+  );
+
+  test(
+    "ruleset proposal bound: a draft past the cap is refused whole, and one at the cap survives verbatim",
+    () => {
+      const filing = path.basename(fileFriction(dir, { kind: "unclear-rule", note: "same friction three passes running" }));
+
+      // Control: the cap must actually bite — one character over is refused, and
+      // the refusal names both the length and the cap rather than clipping.
+      const over = "r".repeat(MAX_RULE_CHARS + 1);
+      expect(() =>
+        draftRulesetProposal(dir, {
+          section: "agentMust",
+          rule: over,
+          rationale: "long enough to matter",
+          evidence: [filing],
+          at: "2026-08-11T00:00:00.000Z",
+        }),
+      ).toThrow(new RegExp(`${MAX_RULE_CHARS + 1}.*${MAX_RULE_CHARS}`));
+
+      // The other direction: at the cap, every byte survives into the file a
+      // human reviews — the reviewed text and the adoptable text are the same.
+      const atCap = "r".repeat(MAX_RULE_CHARS);
+      const proposal = draftRulesetProposal(dir, {
+        section: "agentMust",
+        rule: atCap,
+        rationale: "long enough to matter",
+        evidence: [filing],
+        at: "2026-08-11T00:00:00.000Z",
+      });
+      expect(proposal.rule).toBe(atCap);
+      expect(fs.readFileSync(proposal.file, "utf8")).toContain(atCap);
     },
     120_000,
   );
