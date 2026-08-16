@@ -49467,7 +49467,7 @@ A person outside the building is the measurement here: ${input.humansRequired.tr
     tool({
       name: "ost_set_instrument",
       reversibility: "reversible",
-      description: "Attach a runnable instrument to an assumption test that does not have one, or correct one that is wrong. The instrument is a single spec-file command whose exit code answers the test \u2014 'npx vitest run test/thing.test.ts' \u2014 and it MUST name behaviour that does not exist yet, so it fails against the repository today and passes once the solution is built. A command that already passes cannot fail, measures nothing, and gives a builder no definition of done. Nothing else is accepted: no shell punctuation, no arbitrary command, because a verdict has to come from committed code rather than from a string you chose. Use this to work through tests written before instruments existed \u2014 a test with a threshold and no instrument can only ever be settled by a person finding the time, which is how a tree ends up holding hundreds of tests and handing its builder nothing. Setting an instrument does NOT make anything buildable on its own: a permit needs an observed failure, and only `ost-agent verify` can record one. Replacing an instrument deliberately un-clears any permit the old one had, so a swap cannot inherit an observation of a different command.",
+      description: "Attach a runnable instrument to an assumption test that does not have one, or correct one that is wrong. The instrument is a single spec-file command whose exit code answers the test \u2014 'npx vitest run test/thing.test.ts' \u2014 and it MUST name behaviour that does not exist yet, so it fails against the repository today and passes once the solution is built. A command that already passes cannot fail, measures nothing, and gives a builder no definition of done. Nothing else is accepted: no shell punctuation, no arbitrary command, because a verdict has to come from committed code rather than from a string you chose. Use this to work through tests written before instruments existed \u2014 a test with a threshold and no instrument can only ever be settled by a person finding the time, which is how a tree ends up holding hundreds of tests and handing its builder nothing. Setting an instrument does NOT make anything buildable on its own: a permit needs an observed failure, and only `ost-agent verify` can record one. Replacing an instrument deliberately un-clears any permit the old one had, so a swap cannot inherit an observation of a different command \u2014 for that reason, a test that already carries a command REFUSES the call unless `replace` is set to true. Set it only when you mean to overwrite what is there, never as a default.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -49480,6 +49480,10 @@ A person outside the building is the measurement here: ${input.humansRequired.tr
           why: {
             type: "string",
             description: "What this command measures, and why it fails today \u2014 one sentence, recorded in the node's History. Say what the spec asserts, not just which file it lives in: a command is only meaningfully red when a spec exists and an assertion in it fails. A file that has not been written yet also exits non-zero, identically for every question anyone could write on it, so it is filed as `no-spec` and grants no build permit."
+          },
+          replace: {
+            type: "boolean",
+            description: "Must be true to overwrite a test that already carries an instrument. Declares, on purpose, that this call means to destroy the current command and un-clear any build permit it earned. Has no effect, and is not needed, when attaching an instrument to a test that has none."
           }
         },
         required: ["test", "instrument", "why"]
@@ -49498,6 +49502,12 @@ A person outside the building is the measurement here: ${input.humansRequired.tr
         const why = (input.why ?? "").trim();
         if (!why) {
           throw new Error("an instrument needs a why \u2014 what it measures and why it fails today");
+        }
+        const existing = (node.instrument ?? "").trim();
+        if (existing && !input.replace) {
+          throw new Error(
+            `refusing to attach an instrument to "${input.test}": it already runs \`${existing}\`. Overwriting it would un-clear any build permit that command has earned, and this call did not say on purpose that it means to. If this is a genuine correction, say so explicitly; if it is not, the test already has what it needs.`
+          );
         }
         if (node.lane === CAUTIOUS_LANE) {
           throw new Error(

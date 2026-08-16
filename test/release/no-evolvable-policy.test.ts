@@ -302,7 +302,12 @@ describe("the unattended surface writes no policy into the vault", () => {
     { name: "ost_set_evidence", arguments: { title: "Streaks lift day-7 return", evidence: "stated", note: "one report" } },
     {
       name: "ost_set_instrument",
-      arguments: { test: "Streaks lift day-7 return", instrument: "npx vitest run test/streaks-v2.test.ts", why: "the first command named the wrong module" },
+      arguments: {
+        test: "Streaks lift day-7 return",
+        instrument: "npx vitest run test/streaks-v2.test.ts",
+        why: "the first command named the wrong module",
+        replace: true,
+      },
     },
     { name: "ost_flag_humans_required", arguments: { test: "Streaks lift day-7 return", why: 'names an outside person: "interview"' } },
     { name: "ost_annotate", arguments: { title: "Daily streak", issue: "duplicate of nothing yet" } },

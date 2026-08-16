@@ -226,6 +226,7 @@ describe("a swapped instrument cannot inherit the old one's permit", () => {
       test: "Resolver test",
       instrument: "npx vitest run test/second.test.ts",
       why: "the first named the wrong module",
+      replace: true,
     });
 
     // The old run is still on the record — the vault is append-only and a run
@@ -251,6 +252,7 @@ describe("a swapped instrument cannot inherit the old one's permit", () => {
       test: "Resolver test",
       instrument: "npx vitest run test/second.test.ts",
       why: "corrected",
+      replace: true,
     });
     verifyInstrument(dir, { test: "Resolver test", repo });
     expect(buildPermit(ctx.vault.readTree(), SOLUTION).cleared).toBe(true);

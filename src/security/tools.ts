@@ -1087,7 +1087,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
       name: "ost_set_instrument",
       reversibility: "reversible",
       description:
-        "Attach a runnable instrument to an assumption test that does not have one, or correct one that is wrong. The instrument is a single spec-file command whose exit code answers the test — 'npx vitest run test/thing.test.ts' — and it MUST name behaviour that does not exist yet, so it fails against the repository today and passes once the solution is built. A command that already passes cannot fail, measures nothing, and gives a builder no definition of done. Nothing else is accepted: no shell punctuation, no arbitrary command, because a verdict has to come from committed code rather than from a string you chose. Use this to work through tests written before instruments existed — a test with a threshold and no instrument can only ever be settled by a person finding the time, which is how a tree ends up holding hundreds of tests and handing its builder nothing. Setting an instrument does NOT make anything buildable on its own: a permit needs an observed failure, and only `ost-agent verify` can record one. Replacing an instrument deliberately un-clears any permit the old one had, so a swap cannot inherit an observation of a different command.",
+        "Attach a runnable instrument to an assumption test that does not have one, or correct one that is wrong. The instrument is a single spec-file command whose exit code answers the test — 'npx vitest run test/thing.test.ts' — and it MUST name behaviour that does not exist yet, so it fails against the repository today and passes once the solution is built. A command that already passes cannot fail, measures nothing, and gives a builder no definition of done. Nothing else is accepted: no shell punctuation, no arbitrary command, because a verdict has to come from committed code rather than from a string you chose. Use this to work through tests written before instruments existed — a test with a threshold and no instrument can only ever be settled by a person finding the time, which is how a tree ends up holding hundreds of tests and handing its builder nothing. Setting an instrument does NOT make anything buildable on its own: a permit needs an observed failure, and only `ost-agent verify` can record one. Replacing an instrument deliberately un-clears any permit the old one had, so a swap cannot inherit an observation of a different command — for that reason, a test that already carries a command REFUSES the call unless `replace` is set to true. Set it only when you mean to overwrite what is there, never as a default.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -1102,10 +1102,15 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
             description:
               "What this command measures, and why it fails today — one sentence, recorded in the node's History. Say what the spec asserts, not just which file it lives in: a command is only meaningfully red when a spec exists and an assertion in it fails. A file that has not been written yet also exits non-zero, identically for every question anyone could write on it, so it is filed as `no-spec` and grants no build permit.",
           },
+          replace: {
+            type: "boolean",
+            description:
+              "Must be true to overwrite a test that already carries an instrument. Declares, on purpose, that this call means to destroy the current command and un-clear any build permit it earned. Has no effect, and is not needed, when attaching an instrument to a test that has none.",
+          },
         },
         required: ["test", "instrument", "why"],
       },
-      run: async (input: { test: string; instrument: string; why: string }) => {
+      run: async (input: { test: string; instrument: string; why: string; replace?: boolean }) => {
         const node = vault.read(input.test);
         if (node.layer !== "AssumptionTest") {
           throw new Error(`"${input.test}" is a ${node.layer} — an instrument belongs to an AssumptionTest`);
@@ -1120,6 +1125,23 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         const why = (input.why ?? "").trim();
         if (!why) {
           throw new Error("an instrument needs a why — what it measures and why it fails today");
+        }
+        // The overwrite guard. A swap un-clears any permit the old command
+        // earned (see the class doc on `Vault.setInstrument`), so it must be a
+        // decision this call states rather than something it falls into by
+        // calling the same tool twice. The refusal names the command at risk —
+        // that is the fact worth knowing at the moment it matters — and
+        // deliberately does not spell out how to get past it: that lives in
+        // this tool's own schema, not in a message a pass can learn from on
+        // first contact and repeat forever after without ever reading it.
+        const existing = (node.instrument ?? "").trim();
+        if (existing && !input.replace) {
+          throw new Error(
+            `refusing to attach an instrument to "${input.test}": it already runs \`${existing}\`. Overwriting it ` +
+              `would un-clear any build permit that command has earned, and this call did not say on purpose that ` +
+              `it means to. If this is a genuine correction, say so explicitly; if it is not, the test already ` +
+              `has what it needs.`,
+          );
         }
         // Refused on a test a human put beyond compute's reach, and the reason is
         // the same asymmetry `flagHumansRequired` rests on: the RESTRICTIVE call
