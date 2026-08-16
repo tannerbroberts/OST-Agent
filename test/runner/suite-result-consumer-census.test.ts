@@ -145,7 +145,7 @@ const CENSUS: readonly Consumer[] = [
 ];
 
 describe("the consumer set, enumerated and held there", () => {
-  test("every subprocess door under src/ is one of six files, and only three of them can run a suite", () => {
+  test("every subprocess door under src/ is one of seven files, and only three of them can run a suite", () => {
     // A suite verdict enters this codebase through a spawned process, so the
     // spawners bound the firsthand consumers. Exact, like the retraction
     // census's pin: a new spawner is an argument someone makes in a diff —
@@ -157,12 +157,18 @@ describe("the consumer set, enumerated and held there", () => {
     // status back raw, nothing maps it to a verdict, and its only callers
     // today are that census's own probes. If a consumer ever runs a suite
     // through it, that consumer joins this census then.
+    //
+    // `git/conflict-guard.ts` joined on 2026-08-16: `git cat-file --batch`
+    // needs stdin, which `simple-git`'s `.raw()` cannot supply, so the
+    // conflict scan's batched blob read spawns `git` directly. Provably
+    // git-only, same argument as `loop/state.ts` below.
     const doors = sources()
       .filter((f) => f.text.includes('"node:child_process"'))
       .map((f) => f.rel)
       .sort();
     expect(doors).toEqual([
       path.join("cli", "loop.ts"),
+      path.join("git", "conflict-guard.ts"),
       path.join("loop", "state.ts"),
       path.join("ost", "instrument.ts"),
       path.join("release", "ship-repo.ts"),
@@ -179,6 +185,16 @@ describe("the consumer set, enumerated and held there", () => {
     const gitSpawns = state.match(/spawnSync\("git"/g) ?? [];
     expect(spawns.length).toBeGreaterThan(0);
     expect(gitSpawns.length).toBe(spawns.length);
+
+    // `git/conflict-guard.ts` is provably git-only by the same argument: its
+    // one spawn point always names "git" as a literal, and every argv it
+    // passes is one of this file's own hardcoded git subcommands — never a
+    // caller-supplied command — so it cannot receive, let alone run, a suite.
+    const guard = readRepo("src/git/conflict-guard.ts");
+    const guardSpawns = guard.match(/spawn\(/g) ?? [];
+    const guardGitSpawns = guard.match(/spawn\("git"/g) ?? [];
+    expect(guardSpawns.length).toBeGreaterThan(0);
+    expect(guardGitSpawns.length).toBe(guardSpawns.length);
   });
 
   test("five channels — the threshold's own number — each still reading the boolean where the census says", () => {
