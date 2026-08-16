@@ -3089,7 +3089,17 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2,921 tests across 233 files, verified 2026-08-12 (`npx vitest run`,
+> *Today:* **met** — 2,927 tests across 234 files, counted 2026-08-13 on the
+> `two-stage-question-stop-count` branch. `npx vitest run` on this exact commit is
+> NOT green: the new file adds the instrument for "Ask the open question first, and
+> offer options only once the frame is agreed" (meta vault), whose headline assertion
+> is a deliberate, diagnosed red — the replay found the two-stage design would have
+> cost more operator turns (92) than one-stage actually did (72) on the harvested
+> corpus (`src/loop/questions.ts`, `test/loop/two-stage-question-stop-count.test.ts`).
+> That is a finding, not a defect, and this branch is not expected to merge; `main`'s
+> own last verified-green count remains the "Previously" line below until a commit
+> that does merge changes it.
+> Previously 2,921 tests across 233 files, verified 2026-08-12 (`npx vitest run`,
 > after "ask the host for the credential it already holds" landed: a registry of the
 > host surfaces this repository ships entry points for, each resolving a host-held
 > credential or recording that the host exposes none (`src/security/host-delegation.ts`,
