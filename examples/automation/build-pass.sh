@@ -404,8 +404,48 @@ fi
 # cleared by `gate` — a human's recorded result — legitimately has no red
 # instrument for `buildable` to clear. Dropping those would quietly narrow this
 # loop to the mechanical permit and strand every solution a person vouched for.
+#
+# ---------------------------------------------------------------------------
+# Stuck-target circuit breaker.
+#
+# $BUILDABLE's order is deterministic (tree order, tied on unmet resource
+# demands and evidence merit — src/product/planner.ts) and nothing in it
+# reacts to a build that already failed to ship. A solution whose instrument
+# is a genuine, PERMANENT negative — the repository proves the hypothesis
+# false rather than an implementation missing — never becomes SPENT (that
+# only clears when the instrument starts passing) and so stays first every
+# firing, forever, starving every candidate behind it. Observed 2026-08-16:
+# one target ("two-stage-question-stop-count", open PR #130 since 2026-08-12)
+# absorbed the model call on every firing for days while ~196 other buildable
+# candidates sat completely untouched.
+#
+# The fix tracks, per solution, how many firings in a row failed to ship it
+# WITHOUT the solution's own node file changing in between. A change to that
+# file (discovery re-instrumenting it, a human editing it) is the signal that
+# a fresh attempt might reach a different answer, so it resets the count
+# instead of compounding it. Two failed attempts on an unchanged node is
+# enough to stop paying for a third identical answer; this firing then skips
+# to the next candidate. A solution only reaches this file at all after a
+# real build attempt failed to ship it, so a healthy queue never touches it.
+# ---------------------------------------------------------------------------
+STUCK_THRESHOLD="${OST_BUILD_STUCK_THRESHOLD:-2}"
+STUCK_FILE="$STATE/stuck.txt"
+[ -f "$STUCK_FILE" ] || : >"$STUCK_FILE"
+
+stuck_lookup() {
+  awk -F '\t' -v t="$1" '$1==t{print $2"\t"$3; exit}' "$STUCK_FILE" 2>/dev/null
+}
+
+stuck_clear() {
+  [ -s "$STUCK_FILE" ] || return 0
+  awk -F '\t' -v t="$1" '$1!=t' "$STUCK_FILE" >"$STUCK_FILE.tmp" 2>/dev/null \
+    && mv "$STUCK_FILE.tmp" "$STUCK_FILE" || rm -f "$STUCK_FILE.tmp"
+}
+
 TARGET=""
+FALLBACK_STUCK_TARGET=""
 SPENT_COUNT=0
+SKIPPED_STUCK=0
 while IFS= read -r sol; do
   [ -n "$sol" ] || continue
   PERMIT_OUT="$(node "$CLI" buildable "$sol" --vault . --repo "$OST_AGENT_DIR" 2>&1)"
@@ -424,13 +464,36 @@ while IFS= read -r sol; do
             commit -q -m "chore(instruments): \"${SPENT_TEST}\" was green before this firing" >/dev/null 2>&1 || true
         fi
       fi
+      # Shipped, by definition no longer stuck.
+      stuck_clear "$sol"
       ;;
     *)
+      SOL_FP="$(git -C "$VAULT_DIR" log -1 --format=%H -- "${sol}.md" 2>/dev/null || echo none)"
+      STUCK_ATTEMPTS=""
+      STUCK_FP=""
+      IFS=$'\t' read -r STUCK_ATTEMPTS STUCK_FP < <(stuck_lookup "$sol") || true
+      case "$STUCK_ATTEMPTS" in ''|*[!0-9]*) STUCK_ATTEMPTS=0 ;; esac
+      if [ "$STUCK_ATTEMPTS" -ge "$STUCK_THRESHOLD" ] && [ "$STUCK_FP" = "$SOL_FP" ]; then
+        # Same node, already failed to ship this many times in a row — the
+        # same reasoning would run again for the same answer. Move on.
+        SKIPPED_STUCK=$(( SKIPPED_STUCK + 1 ))
+        [ -n "$FALLBACK_STUCK_TARGET" ] || FALLBACK_STUCK_TARGET="$sol"
+        continue
+      fi
       TARGET="$sol"
       break
       ;;
   esac
 done <"$BUILDABLE"
+
+# Every candidate this firing saw was stuck (or there was only one, and it
+# was). Retry the one this loop has waited longest on rather than going idle
+# — a fallback, not a first choice: ${SKIPPED_STUCK} candidate(s) were passed
+# over above in a normal firing, and this only fires when none of them
+# cleared.
+if [ -z "$TARGET" ] && [ -n "$FALLBACK_STUCK_TARGET" ]; then
+  TARGET="$FALLBACK_STUCK_TARGET"
+fi
 
 if [ -z "$TARGET" ]; then
   report "Build loop ran and built nothing, because everything the tree offered had already been built. All ${BUILD_COUNT} candidate(s) carried a red observation that no longer holds — their instruments pass against the repository today — and ${SPENT_COUNT} stale permit(s) have now been closed with the green they were owed. No model call was spent. Nothing is required of you; the next test discovery writes reaches this loop on the following firing."
@@ -673,6 +736,59 @@ esac
 # Appended, never substituted: the model's report is evidence, and a disagreement
 # between "I verified the gates" and what the gates just did is the finding.
 printf '%s\n' "$(cat "$REPORT" 2>/dev/null) [Loop ship: ${SHIP_NOTE}]" >"$REPORT"
+
+# ---------------------------------------------------------------------------
+# Stuck-target bookkeeping — continues the circuit breaker set up before the
+# claude invocation above. SHIP_EXIT 0 means TARGET shipped: no longer stuck
+# by definition, clear any record. Any other exit increments its count IF the
+# node's own file is unchanged since the last attempt; a changed file resets
+# to 1, because something about the solution moved and deserves a full-
+# priority attempt rather than inheriting a stale count.
+# ---------------------------------------------------------------------------
+if [ "$SHIP_EXIT" -eq 0 ]; then
+  stuck_clear "$TARGET"
+else
+  TARGET_FP="$(git -C "$VAULT_DIR" log -1 --format=%H -- "${TARGET}.md" 2>/dev/null || echo none)"
+  PREV_ATTEMPTS=""
+  PREV_FP=""
+  IFS=$'\t' read -r PREV_ATTEMPTS PREV_FP < <(stuck_lookup "$TARGET") || true
+  case "$PREV_ATTEMPTS" in ''|*[!0-9]*) PREV_ATTEMPTS=0 ;; esac
+  if [ "$PREV_FP" = "$TARGET_FP" ]; then
+    NEW_ATTEMPTS=$(( PREV_ATTEMPTS + 1 ))
+  else
+    NEW_ATTEMPTS=1
+  fi
+  stuck_clear "$TARGET"
+  printf '%s\t%s\t%s\n' "$TARGET" "$NEW_ATTEMPTS" "$TARGET_FP" >>"$STUCK_FILE"
+
+  if [ "$NEW_ATTEMPTS" -eq "$STUCK_THRESHOLD" ]; then
+    # Crossing the threshold, exactly once — not on every subsequent skip —
+    # leave a plain note in the vault's inbox for discovery's next
+    # `ost_ingest_inbox` to fold in. This is a raw filesystem write done by
+    # the deterministic wrapper, the same channel that already commits
+    # instrument observations into the vault above — never an ost_* tree
+    # write, and never the model's: the build agent has no path to this file
+    # and never sees it. It states what was observed, not a verdict.
+    INBOX_DIR="$VAULT_DIR/.ost-agent/inbox"
+    mkdir -p "$INBOX_DIR"
+    INBOX_SLUG="$(printf '%s' "$TARGET" | tr '[:upper:] ' '[:lower:]-' | tr -cd 'a-z0-9-' | cut -c1-60)"
+    INBOX_FILE="$INBOX_DIR/$(date -u +%Y-%m-%d)-build-loop-stuck-${INBOX_SLUG}.md"
+    if [ ! -e "$INBOX_FILE" ]; then
+      {
+        printf '# Build note — "%s" has not shipped after %s attempt(s) in a row\n\n' "$TARGET" "$NEW_ATTEMPTS"
+        printf 'Source: build loop, automated, %s. Evidence class: observed — an exit code the loop watched, not what the model reported.\n\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        printf 'This solution cleared a build permit but has now failed to ship %s firing(s) in a row with its own node file unchanged in between, so each firing was reasoning about the same unresolved definition. The build loop cannot write the tree and is leaving this as evidence, not a verdict.\n\n' "$NEW_ATTEMPTS"
+        printf 'Most recent build report:\n\n%s\n\n' "$(cat "$REPORT" 2>/dev/null)"
+        printf 'For discovery or a human to decide: whether this is a diagnosed negative worth deferring, a solution worth reframing, or a gate worth revisiting. The build loop will keep passing over this target in favor of other buildable candidates until this node changes.\n'
+      } >"$INBOX_FILE"
+      git -C "$VAULT_DIR" add -- ".ost-agent/inbox/$(basename "$INBOX_FILE")" >/dev/null 2>&1 || true
+      if [ -n "$(git -C "$VAULT_DIR" diff --cached --name-only 2>/dev/null)" ]; then
+        git -C "$VAULT_DIR" -c user.name="ost-build-loop" -c user.email="build@localhost" \
+          commit -q -m "chore(inbox): flag \"${TARGET}\" as stuck after ${NEW_ATTEMPTS} unshipped attempts" >/dev/null 2>&1 || true
+      fi
+    fi
+  fi
+fi
 
 # Last, after every branch that could have rewritten the report — the model's own
 # Write, and the postflight's disagreement note above.
