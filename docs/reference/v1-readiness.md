@@ -3089,7 +3089,12 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2,923 tests across 234 files, verified 2026-08-16 (`npx vitest run`,
+> *Today:* **met** — 2,930 tests across 235 files, verified 2026-08-16 (`npx vitest run`,
+> after the instrument overwrite guard landed: `ost_set_instrument` refuses to overwrite
+> a test that already carries a command unless the call explicitly declares `replace:
+> true`, naming the command at risk in the refusal without spelling out the escape
+> (`src/security/tools.ts`, `test/instruments/overwrite-guard.test.ts`).
+> Previously 2,923 tests across 234 files, verified 2026-08-16 (`npx vitest run`,
 > after "Assert on work units instead of milliseconds" landed: an instrument
 > measuring whether `ost_next_work`'s own file-read count tracks its elapsed time
 > across vault sizes (`test/telemetry/work-units-vs-elapsed.test.ts`).
