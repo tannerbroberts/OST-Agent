@@ -33592,6 +33592,7 @@ function believabilityRollup(nodes) {
       unlabelled++;
     }
   }
+  if (unlabelled > 0) present.push(FLOOR_RUNG);
   return { counts, unlabelled, weakest: weakestRung(present) };
 }
 function classifyProvenance(source) {
