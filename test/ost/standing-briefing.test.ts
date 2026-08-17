@@ -44,11 +44,15 @@ function node(over: Partial<OstNode> & { title: string; layer: Layer }): OstNode
 /**
  * A small wired tree: two buckets, the newest work under the first. Weakest
  * declared rung is `stated` (on the solution) — `money` and `observed` both
- * outrank it on the ladder.
+ * outrank it on the ladder. The Outcome carries `observed` too, for the same
+ * reason a well-formed tree always labels it (`evidence-class` in
+ * `eval/invariants.ts`): an unlabelled node now pulls the rollup's weakest rung
+ * to the floor rather than being invisible to it, and a fixture that left the
+ * Outcome unlabelled would silently be testing that bug instead of this belief.
  */
 function fixtureTree(): OstNode[] {
   return [
-    node({ title: "Ship the product", layer: "Outcome", links: ["Onboarding stalls", "Exports time out"] }),
+    node({ title: "Ship the product", layer: "Outcome", evidence: "observed", links: ["Onboarding stalls", "Exports time out"] }),
     node({ title: "Onboarding stalls", layer: "Opportunity", evidence: "observed", created: "2026-08-01", links: ["Guided first run"] }),
     node({ title: "Guided first run", layer: "Solution", evidence: "stated", created: "2026-08-10" }),
     node({ title: "Exports time out", layer: "Opportunity", evidence: "money", created: "2026-07-01" }),

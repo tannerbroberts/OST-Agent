@@ -3089,7 +3089,13 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2,934 tests across 237 files, verified 2026-08-16 (`npx vitest run`,
+> *Today:* **met** — 2,938 tests across 238 files, verified 2026-08-17 (`npx vitest run`,
+> after "Believability ladder required on every node" closed a gap its own review
+> surfaced: the weakest-rung rollup excluded unlabelled nodes from the weakest-rung
+> computation entirely, so a tree with nine strong-rung nodes and one undeclared node
+> reported the strong rung as the tree's weakest belief — a floor the undeclared node
+> never earned (`src/knowledge/believability.ts`, `test/ost/evidence-class-on-every-node.test.ts`).
+> Previously 2,934 tests across 237 files, verified 2026-08-16 (`npx vitest run`,
 > after "Be found through the agent ecosystem's own directories rather than through
 > product channels" landed: packaging for two agent-ecosystem directories — a generic
 > MCP client config and a third-party Claude Code plugin-marketplace listing — each

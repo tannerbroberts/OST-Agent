@@ -111,6 +111,13 @@ export function believabilityRollup(nodes: readonly { evidence?: string }[]): Be
       unlabelled++;
     }
   }
+  // An unlabelled node has earned no rung, which is at least as weak as the
+  // floor — never better. Leaving it out of `present` let a tree with nine
+  // `money` nodes and one undeclared node report `weakest: money`, flattering a
+  // floor the undeclared node never earned. One floor marker is enough: it never
+  // touches `counts`, so "how many nodes DECLARED assertion" and "how weak is
+  // the tree really" stay separate questions.
+  if (unlabelled > 0) present.push(FLOOR_RUNG);
   return { counts, unlabelled, weakest: weakestRung(present) };
 }
 
