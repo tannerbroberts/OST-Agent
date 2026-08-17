@@ -72,6 +72,7 @@ import {
 } from "./census.js";
 import type { RungId } from "../knowledge/believability.js";
 import type { LaneId } from "../knowledge/lanes.js";
+import { DriftError, readWithHash, writeWithHash } from "../git/read-write-hash-guard.js";
 
 function isoToday(): string {
   return new Date().toISOString().slice(0, 10);
@@ -656,16 +657,33 @@ export class Vault {
    * Frontmatter is not touched. Status, evidence, lane and instrument each have
    * their own writer because each records a typed transition in History, and an
    * edit that could set them silently would launder those transitions.
+   *
+   * Carries a content hash from the read here to the write: a full-body
+   * replace is the one write on this file that can silently discard
+   * something, so if the file on disk has moved since this method read it —
+   * a human editing the vault in Obsidian, a second agent process, another
+   * tool call landing between the read and this write — the write refuses,
+   * naming what drifted, instead of overwriting whatever arrived.
    */
   editProse(title: string, newProse: string, why: string): string {
     assertWritableContent(`the new body of "${title}"`, newProse);
     assertWritableContent(`the reason for editing "${title}"`, why);
-    const node = this.read(title);
+    const p = this.nodePath(title);
+    if (!fs.existsSync(p)) throw this.noSuchNode(title);
+    const read = readWithHash(p);
+    const node = deserialize(title, read.content);
     const { reserved } = splitReservedSections(node.body);
     node.body = joinReservedSections(newProse, reserved);
     const line = `- ${isoToday()} body edited — ${why}`;
     node.body = appendUnderHeading(node.body, "## History", line);
-    fs.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+    try {
+      writeWithHash(p, serialize(node), read);
+    } catch (err) {
+      if (err instanceof DriftError) {
+        throw new Error(`cannot edit "${title}": ${err.message} — re-read the node and retry the edit.`);
+      }
+      throw err;
+    }
     return line;
   }
 
