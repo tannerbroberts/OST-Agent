@@ -27029,6 +27029,7 @@ var init_stdio2 = __esm({
 import fs58 from "node:fs";
 import os5 from "node:os";
 import path61 from "node:path";
+import { spawnSync as spawnSync6 } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 
 // node_modules/commander/esm.mjs
@@ -44178,6 +44179,41 @@ function renderPanel(report) {
   return lines.join("\n");
 }
 
+// src/eval/canary.ts
+async function runOne(process3, input) {
+  try {
+    return { ok: true, output: await process3(input) };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+async function runCanary(input, incumbent, candidate) {
+  const incumbentInput = structuredClone(input);
+  const candidateInput = structuredClone(input);
+  const [incumbentOutcome, candidateOutcome] = await Promise.all([
+    runOne(incumbent, incumbentInput),
+    runOne(candidate, candidateInput)
+  ]);
+  if (!incumbentOutcome.ok) {
+    throw new Error(`canary: incumbent process failed \u2014 ${incumbentOutcome.error}`);
+  }
+  const diverged = !candidateOutcome.ok || JSON.stringify(candidateOutcome.output) !== JSON.stringify(incumbentOutcome.output);
+  return { input, incumbent: incumbentOutcome.output, candidate: candidateOutcome, diverged };
+}
+function renderCanary(result) {
+  const lines = [];
+  lines.push(`canary: input ${JSON.stringify(result.input)}`);
+  lines.push(`  incumbent: ${JSON.stringify(result.incumbent)}`);
+  if (result.candidate.ok) {
+    lines.push(`  candidate: ${JSON.stringify(result.candidate.output)}`);
+    lines.push(result.diverged ? "  DIVERGED \u2014 outputs differ, incumbent's result stands unless a human adopts the candidate" : "  MATCH \u2014 outputs identical");
+  } else {
+    lines.push(`  candidate: ERROR \u2014 ${result.candidate.error}`);
+    lines.push("  incumbent's result is untouched by the candidate's failure");
+  }
+  return lines.join("\n");
+}
+
 // src/ost/sweep.ts
 import fs26 from "node:fs";
 import path28 from "node:path";
@@ -55633,6 +55669,23 @@ program2.command("judge-panel").description(
   const ctx = buildPassContext(opts.vault);
   const solutions = ctx.vault.readTree().filter((n) => n.layer === "Solution").map((n) => ({ title: n.title, body: n.body }));
   console.log(renderPanel(runPanel(solutions)));
+});
+function shellProcess(command) {
+  return (input) => {
+    const result = spawnSync6(command, { shell: true, input, encoding: "utf8" });
+    if (result.error) throw result.error;
+    if (result.status !== 0) {
+      throw new Error(`exit ${result.status ?? "signal"}: ${(result.stderr || "").trim() || "(no stderr)"}`);
+    }
+    return result.stdout;
+  };
+}
+program2.command("canary").description(
+  "run the incumbent command and a changed candidate over the same input, side by side, without stopping the incumbent \u2014 for a human to judge and adopt or discard"
+).requiredOption("--incumbent <command>", "the command already trusted, run through the shell").requiredOption("--candidate <command>", "the changed command to compare against it, run through the shell").option("--input <file>", "file piped to both commands on stdin (defaults to empty input)").action(async (opts) => {
+  const input = opts.input ? fs58.readFileSync(opts.input, "utf8") : "";
+  const result = await runCanary(input, shellProcess(opts.incumbent), shellProcess(opts.candidate));
+  console.log(renderCanary(result));
 });
 program2.command("lanes").description("assumption tests grouped by the human minutes they actually cost").option("--vault <dir>", VAULT_OPTION_HELP).option("--runnable", "print only the compute-only backlog, one title per line (for scripting)").option(
   "--flag-cautious <who>",

@@ -145,7 +145,7 @@ const CENSUS: readonly Consumer[] = [
 ];
 
 describe("the consumer set, enumerated and held there", () => {
-  test("every subprocess door under src/ is one of seven files, and only three of them can run a suite", () => {
+  test("every subprocess door under src/ is one of eight files, and only three of them can run a suite", () => {
     // A suite verdict enters this codebase through a spawned process, so the
     // spawners bound the firsthand consumers. Exact, like the retraction
     // census's pin: a new spawner is an argument someone makes in a diff —
@@ -162,11 +162,21 @@ describe("the consumer set, enumerated and held there", () => {
     // needs stdin, which `simple-git`'s `.raw()` cannot supply, so the
     // conflict scan's batched blob read spawns `git` directly. Provably
     // git-only, same argument as `loop/state.ts` below.
+    //
+    // `cli/index.ts` joined on 2026-08-17: the `canary` command spawns an
+    // operator-named incumbent/candidate command pair over identical input so
+    // a human can compare their output side by side (`runCanary`,
+    // `src/eval/canary.ts`). A nonzero exit becomes `candidate.error` in the
+    // printed comparison, not a boolean — nothing in this repository reduces
+    // it to pass/fail, and the command never assigns `process.exitCode`.
+    // Provably not a suite-verdict consumer, proven below rather than by a
+    // hardcoded-argv argument, because the command IS caller-supplied here.
     const doors = sources()
       .filter((f) => f.text.includes('"node:child_process"'))
       .map((f) => f.rel)
       .sort();
     expect(doors).toEqual([
+      path.join("cli", "index.ts"),
       path.join("cli", "loop.ts"),
       path.join("git", "conflict-guard.ts"),
       path.join("loop", "state.ts"),
@@ -175,6 +185,17 @@ describe("the consumer set, enumerated and held there", () => {
       path.join("release", "ship.ts"),
       path.join("runner", "shell-necessity.ts"),
     ]);
+
+    // `cli/index.ts` has exactly one spawn point (`shellProcess`, the
+    // `canary` command's runner), and that command's action never assigns
+    // `process.exitCode` — so a candidate's exit status cannot reach any
+    // pass/fail decision this repository makes.
+    const cliIndex = readRepo("src/cli/index.ts");
+    const cliIndexSpawns = cliIndex.match(/spawnSync\(/g) ?? [];
+    expect(cliIndexSpawns.length).toBe(1);
+    const canaryAction = cliIndex.match(/\.command\("canary"\)[\s\S]*?\n {2}\}\);\n/)?.[0] ?? "";
+    expect(canaryAction).toContain("shellProcess(opts.incumbent)");
+    expect(canaryAction).not.toMatch(/process\.exitCode/);
 
     // `loop/state.ts` is provably git-only: every spawn names "git" as a
     // literal, so it cannot receive a suite and is not a consumer. The other
