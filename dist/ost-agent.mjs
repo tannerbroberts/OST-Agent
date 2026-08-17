@@ -44179,6 +44179,58 @@ function renderPanel(report) {
   return lines.join("\n");
 }
 
+// src/eval/tournament.ts
+function refutingLine(test) {
+  if (recordedVerdict(test) !== "refuted") return null;
+  const entries = entriesUnder(test.body, RESULTS_HEADING);
+  const refuting = [...entries].reverse().find((e) => /\brefuted\b/i.test(e));
+  return refuting ?? entries[entries.length - 1] ?? null;
+}
+function runTournament(candidates, tree) {
+  const index = byTitle([...tree]);
+  const eliminations = [];
+  for (const candidate of candidates) {
+    for (const test of testsUnderSolution(candidate, index)) {
+      const line = refutingLine(test);
+      if (!line) continue;
+      eliminations.push({ candidate: candidate.title, against: test.title, evidence: line, verdict: "refuted" });
+      break;
+    }
+  }
+  let remaining = candidates.map((c3) => c3.title);
+  const rounds = eliminations.map((elimination, i2) => {
+    const entering = remaining;
+    remaining = remaining.filter((title) => title !== elimination.candidate);
+    return { round: i2 + 1, entering, eliminated: [elimination], remaining };
+  });
+  return {
+    subject: { offered: candidates.length, read: candidates.length },
+    rounds,
+    survivors: remaining,
+    eliminated: eliminations
+  };
+}
+function renderTournament(report) {
+  const { offered, read } = report.subject;
+  if (read === 0) {
+    return `tournament: BLIND \u2014 read 0 of ${offered} candidate(s), so nothing was run.`;
+  }
+  const lines = [];
+  lines.push(
+    `tournament: ${report.eliminated.length} elimination(s) over ${report.rounds.length} round(s); ${report.survivors.length} of ${read} candidate(s) still standing.`
+  );
+  for (const round of report.rounds) {
+    const e = round.eliminated[0];
+    lines.push(`
+- round ${round.round}: eliminated "${e.candidate}" \u2014 refuted by "${e.against}"`);
+    lines.push(`    evidence: ${e.evidence}`);
+  }
+  lines.push(`
+still standing: ${report.survivors.length ? report.survivors.map((s) => `"${s}"`).join(", ") : "(none)"}`);
+  lines.push("declaring a winner among them stays a human's call \u2014 this pass only shrinks the set.");
+  return lines.join("\n");
+}
+
 // src/eval/canary.ts
 async function runOne(process3, input) {
   try {
@@ -55669,6 +55721,14 @@ program2.command("judge-panel").description(
   const ctx = buildPassContext(opts.vault);
   const solutions = ctx.vault.readTree().filter((n) => n.layer === "Solution").map((n) => ({ title: n.title, body: n.body }));
   console.log(renderPanel(runPanel(solutions)));
+});
+program2.command("tournament").description(
+  "run a bracket of solutions against each other in rounds; a candidate is eliminated only when a test beneath it has recorded a refuted result \u2014 no round crowns a winner (no model needed)"
+).argument("[candidates...]", "titles of the Solutions to run the bracket over; defaults to every Solution in the tree").option("--vault <dir>", VAULT_OPTION_HELP).action((candidateTitles, opts) => {
+  const ctx = buildPassContext(opts.vault);
+  const tree = ctx.vault.readTree();
+  const candidates = tree.filter((n) => n.layer === "Solution").filter((n) => candidateTitles.length === 0 || candidateTitles.some((t2) => titlesMatch(n.title, t2)));
+  console.log(renderTournament(runTournament(candidates, tree)));
 });
 function shellProcess(command) {
   return (input) => {

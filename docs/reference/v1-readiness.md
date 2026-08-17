@@ -3089,7 +3089,14 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2,952 tests across 240 files, verified 2026-08-17 (`npx vitest run`,
+> *Today:* **met** — 2,962 tests across 241 files, verified 2026-08-17 (`npx vitest run`,
+> after "Candidate tournament that eliminates on grounded evidence rather than promoting
+> on vibes" landed: a bracket of Solutions runs against a tree's own recorded results,
+> eliminating a candidate only when a test beneath it recorded a `refuted` verdict, citing
+> the verbatim `## Results` line — no round crowns a candidate, the consideration set only
+> shrinks, and declaring a winner stays a human's call (`src/eval/tournament.ts`,
+> `test/eval/tournament-elimination.test.ts`).
+> Previously 2,952 tests across 240 files, verified 2026-08-17 (`npx vitest run`,
 > after "Budget against a same-run baseline instead of against the clock" landed:
 > `ost_next_work` timed alongside a same-run baseline call to the same function on a
 > much smaller vault, gated on the ratio between the two rather than on an absolute

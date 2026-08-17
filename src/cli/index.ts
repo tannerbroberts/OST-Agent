@@ -10,6 +10,7 @@
  *   ost-agent debt [--vault DIR]              evidence each solution still owes + unbounded results + unfixed thresholds
  *   ost-agent critic [--vault DIR]            attack the tree: every claim that outruns its backing, and what would settle it
  *   ost-agent judge-panel [--vault DIR]       three judges name each solution's riskiest assumption; disagreement is the signal
+ *   ost-agent tournament [<solutions...>]     eliminate on refuted recorded results only; the set shrinks, nothing is crowned
  *   ost-agent canary --incumbent C --candidate C  run two commands over the same input side by side; the incumbent never stops
  *   ost-agent lanes [--vault DIR]             assumption tests by the human minutes they cost
  *   ost-agent lanes --flag-cautious <who>     bulk: humans-required for every test naming an outside person
@@ -75,9 +76,11 @@ import { lineageOf, renderLineage } from "../eval/lineage.js";
 import { BELIEVABILITY_LADDER, type RungId } from "../knowledge/believability.js";
 import { promoteNode, recordResult, retractNode, VERDICTS, type Verdict } from "../ost/results.js";
 import { verifyInstrument } from "../ost/instrument.js";
+import { titlesMatch } from "../ost/sanitize.js";
 import { buildableSolutions, buildPermit, confirmPermit, testsAwaitingVerification } from "../eval/buildable.js";
 import { applyCritic, criticPass, renderCritic } from "../eval/critic.js";
 import { renderPanel, runPanel } from "../eval/judge-panel.js";
+import { renderTournament, runTournament } from "../eval/tournament.js";
 import { renderCanary, runCanary, type CanaryProcess } from "../eval/canary.js";
 import { formatCensus, reconcileWithGit, reconcileWithUsage } from "../ost/census.js";
 import { formatStrandedCensus, strandedEvidenceCensus } from "../ost/stranded.js";
@@ -715,6 +718,22 @@ program
       .filter((n) => n.layer === "Solution")
       .map((n) => ({ title: n.title, body: n.body }));
     console.log(renderPanel(runPanel(solutions)));
+  });
+
+program
+  .command("tournament")
+  .description(
+    "run a bracket of solutions against each other in rounds; a candidate is eliminated only when a test beneath it has recorded a refuted result — no round crowns a winner (no model needed)",
+  )
+  .argument("[candidates...]", "titles of the Solutions to run the bracket over; defaults to every Solution in the tree")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((candidateTitles: string[], opts: { vault: string }) => {
+    const ctx = buildPassContext(opts.vault);
+    const tree = ctx.vault.readTree();
+    const candidates = tree
+      .filter((n) => n.layer === "Solution")
+      .filter((n) => candidateTitles.length === 0 || candidateTitles.some((t) => titlesMatch(n.title, t)));
+    console.log(renderTournament(runTournament(candidates, tree)));
   });
 
 /**
