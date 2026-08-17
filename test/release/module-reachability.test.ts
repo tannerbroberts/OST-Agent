@@ -99,6 +99,22 @@ const KNOWN_UNREACHABLE: Record<string, string> = {
    */
   "src/loop/early-push.ts":
     "built and tested; parked pending the operator's call on pushing WIP to a shared branch on a cadence",
+  /*
+   * Classifies a failed string replacement as stale-file, bad-quote, or
+   * cannot-say against a run's own record of what it has read. Built and
+   * tested to the assumption test's three-arm bar (`test/runner/failed-match-attribution.test.ts`),
+   * but the run journal it consults — `ReadJournal.recordRead` — has to be
+   * fed by whatever intercepts a tool call in the live runner, and no such
+   * interception surface exists in this repository: there is no hook that
+   * sees a Read or a failed Edit before this module could act on it. The
+   * node's own text draws the same line — "lives in this product's runner
+   * rather than in the host" — but the runner side of that split has not
+   * been built. It comes off when a live tool-call surface exists to journal
+   * reads and hand a failed match to `classifyFailedMatch`, or goes when the
+   * node is deferred.
+   */
+  "src/runner/failed-match-attribution.ts":
+    "built and tested; parked pending a live tool-call interception surface to feed its read journal, which does not exist in this repository yet",
 };
 
 function tsFiles(dir: string): string[] {

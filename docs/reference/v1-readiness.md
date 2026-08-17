@@ -3089,8 +3089,19 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2,995 tests across 244 files, verified 2026-08-17 (`npx vitest run`,
-> after "Census every check whose expected and actual sides are drawn from the same
+> *Today:* **met** — 2,999 tests across 245 files, verified 2026-08-17 (`npx vitest run`,
+> after "Classify the failed match by comparing the file against the run journal's
+> recorded read" landed: a run-scoped `ReadJournal` records the content hash of every
+> file a run reads, and `classifyFailedMatch` compares a failed replacement's file
+> against it — a hash that has moved since the read is reported as stale-file, a
+> byte-identical file as bad-quote, and a file with no journalled read as an explicit
+> cannot-say rather than either guess, meeting the assumption test's three-arm bar
+> (`src/runner/failed-match-attribution.ts`, `test/runner/failed-match-attribution.test.ts`).
+> The module has no live caller yet — no tool-call interception surface in this
+> repository feeds its journal from a real Read or Edit — and is parked on the
+> reachability register (`test/release/module-reachability.test.ts`) pending one.
+> Previously 2,995 tests across 244 files, verified 2026-08-17 (`npx vitest run`, after
+> "Census every check whose expected and actual sides are drawn from the same
 > source" landed: a syntactic provenance census (`scripts/provenance-census.ts`) traces
 > both sides of every `expect(actual).matcher(expected)` call to the import or local
 > declaration each side resolves to, scored against the three files that independently
