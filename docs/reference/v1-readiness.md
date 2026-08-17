@@ -3089,7 +3089,14 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2,938 tests across 238 files, verified 2026-08-17 (`npx vitest run`,
+> *Today:* **met** — 2,942 tests across 239 files, verified 2026-08-17 (`npx vitest run`,
+> after "Budget against a same-run baseline instead of against the clock" landed:
+> `ost_next_work` timed alongside a same-run baseline call to the same function on a
+> much smaller vault, gated on the ratio between the two rather than on an absolute
+> millisecond bound, which is what the two 2026-08-01 flakes (2004ms and 2280ms against
+> Z3's 2,000ms budget, both passing cleanly seconds later run alone) needed and did not
+> have (`test/telemetry/same-run-baseline-ratio.test.ts`).
+> Previously 2,938 tests across 238 files, verified 2026-08-17 (`npx vitest run`,
 > after "Believability ladder required on every node" closed a gap its own review
 > surfaced: the weakest-rung rollup excluded unlabelled nodes from the weakest-rung
 > computation entirely, so a tree with nine strong-rung nodes and one undeclared node
