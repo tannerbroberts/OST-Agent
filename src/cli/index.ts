@@ -10,6 +10,7 @@
  *   ost-agent debt [--vault DIR]              evidence each solution still owes + unbounded results + unfixed thresholds
  *   ost-agent critic [--vault DIR]            attack the tree: every claim that outruns its backing, and what would settle it
  *   ost-agent judge-panel [--vault DIR]       three judges name each solution's riskiest assumption; disagreement is the signal
+ *   ost-agent canary --incumbent C --candidate C  run two commands over the same input side by side; the incumbent never stops
  *   ost-agent lanes [--vault DIR]             assumption tests by the human minutes they cost
  *   ost-agent lanes --flag-cautious <who>     bulk: humans-required for every test naming an outside person
  *   ost-agent lane "<test>" --set <lane> ...  classify one test into a lane
@@ -57,6 +58,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import { Command } from "commander";
 import { buildPassContext } from "../runner/context.js";
@@ -76,6 +78,7 @@ import { verifyInstrument } from "../ost/instrument.js";
 import { buildableSolutions, buildPermit, confirmPermit, testsAwaitingVerification } from "../eval/buildable.js";
 import { applyCritic, criticPass, renderCritic } from "../eval/critic.js";
 import { renderPanel, runPanel } from "../eval/judge-panel.js";
+import { renderCanary, runCanary, type CanaryProcess } from "../eval/canary.js";
 import { formatCensus, reconcileWithGit, reconcileWithUsage } from "../ost/census.js";
 import { formatStrandedCensus, strandedEvidenceCensus } from "../ost/stranded.js";
 import { blindnessCensus, formatBlindnessCensus, readSweepRuns, recordSweepRun } from "../ost/sweep.js";
@@ -712,6 +715,38 @@ program
       .filter((n) => n.layer === "Solution")
       .map((n) => ({ title: n.title, body: n.body }));
     console.log(renderPanel(runPanel(solutions)));
+  });
+
+/**
+ * A shell command as a {@link CanaryProcess}: the input string is piped in on
+ * stdin, stdout is the output. A nonzero exit or a spawn failure becomes a
+ * thrown error, which `runCanary` catches for the candidate and rethrows for
+ * the incumbent — so an incumbent command that is already broken fails the
+ * `canary` invocation instead of being silently compared against itself.
+ */
+function shellProcess(command: string): CanaryProcess<string, string> {
+  return (input: string) => {
+    const result = spawnSync(command, { shell: true, input, encoding: "utf8" });
+    if (result.error) throw result.error;
+    if (result.status !== 0) {
+      throw new Error(`exit ${result.status ?? "signal"}: ${(result.stderr || "").trim() || "(no stderr)"}`);
+    }
+    return result.stdout;
+  };
+}
+
+program
+  .command("canary")
+  .description(
+    "run the incumbent command and a changed candidate over the same input, side by side, without stopping the incumbent — for a human to judge and adopt or discard",
+  )
+  .requiredOption("--incumbent <command>", "the command already trusted, run through the shell")
+  .requiredOption("--candidate <command>", "the changed command to compare against it, run through the shell")
+  .option("--input <file>", "file piped to both commands on stdin (defaults to empty input)")
+  .action(async (opts: { incumbent: string; candidate: string; input?: string }) => {
+    const input = opts.input ? fs.readFileSync(opts.input, "utf8") : "";
+    const result = await runCanary(input, shellProcess(opts.incumbent), shellProcess(opts.candidate));
+    console.log(renderCanary(result));
   });
 
 program
