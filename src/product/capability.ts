@@ -270,7 +270,12 @@ const UNATTRIBUTABLE = [/^ost-agent@localhost$/i, /^root@/i, /\[bot\]@/i, /^$/];
 const FS = "\x1f";
 const RS = "\x1e";
 
-function isAttributable(author: Builder | undefined): author is Builder {
+/**
+ * Whether an author is a party the record can profile — not a bot, not an
+ * empty field. Exported so other readers of the committed record (the routing
+ * census, for one) apply the same filter rather than growing a second one.
+ */
+export function isAttributable(author: Builder | undefined): author is Builder {
   if (!author || !author.name.trim() || !author.email.trim()) return false;
   return !UNATTRIBUTABLE.some((p) => p.test(author.email));
 }
