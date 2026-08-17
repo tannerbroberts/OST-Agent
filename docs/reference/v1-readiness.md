@@ -3089,8 +3089,17 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2,986 tests across 243 files, verified 2026-08-17 (`npx vitest run`,
-> after "Carry a content hash from read to write and refuse on drift, naming what drifted"
+> *Today:* **met** — 2,995 tests across 244 files, verified 2026-08-17 (`npx vitest run`,
+> after "Census every check whose expected and actual sides are drawn from the same
+> source" landed: a syntactic provenance census (`scripts/provenance-census.ts`) traces
+> both sides of every `expect(actual).matcher(expected)` call to the import or local
+> declaration each side resolves to, scored against the three files that independently
+> derived the MCP prefix and agreed with the bug for 23 releases. The census flags 0 of
+> 3 — confirming the parent assumption's prediction that a shared-symbol census misses a
+> belief three files derived independently rather than one symbol they read in common —
+> and sizes the population it can see over the rest of the suite: 36 same-source
+> assertions across 21 of 243 test files (`test/guards/provenance-census-scores-against-known-defects.test.ts`).
+> Before that, after "Carry a content hash from read to write and refuse on drift, naming what drifted"
 > landed: a read now hands back a content-hash fingerprint alongside the file, and
 > `Vault.editProse` — the one write that can silently discard something, a full-body
 > replace — presents that fingerprint back before it writes, refusing with a message
