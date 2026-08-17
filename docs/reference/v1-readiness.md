@@ -3089,7 +3089,7 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2,995 tests across 244 files, verified 2026-08-17 (`npx vitest run`,
+> *Today:* **met** — 3,001 tests across 245 files, verified 2026-08-17 (`npx vitest run`,
 > after "Census every check whose expected and actual sides are drawn from the same
 > source" landed: a syntactic provenance census (`scripts/provenance-census.ts`) traces
 > both sides of every `expect(actual).matcher(expected)` call to the import or local

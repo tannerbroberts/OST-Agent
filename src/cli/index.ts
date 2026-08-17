@@ -41,6 +41,7 @@
  *   ost-agent claim "<work>" --briefing F     take the work before building it, so a second pass sees it is taken
  *   ost-agent next-build [--rewrite F]        the standing Next Build reading at its one address: read it, or supersede it keeping every prior reading
  *   ost-agent ledger [--publish F]            the whole-tree ranked ledger: every rankable node in one order, each row carrying the reason it sits there — a reason that cites nothing is refused a rank
+ *   ost-agent disconfirmer-order --queue F    order supplied {title, eliminates, effort, importance} candidates by eliminates-per-effort instead of importance
  *   ost-agent briefing [--vault DIR]          the standing tree briefing, regenerated in full from the tree — teaches the tree back to a cold reader
  *   ost-agent bank-question "<q>" ...         bank a fork instead of stopping at it, costed by the work it holds up
  *   ost-agent authority                       the standing contract: which classes of decision compute may take alone
@@ -155,6 +156,7 @@ import {
 } from "../loop/claim.js";
 import { nextBuildPath, readBriefing, renderBriefing, rewriteBriefing } from "../ost/briefing.js";
 import { publishRankedLedger, rankedLedgerPath, readRankedLedger, type LedgerRowInput } from "../ost/ranked-ledger.js";
+import { orderByDisconfirmer, orderByImportance, type DisconfirmerCandidate } from "../ost/disconfirmer-ordering.js";
 import { composeStandingBriefing, regenerateStandingBriefing, standingBriefingPath } from "../ost/standing-briefing.js";
 import { entriesRequiringAHuman, registerLoopCommands, resolveSessionsDir } from "./loop.js";
 import { installVaultResolution, resolvedVaultSource, VAULT_OPTION_HELP } from "./vault-option.js";
@@ -196,6 +198,32 @@ function readLedgerRowsFile(file: string): LedgerRowInput[] {
       throw new Error(`${file}: row ${i} ("${r.title}") has a non-string reason`);
     }
     return { title: r.title, reason: r.reason };
+  });
+}
+
+/**
+ * Candidates for `disconfirmer-order`: a JSON array of `{title, eliminates,
+ * effort, importance}`. The two estimates that drive the ordering — eliminates,
+ * effort — are the caller's judgement about the world; this only sorts on
+ * whatever was supplied, so a shape error here is named before it can be
+ * mistaken for an ordering verdict.
+ */
+function readDisconfirmerCandidatesFile(file: string): DisconfirmerCandidate[] {
+  const parsed: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
+  if (!Array.isArray(parsed)) {
+    throw new Error(`${file}: expected a JSON array of {title, eliminates, effort, importance} candidates`);
+  }
+  return parsed.map((row, i) => {
+    const r = row as { title?: unknown; eliminates?: unknown; effort?: unknown; importance?: unknown };
+    if (typeof r?.title !== "string" || r.title.trim().length === 0) {
+      throw new Error(`${file}: candidate ${i} has no title`);
+    }
+    for (const field of ["eliminates", "effort", "importance"] as const) {
+      if (typeof r[field] !== "number") {
+        throw new Error(`${file}: candidate ${i} ("${r.title}") has a non-numeric ${field}`);
+      }
+    }
+    return { title: r.title, eliminates: r.eliminates as number, effort: r.effort as number, importance: r.importance as number };
   });
 }
 
@@ -1820,6 +1848,30 @@ program
       raw ??
         `No ranked ledger yet — one would live at ${rankedLedgerPath(opts.vault)}. Publish the first with \`ost-agent ledger --publish <rows.json>\`.`,
     );
+  });
+
+program
+  .command("disconfirmer-order")
+  .description(
+    "cheapest-disconfirmer-first: order a JSON array of {title, eliminates, effort, importance} candidates by " +
+      "eliminates-per-effort instead of by importance — run first whatever could kill the most candidates for " +
+      "the least effort. eliminates and effort are the caller's own estimates; this only sorts on whichever was " +
+      "supplied, never invents one",
+  )
+  .requiredOption("--queue <file>", "JSON array of {title, eliminates, effort, importance} candidates")
+  .action((opts: { queue: string }) => {
+    let candidates: DisconfirmerCandidate[];
+    try {
+      candidates = readDisconfirmerCandidatesFile(opts.queue);
+    } catch (e) {
+      console.error(`not ordering: ${e instanceof Error ? e.message : String(e)}`);
+      process.exitCode = 1;
+      return;
+    }
+    console.log("By importance (the ordering this inverts):");
+    for (const title of orderByImportance(candidates)) console.log(`  - ${title}`);
+    console.log("By cheapest-disconfirmer (eliminates/effort, highest first):");
+    for (const title of orderByDisconfirmer(candidates)) console.log(`  - ${title}`);
   });
 
 program
