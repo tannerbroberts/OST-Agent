@@ -53996,6 +53996,24 @@ function readRankedLedger(vaultDir) {
   return fs46.existsSync(p2) ? fs46.readFileSync(p2, "utf8") : null;
 }
 
+// src/ost/disconfirmer-ordering.ts
+function requirePositiveEffort(candidates) {
+  for (const c3 of candidates) {
+    if (!(c3.effort > 0)) {
+      throw new Error(
+        `"${c3.title}" has non-positive effort (${c3.effort}) \u2014 candidates-eliminated-per-effort is undefined for it`
+      );
+    }
+  }
+}
+function orderByImportance(candidates) {
+  return [...candidates].sort((a, b2) => b2.importance - a.importance || a.title.localeCompare(b2.title)).map((c3) => c3.title);
+}
+function orderByDisconfirmer(candidates) {
+  requirePositiveEffort(candidates);
+  return [...candidates].sort((a, b2) => b2.eliminates / b2.effort - a.eliminates / a.effort || a.title.localeCompare(b2.title)).map((c3) => c3.title);
+}
+
 // src/ost/standing-briefing.ts
 import fs47 from "node:fs";
 import path50 from "node:path";
@@ -55606,6 +55624,24 @@ function readLedgerRowsFile(file) {
     return { title: r2.title, reason: r2.reason };
   });
 }
+function readDisconfirmerCandidatesFile(file) {
+  const parsed = JSON.parse(fs59.readFileSync(file, "utf8"));
+  if (!Array.isArray(parsed)) {
+    throw new Error(`${file}: expected a JSON array of {title, eliminates, effort, importance} candidates`);
+  }
+  return parsed.map((row, i2) => {
+    const r2 = row;
+    if (typeof r2?.title !== "string" || r2.title.trim().length === 0) {
+      throw new Error(`${file}: candidate ${i2} has no title`);
+    }
+    for (const field of ["eliminates", "effort", "importance"]) {
+      if (typeof r2[field] !== "number") {
+        throw new Error(`${file}: candidate ${i2} ("${r2.title}") has a non-numeric ${field}`);
+      }
+    }
+    return { title: r2.title, eliminates: r2.eliminates, effort: r2.effort, importance: r2.importance };
+  });
+}
 function correctionsStateDir(opts) {
   if (opts.state) return path62.resolve(opts.state);
   return loopStateDir(opts.vault);
@@ -56496,6 +56532,22 @@ program2.command("ledger").description(
   console.log(
     raw ?? `No ranked ledger yet \u2014 one would live at ${rankedLedgerPath(opts.vault)}. Publish the first with \`ost-agent ledger --publish <rows.json>\`.`
   );
+});
+program2.command("disconfirmer-order").description(
+  "cheapest-disconfirmer-first: order a JSON array of {title, eliminates, effort, importance} candidates by eliminates-per-effort instead of by importance \u2014 run first whatever could kill the most candidates for the least effort. eliminates and effort are the caller's own estimates; this only sorts on whichever was supplied, never invents one"
+).requiredOption("--queue <file>", "JSON array of {title, eliminates, effort, importance} candidates").action((opts) => {
+  let candidates;
+  try {
+    candidates = readDisconfirmerCandidatesFile(opts.queue);
+  } catch (e) {
+    console.error(`not ordering: ${e instanceof Error ? e.message : String(e)}`);
+    process.exitCode = 1;
+    return;
+  }
+  console.log("By importance (the ordering this inverts):");
+  for (const title of orderByImportance(candidates)) console.log(`  - ${title}`);
+  console.log("By cheapest-disconfirmer (eliminates/effort, highest first):");
+  for (const title of orderByDisconfirmer(candidates)) console.log(`  - ${title}`);
 });
 program2.command("briefing").description(
   "the standing tree briefing at its one stable address (<vault>/.ost-agent/BRIEFING.md): regenerated in full from the tree \u2014 where it stands, the live branch, the last week's delta, and the belief it all rests on. Run it at the end of every pass; unlike next-build, it keeps no history of itself, because every line is recomputed from the nodes and its history is the vault's git history"
