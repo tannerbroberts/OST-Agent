@@ -1,0 +1,19 @@
+{
+  "$comment": "Copy-paste packaging for generic MCP server directories (Smithery, Glama, mcp.so, a client's own directory) that list a server by its client config rather than by a package-registry install. No npm package exists for this project on purpose (see docs/npm-archive.md), so there is no `npx` form to offer — the install is: clone the repo, then point an MCP client at the committed bundle it ships. test/release/registry-install-path.test.ts spawns this exact command against the checked-out repo and asserts it starts outside a vault.",
+  "name": "ost-agent",
+  "description": "Append-only Opportunity Solution Tree MCP server for Claude Code and other MCP clients.",
+  "homepage": "https://github.com/tannerbroberts/OST-Agent",
+  "install": {
+    "steps": [
+      "git clone https://github.com/tannerbroberts/OST-Agent.git",
+      "Add the block below to your MCP client's server config, with OST_VAULT set to the directory you want the tree to live in."
+    ],
+    "mcpServers": {
+      "ost-agent": {
+        "command": "node",
+        "args": ["OST-Agent/dist/ost-agent.mjs", "mcp"],
+        "env": { "OST_VAULT": "<absolute path to your vault>" }
+      }
+    }
+  }
+}
