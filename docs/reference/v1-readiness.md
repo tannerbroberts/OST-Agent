@@ -3089,7 +3089,14 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2,931 tests across 236 files, verified 2026-08-16 (`npx vitest run`,
+> *Today:* **met** — 2,934 tests across 237 files, verified 2026-08-16 (`npx vitest run`,
+> after "Be found through the agent ecosystem's own directories rather than through
+> product channels" landed: packaging for two agent-ecosystem directories — a generic
+> MCP client config and a third-party Claude Code plugin-marketplace listing — each
+> spawning the committed bundle outside a vault to prove its documented install command
+> actually starts a server, and neither reaching for the npm package this repo retired
+> on purpose (`docs/distribution/*.json`, `test/release/registry-install-path.test.ts`).
+> Previously 2,931 tests across 236 files, verified 2026-08-16 (`npx vitest run`,
 > after fixing the ingest channel's commit-time conflict scan: `stagedConflictMarkers`
 > and the installed `pre-commit` hook each spawned one `git show`/`git`-plumbing process
 > PER staged file, which turned a burst of a few thousand notes into ~30s of subprocess

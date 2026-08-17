@@ -1,0 +1,9 @@
+{
+  "$comment": "Packaging for a third-party Claude Code plugin marketplace/aggregator to list this project without OST-Agent hosting it. Its own .claude-plugin/marketplace.json uses source \".\" because that marketplace IS this repo; an aggregator listing OST-Agent from elsewhere needs the external form below instead. test/release/registry-install-path.test.ts checks that the referenced repo's own plugin manifest launches the committed bundle directly, so the install steps here resolve to a server that starts outside a vault.",
+  "name": "ost-agent",
+  "description": "OST skill + /ost-* commands + the append-only ost-agent MCP server. Drive product discovery, or run an unattended maintenance pass, from any Claude Code session.",
+  "source": "github:tannerbroberts/OST-Agent",
+  "install": {
+    "steps": ["/plugin marketplace add tannerbroberts/OST-Agent", "/plugin install ost-agent@ost-agent"]
+  }
+}
