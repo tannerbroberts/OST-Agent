@@ -48,6 +48,7 @@
  *   ost-agent ship --repo DIR                 run the gates locally and merge the branch if they are green
  *   ost-agent loop due|start|step|seal        unattended firing: cadence, lock, ceiling, health
  *   ost-agent mcp [--vault DIR]               stdio MCP server (no API key needed)
+ *   ost-agent trial [--vault DIR]             one offline maintenance pass — no network, no model credential
  *
  * `--vault` is optional everywhere it appears. Omitted, it resolves through
  * `ost.vault.yaml` — the pointer file a project commits at its root to say where
@@ -65,6 +66,7 @@ import { diagnoseSetup, formatSetupDiagnosis } from "../config/setup-check.js";
 import { ailingChannels, allChannels, channelHealth, renderChannels } from "../adapters/channels.js";
 import { initVault } from "../runner/init.js";
 import { setOutcome } from "../runner/set-outcome.js";
+import { runOfflinePass } from "../runner/offline-pass.js";
 import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/render.js";
 import { ship } from "../release/ship-repo.js";
 import { BUILD_CHECK_EXIT, formatBuildCheck, inheritedTreeBuildCheck } from "../release/inherited-tree.js";
@@ -537,6 +539,29 @@ program
     const { text, violations } = renderCheck(census);
     console.log(text);
     if (violations > 0) process.exitCode = 1;
+  });
+
+/**
+ * The zero-credential trial path: one offline maintenance pass, driven by a
+ * fixed heuristic rather than a connected session's model, so a first-time user
+ * with no Claude Code login and no API key can still see the tool do something.
+ * See `src/runner/offline-pass.ts` for what it does and does not do — in
+ * particular, it does not judge whether what it produced is any good; that stays
+ * a person's job.
+ */
+program
+  .command("trial")
+  .description("run one offline maintenance pass — no network call, no model credential, quality unjudged")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action(async (opts: { vault: string }) => {
+    const summary = await runOfflinePass(opts.vault);
+    console.log(`offline pass: ${summary.iterations} round(s)`);
+    console.log(`  mapped ${summary.mapped} opportunity(ies), ideated ${summary.ideated} solution(s), surfaced ${summary.assumptionsSurfaced} assumption test(s), annotated ${summary.hygieneAnnotated} hygiene issue(s)`);
+    console.log(`  next_work.done: ${summary.done}`);
+    console.log(
+      `  left for a person: ${summary.leftForAHuman.assumptionWork} assumption test(s) awaiting a result, ` +
+        `${summary.leftForAHuman.openUnknowns} open unknown(s), ${summary.leftForAHuman.solutionsMissingInstruments} solution(s) still needing a real instrument`,
+    );
   });
 
 /**
