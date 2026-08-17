@@ -61,7 +61,7 @@ import {
 import { parseFrontmatter } from "./frontmatter.js";
 import { canonicalTitle, fileNameForTitle, sanitizeTitle } from "./sanitize.js";
 import { isHeadingLine, reservedHeadingIn } from "./headings.js";
-import { joinReservedSections, splitReservedSections } from "./sections.js";
+import { carryUnaddressedSections, joinReservedSections, splitReservedSections } from "./sections.js";
 import {
   ARCHIVE_DIRNAME,
   isRetractedNode,
@@ -644,7 +644,8 @@ export class Vault {
   }
 
   /**
-   * Replace a node's prose, keeping its reserved sections verbatim.
+   * Replace a node's prose, keeping its reserved sections verbatim AND
+   * carrying across any `## ` section the caller's new prose does not address.
    *
    * `newProse` is the body MINUS every reserved block; this reattaches the ones
    * the node already had. That is what makes an edit safe to hand an unattended
@@ -653,6 +654,15 @@ export class Vault {
    * blocks in the first place, so it cannot drop one either. The argument is on
    * {@link ./sections.ts} — deleting a `## Results` revokes a permit a human
    * granted, which is the same act as authoring one, pointed the other way.
+   *
+   * The same argument holds for a section that is not reserved. A node's
+   * `## History` used to be dropped silently by any edit whose prose omitted
+   * it, because reattachment only ever knew about the hand-listed reserved
+   * set — `carryUnaddressedSections` closes the gap: a section the old prose
+   * named and the new prose does not is carried across unchanged rather than
+   * lost. A section the new prose DOES name is replaced outright, never
+   * merged line by line, so a caller that means to update `## History` still
+   * can by writing one.
    *
    * Frontmatter is not touched. Status, evidence, lane and instrument each have
    * their own writer because each records a typed transition in History, and an
@@ -672,8 +682,8 @@ export class Vault {
     if (!fs.existsSync(p)) throw this.noSuchNode(title);
     const read = readWithHash(p);
     const node = deserialize(title, read.content);
-    const { reserved } = splitReservedSections(node.body);
-    node.body = joinReservedSections(newProse, reserved);
+    const { prose: oldProse, reserved } = splitReservedSections(node.body);
+    node.body = joinReservedSections(carryUnaddressedSections(oldProse, newProse), reserved);
     const line = `- ${isoToday()} body edited — ${why}`;
     node.body = appendUnderHeading(node.body, "## History", line);
     try {

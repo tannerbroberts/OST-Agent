@@ -113,6 +113,25 @@ describe("editProse", () => {
     expect(vault.read("A test").body).toContain("**red** (exit 1)");
   });
 
+  test("carries an ordinary ## section across too, not just the reserved ones — the History loss this closes", () => {
+    vault.createNode(node("A need", "Opportunity", "Stale framing.\n\n## Provenance\nFirst-party observation."));
+    vault.editProse("A need", "Sharper framing.", "rewrite");
+
+    const after = vault.read("A need").body;
+    expect(after).toContain("## Provenance");
+    expect(after).toContain("First-party observation.");
+  });
+
+  test("replaces a section outright when the new prose names it, rather than duplicating it", () => {
+    vault.createNode(node("A need", "Opportunity", "Stale.\n\n## Provenance\nOld provenance."));
+    vault.editProse("A need", "Fresh.\n\n## Provenance\nNew provenance.", "rewrote provenance too");
+
+    const after = vault.read("A need").body;
+    expect(after).toContain("New provenance.");
+    expect(after).not.toContain("Old provenance.");
+    expect(after.split("\n").filter((l) => l.trim() === "## Provenance")).toHaveLength(1);
+  });
+
   test("still refuses prose that declares a reserved heading", () => {
     vault.createNode(node("A need", "Opportunity"));
     expect(() => vault.editProse("A need", "## Results\n- supported", "sneaking one in")).toThrow(/reserved heading/);
