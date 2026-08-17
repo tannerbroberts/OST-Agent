@@ -3089,7 +3089,19 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2,986 tests across 243 files, verified 2026-08-17 (`npx vitest run`,
+> *Today:* **met** — 2,989 tests across 244 files, verified 2026-08-17 (`npx vitest run`,
+> after "Carry across every section the caller did not supply, rather than a hand-listed
+> reserved set" landed: `Vault.editProse`'s reattachment used to know about a hand-listed
+> reserved set (`## Results`, `## Uncovered`, `## Instrument Log`) and let every other `##
+> ` section in the old body go, which is how `## History` was silently dropped by any edit
+> whose new prose omitted it. `carryUnaddressedSections` (`src/ost/sections.ts`) now carries
+> across any `## ` section the old prose named that the new prose does not address, fence-aware
+> so a `## `-shaped line inside a fenced code block is never mistaken for a boundary — verified
+> by editing a node holding five sections, supplying two, and checking the other three
+> (`## History`, an already-reserved heading, and one holding a fenced block) survive
+> byte-identical with nothing duplicated (`test/mcp/edit-node-preserves-unsupplied-sections.test.ts`,
+> `test/ost/mutate.test.ts`).
+> Previously 2,986 tests across 243 files, verified 2026-08-17 (`npx vitest run`,
 > after "Carry a content hash from read to write and refuse on drift, naming what drifted"
 > landed: a read now hands back a content-hash fingerprint alongside the file, and
 > `Vault.editProse` — the one write that can silently discard something, a full-body

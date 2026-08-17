@@ -33841,6 +33841,48 @@ function splitReservedSections(body) {
   if (current) reserved.push(current.join("\n").trimEnd());
   return { prose: prose.join("\n").trimEnd(), reserved };
 }
+function isFenceDelimiter(line) {
+  return /^(```|~~~)/.test(line.trim());
+}
+function isLevelTwoHeading(line) {
+  return /^##\s+\S/.test(line.trim());
+}
+function splitProseSections(prose) {
+  const lines = prose.split("\n");
+  const preamble = [];
+  const sections = [];
+  let current = null;
+  let inFence = false;
+  for (const line of lines) {
+    if (!inFence && isFenceDelimiter(line)) {
+      inFence = true;
+      (current ?? preamble).push(line);
+      continue;
+    }
+    if (inFence) {
+      if (isFenceDelimiter(line)) inFence = false;
+      (current ?? preamble).push(line);
+      continue;
+    }
+    if (isLevelTwoHeading(line)) {
+      if (current) sections.push({ heading: current[0].trim(), block: current.join("\n").trimEnd() });
+      current = [line];
+      continue;
+    }
+    (current ?? preamble).push(line);
+  }
+  if (current) sections.push({ heading: current[0].trim(), block: current.join("\n").trimEnd() });
+  return { preamble: preamble.join("\n").trimEnd(), sections };
+}
+function carryUnaddressedSections(oldProse, newProse) {
+  const { sections: oldSections } = splitProseSections(oldProse);
+  if (oldSections.length === 0) return newProse;
+  const { sections: newSections } = splitProseSections(newProse);
+  const addressed = new Set(newSections.map((s) => s.heading));
+  const carried = oldSections.filter((s) => !addressed.has(s.heading));
+  if (carried.length === 0) return newProse;
+  return [newProse.trimEnd(), ...carried.map((s) => s.block)].filter((p2) => p2 !== "").join("\n\n");
+}
 function joinReservedSections(prose, reserved) {
   const parts = [prose.trimEnd(), ...reserved.map((r2) => r2.trimEnd())].filter((p2) => p2 !== "");
   return parts.join("\n\n");
@@ -40005,7 +40047,8 @@ var Vault = class {
     return line;
   }
   /**
-   * Replace a node's prose, keeping its reserved sections verbatim.
+   * Replace a node's prose, keeping its reserved sections verbatim AND
+   * carrying across any `## ` section the caller's new prose does not address.
    *
    * `newProse` is the body MINUS every reserved block; this reattaches the ones
    * the node already had. That is what makes an edit safe to hand an unattended
@@ -40014,6 +40057,15 @@ var Vault = class {
    * blocks in the first place, so it cannot drop one either. The argument is on
    * {@link ./sections.ts} — deleting a `## Results` revokes a permit a human
    * granted, which is the same act as authoring one, pointed the other way.
+   *
+   * The same argument holds for a section that is not reserved. A node's
+   * `## History` used to be dropped silently by any edit whose prose omitted
+   * it, because reattachment only ever knew about the hand-listed reserved
+   * set — `carryUnaddressedSections` closes the gap: a section the old prose
+   * named and the new prose does not is carried across unchanged rather than
+   * lost. A section the new prose DOES name is replaced outright, never
+   * merged line by line, so a caller that means to update `## History` still
+   * can by writing one.
    *
    * Frontmatter is not touched. Status, evidence, lane and instrument each have
    * their own writer because each records a typed transition in History, and an
@@ -40033,8 +40085,8 @@ var Vault = class {
     if (!fs15.existsSync(p2)) throw this.noSuchNode(title);
     const read = readWithHash(p2);
     const node = deserialize(title, read.content);
-    const { reserved } = splitReservedSections(node.body);
-    node.body = joinReservedSections(newProse, reserved);
+    const { prose: oldProse, reserved } = splitReservedSections(node.body);
+    node.body = joinReservedSections(carryUnaddressedSections(oldProse, newProse), reserved);
     const line = `- ${isoToday()} body edited \u2014 ${why}`;
     node.body = appendUnderHeading(node.body, "## History", line);
     try {

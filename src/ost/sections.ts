@@ -74,6 +74,83 @@ export function splitReservedSections(body: string): SplitBody {
   return { prose: prose.join("\n").trimEnd(), reserved };
 }
 
+/** Is this line a fence delimiter (```` ``` ```` or `~~~`), opening or closing a fenced block? */
+function isFenceDelimiter(line: string): boolean {
+  return /^(```|~~~)/.test(line.trim());
+}
+
+/** Is this line a level-2 (`## `) heading? */
+function isLevelTwoHeading(line: string): boolean {
+  return /^##\s+\S/.test(line.trim());
+}
+
+/** One `## ` section of a prose body, named by its heading line. */
+export interface ProseSection {
+  /** The heading line, trimmed, e.g. `"## History"` — the key sections are matched by. */
+  heading: string;
+  /** The section verbatim, heading line included, trailing whitespace trimmed. */
+  block: string;
+}
+
+/**
+ * Split a prose body into `## ` sections, fence-aware: a `## ` line inside a
+ * fenced code block (opened by ``` ``` ``` or `~~~`) is content, never a
+ * section boundary. Everything before the first (unfenced) `## ` heading is
+ * the preamble, which a caller's prose always replaces outright — only named
+ * sections are carried.
+ */
+export function splitProseSections(prose: string): { preamble: string; sections: ProseSection[] } {
+  const lines = prose.split("\n");
+  const preamble: string[] = [];
+  const sections: ProseSection[] = [];
+  let current: string[] | null = null;
+  let inFence = false;
+
+  for (const line of lines) {
+    if (!inFence && isFenceDelimiter(line)) {
+      inFence = true;
+      (current ?? preamble).push(line);
+      continue;
+    }
+    if (inFence) {
+      if (isFenceDelimiter(line)) inFence = false;
+      (current ?? preamble).push(line);
+      continue;
+    }
+    if (isLevelTwoHeading(line)) {
+      if (current) sections.push({ heading: current[0].trim(), block: current.join("\n").trimEnd() });
+      current = [line];
+      continue;
+    }
+    (current ?? preamble).push(line);
+  }
+  if (current) sections.push({ heading: current[0].trim(), block: current.join("\n").trimEnd() });
+
+  return { preamble: preamble.join("\n").trimEnd(), sections };
+}
+
+/**
+ * Carry across every `## ` section `oldProse` names that `newProse` does not —
+ * the generalisation of {@link splitReservedSections} from a hand-listed set of
+ * headings to whichever sections the caller's rewrite actually addresses.
+ *
+ * A section is "addressed" only by its heading reappearing in `newProse`
+ * (fence-aware); the caller's version then wins outright; nothing is merged
+ * line by line. Everything else the old prose named — `## History`, a section
+ * already on {@link RESERVED_HEADINGS}, one whose body holds a fenced block
+ * containing a `## ` line — survives byte-identical, appended after the new
+ * prose in its original order, once, never duplicated.
+ */
+export function carryUnaddressedSections(oldProse: string, newProse: string): string {
+  const { sections: oldSections } = splitProseSections(oldProse);
+  if (oldSections.length === 0) return newProse;
+  const { sections: newSections } = splitProseSections(newProse);
+  const addressed = new Set(newSections.map((s) => s.heading));
+  const carried = oldSections.filter((s) => !addressed.has(s.heading));
+  if (carried.length === 0) return newProse;
+  return [newProse.trimEnd(), ...carried.map((s) => s.block)].filter((p) => p !== "").join("\n\n");
+}
+
 /**
  * Put a body back together: new prose first, then every reserved block.
  *
