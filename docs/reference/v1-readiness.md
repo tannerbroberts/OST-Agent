@@ -3089,7 +3089,15 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2,999 tests across 245 files, verified 2026-08-17 (`npx vitest run`,
+> *Today:* **met** — 3,009 tests across 246 files, verified 2026-08-17 (`npx vitest run`,
+> after "Compare what the run attempted against what it set out to do, and report the
+> shortfall" landed: `ost-agent loop scope <statement>` freezes a run's intended scope
+> before its first step is recorded — a declaration after a step exists, or a second
+> declaration at all, is refused — and `loop seal --attempted <statement>` diffs the
+> attempt against that frozen file (never a caller-supplied restatement of it), printing
+> the dropped terms next to the result as a fact rather than a verdict
+> (`src/loop/scope.ts`, `test/loop/scope-shortfall.test.ts`).
+> Previously 2,999 tests across 245 files, verified 2026-08-17 (`npx vitest run`,
 > after "Classify the failed match by comparing the file against the run journal's
 > recorded read" landed: a run-scoped `ReadJournal` records the content hash of every
 > file a run reads, and `classifyFailedMatch` compares a failed replacement's file

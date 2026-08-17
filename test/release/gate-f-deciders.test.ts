@@ -47,6 +47,7 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { configPath } from "../../src/config/load.js";
 import { resolveSessionsDir } from "../../src/cli/loop.js";
 import { claimsPath } from "../../src/loop/claim.js";
+import { scopePath } from "../../src/loop/scope.js";
 import { openRunPath, runsPath } from "../../src/loop/health.js";
 import { journalPath } from "../../src/loop/journal.js";
 import { firingLockPath } from "../../src/loop/lock.js";
@@ -246,6 +247,7 @@ const REPORTER_MODULES = ["questions.ts", "corrections.ts", "senses.ts", "questi
 const OFF_GATE_DECIDER_MODULES: Record<string, string> = {
   "claim.ts": "the work claim — decides whether a pass may start, not whether a firing may",
   "updates.ts": "the update channel — decides which VERSION a pass runs, not whether a firing may",
+  "scope.ts": "the scope declaration — decides whether a run's declared intent may be redeclared, not whether a firing may",
 };
 
 /**
@@ -269,6 +271,7 @@ const OFF_GATE_DECIDER_PATHS = (v: string): string[] => [
   claimsPath(loopStateDir(v)!),
   announcedPath(v)!,
   appliedPath(v)!,
+  scopePath(v, "sample-run"),
 ];
 
 /**

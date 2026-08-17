@@ -32,6 +32,7 @@ import { degradedReport, observeDegradation } from "../loop/degraded.js";
 import { appendStep, readOpenRun, readRuns, sealRun, startRun, sweepCrashed } from "../loop/health.js";
 import { announceUpdate, applyAtCheckpoint, subscriptionOf, updateStatusLine } from "../loop/updates.js";
 import { observeSenses, senseCensusReport } from "../loop/senses.js";
+import { computeShortfall, declareScope, shortfallReport } from "../loop/scope.js";
 import { assessStall } from "../loop/stall.js";
 import { acquireFiringLock, releaseFiringLock, stampFiringLock } from "../loop/lock.js";
 import { checkCeiling, measureFiring, type SpendCeiling } from "../loop/spend.js";
@@ -566,6 +567,29 @@ export function registerLoopCommands(program: Command): void {
     });
 
   loop
+    .command("scope")
+    .description(
+      "declare this run's intended scope, once, before its first step — the record `loop seal --attempted` diffs against",
+    )
+    .argument("<statement>", "what this run set out to do, in its own words")
+    .option("--vault <dir>", VAULT_OPTION_HELP)
+    .action((statement: string, opts: { vault: string }) => {
+      const open = readOpenRun(opts.vault);
+      if (!open) {
+        console.error("not declared: no open loop run — run `ost-agent loop start` first.");
+        process.exitCode = 1;
+        return;
+      }
+      try {
+        const declared = declareScope(opts.vault, open, statement);
+        console.log(`scope declared for run ${declared.runId}: ${declared.statement}`);
+      } catch (e) {
+        console.error(`not declared: ${e instanceof Error ? e.message : String(e)}`);
+        process.exitCode = 2;
+      }
+    });
+
+  loop
     .command("step")
     .description("run one phase command and record the exit code it actually produced")
     .requiredOption("-p, --phase <id>", "phase id (pass, check, …)")
@@ -714,8 +738,12 @@ export function registerLoopCommands(program: Command): void {
   loop
     .command("seal")
     .description("compute the verdict from the recorded exits, append it to runs.jsonl, release the lock")
+    .option(
+      "--attempted <statement>",
+      "what this run actually attempted, in its own words — diffed against `loop scope`'s frozen declaration, if one was made",
+    )
     .option("--vault <dir>", VAULT_OPTION_HELP)
-    .action((opts: { vault: string }) => {
+    .action((opts: { vault: string; attempted?: string }) => {
       // Observed BEFORE the seal and from the vault rather than from the firing:
       // the pass gets no say in whether it was degraded, which is the one property
       // the candidate behind this could not have if it were enforced by prose in a
@@ -727,6 +755,11 @@ export function registerLoopCommands(program: Command): void {
       // vault rather than from the firing. Derived from config and grant, so a
       // sense nothing reached for still gets a state — see src/loop/senses.ts.
       const senses = open ? observeSenses(opts.vault, open) : [];
+      // Read against the run's OWN frozen record — `computeShortfall` takes no
+      // "declared" argument, so nothing this command does can hand it a restated
+      // scope to diff against instead. Null (never declared, or nothing attempted
+      // was said) prints nothing, which `shortfallReport` treats the same way.
+      const shortfall = open && opts.attempted !== undefined ? computeShortfall(opts.vault, open.runId, opts.attempted) : null;
       const sealed = sealRun(opts.vault, { headAfter: gitHead(opts.vault), degradations });
       const released = releaseFiringLock(opts.vault, { runId: sealed.runId });
       console.log(`loop run ${sealed.runId} sealed: ${sealed.verdict}`);
@@ -738,6 +771,11 @@ export function registerLoopCommands(program: Command): void {
       // an operator that a healthy-sealing pass spent the night unable to see the
       // product, and that is the pass whose output nobody knew to distrust.
       for (const line of senseCensusReport(senses)) console.log(line);
+      // On stdout too, and unconditionally when `--attempted` was given: the
+      // report is a fact printed next to the result, not an alarm, and the node
+      // it implements is explicit that it has no teeth — it must not be buried on
+      // stderr as though a shortfall were itself a failure.
+      for (const line of shortfallReport(shortfall)) console.log(line);
       // On stderr, beside the stall escalation, because a cron mails stderr and
       // this is the line that must not be scrolled past. Printed whenever a
       // degradation was observed — including on an `unhealthy` firing, where it is
