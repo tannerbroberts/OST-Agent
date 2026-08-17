@@ -319,6 +319,18 @@ export const COMPRESSION_SURFACES = [
     proof: "declaration",
   },
   {
+    name: "offline pass round cap",
+    module: "src/runner/offline-pass.ts",
+    caps: ["MAX_ITERATIONS"],
+    kind: "walk-bound",
+    decision: "when the zero-credential offline driver stops looping rather than treating the tree as caught up",
+    reads: [
+      "the loop already breaks on its own the moment a round does nothing, so this cap only bounds the pathological case — a round that keeps finding heuristic work forever",
+    ],
+    drops: "silent",
+    proof: "declaration",
+  },
+  {
     name: "broker detail clip",
     module: "src/security/broker.ts",
     caps: ["MAX_DETAIL_CHARS"],

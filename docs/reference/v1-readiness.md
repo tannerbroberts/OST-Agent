@@ -3089,7 +3089,13 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2,942 tests across 239 files, verified 2026-08-17 (`npx vitest run`,
+> *Today:* **met** — 2,944 tests across 240 files, verified 2026-08-17 (`npx vitest run`,
+> after "Bundled local model for zero-credential trial" landed: an offline maintenance
+> pass (`src/runner/offline-pass.ts`) that drives the real MCP tool surface over an
+> in-process transport with a fixed heuristic in place of the connected session's model,
+> so `ost-agent trial` completes one map/ideate/assumption/hygiene round with no network
+> call and no model credential (`test/product/offline-trial-pass.test.ts`).
+> Previously 2,942 tests across 239 files, verified 2026-08-17 (`npx vitest run`,
 > after "Budget against a same-run baseline instead of against the clock" landed:
 > `ost_next_work` timed alongside a same-run baseline call to the same function on a
 > much smaller vault, gated on the ratio between the two rather than on an absolute

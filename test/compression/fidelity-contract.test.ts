@@ -140,6 +140,11 @@ const SILENT_SURFACES = [
   "friction filing clip",
   "hand-exclusion command clip",
   "near-miss ancestor walk",
+  // Grown deliberately with the offline zero-credential driver: the round cap
+  // is a walk-bound on the loop itself (P2/P3/P4/P5 rounds), not a truncation
+  // of anything a reader sees, so it drops silently by construction — the loop
+  // already stops on its own the moment a round finds nothing to do.
+  "offline pass round cap",
   "path-failure attribution clips",
   "preflight excerpt clip",
   "repo listing",
@@ -166,6 +171,7 @@ const DECLARATION_ONLY_SURFACES = [
   "ingest report titles",
   "near-miss ancestor walk",
   "near-miss directory listing",
+  "offline pass round cap",
   "path-failure attribution clips",
   "preflight excerpt clip",
   "repo file read",
