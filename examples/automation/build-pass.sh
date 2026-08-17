@@ -650,7 +650,18 @@ plain-text paragraph with no markdown. Say what you built, whether it merged, an
 finding that came out of the build process — especially anything that contradicts what
 the node claimed, anything the recorded result did not cover, or anything that made the
 build harder than the node implied. Findings are the point of this loop; a report that
-only says "built it" has wasted the pass. Use the Write tool for that file.
+only says "built it" has wasted the pass.
+
+Before you write it, check the report you are about to write against these two: "Built
+the retry classifier and it merged. Finding: the assumption test's recorded result only
+covered the desktop client — the mobile client hits the same code path with a different
+error shape the test never exercised, so this may not generalize there yet." is a report
+worth having, because a reader learns something the node did not already say. "Built the
+feature described in the solution node. Tests pass and the PR merged successfully." is
+not, even though every word of it may be true — it tells the reader nothing they could
+not have guessed from the loop having reached this step at all. If your draft reads like
+the second one, you have not looked hard enough at what the build actually taught you;
+go back and name it. Use the Write tool for that file.
 PROMPT
 
 trap 'rm -f "$MCP_CONFIG" "$PROMPT_FILE"; rm -rf "$LOCK"' EXIT

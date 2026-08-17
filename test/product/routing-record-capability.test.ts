@@ -22,6 +22,7 @@
  *      record** — entirely retrospective, against committed state, asking
  *      nothing of an operator and building nothing.
  */
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
@@ -252,21 +253,36 @@ describe("the comparison, over a record the test controls", () => {
  * correct itself — the self-confirming failure the solution names as its
  * chief risk.
  */
+const VAULT = resolveVaultDir(undefined, { cwd: REPO_ROOT });
+
 describe("the census over this vault and this repository's own routing record", () => {
-  test("the routing record supports a capability estimate, and the count is the honest limit on it", async () => {
-    const vault = resolveVaultDir(undefined, { cwd: REPO_ROOT });
-    const census = await routingRecordCensus([REPO_ROOT, vault.dir]);
+  // `ost.vault.yaml`'s pointer (`vault: ../../ost-agent-meta`) is the maintainer's own
+  // layout, committed so their local `ost-agent status` finds the right tree — it is not
+  // a claim that every environment running this suite has that sibling checked out. CI
+  // does not, and `readWholeCommittedRecord` throws "Cannot use simple-git on a directory
+  // that does not exist" for it — a "this repository always has that sibling" assumption
+  // this test made silently, not a defect in the census it exists to prove. Skipping
+  // (reported, not silently green) is honest about what could not be checked here; running
+  // it wherever the vault genuinely is checked out — the maintainer's machine, or a CI job
+  // that clones both — still proves the real claim.
+  test.skipIf(!fs.existsSync(VAULT.dir))(
+    "the routing record supports a capability estimate, and the count is the honest limit on it",
+    async () => {
+      const census = await routingRecordCensus([REPO_ROOT, VAULT.dir]);
 
-    // Report before asserting: a number the reader can see is the point of the census.
-    console.log(formatRoutingCensus(census));
+      // Report before asserting: a number the reader can see is the point of the census.
+      console.log(formatRoutingCensus(census));
 
-    expect(census.examined, "no work class was ever routed at all — nothing to compare").toBeGreaterThan(0);
-    expect(census.share, `${census.comparable}/${census.examined} work class(es) comparable`).toBeGreaterThanOrEqual(KILL_CLASS_SHARE);
-    expect(census.verdict).not.toBe("refuted");
+      expect(census.examined, "no work class was ever routed at all — nothing to compare").toBeGreaterThan(0);
+      expect(census.share, `${census.comparable}/${census.examined} work class(es) comparable`).toBeGreaterThanOrEqual(
+        KILL_CLASS_SHARE,
+      );
+      expect(census.verdict).not.toBe("refuted");
 
-    for (const c of census.classes) {
-      expect(WORK_CLASSES).toContain(c.workClass);
-      expect(c.artifacts).toBeGreaterThan(0);
-    }
-  });
+      for (const c of census.classes) {
+        expect(WORK_CLASSES).toContain(c.workClass);
+        expect(c.artifacts).toBeGreaterThan(0);
+      }
+    },
+  );
 });
