@@ -43812,6 +43812,13 @@ function weakest(rungs) {
   const declared = rungs.filter((r2) => r2 !== void 0);
   return declared.length === 0 ? null : weakestRung(declared);
 }
+function strongest(rungs) {
+  const declared = rungs.filter((r2) => r2 !== void 0);
+  if (declared.length === 0) return null;
+  let best = FLOOR_RUNG;
+  for (const r2 of declared) if (rungRank(r2) < rungRank(best)) best = r2;
+  return best;
+}
 function subtree(start, index) {
   const seen = /* @__PURE__ */ new Set();
   const out = [];
@@ -43832,6 +43839,7 @@ function rollUpBucket(bucket, index) {
   const tests = nodes.filter((n) => n.layer === "AssumptionTest");
   const instrumented = tests.filter((t2) => nodeInstrument(t2) !== void 0);
   const sources = new Set(nodes.map((n) => n.source).filter((s) => typeof s === "string" && s.trim() !== ""));
+  const strongestBucketRung = strongest(nodes.map((n) => n.evidence));
   return {
     title: bucket.title,
     // Minus one: the bucket itself is in its own subtree and is not one of the
@@ -43849,7 +43857,12 @@ function rollUpBucket(bucket, index) {
     // `instruction` and `absent` all leave the bar to be decided after the run,
     // which is the same as having none.
     withFixedThreshold: tests.filter((t2) => thresholdKindOf(t2) === "bound").length,
-    weakestRung: weakest(nodes.map((n) => n.evidence))
+    weakestRung: weakest(nodes.map((n) => n.evidence)),
+    // `null` (nobody declared anything) reads the same as an all-floor bucket
+    // here, not as "unknown" — an undeclared node defaults to the floor rung
+    // per the ladder's own rule, so a bucket that has declared nothing has
+    // still earned nothing above it.
+    restsOnFounderOnly: strongestBucketRung === null || strongestBucketRung === FLOOR_RUNG
   };
 }
 function rollupTree(tree) {
@@ -43898,6 +43911,9 @@ function renderRollup(rollup) {
       );
       if (b2.tests > 0 && b2.withFixedThreshold < b2.tests) {
         lines.push(`    ${b2.tests - b2.withFixedThreshold} of ${b2.tests} test(s) state no fixed bar \u2014 those cannot come out a failure`);
+      }
+      if (b2.restsOnFounderOnly) {
+        lines.push(`    this opportunity has no non-founder source \u2014 every source beneath it is founder note, agent ideation, or a self-generated channel`);
       }
     }
   }

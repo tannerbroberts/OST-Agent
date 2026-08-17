@@ -40,7 +40,7 @@
  */
 import type { OstNode } from "../ost/node.js";
 import { byTitle } from "../processes/tree.js";
-import { weakestRung, type RungId } from "../knowledge/believability.js";
+import { FLOOR_RUNG, rungRank, weakestRung, type RungId } from "../knowledge/believability.js";
 import { hasRecordedResult } from "./evidence-debt.js";
 import { recordedVerdict } from "../knowledge/actor-trust.js";
 import { nodeInstrument, observedGreen } from "../ost/instrument.js";
@@ -64,6 +64,21 @@ export interface BucketRollup {
   withFixedThreshold: number;
   /** The ladder's floor across the subtree. */
   weakestRung: RungId | null;
+  /**
+   * True when nothing beneath this bucket has earned a rung above the floor —
+   * every declared `evidence` is `assertion` and any undeclared node defaults to
+   * it, per the ladder's own fail-closed rule.
+   *
+   * Distinct from `weakestRung === "assertion"`, which only says the branch is
+   * DRAGGED DOWN by its weakest input and is true even when the bucket also
+   * holds a `money` or `observed` node elsewhere. This is the stronger claim the
+   * solution names but the rollup did not yet make: that no source anywhere in
+   * the branch — not the weakest, not the strongest — is anything but founder
+   * note, agent ideation, or a self-generated channel. `weakestRung` can tell you
+   * a branch is only as believable as its worst input; only this can tell you
+   * the branch has no non-founder input to be dragged down FROM.
+   */
+  restsOnFounderOnly: boolean;
 }
 
 export interface TreeRollup {
@@ -102,6 +117,22 @@ function weakest(rungs: (RungId | undefined)[]): RungId | null {
 }
 
 /**
+ * The strongest rung anywhere in a subtree, or null when nobody declared one.
+ *
+ * The mirror of {@link weakest}, and what {@link BucketRollup.restsOnFounderOnly}
+ * is computed from: a branch has a non-founder source if and only if its BEST
+ * input cleared the floor, which `weakest` cannot answer because it reports the
+ * opposite end of the ladder on purpose.
+ */
+function strongest(rungs: (RungId | undefined)[]): RungId | null {
+  const declared = rungs.filter((r): r is RungId => r !== undefined);
+  if (declared.length === 0) return null;
+  let best: RungId = FLOOR_RUNG;
+  for (const r of declared) if (rungRank(r) < rungRank(best)) best = r;
+  return best;
+}
+
+/**
  * Every node reachable from `start` by following links downward.
  *
  * Cycle-safe and multi-parent-safe: a node reachable from two buckets is counted
@@ -130,6 +161,7 @@ function rollUpBucket(bucket: OstNode, index: Map<string, OstNode>): BucketRollu
   const tests = nodes.filter((n) => n.layer === "AssumptionTest");
   const instrumented = tests.filter((t) => nodeInstrument(t) !== undefined);
   const sources = new Set(nodes.map((n) => n.source).filter((s): s is string => typeof s === "string" && s.trim() !== ""));
+  const strongestBucketRung = strongest(nodes.map((n) => n.evidence));
 
   return {
     title: bucket.title,
@@ -149,6 +181,11 @@ function rollUpBucket(bucket: OstNode, index: Map<string, OstNode>): BucketRollu
     // which is the same as having none.
     withFixedThreshold: tests.filter((t) => thresholdKindOf(t) === "bound").length,
     weakestRung: weakest(nodes.map((n) => n.evidence)),
+    // `null` (nobody declared anything) reads the same as an all-floor bucket
+    // here, not as "unknown" — an undeclared node defaults to the floor rung
+    // per the ladder's own rule, so a bucket that has declared nothing has
+    // still earned nothing above it.
+    restsOnFounderOnly: strongestBucketRung === null || strongestBucketRung === FLOOR_RUNG,
   };
 }
 
@@ -223,6 +260,13 @@ export function renderRollup(rollup: TreeRollup): string {
       // carry a bar — "0 of 0" reads as a problem and is not one.
       if (b.tests > 0 && b.withFixedThreshold < b.tests) {
         lines.push(`    ${b.tests - b.withFixedThreshold} of ${b.tests} test(s) state no fixed bar — those cannot come out a failure`);
+      }
+      // Said only when true, same as the line above: distinct from "rests on
+      // assertion", which fires whenever the WEAKEST input is the floor. This
+      // fires only when nothing in the branch ever cleared it — no non-founder
+      // source anywhere, not even one to be dragged down from.
+      if (b.restsOnFounderOnly) {
+        lines.push(`    this opportunity has no non-founder source — every source beneath it is founder note, agent ideation, or a self-generated channel`);
       }
     }
   }
