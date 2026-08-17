@@ -3089,14 +3089,16 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2,999 tests across 245 files, verified 2026-08-17 (`npx vitest run`,
-> after "Classify the failed match by comparing the file against the run journal's
-> recorded read" landed: a run-scoped `ReadJournal` records the content hash of every
-> file a run reads, and `classifyFailedMatch` compares a failed replacement's file
-> against it — a hash that has moved since the read is reported as stale-file, a
-> byte-identical file as bad-quote, and a file with no journalled read as an explicit
-> cannot-say rather than either guess, meeting the assumption test's three-arm bar
-> (`src/runner/failed-match-attribution.ts`, `test/runner/failed-match-attribution.test.ts`).
+> *Today:* **met** — 3,004 tests across 246 files, verified 2026-08-17 (`npx vitest run`,
+> after "Replay the stored measurements and check whether they came from comparable
+> conditions" landed: `src/eval/gate-condition-comparability.ts` reads the retained
+> `test/fixtures/perf-gate-noise-band/` corpus, resolves each measurement's machine and
+> condition from the record and the batch it came from, and reports the fraction
+> recoverable — 100%, one machine — which is also the finding: this project has never
+> retained a gate measurement taken on a second machine, so the across-machine half of
+> "Compare against the recent history of this same gate on this same machine"'s own
+> threshold is not yet computable from anything here
+> (`test/telemetry/gate-condition-comparability.test.ts`).
 > The module has no live caller yet — no tool-call interception surface in this
 > repository feeds its journal from a real Read or Edit — and is parked on the
 > reachability register (`test/release/module-reachability.test.ts`) pending one.
