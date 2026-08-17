@@ -96,6 +96,7 @@ import {
 } from "../ost/search.js";
 import { TreeText } from "../security/tainted.js";
 import { committedCapabilityProfile, formatCapabilityProfile } from "../product/capability.js";
+import { formatRoutingCensus, routingRecordCensus } from "../product/routing-record.js";
 import { readResourceManifest } from "../product/manifest.js";
 import { formatPriorityOrder, rankBuildableWork } from "../product/planner.js";
 import {
@@ -1349,6 +1350,25 @@ program
     // not see at all exits the same way, and for a stronger reason: a sweep that
     // reports a clean run over a subject it never read is worse than a red one.
     if (report.verdict === "refuted" || report.shallow) process.exitCode = 1;
+  });
+
+program
+  .command("routing-record")
+  .description(
+    "capability estimated from what each collaborator was asked to do and what came back: replays every " +
+      "repository's whole committed record, classifies each artifact into a work class, and counts how many " +
+      "classes were ever routed to more than one collaborator — the comparison the estimate rests on",
+  )
+  .option("--repo <dir>", "a repository whose routing record to read (repeatable)", collect, [])
+  .action(async (opts: { repo: string[] }) => {
+    const repos = opts.repo.length ? opts.repo : ["."];
+    const census = await routingRecordCensus(repos.map((r) => path.resolve(r)));
+    console.log(formatRoutingCensus(census));
+    // A class no artifact was ever routed to more than one collaborator for is
+    // absent from the record, not merely unlucky — the same reasoning as the
+    // capability profile's exit code: a finding worth acting on has to reach an
+    // automation through the exit, not just the printed line.
+    if (census.verdict === "refuted") process.exitCode = 1;
   });
 
 program

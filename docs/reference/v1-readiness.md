@@ -3089,11 +3089,17 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2,962 tests across 241 files, verified 2026-08-17 (`npx vitest run`,
-> after "Candidate tournament that eliminates on grounded evidence rather than promoting
-> on vibes" landed: a bracket of Solutions runs against a tree's own recorded results,
-> eliminating a candidate only when a test beneath it recorded a `refuted` verdict, citing
-> the verbatim `## Results` line — no round crowns a candidate, the consideration set only
+> *Today:* **met** — 2,980 tests across 242 files, verified 2026-08-17 (`npx vitest run`,
+> after "Capability estimated from what each collaborator was asked to do and what came
+> back" landed: the routing record — every commit and PR reachable from HEAD in this
+> repository and the vault, classified into a work class and attributed to whoever it
+> named — shows 3 of 5 work classes (build, review, release) were ever routed to more than
+> one collaborator, clearing the 40% bar the assumption test pre-committed
+> (`src/product/routing-record.ts`, `test/product/routing-record-capability.test.ts`).
+> Before that, after "Candidate tournament that eliminates on grounded evidence rather than
+> promoting on vibes" landed: a bracket of Solutions runs against a tree's own recorded
+> results, eliminating a candidate only when a test beneath it recorded a `refuted` verdict,
+> citing the verbatim `## Results` line — no round crowns a candidate, the consideration set only
 > shrinks, and declaring a winner stays a human's call (`src/eval/tournament.ts`,
 > `test/eval/tournament-elimination.test.ts`).
 > Previously 2,952 tests across 240 files, verified 2026-08-17 (`npx vitest run`,
