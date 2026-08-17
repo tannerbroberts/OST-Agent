@@ -3089,14 +3089,26 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 2,980 tests across 242 files, verified 2026-08-17 (`npx vitest run`,
-> after "Capability estimated from what each collaborator was asked to do and what came
-> back" landed: the routing record — every commit and PR reachable from HEAD in this
-> repository and the vault, classified into a work class and attributed to whoever it
+> *Today:* **met** — 2,986 tests across 243 files, verified 2026-08-17 (`npx vitest run`,
+> after "Carry a content hash from read to write and refuse on drift, naming what drifted"
+> landed: a read now hands back a content-hash fingerprint alongside the file, and
+> `Vault.editProse` — the one write that can silently discard something, a full-body
+> replace — presents that fingerprint back before it writes, refusing with a message
+> naming what moved (not a generic miss) when the node's file changed underneath it.
+> Replayed against the vault's own transcript evidence: the one session whose own
+> clarifying question named a concurrent writer is correctly labelled drift, the ten
+> others carrying an Edit failure with no concurrent writer recorded are correctly
+> labelled not-drift, and a false-refusal sweep across 200 real source files in this
+> repository found zero (`src/git/read-write-hash-guard.ts`, `src/ost/vault.ts`,
+> `test/git/read-write-hash-drift.test.ts`).
+> Before that, after "Capability estimated from what each collaborator was asked to do and
+> what came back" landed: the routing record — every commit and PR reachable from HEAD in
+> this repository and the vault, classified into a work class and attributed to whoever it
 > named — shows 3 of 5 work classes (build, review, release) were ever routed to more than
 > one collaborator, clearing the 40% bar the assumption test pre-committed
 > (`src/product/routing-record.ts`, `test/product/routing-record-capability.test.ts`).
-> Before that, after "Candidate tournament that eliminates on grounded evidence rather than
+> Previously 2,980 tests across 242 files, verified 2026-08-17 (`npx vitest run`, after
+> "Candidate tournament that eliminates on grounded evidence rather than
 > promoting on vibes" landed: a bracket of Solutions runs against a tree's own recorded
 > results, eliminating a candidate only when a test beneath it recorded a `refuted` verdict,
 > citing the verbatim `## Results` line — no round crowns a candidate, the consideration set only
