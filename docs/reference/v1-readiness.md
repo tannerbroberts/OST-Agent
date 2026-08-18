@@ -3089,7 +3089,18 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,109 tests across 256 files, verified 2026-08-18 (`npx vitest run`,
+> *Today:* **met** — 3,122 tests across 257 files, verified 2026-08-18 (`npx vitest run`,
+> after "Each agent writes on its own branch, and merging is a deliberate, reviewable
+> step" landed: `createAgentBranch` and `mergeAgentBranch` (`src/git/branch-isolation.ts`)
+> give one pass its own checkout via `git worktree add -b` and bring a branch back as one
+> real merge commit — no strategy option, no `-X ours`/`-X theirs` — so a genuine collision
+> (a same-titled node created on both branches, competing appends to one parent's link
+> list, a status changed on both sides) is left as conflict markers rather than resolved by
+> picking a side (`test/git/branch-isolation-merge.test.ts`). What it does not settle:
+> whether a *resolution* of one of those conflicts is any good — that is a person grading
+> it against what both sides meant, and it is the assumption test's own humans-required
+> half, unaddressed here on purpose.
+> Previously 3,109 tests across 256 files, verified 2026-08-18 (`npx vitest run`,
 > after "Classify the steps of ten past runs as credentialed or not, and see how much
 > work sits upstream" landed: `classifyStep` and `independentFraction`
 > (`src/loop/credentialedSteps.ts`) replay ten of this repository's own past runs and
