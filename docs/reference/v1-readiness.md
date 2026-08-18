@@ -3089,7 +3089,7 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,122 tests across 257 files, verified 2026-08-18 (`npx vitest run`,
+> *Today:* **met** — 3,124 tests across 258 files, verified 2026-08-18 (`npx vitest run`,
 > after "Each agent writes on its own branch, and merging is a deliberate, reviewable
 > step" landed: `createAgentBranch` and `mergeAgentBranch` (`src/git/branch-isolation.ts`)
 > give one pass its own checkout via `git worktree add -b` and bring a branch back as one
