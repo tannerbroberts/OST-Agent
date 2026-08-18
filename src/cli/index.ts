@@ -124,6 +124,7 @@ import { defaultTranscriptDir } from "../adapters/transcript.js";
 import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
 import { formatMigrationReport, migrateEvidenceClass } from "../ost/migrate.js";
 import { findRenameShapedBreaks } from "../git/rename-topology.js";
+import { scanDeadEnds } from "../git/dead-end-scan.js";
 import { liveRenameRepairs } from "../ost/rename-repair.js";
 import { readPendingAskQueue } from "../ost/pending-asks.js";
 import { laneDef, LANES, type LaneId } from "../knowledge/lanes.js";
@@ -679,6 +680,24 @@ program
           ? `  committed ${r.sha.slice(0, 8)} — every repointed edge is named above and recoverable from history`
           : "  NOT committed — git saw nothing to commit",
       );
+    }
+  });
+
+program
+  .command("dead-ends")
+  .description("scan a repository's recent commit history for reversal-shaped events (reverts, files created then deleted) without reading any session (read-only)")
+  .option("--repo <dir>", "repository to scan (default: current directory)", ".")
+  .option("--max-commits <n>", "how many of the most recent commits to scan", "200")
+  .action(async (opts: { repo: string; maxCommits: string }) => {
+    const dir = path.resolve(opts.repo);
+    const events = await scanDeadEnds(dir, { maxCommits: Number(opts.maxCommits) });
+    if (events.length === 0) {
+      console.log("no reversal-shaped event in this window");
+      return;
+    }
+    for (const e of events) {
+      const where = e.kind === "revert" ? `reverts ${e.revertedSha?.slice(0, 8)}` : e.file;
+      console.log(`${e.date}  ${e.sha.slice(0, 8)}  ${e.kind}  ${where}  — ${e.summary}`);
     }
   });
 
