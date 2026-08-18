@@ -142,6 +142,7 @@ import { gitCommit } from "../git/safe-git.js";
 import { runAllowlistGenerator } from "../security/allowlist-generator.js";
 import { runGrantPreflight } from "../runner/grant-preflight.js";
 import { REQUIRED_TOOLS_EXIT, checkRequiredTools } from "../mcp/required-tools.js";
+import { TOOL_SURFACE_PREFLIGHT_EXIT, checkToolSurfaces } from "../runner/tool-surface-preflight.js";
 import { loopStateDir, workingTreeStatus, type VaultTreeStatus } from "../loop/state.js";
 import { bankQuestion, readQuestionBank } from "../loop/question-bank.js";
 import { renderAuthorityContract } from "../loop/authority-contract.js";
@@ -2036,6 +2037,30 @@ program
     // is also not a cleared run, and a wrapper collapsing the two into one would
     // lose exactly the distinction this command exists to draw.
     if (check.exitCode === REQUIRED_TOOLS_EXIT.cleared) console.log(check.report);
+    else {
+      console.error(check.report);
+      process.exitCode = check.exitCode;
+    }
+  });
+
+program
+  .command("tool-surface")
+  .description(
+    "confirm a pass's required MCP tools are on the LIVE surface by listing them, never by calling them — " +
+      "closes what `required-tools` cannot check: whether the surface actually answers what `--available` claims",
+  )
+  .requiredOption(
+    "--pass <file>",
+    "the SKILL.md (or command file) declaring `allowed-tools` and the `required-tools` subset it cannot start without",
+  )
+  .requiredOption("--vault <dir>", "the vault directory the live MCP surface would serve")
+  .action(async (opts: { pass: string; vault: string }) => {
+    const dir = path.resolve(opts.vault);
+    const check = await checkToolSurfaces({
+      passFile: path.resolve(opts.pass),
+      surfaces: [{ name: `live MCP surface (${dir})`, server: createLazyOstMcpServer(dir) }],
+    });
+    if (check.exitCode === TOOL_SURFACE_PREFLIGHT_EXIT.cleared) console.log(check.report);
     else {
       console.error(check.report);
       process.exitCode = check.exitCode;

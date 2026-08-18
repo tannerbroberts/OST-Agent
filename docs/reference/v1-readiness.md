@@ -3089,7 +3089,15 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,024 tests across 248 files, verified 2026-08-17 (`npx vitest run`,
+> *Today:* **met** — 3,037 tests across 249 files, verified 2026-08-18 (`npx vitest run`,
+> after "Declare the tool surface a pass requires and abort in the first second if it is
+> absent" landed: `ost-agent tool-surface` lists a live MCP surface's `tools/list` and
+> confirms a pass's declared `required-tools` against it — zero tool invocations, no
+> partial credit across surfaces — closing what `required-tools`' own `LIVE_SURFACE_CAVEAT`
+> named as unchecked: whether the surface a run actually fires with is the list handed to
+> `--available` (`src/runner/tool-surface-preflight.ts`,
+> `test/runner/tool-surface-preflight.test.ts`).
+> Previously 3,024 tests across 248 files, verified 2026-08-17 (`npx vitest run`,
 > after "Declare the distance to the real goal as named darkness, so the gap is inventory"
 > landed: `ost_create_node` refuses to create an Unknown whose body has no non-empty
 > `## Format` section — a bare heading with nothing under it counts as missing, same as

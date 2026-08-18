@@ -982,7 +982,7 @@ var require_command = __commonJS({
     var EventEmitter2 = __require("node:events").EventEmitter;
     var childProcess = __require("node:child_process");
     var path64 = __require("node:path");
-    var fs61 = __require("node:fs");
+    var fs62 = __require("node:fs");
     var process3 = __require("node:process");
     var { Argument: Argument2, humanReadableArgName } = require_argument();
     var { CommanderError: CommanderError2 } = require_error();
@@ -1915,10 +1915,10 @@ Expecting one of '${allowedValues.join("', '")}'`);
         const sourceExt = [".js", ".ts", ".tsx", ".mjs", ".cjs"];
         function findFile(baseDir, baseName2) {
           const localBin = path64.resolve(baseDir, baseName2);
-          if (fs61.existsSync(localBin)) return localBin;
+          if (fs62.existsSync(localBin)) return localBin;
           if (sourceExt.includes(path64.extname(baseName2))) return void 0;
           const foundExt = sourceExt.find(
-            (ext) => fs61.existsSync(`${localBin}${ext}`)
+            (ext) => fs62.existsSync(`${localBin}${ext}`)
           );
           if (foundExt) return `${localBin}${foundExt}`;
           return void 0;
@@ -1930,7 +1930,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
         if (this._scriptPath) {
           let resolvedScriptPath;
           try {
-            resolvedScriptPath = fs61.realpathSync(this._scriptPath);
+            resolvedScriptPath = fs62.realpathSync(this._scriptPath);
           } catch (err) {
             resolvedScriptPath = this._scriptPath;
           }
@@ -9919,14 +9919,14 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs61 = this.flowScalar(this.type);
+              const fs62 = this.flowScalar(this.type);
               if (atNextItem || it.value) {
-                map.items.push({ start, key: fs61, sep: [] });
+                map.items.push({ start, key: fs62, sep: [] });
                 this.onKeyLine = true;
               } else if (it.sep) {
-                this.stack.push(fs61);
+                this.stack.push(fs62);
               } else {
-                Object.assign(it, { key: fs61, sep: [] });
+                Object.assign(it, { key: fs62, sep: [] });
                 this.onKeyLine = true;
               }
               return;
@@ -10054,13 +10054,13 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs61 = this.flowScalar(this.type);
+              const fs62 = this.flowScalar(this.type);
               if (!it || it.value)
-                fc.items.push({ start: [], key: fs61, sep: [] });
+                fc.items.push({ start: [], key: fs62, sep: [] });
               else if (it.sep)
-                this.stack.push(fs61);
+                this.stack.push(fs62);
               else
-                Object.assign(it, { key: fs61, sep: [] });
+                Object.assign(it, { key: fs62, sep: [] });
               return;
             }
             case "flow-map-end":
@@ -13744,7 +13744,7 @@ var require_parse = __commonJS({
 var require_gray_matter = __commonJS({
   "node_modules/gray-matter/index.js"(exports2, module2) {
     "use strict";
-    var fs61 = __require("fs");
+    var fs62 = __require("fs");
     var sections = require_section_matter();
     var defaults = require_defaults();
     var stringify = require_stringify2();
@@ -13828,7 +13828,7 @@ var require_gray_matter = __commonJS({
       return stringify(file, data, options2);
     };
     matter4.read = function(filepath, options2) {
-      const str3 = fs61.readFileSync(filepath, "utf8");
+      const str3 = fs62.readFileSync(filepath, "utf8");
       const file = matter4(str3, options2);
       file.path = filepath;
       return file;
@@ -26906,12 +26906,12 @@ var require_dist4 = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs61, exportName) {
+    function addFormats(ajv, list, fs62, exportName) {
       var _a2;
       var _b;
       (_a2 = (_b = ajv.opts.code).formats) !== null && _a2 !== void 0 ? _a2 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs61[f]);
+        ajv.addFormat(f, fs62[f]);
     }
     module2.exports = exports2 = formatsPlugin;
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -27026,7 +27026,7 @@ var init_stdio2 = __esm({
 });
 
 // src/cli/index.ts
-import fs60 from "node:fs";
+import fs61 from "node:fs";
 import os5 from "node:os";
 import path63 from "node:path";
 import { spawnSync as spawnSync6 } from "node:child_process";
@@ -54440,8 +54440,827 @@ function checkRequiredTools(opts) {
   };
 }
 
-// src/loop/question-bank.ts
+// src/runner/tool-surface-preflight.ts
 import fs42 from "node:fs";
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/client/index.js
+init_types();
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/client.js
+init_types();
+var ExperimentalClientTasks = class {
+  constructor(_client) {
+    this._client = _client;
+  }
+  /**
+   * Calls a tool and returns an AsyncGenerator that yields response messages.
+   * The generator is guaranteed to end with either a 'result' or 'error' message.
+   *
+   * This method provides streaming access to tool execution, allowing you to
+   * observe intermediate task status updates for long-running tool calls.
+   * Automatically validates structured output if the tool has an outputSchema.
+   *
+   * @example
+   * ```typescript
+   * const stream = client.experimental.tasks.callToolStream({ name: 'myTool', arguments: {} });
+   * for await (const message of stream) {
+   *   switch (message.type) {
+   *     case 'taskCreated':
+   *       console.log('Tool execution started:', message.task.taskId);
+   *       break;
+   *     case 'taskStatus':
+   *       console.log('Tool status:', message.task.status);
+   *       break;
+   *     case 'result':
+   *       console.log('Tool result:', message.result);
+   *       break;
+   *     case 'error':
+   *       console.error('Tool error:', message.error);
+   *       break;
+   *   }
+   * }
+   * ```
+   *
+   * @param params - Tool call parameters (name and arguments)
+   * @param resultSchema - Zod schema for validating the result (defaults to CallToolResultSchema)
+   * @param options - Optional request options (timeout, signal, task creation params, etc.)
+   * @returns AsyncGenerator that yields ResponseMessage objects
+   *
+   * @experimental
+   */
+  async *callToolStream(params, resultSchema = CallToolResultSchema, options2) {
+    const clientInternal = this._client;
+    const optionsWithTask = {
+      ...options2,
+      // We check if the tool is known to be a task during auto-configuration, but assume
+      // the caller knows what they're doing if they pass this explicitly
+      task: options2?.task ?? (clientInternal.isToolTask(params.name) ? {} : void 0)
+    };
+    const stream = clientInternal.requestStream({ method: "tools/call", params }, resultSchema, optionsWithTask);
+    const validator = clientInternal.getToolOutputValidator(params.name);
+    for await (const message of stream) {
+      if (message.type === "result" && validator) {
+        const result = message.result;
+        if (!result.structuredContent && !result.isError) {
+          yield {
+            type: "error",
+            error: new McpError(ErrorCode.InvalidRequest, `Tool ${params.name} has an output schema but did not return structured content`)
+          };
+          return;
+        }
+        if (result.structuredContent) {
+          try {
+            const validationResult = validator(result.structuredContent);
+            if (!validationResult.valid) {
+              yield {
+                type: "error",
+                error: new McpError(ErrorCode.InvalidParams, `Structured content does not match the tool's output schema: ${validationResult.errorMessage}`)
+              };
+              return;
+            }
+          } catch (error2) {
+            if (error2 instanceof McpError) {
+              yield { type: "error", error: error2 };
+              return;
+            }
+            yield {
+              type: "error",
+              error: new McpError(ErrorCode.InvalidParams, `Failed to validate structured content: ${error2 instanceof Error ? error2.message : String(error2)}`)
+            };
+            return;
+          }
+        }
+      }
+      yield message;
+    }
+  }
+  /**
+   * Gets the current status of a task.
+   *
+   * @param taskId - The task identifier
+   * @param options - Optional request options
+   * @returns The task status
+   *
+   * @experimental
+   */
+  async getTask(taskId, options2) {
+    return this._client.getTask({ taskId }, options2);
+  }
+  /**
+   * Retrieves the result of a completed task.
+   *
+   * @param taskId - The task identifier
+   * @param resultSchema - Zod schema for validating the result
+   * @param options - Optional request options
+   * @returns The task result
+   *
+   * @experimental
+   */
+  async getTaskResult(taskId, resultSchema, options2) {
+    return this._client.getTaskResult({ taskId }, resultSchema, options2);
+  }
+  /**
+   * Lists tasks with optional pagination.
+   *
+   * @param cursor - Optional pagination cursor
+   * @param options - Optional request options
+   * @returns List of tasks with optional next cursor
+   *
+   * @experimental
+   */
+  async listTasks(cursor, options2) {
+    return this._client.listTasks(cursor ? { cursor } : void 0, options2);
+  }
+  /**
+   * Cancels a running task.
+   *
+   * @param taskId - The task identifier
+   * @param options - Optional request options
+   *
+   * @experimental
+   */
+  async cancelTask(taskId, options2) {
+    return this._client.cancelTask({ taskId }, options2);
+  }
+  /**
+   * Sends a request and returns an AsyncGenerator that yields response messages.
+   * The generator is guaranteed to end with either a 'result' or 'error' message.
+   *
+   * This method provides streaming access to request processing, allowing you to
+   * observe intermediate task status updates for task-augmented requests.
+   *
+   * @param request - The request to send
+   * @param resultSchema - Zod schema for validating the result
+   * @param options - Optional request options (timeout, signal, task creation params, etc.)
+   * @returns AsyncGenerator that yields ResponseMessage objects
+   *
+   * @experimental
+   */
+  requestStream(request, resultSchema, options2) {
+    return this._client.requestStream(request, resultSchema, options2);
+  }
+};
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/client/index.js
+function applyElicitationDefaults(schema, data) {
+  if (!schema || data === null || typeof data !== "object")
+    return;
+  if (schema.type === "object" && schema.properties && typeof schema.properties === "object") {
+    const obj = data;
+    const props = schema.properties;
+    for (const key of Object.keys(props)) {
+      const propSchema = props[key];
+      if (obj[key] === void 0 && Object.prototype.hasOwnProperty.call(propSchema, "default")) {
+        obj[key] = propSchema.default;
+      }
+      if (obj[key] !== void 0) {
+        applyElicitationDefaults(propSchema, obj[key]);
+      }
+    }
+  }
+  if (Array.isArray(schema.anyOf)) {
+    for (const sub of schema.anyOf) {
+      if (typeof sub !== "boolean") {
+        applyElicitationDefaults(sub, data);
+      }
+    }
+  }
+  if (Array.isArray(schema.oneOf)) {
+    for (const sub of schema.oneOf) {
+      if (typeof sub !== "boolean") {
+        applyElicitationDefaults(sub, data);
+      }
+    }
+  }
+}
+function getSupportedElicitationModes(capabilities) {
+  if (!capabilities) {
+    return { supportsFormMode: false, supportsUrlMode: false };
+  }
+  const hasFormCapability = capabilities.form !== void 0;
+  const hasUrlCapability = capabilities.url !== void 0;
+  const supportsFormMode = hasFormCapability || !hasFormCapability && !hasUrlCapability;
+  const supportsUrlMode = hasUrlCapability;
+  return { supportsFormMode, supportsUrlMode };
+}
+var Client = class extends Protocol {
+  /**
+   * Initializes this client with the given name and version information.
+   */
+  constructor(_clientInfo, options2) {
+    super(options2);
+    this._clientInfo = _clientInfo;
+    this._cachedToolOutputValidators = /* @__PURE__ */ new Map();
+    this._cachedKnownTaskTools = /* @__PURE__ */ new Set();
+    this._cachedRequiredTaskTools = /* @__PURE__ */ new Set();
+    this._listChangedDebounceTimers = /* @__PURE__ */ new Map();
+    this._capabilities = options2?.capabilities ?? {};
+    this._jsonSchemaValidator = options2?.jsonSchemaValidator ?? new AjvJsonSchemaValidator();
+    if (options2?.listChanged) {
+      this._pendingListChangedConfig = options2.listChanged;
+    }
+  }
+  /**
+   * Set up handlers for list changed notifications based on config and server capabilities.
+   * This should only be called after initialization when server capabilities are known.
+   * Handlers are silently skipped if the server doesn't advertise the corresponding listChanged capability.
+   * @internal
+   */
+  _setupListChangedHandlers(config2) {
+    if (config2.tools && this._serverCapabilities?.tools?.listChanged) {
+      this._setupListChangedHandler("tools", ToolListChangedNotificationSchema, config2.tools, async () => {
+        const result = await this.listTools();
+        return result.tools;
+      });
+    }
+    if (config2.prompts && this._serverCapabilities?.prompts?.listChanged) {
+      this._setupListChangedHandler("prompts", PromptListChangedNotificationSchema, config2.prompts, async () => {
+        const result = await this.listPrompts();
+        return result.prompts;
+      });
+    }
+    if (config2.resources && this._serverCapabilities?.resources?.listChanged) {
+      this._setupListChangedHandler("resources", ResourceListChangedNotificationSchema, config2.resources, async () => {
+        const result = await this.listResources();
+        return result.resources;
+      });
+    }
+  }
+  /**
+   * Access experimental features.
+   *
+   * WARNING: These APIs are experimental and may change without notice.
+   *
+   * @experimental
+   */
+  get experimental() {
+    if (!this._experimental) {
+      this._experimental = {
+        tasks: new ExperimentalClientTasks(this)
+      };
+    }
+    return this._experimental;
+  }
+  /**
+   * Registers new capabilities. This can only be called before connecting to a transport.
+   *
+   * The new capabilities will be merged with any existing capabilities previously given (e.g., at initialization).
+   */
+  registerCapabilities(capabilities) {
+    if (this.transport) {
+      throw new Error("Cannot register capabilities after connecting to transport");
+    }
+    this._capabilities = mergeCapabilities(this._capabilities, capabilities);
+  }
+  /**
+   * Override request handler registration to enforce client-side validation for elicitation.
+   */
+  setRequestHandler(requestSchema, handler) {
+    const shape = getObjectShape(requestSchema);
+    const methodSchema = shape?.method;
+    if (!methodSchema) {
+      throw new Error("Schema is missing a method literal");
+    }
+    let methodValue;
+    if (isZ4Schema(methodSchema)) {
+      const v4Schema = methodSchema;
+      const v4Def = v4Schema._zod?.def;
+      methodValue = v4Def?.value ?? v4Schema.value;
+    } else {
+      const v3Schema = methodSchema;
+      const legacyDef = v3Schema._def;
+      methodValue = legacyDef?.value ?? v3Schema.value;
+    }
+    if (typeof methodValue !== "string") {
+      throw new Error("Schema method literal must be a string");
+    }
+    const method = methodValue;
+    if (method === "elicitation/create") {
+      const wrappedHandler = async (request, extra) => {
+        const validatedRequest = safeParse2(ElicitRequestSchema, request);
+        if (!validatedRequest.success) {
+          const errorMessage = validatedRequest.error instanceof Error ? validatedRequest.error.message : String(validatedRequest.error);
+          throw new McpError(ErrorCode.InvalidParams, `Invalid elicitation request: ${errorMessage}`);
+        }
+        const { params } = validatedRequest.data;
+        params.mode = params.mode ?? "form";
+        const { supportsFormMode, supportsUrlMode } = getSupportedElicitationModes(this._capabilities.elicitation);
+        if (params.mode === "form" && !supportsFormMode) {
+          throw new McpError(ErrorCode.InvalidParams, "Client does not support form-mode elicitation requests");
+        }
+        if (params.mode === "url" && !supportsUrlMode) {
+          throw new McpError(ErrorCode.InvalidParams, "Client does not support URL-mode elicitation requests");
+        }
+        const result = await Promise.resolve(handler(request, extra));
+        if (params.task) {
+          const taskValidationResult = safeParse2(CreateTaskResultSchema, result);
+          if (!taskValidationResult.success) {
+            const errorMessage = taskValidationResult.error instanceof Error ? taskValidationResult.error.message : String(taskValidationResult.error);
+            throw new McpError(ErrorCode.InvalidParams, `Invalid task creation result: ${errorMessage}`);
+          }
+          return taskValidationResult.data;
+        }
+        const validationResult = safeParse2(ElicitResultSchema, result);
+        if (!validationResult.success) {
+          const errorMessage = validationResult.error instanceof Error ? validationResult.error.message : String(validationResult.error);
+          throw new McpError(ErrorCode.InvalidParams, `Invalid elicitation result: ${errorMessage}`);
+        }
+        const validatedResult = validationResult.data;
+        const requestedSchema = params.mode === "form" ? params.requestedSchema : void 0;
+        if (params.mode === "form" && validatedResult.action === "accept" && validatedResult.content && requestedSchema) {
+          if (this._capabilities.elicitation?.form?.applyDefaults) {
+            try {
+              applyElicitationDefaults(requestedSchema, validatedResult.content);
+            } catch {
+            }
+          }
+        }
+        return validatedResult;
+      };
+      return super.setRequestHandler(requestSchema, wrappedHandler);
+    }
+    if (method === "sampling/createMessage") {
+      const wrappedHandler = async (request, extra) => {
+        const validatedRequest = safeParse2(CreateMessageRequestSchema, request);
+        if (!validatedRequest.success) {
+          const errorMessage = validatedRequest.error instanceof Error ? validatedRequest.error.message : String(validatedRequest.error);
+          throw new McpError(ErrorCode.InvalidParams, `Invalid sampling request: ${errorMessage}`);
+        }
+        const { params } = validatedRequest.data;
+        const result = await Promise.resolve(handler(request, extra));
+        if (params.task) {
+          const taskValidationResult = safeParse2(CreateTaskResultSchema, result);
+          if (!taskValidationResult.success) {
+            const errorMessage = taskValidationResult.error instanceof Error ? taskValidationResult.error.message : String(taskValidationResult.error);
+            throw new McpError(ErrorCode.InvalidParams, `Invalid task creation result: ${errorMessage}`);
+          }
+          return taskValidationResult.data;
+        }
+        const hasTools = params.tools || params.toolChoice;
+        const resultSchema = hasTools ? CreateMessageResultWithToolsSchema : CreateMessageResultSchema;
+        const validationResult = safeParse2(resultSchema, result);
+        if (!validationResult.success) {
+          const errorMessage = validationResult.error instanceof Error ? validationResult.error.message : String(validationResult.error);
+          throw new McpError(ErrorCode.InvalidParams, `Invalid sampling result: ${errorMessage}`);
+        }
+        return validationResult.data;
+      };
+      return super.setRequestHandler(requestSchema, wrappedHandler);
+    }
+    return super.setRequestHandler(requestSchema, handler);
+  }
+  assertCapability(capability, method) {
+    if (!this._serverCapabilities?.[capability]) {
+      throw new Error(`Server does not support ${capability} (required for ${method})`);
+    }
+  }
+  async connect(transport, options2) {
+    await super.connect(transport);
+    if (transport.sessionId !== void 0) {
+      return;
+    }
+    try {
+      const result = await this.request({
+        method: "initialize",
+        params: {
+          protocolVersion: LATEST_PROTOCOL_VERSION,
+          capabilities: this._capabilities,
+          clientInfo: this._clientInfo
+        }
+      }, InitializeResultSchema, options2);
+      if (result === void 0) {
+        throw new Error(`Server sent invalid initialize result: ${result}`);
+      }
+      if (!SUPPORTED_PROTOCOL_VERSIONS.includes(result.protocolVersion)) {
+        throw new Error(`Server's protocol version is not supported: ${result.protocolVersion}`);
+      }
+      this._serverCapabilities = result.capabilities;
+      this._serverVersion = result.serverInfo;
+      if (transport.setProtocolVersion) {
+        transport.setProtocolVersion(result.protocolVersion);
+      }
+      this._instructions = result.instructions;
+      await this.notification({
+        method: "notifications/initialized"
+      });
+      if (this._pendingListChangedConfig) {
+        this._setupListChangedHandlers(this._pendingListChangedConfig);
+        this._pendingListChangedConfig = void 0;
+      }
+    } catch (error2) {
+      void this.close();
+      throw error2;
+    }
+  }
+  /**
+   * After initialization has completed, this will be populated with the server's reported capabilities.
+   */
+  getServerCapabilities() {
+    return this._serverCapabilities;
+  }
+  /**
+   * After initialization has completed, this will be populated with information about the server's name and version.
+   */
+  getServerVersion() {
+    return this._serverVersion;
+  }
+  /**
+   * After initialization has completed, this may be populated with information about the server's instructions.
+   */
+  getInstructions() {
+    return this._instructions;
+  }
+  assertCapabilityForMethod(method) {
+    switch (method) {
+      case "logging/setLevel":
+        if (!this._serverCapabilities?.logging) {
+          throw new Error(`Server does not support logging (required for ${method})`);
+        }
+        break;
+      case "prompts/get":
+      case "prompts/list":
+        if (!this._serverCapabilities?.prompts) {
+          throw new Error(`Server does not support prompts (required for ${method})`);
+        }
+        break;
+      case "resources/list":
+      case "resources/templates/list":
+      case "resources/read":
+      case "resources/subscribe":
+      case "resources/unsubscribe":
+        if (!this._serverCapabilities?.resources) {
+          throw new Error(`Server does not support resources (required for ${method})`);
+        }
+        if (method === "resources/subscribe" && !this._serverCapabilities.resources.subscribe) {
+          throw new Error(`Server does not support resource subscriptions (required for ${method})`);
+        }
+        break;
+      case "tools/call":
+      case "tools/list":
+        if (!this._serverCapabilities?.tools) {
+          throw new Error(`Server does not support tools (required for ${method})`);
+        }
+        break;
+      case "completion/complete":
+        if (!this._serverCapabilities?.completions) {
+          throw new Error(`Server does not support completions (required for ${method})`);
+        }
+        break;
+      case "initialize":
+        break;
+      case "ping":
+        break;
+    }
+  }
+  assertNotificationCapability(method) {
+    switch (method) {
+      case "notifications/roots/list_changed":
+        if (!this._capabilities.roots?.listChanged) {
+          throw new Error(`Client does not support roots list changed notifications (required for ${method})`);
+        }
+        break;
+      case "notifications/initialized":
+        break;
+      case "notifications/cancelled":
+        break;
+      case "notifications/progress":
+        break;
+    }
+  }
+  assertRequestHandlerCapability(method) {
+    if (!this._capabilities) {
+      return;
+    }
+    switch (method) {
+      case "sampling/createMessage":
+        if (!this._capabilities.sampling) {
+          throw new Error(`Client does not support sampling capability (required for ${method})`);
+        }
+        break;
+      case "elicitation/create":
+        if (!this._capabilities.elicitation) {
+          throw new Error(`Client does not support elicitation capability (required for ${method})`);
+        }
+        break;
+      case "roots/list":
+        if (!this._capabilities.roots) {
+          throw new Error(`Client does not support roots capability (required for ${method})`);
+        }
+        break;
+      case "tasks/get":
+      case "tasks/list":
+      case "tasks/result":
+      case "tasks/cancel":
+        if (!this._capabilities.tasks) {
+          throw new Error(`Client does not support tasks capability (required for ${method})`);
+        }
+        break;
+      case "ping":
+        break;
+    }
+  }
+  assertTaskCapability(method) {
+    assertToolsCallTaskCapability(this._serverCapabilities?.tasks?.requests, method, "Server");
+  }
+  assertTaskHandlerCapability(method) {
+    if (!this._capabilities) {
+      return;
+    }
+    assertClientRequestTaskCapability(this._capabilities.tasks?.requests, method, "Client");
+  }
+  async ping(options2) {
+    return this.request({ method: "ping" }, EmptyResultSchema, options2);
+  }
+  async complete(params, options2) {
+    return this.request({ method: "completion/complete", params }, CompleteResultSchema, options2);
+  }
+  async setLoggingLevel(level, options2) {
+    return this.request({ method: "logging/setLevel", params: { level } }, EmptyResultSchema, options2);
+  }
+  async getPrompt(params, options2) {
+    return this.request({ method: "prompts/get", params }, GetPromptResultSchema, options2);
+  }
+  async listPrompts(params, options2) {
+    return this.request({ method: "prompts/list", params }, ListPromptsResultSchema, options2);
+  }
+  async listResources(params, options2) {
+    return this.request({ method: "resources/list", params }, ListResourcesResultSchema, options2);
+  }
+  async listResourceTemplates(params, options2) {
+    return this.request({ method: "resources/templates/list", params }, ListResourceTemplatesResultSchema, options2);
+  }
+  async readResource(params, options2) {
+    return this.request({ method: "resources/read", params }, ReadResourceResultSchema, options2);
+  }
+  async subscribeResource(params, options2) {
+    return this.request({ method: "resources/subscribe", params }, EmptyResultSchema, options2);
+  }
+  async unsubscribeResource(params, options2) {
+    return this.request({ method: "resources/unsubscribe", params }, EmptyResultSchema, options2);
+  }
+  /**
+   * Calls a tool and waits for the result. Automatically validates structured output if the tool has an outputSchema.
+   *
+   * For task-based execution with streaming behavior, use client.experimental.tasks.callToolStream() instead.
+   */
+  async callTool(params, resultSchema = CallToolResultSchema, options2) {
+    if (this.isToolTaskRequired(params.name)) {
+      throw new McpError(ErrorCode.InvalidRequest, `Tool "${params.name}" requires task-based execution. Use client.experimental.tasks.callToolStream() instead.`);
+    }
+    const result = await this.request({ method: "tools/call", params }, resultSchema, options2);
+    const validator = this.getToolOutputValidator(params.name);
+    if (validator) {
+      if (!result.structuredContent && !result.isError) {
+        throw new McpError(ErrorCode.InvalidRequest, `Tool ${params.name} has an output schema but did not return structured content`);
+      }
+      if (result.structuredContent) {
+        try {
+          const validationResult = validator(result.structuredContent);
+          if (!validationResult.valid) {
+            throw new McpError(ErrorCode.InvalidParams, `Structured content does not match the tool's output schema: ${validationResult.errorMessage}`);
+          }
+        } catch (error2) {
+          if (error2 instanceof McpError) {
+            throw error2;
+          }
+          throw new McpError(ErrorCode.InvalidParams, `Failed to validate structured content: ${error2 instanceof Error ? error2.message : String(error2)}`);
+        }
+      }
+    }
+    return result;
+  }
+  isToolTask(toolName) {
+    if (!this._serverCapabilities?.tasks?.requests?.tools?.call) {
+      return false;
+    }
+    return this._cachedKnownTaskTools.has(toolName);
+  }
+  /**
+   * Check if a tool requires task-based execution.
+   * Unlike isToolTask which includes 'optional' tools, this only checks for 'required'.
+   */
+  isToolTaskRequired(toolName) {
+    return this._cachedRequiredTaskTools.has(toolName);
+  }
+  /**
+   * Cache validators for tool output schemas.
+   * Called after listTools() to pre-compile validators for better performance.
+   */
+  cacheToolMetadata(tools) {
+    this._cachedToolOutputValidators.clear();
+    this._cachedKnownTaskTools.clear();
+    this._cachedRequiredTaskTools.clear();
+    for (const tool2 of tools) {
+      if (tool2.outputSchema) {
+        const toolValidator = this._jsonSchemaValidator.getValidator(tool2.outputSchema);
+        this._cachedToolOutputValidators.set(tool2.name, toolValidator);
+      }
+      const taskSupport = tool2.execution?.taskSupport;
+      if (taskSupport === "required" || taskSupport === "optional") {
+        this._cachedKnownTaskTools.add(tool2.name);
+      }
+      if (taskSupport === "required") {
+        this._cachedRequiredTaskTools.add(tool2.name);
+      }
+    }
+  }
+  /**
+   * Get cached validator for a tool
+   */
+  getToolOutputValidator(toolName) {
+    return this._cachedToolOutputValidators.get(toolName);
+  }
+  async listTools(params, options2) {
+    const result = await this.request({ method: "tools/list", params }, ListToolsResultSchema, options2);
+    this.cacheToolMetadata(result.tools);
+    return result;
+  }
+  /**
+   * Set up a single list changed handler.
+   * @internal
+   */
+  _setupListChangedHandler(listType, notificationSchema, options2, fetcher) {
+    const parseResult = ListChangedOptionsBaseSchema.safeParse(options2);
+    if (!parseResult.success) {
+      throw new Error(`Invalid ${listType} listChanged options: ${parseResult.error.message}`);
+    }
+    if (typeof options2.onChanged !== "function") {
+      throw new Error(`Invalid ${listType} listChanged options: onChanged must be a function`);
+    }
+    const { autoRefresh, debounceMs } = parseResult.data;
+    const { onChanged } = options2;
+    const refresh = async () => {
+      if (!autoRefresh) {
+        onChanged(null, null);
+        return;
+      }
+      try {
+        const items = await fetcher();
+        onChanged(null, items);
+      } catch (e) {
+        const error2 = e instanceof Error ? e : new Error(String(e));
+        onChanged(error2, null);
+      }
+    };
+    const handler = () => {
+      if (debounceMs) {
+        const existingTimer = this._listChangedDebounceTimers.get(listType);
+        if (existingTimer) {
+          clearTimeout(existingTimer);
+        }
+        const timer = setTimeout(refresh, debounceMs);
+        this._listChangedDebounceTimers.set(listType, timer);
+      } else {
+        refresh();
+      }
+    };
+    this.setNotificationHandler(notificationSchema, handler);
+  }
+  async sendRootsListChanged() {
+    return this.notification({ method: "notifications/roots/list_changed" });
+  }
+};
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/inMemory.js
+var InMemoryTransport = class _InMemoryTransport {
+  constructor() {
+    this._messageQueue = [];
+  }
+  /**
+   * Creates a pair of linked in-memory transports that can communicate with each other. One should be passed to a Client and one to a Server.
+   */
+  static createLinkedPair() {
+    const clientTransport = new _InMemoryTransport();
+    const serverTransport = new _InMemoryTransport();
+    clientTransport._otherTransport = serverTransport;
+    serverTransport._otherTransport = clientTransport;
+    return [clientTransport, serverTransport];
+  }
+  async start() {
+    while (this._messageQueue.length > 0) {
+      const queuedMessage = this._messageQueue.shift();
+      this.onmessage?.(queuedMessage.message, queuedMessage.extra);
+    }
+  }
+  async close() {
+    const other = this._otherTransport;
+    this._otherTransport = void 0;
+    await other?.close();
+    this.onclose?.();
+  }
+  /**
+   * Sends a message with optional auth info.
+   * This is useful for testing authentication scenarios.
+   */
+  async send(message, options2) {
+    if (!this._otherTransport) {
+      throw new Error("Not connected");
+    }
+    if (this._otherTransport.onmessage) {
+      this._otherTransport.onmessage(message, { authInfo: options2?.authInfo });
+    } else {
+      this._otherTransport._messageQueue.push({ message, extra: { authInfo: options2?.authInfo } });
+    }
+  }
+};
+
+// src/runner/tool-surface-preflight.ts
+var TOOL_SURFACE_PREFLIGHT_EXIT = {
+  cleared: 0,
+  /** A required MCP tool is absent from at least one surface's live listing. */
+  missingRequired: 50,
+  /** `tools/list` could not be completed on at least one surface. */
+  unreachable: 51,
+  /** The declaration itself could not be read — not a cleared run. */
+  undeclared: 52
+};
+async function enumerateLiveSurface(surface) {
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  const client = new Client({ name: "ost-agent-tool-surface-preflight", version: "0.0.0" });
+  try {
+    await Promise.all([surface.server.connect(serverTransport), client.connect(clientTransport)]);
+    const { tools } = await client.listTools();
+    return { surface: surface.name, reachable: true, liveTools: tools.map((t2) => t2.name), missingRequired: [] };
+  } catch (e) {
+    return {
+      surface: surface.name,
+      reachable: false,
+      error: e instanceof Error ? e.message : String(e),
+      liveTools: [],
+      missingRequired: []
+    };
+  } finally {
+    await Promise.allSettled([client.close(), surface.server.close()]);
+  }
+}
+var LIVE_LISTING_CAVEAT = "WHAT THIS DOES NOT SETTLE: a tool that lists here and then refuses every call, or is present at a schema the caller does not hold, clears this preflight and fails the run. This confirms presence on the surface's own tools/list, not usability, and not that the session this pass actually fires in holds the same grant.";
+async function checkToolSurfaces(opts) {
+  let markdown;
+  try {
+    markdown = fs42.readFileSync(opts.passFile, "utf8");
+  } catch (e) {
+    return {
+      exitCode: TOOL_SURFACE_PREFLIGHT_EXIT.undeclared,
+      report: `tool-surface COULD NOT RUN: ${opts.passFile} is unreadable (${e instanceof Error ? e.message : String(e)}). That is not a cleared run.`,
+      result: null
+    };
+  }
+  const declaration = parseToolDeclaration(markdown);
+  if (isDeclarationProblem(declaration)) {
+    return {
+      exitCode: TOOL_SURFACE_PREFLIGHT_EXIT.undeclared,
+      report: `tool-surface COULD NOT RUN: ${opts.passFile} has ${declaration.problem}. That is not a cleared run.`,
+      result: null
+    };
+  }
+  const requiredMcpTools = declaration.required.filter((t2) => parseRule(t2).tool.startsWith("mcp__"));
+  const requiredBare = requiredMcpTools.map((t2) => unnamespacedTool(parseRule(t2).tool));
+  const surfaces = [];
+  for (const surface of opts.surfaces) {
+    const enumerated = await enumerateLiveSurface(surface);
+    if (!enumerated.reachable) {
+      surfaces.push(enumerated);
+      continue;
+    }
+    const live = new Set(enumerated.liveTools.map(unnamespacedTool));
+    const missingRequired = requiredMcpTools.filter((_2, i2) => !live.has(requiredBare[i2]));
+    surfaces.push({ ...enumerated, missingRequired });
+  }
+  const result = { declaration, requiredMcpTools, surfaces };
+  const anyUnreachable = surfaces.some((s) => !s.reachable);
+  const anyMissing = surfaces.some((s) => s.missingRequired.length > 0);
+  const exitCode = anyUnreachable ? TOOL_SURFACE_PREFLIGHT_EXIT.unreachable : anyMissing ? TOOL_SURFACE_PREFLIGHT_EXIT.missingRequired : TOOL_SURFACE_PREFLIGHT_EXIT.cleared;
+  return { exitCode, report: renderToolSurfacePreflight(result, exitCode), result };
+}
+function renderToolSurfacePreflight(result, exitCode) {
+  const lines = [];
+  if (exitCode === TOOL_SURFACE_PREFLIGHT_EXIT.cleared) {
+    lines.push(
+      `tool-surface CLEARED: all ${result.requiredMcpTools.length} required MCP tool(s) are on every one of ${result.surfaces.length} surface(s) checked, confirmed by listing \u2014 zero tools invoked.`
+    );
+  } else {
+    lines.push(
+      `REFUSING TO BEGIN: the tool surface this pass would run on does not confirm what it requires.`,
+      "",
+      "No partial credit \u2014 one bad surface fails the whole preflight, even if every other surface is clean."
+    );
+  }
+  lines.push("");
+  for (const s of result.surfaces) {
+    if (!s.reachable) {
+      lines.push(`  [${s.surface}] UNREACHABLE \u2014 tools/list did not answer: ${s.error}`);
+    } else if (s.missingRequired.length > 0) {
+      lines.push(`  [${s.surface}] missing required: ${s.missingRequired.map((t2) => unnamespacedTool(parseRule(t2).tool)).join(", ")}`);
+    } else {
+      lines.push(`  [${s.surface}] clean \u2014 ${s.liveTools.length} tool(s) listed, all required tools present`);
+    }
+  }
+  lines.push("", LIVE_LISTING_CAVEAT);
+  return lines.join("\n");
+}
+
+// src/loop/question-bank.ts
+import fs43 from "node:fs";
 import path45 from "node:path";
 var QUESTION_DEPENDENCE_RULE = {
   /**
@@ -54556,15 +55375,15 @@ function bankQuestion(stateDir2, input) {
     partition,
     cost: partition.turnsOnAnswer.length
   };
-  fs42.mkdirSync(stateDir2, { recursive: true });
-  fs42.appendFileSync(path45.join(stateDir2, QUESTION_BANK_FILENAME), `${JSON.stringify(record2)}
+  fs43.mkdirSync(stateDir2, { recursive: true });
+  fs43.appendFileSync(path45.join(stateDir2, QUESTION_BANK_FILENAME), `${JSON.stringify(record2)}
 `);
   return record2;
 }
 function readQuestionBank(stateDir2) {
   let text2;
   try {
-    text2 = fs42.readFileSync(path45.join(stateDir2, QUESTION_BANK_FILENAME), "utf8");
+    text2 = fs43.readFileSync(path45.join(stateDir2, QUESTION_BANK_FILENAME), "utf8");
   } catch {
     return [];
   }
@@ -54716,7 +55535,7 @@ function renderHostSurfaces() {
 }
 
 // src/loop/corrections.ts
-import fs43 from "node:fs";
+import fs44 from "node:fs";
 import path46 from "node:path";
 var LEDGER_FILE = "corrections.json";
 var LEDGER_VERSION = 1;
@@ -54803,9 +55622,9 @@ function emptyCorrectionsLedger() {
 }
 function readLedger(stateDir2) {
   const p2 = ledgerPath(stateDir2);
-  if (!fs43.existsSync(p2)) return emptyCorrectionsLedger();
+  if (!fs44.existsSync(p2)) return emptyCorrectionsLedger();
   try {
-    const parsed = JSON.parse(fs43.readFileSync(p2, "utf8"));
+    const parsed = JSON.parse(fs44.readFileSync(p2, "utf8"));
     if (parsed.version !== LEDGER_VERSION) return emptyCorrectionsLedger();
     return {
       version: LEDGER_VERSION,
@@ -54819,8 +55638,8 @@ function readLedger(stateDir2) {
 }
 function writeLedger(stateDir2, ledger) {
   const dir = path46.resolve(stateDir2);
-  fs43.mkdirSync(dir, { recursive: true });
-  fs43.writeFileSync(ledgerPath(dir), JSON.stringify(ledger, null, 2));
+  fs44.mkdirSync(dir, { recursive: true });
+  fs44.writeFileSync(ledgerPath(dir), JSON.stringify(ledger, null, 2));
 }
 function foldSightings(ledger, sightings) {
   const byPermitted = /* @__PURE__ */ new Map();
@@ -54861,7 +55680,7 @@ function harvestableSessions(sessionsDir, ledger, opts) {
   const dir = path46.resolve(sessionsDir);
   let names;
   try {
-    names = fs43.readdirSync(dir);
+    names = fs44.readdirSync(dir);
   } catch {
     return [];
   }
@@ -54875,7 +55694,7 @@ function harvestableSessions(sessionsDir, ledger, opts) {
     const file = path46.join(dir, name);
     let mtimeMs;
     try {
-      mtimeMs = fs43.statSync(file).mtimeMs;
+      mtimeMs = fs44.statSync(file).mtimeMs;
     } catch {
       continue;
     }
@@ -54887,7 +55706,7 @@ function harvestableSessions(sessionsDir, ledger, opts) {
 function recordCorrections(stateDir2, sessionsDir, opts = {}) {
   const ledger = readLedger(stateDir2);
   const dir = path46.resolve(sessionsDir);
-  if (!fs43.existsSync(dir)) {
+  if (!fs44.existsSync(dir)) {
     return { readable: false, reason: `no session transcripts at ${dir}`, ledger };
   }
   const sessions = harvestableSessions(dir, ledger, {
@@ -54899,7 +55718,7 @@ function recordCorrections(stateDir2, sessionsDir, opts = {}) {
   for (const s of sessions) {
     let text2;
     try {
-      text2 = fs43.readFileSync(s.file, "utf8");
+      text2 = fs44.readFileSync(s.file, "utf8");
     } catch {
       continue;
     }
@@ -54947,7 +55766,7 @@ function renderCorrections(ledger) {
 
 // src/loop/claim.ts
 import { createHash as createHash3 } from "node:crypto";
-import fs44 from "node:fs";
+import fs45 from "node:fs";
 import path47 from "node:path";
 var CLAIMS_FILENAME = "work-claims.jsonl";
 var DEFAULT_CLAIM_TTL_HOURS = 8;
@@ -55123,16 +55942,16 @@ function claimsPath(stateDir2) {
 }
 function readBriefingFile(file) {
   try {
-    return fs44.readFileSync(file, "utf8");
+    return fs45.readFileSync(file, "utf8");
   } catch (e) {
     throw new Error(`cannot read the briefing at ${path47.resolve(file)}: ${e.code ?? String(e)}`);
   }
 }
 function readClaims(stateDir2) {
   const p2 = claimsPath(stateDir2);
-  if (!fs44.existsSync(p2)) return [];
+  if (!fs45.existsSync(p2)) return [];
   const byKey = /* @__PURE__ */ new Map();
-  for (const line of fs44.readFileSync(p2, "utf8").split("\n")) {
+  for (const line of fs45.readFileSync(p2, "utf8").split("\n")) {
     if (line.trim().length === 0) continue;
     try {
       const rec = JSON.parse(line);
@@ -55152,8 +55971,8 @@ function isLive(claim, now) {
   return Number.isFinite(expires) && now < expires;
 }
 function append2(stateDir2, record2) {
-  fs44.mkdirSync(stateDir2, { recursive: true });
-  fs44.appendFileSync(claimsPath(stateDir2), `${JSON.stringify(record2)}
+  fs45.mkdirSync(stateDir2, { recursive: true });
+  fs45.appendFileSync(claimsPath(stateDir2), `${JSON.stringify(record2)}
 `);
 }
 function claimWork(stateDir2, opts) {
@@ -55234,7 +56053,7 @@ function releaseClaim(stateDir2, key, session, now = Date.now()) {
 }
 
 // src/ost/briefing.ts
-import fs45 from "node:fs";
+import fs46 from "node:fs";
 import path48 from "node:path";
 var NEXT_BUILD_FILENAME = "NEXT-BUILD.md";
 function nextBuildPath(vaultDir) {
@@ -55260,8 +56079,8 @@ function assertWritable(name, value) {
 }
 function readBriefing(vaultDir) {
   const p2 = nextBuildPath(vaultDir);
-  if (!fs45.existsSync(p2)) return { current: null, history: [] };
-  return parseBriefing(fs45.readFileSync(p2, "utf8"));
+  if (!fs46.existsSync(p2)) return { current: null, history: [] };
+  return parseBriefing(fs46.readFileSync(p2, "utf8"));
 }
 function parseBriefing(content) {
   const lines = content.split("\n");
@@ -55305,8 +56124,8 @@ function rewriteBriefing(vaultDir, reading) {
     for (const h2 of history) parts.push("", `### ${h2.date}`, "", h2.body);
   }
   const p2 = nextBuildPath(vaultDir);
-  fs45.mkdirSync(path48.dirname(p2), { recursive: true });
-  fs45.writeFileSync(p2, parts.join("\n") + "\n");
+  fs46.mkdirSync(path48.dirname(p2), { recursive: true });
+  fs46.writeFileSync(p2, parts.join("\n") + "\n");
   return p2;
 }
 function renderBriefing(briefing, address, withHistory) {
@@ -55324,7 +56143,7 @@ function renderBriefing(briefing, address, withHistory) {
 }
 
 // src/ost/ranked-ledger.ts
-import fs46 from "node:fs";
+import fs47 from "node:fs";
 import path49 from "node:path";
 var RANKED_LEDGER_FILENAME = "RANKED-LEDGER.md";
 var UNRANKED_HEADING = "## Unranked \u2014 refused a rank";
@@ -55390,8 +56209,8 @@ function ledgerWorld(vaultDir) {
 function publishRankedLedger(vaultDir, rows, date3) {
   const ledger = composeRankedLedger(rows, ledgerWorld(vaultDir), date3);
   const p2 = rankedLedgerPath(vaultDir);
-  fs46.mkdirSync(path49.dirname(p2), { recursive: true });
-  fs46.writeFileSync(p2, renderRankedLedger(ledger));
+  fs47.mkdirSync(path49.dirname(p2), { recursive: true });
+  fs47.writeFileSync(p2, renderRankedLedger(ledger));
   return p2;
 }
 function renderRankedLedger(ledger) {
@@ -55419,11 +56238,11 @@ function renderRankedLedger(ledger) {
 }
 function readRankedLedger(vaultDir) {
   const p2 = rankedLedgerPath(vaultDir);
-  return fs46.existsSync(p2) ? fs46.readFileSync(p2, "utf8") : null;
+  return fs47.existsSync(p2) ? fs47.readFileSync(p2, "utf8") : null;
 }
 
 // src/ost/standing-briefing.ts
-import fs47 from "node:fs";
+import fs48 from "node:fs";
 import path50 from "node:path";
 var STANDING_BRIEFING_FILENAME = "BRIEFING.md";
 function standingBriefingPath(vaultDir) {
@@ -55514,8 +56333,8 @@ function liveBranch(tree, buckets) {
 }
 function regenerateStandingBriefing(vaultDir, tree, today) {
   const p2 = standingBriefingPath(vaultDir);
-  fs47.mkdirSync(path50.dirname(p2), { recursive: true });
-  fs47.writeFileSync(p2, composeStandingBriefing(tree, today));
+  fs48.mkdirSync(path50.dirname(p2), { recursive: true });
+  fs48.writeFileSync(p2, composeStandingBriefing(tree, today));
   return p2;
 }
 
@@ -55672,17 +56491,17 @@ function degradedReport(degradations) {
 }
 
 // src/loop/health.ts
-import fs49 from "node:fs";
+import fs50 from "node:fs";
 import path52 from "node:path";
 
 // src/loop/journal.ts
-import fs48 from "node:fs";
+import fs49 from "node:fs";
 import path51 from "node:path";
 function journalPath(dir) {
   return path51.join(requireLoopStateDir(dir), "journal.jsonl");
 }
 function appendJournal(dir, entry) {
-  fs48.appendFileSync(journalPath(dir), JSON.stringify(entry) + "\n");
+  fs49.appendFileSync(journalPath(dir), JSON.stringify(entry) + "\n");
 }
 
 // src/loop/health.ts
@@ -55697,22 +56516,22 @@ function runsPath(dir) {
   return path52.join(healthDir(dir), "runs.jsonl");
 }
 function appendRun(dir, run) {
-  fs49.appendFileSync(runsPath(dir), JSON.stringify(run) + "\n");
+  fs50.appendFileSync(runsPath(dir), JSON.stringify(run) + "\n");
 }
 function readOpenRun(dir) {
   const state = loopStateDir(dir);
   if (state === null) return null;
   const p2 = path52.join(state, "open-run.json");
-  if (!fs49.existsSync(p2)) return null;
+  if (!fs50.existsSync(p2)) return null;
   try {
-    return JSON.parse(fs49.readFileSync(p2, "utf8"));
+    return JSON.parse(fs50.readFileSync(p2, "utf8"));
   } catch {
     return null;
   }
 }
 function sweepCrashed(dir) {
   const p2 = openRunPath(dir);
-  if (!fs49.existsSync(p2)) return null;
+  if (!fs50.existsSync(p2)) return null;
   const open = readOpenRun(dir);
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const crashed = open ? { ...open, endedAt: now, verdict: "crashed" } : {
@@ -55725,7 +56544,7 @@ function sweepCrashed(dir) {
     verdict: "crashed"
   };
   appendRun(dir, crashed);
-  fs49.rmSync(p2, { force: true });
+  fs50.rmSync(p2, { force: true });
   appendJournal(dir, { kind: "crash", runId: crashed.runId, at: now });
   return crashed;
 }
@@ -55749,7 +56568,7 @@ function startRun(dir, meta) {
     ...meta.ceiling ? { ceiling: meta.ceiling } : {},
     steps: []
   };
-  fs49.writeFileSync(openRunPath(dir), JSON.stringify(run, null, 2));
+  fs50.writeFileSync(openRunPath(dir), JSON.stringify(run, null, 2));
   appendJournal(dir, { kind: "open", runId: run.runId, at: startedAt });
   return run;
 }
@@ -55762,7 +56581,7 @@ function appendStep(dir, step) {
   const open = requireOpenRun(dir);
   const at = (/* @__PURE__ */ new Date()).toISOString();
   open.steps.push({ ...step, at });
-  fs49.writeFileSync(openRunPath(dir), JSON.stringify(open, null, 2));
+  fs50.writeFileSync(openRunPath(dir), JSON.stringify(open, null, 2));
   appendJournal(dir, {
     kind: "step",
     runId: open.runId,
@@ -55798,7 +56617,7 @@ function sealRun(dir, meta = {}) {
     verdict: computeVerdict(withHead)
   };
   appendRun(dir, sealed);
-  fs49.rmSync(openRunPath(dir), { force: true });
+  fs50.rmSync(openRunPath(dir), { force: true });
   appendJournal(dir, { kind: "seal", runId: sealed.runId, verdict: sealed.verdict, at: sealed.endedAt });
   return sealed;
 }
@@ -55807,9 +56626,9 @@ function readRuns(dir) {
   const state = loopStateDir(dir);
   if (state === null) return [];
   const p2 = path52.join(state, "runs.jsonl");
-  if (!fs49.existsSync(p2)) return [];
+  if (!fs50.existsSync(p2)) return [];
   const runs = [];
-  for (const line of fs49.readFileSync(p2, "utf8").split("\n")) {
+  for (const line of fs50.readFileSync(p2, "utf8").split("\n")) {
     if (!line.trim()) continue;
     try {
       const parsed = JSON.parse(line);
@@ -55826,11 +56645,11 @@ function readRuns(dir) {
 }
 
 // src/loop/updates.ts
-import fs51 from "node:fs";
+import fs52 from "node:fs";
 import path54 from "node:path";
 
 // src/loop/lock.ts
-import fs50 from "node:fs";
+import fs51 from "node:fs";
 import os3 from "node:os";
 import path53 from "node:path";
 function firingLockPath(vaultDir) {
@@ -55839,9 +56658,9 @@ function firingLockPath(vaultDir) {
 }
 function readFiringLock(vaultDir) {
   const p2 = firingLockPath(vaultDir);
-  if (p2 === null || !fs50.existsSync(p2)) return null;
+  if (p2 === null || !fs51.existsSync(p2)) return null;
   try {
-    const parsed = JSON.parse(fs50.readFileSync(p2, "utf8"));
+    const parsed = JSON.parse(fs51.readFileSync(p2, "utf8"));
     return typeof parsed?.pid === "number" && typeof parsed?.acquiredAt === "string" ? parsed : null;
   } catch {
     return null;
@@ -55871,15 +56690,15 @@ function staleness(held, opts) {
 var tmpCounter = 0;
 function linkInPlace(stateDir2, lockFile, record2) {
   const tmp = path53.join(stateDir2, `.firing.lock.${record2.pid}.${tmpCounter++}`);
-  fs50.writeFileSync(tmp, JSON.stringify(record2) + "\n");
+  fs51.writeFileSync(tmp, JSON.stringify(record2) + "\n");
   try {
-    fs50.linkSync(tmp, lockFile);
+    fs51.linkSync(tmp, lockFile);
     return true;
   } catch (e) {
     if (e.code !== "EEXIST") throw e;
     return false;
   } finally {
-    fs50.rmSync(tmp, { force: true });
+    fs51.rmSync(tmp, { force: true });
   }
 }
 function acquireFiringLock(vaultDir, opts) {
@@ -55899,8 +56718,8 @@ function acquireFiringLock(vaultDir, opts) {
   if (!stale) return { ok: false, held, reason: `another firing holds the lock \u2014 ${why}` };
   try {
     const sidelined = `${lockFile}.stale-${now}-${record2.pid}`;
-    fs50.renameSync(lockFile, sidelined);
-    fs50.rmSync(sidelined, { force: true });
+    fs51.renameSync(lockFile, sidelined);
+    fs51.rmSync(sidelined, { force: true });
   } catch (e) {
     if (e.code !== "ENOENT") throw e;
   }
@@ -55912,8 +56731,8 @@ function stampFiringLock(vaultDir, record2, runId) {
   const lockFile = path53.join(stateDir2, "firing.lock");
   const next = { ...record2, runId };
   const tmp = path53.join(stateDir2, `.firing.lock.${record2.pid}.${tmpCounter++}`);
-  fs50.writeFileSync(tmp, JSON.stringify(next) + "\n");
-  fs50.renameSync(tmp, lockFile);
+  fs51.writeFileSync(tmp, JSON.stringify(next) + "\n");
+  fs51.renameSync(tmp, lockFile);
   return next;
 }
 function releaseFiringLock(vaultDir, match) {
@@ -55924,7 +56743,7 @@ function releaseFiringLock(vaultDir, match) {
   if (match.pid !== void 0 && held.pid !== match.pid) return false;
   if (match.acquiredAt !== void 0 && held.acquiredAt !== match.acquiredAt) return false;
   if (match.runId !== void 0 && held.runId !== match.runId) return false;
-  fs50.rmSync(p2, { force: true });
+  fs51.rmSync(p2, { force: true });
   return true;
 }
 
@@ -55983,15 +56802,15 @@ function announceUpdate(vaultDir, input, opts = { subscription: null }) {
     return { ok: false, reason: `addressed to channel "${announcement.channel}"; this vault subscribes to "${subscription.channel}"` };
   }
   const dir = path54.join(requireLoopStateDir(vaultDir), "updates");
-  fs51.mkdirSync(dir, { recursive: true });
-  fs51.appendFileSync(path54.join(dir, "announced.jsonl"), JSON.stringify(announcement) + "\n");
+  fs52.mkdirSync(dir, { recursive: true });
+  fs52.appendFileSync(path54.join(dir, "announced.jsonl"), JSON.stringify(announcement) + "\n");
   return { ok: true, announcement };
 }
 function readAnnouncements(vaultDir) {
   const p2 = announcedPath(vaultDir);
-  if (p2 === null || !fs51.existsSync(p2)) return [];
+  if (p2 === null || !fs52.existsSync(p2)) return [];
   const out = [];
-  for (const line of fs51.readFileSync(p2, "utf8").split("\n")) {
+  for (const line of fs52.readFileSync(p2, "utf8").split("\n")) {
     if (line.trim().length === 0) continue;
     let parsed;
     try {
@@ -56006,9 +56825,9 @@ function readAnnouncements(vaultDir) {
 }
 function readAppliedUpdate(vaultDir) {
   const p2 = appliedPath(vaultDir);
-  if (p2 === null || !fs51.existsSync(p2)) return null;
+  if (p2 === null || !fs52.existsSync(p2)) return null;
   try {
-    const raw = JSON.parse(fs51.readFileSync(p2, "utf8"));
+    const raw = JSON.parse(fs52.readFileSync(p2, "utf8"));
     const projected = projectAnnouncement(raw);
     if (projected === null) return null;
     const appliedAt = typeof raw.appliedAt === "string" ? raw.appliedAt : "";
@@ -56039,10 +56858,10 @@ function pendingUpdate(input) {
 var tmpCounter2 = 0;
 function writePin(vaultDir, pin) {
   const dir = path54.join(requireLoopStateDir(vaultDir), "updates");
-  fs51.mkdirSync(dir, { recursive: true });
+  fs52.mkdirSync(dir, { recursive: true });
   const tmp = path54.join(dir, `.applied.json.${process.pid}.${tmpCounter2++}`);
-  fs51.writeFileSync(tmp, JSON.stringify(pin) + "\n");
-  fs51.renameSync(tmp, path54.join(dir, "applied.json"));
+  fs52.writeFileSync(tmp, JSON.stringify(pin) + "\n");
+  fs52.renameSync(tmp, path54.join(dir, "applied.json"));
 }
 function applyAtCheckpoint(vaultDir, opts) {
   const { subscription, ttlMs, holdsLock = false } = opts;
@@ -56090,7 +56909,7 @@ function updateStatusLine(vaultDir, subscription, now) {
 }
 
 // src/loop/senses.ts
-import fs52 from "node:fs";
+import fs53 from "node:fs";
 import path55 from "node:path";
 var HARNESS_SENSE = "harness-tools";
 var RESERVED_SENSE_NAMES = /* @__PURE__ */ new Set(["all", "tree", "product-repo", "web-search", "web-read", HARNESS_SENSE]);
@@ -56225,8 +57044,8 @@ function toolCallsByToolSince(vaultDir, startedAt) {
 function repoProblem(vaultDir, repo) {
   const resolved = path55.resolve(vaultDir, repo);
   try {
-    if (!fs52.statSync(resolved).isDirectory()) return "not a directory";
-    fs52.readdirSync(resolved);
+    if (!fs53.statSync(resolved).isDirectory()) return "not a directory";
+    fs53.readdirSync(resolved);
     return null;
   } catch (e) {
     return (e instanceof Error ? e.message : String(e)).replace(/\s+/g, " ").trim();
@@ -56309,7 +57128,7 @@ function senseCensusReport(senses) {
 }
 
 // src/loop/scope.ts
-import fs53 from "node:fs";
+import fs54 from "node:fs";
 import path56 from "node:path";
 function scopePath(dir, runId) {
   return path56.join(requireLoopStateDir(dir), `scope-${runId}.json`);
@@ -56318,9 +57137,9 @@ function readScope(dir, runId) {
   const state = loopStateDir(dir);
   if (state === null) return null;
   const p2 = path56.join(state, `scope-${runId}.json`);
-  if (!fs53.existsSync(p2)) return null;
+  if (!fs54.existsSync(p2)) return null;
   try {
-    const parsed = JSON.parse(fs53.readFileSync(p2, "utf8"));
+    const parsed = JSON.parse(fs54.readFileSync(p2, "utf8"));
     return typeof parsed?.statement === "string" ? parsed : null;
   } catch {
     return null;
@@ -56336,7 +57155,7 @@ function declareScope(dir, run, statement, now = Date.now()) {
     throw new Error(`run ${run.runId} already declared its scope \u2014 a scope is recorded once and never rewritten`);
   }
   const declaration = { runId: run.runId, statement, declaredAt: new Date(now).toISOString() };
-  fs53.writeFileSync(scopePath(dir, run.runId), JSON.stringify(declaration, null, 2));
+  fs54.writeFileSync(scopePath(dir, run.runId), JSON.stringify(declaration, null, 2));
   return declaration;
 }
 function computeShortfall(dir, runId, attempted) {
@@ -56381,11 +57200,11 @@ function assessStall(runs, threshold = STALL_STREAK_THRESHOLD) {
 }
 
 // src/loop/spend.ts
-import fs55 from "node:fs";
+import fs56 from "node:fs";
 import path57 from "node:path";
 
 // src/adapters/tokens.ts
-import fs54 from "node:fs";
+import fs55 from "node:fs";
 function count(value) {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
 }
@@ -56395,7 +57214,7 @@ function text(value) {
 function* readEntries(file) {
   let raw;
   try {
-    raw = fs54.readFileSync(file, "utf8");
+    raw = fs55.readFileSync(file, "utf8");
   } catch {
     return;
   }
@@ -56452,7 +57271,7 @@ function sessionCwd(file) {
 // src/loop/spend.ts
 function canonical(p2) {
   try {
-    return fs55.realpathSync(path57.resolve(p2));
+    return fs56.realpathSync(path57.resolve(p2));
   } catch {
     return path57.resolve(p2);
   }
@@ -56461,7 +57280,7 @@ function measureFiring(sessionsDir, opts) {
   const dir = path57.resolve(sessionsDir);
   let names;
   try {
-    names = fs55.readdirSync(dir);
+    names = fs56.readdirSync(dir);
   } catch (e) {
     return {
       measurable: false,
@@ -56514,11 +57333,11 @@ function checkCeiling(ceiling, measurement) {
 }
 
 // src/loop/questions.ts
-import fs56 from "node:fs";
+import fs57 from "node:fs";
 import path58 from "node:path";
 function canonical2(p2) {
   try {
-    return fs56.realpathSync(path58.resolve(p2));
+    return fs57.realpathSync(path58.resolve(p2));
   } catch {
     return path58.resolve(p2);
   }
@@ -56527,7 +57346,7 @@ function measureInterruptions(sessionsDir, opts) {
   const dir = path58.resolve(sessionsDir);
   let names;
   try {
-    names = fs56.readdirSync(dir);
+    names = fs57.readdirSync(dir);
   } catch (e) {
     return {
       measurable: false,
@@ -56556,7 +57375,7 @@ function measureInterruptions(sessionsDir, opts) {
 function readAsks(file) {
   let text2;
   try {
-    text2 = fs56.readFileSync(file, "utf8");
+    text2 = fs57.readFileSync(file, "utf8");
   } catch {
     return [];
   }
@@ -56598,22 +57417,22 @@ function formatQuestionBudget(budget, measurement) {
 }
 
 // src/cli/vault-option.ts
-import fs59 from "node:fs";
+import fs60 from "node:fs";
 import path61 from "node:path";
 
 // src/config/pointer.ts
 var import_yaml3 = __toESM(require_dist(), 1);
-import fs58 from "node:fs";
+import fs59 from "node:fs";
 import os4 from "node:os";
 import path60 from "node:path";
 
 // src/config/vault-search.ts
-import fs57 from "node:fs";
+import fs58 from "node:fs";
 import path59 from "node:path";
 function findVaultAbove(startDir) {
   let dir = path59.resolve(startDir);
   for (; ; ) {
-    if (fs57.existsSync(path59.join(dir, CONFIG_FILENAME))) return dir;
+    if (fs58.existsSync(path59.join(dir, CONFIG_FILENAME))) return dir;
     const parent = path59.dirname(dir);
     if (parent === dir) return null;
     dir = parent;
@@ -56642,10 +57461,10 @@ function resolveAgainst(baseDir, declared) {
 }
 function readVaultPointer(dir) {
   const file = path60.join(path60.resolve(dir), VAULT_POINTER_FILENAME);
-  if (!fs58.existsSync(file)) return null;
+  if (!fs59.existsSync(file)) return null;
   let raw;
   try {
-    raw = (0, import_yaml3.parse)(fs58.readFileSync(file, "utf8"));
+    raw = (0, import_yaml3.parse)(fs59.readFileSync(file, "utf8"));
   } catch (e) {
     throw new Error(`${file} is not valid YAML: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -56718,7 +57537,7 @@ function resolvedVaultSource() {
 }
 function stalePointerWarning(r2) {
   if (r2.via !== "pointer" || !r2.pointer) return null;
-  if (fs59.existsSync(path61.join(r2.dir, CONFIG_FILENAME))) return null;
+  if (fs60.existsSync(path61.join(r2.dir, CONFIG_FILENAME))) return null;
   return `${r2.pointer.file} names ${r2.dir}, which is not a vault (no ${CONFIG_FILENAME}). The pointer is stale, or that vault has not been cloned onto this machine.`;
 }
 
@@ -57097,7 +57916,7 @@ function collect(value, previous) {
   return [...previous, value];
 }
 function readLedgerRowsFile(file) {
-  const parsed = JSON.parse(fs60.readFileSync(file, "utf8"));
+  const parsed = JSON.parse(fs61.readFileSync(file, "utf8"));
   if (!Array.isArray(parsed)) throw new Error(`${file}: expected a JSON array of {title, reason} rows`);
   return parsed.map((row, i2) => {
     const r2 = row;
@@ -57411,7 +58230,7 @@ function shellProcess(command) {
 program2.command("canary").description(
   "run the incumbent command and a changed candidate over the same input, side by side, without stopping the incumbent \u2014 for a human to judge and adopt or discard"
 ).requiredOption("--incumbent <command>", "the command already trusted, run through the shell").requiredOption("--candidate <command>", "the changed command to compare against it, run through the shell").option("--input <file>", "file piped to both commands on stdin (defaults to empty input)").action(async (opts) => {
-  const input = opts.input ? fs60.readFileSync(opts.input, "utf8") : "";
+  const input = opts.input ? fs61.readFileSync(opts.input, "utf8") : "";
   const result = await runCanary(input, shellProcess(opts.incumbent), shellProcess(opts.candidate));
   console.log(renderCanary(result));
 });
@@ -58131,6 +58950,23 @@ program2.command("required-tools").description("refuse to begin a pass whose dec
     available: opts.available.split(",").map((t2) => t2.trim()).filter(Boolean)
   });
   if (check2.exitCode === REQUIRED_TOOLS_EXIT.cleared) console.log(check2.report);
+  else {
+    console.error(check2.report);
+    process.exitCode = check2.exitCode;
+  }
+});
+program2.command("tool-surface").description(
+  "confirm a pass's required MCP tools are on the LIVE surface by listing them, never by calling them \u2014 closes what `required-tools` cannot check: whether the surface actually answers what `--available` claims"
+).requiredOption(
+  "--pass <file>",
+  "the SKILL.md (or command file) declaring `allowed-tools` and the `required-tools` subset it cannot start without"
+).requiredOption("--vault <dir>", "the vault directory the live MCP surface would serve").action(async (opts) => {
+  const dir = path63.resolve(opts.vault);
+  const check2 = await checkToolSurfaces({
+    passFile: path63.resolve(opts.pass),
+    surfaces: [{ name: `live MCP surface (${dir})`, server: createLazyOstMcpServer(dir) }]
+  });
+  if (check2.exitCode === TOOL_SURFACE_PREFLIGHT_EXIT.cleared) console.log(check2.report);
   else {
     console.error(check2.report);
     process.exitCode = check2.exitCode;
