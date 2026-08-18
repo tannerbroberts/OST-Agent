@@ -174,6 +174,28 @@ const KNOWN_UNREACHABLE: Record<string, string> = {
    */
   "src/runner/no-tty-policy.ts":
     "built and tested; parked because this repository has no subprocess call site with an inheritable stdin for it to answer on behalf of",
+  /*
+   * Branch isolation and reviewable merge: `createAgentBranch` gives one pass
+   * its own checkout via `git worktree add -b`, and `mergeAgentBranch` brings a
+   * branch back as one real merge commit, never resolving a genuine collision by
+   * picking a side (`test/git/branch-isolation-merge.test.ts`) — the buildable
+   * permit `ost-agent buildable "Each agent writes on its own branch, and
+   * merging is a deliberate, reviewable step"` held and discharged.
+   *
+   * Not wired, because nothing in this repository runs more than one build pass
+   * against a vault at a time. Today a pass's own branch is one `git checkout -b`
+   * a human or an agent runs by convention (CLAUDE.md), and the one merge that
+   * exists — landing that single branch — already lives in `src/release/
+   * ship-repo.ts`'s inline git calls, which sync-and-abort-on-conflict exactly as
+   * this module does, for the one branch there is. Wiring this module means
+   * deciding to run passes concurrently against isolated worktrees rather than
+   * sequentially against one checkout, which is a scheduling decision for the
+   * operator, not a git-layer one. It comes off when the loop runs concurrent
+   * passes and adopts `createAgentBranch`/`mergeAgentBranch` as the mechanism, or
+   * goes when the node is deferred.
+   */
+  "src/git/branch-isolation.ts":
+    "built and tested; parked pending a decision to run more than one build pass concurrently, which nothing in this repository does yet",
 };
 
 function tsFiles(dir: string): string[] {
