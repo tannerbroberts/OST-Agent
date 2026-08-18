@@ -3089,7 +3089,16 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,053 tests across 251 files, verified 2026-08-18 (`npx vitest run`,
+> *Today:* **met** — 3,064 tests across 252 files, verified 2026-08-18 (`npx vitest run`,
+> after "Detect drift at write time and refuse, naming what changed since the read"
+> landed: `Vault.beginPlan()` (`src/ost/plan.ts`) pins a fingerprint of every node a
+> plan reads, and every `write` on it checks ALL of those — not only the write's own
+> target — before doing anything, so the first drift found compromises the plan for
+> good and nothing it does after that moment ever lands. A `PlanCompromisedError` is
+> distinct from the single-file `DriftError` `Vault.editProse` already threw, so a
+> caller can tell "this call needs a retry" apart from "this whole plan is void"
+> (`test/ost/premise-drift-coherence.test.ts`).
+> Previously 3,053 tests across 251 files, verified 2026-08-18 (`npx vitest run`,
 > after "Derive the whole consequence set from the premise and ask about all of it at
 > once" landed: `formatConsequenceBatch` (`src/loop/premise-consequence.ts`) presents
 > every decision a stated premise implies as one batch, with each item's dependency link

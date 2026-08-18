@@ -73,6 +73,7 @@ import {
 import type { RungId } from "../knowledge/believability.js";
 import type { LaneId } from "../knowledge/lanes.js";
 import { DriftError, readWithHash, writeWithHash } from "../git/read-write-hash-guard.js";
+import { Plan } from "./plan.js";
 
 function isoToday(): string {
   return new Date().toISOString().slice(0, 10);
@@ -214,6 +215,27 @@ export class Vault {
 
   has(title: string): boolean {
     return fs.existsSync(this.nodePath(title));
+  }
+
+  /**
+   * Absolute path for a node title. Public because {@link Plan} fingerprints files
+   * across a whole plan's reads rather than one write's own target, so it needs the
+   * same confined resolution this class uses everywhere else rather than a second,
+   * unconfined copy of it.
+   */
+  pathFor(title: string): string {
+    return this.nodePath(title);
+  }
+
+  /**
+   * Begin a plan: a sequence of reads and writes whose premise is pinned at read
+   * time. See `./plan.ts` for what that buys over calling this vault's write
+   * methods directly — in short, a write refuses once ANY node the plan has read
+   * has drifted, not only the write's own target, and stays refused for the rest
+   * of the plan once that happens.
+   */
+  beginPlan(): Plan {
+    return new Plan(this);
   }
 
   /**
