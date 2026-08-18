@@ -153,6 +153,16 @@ export interface OstNode {
    * verdict.
    */
   sight?: RepoSight;
+  /**
+   * For an Opportunity or a Solution: a written claim that moving this node's
+   * local metric moves a named distant goal, by how much, as of what date —
+   * `<local metric> → <distant goal>: <figure> (<YYYY-MM-DD>)`. Carried
+   * verbatim, and validated only when it is read
+   * ({@link ../knowledge/contribution.ts}), the same posture as `instrument`: a
+   * declaration that does not parse is still what the author wrote, and the
+   * reader says so by name rather than dropping it silently.
+   */
+  contribution?: string;
   /** Extra tags beyond the layer tag (e.g. ["unvalidated"]). */
   tags: string[];
   /** Titles of child nodes, rendered as `[[wikilinks]]`. */
@@ -201,6 +211,7 @@ export function serialize(node: OstNode): string {
   if (node.threshold) data.threshold = node.threshold;
   if (node.instrument) data.instrument = node.instrument;
   if (node.sight) data.sight = node.sight;
+  if (node.contribution) data.contribution = node.contribution;
 
   // The evidence tag is derived from `evidence`, never carried in `tags`, so a
   // round-trip cannot render it twice.
@@ -278,5 +289,6 @@ export function deserialize(title: string, markdown: string): OstNode {
   // Same posture as `lane`: a sight value nobody defined must never be the
   // reason an instrument counts as grounded.
   if (isRepoSight(data.sight)) node.sight = data.sight;
+  if (typeof data.contribution === "string") node.contribution = data.contribution;
   return node;
 }

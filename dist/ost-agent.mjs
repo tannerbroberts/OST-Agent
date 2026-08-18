@@ -33685,6 +33685,7 @@ function serialize(node) {
   if (node.threshold) data.threshold = node.threshold;
   if (node.instrument) data.instrument = node.instrument;
   if (node.sight) data.sight = node.sight;
+  if (node.contribution) data.contribution = node.contribution;
   const extraTags = node.tags.filter((t2) => !EVIDENCE_TAG.test(t2));
   const tagLine = [
     "#" + node.layer,
@@ -33736,6 +33737,7 @@ function deserialize(title, markdown) {
   if (typeof data.threshold === "string") node.threshold = data.threshold;
   if (typeof data.instrument === "string") node.instrument = data.instrument;
   if (isRepoSight(data.sight)) node.sight = data.sight;
+  if (typeof data.contribution === "string") node.contribution = data.contribution;
   return node;
 }
 
@@ -43807,6 +43809,39 @@ ${result.excerpt}
 Planning work on this tree means building on a foundation known to be unsound \u2014 fix or revert first.`;
 }
 
+// src/knowledge/contribution.ts
+var CONTRIBUTION_FORM = '<local metric> \u2192 <distant goal>: <figure> (<YYYY-MM-DD>) \u2014 e.g. "weekly builder retries \u2192 sessions shipped unattended: +2 per week (2026-08-17)"';
+var HAS_DIGIT = /\d/;
+var PATTERN = /^(?<metric>[^→:()]+?)\s*→\s*(?<goal>[^:()]+?):\s*(?<figure>[^()]+?)\s*\((?<date>\d{4}-\d{2}-\d{2})\)$/;
+function parseContributionEstimate(raw) {
+  const trimmed2 = (raw ?? "").trim();
+  if (!trimmed2) {
+    return { reason: "no contribution estimate declared" };
+  }
+  const hit = PATTERN.exec(trimmed2);
+  if (!hit || !hit.groups) {
+    return {
+      reason: `"${trimmed2}" is not a checkable contribution estimate. The form is ${CONTRIBUTION_FORM}. Loose prose with no named goal or no dated figure cannot later be checked against what actually moved.`
+    };
+  }
+  const localMetric = hit.groups.metric.trim();
+  const distantGoal = hit.groups.goal.trim();
+  const figure = hit.groups.figure.trim();
+  const date3 = hit.groups.date;
+  if (!localMetric || !distantGoal || !figure) {
+    return { reason: `"${trimmed2}" is missing its local metric, distant goal, or figure. The form is ${CONTRIBUTION_FORM}.` };
+  }
+  if (!HAS_DIGIT.test(figure)) {
+    return {
+      reason: `"${trimmed2}" states no number \u2014 "${figure}" is a direction, not a figure. A dated claim with no size cannot be ranked against what actually moved.`
+    };
+  }
+  return { raw: trimmed2, localMetric, distantGoal, figure, date: date3 };
+}
+function isContributionEstimate(r2) {
+  return r2.raw !== void 0;
+}
+
 // src/eval/rollup.ts
 function weakest(rungs) {
   const declared = rungs.filter((r2) => r2 !== void 0);
@@ -43849,8 +43884,25 @@ function rollUpBucket(bucket, index) {
     // `instruction` and `absent` all leave the bar to be decided after the run,
     // which is the same as having none.
     withFixedThreshold: tests.filter((t2) => thresholdKindOf(t2) === "bound").length,
-    weakestRung: weakest(nodes.map((n) => n.evidence))
+    weakestRung: weakest(nodes.map((n) => n.evidence)),
+    contributionEstimates: nodes.filter((n) => isContributionEstimate(parseContributionEstimate(n.contribution))).length
   };
+}
+function estimatesIn(tree) {
+  const out = [];
+  for (const n of tree) {
+    const parsed = parseContributionEstimate(n.contribution);
+    if (!isContributionEstimate(parsed)) continue;
+    out.push({
+      title: n.title,
+      localMetric: parsed.localMetric,
+      distantGoal: parsed.distantGoal,
+      figure: parsed.figure,
+      date: parsed.date,
+      realized: entriesUnder(n.body, RESULTS_HEADING)
+    });
+  }
+  return out;
 }
 function rollupTree(tree) {
   const index = byTitle([...tree]);
@@ -43864,6 +43916,7 @@ function rollupTree(tree) {
   return {
     outcome: outcome?.title ?? null,
     buckets,
+    estimates: estimatesIn(tree),
     unfiled: tree.filter((n) => n.layer === "Opportunity" && !filed.has(n.title)).map((n) => n.title).sort(),
     nonOpportunityChildren: (outcome?.links ?? []).filter((t2) => {
       const n = index.get(t2);
@@ -43899,6 +43952,17 @@ function renderRollup(rollup) {
       if (b2.tests > 0 && b2.withFixedThreshold < b2.tests) {
         lines.push(`    ${b2.tests - b2.withFixedThreshold} of ${b2.tests} test(s) state no fixed bar \u2014 those cannot come out a failure`);
       }
+      if (b2.contributionEstimates > 0) {
+        lines.push(`    ${b2.contributionEstimates} node(s) carry a checkable contribution estimate`);
+      }
+    }
+  }
+  if (rollup.estimates.length > 0) {
+    lines.push("");
+    lines.push(`Contribution estimates (${rollup.estimates.length}):`);
+    for (const e of rollup.estimates) {
+      const actual = e.realized.length > 0 ? e.realized.join("; ") : "not yet recorded";
+      lines.push(`  ${e.title}: ${e.localMetric} \u2192 ${e.distantGoal}: ${e.figure} (${e.date}) \u2014 actual: ${actual}`);
     }
   }
   if (rollup.nonOpportunityChildren.length > 0) {
@@ -49623,6 +49687,10 @@ function buildOstTools(ctx, allowedNames) {
           humansRequired: {
             type: "string",
             description: "AssumptionTest only: use INSTEAD of `instrument`, and only when a person outside the building is irreducibly the measurement \u2014 an interview, an offer, willingness to pay, usability with strangers. Say who and why in one sentence; it is recorded in the node's History. The test is created in the humans-required lane, so it is counted and listed rather than sitting in the tree looking runnable. Do not use this to avoid writing a command: if the repository could answer the question, it is not a human-required test."
+          },
+          contribution: {
+            type: "string",
+            description: "Opportunity or Solution only: a written, checkable claim of how much this node's local metric moves a named distant goal \u2014 '<local metric> \u2192 <distant goal>: <figure> (<YYYY-MM-DD>)', e.g. 'weekly builder retries \u2192 sessions shipped unattended: +2 per week (2026-08-17)'. All four parts are required: loose prose with no arrow, no colon, no dated figure, or a figure with no number in it is refused, because a claim like that cannot later be checked against what actually moved. The rollup surfaces every valid one beside whatever a human records under the node's `## Results` once real movement has had time to happen."
           }
         },
         required: ["title", "layer", "parent", "body", "evidence"]
@@ -49647,6 +49715,15 @@ function buildOstTools(ctx, allowedNames) {
         if (input.status === "validated") throw new Error(VALIDATED_REFUSAL);
         if (input.threshold !== void 0 && input.layer !== "AssumptionTest") {
           throw new Error(`threshold is only meaningful for an AssumptionTest, not a ${input.layer}`);
+        }
+        if (input.contribution !== void 0) {
+          if (input.layer !== "Opportunity" && input.layer !== "Solution") {
+            throw new Error(`contribution is only meaningful for an Opportunity or a Solution, not a ${input.layer}`);
+          }
+          const parsed = parseContributionEstimate(input.contribution);
+          if (!isContributionEstimate(parsed)) {
+            throw new Error(`"${input.title}" cannot carry that contribution estimate: ${parsed.reason}`);
+          }
         }
         if (input.instrument !== void 0) {
           if (input.layer !== "AssumptionTest") {
@@ -49696,6 +49773,7 @@ A person outside the building is the measurement here: ${input.humansRequired.tr
           evidence: input.evidence,
           threshold: input.threshold,
           instrument: input.instrument,
+          contribution: input.contribution,
           // Stamped server-side like the tag above, and only when an
           // instrument is actually born here: whether the pass that wrote
           // this command could see the repository, from the grant table and

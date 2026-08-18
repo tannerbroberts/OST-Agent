@@ -386,12 +386,17 @@ const AIM: Record<string, (n: number) => Record<string, unknown>> = {
   // refuses anything that is not a spec-file command, so the generic `text for
   // instrument` would make this a call that writes nothing — and a driver that
   // silently stops writing proves nothing about the push path it is testing.
+  // `contribution` is aimed at `undefined` for the same reason `threshold`
+  // isn't aimed at all here — it is refused on anything but an Opportunity or
+  // a Solution, so the generic filler's `text for contribution` would turn
+  // this AssumptionTest-shaped call into a refusal rather than a landing.
   ost_create_node: (n) => ({
     title: `A new test ${n}`,
     parent: BELIEF,
     layer: "AssumptionTest",
     evidence: "assertion",
     instrument: "npx vitest run test/driven.test.ts",
+    contribution: undefined,
   }),
   ost_append_to_node: () => ({ title: TEST, section: "## Notes\nsomething true" }),
   // A NEW edge, and a LEGAL one: `linkNodes` no-ops on a duplicate, so aiming at

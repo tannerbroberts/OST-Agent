@@ -400,12 +400,16 @@ const ROWS: Record<string, Row> = {
     // boundary refuses anything that is not a spec-file command, so the generic
     // filler would get this row refused on every attempt and it would test
     // nothing — the failure mode the landing count exists to catch.
+    // `contribution` is aimed at `undefined` for the same reason: it is refused
+    // on anything but an Opportunity or a Solution, so the generic filler's
+    // payload would get this AssumptionTest-shaped row refused on every attempt.
     aim: (n) => ({
       title: `A forged test ${n}`,
       parent: BLOCKED_BELIEF,
       layer: "AssumptionTest",
       evidence: "assertion",
       instrument: "npx vitest run test/forged.test.ts",
+      contribution: undefined,
     }),
   },
   ost_append_to_node: {
