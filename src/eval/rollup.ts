@@ -45,6 +45,8 @@ import { hasRecordedResult } from "./evidence-debt.js";
 import { recordedVerdict } from "../knowledge/actor-trust.js";
 import { nodeInstrument, observedGreen } from "../ost/instrument.js";
 import { thresholdKindOf } from "./coverage.js";
+import { isContributionEstimate, parseContributionEstimate } from "../knowledge/contribution.js";
+import { entriesUnder, RESULTS_HEADING } from "../ost/headings.js";
 
 export interface BucketRollup {
   /** The Opportunity that hangs directly off the Outcome — a category, after the bucket migration. */
@@ -64,11 +66,32 @@ export interface BucketRollup {
   withFixedThreshold: number;
   /** The ladder's floor across the subtree. */
   weakestRung: RungId | null;
+  /** Nodes beneath this bucket carrying a checkable contribution estimate. */
+  contributionEstimates: number;
+}
+
+/**
+ * A recorded contribution estimate, read beside whatever a human has since
+ * written under the same node's `## Results` — the only way to compare a
+ * dated claim against what a month of real movement actually did, because
+ * that comparison is a human's to make and this rollup can only report what
+ * is on disk to compare it against.
+ */
+export interface EstimateRollup {
+  title: string;
+  localMetric: string;
+  distantGoal: string;
+  figure: string;
+  date: string;
+  /** What a human has recorded actually moved, or empty when nobody has yet. */
+  realized: string[];
 }
 
 export interface TreeRollup {
   outcome: string | null;
   buckets: BucketRollup[];
+  /** Every node in the tree carrying a checkable contribution estimate, beside what a human has recorded moved. */
+  estimates: EstimateRollup[];
   /**
    * Opportunities the Outcome does not reach through other Opportunities.
    *
@@ -149,7 +172,26 @@ function rollUpBucket(bucket: OstNode, index: Map<string, OstNode>): BucketRollu
     // which is the same as having none.
     withFixedThreshold: tests.filter((t) => thresholdKindOf(t) === "bound").length,
     weakestRung: weakest(nodes.map((n) => n.evidence)),
+    contributionEstimates: nodes.filter((n) => isContributionEstimate(parseContributionEstimate(n.contribution))).length,
   };
+}
+
+/** Every node in `tree` carrying a checkable contribution estimate, beside what a human has recorded moved. */
+function estimatesIn(tree: readonly OstNode[]): EstimateRollup[] {
+  const out: EstimateRollup[] = [];
+  for (const n of tree) {
+    const parsed = parseContributionEstimate(n.contribution);
+    if (!isContributionEstimate(parsed)) continue;
+    out.push({
+      title: n.title,
+      localMetric: parsed.localMetric,
+      distantGoal: parsed.distantGoal,
+      figure: parsed.figure,
+      date: parsed.date,
+      realized: entriesUnder(n.body, RESULTS_HEADING),
+    });
+  }
+  return out;
 }
 
 export function rollupTree(tree: readonly OstNode[]): TreeRollup {
@@ -170,6 +212,7 @@ export function rollupTree(tree: readonly OstNode[]): TreeRollup {
   return {
     outcome: outcome?.title ?? null,
     buckets,
+    estimates: estimatesIn(tree),
     unfiled: tree.filter((n) => n.layer === "Opportunity" && !filed.has(n.title)).map((n) => n.title).sort(),
     nonOpportunityChildren: (outcome?.links ?? [])
       .filter((t) => {
@@ -224,6 +267,22 @@ export function renderRollup(rollup: TreeRollup): string {
       if (b.tests > 0 && b.withFixedThreshold < b.tests) {
         lines.push(`    ${b.tests - b.withFixedThreshold} of ${b.tests} test(s) state no fixed bar — those cannot come out a failure`);
       }
+      if (b.contributionEstimates > 0) {
+        lines.push(`    ${b.contributionEstimates} node(s) carry a checkable contribution estimate`);
+      }
+    }
+  }
+
+  // Every recorded estimate, beside whatever a human has since written under
+  // the same node's `## Results` — the only way this rollup can show a dated
+  // claim next to what actually moved, because whether it DID is a human's
+  // finding, not something this can compute.
+  if (rollup.estimates.length > 0) {
+    lines.push("");
+    lines.push(`Contribution estimates (${rollup.estimates.length}):`);
+    for (const e of rollup.estimates) {
+      const actual = e.realized.length > 0 ? e.realized.join("; ") : "not yet recorded";
+      lines.push(`  ${e.title}: ${e.localMetric} → ${e.distantGoal}: ${e.figure} (${e.date}) — actual: ${actual}`);
     }
   }
 

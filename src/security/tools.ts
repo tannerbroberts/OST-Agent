@@ -16,6 +16,7 @@ import { gitCommit, gitPush, pushTargetFor } from "../git/safe-git.js";
 import { AGENT_IDEATED_TAG, type NodeStatus, type OstNode } from "../ost/node.js";
 import { BELIEVABILITY_LADDER, isRung, rungRank, type RungId } from "../knowledge/believability.js";
 import { isInstrument, parseInstrument } from "../knowledge/instruments.js";
+import { isContributionEstimate, parseContributionEstimate } from "../knowledge/contribution.js";
 import { specResolves } from "../ost/instrument.js";
 import { thresholdKindOf } from "../eval/coverage.js";
 import { classifyUnknown } from "../knowledge/unknowns.js";
@@ -829,6 +830,11 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
             description:
               "AssumptionTest only: use INSTEAD of `instrument`, and only when a person outside the building is irreducibly the measurement — an interview, an offer, willingness to pay, usability with strangers. Say who and why in one sentence; it is recorded in the node's History. The test is created in the humans-required lane, so it is counted and listed rather than sitting in the tree looking runnable. Do not use this to avoid writing a command: if the repository could answer the question, it is not a human-required test.",
           },
+          contribution: {
+            type: "string",
+            description:
+              "Opportunity or Solution only: a written, checkable claim of how much this node's local metric moves a named distant goal — '<local metric> → <distant goal>: <figure> (<YYYY-MM-DD>)', e.g. 'weekly builder retries → sessions shipped unattended: +2 per week (2026-08-17)'. All four parts are required: loose prose with no arrow, no colon, no dated figure, or a figure with no number in it is refused, because a claim like that cannot later be checked against what actually moved. The rollup surfaces every valid one beside whatever a human records under the node's `## Results` once real movement has had time to happen.",
+          },
         },
         required: ["title", "layer", "parent", "body", "evidence"],
       },
@@ -841,6 +847,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         threshold?: string;
         instrument?: string;
         humansRequired?: string;
+        contribution?: string;
         source?: string;
         confidence?: string;
         evidence?: string;
@@ -872,6 +879,19 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         // carrying one is almost certainly a caller error.
         if (input.threshold !== undefined && input.layer !== "AssumptionTest") {
           throw new Error(`threshold is only meaningful for an AssumptionTest, not a ${input.layer}`);
+        }
+        // Same posture as threshold/instrument: meaningful on only two layers,
+        // and refused rather than silently written when it does not parse — a
+        // contribution estimate nobody can later check against real movement
+        // is exactly the "confident-looking noise" it exists to rule out.
+        if (input.contribution !== undefined) {
+          if (input.layer !== "Opportunity" && input.layer !== "Solution") {
+            throw new Error(`contribution is only meaningful for an Opportunity or a Solution, not a ${input.layer}`);
+          }
+          const parsed = parseContributionEstimate(input.contribution);
+          if (!isContributionEstimate(parsed)) {
+            throw new Error(`"${input.title}" cannot carry that contribution estimate: ${parsed.reason}`);
+          }
         }
         // Same rule for the instrument, and then the stricter one: a declaration
         // that does not parse is refused HERE rather than written and discovered
@@ -962,6 +982,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
           evidence: input.evidence as RungId,
           threshold: input.threshold,
           instrument: input.instrument,
+          contribution: input.contribution,
           // Stamped server-side like the tag above, and only when an
           // instrument is actually born here: whether the pass that wrote
           // this command could see the repository, from the grant table and
