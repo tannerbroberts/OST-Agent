@@ -55853,6 +55853,35 @@ function renderHostSurfaces() {
   return lines.join("\n");
 }
 
+// src/security/auth-detection-report.ts
+function registry2(env) {
+  return [
+    { name: "slack", offers: slackOffers(env) },
+    { name: "atlassian", offers: atlassianOffers(env) },
+    { name: "search", offers: searchOffers(env) },
+    { name: "github", offers: githubOffers(env) }
+  ];
+}
+function detectAuthentication(env = process.env) {
+  const entries = registry2(env).map(({ name, offers }) => {
+    const intake = resolveCredential(offers);
+    return intake.accepted ? { name, status: "will-use", form: intake.accepted.form, source: intake.accepted.source } : { name, status: "rejected", reason: intake.problem };
+  });
+  return { entries };
+}
+function renderAuthDetectionReport(report) {
+  const willUse = report.entries.filter((e) => e.status === "will-use").length;
+  const lines = [
+    `Authentication detected: ${report.entries.length} credential(s) checked, ${willUse} will be used, ${report.entries.length - willUse} rejected`
+  ];
+  for (const e of report.entries) {
+    lines.push("");
+    lines.push(`[${e.name}]`);
+    lines.push(e.status === "will-use" ? `  WILL USE \u2014 ${e.form}, from ${e.source}` : `  not available \u2014 ${e.reason}`);
+  }
+  return lines.join("\n");
+}
+
 // src/loop/corrections.ts
 import fs45 from "node:fs";
 import path47 from "node:path";
@@ -59325,6 +59354,11 @@ program2.command("host-delegation").description(
   "for every host surface this repository ships an entry point for, whether it already resolves a credential the host holds instead of asking the operator for a second one, and where that is implemented"
 ).action(() => {
   console.log(renderHostSurfaces());
+});
+program2.command("auth").description(
+  "detect the credential already held for each adapter (Slack, Atlassian, search, GitHub) and say which one will be used, or which forms were found and why each was rejected \u2014 before anything spends one. Never prints a secret value."
+).action(() => {
+  console.log(renderAuthDetectionReport(detectAuthentication()));
 });
 program2.command("allowlist").description(
   "derive a session's permission allowlist from the skill's own allowed-tools (human-only, at install time)"
