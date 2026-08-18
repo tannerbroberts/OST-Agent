@@ -3089,7 +3089,18 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,019 tests across 247 files, verified 2026-08-17 (`npx vitest run`,
+> *Today:* **met** — 3,024 tests across 248 files, verified 2026-08-17 (`npx vitest run`,
+> after "Declare the distance to the real goal as named darkness, so the gap is inventory"
+> landed: `ost_create_node` refuses to create an Unknown whose body has no non-empty
+> `## Format` section — a bare heading with nothing under it counts as missing, same as
+> no heading at all — instead of leaving the contract advisory in the tool's description
+> alone. A node written straight to the vault (predating the refusal, or edited outside
+> the tool surface) is unreachable from that boundary, so `ost_next_work`'s `openUnknowns`
+> still names `Format` in that node's `gaps`, which needed no new code — `contractGaps`
+> already read presence, not content, correctly
+> (`src/knowledge/unknowns.ts`, `src/security/tools.ts`,
+> `test/ost/unknown-format-required.test.ts`).
+> Previously 3,019 tests across 247 files, verified 2026-08-17 (`npx vitest run`,
 > after "Creating a vault writes the tool-enabling config into the project beside it"
 > landed: `init` now merges `.claude/settings.json`'s enabling keys in automatically,
 > using a `jsonc-parser`-based merge (`src/config/settings-merge.ts`) proven safe across

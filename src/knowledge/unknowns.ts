@@ -267,6 +267,18 @@ export function contractGaps(node: OstNode, sections: readonly string[] = CONTRA
   return sections.filter((s) => !hasSection(node.body, s));
 }
 
+/**
+ * True when the body carries a `## <heading>` section AND at least one of its
+ * blocks normalizes to something non-empty — {@link hasSection} alone is
+ * satisfied by a bare heading with nothing under it, which is presence
+ * without content. Used at the `ost_create_node` boundary to refuse an
+ * Unknown born with an empty `## Format`: a heading with nothing under it
+ * cannot say what an answer looks like any more than a missing one can.
+ */
+export function hasNonEmptySection(body: string, heading: string): boolean {
+  return sectionBlocks(body, heading).some((block) => normalizeAnswer(block).length > 0);
+}
+
 /** Class by the classifier's rules, top to bottom, first match wins. */
 export function classifyUnknown(node: OstNode, classifier: UnknownClassifier = DEFAULT_CLASSIFIER): UnknownClass {
   for (const rule of classifier.rules) {

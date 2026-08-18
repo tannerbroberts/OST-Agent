@@ -18,7 +18,7 @@ import { BELIEVABILITY_LADDER, isRung, rungRank, type RungId } from "../knowledg
 import { isInstrument, parseInstrument } from "../knowledge/instruments.js";
 import { specResolves } from "../ost/instrument.js";
 import { thresholdKindOf } from "../eval/coverage.js";
-import { classifyUnknown } from "../knowledge/unknowns.js";
+import { classifyUnknown, hasNonEmptySection } from "../knowledge/unknowns.js";
 import { titlesMatch } from "../ost/sanitize.js";
 import { Vault } from "../ost/vault.js";
 import { computeNextWork, readEvidenceBody } from "../mcp/next-work.js";
@@ -864,6 +864,18 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         const parentLayer = vault.read(input.parent).layer;
         if (!allowedParents.includes(parentLayer)) {
           throw new Error(`a ${input.layer} must attach under ${allowedParents.join(" or ")}, but "${input.parent}" is a ${parentLayer}`);
+        }
+        // Format is the stopping condition, not advice in a description string:
+        // an unknown born without one — or with a bare `## Format` heading and
+        // nothing under it — cannot say what an answer would look like, so it
+        // can never say when it is done. Refusing it here, rather than leaving
+        // it to `ost_next_work`'s gaps, is what makes the contract load-bearing.
+        if (input.layer === "Unknown" && !hasNonEmptySection(input.body, "Format")) {
+          throw new Error(
+            `"${input.title}" needs a non-empty ## Format section — the shape a valid answer would take (e.g. ` +
+              `"a count per day" or "a dollar figure with a date"). An unknown that cannot say what an answer looks ` +
+              `like cannot know when it is done.`,
+          );
         }
         if (input.status === "validated") throw new Error(VALIDATED_REFUSAL);
         // A threshold on anything but an AssumptionTest is not a mistake worth
