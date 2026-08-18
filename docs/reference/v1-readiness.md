@@ -3089,7 +3089,17 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,037 tests across 249 files, verified 2026-08-18 (`npx vitest run`,
+> *Today:* **met** — 3,042 tests across 250 files, verified 2026-08-18 (`npx vitest run`,
+> after "Derive the next version from the registry, never from the local file" landed:
+> `deriveNextVersion` (`src/release/next-version.ts`) takes the maximum of what the
+> registry has ever published — including numbers later unpublished — and what `origin`
+> has tagged, and increments from there, replayed against every real `ost-agent` release
+> including the 2026-07-26 near-collision it targets (`test/release/registry-derived-version.test.ts`).
+> Parked on the module-reachability register rather than wired: `RELEASING.md` was
+> rewritten 2026-07-27 to say there is no publish step and no npm package, and
+> `package.json` has carried `"private": true` since that commit, so there is no live
+> release path left for this to coordinate.
+> Previously 3,037 tests across 249 files, verified 2026-08-18 (`npx vitest run`,
 > after "Declare the tool surface a pass requires and abort in the first second if it is
 > absent" landed: `ost-agent tool-surface` lists a live MCP surface's `tools/list` and
 > confirms a pass's declared `required-tools` against it — zero tool invocations, no

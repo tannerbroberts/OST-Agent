@@ -100,6 +100,27 @@ const KNOWN_UNREACHABLE: Record<string, string> = {
   "src/loop/early-push.ts":
     "built and tested; parked pending the operator's call on pushing WIP to a shared branch on a cadence",
   /*
+   * Derives the next release number from the registry and origin's tags
+   * rather than the local package.json — built and replayed against every
+   * real ost-agent release (`test/release/registry-derived-version.test.ts`).
+   * Not wired into a release script because there is no release script that
+   * calls a registry left to call: RELEASING.md was rewritten on 2026-07-27
+   * ("docs: one install path, and it isn't npm") to say plainly "There is no
+   * publish step. There is no npm package," and package.json has carried
+   * `"private": true` since that same commit. The registry this module
+   * queries is npm's, and this package fully unpublished from it on
+   * 2026-07-28 — a fact the replay test bakes in as a fixture rather than
+   * a live call, since there is nothing left there to reach. The near-miss
+   * this solution targets was real and the derivation is sound, but the
+   * mechanism it would coordinate — two trains racing to publish the same
+   * package — no longer exists in this repository's release path. It comes
+   * off when a release path that publishes anywhere calls it, or goes when
+   * the node is deferred because the coordination it solves has no release
+   * left to apply to.
+   */
+  "src/release/next-version.ts":
+    "built and replayed against real release history; parked because RELEASING.md's release path no longer publishes anywhere for it to coordinate",
+  /*
    * Classifies a failed string replacement as stale-file, bad-quote, or
    * cannot-say against a run's own record of what it has read. Built and
    * tested to the assumption test's three-arm bar (`test/runner/failed-match-attribution.test.ts`),
