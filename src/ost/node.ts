@@ -224,6 +224,28 @@ export function serialize(node: OstNode): string {
   return matter.stringify(content, data);
 }
 
+/**
+ * A node's outgoing links, parsed from arbitrary Markdown content, or null
+ * when it does not parse as a node at all.
+ *
+ * `deserialize` throws on unparseable content, which is right for a live vault
+ * read (an unreadable node file is the caller's problem to report) and wrong
+ * for scanning historical git blobs, where most candidates are expected not to
+ * parse (a config file, a README, a commit predating this schema) and "did not
+ * parse" is simply "not a match" rather than an error. This is the one door
+ * {@link deserialize} may be called through outside a live vault read
+ * (`test/ost/retraction-consumers.test.ts` holds every OTHER caller to
+ * `src/ost/`), so a historical scan still goes through the same parser a live
+ * read does rather than growing a second one.
+ */
+export function tryOutgoingLinks(title: string, markdown: string): string[] | null {
+  try {
+    return deserialize(title, markdown).links;
+  } catch {
+    return null;
+  }
+}
+
 /** Parse Markdown file contents (with the given title) back into an {@link OstNode}. */
 export function deserialize(title: string, markdown: string): OstNode {
   const parsed = parseFrontmatter(markdown);

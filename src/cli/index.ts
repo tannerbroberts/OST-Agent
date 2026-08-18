@@ -122,6 +122,8 @@ import { Vault } from "../ost/vault.js";
 import { defaultTranscriptDir } from "../adapters/transcript.js";
 import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
 import { formatMigrationReport, migrateEvidenceClass } from "../ost/migrate.js";
+import { findRenameShapedBreaks } from "../git/rename-topology.js";
+import { liveRenameRepairs } from "../ost/rename-repair.js";
 import { readPendingAskQueue } from "../ost/pending-asks.js";
 import { laneDef, LANES, type LaneId } from "../knowledge/lanes.js";
 import {
@@ -616,6 +618,66 @@ program
     // A non-empty refusal list means the tree is not fully across; the exit
     // code says so, so a script cannot read a partial migration as a finished one.
     if (report.humansRequired.length > 0) process.exitCode = 1;
+  });
+
+/**
+ * "Detect renames from link topology and repair the edge". Same posture as
+ * `migrate`: reports by default, applies and commits with `--write`. History
+ * only ever grows, so a wrong repair is not silent — it is one more commit a
+ * human can read and reverse by hand — but topology is still only ever
+ * evidence FOR a rename, never proof, which is why nothing here writes without
+ * `--write` being asked for by name.
+ */
+program
+  .command("repair-renames")
+  .description("audit a vault's git history for rename-shaped link breaks and repoint the dangling edges — reports by default, applies and commits with --write")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option("--write", "apply the repairs and commit them (default: report what would change)")
+  .action(async (opts: { vault: string; write?: boolean }) => {
+    const dir = path.resolve(opts.vault);
+    const breaks = await findRenameShapedBreaks(dir);
+    const vault = new Vault(dir, { create: false });
+    const targets = liveRenameRepairs(vault.readTree(), breaks);
+
+    if (targets.length === 0) {
+      console.log("no rename-shaped break in history still leaves a dangling edge on the live tree");
+      return;
+    }
+    for (const t of targets) {
+      console.log(
+        `${opts.write ? "repointing" : "would repoint"} "${t.parent}": [[${t.break.oldTitle}]] → [[${t.break.newTitle}]]` +
+          ` (commit ${t.break.commit.slice(0, 8)}, ${t.break.sharedLinks.length} shared outgoing link(s))`,
+      );
+    }
+
+    if (opts.write) {
+      // Same stance as `migrate`: gitCommit stages with `git add -A`, so from a
+      // dirty tree it would put a stranger's edits into history under this
+      // repair's name.
+      const before = workingTreeStatus(dir);
+      const foreign = before.kind === "dirty" ? entriesRequiringAHuman(before.entries) : [];
+      if (foreign.length > 0) {
+        console.error(`refusing to repair: ${foreign.length} path(s) were already dirty here before this run:`);
+        for (const f of foreign) console.error(`    ${f}`);
+        console.error("  Committing would put those into history under this repair's name. Deal with them and re-run.");
+        process.exitCode = 1;
+        return;
+      }
+      for (const t of targets) {
+        vault.repointEdge(
+          t.parent,
+          t.break.oldTitle,
+          t.break.newTitle,
+          `rename-shaped break detected in commit ${t.break.commit} — link-set identity matched ${t.break.sharedLinks.length} outgoing link(s)`,
+        );
+      }
+      const r = await gitCommit(dir, `repair(rename): repoint ${targets.length} edge(s) detected from link topology`);
+      console.log(
+        r.committed
+          ? `  committed ${r.sha.slice(0, 8)} — every repointed edge is named above and recoverable from history`
+          : "  NOT committed — git saw nothing to commit",
+      );
+    }
   });
 
 program

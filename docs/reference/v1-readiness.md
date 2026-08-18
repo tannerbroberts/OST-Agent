@@ -3089,7 +3089,19 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,064 tests across 252 files, verified 2026-08-18 (`npx vitest run`,
+> *Today:* **met** — 3,066 tests across 253 files, verified 2026-08-18 (`npx vitest run`,
+> after "Detect renames from link topology and repair the edge" landed:
+> `findRenameShapedBreaks` (`src/git/rename-topology.ts`) walks a vault's git history for
+> a commit where one node file went empty and another appeared carrying its exact
+> outgoing link set — link-set identity, not title similarity, is the signal — and
+> `liveRenameRepairs` (`src/ost/rename-repair.ts`) / `Vault.repointEdge` turn a match that
+> STILL leaves a dangling edge on the live tree into a repaired one, exposed as
+> `ost-agent repair-renames` (reports by default, `--write` applies and commits;
+> `test/ost/rename-link-repair.test.ts`). The assumption test beneath this solution never
+> recorded a result — no human ran the "≥2 incidents beyond the known one" audit this
+> build permit rested on — so this closes the instrument, not the desirability question:
+> whether renames outside Obsidian happen often enough to be worth this is still unweighed.
+> Previously 3,064 tests across 252 files, verified 2026-08-18 (`npx vitest run`,
 > after "Detect drift at write time and refuse, naming what changed since the read"
 > landed: `Vault.beginPlan()` (`src/ost/plan.ts`) pins a fingerprint of every node a
 > plan reads, and every `write` on it checks ALL of those — not only the write's own

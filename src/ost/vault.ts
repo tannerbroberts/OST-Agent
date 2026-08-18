@@ -666,6 +666,37 @@ export class Vault {
   }
 
   /**
+   * Repoint one parent's edge from an old (now-dangling) child title to a new
+   * one, recording the repair in the parent's History.
+   *
+   * The write `findRenameShapedBreaks` / `liveRenameRepairs` exist to license:
+   * an edge that used to resolve now points at nothing because the node it
+   * named was renamed outside this vault's own tools, and topology — not
+   * title similarity — says where it went. Refuses if the parent does not
+   * currently link to `from` (nothing to repoint) or if `to` is not a real
+   * node here (repointing at nothing would trade one dangling edge for
+   * another): both are the caller's evidence to have checked first, and this
+   * method re-checks rather than trusting a stale answer.
+   */
+  repointEdge(parent: string, from: string, to: string, why: string): string {
+    assertWritableContent(`the reason for repointing "${from}" to "${to}" under "${parent}"`, why);
+    const node = this.read(parent);
+    const oldTarget = sanitizeTitle(from);
+    const newTarget = sanitizeTitle(to);
+    if (!node.links.includes(oldTarget)) {
+      throw new Error(`"${parent}" does not link to "${from}" — nothing to repoint`);
+    }
+    if (!this.has(newTarget)) {
+      throw new Error(`repoint target does not exist: "${to}"`);
+    }
+    node.links = node.links.map((l) => (l === oldTarget ? newTarget : l));
+    const line = `- ${isoToday()} repointed "${oldTarget}" → "${newTarget}" — ${why}`;
+    node.body = appendUnderHeading(node.body, "## History", line);
+    fs.writeFileSync(this.nodePath(parent), serialize(node), "utf8");
+    return line;
+  }
+
+  /**
    * Replace a node's prose, keeping its reserved sections verbatim.
    *
    * `newProse` is the body MINUS every reserved block; this reattaches the ones
