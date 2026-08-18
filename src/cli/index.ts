@@ -319,12 +319,20 @@ program
   .command("set-outcome")
   .description("retune the steering mandate (human-only; prior mandate kept in the root node's history)")
   .argument("[text]", "the new mandate (prompted if omitted)")
+  .option(
+    "--charting-cost <estimate>",
+    "what mapping this goal is expected to take — evidence, conversations, days to a first actionable branch (prompted if omitted)",
+  )
   .option("--vault <dir>", VAULT_OPTION_HELP)
-  .action(async (text: string | undefined, opts: { vault: string }) => {
+  .action(async (text: string | undefined, opts: { vault: string; chartingCost?: string }) => {
     const next = text ?? (await prompt("New steering mandate: "));
-    const r = await setOutcome(opts.vault, next);
+    const chartingCost =
+      opts.chartingCost ??
+      (await prompt("Charting-cost estimate for this goal (evidence, conversations, days to a first actionable branch): "));
+    const r = await setOutcome(opts.vault, next, chartingCost);
     console.log(`Retuned "${r.title}" — committed ${r.sha.slice(0, 8)}`);
     console.log(`  prior mandate preserved in the root node's ## History`);
+    console.log(`  charting-cost estimate recorded: ${r.chartingCost}`);
   });
 
 /** What committing the filing did, in the three shapes the operator has to be told apart. */
