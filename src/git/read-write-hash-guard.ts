@@ -74,8 +74,13 @@ export function writeWithHash(filePath: string, newContent: string, read: ReadWi
  * of what was there and what replaced it. Deliberately not a full diff — the
  * point is a caller can read the refusal and know where to look, not that it
  * reproduces `diff -u`.
+ *
+ * Exported (rather than kept file-private) because {@link ../ost/plan.ts} needs the
+ * same wording for a node that drifted without a write being attempted against it —
+ * a plan's premise can be invalidated by a node it only READ, and the caller should
+ * not learn a different vocabulary for that than for the write-time refusal here.
  */
-function describeDrift(before: string, after: string): string {
+export function describeDrift(before: string, after: string): string {
   const beforeLines = before.split("\n");
   const afterLines = after.split("\n");
 
