@@ -43626,6 +43626,9 @@ function carriesAnswer(body, heading, nonAnswers) {
 function contractGaps(node, sections = CONTRACT_SECTIONS) {
   return sections.filter((s) => !hasSection(node.body, s));
 }
+function hasNonEmptySection(body, heading) {
+  return sectionBlocks(body, heading).some((block) => normalizeAnswer(block).length > 0);
+}
 function classifyUnknown(node, classifier = DEFAULT_CLASSIFIER) {
   for (const rule of classifier.rules) {
     const present = rule.present.every((s) => hasSection(node.body, s));
@@ -51061,6 +51064,11 @@ function buildOstTools(ctx, allowedNames) {
         const parentLayer = vault.read(input.parent).layer;
         if (!allowedParents.includes(parentLayer)) {
           throw new Error(`a ${input.layer} must attach under ${allowedParents.join(" or ")}, but "${input.parent}" is a ${parentLayer}`);
+        }
+        if (input.layer === "Unknown" && !hasNonEmptySection(input.body, "Format")) {
+          throw new Error(
+            `"${input.title}" needs a non-empty ## Format section \u2014 the shape a valid answer would take (e.g. "a count per day" or "a dollar figure with a date"). An unknown that cannot say what an answer looks like cannot know when it is done.`
+          );
         }
         if (input.status === "validated") throw new Error(VALIDATED_REFUSAL);
         if (input.threshold !== void 0 && input.layer !== "AssumptionTest") {
