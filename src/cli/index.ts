@@ -68,6 +68,7 @@ import { readConfig } from "../config/load.js";
 import { diagnoseSetup, formatSetupDiagnosis } from "../config/setup-check.js";
 import { ailingChannels, allChannels, channelHealth, renderChannels } from "../adapters/channels.js";
 import { initVault } from "../runner/init.js";
+import { prepareWorkspace } from "../runner/workspace.js";
 import { setOutcome } from "../runner/set-outcome.js";
 import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/render.js";
 import { ship } from "../release/ship-repo.js";
@@ -2293,6 +2294,27 @@ program
     // needs to tell those apart: the first is its own mistake to fix, the second
     // is a finding about the code that belongs in the report.
     process.exitCode = outcome.refusals.length > 0 ? 20 : 1;
+  });
+
+program
+  .command("workspace")
+  .description(
+    "prepare this run's own workspace, named after --run-id so two runs can never collide — node_modules is " +
+      "linked from --shared rather than reinstalled",
+  )
+  .requiredOption("--run-id <id>", "unique id for this run; the workspace path is derived from it")
+  .requiredOption("--shared <dir>", "the shared, already-installed repository this run's node_modules links to")
+  .option("--base <dir>", "root per-run workspaces are created under (default: the OS temp dir)")
+  .action((opts: { runId: string; shared: string; base?: string }) => {
+    const result = prepareWorkspace(opts.runId, path.resolve(opts.shared), opts.base ? path.resolve(opts.base) : undefined);
+    console.log(result.dir);
+    if (result.missingShared) {
+      console.error(
+        `workspace: ${path.join(path.resolve(opts.shared), "node_modules")} does not exist — nothing to link, ` +
+          "so this run's dependencies were never installed anywhere this command can share from",
+      );
+      process.exitCode = 1;
+    }
   });
 
 registerLoopCommands(program);

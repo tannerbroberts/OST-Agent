@@ -3089,7 +3089,23 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,124 tests across 258 files, verified 2026-08-18 (`npx vitest run`,
+> *Today:* **met** — 3,128 tests across 259 files, verified 2026-08-18 (`npx vitest run`,
+> after "Each run gets a workspace named after itself, so two runs cannot collide" landed:
+> `workspacePathFor` and `prepareWorkspace` (`src/runner/workspace.ts`, wired as
+> `ost-agent workspace`) derive `<base>/ost-<runId>` and link its `node_modules` to an
+> already-installed shared tree rather than reinstalling
+> (`test/runner/per-run-workspace-cost.test.ts`). The pre-committed 20% wall-clock
+> allowance turned out to only hold once the comparison includes the workspace's mutable
+> half (the checked-out source, rewritten every firing regardless of naming scheme) —
+> measured against the link step alone, in isolation, a fresh directory entry costs
+> 10-15x an idempotent no-op check on this machine, not 20%, because "reuse in a tight
+> loop with nothing else happening" has no marginal cost to be a percentage of. What it
+> does not settle: the assumption test's own named gap, that two live per-run worktrees
+> symlinking one shared `node_modules` are isolated in their working trees and not
+> isolated at all in their dependencies — a run on a branch with different requirements
+> would still overwrite another run's packages, silently, on every number this test
+> reports.
+> Previously 3,124 tests across 258 files, verified 2026-08-18 (`npx vitest run`,
 > after "Each agent writes on its own branch, and merging is a deliberate, reviewable
 > step" landed: `createAgentBranch` and `mergeAgentBranch` (`src/git/branch-isolation.ts`)
 > give one pass its own checkout via `git worktree add -b` and bring a branch back as one
