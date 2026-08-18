@@ -155,6 +155,11 @@ const PURE_MODULES = [
   "authority-contract.ts",
   "early-push.ts",
   "block-announcement.ts",
+  // Derives a consequence set's dependency links and classifies an encountered
+  // question against one, all in memory — the CLI command that persists a
+  // recorded set to `.git/ost-agent/consequence-set.json` lives in `cli/index.ts`,
+  // not here.
+  "premise-consequence.ts",
 ];
 
 /**

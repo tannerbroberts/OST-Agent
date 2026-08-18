@@ -55400,6 +55400,81 @@ function readQuestionBank(stateDir2) {
   return records;
 }
 
+// src/loop/premise-consequence.ts
+function validateConsequenceSet(set) {
+  const issues = [];
+  const seenIds = /* @__PURE__ */ new Set();
+  set.items.forEach((item, index) => {
+    if (seenIds.has(item.id)) {
+      issues.push({ itemId: item.id, problem: `duplicate id \u2014 an earlier item in the set already uses "${item.id}"` });
+    }
+    seenIds.add(item.id);
+    if (item.dependsOn === void 0) return;
+    const dependsOnIndex = set.items.findIndex((i2) => i2.id === item.dependsOn);
+    if (dependsOnIndex === -1) {
+      issues.push({ itemId: item.id, problem: `depends on "${item.dependsOn}", which is not in the set` });
+      return;
+    }
+    if (dependsOnIndex >= index) {
+      issues.push({
+        itemId: item.id,
+        problem: `depends on "${item.dependsOn}", which does not appear earlier in the set \u2014 dependency links only run backward, from a later item to one the operator has already read`
+      });
+    }
+  });
+  return issues;
+}
+function dependents(set) {
+  const map = /* @__PURE__ */ new Map();
+  for (const item of set.items) {
+    if (item.dependsOn === void 0) continue;
+    const list = map.get(item.dependsOn) ?? [];
+    list.push(item.id);
+    map.set(item.dependsOn, list);
+  }
+  return map;
+}
+function formatConsequenceBatch(set) {
+  const unlocks = dependents(set);
+  const lines = [];
+  lines.push(`Premise: ${set.premise}`);
+  lines.push("");
+  lines.push(
+    `The whole consequence set, derived from the premise before the run begins \u2014 ${set.items.length} item(s), answered once:`
+  );
+  lines.push("");
+  for (const item of set.items) {
+    const on = item.dependsOn === void 0 ? "the premise" : `#${item.dependsOn}`;
+    lines.push(`${item.id}. ${item.question} \u2014 depends on: ${on} \u2014 default: ${item.default}`);
+    const later = unlocks.get(item.id);
+    if (later && later.length > 0) {
+      lines.push(`   \u2192 #${later.join(", #")} depend${later.length === 1 ? "s" : ""} on this`);
+    }
+  }
+  lines.push("");
+  lines.push(
+    "Answer once, in one sitting. The run then proceeds on these defaults without stopping again unless it meets something genuinely outside this set."
+  );
+  return lines.join("\n");
+}
+function classifyEncounter(set, encountered) {
+  const encounteredTokens = subjectTokens(encountered);
+  for (const item of set.items) {
+    const shared = [...encounteredTokens].filter((t2) => subjectTokens(item.question).has(t2));
+    if (shared.length > 0) {
+      return {
+        covered: true,
+        matchedId: item.id,
+        why: `matches #${item.id} on ${shared.slice(0, 4).join(", ")} \u2014 proceed on its default without stopping again`
+      };
+    }
+  }
+  return {
+    covered: false,
+    why: "shares no subject term with any item in the derived set \u2014 outside what was covered, so the run stops"
+  };
+}
+
 // src/loop/authority-contract.ts
 var AUTHORITY_CONTRACT = [
   {
@@ -58892,6 +58967,71 @@ program2.command("bank-question").argument("[question]", "the question the run c
       console.log(`  ${call.turnsOnAnswer ? "blocked " : "proceed "} ${call.work}`);
       console.log(`           ${call.why}`);
     }
+  }
+);
+var CONSEQUENCE_SET_FILENAME = "consequence-set.json";
+function readConsequenceSet(state) {
+  try {
+    return JSON.parse(fs61.readFileSync(path63.join(state, CONSEQUENCE_SET_FILENAME), "utf8"));
+  } catch {
+    return null;
+  }
+}
+program2.command("consequence-set").argument("[premise]", "the stated premise the whole set is derived from, verbatim").description(
+  "derive the whole consequence set from a premise before the run begins, and present it as one batch: every item states what it depends on and the default the run would take, so the operator answers once instead of stopping at each one in turn. `--check` classifies a question the run meets mid-firing against the recorded set: a match proceeds on that item's default without stopping again, no match still earns a stop."
+).option("-i, --item <spec...>", "one item as `id|question|default[|dependsOn]` (repeatable)").option("--check <text>", "classify a question against the recorded set instead of recording a new one").option("--list", "print the recorded set's batch and record nothing").option("--state <dir>", "where the set lives (default: <vault>/.git/ost-agent)").option("--vault <dir>", VAULT_OPTION_HELP).action(
+  (premise, opts) => {
+    const state = opts.state ? path63.resolve(opts.state) : loopStateDir(opts.vault);
+    if (state === null) {
+      console.error(
+        "cannot locate a consequence set: pass --state <dir>, or point --vault at a git checkout \u2014 the set lives under its .git/, never in the working tree."
+      );
+      process.exitCode = 1;
+      return;
+    }
+    if (opts.check !== void 0) {
+      const recorded = readConsequenceSet(state);
+      if (recorded === null) {
+        console.error("no consequence set recorded here yet \u2014 nothing to check against.");
+        process.exitCode = 1;
+        return;
+      }
+      const result = classifyEncounter(recorded, opts.check);
+      console.log(`${result.covered ? "COVERED" : "OUTSIDE"} \u2014 ${result.why}`);
+      process.exitCode = result.covered ? 0 : 1;
+      return;
+    }
+    if (opts.list) {
+      const recorded = readConsequenceSet(state);
+      if (recorded === null) {
+        console.log("consequence set: none recorded here yet.");
+        return;
+      }
+      console.log(formatConsequenceBatch(recorded));
+      return;
+    }
+    if (!premise || !opts.item || opts.item.length === 0) {
+      console.error(
+        'not recorded: state the premise and at least one item \u2014 `ost-agent consequence-set "<premise>" -i "1|<question>|<default>"`.'
+      );
+      process.exitCode = 1;
+      return;
+    }
+    const items = opts.item.map((spec) => {
+      const [id, question, itemDefault, dependsOn] = spec.split("|");
+      return { id: id ?? "", question: question ?? "", default: itemDefault ?? "", dependsOn: dependsOn || void 0 };
+    });
+    const set = { premise, items };
+    const issues = validateConsequenceSet(set);
+    if (issues.length > 0) {
+      console.error("not recorded: the dependency links do not hold \u2014");
+      for (const issue2 of issues) console.error(`  #${issue2.itemId}: ${issue2.problem}`);
+      process.exitCode = 1;
+      return;
+    }
+    fs61.mkdirSync(state, { recursive: true });
+    fs61.writeFileSync(path63.join(state, CONSEQUENCE_SET_FILENAME), JSON.stringify(set));
+    console.log(formatConsequenceBatch(set));
   }
 );
 program2.command("authority").description(
