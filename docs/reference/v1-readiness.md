@@ -3089,9 +3089,14 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,097 tests across 255 files, verified 2026-08-18 (`npx vitest run`,
-> after "Detect the authentication that already exists and say exactly which one will
-> be used" landed: `detectAuthentication` (`src/security/auth-detection-report.ts`)
+> *Today:* **met** — 3,099 tests across 256 files, verified 2026-08-18 (`npx vitest run`,
+> after "Detect the dead ends from the artifact trail rather than from the session"
+> landed: `scanDeadEnds` (`src/git/dead-end-scan.ts`) reads reversal-shaped events —
+> commits carrying git's own revert trailer, files created then deleted — off a
+> repository's recent commit window with no session transcript involved
+> (`test/git/dead-end-scan.test.ts`); wired into the `dead-ends` CLI command. Before
+> that, after "Detect the authentication that already exists and say exactly which one
+> will be used" landed: `detectAuthentication` (`src/security/auth-detection-report.ts`)
 > resolves the same offers `credentialBrokerFromEnv` does and reports, before anything
 > spends a credential, which will be used or why each candidate was rejected — never
 > echoing a secret (`test/security/auth-detection-report.test.ts`). What it does not
