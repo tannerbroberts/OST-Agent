@@ -6,6 +6,9 @@ import { initVault } from "../../src/runner/init.js";
 import { setOutcome } from "../../src/runner/set-outcome.js";
 import { buildPassContext } from "../../src/runner/context.js";
 
+/** A stand-in charting-cost figure — any string carrying a number satisfies `setOutcome`. */
+const COST = "5 evidence, 2 conversations, 7 days to first actionable branch";
+
 let dir: string;
 
 beforeEach(async () => {
@@ -18,7 +21,7 @@ afterEach(() => {
 
 describe("setOutcome — retune the steering mandate", () => {
   test("updates config + root body, preserving the prior mandate in History", async () => {
-    const r = await setOutcome(dir, "Second mandate, sharper");
+    const r = await setOutcome(dir, "Second mandate, sharper", COST);
     expect(r.title).toBe("Project");
     expect(r.previous).toBe("First mandate");
 
@@ -35,8 +38,8 @@ describe("setOutcome — retune the steering mandate", () => {
   });
 
   test("accumulates history across repeated retunes", async () => {
-    await setOutcome(dir, "Second mandate");
-    await setOutcome(dir, "Third mandate");
+    await setOutcome(dir, "Second mandate", COST);
+    await setOutcome(dir, "Third mandate", COST);
     const root = buildPassContext(dir).vault.read("Project");
     expect(root.body.startsWith("Third mandate")).toBe(true);
     expect(root.body).toContain("First mandate");
@@ -44,15 +47,25 @@ describe("setOutcome — retune the steering mandate", () => {
   });
 
   test("refuses an identical or empty mandate", async () => {
-    await expect(setOutcome(dir, "First mandate")).rejects.toThrow(/identical/);
-    await expect(setOutcome(dir, "   ")).rejects.toThrow(/empty/);
+    await expect(setOutcome(dir, "First mandate", COST)).rejects.toThrow(/identical/);
+    await expect(setOutcome(dir, "   ", COST)).rejects.toThrow(/empty/);
   });
 
   test("each retune is a new commit (append-only history in git)", async () => {
     const before = buildPassContext(dir);
     void before;
-    const r = await setOutcome(dir, "A new direction");
+    const r = await setOutcome(dir, "A new direction", COST);
     expect(r.sha).toMatch(/^[0-9a-f]{7,}$/);
+  });
+
+  test("refuses a goal with no charting-cost estimate attached", async () => {
+    await expect(setOutcome(dir, "A goal nobody priced", "")).rejects.toThrow(/charting-cost estimate required/);
+    await expect(setOutcome(dir, "A goal nobody priced", "no idea, hard to say")).rejects.toThrow(
+      /charting-cost estimate required/,
+    );
+    // Refused before anything is written — the config and root node are untouched.
+    const ctx = buildPassContext(dir);
+    expect(ctx.config.outcome).toBe("First mandate");
   });
 });
 
@@ -81,7 +94,7 @@ describe("W6 — what the granted `set-outcome:*` prefix can actually do", () =>
     const cfg = path.join(dir, "ost.config.yaml");
     const before = [fs.readFileSync(root, "utf8"), fs.readFileSync(cfg, "utf8")];
 
-    await setOutcome(dir, "A mandate nobody in this session was asked for");
+    await setOutcome(dir, "A mandate nobody in this session was asked for", COST);
 
     // Non-vacuity: the same two reads are taken before and after one call, so a
     // `setOutcome` that had stopped writing (filing through the inbox, say)
@@ -99,13 +112,13 @@ describe("W6 — what the granted `set-outcome:*` prefix can actually do", () =>
     // before it will do anything, so the remedy and the state are mutually
     // exclusive: step 3 of the front door cannot succeed today.
     fs.rmSync(path.join(dir, "Project.md"));
-    await expect(setOutcome(dir, "The human's real mandate")).rejects.toThrow(/no Outcome node found/);
+    await expect(setOutcome(dir, "The human's real mandate", COST)).rejects.toThrow(/no Outcome node found/);
 
     // The control, and the reason this is a finding rather than a typo: the very
     // same call succeeds the moment the node is back. The refusal is about the
     // state, not about the arguments.
     await initVault(dir, "ignored — the config already holds one", "Project");
-    await expect(setOutcome(dir, "The human's real mandate")).resolves.toMatchObject({ title: "Project" });
+    await expect(setOutcome(dir, "The human's real mandate", COST)).resolves.toMatchObject({ title: "Project" });
   });
 
   test("`init` is not a way out of `no-outcome` either — it resurrects the stale mandate", async () => {
@@ -200,7 +213,7 @@ describe("backwards compatibility — a retune on an old-shape vault", () => {
     // Not `.resolves` — the failure this guards is a throw *between* the two
     // writes and the commit, and awaiting the call directly is what surfaces it
     // with its own message rather than as a matcher mismatch.
-    const r = await setOutcome(dir, "A mandate the human typed years later");
+    const r = await setOutcome(dir, "A mandate the human typed years later", COST);
     expect(r.previous).toBe("First mandate");
 
     expect(fs.readFileSync(cursor).equals(before[0]), "the ingest cursor moved").toBe(true);
@@ -217,7 +230,7 @@ describe("backwards compatibility — a retune on an old-shape vault", () => {
 
   test("rewrites only the `outcome:` line — the legacy drop folder and the root's title survive", async () => {
     downgrade(dir);
-    await setOutcome(dir, "A mandate the human typed years later");
+    await setOutcome(dir, "A mandate the human typed years later", COST);
 
     const cfg = fs.readFileSync(path.join(dir, "ost.config.yaml"), "utf8");
     expect(cfg).toMatch(/^outcome: "A mandate the human typed years later"/m);

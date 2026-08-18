@@ -386,7 +386,7 @@ const PROBE_MANDATE = "A mandate the probe supplies, deliberately not the baseli
  */
 const PROBES: Record<string, (vault: string) => string[]> = {
   init: (vault) => ["init", vault, "--outcome", PROBE_MANDATE],
-  "set-outcome": (vault) => ["set-outcome", PROBE_MANDATE, "--vault", vault],
+  "set-outcome": (vault) => ["set-outcome", PROBE_MANDATE, "--charting-cost", "1 evidence, 1 conversation, 1 day", "--vault", vault],
   status: (vault) => ["status", "--vault", vault],
 };
 

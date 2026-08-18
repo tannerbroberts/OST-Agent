@@ -41686,6 +41686,39 @@ async function initVault(dir, outcome, outcomeTitle) {
 
 // src/runner/set-outcome.ts
 import fs22 from "node:fs";
+
+// src/knowledge/charting-cost.ts
+var HAS_DIGIT = /\d/;
+function parseChartingCostFigure(raw) {
+  const trimmed2 = (raw ?? "").trim();
+  if (!trimmed2) {
+    return { reason: "no charting-cost estimate supplied \u2014 a goal cannot be adopted without pricing the chart first" };
+  }
+  if (!HAS_DIGIT.test(trimmed2)) {
+    return {
+      reason: `"${trimmed2}" states no number, so it is a direction rather than a figure \u2014 nothing for a later day to check it against.`
+    };
+  }
+  return { figure: trimmed2 };
+}
+function isChartingCostFigure(r2) {
+  return r2.figure !== void 0;
+}
+var HISTORY_LINE = /^charting-cost estimate for "(?<goal>.+)":\s*(?<figure>.+?)\s*\((?<date>\d{4}-\d{2}-\d{2})\)$/;
+function formatChartingCostHistoryLine(goal, figure, date3) {
+  return `charting-cost estimate for "${goal}": ${figure} (${date3})`;
+}
+function parseChartingCostHistory(body) {
+  const out = [];
+  for (const line of body.split("\n")) {
+    const hit = HISTORY_LINE.exec(line.trim());
+    if (!hit || !hit.groups) continue;
+    out.push({ goal: hit.groups.goal, figure: hit.groups.figure, date: hit.groups.date });
+  }
+  return out;
+}
+
+// src/runner/set-outcome.ts
 function isoToday2() {
   return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 }
@@ -41694,9 +41727,13 @@ function splitBody(body) {
   if (idx === -1) return { mandate: body.trim(), history: "" };
   return { mandate: body.slice(0, idx).trim(), history: body.slice(idx).trim() };
 }
-async function setOutcome(vaultDir, next) {
+async function setOutcome(vaultDir, next, chartingCost) {
   const trimmed2 = next.trim();
   if (!trimmed2) throw new Error("the new outcome text is empty");
+  const parsedCost = parseChartingCostFigure(chartingCost);
+  if (!isChartingCostFigure(parsedCost)) {
+    throw new Error(`charting-cost estimate required before a goal can be adopted: ${parsedCost.reason}`);
+  }
   const vault = new Vault(vaultDir);
   const root = vault.readTree().find((n) => n.layer === "Outcome");
   if (!root) throw new Error("no Outcome node found \u2014 run `ost-agent init` first");
@@ -41707,8 +41744,10 @@ async function setOutcome(vaultDir, next) {
   const updated = raw.replace(/^outcome:.*$/m, `outcome: ${JSON.stringify(trimmed2)}`);
   if (updated === raw) throw new Error(`could not find an 'outcome:' line in ${cfg}`);
   fs22.writeFileSync(cfg, updated, "utf8");
-  const historyEntry = `- ${isoToday2()} superseded mandate:
-  > ${previous.replace(/\n/g, "\n  > ")}`;
+  const today = isoToday2();
+  const historyEntry = `- ${today} superseded mandate:
+  > ${previous.replace(/\n/g, "\n  > ")}
+  ${formatChartingCostHistoryLine(trimmed2, parsedCost.figure, today)}`;
   const historyBlock = history ? `${history}
 ${historyEntry}` : `## History
 ${historyEntry}`;
@@ -41718,7 +41757,7 @@ ${historyBlock}`;
   vault.setOutcomeBody(root.title, root.body);
   loadConfig(vaultDir);
   const { sha } = await gitCommit(vaultDir, `set-outcome: retune steering mandate`);
-  return { title: root.title, previous, next: trimmed2, sha };
+  return { title: root.title, previous, next: trimmed2, sha, chartingCost: parsedCost.figure };
 }
 
 // src/ost/lanes.ts
@@ -43852,6 +43891,24 @@ function rollUpBucket(bucket, index) {
     weakestRung: weakest(nodes.map((n) => n.evidence))
   };
 }
+function daysBetween(from, to) {
+  return Math.round((Date.parse(to) - Date.parse(from)) / 864e5);
+}
+function chartingCostRollup(root) {
+  if (!root) return [];
+  const entries = parseChartingCostHistory(root.body);
+  return entries.map((entry, i2) => {
+    const supersededBy = entries[i2 + 1];
+    return {
+      goal: entry.goal,
+      figure: entry.figure,
+      estimatedOn: entry.date,
+      status: supersededBy ? "superseded" : "current",
+      supersededOn: supersededBy?.date ?? null,
+      actualDaysToSupersession: supersededBy ? daysBetween(entry.date, supersededBy.date) : null
+    };
+  });
+}
 function rollupTree(tree) {
   const index = byTitle([...tree]);
   const outcome = tree.find((n) => n.layer === "Outcome") ?? null;
@@ -43864,6 +43921,7 @@ function rollupTree(tree) {
   return {
     outcome: outcome?.title ?? null,
     buckets,
+    chartingCostEstimates: chartingCostRollup(outcome),
     unfiled: tree.filter((n) => n.layer === "Opportunity" && !filed.has(n.title)).map((n) => n.title).sort(),
     nonOpportunityChildren: (outcome?.links ?? []).filter((t2) => {
       const n = index.get(t2);
@@ -43899,6 +43957,14 @@ function renderRollup(rollup) {
       if (b2.tests > 0 && b2.withFixedThreshold < b2.tests) {
         lines.push(`    ${b2.tests - b2.withFixedThreshold} of ${b2.tests} test(s) state no fixed bar \u2014 those cannot come out a failure`);
       }
+    }
+  }
+  if (rollup.chartingCostEstimates.length > 0) {
+    lines.push("");
+    lines.push(`Charting-cost estimates (${rollup.chartingCostEstimates.length}):`);
+    for (const e of rollup.chartingCostEstimates) {
+      const actual = e.status === "current" ? "current \u2014 not yet superseded" : `superseded after ${e.actualDaysToSupersession} day(s)`;
+      lines.push(`  "${e.goal}": ${e.figure} (estimated ${e.estimatedOn}) \u2014 actual: ${actual}`);
     }
   }
   if (rollup.nonOpportunityChildren.length > 0) {
@@ -55724,11 +55790,16 @@ Drop notes into ${r2.inboxDir}/, then run /ost-map in Claude Code to fold them i
   console.log(`
 Run \`ost-agent channels --vault ${dir}\` at any time to see every drop folder and whether it has gone quiet.`);
 });
-program2.command("set-outcome").description("retune the steering mandate (human-only; prior mandate kept in the root node's history)").argument("[text]", "the new mandate (prompted if omitted)").option("--vault <dir>", VAULT_OPTION_HELP).action(async (text2, opts) => {
+program2.command("set-outcome").description("retune the steering mandate (human-only; prior mandate kept in the root node's history)").argument("[text]", "the new mandate (prompted if omitted)").option(
+  "--charting-cost <estimate>",
+  "what mapping this goal is expected to take \u2014 evidence, conversations, days to a first actionable branch (prompted if omitted)"
+).option("--vault <dir>", VAULT_OPTION_HELP).action(async (text2, opts) => {
   const next = text2 ?? await prompt("New steering mandate: ");
-  const r2 = await setOutcome(opts.vault, next);
+  const chartingCost = opts.chartingCost ?? await prompt("Charting-cost estimate for this goal (evidence, conversations, days to a first actionable branch): ");
+  const r2 = await setOutcome(opts.vault, next, chartingCost);
   console.log(`Retuned "${r2.title}" \u2014 committed ${r2.sha.slice(0, 8)}`);
   console.log(`  prior mandate preserved in the root node's ## History`);
+  console.log(`  charting-cost estimate recorded: ${r2.chartingCost}`);
 });
 async function commitFiling(vaultDir, before, written, label = "friction") {
   if (before.kind === "unknown") return { kind: "no-history", reason: before.reason };

@@ -45,6 +45,7 @@ import { hasRecordedResult } from "./evidence-debt.js";
 import { recordedVerdict } from "../knowledge/actor-trust.js";
 import { nodeInstrument, observedGreen } from "../ost/instrument.js";
 import { thresholdKindOf } from "./coverage.js";
+import { parseChartingCostHistory } from "../knowledge/charting-cost.js";
 
 export interface BucketRollup {
   /** The Opportunity that hangs directly off the Outcome — a category, after the bucket migration. */
@@ -66,9 +67,31 @@ export interface BucketRollup {
   weakestRung: RungId | null;
 }
 
+/**
+ * A charting-cost figure recorded when a goal was adopted, beside the actual
+ * that later became knowable — the days the goal actually stood before it was
+ * superseded. Computed, not human-recorded: "how many days did this goal
+ * actually last" is arithmetic on two dates the tree already carries. Whether
+ * the estimate was any GOOD stays a human's call — this only makes the two
+ * numbers sit next to each other.
+ */
+export interface ChartingCostGoalRollup {
+  /** The goal's mandate text, exactly as adopted. */
+  goal: string;
+  figure: string;
+  estimatedOn: string;
+  /** Still the live mandate, or already replaced by a later `set-outcome`. */
+  status: "current" | "superseded";
+  supersededOn: string | null;
+  /** Days between adoption and supersession — null while the goal is still current. */
+  actualDaysToSupersession: number | null;
+}
+
 export interface TreeRollup {
   outcome: string | null;
   buckets: BucketRollup[];
+  /** Every charting-cost figure recorded on the root node, beside how long that goal actually stood. */
+  chartingCostEstimates: ChartingCostGoalRollup[];
   /**
    * Opportunities the Outcome does not reach through other Opportunities.
    *
@@ -152,6 +175,33 @@ function rollUpBucket(bucket: OstNode, index: Map<string, OstNode>): BucketRollu
   };
 }
 
+/** Whole-day span between two ISO dates. Pure date arithmetic — no wall clock, so this stays deterministic on replay. */
+function daysBetween(from: string, to: string): number {
+  return Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000);
+}
+
+/**
+ * Every charting-cost figure on the root node, paired with how long that goal
+ * actually stood. `parseChartingCostHistory` returns entries oldest-first (the
+ * order `set-outcome` appends them in), so the goal named by the LAST entry is
+ * the one currently adopted — nothing has superseded it yet.
+ */
+function chartingCostRollup(root: OstNode | null): ChartingCostGoalRollup[] {
+  if (!root) return [];
+  const entries = parseChartingCostHistory(root.body);
+  return entries.map((entry, i) => {
+    const supersededBy = entries[i + 1];
+    return {
+      goal: entry.goal,
+      figure: entry.figure,
+      estimatedOn: entry.date,
+      status: supersededBy ? "superseded" : "current",
+      supersededOn: supersededBy?.date ?? null,
+      actualDaysToSupersession: supersededBy ? daysBetween(entry.date, supersededBy.date) : null,
+    };
+  });
+}
+
 export function rollupTree(tree: readonly OstNode[]): TreeRollup {
   const index = byTitle([...tree]);
   const outcome = tree.find((n) => n.layer === "Outcome") ?? null;
@@ -170,6 +220,7 @@ export function rollupTree(tree: readonly OstNode[]): TreeRollup {
   return {
     outcome: outcome?.title ?? null,
     buckets,
+    chartingCostEstimates: chartingCostRollup(outcome),
     unfiled: tree.filter((n) => n.layer === "Opportunity" && !filed.has(n.title)).map((n) => n.title).sort(),
     nonOpportunityChildren: (outcome?.links ?? [])
       .filter((t) => {
@@ -224,6 +275,19 @@ export function renderRollup(rollup: TreeRollup): string {
       if (b.tests > 0 && b.withFixedThreshold < b.tests) {
         lines.push(`    ${b.tests - b.withFixedThreshold} of ${b.tests} test(s) state no fixed bar — those cannot come out a failure`);
       }
+    }
+  }
+
+  // The estimate is written before the goal is committed; the actual is not
+  // knowable until the goal is superseded, so a current goal shows no actual
+  // yet rather than a computed one.
+  if (rollup.chartingCostEstimates.length > 0) {
+    lines.push("");
+    lines.push(`Charting-cost estimates (${rollup.chartingCostEstimates.length}):`);
+    for (const e of rollup.chartingCostEstimates) {
+      const actual =
+        e.status === "current" ? "current — not yet superseded" : `superseded after ${e.actualDaysToSupersession} day(s)`;
+      lines.push(`  "${e.goal}": ${e.figure} (estimated ${e.estimatedOn}) — actual: ${actual}`);
     }
   }
 

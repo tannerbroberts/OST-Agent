@@ -3089,7 +3089,7 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,009 tests across 246 files, verified 2026-08-17 (`npx vitest run`,
+> *Today:* **met** — 3,014 tests across 247 files, verified 2026-08-17 (`npx vitest run`,
 > after "Compare what the run attempted against what it set out to do, and report the
 > shortfall" landed: `ost-agent loop scope <statement>` freezes a run's intended scope
 > before its first step is recorded — a declaration after a step exists, or a second
