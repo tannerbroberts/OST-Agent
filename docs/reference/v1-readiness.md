@@ -3089,8 +3089,15 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,024 tests across 248 files, verified 2026-08-17 (`npx vitest run`,
-> after "Declare the distance to the real goal as named darkness, so the gap is inventory"
+> *Today:* **met** — 3,042 tests across 249 files, verified 2026-08-18 (`npx vitest run`,
+> after "Declare the files a run intends to touch, and refuse to start when another
+> writer already holds them" landed: `evaluateWriteIntentPreflight` refuses a run whose
+> declared `HEAD` has moved out from under it or whose declared path is already dirty and
+> fresh, replayed against the one recorded collision plus five clean sessions
+> (`src/runner/write-intent-preflight.ts`, `test/runner/write-intent-preflight-false-stop.test.ts`).
+> Not yet wired to a call site — see `test/release/module-reachability.test.ts` — because
+> the solution node does not say which run boundary should declare intent through it.
+> Earlier, after "Declare the distance to the real goal as named darkness, so the gap is inventory"
 > landed: `ost_create_node` refuses to create an Unknown whose body has no non-empty
 > `## Format` section — a bare heading with nothing under it counts as missing, same as
 > no heading at all — instead of leaving the contract advisory in the tool's description
