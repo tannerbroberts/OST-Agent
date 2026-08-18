@@ -44,6 +44,7 @@
  *   ost-agent briefing [--vault DIR]          the standing tree briefing, regenerated in full from the tree — teaches the tree back to a cold reader
  *   ost-agent bank-question "<q>" ...         bank a fork instead of stopping at it, costed by the work it holds up
  *   ost-agent authority                       the standing contract: which classes of decision compute may take alone
+ *   ost-agent auth                             detect the credentials already held, and say which one each adapter will use, before anything needs one
  *   ost-agent allowlist --skill F --settings F  derive a run's permission grant from the skill's own allowed-tools
  *   ost-agent grants --skill F --settings F   name every tool a run declares that its grant does not cover
  *   ost-agent build-check --repo DIR          does the tree a run inherited actually build? checked before work is planned on it
@@ -156,6 +157,7 @@ import {
 } from "../loop/premise-consequence.js";
 import { renderAuthorityContract } from "../loop/authority-contract.js";
 import { renderHostSurfaces } from "../security/host-delegation.js";
+import { detectAuthentication, renderAuthDetectionReport } from "../security/auth-detection-report.js";
 import {
   DEFAULT_QUIET_MINUTES, emptyCorrectionsLedger, readLedger, recordCorrections, renderCorrections,
 } from "../loop/corrections.js";
@@ -2121,6 +2123,17 @@ program
   )
   .action(() => {
     console.log(renderHostSurfaces());
+  });
+
+program
+  .command("auth")
+  .description(
+    "detect the credential already held for each adapter (Slack, Atlassian, search, GitHub) and say which " +
+      "one will be used, or which forms were found and why each was rejected — before anything spends one. " +
+      "Never prints a secret value.",
+  )
+  .action(() => {
+    console.log(renderAuthDetectionReport(detectAuthentication()));
   });
 
 program

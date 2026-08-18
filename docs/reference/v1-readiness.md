@@ -3089,7 +3089,15 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,082 tests across 254 files, verified 2026-08-18 (`npx vitest run`,
+> *Today:* **met** — 3,097 tests across 255 files, verified 2026-08-18 (`npx vitest run`,
+> after "Detect the authentication that already exists and say exactly which one will
+> be used" landed: `detectAuthentication` (`src/security/auth-detection-report.ts`)
+> resolves the same offers `credentialBrokerFromEnv` does and reports, before anything
+> spends a credential, which will be used or why each candidate was rejected — never
+> echoing a secret (`test/security/auth-detection-report.test.ts`). What it does not
+> settle: consent to the probe itself, which is the assumption test beneath it and
+> still unresolved.
+> Previously 3,082 tests across 254 files, verified 2026-08-18 (`npx vitest run`,
 > after "Detect that no terminal is attached and answer the prompt from a stated policy"
 > landed: `answerPromptUnattended` (`src/runner/no-tty-policy.ts`) classifies a prompt
 > against a fixed must-stop set — a destructive overwrite, a force push — that no policy
