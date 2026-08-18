@@ -16,6 +16,8 @@ import { gitCommit, gitInitIfAbsent, gitPush, pushTargetFor } from "../git/safe-
 import { FLOOR_RUNG } from "../knowledge/believability.js";
 import { buildPassContext } from "./context.js";
 import { INIT_TRACE_TOOL, drainCreatedNodeFiles, recordUsageEvent, usageLogPath } from "../telemetry/usage.js";
+import { diagnoseSetup } from "../config/setup-check.js";
+import { mergeEnablingConfig } from "../config/settings-merge.js";
 
 /**
  * Write the event that lets the trace be read as a denominator (W2, W3).
@@ -107,6 +109,64 @@ export interface InitResult {
    * (G1), and it must not stop a vault being created or adopted.
    */
   channelProblems: string[];
+  /** What happened when `init` tried to make the vault's tools launch on their own. */
+  toolEnabling: ToolEnablingOutcome;
+}
+
+export type ToolEnablingOutcome =
+  /** Something already enables the plugin — this vault's own settings.json or a level above it. */
+  | { status: "already-enabled"; enabledBy: string }
+  /** Wrote (or merged into) the project's `.claude/settings.json`. */
+  | { status: "enabled"; file: string }
+  /** Left the file untouched, and why. */
+  | { status: "skipped"; reason: string };
+
+/**
+ * Make opening this vault enough to get its tools, by writing the same
+ * enabling keys `setup-check.ts` already knows how to diagnose the absence
+ * of — the fix for the four toolless passes that motivated the diagnosis.
+ *
+ * Deliberately conservative in two ways `mergeEnablingConfig`'s own contract
+ * does not enforce on its own:
+ *
+ * - **Never overrides an explicit `false`.** `diagnoseSetup`'s `plugin-disabled`
+ *   gap exists to name a choice, not an oversight; flipping it back on `init`
+ *   re-adopting an existing vault would make that choice unkeepable.
+ * - **Only writes when the merge round-trips through `diagnoseSetup` as `ok`.**
+ *   A settings file with comments merges safely (nothing is lost — see
+ *   `settings-merge-safety.test.ts`) but `diagnoseSetup` reads the canonical
+ *   file with a strict `JSON.parse`, the same as Claude Code's own settings
+ *   loader is understood to. Writing a technically-safe merge that the
+ *   operator's own session still can't parse would report success for a file
+ *   that does not actually enable anything — worse than leaving it alone,
+ *   because the existing diagnosis (which *does* handle comments as a named
+ *   gap) would no longer even get a chance to say so.
+ */
+function writeToolEnablingConfig(abs: string): ToolEnablingOutcome {
+  const before = diagnoseSetup(abs);
+  if (before.ok) return { status: "already-enabled", enabledBy: before.enabledBy as string };
+  if (before.gap === "plugin-disabled") {
+    return { status: "skipped", reason: `${before.file} explicitly disables the plugin — not overriding a deliberate choice` };
+  }
+
+  const canonical = before.file;
+  const raw = fs.existsSync(canonical) ? fs.readFileSync(canonical, "utf8") : "{}\n";
+  const merged = mergeEnablingConfig(raw);
+  if (!merged.ok) {
+    return { status: "skipped", reason: `${canonical} could not be safely merged into: ${merged.reason}` };
+  }
+
+  fs.mkdirSync(path.dirname(canonical), { recursive: true });
+  fs.writeFileSync(canonical, merged.content as string, "utf8");
+
+  const after = diagnoseSetup(abs);
+  if (!after.ok) {
+    return {
+      status: "skipped",
+      reason: `merged into ${canonical} without losing any existing setting, but it still does not parse as the strict JSON Claude Code's settings loader expects (likely comments in the original) — run \`ost-agent setup-check\` for the exact fix`,
+    };
+  }
+  return { status: "enabled", file: canonical };
 }
 
 /**
@@ -179,6 +239,10 @@ export async function initVault(dir: string, outcome: string, outcomeTitle?: str
     ? undefined
     : appendGitignore(abs, `${path.relative(abs, zero.dir).split(path.sep).join("/")}/`);
 
+  // Before the commit below, so a freshly-created vault's very first commit
+  // is the one that makes its own tools launch — no second, invisible step.
+  const toolEnabling = writeToolEnablingConfig(abs);
+
   let outcomeCreated = false;
   if (!ctx.vault.has(rootTitle)) {
     ctx.vault.createNode({
@@ -220,6 +284,7 @@ export async function initVault(dir: string, outcome: string, outcomeTitle?: str
     inboxDir,
     inboxConfined,
     channelProblems: resolved.problems,
+    toolEnabling,
     ...(gitignored ? { gitignored } : {}),
   };
 }
