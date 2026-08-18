@@ -3089,7 +3089,18 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,109 tests across 256 files, verified 2026-08-18 (`npx vitest run`,
+> *Today:* **met** — 3,110 tests across 257 files, verified 2026-08-18 (`npx vitest run`,
+> after "Drop shipped solutions from the instrument queue" landed:
+> `test/ost/instrument-queue-excludes-shipped.test.ts` pins `solutionsMissingInstruments`
+> draining a mixed queue to exactly the solutions still owed an instrument — a trusted
+> shipped promotion leaves, an unexplained one and an ordinary unbuilt solution both stay.
+> The exclusion the vault node proposed was not missing: `trustsShippedStatus` already
+> filters the queue this way, shipped in `ce1f3b3` on 2026-08-11 — five days after this
+> vault node was written — under a different title and with no promotion recorded against
+> this node. This build supplied the named spec the node's Definition of Done demanded; it
+> did not change behaviour, and the finding is that the tree's own "solutions that already
+> shipped keep coming back in the queue" complaint applied to this node itself.
+> Previously 3,109 tests across 256 files, verified 2026-08-18 (`npx vitest run`,
 > after "Classify the steps of ten past runs as credentialed or not, and see how much
 > work sits upstream" landed: `classifyStep` and `independentFraction`
 > (`src/loop/credentialedSteps.ts`) replay ten of this repository's own past runs and
