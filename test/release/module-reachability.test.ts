@@ -136,6 +136,28 @@ const KNOWN_UNREACHABLE: Record<string, string> = {
    */
   "src/runner/failed-match-attribution.ts":
     "built and tested; parked pending a live tool-call interception surface to feed its read journal, which does not exist in this repository yet",
+  /*
+   * The no-TTY prompt policy: given a run with no attached terminal and a
+   * prompt's text, decide must-stop / answered-from-policy / outside-the-
+   * policy, and journal the question, the answer and the citing policy line
+   * for the ones it answers. Built and tested against the node's definition
+   * of done (`test/runner/no-tty-policy-answer.test.ts`), including that a
+   * destructive overwrite or a force push stops the run even when a policy
+   * line is written to try to cover it.
+   *
+   * Not wired, because this repository never spawns the subprocess whose
+   * stdin this module would answer for. `src/git/safe-git.ts` shells out
+   * through `simple-git`, which never inherits a real terminal in the first
+   * place, and there is no other place in `src/` that runs an external
+   * command a human might otherwise sit and answer. The gap this module
+   * closes is real — it is this vault's own session transcripts, this
+   * product's own coding sessions, that hit it — but the process doing the
+   * shelling-out there is the calling agent's shell tool, outside this
+   * repository entirely. It comes off when something in `src/` spawns a
+   * command with an inheritable stdin, or goes when the node is deferred.
+   */
+  "src/runner/no-tty-policy.ts":
+    "built and tested; parked because this repository has no subprocess call site with an inheritable stdin for it to answer on behalf of",
 };
 
 function tsFiles(dir: string): string[] {
