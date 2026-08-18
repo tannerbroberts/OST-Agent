@@ -3089,7 +3089,18 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,066 tests across 253 files, verified 2026-08-18 (`npx vitest run`,
+> *Today:* **met** — 3,082 tests across 254 files, verified 2026-08-18 (`npx vitest run`,
+> after "Detect that no terminal is attached and answer the prompt from a stated policy"
+> landed: `answerPromptUnattended` (`src/runner/no-tty-policy.ts`) classifies a prompt
+> against a fixed must-stop set — a destructive overwrite, a force push — that no policy
+> line can shadow, then against a policy the operator wrote, and journals the question,
+> the answer and the citing policy line for the ones it answers
+> (`test/runner/no-tty-policy-answer.test.ts`). The assumption test beneath it never
+> recorded a result — the two-person prompt sort it specified was never run — so this
+> closes the instrument, not the desirability question. It is on the module-reachability
+> debt register (`test/release/module-reachability.test.ts`): this repository has no
+> subprocess call site with an inheritable stdin for it to answer on behalf of yet.
+> Previously 3,066 tests across 253 files, verified 2026-08-18 (`npx vitest run`,
 > after "Detect renames from link topology and repair the edge" landed:
 > `findRenameShapedBreaks` (`src/git/rename-topology.ts`) walks a vault's git history for
 > a commit where one node file went empty and another appeared carrying its exact
