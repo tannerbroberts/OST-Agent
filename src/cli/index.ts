@@ -294,6 +294,17 @@ program
     console.log(`Initialized vault at ${r.dir}`);
     console.log(`  git: ${r.gitInitialized ? "initialized" : "already present"}`);
     console.log(`  outcome node: ${r.outcomeCreated ? "created" : "already present"}`);
+    switch (r.toolEnabling.status) {
+      case "enabled":
+        console.log(`  tools: enabled by writing ${r.toolEnabling.file} — opening this vault now launches ost-agent's tools`);
+        break;
+      case "already-enabled":
+        console.log(`  tools: already enabled (by ${r.toolEnabling.enabledBy})`);
+        break;
+      case "skipped":
+        console.log(`  ⚠ tools: NOT enabled automatically — ${r.toolEnabling.reason}`);
+        break;
+    }
     // The absolute path off `initVault`, not a path re-derived here: the folder the
     // operator is told to use has to be the folder the ingest actually reads, and
     // two computations of it are two chances to disagree.

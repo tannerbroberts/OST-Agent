@@ -421,21 +421,39 @@ describe("the unattended surface writes no policy into the vault", () => {
     expect(fs.readFileSync(configPath(dir)).equals(original)).toBe(true);
   }, SURFACE_TIMEOUT_MS);
 
+  test("the tool-enabling settings file `init` wrote is unchanged, byte for byte", async () => {
+    // `.claude/settings.json` joins `ost.config.yaml` in the same bucket:
+    // written once by `init` (a human-typed CLI command), never by the
+    // unattended MCP surface. This is the surface-side half of that claim —
+    // the writer-side half is that `writeToolEnablingConfig` is called only
+    // from `initVault`, nowhere the MCP tool handlers reach.
+    const settingsFile = path.join(dir, ".claude", "settings.json");
+    const original = fs.readFileSync(settingsFile);
+    await exerciseSurface();
+    expect(fs.readFileSync(settingsFile).equals(original)).toBe(true);
+  }, SURFACE_TIMEOUT_MS);
+
   test("nothing it wrote is a policy file, anywhere in the vault", async () => {
     const { after } = await exerciseSurface();
     const policy = after.filter((rel) => rel !== CONFIG_FILENAME && POLICY_SHAPED.test(path.basename(rel)));
     expect(policy).toEqual([]);
   }, SURFACE_TIMEOUT_MS);
 
-  test("everything it wrote is a node at the root or state under `.ost-agent/`", async () => {
+  test("everything it wrote is a node at the root, `.claude/settings.json`, or state under `.ost-agent/`", async () => {
     // init's own comment says "the vault root only ever contains OST node
     // files". Holding the surface to it is what makes a policy file at the root
     // unwritable rather than merely unwritten — a new kind of file has to be a
     // deliberate change to this test.
+    //
+    // `.claude/settings.json` is the one other exception, in the same bucket
+    // as `CONFIG_FILENAME`: `init` writes it (the fix for the four toolless
+    // scheduled passes — `setup-check.ts`), never the unattended MCP surface,
+    // and the test above pins that it is never rewritten once exercised.
     const { after } = await exerciseSurface();
     const stray = after.filter((rel) => {
       if (rel.startsWith(".ost-agent/")) return false;
       if (rel === CONFIG_FILENAME) return false;
+      if (rel === path.join(".claude", "settings.json")) return false;
       return path.dirname(rel) !== "." || !rel.endsWith(".md");
     });
     expect(stray).toEqual([]);
