@@ -82,6 +82,22 @@ const KNOWN_UNREACHABLE: Record<string, string> = {
   "src/adapters/transcript-model-reader.ts":
     "built and tested; parked pending its node's blind-rating test, which is human-only",
   /*
+   * Classifies a run's steps as credentialed or not and derives how much of a
+   * run sat upstream of the first one — the assumption test beneath "Do
+   * everything that needs no credential first, and bank the rest into one
+   * approval", replayed against ten of this repository's own past runs
+   * (`test/loop/credentialed-step-independence.test.ts`). The replay came back
+   * short of the bar the solution node pre-committed (5 of 10 runs clear it,
+   * not 6), which is the buildable permit this task held and discharged — a
+   * red instrument made real, not a decision to build the reorder itself.
+   * Nothing in this repository queues credentialed work or reorders a run yet;
+   * that is a separate, still-unvalidated commitment. It comes off when the
+   * reorder is built and this module becomes its classifier, or goes when the
+   * node is deferred.
+   */
+  "src/loop/credentialedSteps.ts":
+    "built and tested; parked pending a decision to build the reorder itself, which this assumption test did not clear",
+  /*
    * The early-push cadence: replay the recorded 2026-07-26 collision with
    * skeleton pushes at an interval and measure when git's non-fast-forward
    * rejection first arrives. Its instrument is green — a 30-minute cadence

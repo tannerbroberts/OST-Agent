@@ -160,6 +160,13 @@ const PURE_MODULES = [
   // recorded set to `.git/ost-agent/consequence-set.json` lives in `cli/index.ts`,
   // not here.
   "premise-consequence.ts",
+  // Classifies a given step (tool name, and for Bash the command string) as
+  // credentialed or not, and folds a run's steps into an independence fraction —
+  // both pure functions over whatever `RunStep[]` the caller hands in. Nothing
+  // here opens a file; the corpus it is replayed against in
+  // `test/loop/credentialed-step-independence.test.ts` is read by the test, not
+  // by this module.
+  "credentialedSteps.ts",
 ];
 
 /**
