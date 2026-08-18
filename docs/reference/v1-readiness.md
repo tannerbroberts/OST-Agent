@@ -3089,7 +3089,15 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,042 tests across 250 files, verified 2026-08-18 (`npx vitest run`,
+> *Today:* **met** — 3,053 tests across 251 files, verified 2026-08-18 (`npx vitest run`,
+> after "Derive the whole consequence set from the premise and ask about all of it at
+> once" landed: `formatConsequenceBatch` (`src/loop/premise-consequence.ts`) presents
+> every decision a stated premise implies as one batch, with each item's dependency link
+> and proposed default, and `classifyEncounter` tells a question the run meets mid-firing
+> apart from one the batch already covers (`test/loop/premise-consequence-set.test.ts`) —
+> a shape spec only; whether a derivation is *complete* is the sibling assumption test's
+> question, run by a human against a blind derivation.
+> Previously 3,042 tests across 250 files, verified 2026-08-18 (`npx vitest run`,
 > after "Derive the next version from the registry, never from the local file" landed:
 > `deriveNextVersion` (`src/release/next-version.ts`) takes the maximum of what the
 > registry has ever published — including numbers later unpublished — and what `origin`

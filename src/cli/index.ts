@@ -145,6 +145,13 @@ import { REQUIRED_TOOLS_EXIT, checkRequiredTools } from "../mcp/required-tools.j
 import { TOOL_SURFACE_PREFLIGHT_EXIT, checkToolSurfaces } from "../runner/tool-surface-preflight.js";
 import { loopStateDir, workingTreeStatus, type VaultTreeStatus } from "../loop/state.js";
 import { bankQuestion, readQuestionBank } from "../loop/question-bank.js";
+import {
+  classifyEncounter,
+  formatConsequenceBatch,
+  validateConsequenceSet,
+  type ConsequenceItem,
+  type ConsequenceSet,
+} from "../loop/premise-consequence.js";
 import { renderAuthorityContract } from "../loop/authority-contract.js";
 import { renderHostSurfaces } from "../security/host-delegation.js";
 import {
@@ -1939,6 +1946,97 @@ program
         console.log(`  ${call.turnsOnAnswer ? "blocked " : "proceed "} ${call.work}`);
         console.log(`           ${call.why}`);
       }
+    },
+  );
+
+const CONSEQUENCE_SET_FILENAME = "consequence-set.json";
+
+function readConsequenceSet(state: string): ConsequenceSet | null {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(state, CONSEQUENCE_SET_FILENAME), "utf8")) as ConsequenceSet;
+  } catch {
+    return null;
+  }
+}
+
+program
+  .command("consequence-set")
+  .argument("[premise]", "the stated premise the whole set is derived from, verbatim")
+  .description(
+    "derive the whole consequence set from a premise before the run begins, and present it as one batch: every " +
+      "item states what it depends on and the default the run would take, so the operator answers once instead " +
+      "of stopping at each one in turn. `--check` classifies a question the run meets mid-firing against the " +
+      "recorded set: a match proceeds on that item's default without stopping again, no match still earns a stop.",
+  )
+  .option("-i, --item <spec...>", "one item as `id|question|default[|dependsOn]` (repeatable)")
+  .option("--check <text>", "classify a question against the recorded set instead of recording a new one")
+  .option("--list", "print the recorded set's batch and record nothing")
+  .option("--state <dir>", "where the set lives (default: <vault>/.git/ost-agent)")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action(
+    (
+      premise: string | undefined,
+      opts: { item?: string[]; check?: string; list?: boolean; state?: string; vault: string },
+    ) => {
+      // Same fail-closed shape as `bank-question`, for the same reason: a set that
+      // silently lands nowhere is a batch the operator never actually saw.
+      const state = opts.state ? path.resolve(opts.state) : loopStateDir(opts.vault);
+      if (state === null) {
+        console.error(
+          "cannot locate a consequence set: pass --state <dir>, or point --vault at a git checkout — the set lives under its .git/, never in the working tree.",
+        );
+        process.exitCode = 1;
+        return;
+      }
+
+      if (opts.check !== undefined) {
+        const recorded = readConsequenceSet(state);
+        if (recorded === null) {
+          console.error("no consequence set recorded here yet — nothing to check against.");
+          process.exitCode = 1;
+          return;
+        }
+        const result = classifyEncounter(recorded, opts.check);
+        console.log(`${result.covered ? "COVERED" : "OUTSIDE"} — ${result.why}`);
+        process.exitCode = result.covered ? 0 : 1;
+        return;
+      }
+
+      if (opts.list) {
+        const recorded = readConsequenceSet(state);
+        if (recorded === null) {
+          console.log("consequence set: none recorded here yet.");
+          return;
+        }
+        console.log(formatConsequenceBatch(recorded));
+        return;
+      }
+
+      if (!premise || !opts.item || opts.item.length === 0) {
+        console.error(
+          'not recorded: state the premise and at least one item — `ost-agent consequence-set "<premise>" -i "1|<question>|<default>"`.',
+        );
+        process.exitCode = 1;
+        return;
+      }
+
+      const items: ConsequenceItem[] = opts.item.map((spec) => {
+        const [id, question, itemDefault, dependsOn] = spec.split("|");
+        return { id: id ?? "", question: question ?? "", default: itemDefault ?? "", dependsOn: dependsOn || undefined };
+      });
+      const set: ConsequenceSet = { premise, items };
+
+      const issues = validateConsequenceSet(set);
+      if (issues.length > 0) {
+        console.error("not recorded: the dependency links do not hold —");
+        for (const issue of issues) console.error(`  #${issue.itemId}: ${issue.problem}`);
+        process.exitCode = 1;
+        return;
+      }
+
+      fs.mkdirSync(state, { recursive: true });
+      fs.writeFileSync(path.join(state, CONSEQUENCE_SET_FILENAME), JSON.stringify(set));
+      console.log(formatConsequenceBatch(set));
     },
   );
 
