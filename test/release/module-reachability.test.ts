@@ -115,6 +115,22 @@ const KNOWN_UNREACHABLE: Record<string, string> = {
    */
   "src/runner/failed-match-attribution.ts":
     "built and tested; parked pending a live tool-call interception surface to feed its read journal, which does not exist in this repository yet",
+  /*
+   * Declares the paths a run intends to write and refuses to start when the
+   * working tree shows the ground already moving — built and tested against
+   * the one recorded collision plus five clean sessions
+   * (`test/runner/write-intent-preflight-false-stop.test.ts`), satisfying the
+   * assumption test's sensitivity/false-stop bar. `readWorkingTreeSnapshot` is
+   * a real, working live reader. Not wired to a call site because the
+   * solution node does not say which run boundary should call it, on what
+   * failure it should abort versus warn, or whether it is opt-in — that is an
+   * integration decision for the tree to make, not one this module should
+   * make by picking an entry point. It comes off when a caller in the runner
+   * or CLI declares intent through it before doing work, or goes when the
+   * node is deferred.
+   */
+  "src/runner/write-intent-preflight.ts":
+    "built and tested; parked pending the tree's call on which run boundary should declare intent through it",
 };
 
 function tsFiles(dir: string): string[] {

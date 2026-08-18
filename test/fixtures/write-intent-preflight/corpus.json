@@ -1,0 +1,149 @@
+{
+  "cases": [
+    {
+      "sessionId": "424486ec-3489-4b53-8e2b-012232d221ab",
+      "origin": "session in -Users-tanner-dev-OST-Agent, 2026-07-30",
+      "isCollision": true,
+      "intent": {
+        "paths": ["docs/reference/v1-readiness.md"],
+        "referenceHeadSha": "3fd68a89738a31a5af882b53b52afebcef115b66"
+      },
+      "snapshot": {
+        "headSha": "cf75488abeefa9fb45c6df95500e1f8532ea6dc2",
+        "mergeInProgress": false,
+        "rebaseInProgress": false,
+        "dirty": {
+          "src/security/tools.ts": 1785438237000,
+          "src/git/safe-git.ts": 1785438222000,
+          "docs/reference/v1-readiness.md": 1785438230000,
+          "src/telemetry/usage.ts": 1785438167000,
+          "test/release/command-allowlists.test.ts": 1785438169000,
+          "src/mcp/server.ts": 1785438105000
+        }
+      },
+      "observedAtMs": 1785438275000
+    },
+    {
+      "sessionId": "0d27cebf-9b5d-4cff-906c-0134512573bc",
+      "origin": "session in -Users-tanner-dev-OST-Agent, 2026-08-02",
+      "isCollision": false,
+      "intent": {
+        "paths": [
+          "test/release/examples-mcp-surface.test.ts",
+          "docs/consuming-from-claude-code.md",
+          "docs/reference/v1-readiness.md",
+          "test/automation/autonomous-pass.test.ts",
+          "examples/automation/autonomous-pass.sh",
+          "examples/automation/github-workflow.yml"
+        ],
+        "referenceHeadSha": "4edcc6c414261e6e90da1b0d158181aa02c74166"
+      },
+      "snapshot": {
+        "headSha": "4edcc6c414261e6e90da1b0d158181aa02c74166",
+        "mergeInProgress": false,
+        "rebaseInProgress": false,
+        "dirty": {}
+      },
+      "observedAtMs": 1785676496164
+    },
+    {
+      "sessionId": "470cb94a-d709-43b1-85aa-dedd917ac866",
+      "origin": "session in -Users-tanner-dev-OST-Agent, 2026-07-30",
+      "isCollision": false,
+      "intent": {
+        "paths": [
+          "docs/reference/v1-readiness.md",
+          "test/mcp/large-tree.test.ts",
+          "test/release/withdrawn-claims.test.ts",
+          "src/cli/loop.ts",
+          "test/loop/config.test.ts",
+          "docs/consuming-from-claude-code.md",
+          "test/cli/loop.test.ts"
+        ],
+        "referenceHeadSha": "32830dfd25610288d43a720531b4d7f526785e81"
+      },
+      "snapshot": {
+        "headSha": "32830dfd25610288d43a720531b4d7f526785e81",
+        "mergeInProgress": false,
+        "rebaseInProgress": false,
+        "dirty": {}
+      },
+      "observedAtMs": 1785373901480
+    },
+    {
+      "sessionId": "4ff7b605-da1d-4f2e-8c05-ec6408118837",
+      "origin": "session in -Users-tanner-dev-OST-Agent, 2026-07-29",
+      "isCollision": false,
+      "intent": {
+        "paths": [
+          "docs/reference/v1-readiness.md",
+          "src/knowledge/unknowns.ts",
+          "src/eval/attention.ts",
+          "src/web/budget.ts",
+          "src/mcp/next-work.ts",
+          "src/config/schema.ts"
+        ],
+        "referenceHeadSha": "8387c0898b6c2763084836ee344361aa8324f8c9"
+      },
+      "snapshot": {
+        "headSha": "8387c0898b6c2763084836ee344361aa8324f8c9",
+        "mergeInProgress": false,
+        "rebaseInProgress": false,
+        "dirty": {}
+      },
+      "observedAtMs": 1785331713939
+    },
+    {
+      "sessionId": "516fdfb8-bab1-41a4-b1e5-92fde97bd90d",
+      "origin": "session in -Users-tanner-dev-OST-Agent, 2026-07-30",
+      "isCollision": false,
+      "intent": {
+        "paths": [
+          "src/ost/headings.ts",
+          "src/ost/vault.ts",
+          "src/eval/evidence-debt.ts",
+          "src/eval/coverage.ts",
+          "src/ost/results.ts",
+          "test/cli/debt.test.ts",
+          "test/security/rank-source-corroboration.test.ts",
+          "test/security/web-tools.test.ts",
+          "test/release/no-evolvable-policy.test.ts",
+          "test/ost/reserved-headings.test.ts",
+          "src/ost/node.ts",
+          "src/security/tools.ts",
+          "src/cli/index.ts",
+          "test/eval/clearability.test.ts",
+          "test/security/self-validation.test.ts",
+          "src/eval/rungs.ts",
+          "test/security/set-evidence.test.ts",
+          "test/security/rung-ceiling.test.ts",
+          "docs/reference/v1-readiness.md"
+        ],
+        "referenceHeadSha": "27b044c0f85d5ec765ed33433b06dc527f853527"
+      },
+      "snapshot": {
+        "headSha": "27b044c0f85d5ec765ed33433b06dc527f853527",
+        "mergeInProgress": false,
+        "rebaseInProgress": false,
+        "dirty": {}
+      },
+      "observedAtMs": 1785420806371
+    },
+    {
+      "sessionId": "5960b7ec-960c-4700-9e0b-2b68c3519e92",
+      "origin": "session in -Users-tanner-dev-OST-Agent, 2026-07-30",
+      "isCollision": false,
+      "intent": {
+        "paths": ["docs/reference/v1-readiness.md", "scripts/gen-skill.ts", "test/release/outward-mutation.test.ts"],
+        "referenceHeadSha": "3a40ccf4539f9aa749c2b175f73677cdcb82b48f"
+      },
+      "snapshot": {
+        "headSha": "3a40ccf4539f9aa749c2b175f73677cdcb82b48f",
+        "mergeInProgress": false,
+        "rebaseInProgress": false,
+        "dirty": {}
+      },
+      "observedAtMs": 1785430437240
+    }
+  ]
+}
