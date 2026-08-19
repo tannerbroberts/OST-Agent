@@ -3089,14 +3089,24 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,140 tests across 261 files, verified 2026-08-19 (`npx vitest run`,
-> after "End-of-session retrospective the agent must write before the session closes"
-> landed: `fileRetrospective` (`src/adapters/retrospective.ts`) and `ost-agent
-> retrospective` (`src/cli/index.ts`) file one confession of a session's wrong turn into
-> a new first-party `retrospective` channel, refusing to write at all when there is
-> nothing to confess — no "nothing notable" shape exists in the module, so a quiet
-> session leaves the channel's folder with zero files rather than an empty item
-> (`test/adapters/session-retrospective.test.ts`). What it does not settle: whether
+> *Today:* **met** — 3,152 tests across 262 files, verified 2026-08-19 (`npx vitest run`,
+> after "Errors the session corrected itself collapse into a counted summary" landed:
+> `extractFriction` (`src/adapters/transcript.ts`) now judges a `tool_error` by what
+> happened next rather than by the error itself — the same tool succeeding within the
+> next couple of calls collapses it into a counted summary line, and several attempts,
+> an abandoned retry, or the session ending on it earns its own record
+> (`test/adapters/friction-recovery-rule.test.ts`). What it does not settle: the rule
+> is blind to *why* the session moved on — a deliberate change of direction and a
+> silent give-up both read as "friction" the same way, which is the gap already named
+> under "The friction that matters leaves no error behind".
+>
+> Before that, after "End-of-session retrospective the agent must write before the
+> session closes" landed: `fileRetrospective` (`src/adapters/retrospective.ts`) and
+> `ost-agent retrospective` (`src/cli/index.ts`) file one confession of a session's
+> wrong turn into a new first-party `retrospective` channel, refusing to write at all
+> when there is nothing to confess — no "nothing notable" shape exists in the module,
+> so a quiet session leaves the channel's folder with zero files rather than an empty
+> item (`test/adapters/session-retrospective.test.ts`). What it does not settle: whether
 > self-report is honest enough to be evidence, which is the assumption test's own
 > humans-required half ("Check three past pass notes for the wrong turn they left out")
 > — a spec can force the field to exist and cannot make it honest, and every bias in

@@ -31646,6 +31646,7 @@ function defaultTranscriptDir(projectDir) {
   const slug5 = path3.resolve(projectDir).replace(/[^A-Za-z0-9]/g, "-");
   return path3.join(os2.homedir(), ".claude", "projects", slug5);
 }
+var RECOVERY_WINDOW = 2;
 var DEFAULT_QUIET_MINUTES = 30;
 var DEFAULT_MAX_EVENTS = 25;
 var DEFAULT_MAX_SESSIONS = 20;
@@ -31738,6 +31739,8 @@ function extractFriction(jsonl) {
   const events = [];
   const toolById = /* @__PURE__ */ new Map();
   const seenCalls = /* @__PURE__ */ new Set();
+  const callSequence = [];
+  const errorCallIndex = /* @__PURE__ */ new Map();
   for (const raw of jsonl.split("\n")) {
     const trimmed2 = raw.trim();
     if (!trimmed2) continue;
@@ -31771,33 +31774,59 @@ function extractFriction(jsonl) {
         }
         continue;
       }
-      if (block.type === "tool_result" && block.is_error === true) {
-        const tool2 = toolById.get(String(block.tool_use_id ?? ""))?.name;
+      if (block.type === "tool_result") {
+        const tool2 = toolById.get(String(block.tool_use_id ?? ""))?.name ?? "";
+        const isError = block.is_error === true;
+        callSequence.push({ tool: tool2, isError });
+        if (!isError) continue;
         const body = resultText(block.content);
         const denied = DENIAL_PATTERNS.some((re) => re.test(body));
-        events.push({
+        const event = {
           kind: denied ? "permission_denied" : "tool_error",
-          tool: tool2,
+          tool: tool2 || void 0,
           detail: errorDetail(body),
           timestamp
-        });
+        };
+        events.push(event);
+        if (event.kind === "tool_error" && tool2) errorCallIndex.set(event, callSequence.length - 1);
       }
     }
   }
+  for (const [event, index] of errorCallIndex) {
+    let recovered = false;
+    for (let k2 = index + 1; k2 <= index + RECOVERY_WINDOW && k2 < callSequence.length; k2++) {
+      if (callSequence[k2].tool === event.tool && !callSequence[k2].isError) {
+        recovered = true;
+        break;
+      }
+    }
+    event.recovery = recovered ? "recovered" : "friction";
+  }
   return events;
 }
-function renderBody(sessionId, origin, events, shown) {
+function renderBody(sessionId, origin, events, maxEvents) {
   const counts = /* @__PURE__ */ new Map();
   for (const e of events) counts.set(e.kind, (counts.get(e.kind) ?? 0) + 1);
   const summary = [...counts.entries()].map(([kind, n]) => `${kind} \xD7${n}`).join(", ");
+  const recoveredCount = events.filter((e) => e.recovery === "recovered").length;
+  const records = events.filter((e) => e.recovery !== "recovered");
+  const shown = records.slice(0, maxEvents);
   const lines = [
     `Session \`${sessionId}\` (${origin}) produced ${events.length} friction events (${summary}).`,
     "",
     "Evidence class: **observed behavior** \u2014 the agent's own usage of this product, captured mechanically from its session transcript. It is not outside-user demand data: it grounds usability, not desirability, and must not be counted as external evidence of want.",
-    "",
-    shown.length < events.length ? `Showing the first ${shown.length}; the rest are counted only.` : "All events shown.",
     ""
   ];
+  if (recoveredCount > 0) {
+    lines.push(
+      `${recoveredCount} tool error${recoveredCount === 1 ? "" : "s"} recovered within a turn or two \u2014 collapsed into this summary, not listed as individual records.`,
+      ""
+    );
+  }
+  lines.push(
+    records.length === 0 ? "No individual records \u2014 every tool error recovered." : shown.length < records.length ? `Showing the first ${shown.length} of ${records.length} record(s); the rest are counted only.` : "All records shown.",
+    ""
+  );
   for (const e of shown) {
     lines.push(`- **${e.kind}**${e.tool ? ` (${e.tool})` : ""}: ${e.detail}`);
   }
@@ -31845,12 +31874,11 @@ var TranscriptSource = class {
       seen.add(id);
       const events = extractFriction(fs3.readFileSync(s.full, "utf8"));
       if (events.length === 0) continue;
-      const shown = events.slice(0, this.maxEvents);
       items.push({
         id,
         source: id,
         title: `Session friction ${s.id}`,
-        body: renderBody(s.id, s.origin, events, shown),
+        body: renderBody(s.id, s.origin, events, this.maxEvents),
         timestamp: new Date(s.mtimeMs).toISOString()
       });
     }

@@ -59,6 +59,14 @@ export type FrictionKind =
   | "permission_denied"
   | "clarifying_question";
 
+/**
+ * What a `tool_error` turned into, judged by what happened next rather than by
+ * the error itself. Set only on `tool_error` — every other kind is already a
+ * clean signal (a denial, an interruption, a repeated call) with nothing to
+ * recover from.
+ */
+export type RecoveryOutcome = "recovered" | "friction";
+
 export interface FrictionEvent {
   kind: FrictionKind;
   /** The tool involved, when the signal came from a tool call. */
@@ -67,7 +75,21 @@ export interface FrictionEvent {
   detail: string;
   /** ISO timestamp of the transcript entry. */
   timestamp: string;
+  /**
+   * For `tool_error` only: whether the same tool went on to succeed within a
+   * turn or two. `"recovered"` is a typo, collapsed into a counted summary
+   * line; `"friction"` — several attempts, or the tool was never called again
+   * before the session ended — gets its own record.
+   */
+  recovery?: RecoveryOutcome;
 }
+
+/**
+ * How many subsequent tool calls count as "a turn or two". A session that
+ * needs a third attempt at the same tool, or abandons it outright, is not a
+ * typo — it cost the session something.
+ */
+const RECOVERY_WINDOW = 2;
 
 /** One directory of session transcripts, and what kind of session lands in it. */
 export interface TranscriptDir {
@@ -222,6 +244,11 @@ export function extractFriction(jsonl: string): FrictionEvent[] {
   const events: FrictionEvent[] = [];
   const toolById = new Map<string, { name: string; input: string }>();
   const seenCalls = new Set<string>();
+  // Every tool_result in order, success or failure — the record against which
+  // recovery is judged: did the same tool succeed within the next couple of
+  // calls, or did the session move on without it?
+  const callSequence: { tool: string; isError: boolean }[] = [];
+  const errorCallIndex = new Map<FrictionEvent, number>();
 
   for (const raw of jsonl.split("\n")) {
     const trimmed = raw.trim();
@@ -260,18 +287,35 @@ export function extractFriction(jsonl: string): FrictionEvent[] {
         continue;
       }
 
-      if (block.type === "tool_result" && block.is_error === true) {
-        const tool = toolById.get(String(block.tool_use_id ?? ""))?.name;
+      if (block.type === "tool_result") {
+        const tool = toolById.get(String(block.tool_use_id ?? ""))?.name ?? "";
+        const isError = block.is_error === true;
+        callSequence.push({ tool, isError });
+        if (!isError) continue;
+
         const body = resultText(block.content);
         const denied = DENIAL_PATTERNS.some((re) => re.test(body));
-        events.push({
+        const event: FrictionEvent = {
           kind: denied ? "permission_denied" : "tool_error",
-          tool,
+          tool: tool || undefined,
           detail: errorDetail(body),
           timestamp,
-        });
+        };
+        events.push(event);
+        if (event.kind === "tool_error" && tool) errorCallIndex.set(event, callSequence.length - 1);
       }
     }
+  }
+
+  for (const [event, index] of errorCallIndex) {
+    let recovered = false;
+    for (let k = index + 1; k <= index + RECOVERY_WINDOW && k < callSequence.length; k++) {
+      if (callSequence[k].tool === event.tool && !callSequence[k].isError) {
+        recovered = true;
+        break;
+      }
+    }
+    event.recovery = recovered ? "recovered" : "friction";
   }
 
   return events;
@@ -281,22 +325,40 @@ function renderBody(
   sessionId: string,
   origin: string,
   events: FrictionEvent[],
-  shown: FrictionEvent[],
+  maxEvents: number,
 ): string {
   const counts = new Map<FrictionKind, number>();
   for (const e of events) counts.set(e.kind, (counts.get(e.kind) ?? 0) + 1);
   const summary = [...counts.entries()].map(([kind, n]) => `${kind} ×${n}`).join(", ");
+
+  // Recovered tool errors are typos — they collapse into the count above and
+  // the summary line below, never into a `- ` record of their own. Filtering
+  // before the maxEvents slice, not after, so a run of typos near the start
+  // of a session cannot crowd real friction further down out of `records`.
+  const recoveredCount = events.filter((e) => e.recovery === "recovered").length;
+  const records = events.filter((e) => e.recovery !== "recovered");
+  const shown = records.slice(0, maxEvents);
 
   const lines = [
     `Session \`${sessionId}\` (${origin}) produced ${events.length} friction events (${summary}).`,
     "",
     "Evidence class: **observed behavior** — the agent's own usage of this product, captured mechanically from its session transcript. It is not outside-user demand data: it grounds usability, not desirability, and must not be counted as external evidence of want.",
     "",
-    shown.length < events.length
-      ? `Showing the first ${shown.length}; the rest are counted only.`
-      : "All events shown.",
-    "",
   ];
+  if (recoveredCount > 0) {
+    lines.push(
+      `${recoveredCount} tool error${recoveredCount === 1 ? "" : "s"} recovered within a turn or two — collapsed into this summary, not listed as individual records.`,
+      "",
+    );
+  }
+  lines.push(
+    records.length === 0
+      ? "No individual records — every tool error recovered."
+      : shown.length < records.length
+        ? `Showing the first ${shown.length} of ${records.length} record(s); the rest are counted only.`
+        : "All records shown.",
+    "",
+  );
   for (const e of shown) {
     lines.push(`- **${e.kind}**${e.tool ? ` (${e.tool})` : ""}: ${e.detail}`);
   }
@@ -358,12 +420,11 @@ export class TranscriptSource implements Source {
       seen.add(id); // a harvested session is never revisited, friction or not
       const events = extractFriction(fs.readFileSync(s.full, "utf8"));
       if (events.length === 0) continue;
-      const shown = events.slice(0, this.maxEvents);
       items.push({
         id,
         source: id,
         title: `Session friction ${s.id}`,
-        body: renderBody(s.id, s.origin, events, shown),
+        body: renderBody(s.id, s.origin, events, this.maxEvents),
         timestamp: new Date(s.mtimeMs).toISOString(),
       });
     }
