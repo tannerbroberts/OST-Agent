@@ -136,6 +136,7 @@ import {
   appendSuppression, formatSuppressions, readSuppressionLedger, renderCondition, SUPPRESSION_CONDITION_KINDS,
 } from "../knowledge/suppressions.js";
 import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapters/friction.js";
+import { fileRetrospective } from "../adapters/retrospective.js";
 import {
   decideRulesetProposal, draftRulesetProposal, effectiveRuleset, PROPOSABLE_SECTIONS, PROPOSALS_DIR,
   readRulesetProposals, type ProposableSection,
@@ -444,7 +445,34 @@ program
     console.log(`  The filing is on disk at ${written} and nothing has versioned it.`);
   });
 
-/** Shared by `propose-rule` and `proposal`: report what happened to the commit, in the filer's terms. */
+program
+  .command("retrospective")
+  .description(
+    "confess the wrong turn this session took, at the close rather than at the point of pain " +
+      "(lands in the vault's retrospective channel, and is committed). A session with nothing " +
+      "conceptual to confess must not call this at all — there is no field for \"nothing notable\".",
+  )
+  .argument("<wrong-turn>", "the wrong turn this session took — a wrong framing, a rule misread, a dead end")
+  .requiredOption("-i, --session <id>", "the session id this retrospective is about")
+  .option("-c, --cost <text>", "roughly what the wrong turn cost")
+  .option("-w, --would-have-needed <text>", "what it would have needed to know at the start to avoid it")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action(async (wrongTurn: string, opts: { session: string; cost?: string; wouldHaveNeeded?: string; vault: string }) => {
+    // Read BEFORE the write, same reason as `friction`: the question is whether this
+    // tree was already carrying something a person has to explain.
+    const before = workingTreeStatus(opts.vault);
+    const written = fileRetrospective(opts.vault, {
+      wrongTurn,
+      session: opts.session,
+      cost: opts.cost,
+      wouldHaveNeeded: opts.wouldHaveNeeded,
+    });
+    console.log(`filed ${path.basename(written)}`);
+    const result = await commitFiling(opts.vault, before, written, "retrospective");
+    reportFilingCommit(result, written);
+  });
+
+/** Shared by `propose-rule`, `proposal` and `retrospective`: report what happened to the commit, in the filer's terms. */
 function reportFilingCommit(result: FilingCommit, written: string): void {
   if (result.kind === "committed") {
     console.log(`  committed ${result.sha} — it is in the vault's history and the working tree is clean again`);

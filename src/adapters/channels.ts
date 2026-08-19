@@ -65,6 +65,22 @@ export const FRICTION_CHANNEL_PATH = ".ost-agent/friction";
 export const DEPOSIT_CHANNEL = "deposit";
 export const DEPOSIT_CHANNEL_PATH = ".ost-agent/deposits";
 
+/**
+ * Where an agent's end-of-session retrospective lands, as a first-party channel.
+ *
+ * Inside the vault for the friction channel's exact reason: an uncommitted
+ * retrospective is a lost one. Separate from `friction` because the two speak
+ * about different moments — friction fires at the point of pain, mid-session,
+ * when a wrong turn is not yet visible as one; a retrospective is written after
+ * the reversal, about a mistake that is nameable only in hindsight. Separate
+ * from `deposit` because the speaker differs — a deposit is a human's verbatim
+ * answer to a prompt, this is the agent's own account of its own confusion,
+ * and the two must never be folded into the same file the way a mapping pass
+ * would then be unable to tell whose words it is reading.
+ */
+export const RETROSPECTIVE_CHANNEL = "retrospective";
+export const RETROSPECTIVE_CHANNEL_PATH = ".ost-agent/retrospectives";
+
 /** Where a channel came from, which is what decides how strictly it is judged. */
 export type ChannelOrigin =
   /** `adapters.inbox` — the key every existing vault already carries. */
@@ -276,6 +292,20 @@ export function resolveChannels(vaultDir: string, config: Config): ChannelResolu
     resolveOne(vault, {
       name: DEPOSIT_CHANNEL,
       declaredPath: DEPOSIT_CHANNEL_PATH,
+      enabled: inbox.enabled,
+      cadence: null,
+      origin: "first-party",
+    }),
+  );
+
+  // Same switch, same argument: a retrospective is written whether or not the
+  // drop-folder adapter is being READ, because refusing to keep it to honour an
+  // ingestion setting would throw away the one account of its own confusion the
+  // agent chose to write.
+  channels.push(
+    resolveOne(vault, {
+      name: RETROSPECTIVE_CHANNEL,
+      declaredPath: RETROSPECTIVE_CHANNEL_PATH,
       enabled: inbox.enabled,
       cadence: null,
       origin: "first-party",

@@ -215,6 +215,7 @@ describe("S5 — the construction really happens, not just the text", () => {
       "deposit",
       "friction",
       "inbox",
+      "retrospective",
       "slack",
       "transcript",
       "usage",

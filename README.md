@@ -246,6 +246,11 @@ The instruments that turn a use into a *recorded* failure mode are built and run
 - **`ost-agent friction`** files the confusion that never produces an error — the class of
   failure that leaves no trace anywhere else — as one line into the vault's inbox, where the
   next pass picks it up like any other evidence.
+- **`ost-agent retrospective`** files the same class of confusion after the fact instead of in
+  the moment: one confession of the wrong turn a session took, at its close, because a wrong
+  framing is invisible to an agent still inside it and only nameable after the reversal. There
+  is no "nothing notable" shape — a session with nothing conceptual to confess does not call it,
+  and stays absent from the channel rather than filing an empty item.
 - **The `transcript` channel** harvests the agent's own finished sessions, and **`usage`**
   rolls the mechanical tool-invocation trace into daily evidence. Both make the tool
   observable to itself.

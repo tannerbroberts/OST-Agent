@@ -3089,7 +3089,19 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,128 tests across 259 files, verified 2026-08-18 (`npx vitest run`,
+> *Today:* **met** — 3,140 tests across 261 files, verified 2026-08-19 (`npx vitest run`,
+> after "End-of-session retrospective the agent must write before the session closes"
+> landed: `fileRetrospective` (`src/adapters/retrospective.ts`) and `ost-agent
+> retrospective` (`src/cli/index.ts`) file one confession of a session's wrong turn into
+> a new first-party `retrospective` channel, refusing to write at all when there is
+> nothing to confess — no "nothing notable" shape exists in the module, so a quiet
+> session leaves the channel's folder with zero files rather than an empty item
+> (`test/adapters/session-retrospective.test.ts`). What it does not settle: whether
+> self-report is honest enough to be evidence, which is the assumption test's own
+> humans-required half ("Check three past pass notes for the wrong turn they left out")
+> — a spec can force the field to exist and cannot make it honest, and every bias in
+> self-report runs toward under-reporting exactly where a session went worst.
+> Previously 3,128 tests across 259 files, verified 2026-08-18 (`npx vitest run`,
 > after "Each run gets a workspace named after itself, so two runs cannot collide" landed:
 > `workspacePathFor` and `prepareWorkspace` (`src/runner/workspace.ts`, wired as
 > `ost-agent workspace`) derive `<base>/ost-<runId>` and link its `node_modules` to an
