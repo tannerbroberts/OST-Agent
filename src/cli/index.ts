@@ -84,7 +84,7 @@ import { applyCritic, criticPass, renderCritic } from "../eval/critic.js";
 import { renderPanel, runPanel } from "../eval/judge-panel.js";
 import { renderTournament, runTournament } from "../eval/tournament.js";
 import { renderCanary, runCanary, type CanaryProcess } from "../eval/canary.js";
-import { formatCensus, reconcileWithGit, reconcileWithUsage } from "../ost/census.js";
+import { formatCensus, reconcileWithGit, reconcileWithUsage, recordCensusFiring } from "../ost/census.js";
 import { formatStrandedCensus, strandedEvidenceCensus } from "../ost/stranded.js";
 import { blindnessCensus, formatBlindnessCensus, readSweepRuns, recordSweepRun } from "../ost/sweep.js";
 import {
@@ -593,6 +593,7 @@ program
     const census = ctx.vault.readTreeCensus();
     census.independent = await reconcileWithGit(ctx.dir, census);
     census.unexplained = reconcileWithUsage(ctx.dir, census);
+    recordCensusFiring(ctx.dir, "check", census, new Date().toISOString());
     const { text, violations } = renderCheck(census);
     console.log(text);
     if (violations > 0) process.exitCode = 1;
@@ -1674,6 +1675,7 @@ program
     const ctx = buildPassContext(opts.vault);
     const census = ctx.vault.readTreeCensus();
     census.independent = await reconcileWithGit(ctx.dir, census);
+    recordCensusFiring(ctx.dir, "status", census, new Date().toISOString());
     console.log(renderStatus(ctx, census));
   });
 
