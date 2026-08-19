@@ -132,6 +132,7 @@ describe("census — the registry and the source agree about every cap", () => {
 const SILENT_SURFACES = [
   "actions history fetch",
   "broker detail clip",
+  "census firing history window",
   "census quoted sources",
   // Grown deliberately with the deposit channel: the clip binds only the
   // agent-authored from/closing metadata — the collaborator's answer is never
@@ -158,6 +159,7 @@ const DECLARATION_ONLY_SURFACES = [
   "analysis renders",
   "broker detail clip",
   "capability record refs",
+  "census firing history window",
   "census quoted sources",
   "corrections ledger",
   "deposit metadata clip",

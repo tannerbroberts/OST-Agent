@@ -737,3 +737,107 @@ export function formatCensus(census: TreeCensus, nodeCount: number): string {
 
   return lines.join("\n");
 }
+
+/**
+ * One firing of `check` or `status`, as far as the census line is concerned.
+ *
+ * "Every count states the denominator it was taken over" shipped as v0.22.0 and
+ * prints this per invocation — then throws it away. The follow-on assumption test
+ * ("Does a stated denominator catch a drop nobody predicted") is answered by a
+ * human reading ten firings and judging whether an unanticipated drop showed up,
+ * whether it named a file specific enough to act on, and whether it was ignored.
+ * None of those three questions can be answered from a single run's stdout once
+ * the next invocation has overwritten the terminal — the human needs the last N
+ * firings side by side, which means something has to have kept them.
+ */
+export interface CensusFiring {
+  /** When this firing ran. */
+  ts: string;
+  /** Which command produced it — the two the assumption test reads. */
+  command: "check" | "status";
+  /** The denominator this firing's counts were taken over. */
+  examined: number;
+  /** Enumerated, readable, but not an OST node — same shape as {@link TreeCensus.skipped}. */
+  skipped: CensusDrop[];
+  /** Enumerated but unreadable — same shape as {@link TreeCensus.unreadable}. */
+  unreadable: CensusDrop[];
+  /** Filenames an independent source (git) saw that this walk never enumerated. */
+  unseenByWalk: string[];
+}
+
+/** Does this firing's census line carry a drop, an unreadable file, or a git discrepancy? */
+export function isNonEmptyCensus(census: TreeCensus): boolean {
+  return (
+    census.skipped.length > 0 ||
+    census.unreadable.length > 0 ||
+    (census.independent?.unseenByWalk.length ?? 0) > 0
+  );
+}
+
+/** How many firings {@link recordCensusFiring} keeps — the window the assumption test reads over. */
+export const MAX_CENSUS_FIRINGS = 10;
+
+/** Where the rolling firing history lives: inside the vault, travels in git like the usage trace. */
+export function censusHistoryPath(vaultDir: string): string {
+  return path.join(path.resolve(vaultDir), ".ost-agent", "census-history", "firings.jsonl");
+}
+
+/**
+ * Record one `check` or `status` firing, keeping only the last {@link MAX_CENSUS_FIRINGS}.
+ *
+ * Every firing is kept, not only the non-empty ones — a run that found nothing is
+ * itself part of what the threshold reads ("zero non-empty census lines across 10
+ * firings... means the vaults were clean and the instrument is untested"), and
+ * "ignored for 2+ consecutive firings" can only be judged against the firings in
+ * between. NEVER throws: this is telemetry about the census, not the census
+ * itself, and a write failure here must cost a history entry, not a command.
+ */
+export function recordCensusFiring(
+  vaultDir: string,
+  command: CensusFiring["command"],
+  census: TreeCensus,
+  ts: string,
+): void {
+  try {
+    const entry: CensusFiring = {
+      ts,
+      command,
+      examined: census.examined,
+      skipped: census.skipped,
+      unreadable: census.unreadable,
+      unseenByWalk: census.independent?.unseenByWalk ?? [],
+    };
+    const next = [...readCensusHistory(vaultDir), entry].slice(-MAX_CENSUS_FIRINGS);
+    const file = censusHistoryPath(vaultDir);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, next.map((e) => JSON.stringify(e)).join("\n") + "\n", "utf8");
+  } catch {
+    // fail-open: recording a firing must never cost the command that fired it
+  }
+}
+
+/**
+ * The last (up to) {@link MAX_CENSUS_FIRINGS} recorded firings, oldest first.
+ *
+ * Absent file and unreadable lines both read as "no history yet" rather than as
+ * an error — a torn final line loses itself, never the read, the same rule
+ * {@link reconcileWithUsage} follows for the same reason.
+ */
+export function readCensusHistory(vaultDir: string): CensusFiring[] {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(censusHistoryPath(vaultDir), "utf8");
+  } catch {
+    return [];
+  }
+  const out: CensusFiring[] = [];
+  for (const line of raw.split("\n")) {
+    if (!line.trim()) continue;
+    try {
+      out.push(JSON.parse(line) as CensusFiring);
+    } catch {
+      continue;
+    }
+  }
+  return out.slice(-MAX_CENSUS_FIRINGS);
+}

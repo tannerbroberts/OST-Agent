@@ -39549,6 +39549,45 @@ function formatCensus(census, nodeCount) {
   }
   return lines.join("\n");
 }
+var MAX_CENSUS_FIRINGS = 10;
+function censusHistoryPath(vaultDir) {
+  return path12.join(path12.resolve(vaultDir), ".ost-agent", "census-history", "firings.jsonl");
+}
+function recordCensusFiring(vaultDir, command, census, ts) {
+  try {
+    const entry = {
+      ts,
+      command,
+      examined: census.examined,
+      skipped: census.skipped,
+      unreadable: census.unreadable,
+      unseenByWalk: census.independent?.unseenByWalk ?? []
+    };
+    const next = [...readCensusHistory(vaultDir), entry].slice(-MAX_CENSUS_FIRINGS);
+    const file = censusHistoryPath(vaultDir);
+    fs13.mkdirSync(path12.dirname(file), { recursive: true });
+    fs13.writeFileSync(file, next.map((e) => JSON.stringify(e)).join("\n") + "\n", "utf8");
+  } catch {
+  }
+}
+function readCensusHistory(vaultDir) {
+  let raw;
+  try {
+    raw = fs13.readFileSync(censusHistoryPath(vaultDir), "utf8");
+  } catch {
+    return [];
+  }
+  const out = [];
+  for (const line of raw.split("\n")) {
+    if (!line.trim()) continue;
+    try {
+      out.push(JSON.parse(line));
+    } catch {
+      continue;
+    }
+  }
+  return out.slice(-MAX_CENSUS_FIRINGS);
+}
 
 // src/git/read-write-hash-guard.ts
 import fs14 from "node:fs";
@@ -44562,6 +44601,16 @@ var COMPRESSION_SURFACES = [
     reads: ["the served body names its true character count, and the truncation label names its units"],
     drops: "truncation-record",
     proof: "behavioral"
+  },
+  {
+    name: "census firing history window",
+    module: "src/ost/census.ts",
+    caps: ["MAX_CENSUS_FIRINGS"],
+    kind: "bounded-output",
+    decision: "how many past check/status firings the drop-history record keeps for a human to judge the ten-firing threshold against",
+    reads: ["a kept firing is the untouched record of that run \u2014 never merged, summarized or reordered"],
+    drops: "silent",
+    proof: "declaration"
   },
   {
     name: "census quoted sources",
@@ -58584,6 +58633,7 @@ program2.command("check").description("run the deterministic tree invariants (no
   const census = ctx.vault.readTreeCensus();
   census.independent = await reconcileWithGit(ctx.dir, census);
   census.unexplained = reconcileWithUsage(ctx.dir, census);
+  recordCensusFiring(ctx.dir, "check", census, (/* @__PURE__ */ new Date()).toISOString());
   const { text: text2, violations } = renderCheck(census);
   console.log(text2);
   if (violations > 0) process.exitCode = 1;
@@ -59177,6 +59227,7 @@ program2.command("status").option("--vault <dir>", VAULT_OPTION_HELP).action(asy
   const ctx = buildPassContext(opts.vault);
   const census = ctx.vault.readTreeCensus();
   census.independent = await reconcileWithGit(ctx.dir, census);
+  recordCensusFiring(ctx.dir, "status", census, (/* @__PURE__ */ new Date()).toISOString());
   console.log(renderStatus(ctx, census));
 });
 program2.command("lineage").argument("<node>", "the node to trace back to the Outcome").description("the path from the Outcome down to one node, arrow-separated (exits 1 if unreachable)").option("--vault <dir>", VAULT_OPTION_HELP).action((node, opts) => {

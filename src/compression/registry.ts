@@ -279,6 +279,16 @@ export const COMPRESSION_SURFACES = [
     proof: "behavioral",
   },
   {
+    name: "census firing history window",
+    module: "src/ost/census.ts",
+    caps: ["MAX_CENSUS_FIRINGS"],
+    kind: "bounded-output",
+    decision: "how many past check/status firings the drop-history record keeps for a human to judge the ten-firing threshold against",
+    reads: ["a kept firing is the untouched record of that run — never merged, summarized or reordered"],
+    drops: "silent",
+    proof: "declaration",
+  },
+  {
     name: "census quoted sources",
     module: "src/ost/census.ts",
     caps: ["MAX_QUOTED_SOURCE_LENGTH"],
