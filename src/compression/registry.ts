@@ -145,6 +145,16 @@ export const COMPRESSION_SURFACES = [
     proof: "declaration",
   },
   {
+    name: "retrospective field clip",
+    module: "src/adapters/retrospective.ts",
+    caps: ["MAX_FIELD_CHARS"],
+    kind: "input-bound",
+    decision: "whether a filed retrospective's confession stays short enough for a mapping pass to read in one sitting",
+    reads: ["the leading characters of the wrong turn survive, because the confession is stated first"],
+    drops: "silent",
+    proof: "declaration",
+  },
+  {
     name: "transcript reading served to the model reader",
     module: "src/adapters/transcript-model-reader.ts",
     caps: ["MAX_QUOTE_CHARS", "MAX_READING_CHARS"],
