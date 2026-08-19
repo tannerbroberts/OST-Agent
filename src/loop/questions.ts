@@ -466,6 +466,77 @@ function readAsks(file: string): { ts: string; questions: number }[] {
   return asks;
 }
 
+// ---------------------------------------------------------------------------
+// One-stage vs two-stage: what each design costs in operator turns
+// ---------------------------------------------------------------------------
+
+/**
+ * The turn cost of each design, read off the solution's own arithmetic ("Ask the
+ * open question first, and offer options only once the frame is agreed", meta
+ * vault) rather than chosen to make a number come out either way.
+ *
+ * Two-stage is a flat two exchanges — one to agree the frame, one to pick from
+ * options built inside it — "in every case", so its cost never varies with the
+ * question's outcome; the solution says as much itself.
+ *
+ * One-stage costs one exchange when {@link readHindsight} finds the operator
+ * picked or overrode a stated option — the ordinary case, settled in the single
+ * turn the design attempts. It costs three when the operator `reframed`:
+ * declined the ask outright, or answered outside every option offered. The
+ * three-turn figure is not invented for this module — it is the corroborating
+ * session's own count (`TRANSCRIPT:785ea509-96b9-4225-b45a-babd5321aafc`): one
+ * turn to reject the ask, a second turn in which the run, having no frame, asks
+ * again, a third to finally answer it.
+ */
+export const STOP_COUNT_RULE = {
+  oneStageAccepted: 1,
+  oneStageReframed: 3,
+  twoStageFlat: 2,
+} as const;
+
+export interface QuestionStopCount {
+  /** Turns the one-stage design (today's `AskUserQuestion`) actually cost, by hindsight. */
+  oneStage: number;
+  /** Turns the two-stage design would have cost on the same question. */
+  twoStage: number;
+  reframed: boolean;
+}
+
+/** Cost one recorded question under both designs. Reads only what {@link readHindsight} reads. */
+export function stopCount(q: HarvestedQuestion): QuestionStopCount {
+  const reframed = readHindsight(q).tier === "reframed";
+  return {
+    oneStage: reframed ? STOP_COUNT_RULE.oneStageReframed : STOP_COUNT_RULE.oneStageAccepted,
+    twoStage: STOP_COUNT_RULE.twoStageFlat,
+    reframed,
+  };
+}
+
+export interface SessionStopCount {
+  session: string;
+  questions: number;
+  reframed: number;
+  oneStage: number;
+  twoStage: number;
+  /** two-stage minus one-stage. Positive means two-stage cost MORE operator turns. */
+  delta: number;
+}
+
+/** Sum one session's questions under both designs. */
+export function sessionStopCount(session: HarvestedSession): SessionStopCount {
+  const counts = session.questions.map(stopCount);
+  const oneStage = counts.reduce((sum, c) => sum + c.oneStage, 0);
+  const twoStage = counts.reduce((sum, c) => sum + c.twoStage, 0);
+  return {
+    session: session.id,
+    questions: counts.length,
+    reframed: counts.filter((c) => c.reframed).length,
+    oneStage,
+    twoStage,
+    delta: twoStage - oneStage,
+  };
+}
+
 /**
  * The line an operator reads before the firing begins: the upper bound on
  * interruptions, and how much of it is already gone.
