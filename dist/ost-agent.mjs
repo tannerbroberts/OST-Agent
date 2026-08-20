@@ -44468,6 +44468,7 @@ function solutionsMissingInstruments(tree) {
   const out = [];
   for (const n of tree) {
     if (n.layer !== "Solution") continue;
+    if (n.status === "deferred") continue;
     if (trustsShippedStatus(n)) continue;
     const tests = testsUnder(index, n);
     if (tests.length === 0) continue;

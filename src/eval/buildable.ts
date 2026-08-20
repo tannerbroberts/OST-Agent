@@ -316,12 +316,19 @@ export function testsAwaitingVerification(tree: readonly OstNode[]): string[] {
  * recorded in `## History` with reasoning attached leaves the queue
  * ({@link trustsShippedStatus}), and `test/ost/shipped-status-audit.test.ts`
  * holds the trusted set to code that actually exists.
+ *
+ * A `deferred` solution is not here either, and that exclusion trusts the bare
+ * field — unlike `shipped`, `deferred` makes no claim about code that exists to
+ * audit against the repository. It says the opposite: this was abandoned, and
+ * there is no unbuilt behaviour left for a red instrument to define. Asking a
+ * pass to write one anyway is asking it to invent a command over nothing.
  */
 export function solutionsMissingInstruments(tree: readonly OstNode[]): string[] {
   const index = indexByTitle(tree);
   const out: string[] = [];
   for (const n of tree) {
     if (n.layer !== "Solution") continue;
+    if (n.status === "deferred") continue;
     if (trustsShippedStatus(n)) continue;
     const tests = testsUnder(index, n);
     if (tests.length === 0) continue; // already counted by solutionsMissingAssumptions
