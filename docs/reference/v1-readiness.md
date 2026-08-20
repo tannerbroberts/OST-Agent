@@ -3114,7 +3114,19 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,267 tests across 274 files, verified 2026-08-20 (`npx vitest run`,
+> *Today:* **met** — 3,287 tests across 275 files, verified 2026-08-20 (`npx vitest run`,
+> after "Forced-variation prompts that require candidates to differ on a named dimension"
+> was built: `test/knowledge/forced-variation-prompt.test.ts` pins that an ideation prompt
+> built for a target opportunity (`src/knowledge/forced-variation.ts`) gives every candidate
+> it requests a named variation dimension, no two alike, carries each into the text the
+> model reads, and is refused when it claims the constraint and a candidate's dimension is
+> missing, repeated, unknown, or assigned but never named; and that `ost_next_work` carries
+> the same assignment under `underservedOpportunities[].variation`, one slot per candidate
+> still needed, starting after the dimensions the existing siblings took. What this does not
+> settle is the test's own threshold — distinctness up and plausibility down by no more than
+> 10% — which is a person blind-rating a constrained set against the unconstrained arm the
+> builder also produces.)
+> Previously 3,267 tests across 274 files, verified 2026-08-20 (`npx vitest run`,
 > after "Every run records the tool surface it actually had" was given its definition of
 > done: `test/loop/run-record-tool-surface.test.ts` pins that `loop start`, handed the same
 > `--pass`/`--available` a wrapper already resolved for `required-tools`, stamps

@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- **Ideation asks for candidates that differ on a named dimension, not candidates that are
+  "genuinely distinct".** Asked for three solutions, a model returns three phrasings of one
+  idea, and nothing downstream recovers — elimination is bounded above by generation. The rules
+  already said "distinct" and nothing measured it. `src/knowledge/forced-variation.ts` now
+  builds the ideation prompt for a target opportunity with one named variation dimension per
+  candidate — who does the work, automated versus manual, bought versus built, what is
+  deliberately given up, when it acts, where it lives, what it measures, who decides — no two
+  alike, each carried into the text the model reads; it refuses a request for more candidates
+  than there are dimensions rather than doubling one up, and `checkForcedVariation` refuses a
+  prompt that claims the constraint and carries a candidate whose dimension is missing,
+  repeated, unknown, or assigned but never named. `ost_next_work` carries the assignment under
+  `underservedOpportunities[].variation`, one slot per candidate still needed, starting after
+  the dimensions the existing siblings already took; the skill's `solutionRules` and its
+  ideation step say to take the assigned position and write it into the solution's prose, so
+  the difference is audited by reading. Pinned by
+  `test/knowledge/forced-variation-prompt.test.ts`. **What this does not settle:** whether the
+  constraint buys range rather than noise — distinctness up, plausibility down by no more than
+  10% — which is a person blind-rating a constrained set against the unconstrained arm
+  (`forcedVariation: false`) the builder also produces. The constraint widens the search inside
+  the frame the dimensions draw; a dimension nobody named is an axis no candidate is pushed on.
+
 - **`debt`'s threshold reading no longer depends on where the author put a line break.**
   The pre-commitment extractor matched its bold lead-in at the start of a line, so a
   `**Pre-committed threshold:**` that prose formatting had hard-wrapped across two lines —
