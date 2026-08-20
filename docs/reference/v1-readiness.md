@@ -3089,7 +3089,22 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,194 tests across 267 files, verified 2026-08-20 (`npx vitest run`,
+> *Today:* **met** — 3,202 tests across 268 files, verified 2026-08-20 (`npx vitest run`,
+> after "Every response that can be refused for size states its size first" was given its
+> definition of done: `test/mcp/size-probe-precedes-refusal.test.ts` built a real size
+> probe on `ost_read_repo` (`probe: true` returns a file's `bytes`/`wouldTruncate` from the
+> `stat` a normal read already takes, without `fs.readFileSync`, redaction, or the binary
+> sniff) and pinned why the other size-capped reads do not get one. The assumption beneath
+> it predicted a split between file-backed and computed-aggregation reads; the split found
+> is narrower — `ost_read_repo` resolves a caller-given PATH directly, so its `stat` is
+> free, while `ost_read_tree({node})` and `ost_next_work({evidence})` resolve a
+> caller-given TITLE/ID by scanning every file in the vault to validate it, so a probe
+> would cost the same walk as the read it is meant to avoid (pinned by counting
+> `fs.readFileSync` calls, not assumed). For those, the cap-and-disclose-in-the-same-call
+> behaviour Gate Z already built is what "states its size" means; a separate probe would
+> cost a turn to save nothing, exactly the failure mode the solution's own "where this
+> fails" clause names.
+> Previously 3,194 tests across 267 files, verified 2026-08-20 (`npx vitest run`,
 > after "Every regretted write becomes a new pre-write invariant, so the class cannot
 > recur" was given its definition of done: `test/ost/regretted-write-invariants.test.ts`
 > replays ten writes this vault's own History and Issues sections record a human

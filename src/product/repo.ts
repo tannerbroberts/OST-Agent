@@ -172,8 +172,8 @@ export interface RepoReadResult {
    * makes a future fourth `kind` framed by construction instead of by review.
    */
   framing: string;
-  /** "repos" lists the configured roots; "listing" a directory; "file" content. */
-  kind: "repos" | "listing" | "file";
+  /** "repos" lists the configured roots; "listing" a directory; "file" content; "probe" a file's size only. */
+  kind: "repos" | "listing" | "file" | "probe";
   /** Which repo root served this, as its basename. */
   repo?: string;
   path?: string;
@@ -185,9 +185,22 @@ export interface RepoReadResult {
    */
   text?: string;
   truncated?: boolean;
+  /**
+   * `kind: "probe"` only — the file's size in bytes, from the `stat` this read
+   * already had to take to tell a file from a directory. Bytes rather than
+   * characters: exact for ASCII source, an upper bound for multi-byte UTF-8, and
+   * never an undercount, which is the direction a caller deciding whether to read
+   * the whole thing needs.
+   */
+  bytes?: number;
+  /** `kind: "probe"` only — whether a full read of this file would come back `truncated: true`. */
+  wouldTruncate?: boolean;
 }
 
-export function readProductRepo(repos: readonly string[], input: { repo?: string; path?: string }): RepoReadResult {
+export function readProductRepo(
+  repos: readonly string[],
+  input: { repo?: string; path?: string; probe?: boolean },
+): RepoReadResult {
   if (repos.length === 0) {
     throw new Error(
       "no product repos configured — add local repo paths under `product.repos` in ost.config.yaml so the agent can read what the product is",
@@ -248,6 +261,22 @@ export function readProductRepo(repos: readonly string[], input: { repo?: string
       .slice(0, MAX_LIST_ENTRIES)
       .map((e) => ({ name: e.name, type: e.isDirectory() ? ("dir" as const) : ("file" as const) }));
     return { framing: DATA_FRAME, kind: "listing", repo: repoName, path: rel, entries };
+  }
+
+  // The size question, answered from the `stat` this call already took — no
+  // `readFileSync`, no redaction, no binary sniff. This is the narrower call a
+  // caller who only wants to know whether a file is worth reading in full can
+  // make instead of discovering the cap by hitting it: the same cost either way
+  // otherwise, since the file has to be read once regardless of who reads it.
+  if (input.probe) {
+    return {
+      framing: DATA_FRAME,
+      kind: "probe",
+      repo: repoName,
+      path: rel,
+      bytes: stat.size,
+      wouldTruncate: stat.size > MAX_FILE_CHARS,
+    };
   }
 
   const buf = fs.readFileSync(real);
