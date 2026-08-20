@@ -2191,6 +2191,31 @@ the vault declares, and a vault declaring none never fires.**
 > assumed. `loop seal` exits 17 for it, distinct from `unhealthy`'s 1. Pinned in
 > `test/loop/degraded-pass-reporting.test.ts`, controls included. The trace is the one
 > decider input the surface itself can move, which F6 now states rather than hides.
+>
+> **A degraded firing now does the work that needs no model (2026-08-20).** `loop
+> fallback` (`src/loop/fallback.ts`) runs after the pass step: if zero tool calls were
+> traced since the run opened — the same test the verdict uses — it routes `ingest`,
+> `check`, `status` and `debt` through the very tools the MCP surface would have run,
+> built from the same context and options, so the output is byte-identical; it refuses
+> every other name with its own exit code (20) before building anything; and it stamps
+> the run record before the first verb runs. The stamp is what makes it safe to have:
+> `assessDegradation` names it `mcp-absent-fallback`, and `countToolCallsSince`
+> excludes the fallback's own surface so its four traced calls cannot satisfy the
+> no-tool-calls rule on the pass's behalf — without both, a fallback would turn the
+> twenty-two false-clean firings into twenty-two false-clean firings with more output.
+> Pinned in `test/loop/mcp-absent-fallback.test.ts` across the three clauses of its
+> assumption test, controls included. Whether a reader who sees the degraded report
+> notices is still a question about people and is not claimed here.
+>
+> **The gate wedged on its own check phase (2026-08-20).** `ost-agent check` began
+> keeping a rolling census record under `.ost-agent/census-history/` in v0.23; the
+> first meta-vault firing after it shipped left that directory untracked, and every
+> tick for the next seventeen hours was refused by D5 at exit 14 while `loop health`
+> printed `blocking: none`. The directory is the second mechanical record written by a
+> path that never commits, and it joins the usage trace in `FIRING_RESIDUE_PREFIXES`;
+> `loop health` now prints a `tree:` line naming any path `loop start` would refuse
+> over. Both pinned in `test/loop/firing-residue.test.ts`, against the real `check`
+> command rather than a hand-written file.
 
 **F5 — The mandate carries a stated acceptance condition, and distance from it is
 reported by something that cannot write the tree.**
@@ -3089,7 +3114,7 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,223 tests across 271 files, verified 2026-08-20 (`npx vitest run`,
+> *Today:* **met** — 3,245 tests across 272 files, verified 2026-08-20 (`npx vitest run`,
 > after "Expiring resource questions asked at a fixed cadence" was given its definition of
 > done: `test/config/resource-question-recoverability.test.ts` labels each of the five
 > standing resource questions by whether a file in the vault already holds the answer, and

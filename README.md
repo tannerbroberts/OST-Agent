@@ -400,6 +400,8 @@ OST-Agent starts no process of its own and holds no timer — it runs when a Cla
 ```bash
 ost-agent loop due   --vault .   # exit 0 fire · 10 not yet · 11 no cadence declared · 12/13 spend
 ost-agent loop start --vault . --holder-pid $$
+ost-agent loop fallback --vault . # after the pass: if it reached no tool, run ingest/check/status/debt
+                                  # through the CLI, refuse every write verb, and seal degraded
 ost-agent loop seal  --vault .   # verdict computed from what was recorded, not chosen by the caller
 ost-agent loop health --vault .  # read-only: when it last fired, and what is blocking it
 ```
@@ -493,7 +495,7 @@ unattended/scheduled operation — an external cron or GitHub Actions job invoki
 > | **Human-only verdicts** | `result` · `promote` · `retract` · `lane` · `lanes` |
 > | **What is owed** | `debt` · `gate` · `stranded` · `channels` |
 > | **Build permits** | `verify` · `buildable` |
-> | **Unattended firing** | `loop due` · `loop start` · `loop step` · `loop seal` · `loop health` |
+> | **Unattended firing** | `loop due` · `loop start` · `loop step` · `loop fallback` · `loop seal` · `loop health` |
 > | **Server** | `mcp` |
 >
 > `check`, `debt`, `status`, and `gate` are also plain MCP tools (`ost_check`,

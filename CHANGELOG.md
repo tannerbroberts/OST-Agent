@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- **A firing whose MCP surface was absent does the work that needs no model, and cannot
+  seal clean.** `ost-agent loop fallback` runs after the pass step. If zero tool calls were
+  traced since the run opened — the same evidence the `degraded` verdict reads — it routes
+  `ingest`, `check`, `status` and `debt` through the very tools the MCP surface would have
+  run, built from the same context, so the output is byte-identical; every other name is
+  refused at exit 20 before anything is built, with the reason (a write verb, a read-only
+  tool the fallback does not carry, or a typo); and the run is stamped before the first
+  verb runs, so the seal reports `degraded` with `mcp-absent-fallback` named beside
+  `no-tool-calls`. The fallback's own traced calls are excluded from the no-tool-calls
+  rule by surface, so the rescue path cannot vouch for the pass. `ingest` is carried
+  because it captures and never authors; its captures commit under a `fallback:` message.
+  `examples/automation/autonomous-pass.sh` calls it between the pass and the check.
+
+- **`loop start` no longer wedges on the check phase's own census record.** `ost-agent
+  check` and `status` keep `.ost-agent/census-history/firings.jsonl` (v0.23), written by a
+  read-only command that commits nothing. The first firing after it shipped left the
+  directory untracked and the dirty-tree gate refused every tick for seventeen hours while
+  `loop health` said `blocking: none`. The path now joins the usage trace as firing residue
+  the gate waives, and `loop health` prints a `tree:` line naming any path `loop start`
+  would refuse over.
+
 - **A run finds out what it may call before it decides what to do.** `ost-agent grants
   --skill F --settings F` resolves the tools a run's instructions declare against the
   `permissions.allow` it will fire with, and names every demand the grant does not cover —

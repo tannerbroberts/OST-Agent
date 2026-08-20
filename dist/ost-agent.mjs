@@ -54492,23 +54492,26 @@ var READ_ONLY = /* @__PURE__ */ new Set([
   "ost_gate"
 ]);
 var MUTATING = new Set(MCP_TOOL_NAMES.filter((n) => !READ_ONLY.has(n)));
+function mutatesVault(name) {
+  return MUTATING.has(name);
+}
+function ostToolOptions(ctx, surface) {
+  return {
+    vault: ctx.vault,
+    dir: ctx.dir,
+    remote: ctx.remote,
+    minSolutionsPerOpportunity: ctx.config.processes["P3_ideate"]?.minSolutionsPerOpportunity,
+    discoveryTarget: ctx.config.discovery?.target ?? void 0,
+    ageOutDays: ctx.config.evidence?.ageOutDays ?? void 0,
+    surface,
+    web: ctx.web,
+    productRepos: ctx.productRepos,
+    passContext: ctx,
+    configProblem: ctx.configProblem
+  };
+}
 function buildDefs(ctx) {
-  const built = buildOstTools(
-    {
-      vault: ctx.vault,
-      dir: ctx.dir,
-      remote: ctx.remote,
-      minSolutionsPerOpportunity: ctx.config.processes["P3_ideate"]?.minSolutionsPerOpportunity,
-      discoveryTarget: ctx.config.discovery?.target ?? void 0,
-      ageOutDays: ctx.config.evidence?.ageOutDays ?? void 0,
-      surface: "mcp",
-      web: ctx.web,
-      productRepos: ctx.productRepos,
-      passContext: ctx,
-      configProblem: ctx.configProblem
-    },
-    MCP_TOOL_NAMES
-  );
+  const built = buildOstTools(ostToolOptions(ctx, "mcp"), MCP_TOOL_NAMES);
   assertNoDestructiveTool(built.map((t2) => t2.name));
   return built.map((t2) => {
     const raw = t2;
@@ -57110,6 +57113,7 @@ function launderedExitMessage(d) {
 
 // src/loop/degraded.ts
 var PASS_PHASE = "pass";
+var FALLBACK_SURFACE = "cli-fallback";
 function assessDegradation(run, observed) {
   const degradations = [];
   if (observed.observationFailure !== void 0) {
@@ -57122,6 +57126,14 @@ function assessDegradation(run, observed) {
     degradations.push({
       kind: "no-tool-calls",
       detail: `the ${PASS_PHASE} phase ran and not one tool invocation was traced while it did \u2014 the mapping, ideation and assumption work this pass exists for did not happen.`
+    });
+  }
+  if (run.fallback) {
+    const ran = run.fallback.verbs.filter((v) => v.ok).map((v) => v.verb);
+    const failed = run.fallback.verbs.filter((v) => !v.ok).map((v) => `${v.verb} (${v.error ?? "failed"})`);
+    degradations.push({
+      kind: "mcp-absent-fallback",
+      detail: `the MCP surface was absent, so the read-only half of the pass was routed through the command line \u2014 ran: ${ran.length > 0 ? ran.join(", ") : "nothing"}` + (failed.length > 0 ? `; failed: ${failed.join(", ")}` : "") + `. Nothing was authored: the mapping, ideation and assumption work did not happen.`
     });
   }
   for (const source of observed.unreadableSources) {
@@ -57146,7 +57158,7 @@ function countToolCallsSince(vaultDir, startedAt) {
   if (!Number.isFinite(from)) return 0;
   return readUsageEvents(vaultDir).filter((e) => {
     const at = Date.parse(e.ts);
-    return Number.isFinite(at) && at >= from;
+    return Number.isFinite(at) && at >= from && e.surface !== FALLBACK_SURFACE;
   }).length;
 }
 function observeSurface(vaultDir, run) {
@@ -57277,6 +57289,12 @@ function appendStep(dir, step) {
   });
   return open;
 }
+function stampFallback(dir, fallback) {
+  const open = requireOpenRun(dir);
+  const stamped = { ...open, fallback };
+  fs54.writeFileSync(openRunPath(dir), JSON.stringify(stamped, null, 2));
+  return stamped;
+}
 function stepFailed(step) {
   return step.exit !== 0;
 }
@@ -57324,11 +57342,119 @@ function readRuns(dir) {
       if (parsed.verdict !== void 0 && !VERDICTS2.has(parsed.verdict)) delete parsed.verdict;
       if (!Array.isArray(parsed.steps)) parsed.steps = [];
       if (parsed.degradations !== void 0 && !Array.isArray(parsed.degradations)) delete parsed.degradations;
+      if (parsed.fallback !== void 0 && (typeof parsed.fallback !== "object" || parsed.fallback === null || !Array.isArray(parsed.fallback.verbs))) {
+        delete parsed.fallback;
+      }
       runs.push(parsed);
     } catch {
     }
   }
   return runs.sort((a, b2) => Date.parse(b2.startedAt) - Date.parse(a.startedAt));
+}
+
+// src/loop/fallback.ts
+var FALLBACK_VERBS = {
+  ingest: "ost_ingest_inbox",
+  check: "ost_check",
+  status: "ost_status",
+  debt: "ost_debt"
+};
+var FALLBACK_VERB_ORDER = ["ingest", "check", "status", "debt"];
+var FALLBACK_TOOL_NAMES = FALLBACK_VERB_ORDER.map((v) => FALLBACK_VERBS[v]);
+function resolveFallbackVerb(asked) {
+  const trimmed2 = asked.trim();
+  const bare = trimmed2.toLowerCase().replace(/^ost_/, "");
+  const verb = bare === "ingest_inbox" ? "ingest" : bare;
+  if (verb in FALLBACK_VERBS) {
+    const v = verb;
+    return { ok: true, verb: v, tool: FALLBACK_VERBS[v] };
+  }
+  const asTool = trimmed2.startsWith("ost_") ? trimmed2 : `ost_${bare}`;
+  if (MCP_TOOL_NAMES.includes(asTool)) {
+    if (mutatesVault(asTool)) {
+      return {
+        ok: false,
+        asked: trimmed2,
+        why: "write-verb",
+        reason: `\`${asTool}\` is a write verb, and a fallback run may report but never author \u2014 a degraded pass with write access is unattended work through a path nobody designed for it.`
+      };
+    }
+    return {
+      ok: false,
+      asked: trimmed2,
+      why: "not-carried",
+      reason: `\`${asTool}\` is read-only but is not carried by the fallback, which routes exactly ${FALLBACK_VERB_ORDER.join(", ")} \u2014 the part of a pass that needs no model.`
+    };
+  }
+  return { ok: false, asked: trimmed2, why: "unknown", reason: `\`${trimmed2}\` is not a tool on the OST surface.` };
+}
+function oneLine5(e) {
+  return (e instanceof Error ? e.message : String(e)).replace(/\s+/g, " ").trim();
+}
+function fallbackTools(vaultDir) {
+  const ctx = buildPassContext(vaultDir, { tolerateInvalidConfig: true });
+  const built = buildOstTools(ostToolOptions(ctx, FALLBACK_SURFACE), FALLBACK_TOOL_NAMES);
+  return new Map(built.map((t2) => [t2.name, t2]));
+}
+async function runFallbackVerb(vaultDir, verb, tools = fallbackTools(vaultDir)) {
+  const name = FALLBACK_VERBS[verb];
+  const tool2 = tools.get(name);
+  if (!tool2) throw new Error(`${name} was not built \u2014 the fallback surface is narrower than its own verb table`);
+  const out = await tool2.run({});
+  let text2 = typeof out === "string" ? out : JSON.stringify(out);
+  if (!mutatesVault(name)) return { text: text2 };
+  const commit = await enqueueCommit(vaultDir, `fallback: ${name} \u2014 ${text2}`);
+  text2 += commit.committed ? `
+committed ${commit.sha.slice(0, 8)}` : `
+(no changes to commit)`;
+  return commit.committed ? { text: text2, committed: commit.sha } : { text: text2 };
+}
+async function runFallback(vaultDir, asked = [], now = () => /* @__PURE__ */ new Date()) {
+  const resolutions = (asked.length > 0 ? asked : FALLBACK_VERB_ORDER).map(resolveFallbackVerb);
+  const refused = resolutions.filter((r2) => !r2.ok);
+  if (refused.length > 0) return { kind: "refused", refused };
+  const verbs = [];
+  for (const r2 of resolutions) if (r2.ok && !verbs.includes(r2.verb)) verbs.push(r2.verb);
+  const open = readOpenRun(vaultDir);
+  if (!open) return { kind: "no-open-run" };
+  if (open.fallback) return { kind: "already-fell-back", record: open.fallback };
+  const passToolCalls = countToolCallsSince(vaultDir, open.startedAt);
+  if (passToolCalls > 0) return { kind: "not-needed", passToolCalls };
+  const readiness = vaultReadiness({ dir: vaultDir });
+  if (!readiness.ready) return { kind: "vault-not-ready", message: readiness.message };
+  const at = now().toISOString();
+  stampFallback(vaultDir, { at, passToolCalls, verbs: [] });
+  const tools = fallbackTools(vaultDir);
+  const outputs = [];
+  const records = [];
+  for (const verb of verbs) {
+    const tool2 = FALLBACK_VERBS[verb];
+    try {
+      const result = await runFallbackVerb(vaultDir, verb, tools);
+      records.push({ verb, tool: tool2, ok: true, ...result.committed ? { committed: result.committed } : {} });
+      outputs.push({ verb, tool: tool2, text: result.text });
+    } catch (e) {
+      const error2 = oneLine5(e);
+      records.push({ verb, tool: tool2, ok: false, error: error2 });
+      outputs.push({ verb, tool: tool2, text: `${tool2} failed: ${error2}` });
+    }
+  }
+  const record2 = { at, passToolCalls, verbs: records };
+  stampFallback(vaultDir, record2);
+  return { kind: "ran", record: record2, outputs };
+}
+function fallbackRefusalReport(refused) {
+  return [
+    `refused: ${refused.length} of the name(s) asked for cannot be routed through the fallback.`,
+    ...refused.map((r2) => `  - ${r2.reason}`),
+    `  Nothing was built, run or written. The fallback carries exactly: ${FALLBACK_VERB_ORDER.join(", ")}.`
+  ];
+}
+function fallbackBanner(record2, verbs) {
+  return [
+    `\u26A0 falling back: ${record2.passToolCalls} tool call(s) were traced since this run opened \u2014 the MCP surface was absent.`,
+    `  Routing ${verbs.join(", ")} through the command line. Nothing will be authored, and this firing will seal degraded.`
+  ];
 }
 
 // src/loop/updates.ts
@@ -57738,7 +57864,7 @@ function repoProblem(vaultDir, repo) {
     return (e instanceof Error ? e.message : String(e)).replace(/\s+/g, " ").trim();
   }
 }
-function oneLine5(e) {
+function oneLine6(e) {
   return (e instanceof Error ? e.message : String(e)).replace(/\s+/g, " ").trim();
 }
 function observeSenses(vaultDir, run) {
@@ -57753,7 +57879,7 @@ function observeSenses(vaultDir, run) {
       if (problem !== null) unreadableRepos.push({ path: repo, reason: problem });
     }
     return assembleCensus({
-      tree: readiness.ready ? { readable: true, detail: `the vault's own tree at ${ctx.dir}` } : { readable: false, detail: oneLine5(readiness.message) },
+      tree: readiness.ready ? { readable: true, detail: `the vault's own tree at ${ctx.dir}` } : { readable: false, detail: oneLine6(readiness.message) },
       productRepos: repos,
       unreadableRepos,
       search: ctx.web?.searchApiKey ? "credential" : ctx.web?.provider ? "federated" : "none",
@@ -57763,7 +57889,7 @@ function observeSenses(vaultDir, run) {
         ...ctx.unavailableSources.map((s) => ({
           name: s.name,
           kind: s.kind === "disabled" ? "disabled" : "unavailable",
-          reason: oneLine5(s.reason)
+          reason: oneLine6(s.reason)
         }))
       ],
       callsByTool
@@ -57777,7 +57903,7 @@ function observeSenses(vaultDir, run) {
       webLookupBudget: 0,
       channels: [],
       callsByTool,
-      observationFailure: oneLine5(e)
+      observationFailure: oneLine6(e)
     });
   }
 }
@@ -58265,7 +58391,15 @@ var LOOP_EXIT = {
    * half-formed `loop.updates` block believes they subscribed, and silence is the
    * one answer that leaves them believing it.
    */
-  updateUnsubscribed: 19
+  updateUnsubscribed: 19,
+  /**
+   * `loop fallback` only: a name it was asked to route is not one of the four
+   * read-only verbs it carries. Nothing was run. Its own code because the
+   * alternative — running the verbs it could and skipping the rest — is a
+   * request to author through the fallback being quietly narrowed into a report,
+   * which is the exact shape the fallback exists to refuse.
+   */
+  fallbackRefused: 20
 };
 var HOUR_MS = 60 * 60 * 1e3;
 function ceilingOf(vaultDir, spend) {
@@ -58285,14 +58419,14 @@ function questionBudgetOf(vaultDir, questions) {
   return { interruptions: budget, windowHours, sessionsDir: resolveSessionsDir(vaultDir, sessionsDir) };
 }
 var DIRTY_PATHS_SHOWN = 10;
-var FIRING_TRACE_PREFIX = ".ost-agent/usage/";
+var FIRING_RESIDUE_PREFIXES = [".ost-agent/usage/", ".ost-agent/census-history/"];
 function porcelainPath(entry) {
   const raw = entry.slice(3);
   const arrow = raw.indexOf(" -> ");
   return arrow === -1 ? raw : raw.slice(arrow + 4);
 }
 function entriesRequiringAHuman(entries) {
-  return entries.filter((e) => !porcelainPath(e).startsWith(FIRING_TRACE_PREFIX));
+  return entries.filter((e) => !FIRING_RESIDUE_PREFIXES.some((prefix) => porcelainPath(e).startsWith(prefix)));
 }
 function dirtyTreeMessage(vaultDir, tree) {
   const abs = path65.resolve(vaultDir);
@@ -58442,7 +58576,7 @@ function registerLoopCommands(program3) {
     }
     if (tree.kind === "dirty") {
       console.error(
-        `carrying ${tree.entries.length} uncommitted usage-trace path(s) \u2014 the vault's own call record, swept into the next commit.`
+        `carrying ${tree.entries.length} uncommitted firing-record path(s) \u2014 the vault's own usage trace and census history, swept into the next commit.`
       );
     }
     const config2 = loadConfig(opts.vault);
@@ -58538,6 +58672,42 @@ function registerLoopCommands(program3) {
     });
     process.exitCode = exit;
   });
+  loop.command("fallback").description(
+    "after the pass: if it reached no tool, route the read-only half (ingest, check, status, debt) through the command line \u2014 refuses every write verb, and stamps the run so it seals degraded rather than clean"
+  ).argument("[verbs...]", "which of ingest, check, status, debt to run (default: all four, in that order); any other name is refused").option("--vault <dir>", VAULT_OPTION_HELP).action(async (verbs, opts) => {
+    const outcome = await runFallback(opts.vault, verbs);
+    switch (outcome.kind) {
+      case "refused":
+        for (const line of fallbackRefusalReport(outcome.refused)) console.error(line);
+        process.exitCode = LOOP_EXIT.fallbackRefused;
+        return;
+      case "no-open-run":
+        console.error("not falling back: no open loop run \u2014 run `ost-agent loop start` first.");
+        process.exitCode = 1;
+        return;
+      case "vault-not-ready":
+        console.error(`not falling back: ${outcome.message}`);
+        process.exitCode = 1;
+        return;
+      case "not-needed":
+        console.log(
+          `not falling back: ${outcome.passToolCalls} tool call(s) were traced since this run opened \u2014 the MCP surface was present.`
+        );
+        return;
+      case "already-fell-back":
+        console.log(`already fell back this run at ${outcome.record.at} \u2014 the verbs are not run twice.`);
+        return;
+      case "ran": {
+        for (const line of fallbackBanner(outcome.record, outcome.outputs.map((o2) => o2.verb))) console.error(line);
+        for (const out of outcome.outputs) {
+          console.log(`\u2500\u2500 fallback ${out.verb} (${out.tool}) \u2500\u2500`);
+          console.log(out.text);
+        }
+        if (outcome.record.verbs.some((v) => !v.ok)) process.exitCode = 1;
+        return;
+      }
+    }
+  });
   loop.command("health").description("report when this vault's loop last fired and what is holding it, if anything (read-only; decides nothing)").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
     const config2 = loadConfig(opts.vault);
     const runs = readRuns(opts.vault);
@@ -58558,6 +58728,17 @@ function registerLoopCommands(program3) {
       ceiling ? measureFiring(ceiling.sessionsDir, { vaultDir: opts.vault, sinceMs: now - ceiling.windowHours * HOUR_MS }) : void 0
     );
     console.log(spend.ok ? "blocking: none" : `blocked: ${spend.reason}`);
+    const tree = workingTreeStatus(opts.vault);
+    const foreign = tree.kind === "dirty" ? entriesRequiringAHuman(tree.entries) : [];
+    if (tree.kind === "unknown") {
+      console.log(`tree: unknown \u2014 ${tree.reason}; \`loop start\` refuses until this is resolved`);
+    } else if (foreign.length > 0) {
+      console.log(
+        `tree: dirty \u2014 \`loop start\` refuses over ${foreign.length} path(s): ${foreign.slice(0, DIRTY_PATHS_SHOWN).join(", ")}` + (foreign.length > DIRTY_PATHS_SHOWN ? ` \u2026 and ${foreign.length - DIRTY_PATHS_SHOWN} more` : "")
+      );
+    } else {
+      console.log("tree: clean");
+    }
     const subscription = subscriptionOf(config2.loop?.updates);
     if (subscription !== null) console.log(updateStatusLine(opts.vault, subscription, now));
   });

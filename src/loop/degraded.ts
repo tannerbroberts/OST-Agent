@@ -29,7 +29,10 @@
  *   - the vault's own mechanical tool trace, written by the dispatcher at call
  *     time and unwritable by the reasoning that would want to look clean;
  *   - the source surface `buildPassContext` reports it could and could not build;
- *   - whether the config the operator wrote was readable at all.
+ *   - whether the config the operator wrote was readable at all;
+ *   - the run record's `fallback` stamp, written by `loop fallback` when the
+ *     loop itself routed the read-only half through the command line — the
+ *     loop's observation of the pass, never the pass's account of itself.
  *
  * A pass that says nothing about itself is classified the same way as one that
  * claims it did everything, which is the property that makes this worth having.
@@ -50,6 +53,13 @@ import type { LoopRunRecord } from "./health.js";
 export type DegradationKind =
   /** The pass phase ran and no tool invocation was traced while it did. */
   | "no-tool-calls"
+  /**
+   * The MCP surface was absent and the loop routed the read-only half of the
+   * pass through the command line (`loop fallback`). Reports were produced;
+   * nothing was authored. Derived from the run record's `fallback` stamp, which
+   * only the loop writes.
+   */
+  | "mcp-absent-fallback"
   /** A source the operator's config asked for could not be built this firing. */
   | "unreadable-source"
   /** `ost.config.yaml` was present and unreadable, so the firing ran on defaults. */
@@ -84,6 +94,22 @@ export interface SurfaceObservation {
 
 /** Which phase is the pass — the one whose absence of tool calls means anything. */
 const PASS_PHASE = "pass";
+
+/**
+ * The surface the MCP-absent fallback dispatches under, and the ONE surface
+ * {@link countToolCallsSince} does not count.
+ *
+ * The fallback runs the same traced tools the MCP server would have, so its
+ * calls land in the same trace. Counting them would let the fallback satisfy
+ * the no-tool-calls rule on the pass's behalf — a firing whose pass reached
+ * nothing would seal `no-op` because the loop's own rescue path made four
+ * calls afterwards. That is the exact false clean this module exists to stop,
+ * produced by the mechanism meant to soften it. So the fallback's calls are
+ * evidence that the pass did NOT reach the tree, and are excluded here by
+ * name; the fallback declares itself to the verdict through the run record's
+ * `fallback` stamp instead, which only `loop fallback` writes.
+ */
+export const FALLBACK_SURFACE = "cli-fallback";
 
 /**
  * Classify one firing against what it was observed to have.
@@ -133,6 +159,19 @@ export function assessDegradation(run: LoopRunRecord, observed: SurfaceObservati
     });
   }
 
+  if (run.fallback) {
+    const ran = run.fallback.verbs.filter((v) => v.ok).map((v) => v.verb);
+    const failed = run.fallback.verbs.filter((v) => !v.ok).map((v) => `${v.verb} (${v.error ?? "failed"})`);
+    degradations.push({
+      kind: "mcp-absent-fallback",
+      detail:
+        `the MCP surface was absent, so the read-only half of the pass was routed through the command line — ` +
+        `ran: ${ran.length > 0 ? ran.join(", ") : "nothing"}` +
+        (failed.length > 0 ? `; failed: ${failed.join(", ")}` : "") +
+        `. Nothing was authored: the mapping, ideation and assumption work did not happen.`,
+    });
+  }
+
   for (const source of observed.unreadableSources) {
     degradations.push({
       kind: "unreadable-source",
@@ -166,6 +205,11 @@ function oneLine(e: unknown): string {
  * appears — a check that fails on capability it did not anticipate is the one
  * this file is replacing.
  *
+ * The one exception is {@link FALLBACK_SURFACE}, excluded by name for the
+ * reason given there: its calls are made by the loop after the pass has
+ * already failed to reach the tree, and counting them would let the rescue
+ * path vouch for the pass.
+ *
  * The window is open-ended at the top because the overlap lock means only one
  * firing is live at a time: everything traced since `startedAt` belongs to this
  * one. Events with an unparseable timestamp are not counted — a line that cannot
@@ -176,7 +220,7 @@ export function countToolCallsSince(vaultDir: string, startedAt: string): number
   if (!Number.isFinite(from)) return 0;
   return readUsageEvents(vaultDir).filter((e) => {
     const at = Date.parse(e.ts);
-    return Number.isFinite(at) && at >= from;
+    return Number.isFinite(at) && at >= from && e.surface !== FALLBACK_SURFACE;
   }).length;
 }
 
