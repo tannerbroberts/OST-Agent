@@ -1,15 +1,18 @@
 /**
  * `ost-agent loop …` — the unattended firing's deterministic bookends.
  *
- * Five commands, in the order a firing uses them:
+ * The commands, in the order a firing uses them:
  *
- *   due    may this vault fire right now? cadence + spend, both fail-closed.
- *   update apply a pushed update, but only between passes. `start` does this
- *          itself; the command exists for a wrapper that wants the checkpoint
- *          on its own schedule, and for an operator who wants to see the answer.
- *   start  refuse a dirty vault, take the overlap lock, open a health record.
- *   step   run one phase, record the exit code it actually produced.
- *   seal   compute the verdict from what was recorded, append it, unlock.
+ *   due      may this vault fire right now? cadence + spend, both fail-closed.
+ *   update   apply a pushed update, but only between passes. `start` does this
+ *            itself; the command exists for a wrapper that wants the checkpoint
+ *            on its own schedule, and for an operator who wants to see the answer.
+ *   start    refuse a dirty vault, take the overlap lock, open a health record.
+ *   step     run one phase, record the exit code it actually produced.
+ *   fallback after the pass: if it reached no tool, route the read-only half
+ *            (ingest, check, status, debt) through the command line, refuse the
+ *            write half, and stamp the run so it cannot seal clean.
+ *   seal     compute the verdict from what was recorded, append it, unlock.
  *
  * Nothing here accepts a verdict from its caller. Every input is something this
  * process observed itself — an exit code, a clock, a commit sha, a token count
@@ -29,6 +32,7 @@ import type { LoopConfig } from "../config/schema.js";
 import { evaluateCadence, parseCadence } from "../loop/cadence.js";
 import { detectLaunderedExit, launderedExitMessage } from "../loop/exitLaundering.js";
 import { degradedReport, observeDegradation } from "../loop/degraded.js";
+import { fallbackBanner, fallbackRefusalReport, runFallback } from "../loop/fallback.js";
 import { appendStep, readOpenRun, readRuns, sealRun, startRun, sweepCrashed } from "../loop/health.js";
 import { observeToolSurface } from "../loop/tool-surface-record.js";
 import { announceUpdate, applyAtCheckpoint, subscriptionOf, updateStatusLine } from "../loop/updates.js";
@@ -84,6 +88,14 @@ export const LOOP_EXIT = {
    * one answer that leaves them believing it.
    */
   updateUnsubscribed: 19,
+  /**
+   * `loop fallback` only: a name it was asked to route is not one of the four
+   * read-only verbs it carries. Nothing was run. Its own code because the
+   * alternative — running the verbs it could and skipping the rest — is a
+   * request to author through the fallback being quietly narrowed into a report,
+   * which is the exact shape the fallback exists to refuse.
+   */
+  fallbackRefused: 20,
 } as const;
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -168,14 +180,26 @@ const DIRTY_PATHS_SHOWN = 10;
  * corrupt an F4 verdict: it reaches HEAD only via some later mutating call's
  * commit, and that call moved HEAD anyway.
  *
- * **Why this prefix and not `.ost-agent/`.** The dot-folder also holds `inbox/`
+ * **Why these prefixes and not `.ost-agent/`.** The dot-folder also holds `inbox/`
  * (fed by an untrusted builder under DEC-1), `evidence/`, `state/` and `runs/` —
  * a leftover in any of those is exactly the file this gate exists to stop.
- * `usage/` is exempted because it is the one directory demonstrably written by a
- * path that never commits; everything else stays fail-closed, so a future
+ * `usage/` is exempted because it is a directory demonstrably written by a path
+ * that never commits; everything else stays fail-closed, so a future
  * non-committing writer lands on a refusal and someone has to argue for it here.
+ *
+ * **`census-history/` is the second such writer, and the argument was made by
+ * the refusal firing.** `ost-agent check` and `ost-agent status` keep a rolling
+ * record of what each census examined and dropped
+ * (`recordCensusFiring`, `src/ost/census.ts`) — written, like the usage trace,
+ * from a read-only command that commits nothing, and meant to travel in git the
+ * same way. The first firing after it shipped ran `check` as its check phase,
+ * left `?? .ost-agent/census-history/` in the tree, and every tick for the next
+ * seventeen hours was refused at this gate with exit 14 while `loop health`
+ * reported nothing blocking. It is the vault's own mechanical record of its
+ * own commands, written by the firing's mandatory check phase: the same
+ * argument as the trace, for the same kind of file.
  */
-const FIRING_TRACE_PREFIX = ".ost-agent/usage/";
+const FIRING_RESIDUE_PREFIXES: readonly string[] = [".ost-agent/usage/", ".ost-agent/census-history/"];
 
 /**
  * The path a porcelain v1 entry names — the destination side of a rename.
@@ -194,13 +218,13 @@ function porcelainPath(entry: string): string {
 
 /**
  * The dirty entries a human actually has to deal with. Empty means the firing
- * may begin: see `FIRING_TRACE_PREFIX` for what is filtered and why.
+ * may begin: see `FIRING_RESIDUE_PREFIXES` for what is filtered and why.
  *
  * Exported because it is the boundary of the criterion, and a boundary worth
  * stating is worth pinning.
  */
 export function entriesRequiringAHuman(entries: string[]): string[] {
-  return entries.filter((e) => !porcelainPath(e).startsWith(FIRING_TRACE_PREFIX));
+  return entries.filter((e) => !FIRING_RESIDUE_PREFIXES.some((prefix) => porcelainPath(e).startsWith(prefix)));
 }
 
 /**
@@ -249,7 +273,7 @@ export function entriesRequiringAHuman(entries: string[]): string[] {
  * The *firing's* leavings are a different question from the *loop's*, and the
  * answer there is not "by construction" but an explicit exemption: a pass ends on
  * a read-only tool call, which appends to the usage trace and never commits. See
- * `FIRING_TRACE_PREFIX`, and `test/loop/firing-residue.test.ts` for the wedge run
+ * `FIRING_RESIDUE_PREFIXES`, and `test/loop/firing-residue.test.ts` for the wedge run
  * through the real MCP server. Entries under that prefix are removed before this
  * message is built, so the list an operator reads is only ever paths they can act
  * on.
@@ -493,7 +517,7 @@ export function registerLoopCommands(program: Command): void {
       const tree = workingTreeStatus(opts.vault);
       // The firing's own trace residue is filtered out before the decision, not
       // after it, so the refusal lists only paths a human can act on — see
-      // `FIRING_TRACE_PREFIX`. `unknown` is never filtered: there are no entries
+      // `FIRING_RESIDUE_PREFIXES`. `unknown` is never filtered: there are no entries
       // to filter, and "cannot tell" is not a state anything may waive.
       const foreign = tree.kind === "dirty" ? entriesRequiringAHuman(tree.entries) : [];
       if (tree.kind === "unknown" || foreign.length > 0) {
@@ -510,7 +534,7 @@ export function registerLoopCommands(program: Command): void {
         // place this gate is narrower than the criterion it implements, and an
         // operator reading a firing's output should be able to see it happen.
         console.error(
-          `carrying ${tree.entries.length} uncommitted usage-trace path(s) — the vault's own call record, swept into the next commit.`,
+          `carrying ${tree.entries.length} uncommitted firing-record path(s) — the vault's own usage trace and census history, swept into the next commit.`,
         );
       }
 
@@ -696,6 +720,59 @@ export function registerLoopCommands(program: Command): void {
     });
 
   loop
+    .command("fallback")
+    .description(
+      "after the pass: if it reached no tool, route the read-only half (ingest, check, status, debt) through the " +
+        "command line — refuses every write verb, and stamps the run so it seals degraded rather than clean",
+    )
+    .argument("[verbs...]", "which of ingest, check, status, debt to run (default: all four, in that order); any other name is refused")
+    .option("--vault <dir>", VAULT_OPTION_HELP)
+    .action(async (verbs: string[], opts: { vault: string }) => {
+      /*
+       * The decision is the loop's, read off the vault's own trace: zero tool
+       * calls since the run opened means the MCP surface was absent, and that is
+       * the only condition under which this runs. The pass is never asked. See
+       * `src/loop/fallback.ts` for the three properties this has to hold, and
+       * `src/loop/degraded.ts` for why the fallback's own calls do not count.
+       */
+      const outcome = await runFallback(opts.vault, verbs);
+      switch (outcome.kind) {
+        case "refused":
+          for (const line of fallbackRefusalReport(outcome.refused)) console.error(line);
+          process.exitCode = LOOP_EXIT.fallbackRefused;
+          return;
+        case "no-open-run":
+          console.error("not falling back: no open loop run — run `ost-agent loop start` first.");
+          process.exitCode = 1;
+          return;
+        case "vault-not-ready":
+          console.error(`not falling back: ${outcome.message}`);
+          process.exitCode = 1;
+          return;
+        case "not-needed":
+          console.log(
+            `not falling back: ${outcome.passToolCalls} tool call(s) were traced since this run opened — the MCP surface was present.`,
+          );
+          return;
+        case "already-fell-back":
+          console.log(`already fell back this run at ${outcome.record.at} — the verbs are not run twice.`);
+          return;
+        case "ran": {
+          for (const line of fallbackBanner(outcome.record, outcome.outputs.map((o) => o.verb))) console.error(line);
+          for (const out of outcome.outputs) {
+            console.log(`── fallback ${out.verb} (${out.tool}) ──`);
+            console.log(out.text);
+          }
+          // A verb that threw is reported in the record and on the screen, and
+          // the exit code says so — the check phase that follows is the gate, and
+          // a wrapper that wants to continue past a failed report can.
+          if (outcome.record.verbs.some((v) => !v.ok)) process.exitCode = 1;
+          return;
+        }
+      }
+    });
+
+  loop
     .command("health")
     .description("report when this vault's loop last fired and what is holding it, if anything (read-only; decides nothing)")
     .option("--vault <dir>", VAULT_OPTION_HELP)
@@ -750,6 +827,26 @@ export function registerLoopCommands(program: Command): void {
       // `blocked:` / `blocking: none` are the two spellings a caller greps for,
       // so the line is stable even as the reasons behind it change.
       console.log(spend.ok ? "blocking: none" : `blocked: ${spend.reason}`);
+
+      // The other thing that holds a firing, and the one this report was silent
+      // about while it mattered: a dirty tree. `loop start` refuses it at exit
+      // 14 and records nothing, so a wedged vault reads "blocking: none" above
+      // for as long as the stray path sits there — seventeen hours, once, on a
+      // path the firing's own check phase had written. Reported with the same
+      // filter `start` applies, so the paths named are the ones a human must act
+      // on and never the firing's own residue.
+      const tree = workingTreeStatus(opts.vault);
+      const foreign = tree.kind === "dirty" ? entriesRequiringAHuman(tree.entries) : [];
+      if (tree.kind === "unknown") {
+        console.log(`tree: unknown — ${tree.reason}; \`loop start\` refuses until this is resolved`);
+      } else if (foreign.length > 0) {
+        console.log(
+          `tree: dirty — \`loop start\` refuses over ${foreign.length} path(s): ${foreign.slice(0, DIRTY_PATHS_SHOWN).join(", ")}` +
+            (foreign.length > DIRTY_PATHS_SHOWN ? ` … and ${foreign.length - DIRTY_PATHS_SHOWN} more` : ""),
+        );
+      } else {
+        console.log("tree: clean");
+      }
 
       // Printed only for a vault that subscribed to something. A line saying
       // "update-channel: none" on every vault that never wanted one is noise, and

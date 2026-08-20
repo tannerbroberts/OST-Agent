@@ -36,6 +36,35 @@ export function isActor(value: unknown): value is Actor {
 }
 
 /**
+ * Does a claimed `TRANSCRIPT:<id>` name a session file already on disk, in one of
+ * the directories the transcript adapter reads from?
+ *
+ * This is what makes "refuse a citation that names no record" safe to enforce at
+ * write time rather than only at a sweep. A session id is well-formed and simply
+ * not harvested yet whenever the session it names has started: Claude Code writes
+ * its `.jsonl` as the session runs, so the file is on disk before the transcript
+ * adapter's `quietMinutes` window lets it read it, and long before the session
+ * whose own live id gets cited by a node written mid-session. A vault that refused
+ * such a citation would refuse a node for citing the very session writing it —
+ * the failure this repository shipped and then watched self-heal (see
+ * "Every self-observation channel names which of its sources each item came
+ * from"). An id that names no file in any of these directories is not
+ * unharvested, it is unresolvable — nothing on disk will ever produce it.
+ *
+ * Scoped to `TRANSCRIPT` on purpose. It is the only prefix whose adapter reads a
+ * directory this process can still see at write time; the others (inbox, Slack,
+ * Jira/Confluence, the daily usage rollup, CI actions) are written straight to
+ * `.ost-agent/evidence/` in the same call that fetches them, so a claim citing one
+ * that is not there names nothing that will ever appear.
+ */
+export function transcriptFileExists(source: string, dirs: readonly { readonly dir: string }[]): boolean {
+  const m = /^TRANSCRIPT:(.+)$/i.exec(source.trim());
+  if (!m) return false;
+  const id = m[1];
+  return dirs.some((d) => fs.existsSync(path.join(d.dir, `${id}.jsonl`)));
+}
+
+/**
  * One fetched item, before it is stored.
  *
  * **There is deliberately no `actor` field here.** The producer identity is not part

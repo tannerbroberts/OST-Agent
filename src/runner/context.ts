@@ -77,7 +77,7 @@ import {
  *
  * A vault with no `loop:` block gets exactly what it got before — one directory.
  */
-function transcriptDirs(vaultDir: string, config: Config): TranscriptDir[] {
+export function transcriptDirs(vaultDir: string, config: Config): TranscriptDir[] {
   const t = config.adapters.transcript;
   const dirs: TranscriptDir[] = [];
   if (t.path) {

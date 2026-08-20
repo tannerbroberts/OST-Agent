@@ -2191,6 +2191,31 @@ the vault declares, and a vault declaring none never fires.**
 > assumed. `loop seal` exits 17 for it, distinct from `unhealthy`'s 1. Pinned in
 > `test/loop/degraded-pass-reporting.test.ts`, controls included. The trace is the one
 > decider input the surface itself can move, which F6 now states rather than hides.
+>
+> **A degraded firing now does the work that needs no model (2026-08-20).** `loop
+> fallback` (`src/loop/fallback.ts`) runs after the pass step: if zero tool calls were
+> traced since the run opened — the same test the verdict uses — it routes `ingest`,
+> `check`, `status` and `debt` through the very tools the MCP surface would have run,
+> built from the same context and options, so the output is byte-identical; it refuses
+> every other name with its own exit code (20) before building anything; and it stamps
+> the run record before the first verb runs. The stamp is what makes it safe to have:
+> `assessDegradation` names it `mcp-absent-fallback`, and `countToolCallsSince`
+> excludes the fallback's own surface so its four traced calls cannot satisfy the
+> no-tool-calls rule on the pass's behalf — without both, a fallback would turn the
+> twenty-two false-clean firings into twenty-two false-clean firings with more output.
+> Pinned in `test/loop/mcp-absent-fallback.test.ts` across the three clauses of its
+> assumption test, controls included. Whether a reader who sees the degraded report
+> notices is still a question about people and is not claimed here.
+>
+> **The gate wedged on its own check phase (2026-08-20).** `ost-agent check` began
+> keeping a rolling census record under `.ost-agent/census-history/` in v0.23; the
+> first meta-vault firing after it shipped left that directory untracked, and every
+> tick for the next seventeen hours was refused by D5 at exit 14 while `loop health`
+> printed `blocking: none`. The directory is the second mechanical record written by a
+> path that never commits, and it joins the usage trace in `FIRING_RESIDUE_PREFIXES`;
+> `loop health` now prints a `tree:` line naming any path `loop start` would refuse
+> over. Both pinned in `test/loop/firing-residue.test.ts`, against the real `check`
+> command rather than a hand-written file.
 
 **F5 — The mandate carries a stated acceptance condition, and distance from it is
 reported by something that cannot write the tree.**
@@ -3089,7 +3114,7 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,211 tests across 269 files, verified 2026-08-20 (`npx vitest run`,
+> *Today:* **met** — 3,267 tests across 274 files, verified 2026-08-20 (`npx vitest run`,
 > after "Every run records the tool surface it actually had" was given its definition of
 > done: `test/loop/run-record-tool-surface.test.ts` pins that `loop start`, handed the same
 > `--pass`/`--available` a wrapper already resolved for `required-tools`, stamps
@@ -3103,8 +3128,42 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > `$OST_TOOLS` it already checked once into `loop start`. What this does not settle: whether
 > the record is worth reading — that is "Hand a reader five run records and ask which passes
 > did their job," a separate, unbuilt assumption test this one deliberately does not need.
-> Previously 3,202 tests across 268 files, verified 2026-08-20 (`npx vitest run`,
-> after "Every response that can be refused for size states its size first" was given its
+> Previously 3,258 tests across 273 files, verified 2026-08-20 (`npx vitest run`,
+> after "Flag a threshold that is still an instruction to choose one" had its wrapped
+> lead-in instrument built: `test/ost/threshold-lead-in-wrap.test.ts` pins that `debt`'s
+> pre-commitment reading is the same for a bold lead-in hard-wrapped across a line break,
+> placed mid-line after `**Design:**`, or enclosing the bar, as for the same text on one
+> line — its fixtures are the live paragraphs that used to read `absent`. On this repo's
+> own vault the `absent` count went 18 → 6 with no other reading changed; the six left use
+> a plain unbolded `Threshold:`, which is vocabulary, not formatting, and is not touched).
+> Previously 3,245 tests across 272 files, verified 2026-08-20 (`npx vitest run`,
+> after "Expiring resource questions asked at a fixed cadence" was given its definition of
+> done: `test/config/resource-question-recoverability.test.ts` labels each of the five
+> standing resource questions by whether a file in the vault already holds the answer, and
+> pins that this product's own vault answers one (`loop.spend` is the token budget), half
+> of one (the config and the credential probe say what a run needs and holds, nothing says
+> what the operator withholds), and leaves four for a cadence to ask — above the bar of two
+> the assumption test pre-committed. The same vault with the manifest a human filled from
+> its prose on 2026-08-04 answers all five, so the gap is between what a file states and
+> what a careful reader can lift, and the count is stated as erring toward overstating what
+> asking could learn. The timing half of the bar needs a person).
+> Previously 3,209 tests across 270 files, verified 2026-08-20 (`npx vitest run`,
+> after "Every work bucket excludes nodes whose own frontmatter already says they are
+> closed" was given its definition of done: `test/ost/next-work-status-filter.test.ts`
+> pinned that `solutionsMissingInstruments` also excludes `status: deferred` solutions,
+> not only trusted-`shipped` ones — a deferred solution with no instrument was leaking
+> into that bucket through `computeNextWork` before this fix, confirmed by re-running the
+> new test against the pre-fix code and watching it fail).
+> Previously 3,208 tests across 269 files, verified 2026-08-20 (`npx vitest run`,
+> after "Every self-observation channel names which of its sources each item came from"
+> was given its second permit's definition of done:
+> `test/adapters/source-attribution.test.ts` closed the gap between a citation that
+> *claims* a stored evidence record and one that *resolves* — `ost_create_node` now
+> refuses a source that names no record, checked at write time rather than left to
+> `ost_check`'s sweep, while still allowing a node to cite the live session that is
+> writing it (well-formed and merely unharvested is not the same as nothing;
+> `resolveClaimedSource` in `src/processes/tree.ts` is the distinction)). Before that:
+> "Every response that can be refused for size states its size first" was given its
 > definition of done: `test/mcp/size-probe-precedes-refusal.test.ts` built a real size
 > probe on `ost_read_repo` (`probe: true` returns a file's `bytes`/`wouldTruncate` from the
 > `stat` a normal read already takes, without `fs.readFileSync`, redaction, or the binary
@@ -3832,6 +3891,18 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > nothing, and the entire movement comes from `social-reach` (4) and `credentials` (1). It does
 > not show the new order is better, and nothing here measures whether an operator would keep a
 > manifest true;
+> after `test/config/resource-question-recoverability.test.ts` pinned the other half of that
+> manifest's question — whether asking the five resource questions on a cadence would learn
+> anything the vault does not already hold. `ost-agent resources` labels each question from
+> files alone (`ost.resources.yaml`, `loop.spend`, the enabled adapters and the credential
+> probe) and never from node prose, because a reader that lifted "my hours don't exist" off a
+> bucket title would be the inference `manifest.ts` refuses, laundered into "no need to ask".
+> Against this product's own vault the file count is one answered, one by half, four still to
+> ask — over the pre-committed bar of two — while the manifest a human filled from the same
+> vault's prose answers all five; so the number a cadence is justified by is the gap between
+> what is stated in a file and what a careful reader can recover, the spec says which way its
+> count errs, and the timing half of the bar (ten minutes for the full set) is left to a
+> person;
 > after `test/telemetry/preflight-uncertainty-census.test.ts` pinned the preflight-uncertainty
 > census — how often a call that failed came from a caller already showing doubt, which is the
 > assumption a validate-only twin of every mutating tool rests on. The classifier is committed

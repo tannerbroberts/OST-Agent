@@ -400,6 +400,8 @@ OST-Agent starts no process of its own and holds no timer — it runs when a Cla
 ```bash
 ost-agent loop due   --vault .   # exit 0 fire · 10 not yet · 11 no cadence declared · 12/13 spend
 ost-agent loop start --vault . --holder-pid $$
+ost-agent loop fallback --vault . # after the pass: if it reached no tool, run ingest/check/status/debt
+                                  # through the CLI, refuse every write verb, and seal degraded
 ost-agent loop seal  --vault .   # verdict computed from what was recorded, not chosen by the caller
 ost-agent loop health --vault .  # read-only: when it last fired, and what is blocking it
 ```
@@ -493,7 +495,7 @@ unattended/scheduled operation — an external cron or GitHub Actions job invoki
 > | **Human-only verdicts** | `result` · `promote` · `retract` · `lane` · `lanes` |
 > | **What is owed** | `debt` · `gate` · `stranded` · `channels` |
 > | **Build permits** | `verify` · `buildable` |
-> | **Unattended firing** | `loop due` · `loop start` · `loop step` · `loop seal` · `loop health` |
+> | **Unattended firing** | `loop due` · `loop start` · `loop step` · `loop fallback` · `loop seal` · `loop health` |
 > | **Server** | `mcp` |
 >
 > `check`, `debt`, `status`, and `gate` are also plain MCP tools (`ost_check`,
@@ -607,6 +609,8 @@ credentials: { withheld: [publish] }
 Work whose declared resources are all present is ranked ahead of work that needs something the operator says they do not have, and every deferral quotes the phrase that caused it beside the declared fact that blocked it. **The citation is not optional, and it names the blanks too.** A vault with no manifest gets exactly the order it got before, and is told on stderr which five facts about its operator that order is guessing at — a resource nobody declared is a visible blank, never a silent zero.
 
 Two limits, stated where the feature is: it holds only what the operator thought to declare, and **it decays silently** — nothing here can tell whether a manifest is still true, and a stale manifest the planner is required to cite is worse than none, because it launders a guess into a citation.
+
+The alternative to declaring once is asking on a cadence, and that bills the operator in the one currency they have said they do not have. `ost-agent resources` says, for each of the five questions, whether the vault already holds the answer in a file — `loop.spend` in the config is the token budget; the enabled adapters and the credential probe are half the credential question — and how many a cadence would therefore still have to ask. It reads files, not prose, so its count errs toward *overstating* what asking could learn, and it says nothing about how fast an answer goes stale.
 
 ### Retraction — a way to un-say a node
 

@@ -2,6 +2,47 @@
 
 ## Unreleased
 
+- **`debt`'s threshold reading no longer depends on where the author put a line break.**
+  The pre-commitment extractor matched its bold lead-in at the start of a line, so a
+  `**Pre-committed threshold:**` that prose formatting had hard-wrapped across two lines —
+  or that followed `**Design:** …` on the same line — was never seen, and the test counted
+  `absent`. The first form was observed twice in a live vault, each time by accident; the
+  second turned out to be how 12 of this vault's 18 `absent` tests were written. The scan
+  now reads each paragraph joined onto one line and looks for the lead-in anywhere in it,
+  so wrapped, unwrapped and mid-line forms classify identically (`bound`, `instruction` and
+  `prose` alike), and a bold span that encloses the bar (`**Pre-committed threshold: 20
+  arrivals.**`) is read past its colon. A mid-line match must look like a label — bold
+  closed on a colon or full stop — so a design paragraph asking "**is this a real
+  pre-commitment?**" is not mistaken for one; and the reading runs to the end of its
+  paragraph with no cut at the next bold, because this vault's bars itemise their parts
+  that way and every cut rule tried read ten bound tests as prose. Pinned by
+  `test/ost/threshold-lead-in-wrap.test.ts`, whose fixtures are those live paragraphs. **The published number moves:** on
+  this vault `absent` goes 18 → 6, and the six that remain use a plain `Threshold:` with no
+  bold and no "pre-commit" in it, which is vocabulary rather than formatting and is left as
+  it was. Every `absent` count published before this release was a floor, as the vault
+  recorded; it is now a count of tests whose paragraph the extractor does not recognise.
+
+- **A firing whose MCP surface was absent does the work that needs no model, and cannot
+  seal clean.** `ost-agent loop fallback` runs after the pass step. If zero tool calls were
+  traced since the run opened — the same evidence the `degraded` verdict reads — it routes
+  `ingest`, `check`, `status` and `debt` through the very tools the MCP surface would have
+  run, built from the same context, so the output is byte-identical; every other name is
+  refused at exit 20 before anything is built, with the reason (a write verb, a read-only
+  tool the fallback does not carry, or a typo); and the run is stamped before the first
+  verb runs, so the seal reports `degraded` with `mcp-absent-fallback` named beside
+  `no-tool-calls`. The fallback's own traced calls are excluded from the no-tool-calls
+  rule by surface, so the rescue path cannot vouch for the pass. `ingest` is carried
+  because it captures and never authors; its captures commit under a `fallback:` message.
+  `examples/automation/autonomous-pass.sh` calls it between the pass and the check.
+
+- **`loop start` no longer wedges on the check phase's own census record.** `ost-agent
+  check` and `status` keep `.ost-agent/census-history/firings.jsonl` (v0.23), written by a
+  read-only command that commits nothing. The first firing after it shipped left the
+  directory untracked and the dirty-tree gate refused every tick for seventeen hours while
+  `loop health` said `blocking: none`. The path now joins the usage trace as firing residue
+  the gate waives, and `loop health` prints a `tree:` line naming any path `loop start`
+  would refuse over.
+
 - **A run finds out what it may call before it decides what to do.** `ost-agent grants
   --skill F --settings F` resolves the tools a run's instructions declare against the
   `permissions.allow` it will fire with, and names every demand the grant does not cover —
