@@ -3089,7 +3089,20 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,174 tests across 265 files, verified 2026-08-19 (`npx vitest run`,
+> *Today:* **met** — 3,181 tests across 266 files, verified 2026-08-20 (`npx vitest run`,
+> after "Every refusal a surface returns is recorded as tree evidence, not just as a
+> failed call" was given its definition of done: `classifyUsageEvent` (`src/adapters/
+> usage.ts`) tells a permission denial apart from a tool's own error by a `denied` field
+> stamped at capture — `withUsageTracing` sets it only when the thrown value is a
+> `PermissionDeniedError` (`src/telemetry/usage.ts`), never by reading the message's
+> wording — and `brokeredFetch`'s existing refusal for an out-of-grant target now throws
+> that type instead of a plain `Error`, the one in-process denial this repository already
+> had (`test/adapters/usage-denial-classification.test.ts`). What it does not settle: the
+> host-level MCP permission denials the parent opportunity's corroboration notes describe
+> are refused before this process's own code ever runs, so they still cannot be captured
+> this way — the classifier is proven feasible and wired to one real call site, not to
+> every surface that can refuse a call.
+> Previously 3,174 tests across 265 files, verified 2026-08-19 (`npx vitest run`,
 > after "Every recorded step carries the directory and argv it actually ran with" was
 > given its definition of done: `reconstructInvocation` and `recentNonZeroExitSteps`
 > (`src/loop/replay.ts`) answer the mechanical half of "Try to reproduce ten recorded

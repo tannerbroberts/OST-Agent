@@ -49,6 +49,14 @@ export interface UsageEvent {
   /** Redacted, truncated error message when ok=false. */
   err?: string;
   /**
+   * True when the failure was a refusal for lack of a grant, distinct from the
+   * tool failing on its own terms. Set at capture from the thrown error's TYPE
+   * ({@link PermissionDeniedError}), never from `err`'s text — a classifier that
+   * pattern-matched the message would drift silently the moment host wording
+   * changed, which is exactly the failure this field exists to rule out.
+   */
+  denied?: true;
+  /**
    * Which run dispatched this call — minted by the surface, never handed to it.
    *
    * Present only when the surface has an identity worth grouping by (the MCP
@@ -116,6 +124,21 @@ export function drainCreatedNodeFiles(): string[] {
  * cycle: the census is reachable from init, not the other way round.
  */
 export const INIT_TRACE_TOOL = "vault_init";
+
+/**
+ * Thrown by a caller that structurally KNOWS a call was refused for lack of a
+ * grant — never inferred here from what the message says. A thrower that only
+ * has prose (host-generated permission text it cannot re-derive) has nothing to
+ * construct this from and must throw a plain `Error`, which is the honest
+ * answer: a call this module cannot classify at capture is recorded as a
+ * failure, not guessed into a denial.
+ */
+export class PermissionDeniedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PermissionDeniedError";
+  }
+}
 
 const MAX_ERR_CHARS = 300;
 
@@ -260,6 +283,9 @@ export function withUsageTracing<T extends RunnableTool>(
         return result;
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
+        // Structural, not textual: a `PermissionDeniedError` says so by its TYPE,
+        // which cannot drift the way host wording does.
+        const denied = e instanceof PermissionDeniedError;
         // Drained on the failure path too, and recorded. A call that created a node
         // file and then threw still created it (R8's orphan is exactly this shape), and
         // an undrained entry would be stamped onto whatever call came next — attributing
@@ -273,6 +299,7 @@ export function withUsageTracing<T extends RunnableTool>(
           surface,
           argBytes,
           err: redactSecrets(message).slice(0, MAX_ERR_CHARS),
+          ...(denied ? { denied: true } : {}),
           ...(session ? { session } : {}),
           ...(unknown ? { unknown } : {}),
           ...(wrote.length > 0 ? { wrote } : {}),
