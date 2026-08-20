@@ -3089,7 +3089,14 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,208 tests across 269 files, verified 2026-08-20 (`npx vitest run`,
+> *Today:* **met** — 3,209 tests across 270 files, verified 2026-08-20 (`npx vitest run`,
+> after "Every work bucket excludes nodes whose own frontmatter already says they are
+> closed" was given its definition of done: `test/ost/next-work-status-filter.test.ts`
+> pinned that `solutionsMissingInstruments` also excludes `status: deferred` solutions,
+> not only trusted-`shipped` ones — a deferred solution with no instrument was leaking
+> into that bucket through `computeNextWork` before this fix, confirmed by re-running the
+> new test against the pre-fix code and watching it fail).
+> Previously 3,208 tests across 269 files, verified 2026-08-20 (`npx vitest run`,
 > after "Every self-observation channel names which of its sources each item came from"
 > was given its second permit's definition of done:
 > `test/adapters/source-attribution.test.ts` closed the gap between a citation that
