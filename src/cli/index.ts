@@ -76,6 +76,7 @@ import { ship } from "../release/ship-repo.js";
 import { BUILD_CHECK_EXIT, formatBuildCheck, inheritedTreeBuildCheck } from "../release/inherited-tree.js";
 import { renderRollup, rollupTree } from "../eval/rollup.js";
 import { lineageOf, renderLineage } from "../eval/lineage.js";
+import { reflectionBinding, renderReflectionGauge } from "../loop/reflection.js";
 import { BELIEVABILITY_LADDER, type RungId } from "../knowledge/believability.js";
 import { promoteNode, recordResult, retractNode, VERDICTS, type Verdict } from "../ost/results.js";
 import { verifyInstrument } from "../ost/instrument.js";
@@ -1721,6 +1722,26 @@ program
       return;
     }
     console.log(renderLineage(path));
+  });
+
+program
+  .command("reflection")
+  .argument("<solution>", "the Solution a pass was cleared to build")
+  .description(
+    "the three self-reflection questions the build loop asks about its own brief, each bound to this solution and the test that cleared it (exits 1 when nothing has)",
+  )
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((solution: string, opts: { vault: string }) => {
+    const binding = reflectionBinding(buildPassContext(opts.vault).vault.readTree(), solution);
+    if (!binding) {
+      // Exit 1 rather than printing the questions unbound: the one caller is a
+      // shell substituting this into a prompt, and a question about no node is
+      // the abstract form the gauge exists to refuse.
+      console.error(`no permit clears "${solution}" — no red instrument and no recorded result beneath it, so there is no pass to ask about`);
+      process.exitCode = 1;
+      return;
+    }
+    console.log(renderReflectionGauge(binding));
   });
 
 program

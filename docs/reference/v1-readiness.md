@@ -3114,7 +3114,20 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,287 tests across 275 files, verified 2026-08-20 (`npx vitest run`,
+> *Today:* **met** — 3,307 tests across 276 files, verified 2026-08-20 (`npx vitest run`,
+> after "Full builder thinking-trace visibility with a self-reflection communication gauge"
+> was given its definition of done: `test/skill/reflection-questions.test.ts` pins that the
+> three self-reflection questions — what to build and why, the working environment, what
+> only a human can unblock — reach the build pass's prompt, each bound to the named solution
+> and the named test that cleared it rather than asked in the abstract; that an output
+> omitting one audits as missing and one naming no node audits as unbound; and that the
+> render refuses a binding that would leave a question unbound. The mechanism
+> (`src/loop/reflection.ts`, `ost-agent reflection`) binds from whichever permit cleared the
+> solution — a red instrument or a recorded result — and `examples/automation/build-pass.sh`
+> substitutes the rendered gauge into the prompt rather than carrying a copy of the
+> questions. What this does not settle: whether the questions catch anything, which is a real
+> builder misreading a real brief and stays a human's measurement against the trace.)
+> Previously 3,287 tests across 275 files, verified 2026-08-20 (`npx vitest run`,
 > after "Forced-variation prompts that require candidates to differ on a named dimension"
 > was built: `test/knowledge/forced-variation-prompt.test.ts` pins that an ideation prompt
 > built for a target opportunity (`src/knowledge/forced-variation.ts`) gives every candidate
