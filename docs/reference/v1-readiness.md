@@ -3114,7 +3114,7 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,223 tests across 271 files, verified 2026-08-20 (`npx vitest run`,
+> *Today:* **met** — 3,245 tests across 272 files, verified 2026-08-20 (`npx vitest run`,
 > after "Expiring resource questions asked at a fixed cadence" was given its definition of
 > done: `test/config/resource-question-recoverability.test.ts` labels each of the five
 > standing resource questions by whether a file in the vault already holds the answer, and
