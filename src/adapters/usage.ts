@@ -53,6 +53,18 @@ function table(counts: Map<string, number>): string {
     .join("\n");
 }
 
+/**
+ * "denied" | "error" | "ok" — read off the event as recorded, never off `err`'s
+ * text. `denied` is stamped at capture ({@link withUsageTracing}) from the
+ * thrown error's TYPE, so this function has nothing to pattern-match: it just
+ * reads the field. That is the whole point — the classification cannot drift
+ * when host wording changes, because it was never derived from wording.
+ */
+export function classifyUsageEvent(event: UsageEvent): "ok" | "denied" | "error" {
+  if (event.ok) return "ok";
+  return event.denied ? "denied" : "error";
+}
+
 export class UsageSource implements Source {
   readonly name = "usage";
   readonly actor: Actor = "usage";
@@ -117,9 +129,18 @@ export class UsageSource implements Source {
 
   private rollup(day: string, events: UsageEvent[]): EvidenceItem {
     const errors = events.filter((e) => !e.ok);
+    // A denial is a refusal the surface never got to attempt, not the tool
+    // failing on its own terms (see `classifyUsageEvent`) — kept as its own
+    // bucket so the shape of each surface's refusals accumulates instead of
+    // being buried inside "failed".
+    const denied = errors.filter((e) => classifyUsageEvent(e) === "denied");
+    const trueErrors = errors.filter((e) => classifyUsageEvent(e) === "error");
     const durations = events.map((e) => e.ms).sort((a, b) => a - b);
     const sessions = new Set(events.filter((e) => e.session).map((e) => e.session as string));
-    const errSamples = errors.slice(0, 3).map((e) => `- \`${e.tool}\`: ${e.err ?? "(no message)"}`);
+    const sample = (e: UsageEvent) =>
+      `- \`${e.tool}\` on ${e.surface}${e.unknown ? ` (working: ${e.unknown})` : ""}: ${e.err ?? "(no message)"}`;
+    const deniedSamples = denied.slice(0, 3).map(sample);
+    const errSamples = trueErrors.slice(0, 3).map(sample);
 
     const body = [
       `# Usage trace — ${day} (${events.length} tool invocations, machine-recorded)`,
@@ -127,7 +148,9 @@ export class UsageSource implements Source {
       "Mechanical rollup of the append-only tool-invocation trace. Computed, not composed:",
       "no agent narrated, selected, or summarized these numbers.",
       "",
-      `- **Calls:** ${events.length} (${events.length - errors.length} ok, ${errors.length} failed)`,
+      `- **Calls:** ${events.length} (${events.length - errors.length} ok` +
+        (denied.length > 0 ? `, ${denied.length} denied` : "") +
+        `, ${trueErrors.length} failed)`,
       `- **Duration:** p50 ${percentile(durations, 50)}ms, max ${percentile(durations, 100)}ms`,
       ...(sessions.size > 0 ? [`- **Sessions:** ${sessions.size}`] : []),
       "",
@@ -138,6 +161,9 @@ export class UsageSource implements Source {
       "| Surface | Calls |",
       "| --- | --- |",
       table(countBy(events, (e) => e.surface ?? "unknown")),
+      ...(deniedSamples.length > 0
+        ? ["", "**Denied calls (refused for lack of a grant; redacted, first 3):**", ...deniedSamples]
+        : []),
       ...(errSamples.length > 0 ? ["", "**Failed calls (redacted, first 3):**", ...errSamples] : []),
       "",
       "Evidence class: **observed behavior** — machine-recorded trace of tool invocations;",

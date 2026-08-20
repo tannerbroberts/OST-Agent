@@ -31909,6 +31909,12 @@ function drainCreatedNodeFiles() {
   return createdNodeFiles.splice(0, createdNodeFiles.length);
 }
 var INIT_TRACE_TOOL = "vault_init";
+var PermissionDeniedError = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "PermissionDeniedError";
+  }
+};
 var MAX_ERR_CHARS = 300;
 function usageLogPath(vaultDir) {
   return path4.join(path4.resolve(vaultDir), ".ost-agent", "usage", "events.jsonl");
@@ -31967,6 +31973,7 @@ function withUsageTracing(tools, vaultDir, surface, attribution) {
         return result;
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
+        const denied = e instanceof PermissionDeniedError;
         const wrote = drainCreatedNodeFiles();
         recordUsageEvent(vaultDir, {
           ts: new Date(started).toISOString(),
@@ -31976,6 +31983,7 @@ function withUsageTracing(tools, vaultDir, surface, attribution) {
           surface,
           argBytes,
           err: redactSecrets(message).slice(0, MAX_ERR_CHARS),
+          ...denied ? { denied: true } : {},
           ...session ? { session } : {},
           ...unknown2 ? { unknown: unknown2 } : {},
           ...wrote.length > 0 ? { wrote } : {}
@@ -32411,7 +32419,7 @@ function brokeredFetch(broker, asker, action = HTTP_GET) {
       }
     });
     if (response.status === "denied") {
-      throw new Error(`credential broker denied GET ${url} (${response.reason}): ${response.why}`);
+      throw new PermissionDeniedError(`credential broker denied GET ${url} (${response.reason}): ${response.why}`);
     }
     if (response.status === "failed") {
       throw new Error(`brokered GET ${url} failed: ${response.why}`);
@@ -33107,6 +33115,10 @@ function countBy(items, key) {
 function table(counts) {
   return [...counts.entries()].sort((a, b2) => b2[1] - a[1]).map(([name, n]) => `| ${name} | ${n} |`).join("\n");
 }
+function classifyUsageEvent(event) {
+  if (event.ok) return "ok";
+  return event.denied ? "denied" : "error";
+}
 var UsageSource = class {
   name = "usage";
   actor = "usage";
@@ -33161,16 +33173,20 @@ var UsageSource = class {
   }
   rollup(day, events) {
     const errors = events.filter((e) => !e.ok);
+    const denied = errors.filter((e) => classifyUsageEvent(e) === "denied");
+    const trueErrors = errors.filter((e) => classifyUsageEvent(e) === "error");
     const durations = events.map((e) => e.ms).sort((a, b2) => a - b2);
     const sessions = new Set(events.filter((e) => e.session).map((e) => e.session));
-    const errSamples = errors.slice(0, 3).map((e) => `- \`${e.tool}\`: ${e.err ?? "(no message)"}`);
+    const sample = (e) => `- \`${e.tool}\` on ${e.surface}${e.unknown ? ` (working: ${e.unknown})` : ""}: ${e.err ?? "(no message)"}`;
+    const deniedSamples = denied.slice(0, 3).map(sample);
+    const errSamples = trueErrors.slice(0, 3).map(sample);
     const body = [
       `# Usage trace \u2014 ${day} (${events.length} tool invocations, machine-recorded)`,
       "",
       "Mechanical rollup of the append-only tool-invocation trace. Computed, not composed:",
       "no agent narrated, selected, or summarized these numbers.",
       "",
-      `- **Calls:** ${events.length} (${events.length - errors.length} ok, ${errors.length} failed)`,
+      `- **Calls:** ${events.length} (${events.length - errors.length} ok` + (denied.length > 0 ? `, ${denied.length} denied` : "") + `, ${trueErrors.length} failed)`,
       `- **Duration:** p50 ${percentile(durations, 50)}ms, max ${percentile(durations, 100)}ms`,
       ...sessions.size > 0 ? [`- **Sessions:** ${sessions.size}`] : [],
       "",
@@ -33181,6 +33197,7 @@ var UsageSource = class {
       "| Surface | Calls |",
       "| --- | --- |",
       table(countBy(events, (e) => e.surface ?? "unknown")),
+      ...deniedSamples.length > 0 ? ["", "**Denied calls (refused for lack of a grant; redacted, first 3):**", ...deniedSamples] : [],
       ...errSamples.length > 0 ? ["", "**Failed calls (redacted, first 3):**", ...errSamples] : [],
       "",
       "Evidence class: **observed behavior** \u2014 machine-recorded trace of tool invocations;",

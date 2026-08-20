@@ -28,6 +28,7 @@
  */
 import type { Action, CredentialBroker, CredentialHandle, PerformInput } from "./broker.js";
 import { isCredentialHandle } from "./broker.js";
+import { PermissionDeniedError } from "../telemetry/usage.js";
 
 /** The action name the grant table uses. */
 export const HTTP_GET = "http.get";
@@ -179,7 +180,11 @@ export function brokeredFetch(broker: CredentialBroker, asker: string, action = 
     });
 
     if (response.status === "denied") {
-      throw new Error(`credential broker denied GET ${url} (${response.reason}): ${response.why}`);
+      // The broker's `status: "denied"` is the structural fact — thrown as
+      // `PermissionDeniedError` rather than a plain `Error` so a caller tracing
+      // this call (`withUsageTracing`) can classify it as a refusal without
+      // parsing `response.why`, which is free-text a grant author wrote.
+      throw new PermissionDeniedError(`credential broker denied GET ${url} (${response.reason}): ${response.why}`);
     }
     if (response.status === "failed") {
       throw new Error(`brokered GET ${url} failed: ${response.why}`);
