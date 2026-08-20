@@ -3089,7 +3089,18 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,209 tests across 270 files, verified 2026-08-20 (`npx vitest run`,
+> *Today:* **met** — 3,223 tests across 271 files, verified 2026-08-20 (`npx vitest run`,
+> after "Expiring resource questions asked at a fixed cadence" was given its definition of
+> done: `test/config/resource-question-recoverability.test.ts` labels each of the five
+> standing resource questions by whether a file in the vault already holds the answer, and
+> pins that this product's own vault answers one (`loop.spend` is the token budget), half
+> of one (the config and the credential probe say what a run needs and holds, nothing says
+> what the operator withholds), and leaves four for a cadence to ask — above the bar of two
+> the assumption test pre-committed. The same vault with the manifest a human filled from
+> its prose on 2026-08-04 answers all five, so the gap is between what a file states and
+> what a careful reader can lift, and the count is stated as erring toward overstating what
+> asking could learn. The timing half of the bar needs a person).
+> Previously 3,209 tests across 270 files, verified 2026-08-20 (`npx vitest run`,
 > after "Every work bucket excludes nodes whose own frontmatter already says they are
 > closed" was given its definition of done: `test/ost/next-work-status-filter.test.ts`
 > pinned that `solutionsMissingInstruments` also excludes `status: deferred` solutions,
@@ -3833,6 +3844,18 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > nothing, and the entire movement comes from `social-reach` (4) and `credentials` (1). It does
 > not show the new order is better, and nothing here measures whether an operator would keep a
 > manifest true;
+> after `test/config/resource-question-recoverability.test.ts` pinned the other half of that
+> manifest's question — whether asking the five resource questions on a cadence would learn
+> anything the vault does not already hold. `ost-agent resources` labels each question from
+> files alone (`ost.resources.yaml`, `loop.spend`, the enabled adapters and the credential
+> probe) and never from node prose, because a reader that lifted "my hours don't exist" off a
+> bucket title would be the inference `manifest.ts` refuses, laundered into "no need to ask".
+> Against this product's own vault the file count is one answered, one by half, four still to
+> ask — over the pre-committed bar of two — while the manifest a human filled from the same
+> vault's prose answers all five; so the number a cadence is justified by is the gap between
+> what is stated in a file and what a careful reader can recover, the spec says which way its
+> count errs, and the timing half of the bar (ten minutes for the full set) is left to a
+> person;
 > after `test/telemetry/preflight-uncertainty-census.test.ts` pinned the preflight-uncertainty
 > census — how often a call that failed came from a caller already showing doubt, which is the
 > assumption a validate-only twin of every mutating tool rests on. The classifier is committed

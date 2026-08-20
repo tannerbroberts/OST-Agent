@@ -33,6 +33,7 @@
  *   ost-agent manifest [--vault DIR]          every precondition the tool schemas can state, before you compose a call
  *   ost-agent refusals [--transcripts DIR]    how many of the refusals a pass hit a schema-derived manifest could have named
  *   ost-agent channels [--vault DIR]          every drop folder, its last delivery, and what has gone silent
+ *   ost-agent resources [--vault DIR]         each standing resource question, and whether the vault already answers it without asking
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
  *   ost-agent propose-rule "<rule>" ...       draft a change to the agent's own ruleset, with friction evidence attached
  *   ost-agent proposals [--vault DIR]         the review queue: every ruleset proposal and its status
@@ -100,6 +101,7 @@ import { TreeText } from "../security/tainted.js";
 import { committedCapabilityProfile, formatCapabilityProfile } from "../product/capability.js";
 import { formatRoutingCensus, routingRecordCensus } from "../product/routing-record.js";
 import { readResourceManifest } from "../product/manifest.js";
+import { formatRecoverability, labelResourceQuestions } from "../product/recoverability.js";
 import { formatPriorityOrder, rankBuildableWork } from "../product/planner.js";
 import {
   formatPreflightCensus, preflightUncertaintyCensus, readTranscriptSessions, readUsageEvents,
@@ -1669,6 +1671,27 @@ program
     // config that could not be read is non-zero for the same reason — a report that
     // could not be produced must not exit 0.
     if (problem || ailingChannels(health).length > 0) process.exitCode = 1;
+  });
+
+program
+  .command("resources")
+  .description(
+    "each of the five standing resource questions, and whether the vault already holds its answer — the count that " +
+      "decides whether asking the operator on a cadence learns anything (read-only)",
+  )
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((opts: { vault: string }) => {
+    const dir = path.resolve(opts.vault);
+    // Reads `ost.resources.yaml`, two blocks of `ost.config.yaml`, and the same
+    // credential probe `ost-agent auth` runs. No Vault handle, no tree read, no
+    // prose: a fact a reader could lift from a node body is deliberately not
+    // counted, so the number printed overstates what a cadence could learn
+    // rather than understating it.
+    const report = labelResourceQuestions(dir, { env: process.env });
+    console.log(formatRecoverability(report));
+    // A file that exists and could not be read answered nothing, and a count
+    // computed over an unreadable vault must not exit 0.
+    if (report.problems.length) process.exitCode = 1;
   });
 
 program
