@@ -940,7 +940,7 @@ program
         const hint = node ? suggestCaution(node) : undefined;
         const said = declaredBy.get(title);
         const notes = [
-          said ? `says "${said.quote}" in its own text` : "",
+          said ? `says "${said.quote}" in its own text — full sentence: "${said.sentence}"` : "",
           hint ? `⚠ likely ${hint.lane}: ${hint.why}` : "",
         ].filter(Boolean);
         console.log(`  - ${title}${notes.length ? `  ${notes.join("  ")}` : ""}`);
@@ -957,6 +957,7 @@ program
       console.log("Reported, deliberately not applied — a node must not label itself into compute's reach.");
       console.log("If you agree with what each one says about itself:");
       for (const d of t.proseDeclared) {
+        console.log(`  "${d.sentence}"`);
         console.log(`  ost-agent lane "${d.test}" --set ${d.lane} --by "<you>" --why "declared in the test's own text"`);
       }
     }
@@ -983,7 +984,9 @@ program
           c.labelled === "compute-only"
             ? "an unattended pass may run this one — the label is what compute obeys"
             : "stale in the safe direction";
-        console.log(`  - ${c.test}\n      labelled ${c.labelled}, prose says "${c.quote}" — ${risk}`);
+        console.log(
+          `  - ${c.test}\n      labelled ${c.labelled}, prose says "${c.quote}" — ${risk}\n      full sentence: "${c.sentence}"`,
+        );
       }
       console.log("Reported, not resolved: choosing the permissive reading is a human's call.");
     }

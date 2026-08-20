@@ -275,6 +275,7 @@ describe("proseDeclaredLane — the label the tool cannot read", () => {
     expect(proseDeclaredLane(t)).toEqual({
       lane: "compute-only",
       quote: "Lane: compute-only",
+      sentence: "Lane: compute-only.",
     });
   });
 
@@ -304,6 +305,7 @@ describe("proseDeclaredLane — the label the tool cannot read", () => {
     expect(proseDeclaredLane(t, { includeConflicts: true })).toEqual({
       lane: "compute-only",
       quote: "Lane: compute-only",
+      sentence: "Lane: compute-only.",
       conflictsWith: "humans-required",
     });
   });
@@ -430,7 +432,13 @@ describe("laneConflicts — prose and frontmatter disagreeing about who may run 
     ];
 
     expect(laneConflicts(tree)).toEqual([
-      { test: "A", declared: "humans-required", labelled: "compute-only", quote: "Lane: humans-required" },
+      {
+        test: "A",
+        declared: "humans-required",
+        labelled: "compute-only",
+        quote: "Lane: humans-required",
+        sentence: "Lane: humans-required.",
+      },
     ]);
   });
 
@@ -482,9 +490,17 @@ describe("triageLanes surfaces both new readings", () => {
 
     const t = triageLanes(tree);
 
-    expect(t.proseDeclared).toEqual([{ test: "A", lane: "compute-only", quote: "Lane: compute-only" }]);
+    expect(t.proseDeclared).toEqual([
+      { test: "A", lane: "compute-only", quote: "Lane: compute-only", sentence: "Lane: compute-only." },
+    ]);
     expect(t.laneConflicts).toEqual([
-      { test: "B", declared: "humans-required", labelled: "compute-only", quote: "Lane: humans-required" },
+      {
+        test: "B",
+        declared: "humans-required",
+        labelled: "compute-only",
+        quote: "Lane: humans-required",
+        sentence: "Lane: humans-required.",
+      },
     ]);
     expect(t.proseAmbiguous).toEqual([
       {
@@ -530,6 +546,8 @@ describe("proseDeclaredLane does NOT make a test runnable — the invariant that
 
     const t = triageLanes(tree);
 
-    expect(t.proseDeclared).toEqual([{ test: "A", lane: "compute-only", quote: "Lane: compute-only" }]);
+    expect(t.proseDeclared).toEqual([
+      { test: "A", lane: "compute-only", quote: "Lane: compute-only", sentence: "Lane: compute-only." },
+    ]);
   });
 });

@@ -43444,7 +43444,7 @@ function triageLanes(tree) {
   const proseAmbiguous = [];
   for (const t2 of tests) {
     const declared = proseDeclaredLane(t2);
-    if (declared) proseDeclared.push({ test: t2.title, lane: declared.lane, quote: declared.quote });
+    if (declared) proseDeclared.push({ test: t2.title, lane: declared.lane, quote: declared.quote, sentence: declared.sentence });
     const ambiguous = proseLaneAmbiguity(t2);
     if (ambiguous) proseAmbiguous.push({ test: t2.title, quote: ambiguous.quote, names: ambiguous.names });
   }
@@ -43463,7 +43463,7 @@ function laneConflicts(tree) {
   for (const t2 of assumptionTests(tree)) {
     const d = proseDeclaredLane(t2, { includeConflicts: true });
     if (d?.conflictsWith) {
-      out.push({ test: t2.title, declared: d.lane, labelled: d.conflictsWith, quote: d.quote });
+      out.push({ test: t2.title, declared: d.lane, labelled: d.conflictsWith, quote: d.quote, sentence: d.sentence });
     }
   }
   return out;
@@ -43474,9 +43474,9 @@ function proseDeclaredLane(test, opts = {}) {
   const declared = found.names[0];
   if (test.lane) {
     if (!opts.includeConflicts || test.lane === declared) return void 0;
-    return { lane: declared, quote: found.fragment, conflictsWith: test.lane };
+    return { lane: declared, quote: found.fragment, sentence: found.sentence, conflictsWith: test.lane };
   }
-  return { lane: declared, quote: found.fragment };
+  return { lane: declared, quote: found.fragment, sentence: found.sentence };
 }
 function proseLaneAmbiguity(test) {
   const found = readProseLane(test);
@@ -43488,7 +43488,7 @@ function readProseLane(test) {
   const own = ownProse(test.body ?? "");
   const hit = PROSE_LANE_DECLARATION.exec(own);
   if (!hit) return void 0;
-  const sentence = declaringSentence(own, hit.index);
+  const sentence = sentencesAround(own, hit.index, hit.index + hit[0].length);
   const names = [];
   for (const m of sentence.matchAll(LANE_MENTION)) {
     const id = m[0].toLowerCase();
@@ -43501,11 +43501,19 @@ function ownProse(body) {
   const section = /^##\s+/m.exec(body);
   return section ? body.slice(0, section.index) : body;
 }
-function declaringSentence(text2, from) {
-  const rest = text2.slice(from);
-  const end = /[.!?](\*{1,2})?(\s|$)/.exec(rest);
-  const sentence = end ? rest.slice(0, end.index + 1) : rest;
-  return sentence.replace(/\*+/g, "").replace(/\s+/g, " ").trim();
+function sentencesAround(text2, matchStart, matchEnd) {
+  const terminator = /[.!?](\*{1,2})?(\s|$)/g;
+  const spans = [];
+  let cursor = 0;
+  let hit;
+  while (hit = terminator.exec(text2)) {
+    spans.push([cursor, hit.index + 1]);
+    cursor = hit.index + hit[0].length;
+  }
+  if (cursor < text2.length) spans.push([cursor, text2.length]);
+  const touching = spans.filter(([s, e]) => matchStart < e && matchEnd > s);
+  const [from, to] = touching.length > 0 ? [touching[0][0], touching[touching.length - 1][1]] : [matchStart, matchEnd];
+  return text2.slice(from, to).replace(/\*+/g, "").replace(/\s+/g, " ").trim();
 }
 var PROSE_LANE_DECLARATION = /\blane\s*:\s*[a-z][a-z-]*/i;
 var LANE_MENTION = /\b[a-z][a-z-]*\b/gi;
@@ -43531,10 +43539,12 @@ function suggestCaution(test) {
 ${test.body ?? ""}`;
   for (const marker of PEOPLE_MARKERS) {
     const hit = haystack.match(marker);
-    if (hit) {
+    if (hit && hit.index !== void 0) {
+      const sentence = sentencesAround(haystack, hit.index, hit.index + hit[0].length);
       return {
         lane: CAUTIOUS_LANE,
-        why: `names an outside person: "${hit[0]}"`
+        why: `names an outside person: "${hit[0]}" \u2014 "${sentence}"`,
+        sentence
       };
     }
   }
@@ -43751,7 +43761,7 @@ function checkInvariants(tree) {
     v.push({
       rule: "lane-conflict",
       node: c3.test,
-      detail: `labelled ${c3.labelled} but its own prose says "${c3.quote}" \u2014 ` + (c3.labelled === "compute-only" ? "an unattended pass will run it while the test says a person is needed; reconcile before it does" : "one of the two is stale; a human decides which")
+      detail: `labelled ${c3.labelled} but its own prose says "${c3.quote}" (full sentence: "${c3.sentence}") \u2014 ` + (c3.labelled === "compute-only" ? "an unattended pass will run it while the test says a person is needed; reconcile before it does" : "one of the two is stale; a human decides which")
     });
   }
   return v;
@@ -58840,7 +58850,7 @@ classifying those permissively is a judgement, and it stays yours.`
       const hint = node ? suggestCaution(node) : void 0;
       const said = declaredBy.get(title);
       const notes = [
-        said ? `says "${said.quote}" in its own text` : "",
+        said ? `says "${said.quote}" in its own text \u2014 full sentence: "${said.sentence}"` : "",
         hint ? `\u26A0 likely ${hint.lane}: ${hint.why}` : ""
       ].filter(Boolean);
       console.log(`  - ${title}${notes.length ? `  ${notes.join("  ")}` : ""}`);
@@ -58854,6 +58864,7 @@ ${t2.proseDeclared.length} unclassified test(s) declare a lane in their prose bu
     console.log("Reported, deliberately not applied \u2014 a node must not label itself into compute's reach.");
     console.log("If you agree with what each one says about itself:");
     for (const d of t2.proseDeclared) {
+      console.log(`  "${d.sentence}"`);
       console.log(`  ost-agent lane "${d.test}" --set ${d.lane} --by "<you>" --why "declared in the test's own text"`);
     }
   }
@@ -58873,8 +58884,11 @@ ${t2.proseAmbiguous.length} test(s) declare a lane and then qualify it \u2014 no
 \u26A0 ${t2.laneConflicts.length} test(s) carry a lane that contradicts their own prose.`);
     for (const c3 of t2.laneConflicts) {
       const risk = c3.labelled === "compute-only" ? "an unattended pass may run this one \u2014 the label is what compute obeys" : "stale in the safe direction";
-      console.log(`  - ${c3.test}
-      labelled ${c3.labelled}, prose says "${c3.quote}" \u2014 ${risk}`);
+      console.log(
+        `  - ${c3.test}
+      labelled ${c3.labelled}, prose says "${c3.quote}" \u2014 ${risk}
+      full sentence: "${c3.sentence}"`
+      );
     }
     console.log("Reported, not resolved: choosing the permissive reading is a human's call.");
   }

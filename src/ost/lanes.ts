@@ -45,6 +45,8 @@ export interface ProseLaneEntry {
   test: string;
   lane: LaneId;
   quote: string;
+  /** The whole sentence `quote` was cut from — never just the fragment. */
+  sentence: string;
 }
 
 /** One entry of {@link LaneTriage.laneConflicts}. */
@@ -55,6 +57,8 @@ export interface LaneConflict {
   /** What the frontmatter label says — the one the tools actually obey. */
   labelled: LaneId;
   quote: string;
+  /** The whole sentence `quote` was cut from — never just the fragment. */
+  sentence: string;
 }
 
 /** One entry of {@link LaneTriage.proseAmbiguous}. */
@@ -92,7 +96,7 @@ export function triageLanes(tree: readonly OstNode[]): LaneTriage {
   const proseAmbiguous: ProseAmbiguityEntry[] = [];
   for (const t of tests) {
     const declared = proseDeclaredLane(t);
-    if (declared) proseDeclared.push({ test: t.title, lane: declared.lane, quote: declared.quote });
+    if (declared) proseDeclared.push({ test: t.title, lane: declared.lane, quote: declared.quote, sentence: declared.sentence });
     const ambiguous = proseLaneAmbiguity(t);
     if (ambiguous) proseAmbiguous.push({ test: t.title, quote: ambiguous.quote, names: ambiguous.names });
   }
@@ -138,7 +142,7 @@ export function laneConflicts(tree: readonly OstNode[]): LaneConflict[] {
   for (const t of assumptionTests(tree)) {
     const d = proseDeclaredLane(t, { includeConflicts: true });
     if (d?.conflictsWith) {
-      out.push({ test: t.title, declared: d.lane, labelled: d.conflictsWith, quote: d.quote });
+      out.push({ test: t.title, declared: d.lane, labelled: d.conflictsWith, quote: d.quote, sentence: d.sentence });
     }
   }
   return out;
@@ -179,10 +183,10 @@ export function proseDeclaredLane(
     // Already classified and the prose agrees: nothing to reconcile, and
     // repeating it would only add noise to a triage list.
     if (!opts.includeConflicts || test.lane === declared) return undefined;
-    return { lane: declared, quote: found.fragment, conflictsWith: test.lane };
+    return { lane: declared, quote: found.fragment, sentence: found.sentence, conflictsWith: test.lane };
   }
 
-  return { lane: declared, quote: found.fragment };
+  return { lane: declared, quote: found.fragment, sentence: found.sentence };
 }
 
 /**
@@ -245,7 +249,7 @@ function readProseLane(
   const hit = PROSE_LANE_DECLARATION.exec(own);
   if (!hit) return undefined;
 
-  const sentence = declaringSentence(own, hit.index);
+  const sentence = sentencesAround(own, hit.index, hit.index + hit[0].length);
   const names: LaneId[] = [];
   for (const m of sentence.matchAll(LANE_MENTION)) {
     const id = m[0].toLowerCase();
@@ -265,15 +269,37 @@ function ownProse(body: string): string {
 }
 
 /**
- * The sentence containing the declaration at `from`, trimmed of the emphasis
- * markers Obsidian prose wraps it in. Ends at the first `.`/`!`/`?` that is
- * followed by whitespace, a closing `**`, or the end of the text.
+ * Every sentence a `[matchStart, matchEnd)` span touches in `text`, trimmed of
+ * the emphasis markers Obsidian prose wraps it in.
+ *
+ * This is the shared answer to "what quote justifies this recommendation":
+ * never the matched fragment alone, always the sentence(s) it sits in, so a
+ * qualification next to the fragment cannot be silently clipped away. A
+ * fragment that itself straddles a sentence terminator — matches across a
+ * `.`/`!`/`?` — is not clipped to the first sentence it starts in; every
+ * sentence it touches is included, in order.
+ *
+ * Sentence boundaries are `.`/`!`/`?` followed by whitespace, a closing
+ * `**`, or the end of the text — the same boundary the lane declaration
+ * reader has always used, generalised so every quoting call site shares it.
  */
-function declaringSentence(text: string, from: number): string {
-  const rest = text.slice(from);
-  const end = /[.!?](\*{1,2})?(\s|$)/.exec(rest);
-  const sentence = end ? rest.slice(0, end.index + 1) : rest;
-  return sentence.replace(/\*+/g, "").replace(/\s+/g, " ").trim();
+export function sentencesAround(text: string, matchStart: number, matchEnd: number): string {
+  const terminator = /[.!?](\*{1,2})?(\s|$)/g;
+  const spans: Array<[number, number]> = [];
+  let cursor = 0;
+  let hit: RegExpExecArray | null;
+  while ((hit = terminator.exec(text))) {
+    spans.push([cursor, hit.index + 1]);
+    cursor = hit.index + hit[0].length;
+  }
+  if (cursor < text.length) spans.push([cursor, text.length]);
+
+  const touching = spans.filter(([s, e]) => matchStart < e && matchEnd > s);
+  const [from, to] = touching.length > 0
+    ? [touching[0][0], touching[touching.length - 1][1]]
+    : [matchStart, matchEnd];
+
+  return text.slice(from, to).replace(/\*+/g, "").replace(/\s+/g, " ").trim();
 }
 
 /**
@@ -291,6 +317,8 @@ export interface ProseLaneDeclaration {
   lane: LaneId;
   /** The declaration as written, minus surrounding emphasis. */
   quote: string;
+  /** The whole sentence `quote` was cut from — never just the fragment. */
+  sentence: string;
   /** Set only when the frontmatter carries a *different* lane — a human call. */
   conflictsWith?: LaneId;
 }
@@ -321,6 +349,8 @@ export interface LaneSuggestion {
   lane: LaneId;
   /** Why, quoting the phrase that triggered it, so a human can check the call. */
   why: string;
+  /** The whole sentence the triggering phrase sits in — never just the phrase. */
+  sentence: string;
 }
 
 /**
@@ -336,10 +366,12 @@ export function suggestCaution(test: OstNode): LaneSuggestion | undefined {
   const haystack = `${test.title}\n${test.body ?? ""}`;
   for (const marker of PEOPLE_MARKERS) {
     const hit = haystack.match(marker);
-    if (hit) {
+    if (hit && hit.index !== undefined) {
+      const sentence = sentencesAround(haystack, hit.index, hit.index + hit[0].length);
       return {
         lane: CAUTIOUS_LANE,
-        why: `names an outside person: "${hit[0]}"`,
+        why: `names an outside person: "${hit[0]}" — "${sentence}"`,
+        sentence,
       };
     }
   }
