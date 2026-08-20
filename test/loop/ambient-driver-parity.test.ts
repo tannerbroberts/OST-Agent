@@ -34,6 +34,7 @@ import { initVault } from "../../src/runner/init.js";
 import { buildPassContext } from "../../src/runner/context.js";
 import { buildOstTools } from "../../src/security/tools.js";
 import { createOstMcpServer } from "../../src/mcp/server.js";
+import { writeEvidence } from "../../src/processes/tree.js";
 
 const OUTCOME_TITLE = "Retention";
 const OUTCOME_TEXT = "Reach 10,000 daily active users";
@@ -157,6 +158,17 @@ beforeEach(async () => {
   ambientDir = fs.mkdtempSync(path.join(os.tmpdir(), "ost-parity-ambient-"));
   await initVault(apiDir, OUTCOME_TEXT, OUTCOME_TITLE);
   await initVault(ambientDir, OUTCOME_TEXT, OUTCOME_TITLE);
+  // PASS_SCRIPT cites "INBOX:interview.md" on its first two steps, and
+  // `ost_create_node` now refuses a citation that names no stored record at
+  // write time — store it on both fixture vaults, exactly as a real INBOX
+  // drop would have, before the script runs.
+  for (const d of [apiDir, ambientDir]) {
+    writeEvidence(
+      d,
+      { id: "INBOX:interview.md", source: "INBOX:interview.md", title: "interview", timestamp: "2026-07-22T00:00:00Z", body: "b" },
+      "inbox",
+    );
+  }
 });
 afterEach(() => {
   fs.rmSync(apiDir, { recursive: true, force: true });

@@ -52,7 +52,7 @@ describe("createOstMcpServer", () => {
     // add an opportunity → it now has 0 of the required solutions → surfaced as under-served
     await client.callTool({
       name: "ost_create_node",
-      arguments: { title: "I want a reason to come back", layer: "Opportunity", parent: "Retention", body: "b", source: "INBOX:x", evidence: "stated" },
+      arguments: { title: "I want a reason to come back", layer: "Opportunity", parent: "Retention", body: "b", source: "a note from the founder", evidence: "stated" },
     });
     const work = JSON.parse(textOf((await client.callTool({ name: "ost_next_work", arguments: {} })) as never));
     expect(work.done).toBe(false);
@@ -71,7 +71,7 @@ describe("createOstMcpServer", () => {
         parent: "Retention",
         body: "Players want a daily reason to return.",
         evidence: "stated",
-        source: "INBOX:x",
+        source: "a note from the founder",
       },
     });
     expect(res.isError).toBeFalsy();

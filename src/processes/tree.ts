@@ -23,7 +23,7 @@ import path from "node:path";
 import matter from "gray-matter";
 import { parseFrontmatter } from "../ost/frontmatter.js";
 import { redactSecrets } from "../adapters/transcript.js";
-import { isActor, UNKNOWN_ACTOR, type Actor } from "../adapters/source.js";
+import { isActor, transcriptFileExists, UNKNOWN_ACTOR, type Actor } from "../adapters/source.js";
 import type { Layer, OstNode } from "../ost/node.js";
 
 export interface EvidenceRecord {
@@ -270,6 +270,41 @@ const EVIDENCE_ID_SHAPE = new RegExp(`^(?:${EVIDENCE_ID_PREFIXES.join("|")}):`, 
  */
 export function claimsStoredEvidence(source: string | undefined): source is string {
   return !!source && EVIDENCE_ID_SHAPE.test(source.trim());
+}
+
+/**
+ * What a citation that {@link claimsStoredEvidence} resolves to, for a caller
+ * deciding whether to WRITE it rather than one reporting on a tree already
+ * written.
+ *
+ * `"unresolvable"` is the one answer `ost_check`'s sweep-time `unresolved-citation`
+ * rule could already report — this function exists so `ost_create_node` can refuse
+ * it before the byte lands, rather than after. `"unharvested"` is why that refusal
+ * cannot just be "does `readEvidence` have this id": a session id is well-formed
+ * and simply not delivered yet whenever the session it names has started, and a
+ * node is free to cite its own still-running session (see
+ * {@link transcriptFileExists}). Collapsing that into `"unresolvable"` would refuse
+ * the exact citation this repository shipped once and then watched self-heal.
+ */
+export type SourceResolution = "resolved" | "unharvested" | "unresolvable";
+
+/**
+ * Resolve a citation that {@link claimsStoredEvidence} against what is actually on
+ * disk — the stored evidence directory first, then (for `TRANSCRIPT:` ids only) the
+ * directories the transcript adapter itself would read.
+ *
+ * Callers must have already gated on `claimsStoredEvidence`: this function does not
+ * repeat that check, because "not a claim at all" (`WEB:…`, free prose, no source)
+ * is a different answer than any of the three here, and folding it in would make
+ * every caller re-derive the distinction from a fourth string.
+ */
+export function resolveClaimedSource(
+  dir: string,
+  source: string,
+  transcriptDirs: readonly { readonly dir: string }[],
+): SourceResolution {
+  if (readEvidence(dir).some((e) => e.id === source)) return "resolved";
+  return transcriptFileExists(source, transcriptDirs) ? "unharvested" : "unresolvable";
 }
 
 /** Index a node list by title. */

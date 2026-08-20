@@ -68,7 +68,8 @@ import { checkCorroboration, namedNodes } from "../eval/corroboration.js";
 import { MEASUREMENT_RUNGS, rungRefusal, unearnedRung } from "../eval/rungs.js";
 import { reconcileWithGit, reconcileWithUsage } from "../ost/census.js";
 import { loadCursor, saveCursor, type Actor, type EvidenceItem, type FetchResult } from "../adapters/source.js";
-import { claimsStoredEvidence, writeEvidence } from "../processes/tree.js";
+import { claimsStoredEvidence, resolveClaimedSource, writeEvidence } from "../processes/tree.js";
+import { transcriptDirs } from "../runner/context.js";
 import { DEFAULT_MIN_SOLUTIONS_PER_OPPORTUNITY } from "../config/schema.js";
 import type { PassContext } from "../processes/types.js";
 
@@ -998,6 +999,27 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         // B12, at the same boundary and for the other half of the ladder: a node
         // cannot be BORN above what the channel it cites has earned either.
         assertWithinStanding(dir, node, input.evidence as RungId);
+        // A source that CLAIMS a stored evidence record must resolve to one — refused
+        // HERE, at birth, rather than left to `ost_check`'s sweep-time
+        // `unresolved-citation` rule, which only reports a dangling citation after it
+        // has already landed. `resolveClaimedSource` is what keeps this from refusing
+        // the one case that must still be allowed: a node citing the very (still
+        // running, or still inside its quiet window) session that is writing it. Such
+        // an id is well-formed and simply not harvested yet — its `.jsonl` file is
+        // already on disk — and is reported `"unharvested"`, not `"unresolvable"`.
+        if (claimsStoredEvidence(node.source)) {
+          const config = ctx.passContext?.config;
+          const dirs = config?.adapters.transcript.enabled ? transcriptDirs(dir, config) : [];
+          const resolution = resolveClaimedSource(dir, node.source, dirs);
+          if (resolution === "unresolvable") {
+            throw new Error(
+              `"${node.title}" cites source "${node.source}", which claims a stored evidence record but no ` +
+                `record under .ost-agent/evidence/ carries that id, and no file on disk would produce it either ` +
+                `(ids are matched exactly, so case and extension count). Cite the id a source actually minted, ` +
+                `or drop the claim to honest prose about where this came from (e.g. "a conversation with the founder").`,
+            );
+          }
+        }
         // R8. This tool writes TWICE — the node's file, then the parent's file
         // carrying the edge — and the vault holds no delete, so a failure
         // between them leaves an orphan that nothing can take back. There is no

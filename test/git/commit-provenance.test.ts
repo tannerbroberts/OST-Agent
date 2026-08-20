@@ -8,11 +8,27 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { initVault } from "../../src/runner/init.js";
 import { buildPassContext } from "../../src/runner/context.js";
 import { createOstMcpServer } from "../../src/mcp/server.js";
+import { writeEvidence } from "../../src/processes/tree.js";
 
 let dir: string;
 beforeEach(async () => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "ost-provenance-"));
   await initVault(dir, "Reach 10,000 daily active users", "Retention");
+  // The source cited below now has to resolve — `ost_create_node` refuses a
+  // citation that names no record at write time (see
+  // test/adapters/source-attribution.test.ts) — so the fixture stores it first,
+  // exactly the way a real INBOX drop would have.
+  writeEvidence(
+    dir,
+    {
+      id: "INBOX:2026-07-22-design-goals.md",
+      source: "INBOX:2026-07-22-design-goals.md",
+      title: "design goals",
+      timestamp: "2026-07-22T00:00:00Z",
+      body: "Players want a daily reason to return.",
+    },
+    "inbox",
+  );
 });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
@@ -45,7 +61,7 @@ describe("commit provenance", () => {
         layer: "Opportunity",
         parent: "Retention",
         body: "Players want a daily reason to return.",
-        evidence: "stated",
+        evidence: "assertion",
         source: "INBOX:2026-07-22-design-goals.md",
       },
     });
@@ -64,7 +80,7 @@ describe("commit provenance", () => {
         layer: "Opportunity",
         parent: "Retention",
         body: "Players want a daily reason to return.",
-        evidence: "stated",
+        evidence: "assertion",
         source: "INBOX:2026-07-22-design-goals.md",
       },
     });

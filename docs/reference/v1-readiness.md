@@ -3089,8 +3089,16 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,202 tests across 268 files, verified 2026-08-20 (`npx vitest run`,
-> after "Every response that can be refused for size states its size first" was given its
+> *Today:* **met** — 3,208 tests across 269 files, verified 2026-08-20 (`npx vitest run`,
+> after "Every self-observation channel names which of its sources each item came from"
+> was given its second permit's definition of done:
+> `test/adapters/source-attribution.test.ts` closed the gap between a citation that
+> *claims* a stored evidence record and one that *resolves* — `ost_create_node` now
+> refuses a source that names no record, checked at write time rather than left to
+> `ost_check`'s sweep, while still allowing a node to cite the live session that is
+> writing it (well-formed and merely unharvested is not the same as nothing;
+> `resolveClaimedSource` in `src/processes/tree.ts` is the distinction)). Before that:
+> "Every response that can be refused for size states its size first" was given its
 > definition of done: `test/mcp/size-probe-precedes-refusal.test.ts` built a real size
 > probe on `ost_read_repo` (`probe: true` returns a file's `bytes`/`wouldTruncate` from the
 > `stat` a normal read already takes, without `fs.readFileSync`, redaction, or the binary
