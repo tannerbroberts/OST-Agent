@@ -31604,10 +31604,23 @@ function resolveSessionsDir(vaultDir, declared) {
 function defaultConfig() {
   return ConfigSchema.parse({ outcome: BOOTSTRAP_PLACEHOLDER_OUTCOME });
 }
+function declaredPathDiagnostics(config2) {
+  const transcriptRepo = config2.adapters.transcript.projectDir.trim();
+  if (transcriptRepo === "" || config2.product.repos.length > 0) return [];
+  return [
+    {
+      key: "product.repos",
+      message: `product.repos is absent in ${CONFIG_FILENAME}, but adapters.transcript.projectDir names a repository (${transcriptRepo}) \u2014 add it under product.repos so the agent may read the product it is harvesting sessions from, e.g.:
+product:
+  repos:
+    - ${transcriptRepo}`
+    }
+  ];
+}
 function readConfig(vaultDir, opts = {}) {
   const p2 = configPath(vaultDir);
   if (!fs2.existsSync(p2)) {
-    if (opts.missing === "defaults") return { config: defaultConfig() };
+    if (opts.missing === "defaults") return { config: defaultConfig(), diagnostics: [] };
     const dir = path2.resolve(vaultDir);
     if (!fs2.existsSync(dir)) {
       throw new Error(`no vault at ${dir} \u2014 that directory does not exist; ${renderNearMiss(nearMiss(dir))}`);
@@ -31618,15 +31631,19 @@ function readConfig(vaultDir, opts = {}) {
   try {
     raw = (0, import_yaml.parse)(fs2.readFileSync(p2, "utf8")) ?? {};
   } catch (e) {
-    return { config: defaultConfig(), problem: `${CONFIG_FILENAME} is not valid YAML: ${e instanceof Error ? e.message : String(e)}` };
+    return {
+      config: defaultConfig(),
+      problem: `${CONFIG_FILENAME} is not valid YAML: ${e instanceof Error ? e.message : String(e)}`,
+      diagnostics: []
+    };
   }
   const result = ConfigSchema.safeParse(raw);
   if (!result.success) {
     const issues = result.error.issues.map((i2) => `  - ${i2.path.join(".") || "(root)"}: ${i2.message}`).join("\n");
     return { config: defaultConfig(), problem: `invalid ${CONFIG_FILENAME}:
-${issues}` };
+${issues}`, diagnostics: [] };
   }
-  return { config: result.data };
+  return { config: result.data, diagnostics: declaredPathDiagnostics(result.data) };
 }
 function loadConfig(vaultDir, opts = {}) {
   const { config: config2, problem } = readConfig(vaultDir, opts);
