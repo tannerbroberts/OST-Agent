@@ -44283,24 +44283,35 @@ function coverageOf(test) {
   const stated = countEntriesUnder(test.body, UNCOVERED_HEADING);
   return { claimed, stated, unbounded: Math.max(0, claimed - stated) };
 }
-var PRECOMMIT_LEAD = /^\s*\*\*[^*]*pre-commit[^*]*\*\*[:.]?\s*/i;
-var ANY_LEAD = /^\s*\*\*[^*]+\*\*/;
+var PRECOMMIT_LEAD = /^\s*\*\*([^*]*pre-commit[^*]*)\*\*[:.]?\s*|(?<=\s)\*\*(?=\S)([^*]*pre-commit[^*]*)(?:[:.]\*\*|\*\*[:.])\s*/i;
+var BOLD_OPEN = /^\s*\*\*/;
+function paragraphAt(lines, start) {
+  const block = [lines[start]];
+  for (const line of lines.slice(start + 1)) {
+    const trimmed2 = line.trim();
+    if (!trimmed2 || /^#{1,6}\s/.test(trimmed2) || BOLD_OPEN.test(line)) break;
+    block.push(line);
+  }
+  return block;
+}
 function askedOf(test) {
   if (test.threshold) {
     const trimmed2 = test.threshold.trim();
     if (trimmed2) return trimmed2;
   }
   const lines = test.body.split("\n");
-  const start = lines.findIndex((l) => PRECOMMIT_LEAD.test(l));
-  if (start === -1) return null;
-  const parts = [lines[start].replace(PRECOMMIT_LEAD, "")];
-  for (const line of lines.slice(start + 1)) {
-    const trimmed2 = line.trim();
-    if (!trimmed2 || /^#{1,6}\s/.test(trimmed2) || ANY_LEAD.test(line)) break;
-    parts.push(line);
+  for (let i2 = 0; i2 < lines.length; i2++) {
+    if (!lines[i2].includes("**")) continue;
+    const joined = paragraphAt(lines, i2).join(" ").replace(/\s+/g, " ");
+    const lead = PRECOMMIT_LEAD.exec(joined);
+    if (!lead) continue;
+    const label = lead[1] ?? lead[2] ?? "";
+    const inBold = label.includes(":") ? label.slice(label.indexOf(":") + 1) : "";
+    const after = joined.slice(lead.index + lead[0].length);
+    const asked = `${inBold} ${after}`.replace(/\s+/g, " ").trim();
+    return asked || null;
   }
-  const asked = parts.join(" ").replace(/\s+/g, " ").trim();
-  return asked || null;
+  return null;
 }
 var A_BOUND = /\d|[≥≤]|>=|<=|\b(at least|at most|no more than|no fewer than|fewer than|more than|majority|unanimous|exactly|zero|none|half)\b/i;
 var DEFERRING_VERBS = /* @__PURE__ */ new Set([

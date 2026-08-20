@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+- **`debt`'s threshold reading no longer depends on where the author put a line break.**
+  The pre-commitment extractor matched its bold lead-in at the start of a line, so a
+  `**Pre-committed threshold:**` that prose formatting had hard-wrapped across two lines —
+  or that followed `**Design:** …` on the same line — was never seen, and the test counted
+  `absent`. The first form was observed twice in a live vault, each time by accident; the
+  second turned out to be how 12 of this vault's 18 `absent` tests were written. The scan
+  now reads each paragraph joined onto one line and looks for the lead-in anywhere in it,
+  so wrapped, unwrapped and mid-line forms classify identically (`bound`, `instruction` and
+  `prose` alike), and a bold span that encloses the bar (`**Pre-committed threshold: 20
+  arrivals.**`) is read past its colon. A mid-line match must look like a label — bold
+  closed on a colon or full stop — so a design paragraph asking "**is this a real
+  pre-commitment?**" is not mistaken for one; and the reading runs to the end of its
+  paragraph with no cut at the next bold, because this vault's bars itemise their parts
+  that way and every cut rule tried read ten bound tests as prose. Pinned by
+  `test/ost/threshold-lead-in-wrap.test.ts`, whose fixtures are those live paragraphs. **The published number moves:** on
+  this vault `absent` goes 18 → 6, and the six that remain use a plain `Threshold:` with no
+  bold and no "pre-commit" in it, which is vocabulary rather than formatting and is left as
+  it was. Every `absent` count published before this release was a floor, as the vault
+  recorded; it is now a count of tests whose paragraph the extractor does not recognise.
+
 - **A firing whose MCP surface was absent does the work that needs no model, and cannot
   seal clean.** `ost-agent loop fallback` runs after the pass step. If zero tool calls were
   traced since the run opened — the same evidence the `degraded` verdict reads — it routes
