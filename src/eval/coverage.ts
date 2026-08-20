@@ -93,23 +93,63 @@ export function coverageOf(test: OstNode): Coverage {
  * "Pre-commit the threshold before starting", and more. Tightening this to one
  * spelling would silently report the tree as thresholdless.
  */
-const PRECOMMIT_LEAD = /^\s*\*\*[^*]*pre-commit[^*]*\*\*[:.]?\s*/i;
+const PRECOMMIT_LEAD =
+  /^\s*\*\*([^*]*pre-commit[^*]*)\*\*[:.]?\s*|(?<=\s)\*\*(?=\S)([^*]*pre-commit[^*]*)(?:[:.]\*\*|\*\*[:.])\s*/i;
 
-/** Any other bold lead-in — where a pre-commitment paragraph ends. */
-const ANY_LEAD = /^\s*\*\*[^*]+\*\*/;
+/** A line that opens a bold span — where the paragraph being read ends. */
+const BOLD_OPEN = /^\s*\*\*/;
+
+/**
+ * The lines of the paragraph that starts at `start`: up to a blank line, a
+ * heading, or the next line that opens a bold span. The close of the bold is
+ * deliberately not required on the opening line — that requirement is the
+ * line-wrap misread, and an editor's hard wrap is not part of the threshold.
+ */
+function paragraphAt(lines: readonly string[], start: number): string[] {
+  const block = [lines[start]];
+  for (const line of lines.slice(start + 1)) {
+    const trimmed = line.trim();
+    if (!trimmed || /^#{1,6}\s/.test(trimmed) || BOLD_OPEN.test(line)) break;
+    block.push(line);
+  }
+  return block;
+}
 
 /**
  * The threshold a node pre-committed to, as one paragraph, or null.
  *
  * Reads `test.threshold` first when the node carries one — a field set at
- * creation, immune to the prose scan's line-wrap misread (a bold lead-in
- * hard-wrapped across two lines used to read as `absent`; a field cannot wrap).
- * Falls back to the prose scan for every node written before the field
- * existed, which is the entire vault as of the field's introduction — nothing
- * already on disk is reclassified by this change.
+ * creation. Falls back to the prose scan for every node written before the
+ * field existed, which is most of both live vaults.
  *
- * The prose scan itself is deliberately dumb: it locates a marker and returns
- * the prose after it. Neither path checks that what it found is measurable or
+ * The prose scan reads paragraphs, not lines. It used to match the bold
+ * lead-in at the start of a line, which made the result depend on where prose
+ * formatting put a line break in two ways. A lead-in hard-wrapped across two
+ * lines had no closing `**` on its first line, matched nothing, and the test
+ * counted `absent` — observed twice in a live vault, and the reason every
+ * `absent` count published before this read as a floor rather than a
+ * measurement. And a lead-in that followed another on the same line
+ * (`**Design:** … **Pre-committed threshold:** at least three…`) was never
+ * looked at, which is how 12 of this vault's own 18 `absent` tests came to
+ * carry a bar nobody could see. Each paragraph is now joined onto one line and
+ * the lead-in looked for anywhere in it, so wrapped, unwrapped and mid-line
+ * forms of the same text read identically. A bold span that encloses the
+ * threshold itself (`**Pre-committed threshold: 20 arrivals.**`) is read past
+ * its first colon, for the same reason: the words are the commitment, and
+ * where the author closed the bold is not.
+ *
+ * Two things the live vault taught about reading mid-line. A match that is not
+ * at the start of its paragraph must look like a label — bold closed on a
+ * colon or full stop — because a design paragraph that asks "**is this a real
+ * pre-commitment?**" in bold is emphasis, not a lead-in, and took a real
+ * threshold's place when it was accepted. And the reading runs to the end of
+ * the paragraph with no cut at the next bold, because bars here itemise their
+ * own parts that way ("**Soundness: 0 hits.** … **Utility: at least 3 of 4.**")
+ * and put numbers in bold at the ends of sentences; every cut rule tried read
+ * ten bound tests as prose. An over-long quotation costs a glance.
+ *
+ * The scan is still deliberately dumb: it locates a marker and returns the
+ * prose after it. Neither path checks that what it found is measurable or
  * was really written before the run — that is a human judgement, and the
  * point of printing it is to put it where a human can make it.
  */
@@ -119,21 +159,23 @@ export function askedOf(test: OstNode): string | null {
     if (trimmed) return trimmed;
   }
   const lines = test.body.split("\n");
-  const start = lines.findIndex((l) => PRECOMMIT_LEAD.test(l));
-  if (start === -1) return null;
+  for (let i = 0; i < lines.length; i++) {
+    if (!lines[i].includes("**")) continue;
+    const joined = paragraphAt(lines, i).join(" ").replace(/\s+/g, " ");
+    const lead = PRECOMMIT_LEAD.exec(joined);
+    if (!lead) continue;
 
-  const parts = [lines[start].replace(PRECOMMIT_LEAD, "")];
-  for (const line of lines.slice(start + 1)) {
-    const trimmed = line.trim();
-    // A blank line, a heading, or the next bold lead-in ends the paragraph.
-    if (!trimmed || /^#{1,6}\s/.test(trimmed) || ANY_LEAD.test(line)) break;
-    parts.push(line);
+    // "**Pre-committed threshold: 20 arrivals.**" puts the bar inside the bold.
+    // Whatever follows the lead-in's first colon is the commitment, not the label.
+    const label = lead[1] ?? lead[2] ?? "";
+    const inBold = label.includes(":") ? label.slice(label.indexOf(":") + 1) : "";
+    const after = joined.slice(lead.index + lead[0].length);
+    const asked = `${inBold} ${after}`.replace(/\s+/g, " ").trim();
+    // A marker with nothing after it reads as a threshold in a skim and bounds
+    // nothing in fact, so it is reported as absent rather than as empty.
+    return asked || null;
   }
-
-  const asked = parts.join(" ").replace(/\s+/g, " ").trim();
-  // A marker with nothing after it reads as a threshold in a skim and bounds
-  // nothing in fact, so it is reported as absent rather than as empty.
-  return asked || null;
+  return null;
 }
 
 /**

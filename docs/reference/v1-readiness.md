@@ -3114,7 +3114,15 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,245 tests across 272 files, verified 2026-08-20 (`npx vitest run`,
+> *Today:* **met** — 3,258 tests across 273 files, verified 2026-08-20 (`npx vitest run`,
+> after "Flag a threshold that is still an instruction to choose one" had its wrapped
+> lead-in instrument built: `test/ost/threshold-lead-in-wrap.test.ts` pins that `debt`'s
+> pre-commitment reading is the same for a bold lead-in hard-wrapped across a line break,
+> placed mid-line after `**Design:**`, or enclosing the bar, as for the same text on one
+> line — its fixtures are the live paragraphs that used to read `absent`. On this repo's
+> own vault the `absent` count went 18 → 6 with no other reading changed; the six left use
+> a plain unbolded `Threshold:`, which is vocabulary, not formatting, and is not touched).
+> Previously 3,245 tests across 272 files, verified 2026-08-20 (`npx vitest run`,
 > after "Expiring resource questions asked at a fixed cadence" was given its definition of
 > done: `test/config/resource-question-recoverability.test.ts` labels each of the five
 > standing resource questions by whether a file in the vault already holds the answer, and

@@ -122,9 +122,10 @@ describe("askedOf — the threshold field, when a node carries one", () => {
   });
 
   test("the field is immune to the prose scan's line-wrap misread", () => {
-    // The prose scan's known defect (see the vault's own record): a bold
-    // lead-in hard-wrapped across a line break reads as absent. A field set at
-    // creation has no line to wrap.
+    // The prose scan's former defect (see the vault's own record): a bold
+    // lead-in hard-wrapped across a line break read as absent. The scan now
+    // reads paragraphs (test/ost/threshold-lead-in-wrap.test.ts); a field set
+    // at creation never had a line to wrap in the first place.
     const n = node("Asm", "plan", { threshold: "20 arrivals across both arms, decided before launch." });
     expect(askedOf(n)).not.toBeNull();
     expect(thresholdKindOf(n)).toBe("bound");
