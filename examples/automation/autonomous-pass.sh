@@ -140,8 +140,14 @@ node "$CLI" required-tools --pass "$SKILL_FILE" --available "$OST_TOOLS"
 # normal state for a cron that ticks faster than a pass takes — it is not silence,
 # there IS a firing — so it exits 0 like the not-elapsed case. Everything else is
 # a refusal and keeps its code.
+#
+# `--pass`/`--available` repeat exactly what the `required-tools` call above was
+# already given — nothing here lists or calls a tool a second time. It lets the
+# run record say which tools this firing had and which required ones it did not
+# get, so a human reading a week of runs at once does not have to re-derive the
+# surface from the shape of a failure.
 set +e
-node "$CLI" loop start --vault . --holder-pid "$$"
+node "$CLI" loop start --vault . --holder-pid "$$" --pass "$SKILL_FILE" --available "$OST_TOOLS"
 STARTED=$?
 set -e
 if [ "$STARTED" -eq 15 ]; then exit 0; fi
