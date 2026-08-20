@@ -1,0 +1,82 @@
+# OST-Agent configuration
+outcome: "OST-Agent's mandate is to close the innermost loop: observe its own runs, name where it failed itself, and patch that failure — reliably, unattended, and faster than new failures appear. Everything else in this tree is downstream of that capability.\n\nAn observed self-failure outranks every other node here. Observed means it left a trace in a real run — a log, a transcript, a report, a red instrument. A self-failure nobody observed is not one.\n\nExternal returning operators (non-founder operators who run a pass on their own vault and return within 14 days, measured weekly) remain the primary external instrument: they are how this tree learns whether the self-repair is real or self-flattering, since an agent grading its own repairs is the failure mode this mandate exists to catch. No node may climb the believability ladder on founder or model sources alone."
+outcomeTitle: "OST-Agent (meta)"   # stable label for the root node (rarely changed)
+model: claude-opus-4-8
+
+remote:
+  enabled: false            # default: local-only, no push. Set url + enabled to push.
+
+adapters:
+  inbox:
+    enabled: true
+    path: .ost-agent/inbox  # drop notes here; kept out of the vault root so Obsidian's graph shows only OST nodes
+  transcript:
+    enabled: true           # the agent's own finished sessions, harvested as usage evidence (observed behavior, not demand)
+    projectDir: /Users/tanner/dev/OST-Agent
+    quietMinutes: 30        # never harvest a session that is still being written to
+  atlassian:
+    enabled: false
+    projects: []
+    spaces: []
+  slack:
+    enabled: false
+    channels: []
+
+# The unattended firing loop. Driven locally by cron via
+# OST-Agent/examples/automation/autonomous-pass.sh, which runs `claude -p /ost-pass`
+# with only the ost-agent MCP tools granted and every file/shell/network built-in denied.
+loop:
+  cadence: "1h"             # one firing an hour; cron ticks more often, this gate decides
+  lockTtlMinutes: 60        # a firing still holding the lock after this is assumed dead
+  spend:
+    # Weighted tokens, not currency. Chosen, not derived: ~4M per firing across 24
+    # hourly firings. Lower it to slow the burn; the window is rolling, so exhaustion
+    # clears itself without anyone intervening.
+    #
+    # Raised 8x on 2026-08-04, from 12,000,000, because the old ceiling was not
+    # slowing the burn — it was stopping the loop. Discovery went 21 hours without
+    # firing, and the firing that ended that gap put it back over the line within
+    # 20 minutes. A ceiling a single pass can exhaust is a pause button, not a
+    # budget, and the work it was blocking (instrumenting 243 prose-only tests) is
+    # the work that feeds the build loop.
+    ceilingWeightedTokens: 96000000
+    windowHours: 24
+    # Where Claude Code writes THIS vault's transcripts — the pass runs with cwd set
+    # to the vault, so the slug is the vault path. Declared, never derived.
+    sessionsDir: "~/.claude/projects/-Users-tanner-ost-agent-meta"
+
+# Focus the discovery pass on one opportunity's branch (Torres's single target
+# opportunity). Human-set 2026-08-11: the founder directed in-session that the
+# compression branch be prioritized for discovery and build ("this feels like
+# gold"). Remove or blank the target to return to the whole-tree sweep.
+#
+# Cleared by audit 2026-08-16: the branch has returned `done: true` with zero
+# writes on every firing since at least 2026-08-16T00:37Z (confirmed across
+# multiple consecutive passes in ost-meta-loop.log). What remains in-branch is
+# 3 assumption tests in the needsHumans lane — work an unattended pass cannot
+# do regardless of scope, since recording a result is human-only
+# (`ost-agent result`). Every hourly firing was therefore spending real
+# weighted-token budget to reconfirm a fully-mined branch while 198 unmapped
+# evidence items, 1 underserved opportunity, 12 hygiene issues, 372
+# assumption-work items and 70 uninstrumented solutions sat completely
+# untouched — both of the last two discovery reports recommended clearing
+# this. Re-set the target string above (or point it at a new branch) if the
+# founder wants scoped focus again once the needsHumans tests are run.
+discovery:
+  # target: "More reaches my senses than fits in the window where I think"
+
+# Local repo paths the agent may READ (read-only) to ground ideas in what the product
+# actually is. Set 2026-08-09: six consecutive discovery passes reported repo sight dead
+# and declined to instrument 62 prose-only tests rather than write instruments against
+# invented paths. The path is not a preference — it is the same checkout already declared
+# above as adapters.transcript.projectDir, i.e. where this vault's product lives.
+product:
+  repos:
+    - /Users/tanner/dev/OST-Agent
+
+processes:
+  P1_ingest:      { cron: "*/15 * * * *", triggers: ["inbox:new"] }
+  P2_map:         { cron: "",             triggers: ["after:P1_ingest"] }
+  P3_ideate:      { cron: "0 */6 * * *",  triggers: ["after:P2_map"], minSolutionsPerOpportunity: 3 }
+  P4_assumptions: { cron: "",             triggers: ["after:P3_ideate"] }
+  P5_hygiene:     { cron: "0 3 * * *",    triggers: [] }

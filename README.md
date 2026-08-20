@@ -608,6 +608,8 @@ Work whose declared resources are all present is ranked ahead of work that needs
 
 Two limits, stated where the feature is: it holds only what the operator thought to declare, and **it decays silently** — nothing here can tell whether a manifest is still true, and a stale manifest the planner is required to cite is worse than none, because it launders a guess into a citation.
 
+The alternative to declaring once is asking on a cadence, and that bills the operator in the one currency they have said they do not have. `ost-agent resources` says, for each of the five questions, whether the vault already holds the answer in a file — `loop.spend` in the config is the token budget; the enabled adapters and the credential probe are half the credential question — and how many a cadence would therefore still have to ask. It reads files, not prose, so its count errs toward *overstating* what asking could learn, and it says nothing about how fast an answer goes stale.
+
 ### Retraction — a way to un-say a node
 
 Append-only means a claim cannot be deleted, which is right, and it used to mean a claim could not be *withdrawn* either — a node the tree had outgrown kept being read, counted and ideated under. `ost-agent retract "<node>" --by "<who>" --why "<why>"` appends a `## Retraction` (a reserved heading, CLI-only, exactly like `## Results`). The file, its prose, its history and the retraction line all stay on disk and in git; what changes is that every reader withholds it, because they all come through one census function rather than each remembering to check.
