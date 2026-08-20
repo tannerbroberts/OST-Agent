@@ -69,6 +69,32 @@ export interface LoopStepRecord {
   refused?: "spend-ceiling";
 }
 
+/** One verb the MCP-absent fallback ran, and what became of it. */
+export interface FallbackVerbRecord {
+  /** The operator-facing verb: `ingest`, `check`, `status` or `debt`. */
+  verb: string;
+  /** The tool it was routed to — the same one the MCP surface would have run. */
+  tool: string;
+  ok: boolean;
+  /** The commit the verb produced, when it produced one (only `ingest` can). */
+  committed?: string;
+  /** One line, when `ok` is false. */
+  error?: string;
+}
+
+/**
+ * The fallback's own account of itself, in the shape a reader who was not
+ * there needs: when it engaged, what it saw that made it engage, and exactly
+ * which verbs ran. Its presence on a run is what `assessDegradation` turns
+ * into the `mcp-absent-fallback` degradation.
+ */
+export interface FallbackRecord {
+  at: string;
+  /** Tool calls traced for the pass since the run opened — zero, or it would not have engaged. */
+  passToolCalls: number;
+  verbs: FallbackVerbRecord[];
+}
+
 export interface LoopRunRecord {
   runId: string;
   startedAt: string;
@@ -89,6 +115,15 @@ export interface LoopRunRecord {
    */
   ceiling?: SpendCeiling;
   verdict?: LoopVerdict;
+  /**
+   * Present when this firing's pass reached no tool and the loop routed the
+   * read-only half through the command line instead (`loop fallback`,
+   * `src/loop/fallback.ts`). Stamped by the loop, never by the pass, and read
+   * by `assessDegradation` — which is the mechanism that keeps a fallback run
+   * from ever sealing `no-op` or `healthy`. Absent on every firing that did not
+   * fall back, and on every record written before this field existed.
+   */
+  fallback?: FallbackRecord;
   /**
    * What this firing could not attempt, observed from outside it and stamped at
    * seal.
@@ -241,6 +276,24 @@ export function appendStep(dir: string, step: Omit<LoopStepRecord, "at">): LoopR
 }
 
 /**
+ * Record that the MCP-absent fallback engaged on the open run.
+ *
+ * Written by `loop fallback` and by nothing else. The stamp is what makes the
+ * fallback safe to have at all: `assessDegradation` reads it off the record at
+ * seal, so a firing that fell back carries its own evidence of having done so
+ * into the verdict, whatever the fallback's traced calls look like to the
+ * no-tool-calls rule. Rewrites the marker wholesale like `appendStep`; the
+ * journal is not appended because a fallback is not a step with an exit code,
+ * and the seal line that follows carries the verdict it produced.
+ */
+export function stampFallback(dir: string, fallback: FallbackRecord): LoopRunRecord {
+  const open = requireOpenRun(dir);
+  const stamped: LoopRunRecord = { ...open, fallback };
+  fs.writeFileSync(openRunPath(dir), JSON.stringify(stamped, null, 2));
+  return stamped;
+}
+
+/**
  * The verdict, derived only from things the firing could not assert about
  * itself: observed exit codes, which phases produced a step, and the vault's
  * commit before and after.
@@ -336,6 +389,14 @@ export function readRuns(dir: string): LoopRunRecord[] {
       // dropped rather than repaired — the verdict on the line stands, because
       // it was computed at seal by the process that observed the firing.
       if (parsed.degradations !== undefined && !Array.isArray(parsed.degradations)) delete parsed.degradations;
+      // And the fallback stamp: an object with a verbs array, or absent. A reader
+      // that folds over `fallback.verbs` must never be handed a shape that throws.
+      if (
+        parsed.fallback !== undefined &&
+        (typeof parsed.fallback !== "object" || parsed.fallback === null || !Array.isArray(parsed.fallback.verbs))
+      ) {
+        delete parsed.fallback;
+      }
       runs.push(parsed);
     } catch {
       /* corrupt line — skip it, never let it hide the runs around it */

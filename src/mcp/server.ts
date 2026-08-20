@@ -67,6 +67,43 @@ const READ_ONLY = new Set<string>([
 const MUTATING = new Set<string>(MCP_TOOL_NAMES.filter((n) => !READ_ONLY.has(n)));
 
 /**
+ * Does a call to this tool have to be followed by a commit? The dispatcher's own
+ * read-only/mutating split, exported so a second dispatcher (the loop's MCP-absent
+ * fallback, `src/loop/fallback.ts`) commits by the same rule rather than by a copy
+ * of this list that could drift from it.
+ */
+export function mutatesVault(name: string): boolean {
+  return MUTATING.has(name);
+}
+
+/**
+ * The options every OST tool is built with on this surface, from a pass context.
+ *
+ * One function rather than an object literal inside `buildDefs`, because the
+ * fallback path builds the same four read-only tools against the same vault and
+ * its whole claim is "the same answers the MCP surface would have given". Two
+ * literals are two chances for a config key to reach one surface and not the
+ * other — a `minSolutionsPerOpportunity` honoured by the server and defaulted by
+ * the fallback would make `ost_debt` report different numbers through the two
+ * routes, which is the quiet divergence that route exists to rule out.
+ */
+export function ostToolOptions(ctx: PassContext, surface: string): Parameters<typeof buildOstTools>[0] {
+  return {
+    vault: ctx.vault,
+    dir: ctx.dir,
+    remote: ctx.remote,
+    minSolutionsPerOpportunity: ctx.config.processes["P3_ideate"]?.minSolutionsPerOpportunity,
+    discoveryTarget: ctx.config.discovery?.target ?? undefined,
+    ageOutDays: ctx.config.evidence?.ageOutDays ?? undefined,
+    surface,
+    web: ctx.web,
+    productRepos: ctx.productRepos,
+    passContext: ctx,
+    configProblem: ctx.configProblem,
+  };
+}
+
+/**
  * Throw unless the vault is initialized: a git repo with an Outcome node.
  *
  * Kept for callers that genuinely cannot proceed without a tree. The stdio
@@ -94,22 +131,7 @@ interface ToolCallResult {
 }
 
 function buildDefs(ctx: PassContext): McpToolDef[] {
-  const built = buildOstTools(
-    {
-      vault: ctx.vault,
-      dir: ctx.dir,
-      remote: ctx.remote,
-      minSolutionsPerOpportunity: ctx.config.processes["P3_ideate"]?.minSolutionsPerOpportunity,
-      discoveryTarget: ctx.config.discovery?.target ?? undefined,
-      ageOutDays: ctx.config.evidence?.ageOutDays ?? undefined,
-      surface: "mcp",
-      web: ctx.web,
-      productRepos: ctx.productRepos,
-      passContext: ctx,
-      configProblem: ctx.configProblem,
-    },
-    MCP_TOOL_NAMES,
-  );
+  const built = buildOstTools(ostToolOptions(ctx, "mcp"), MCP_TOOL_NAMES);
   // fail-closed: reject any non-allowlisted or destructively-named tool. (git_commit/
   // git_push are exempt from this scan; they're kept off the MCP surface by MCP_TOOL_NAMES,
   // which the "exposes exactly the six" test locks down.)

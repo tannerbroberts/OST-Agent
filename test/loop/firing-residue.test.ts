@@ -32,7 +32,7 @@
  * exemption from quietly growing.
  *
  * **Non-vacuity, proved by mutation, both directions.** Narrowing
- * `FIRING_TRACE_PREFIX` to a path nothing writes (`".ost-agent/nowhere/"`) reds
+ * `FIRING_RESIDUE_PREFIXES` to a path nothing writes (`".ost-agent/nowhere/"`) reds
  * all four rows: the loop is refused (14 where 0 was expected) and the refusal
  * starts naming `events.jsonl`. Widening it to `".ost-agent/"` reds only row 4 —
  * rows 1–3 cannot see that difference, since every path they use is either the
@@ -140,7 +140,49 @@ describe("a pass leaves its trace uncommitted, and the next firing still starts"
     expect(r.code).toBe(0);
     expect(r.out).toMatch(/loop run .* open/);
     // The waiver is visible. A silent exemption is how a gate stops being read.
-    expect(r.out).toMatch(/carrying 1 uncommitted usage-trace path\(s\)/);
+    expect(r.out).toMatch(/carrying 1 uncommitted firing-record path\(s\)/);
+  });
+
+  test("the check phase's own census history is residue too — the wedge that fired live", () => {
+    // `ost-agent check` is the firing's mandatory check phase, and since v0.23 it
+    // keeps a rolling census record under `.ost-agent/census-history/`
+    // (`recordCensusFiring`). On the meta vault the first firing after that
+    // shipped left `?? .ost-agent/census-history/` behind, and every tick for
+    // the next seventeen hours was refused here with exit 14. The real command,
+    // not a hand-written file: the residue has to come from the path that
+    // actually produces it.
+    const check = spawnSync(TSX, [CLI, "check", "--vault", vault], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    expect(check.status).toBe(0);
+    const tree = workingTreeStatus(vault);
+    expect(tree.kind).toBe("dirty");
+    if (tree.kind !== "dirty") return;
+    expect(tree.entries).toContain("?? .ost-agent/census-history/");
+    expect(entriesRequiringAHuman(tree.entries)).toEqual([]);
+
+    const r = loopStart();
+    expect(r.code).toBe(0);
+    expect(r.out).toMatch(/loop run .* open/);
+  });
+
+  test("`loop health` names a path that would refuse `loop start`, instead of reporting nothing blocking", () => {
+    // The other half of the same seventeen hours: `loop health` printed
+    // "blocking: none" on a vault whose every tick was being refused. A reporter
+    // that cannot see the stopping state is a reassurance nobody measured.
+    fs.writeFileSync(path.join(vault, "zz-probe.md"), "left behind by an audit\n", "utf8");
+    const health = spawnSync(TSX, [CLI, "loop", "health", "--vault", vault], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    expect(health.status).toBe(0);
+    expect(health.stdout).toMatch(/tree: dirty — `loop start` refuses over 1 path\(s\): \?\? zz-probe\.md/);
+    // And the firing's own residue is not what it names: same filter as `start`.
+    fs.rmSync(path.join(vault, "zz-probe.md"));
+    spawnSync(TSX, [CLI, "check", "--vault", vault], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    const again = spawnSync(TSX, [CLI, "loop", "health", "--vault", vault], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    expect(again.stdout).toMatch(/^tree: clean$/m);
   });
 
   test("an ordinary stray file is still refused, trace or no trace", async () => {
@@ -163,6 +205,11 @@ describe("a pass leaves its trace uncommitted, and the next firing still starts"
     // either is precisely what D5 is for. Only `usage/` is waived.
     expect(entriesRequiringAHuman([" M .ost-agent/usage/events.jsonl"])).toEqual([]);
     expect(entriesRequiringAHuman(["?? .ost-agent/usage/"])).toEqual([]);
+    // The census history is the second mechanical record written by a path
+    // that never commits — see `FIRING_RESIDUE_PREFIXES` for the firing that
+    // made the argument. Untracked on its first firing, modified on every one after.
+    expect(entriesRequiringAHuman(["?? .ost-agent/census-history/"])).toEqual([]);
+    expect(entriesRequiringAHuman([" M .ost-agent/census-history/firings.jsonl"])).toEqual([]);
     expect(entriesRequiringAHuman(["?? .ost-agent/inbox/note.md"])).toEqual(["?? .ost-agent/inbox/note.md"]);
     expect(entriesRequiringAHuman(["?? .ost-agent/evidence/x.json"])).toEqual(["?? .ost-agent/evidence/x.json"]);
     expect(entriesRequiringAHuman(["?? .ost-agent/"])).toEqual(["?? .ost-agent/"]);

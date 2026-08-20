@@ -304,6 +304,19 @@ node "$CLI" loop step --phase pass --vault . -- \
   --disallowedTools "$DENIED_TOOLS" \
   --output-format text
 
+# If the pass reached no tool at all, the MCP surface was absent — the shape of the
+# twenty-two meta-vault firings that sealed `no-op` with nothing behind them. Rather
+# than end the night with nothing, route the half of the pass that needs no model
+# (ingest, check, status, debt) through the command line. The decision is the
+# loop's, read off the vault's own trace; the pass is not asked and cannot opt in.
+# Nothing is authored, every write verb is refused, and the run is stamped so the
+# seal below reports `degraded` — never `no-op` — however much this step prints.
+# Not under `set -e`: a verb that fails exits 1 here, and the check phase below is
+# still the gate.
+set +e
+node "$CLI" loop fallback --vault .
+set -e
+
 # `claude -p`'s exit code reports Claude Code's health, not the tree's — a pass that
 # wedged, skipped a phase, or left the vault red still exits 0. `ost-agent check` runs
 # the deterministic invariants and exits 1 on violations, which is the only mechanical

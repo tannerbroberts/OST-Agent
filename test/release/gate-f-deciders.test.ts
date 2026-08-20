@@ -199,6 +199,13 @@ const PURE_MODULES = [
  */
 const TRACE_READER_MODULES: Record<string, string> = {
   "degraded.ts": "F4 / H1 / H4",
+  // Reads the same trace through `degraded.ts`'s `countToolCallsSince` to decide
+  // whether the MCP surface was absent, and what it produces moves the verdict:
+  // its stamp on the open run is what `assessDegradation` turns into
+  // `mcp-absent-fallback`. The same weaker property holds and in the same
+  // direction — the surface can keep the fallback from engaging only by really
+  // calling a tool, and cannot erase a stamp that lives under `.git/`.
+  "fallback.ts": "F4 / H1 / H4",
 };
 
 /**
@@ -360,10 +367,12 @@ describe("1 — the enumeration covers every module that can become a decider in
     // the shared helpers rather than through `fs` — a module filed here that
     // stopped touching the trace would be claiming an exemption it no longer
     // needs, and part 5's weaker property would be covering nothing.
+    // `countToolCallsSince` is `degraded.ts`'s own reader over `readUsageEvents`;
+    // a module that reads the trace through it is reading the trace.
     for (const m of Object.keys(TRACE_READER_MODULES)) {
       const src = fs.readFileSync(path.join(loopDir, m), "utf8");
       expect(src, `src/loop/${m} is enumerated as a trace reader but does not read the trace`).toMatch(
-        /readUsageEvents/,
+        /readUsageEvents|countToolCallsSince/,
       );
     }
   });
