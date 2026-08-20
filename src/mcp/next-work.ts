@@ -32,6 +32,12 @@ import {
 import type { OstNode } from "../ost/node.js";
 import type { Vault } from "../ost/vault.js";
 import { classifyUnknown, contractGaps, resolutionState, type UnknownClass } from "../knowledge/unknowns.js";
+import {
+  VARIATION_DIMENSIONS,
+  buildIdeationPrompt,
+  variationAssignments,
+  type VariationAssignment,
+} from "../knowledge/forced-variation.js";
 import { CAUTIOUS_LANE, isLane, type LaneId } from "../knowledge/lanes.js";
 import { hasRecordedResult } from "../eval/evidence-debt.js";
 import { solutionsAwaitingObservation, solutionsMissingInstruments } from "../eval/buildable.js";
@@ -94,6 +100,21 @@ export interface UnderservedOpportunity {
    * entry is enough to blow a whole response budget on its own (Z2).
    */
   existingSolutions: string[];
+  /**
+   * One named variation dimension per candidate still needed (`needed -
+   * solutions` of them), no two alike — the forced-variation constraint, on
+   * the surface the model actually reads. "Generate distinct candidates" was
+   * already in the rules, and three phrasings of one idea satisfied it every
+   * time because nothing named what the difference had to be. Assigned by
+   * `buildIdeationPrompt` in `src/knowledge/forced-variation.ts`, starting
+   * after the dimensions the existing siblings already took, so a second pass
+   * over the same opportunity is not asked for the same axes again.
+   *
+   * Bounded by the number of named dimensions: an operator who sets
+   * `minSolutionsPerOpportunity` above that count gets one slot per dimension
+   * and no more, which the length of this list shows against `needed`.
+   */
+  variation: VariationAssignment[];
 }
 export interface BareSolution {
   title: string;
@@ -1094,6 +1115,17 @@ export function computeNextWork(
         const existing = childrenOfLayer(o, index, "Solution");
         // `solutions` is the real count and `existingSolutions` a sample of it —
         // the one comparison that matters (`solutions < min`) is made on the count.
+        const wanted = Math.min(min - existing.length, VARIATION_DIMENSIONS.length);
+        const variation =
+          wanted >= 1
+            ? variationAssignments(
+                buildIdeationPrompt({
+                  opportunity: o.title,
+                  existingSolutions: existing,
+                  candidates: wanted,
+                }),
+              )
+            : [];
         return {
           node: o,
           entry: {
@@ -1101,6 +1133,7 @@ export function computeNextWork(
             solutions: existing.length,
             needed: min,
             existingSolutions: existing.slice(0, MAX_LISTED_CHILDREN),
+            variation,
           },
         };
       })
