@@ -559,6 +559,16 @@ PROMPT_FILE="$(mktemp "${TMPDIR:-/tmp}/ost-build-prompt.XXXXXX")"
 CORRECTIONS="$(node "$CLI" corrections --state "$STATE" --project "$PWD" 2>/dev/null \
   || printf '(the corrections ledger could not be read this firing)')"
 
+# The three self-reflection questions the loop asks about its own brief, rendered
+# by the CLI for THIS target so each is bound to the solution and the test that
+# cleared it (src/loop/reflection.ts). Rendered here rather than typed into the
+# heredoc, because a copy of the questions in the script would be the abstract
+# form — "does it understand what to build?" — that a builder answers "yes" to by
+# reflex. Whether they catch anything is a human's measurement against the trace;
+# this only makes sure they are asked, and asked of a named node.
+REFLECTION="$(node "$CLI" reflection "$TARGET" --vault . 2>/dev/null \
+  || printf '(the reflection gauge could not be rendered this firing)')"
+
 cat >"$PROMPT_FILE" <<PROMPT
 $CORRECTIONS
 
@@ -644,6 +654,8 @@ Do NOT run 'ost-agent verify' yourself. The loop runs the instruments before and
 you, on purpose: an observation you can write at will is a build permit you granted
 yourself. Your job is to make the red command pass by building the thing, not to record
 what it did.
+
+$REFLECTION
 
 FINALLY, and this is required: write a report of at most 90 words to $REPORT, as one
 plain-text paragraph with no markdown. Say what you built, whether it merged, and any

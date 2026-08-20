@@ -174,6 +174,12 @@ const PURE_MODULES = [
   // the test, and in production the records it sees already came from
   // `health.ts`'s `readRuns`.
   "replay.ts",
+  // Renders the three self-reflection questions bound to a pass's solution and
+  // test, and audits a pass output for which of them arrived bound — both pure
+  // over the `OstNode[]` and the string the caller hands in. The tree it binds
+  // against is read by `Vault.readTree` in `cli/index.ts`, never here, and it
+  // decides nothing about whether a firing may run.
+  "reflection.ts",
 ];
 
 /**

@@ -45678,6 +45678,65 @@ function renderLineage(path67) {
   return path67.join(" \u2192 ");
 }
 
+// src/loop/reflection.ts
+var REFLECTION_QUESTIONS = [
+  {
+    key: "target",
+    stem: /Does the builder understand exactly what to build/,
+    binds: ["solution", "test"],
+    ask: (b2) => {
+      const why = b2.permit === "instrument" ? `"${b2.test}" is red: \`${b2.instrument ?? "(instrument unrecorded)"}\` fails today and must pass` : `"${b2.test}" carries a result a human recorded, and that finding is the reason`;
+      return `Does the builder understand exactly what to build \u2014 "${b2.solution}" \u2014 and why \u2014 ${why}?`;
+    }
+  },
+  {
+    key: "environment",
+    stem: /Does it understand the working environment/,
+    binds: ["solution", "test"],
+    ask: (b2) => `Does it understand the working environment \u2014 the repository "${b2.test}" is measured against, which it may change, and the vault holding "${b2.solution}", which it may read and never write?`
+  },
+  {
+    key: "human",
+    stem: /Are there further constraints/,
+    binds: ["solution"],
+    ask: (b2) => `Are there further constraints on building "${b2.solution}" that only a human can unblock \u2014 ones the builder would otherwise work around silently rather than name?`
+  }
+];
+function assertBound(name, value) {
+  const t2 = (value ?? "").trim();
+  if (t2.length === 0 || /^(undefined|null)$/i.test(t2)) {
+    throw new Error(
+      `refusing to render the reflection gauge: ${name} is ${t2.length === 0 ? "empty" : `the literal string "${t2}"`} \u2014 a question asked of no node is one a builder answers "yes" to by reflex`
+    );
+  }
+}
+function renderReflectionGauge(binding) {
+  assertBound("the solution", binding.solution);
+  assertBound("the test", binding.test);
+  const questions = REFLECTION_QUESTIONS.map((q2, i2) => `  ${i2 + 1}. ${q2.ask(binding)}`);
+  return [
+    "SELF-REFLECTION GAUGE \u2014 three questions this loop asks about its own brief to you, each bound to",
+    "the nodes of this pass rather than asked in the abstract:",
+    "",
+    ...questions,
+    "",
+    'Answer all three in your final message, one sentence each, before you exit. A bare "yes" is',
+    "the misunderstanding they exist to catch: name the thing you understood it to be, so a reader of",
+    "the trace can see whether the brief landed or you filled its gaps yourself."
+  ].join("\n");
+}
+function reflectionBinding(tree, solution) {
+  const permit = buildPermit(tree, solution);
+  if (permit.cleared && permit.test) {
+    return { solution, test: permit.test, permit: "instrument", instrument: permit.instrument };
+  }
+  const node = tree.find((n) => n.layer === "Solution" && titlesMatch(n.title, solution));
+  if (!node) return null;
+  const withResult = testsUnderSolution(node, byTitle([...tree])).find(hasRecordedResult);
+  if (!withResult) return null;
+  return { solution: node.title, test: withResult.title, permit: "result" };
+}
+
 // src/ost/results.ts
 import path27 from "node:path";
 function recordResult(vaultDir, filing) {
@@ -59813,6 +59872,17 @@ program2.command("lineage").argument("<node>", "the node to trace back to the Ou
     return;
   }
   console.log(renderLineage(path67));
+});
+program2.command("reflection").argument("<solution>", "the Solution a pass was cleared to build").description(
+  "the three self-reflection questions the build loop asks about its own brief, each bound to this solution and the test that cleared it (exits 1 when nothing has)"
+).option("--vault <dir>", VAULT_OPTION_HELP).action((solution, opts) => {
+  const binding = reflectionBinding(buildPassContext(opts.vault).vault.readTree(), solution);
+  if (!binding) {
+    console.error(`no permit clears "${solution}" \u2014 no red instrument and no recorded result beneath it, so there is no pass to ask about`);
+    process.exitCode = 1;
+    return;
+  }
+  console.log(renderReflectionGauge(binding));
 });
 program2.command("rollup").description("the top-level view: what sits under each bucket, computed from the tree (no model needed)").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
   const ctx = buildPassContext(opts.vault);
