@@ -32002,6 +32002,12 @@ var UNKNOWN_ACTOR = "unknown";
 function isActor(value) {
   return typeof value === "string" && ACTORS.includes(value);
 }
+function transcriptFileExists(source, dirs) {
+  const m = /^TRANSCRIPT:(.+)$/i.exec(source.trim());
+  if (!m) return false;
+  const id = m[1];
+  return dirs.some((d) => fs5.existsSync(path5.join(d.dir, `${id}.jsonl`)));
+}
 function stateDir(vaultDir) {
   return path5.join(path5.resolve(vaultDir), ".ost-agent", "state");
 }
@@ -38962,6 +38968,10 @@ var EVIDENCE_ID_PREFIXES = [
 var EVIDENCE_ID_SHAPE = new RegExp(`^(?:${EVIDENCE_ID_PREFIXES.join("|")}):`, "i");
 function claimsStoredEvidence(source) {
   return !!source && EVIDENCE_ID_SHAPE.test(source.trim());
+}
+function resolveClaimedSource(dir, source, transcriptDirs2) {
+  if (readEvidence(dir).some((e) => e.id === source)) return "resolved";
+  return transcriptFileExists(source, transcriptDirs2) ? "unharvested" : "unresolvable";
 }
 function byTitle(nodes) {
   return new Map(nodes.map((n) => [n.title, n]));
@@ -51441,6 +51451,16 @@ A person outside the building is the measurement here: ${input.humansRequired.tr
         const born = unearnedRung(node, /* @__PURE__ */ new Map());
         if (born) throw new Error(rungRefusal(born));
         assertWithinStanding(dir, node, input.evidence);
+        if (claimsStoredEvidence(node.source)) {
+          const config2 = ctx.passContext?.config;
+          const dirs = config2?.adapters.transcript.enabled ? transcriptDirs(dir, config2) : [];
+          const resolution = resolveClaimedSource(dir, node.source, dirs);
+          if (resolution === "unresolvable") {
+            throw new Error(
+              `"${node.title}" cites source "${node.source}", which claims a stored evidence record but no record under .ost-agent/evidence/ carries that id, and no file on disk would produce it either (ids are matched exactly, so case and extension count). Cite the id a source actually minted, or drop the claim to honest prose about where this came from (e.g. "a conversation with the founder").`
+            );
+          }
+        }
         vault.assertLinkable(input.parent, input.title);
         vault.createNode(node);
         try {

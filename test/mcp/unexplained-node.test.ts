@@ -62,7 +62,7 @@ test("an injected node file is named by ost_check after a mutating call", async 
     layer: "Opportunity",
     parent: "Retention",
     body: "b",
-    source: "INBOX:x",
+    source: "a note from the founder",
     evidence: "stated",
   });
 
@@ -87,7 +87,7 @@ test("a node created through the tool surface is not reported", async () => {
     layer: "Opportunity",
     parent: "Retention",
     body: "b",
-    source: "INBOX:x",
+    source: "a note from the founder",
     evidence: "stated",
   });
 
@@ -148,7 +148,7 @@ test("the trace records which node files each invocation created", async () => {
     layer: "Opportunity",
     parent: "Retention",
     body: "b",
-    source: "INBOX:x",
+    source: "a note from the founder",
     evidence: "stated",
   });
 

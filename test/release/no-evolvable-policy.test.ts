@@ -266,7 +266,7 @@ describe("the unattended surface writes no policy into the vault", () => {
   const CALLS: Array<{ name: string; arguments: Record<string, unknown> }> = [
     {
       name: "ost_create_node",
-      arguments: { title: "I want a reason to come back", layer: "Opportunity", parent: ROOT, body: "b", source: "INBOX:x", evidence: "stated" },
+      arguments: { title: "I want a reason to come back", layer: "Opportunity", parent: ROOT, body: "b", source: "a note from the founder", evidence: "stated" },
     },
     {
       // Cites the publisher on purpose. `ost_rank_source` no longer moves a source
@@ -282,13 +282,13 @@ describe("the unattended surface writes no policy into the vault", () => {
       // The belief the solution rests on. A test attaches under one of these
       // now, not under the solution directly.
       name: "ost_create_node",
-      arguments: { title: "Streaks change return behaviour", layer: "Assumption", parent: "Daily streak", body: "b", source: "INBOX:x", evidence: "assertion" },
+      arguments: { title: "Streaks change return behaviour", layer: "Assumption", parent: "Daily streak", body: "b", source: "a note from the founder", evidence: "assertion" },
     },
     {
       name: "ost_create_node",
       // Carries an instrument because an AssumptionTest without one is refused at
       // the boundary now: a test nothing can run is a test the builder cannot use.
-      arguments: { title: "Streaks lift day-7 return", layer: "AssumptionTest", parent: "Streaks change return behaviour", body: "## Format\nreturn rate", source: "INBOX:x", evidence: "stated", instrument: "npx vitest run test/streaks.test.ts" },
+      arguments: { title: "Streaks lift day-7 return", layer: "AssumptionTest", parent: "Streaks change return behaviour", body: "## Format\nreturn rate", source: "a note from the founder", evidence: "stated", instrument: "npx vitest run test/streaks.test.ts" },
     },
     { name: "ost_link_nodes", arguments: { parent: "Streaks change return behaviour", child: "Streaks lift day-7 return" } },
     // Deliberately NOT "## Results". That heading is reserved
@@ -320,7 +320,7 @@ describe("the unattended surface writes no policy into the vault", () => {
     // that carries no recorded result.
     {
       name: "ost_create_node",
-      arguments: { title: "A streak counter", layer: "Solution", parent: "I want a reason to come back", body: "b", source: "INBOX:x", evidence: "assertion" },
+      arguments: { title: "A streak counter", layer: "Solution", parent: "I want a reason to come back", body: "b", source: "a note from the founder", evidence: "assertion" },
     },
     { name: "ost_edit_node", arguments: { title: "A streak counter", prose: "A sharper framing of the same idea.", why: "the first draft named a mechanism, not the need it serves" } },
     { name: "ost_detach_nodes", arguments: { parent: "I want a reason to come back", child: "A streak counter", why: "re-parenting under the surviving solution" } },
