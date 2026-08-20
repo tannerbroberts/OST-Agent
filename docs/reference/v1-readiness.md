@@ -3089,7 +3089,24 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,181 tests across 266 files, verified 2026-08-20 (`npx vitest run`,
+> *Today:* **met** — 3,194 tests across 267 files, verified 2026-08-20 (`npx vitest run`,
+> after "Every regretted write becomes a new pre-write invariant, so the class cannot
+> recur" was given its definition of done: `test/ost/regretted-write-invariants.test.ts`
+> replays ten writes this vault's own History and Issues sections record a human
+> considering a mistake — a wrong-argument-name `undefined`, an empty annotation, a
+> wrapped wikilink, a second parent, a dangling edge, a layer-mismatched edge, a merge
+> laundering an untested node's evidence, a tag smuggling a heading — against the live
+> tool surface; 8 of 10 are refused mechanically today, clearing the assumption test's
+> 6-of-10 bar, and 2 are deliberately left uncaught because catching them needs reading a
+> prior pass's reasoning in prose, not the call's own arguments. One of the eight needed
+> building rather than merely confirming: `## History` joined `RESERVED_HEADINGS`
+> (`src/ost/headings.ts`), so `editProse` and `mergeNodes` now carry a node's History
+> section across a rewrite the way they already carried `## Results`, closing the specific
+> regret ("A tool call I got slightly wrong destroyed the note I was filing," 2026-08-05)
+> where three re-parenting records were silently dropped by an edit that did not
+> reproduce them. What it does not settle: the fixture set is drawn from regrets that were
+> *noticed and written down*, so it says nothing about the harder, unrecorded class.
+> Previously 3,181 tests across 266 files, verified 2026-08-20 (`npx vitest run`,
 > after "Every refusal a surface returns is recorded as tree evidence, not just as a
 > failed call" was given its definition of done: `classifyUsageEvent` (`src/adapters/
 > usage.ts`) tells a permission denial apart from a tool's own error by a `denied` field

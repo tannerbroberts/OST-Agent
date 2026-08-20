@@ -81,6 +81,24 @@ export const INSTRUMENT_LOG_HEADING = "## Instrument Log";
 export const RETRACTION_HEADING = "## Retraction";
 
 /**
+ * The heading a node's own audit trail lives under — appended to, never
+ * rewritten, by every mutating method in `Vault`.
+ *
+ * Reserved for a different reason than the other four: it carries no gate's
+ * permit, but a rewrite that does not know about it destroys it just the same.
+ * `editProse` and `mergeNodes` replace a node's non-reserved prose wholesale, so
+ * before this heading joined the set, an edit whose caller did not reproduce the
+ * node's own History section silently dropped every entry in it — three
+ * re-parenting records lost in one call, observed and reproduced twice on
+ * 2026-08-05 (`ost_edit_node`, "A tool call I got slightly wrong destroyed the
+ * note I was filing"). The rule that was supposed to prevent this already
+ * existed in prose — "`## History` stays append-only: correct it by appending a
+ * new dated line, never by editing an old one" — and the mechanism simply never
+ * enforced it, because the section was not in this set.
+ */
+export const HISTORY_HEADING = "## History";
+
+/**
  * Headings only the human/CLI path may author.
  *
  * `## Results` is B1: `hasRecordedResult` clears `gateSolution`, backs a
@@ -92,12 +110,15 @@ export const RETRACTION_HEADING = "## Retraction";
  * authorizing a build.
  * `## Retraction` is the whole tree: a node carrying one is returned by no read,
  * so authoring one is deleting a node from every count, scan and gate at once.
+ * `## History` is the node's own record of what happened to it: nothing a gate
+ * reads, but the one section every mutating method promises never to rewrite.
  */
 export const RESERVED_HEADINGS: readonly string[] = Object.freeze([
   RESULTS_HEADING,
   UNCOVERED_HEADING,
   INSTRUMENT_LOG_HEADING,
   RETRACTION_HEADING,
+  HISTORY_HEADING,
 ]);
 
 /**

@@ -33828,11 +33828,13 @@ var RESULTS_HEADING = "## Results";
 var UNCOVERED_HEADING = "## Uncovered";
 var INSTRUMENT_LOG_HEADING = "## Instrument Log";
 var RETRACTION_HEADING = "## Retraction";
+var HISTORY_HEADING = "## History";
 var RESERVED_HEADINGS = Object.freeze([
   RESULTS_HEADING,
   UNCOVERED_HEADING,
   INSTRUMENT_LOG_HEADING,
-  RETRACTION_HEADING
+  RETRACTION_HEADING,
+  HISTORY_HEADING
 ]);
 var VERDICTS = ["supported", "refuted", "inconclusive"];
 function headingName(heading) {
@@ -44124,11 +44126,11 @@ function isInstrument(r2) {
 }
 
 // src/eval/shipped-audit.ts
-var HISTORY_HEADING = "## History";
+var HISTORY_HEADING2 = "## History";
 var SHIPPED_PROMOTION = /^[-*]\s+\d{4}-\d{2}-\d{2}\b.*status:.*(?:→|->)\s*shipped\s*(?:—|--)\s*\S/;
 function historyLines(body) {
   const lines = body.split("\n");
-  const start = lines.findIndex((l) => isHeadingLine(l, HISTORY_HEADING));
+  const start = lines.findIndex((l) => isHeadingLine(l, HISTORY_HEADING2));
   if (start === -1) return [];
   const out = [];
   for (const line of lines.slice(start + 1)) {
@@ -56619,7 +56621,7 @@ var HEADER = [
   "a briefing names work, it does not say the work has been taken."
 ].join("\n");
 var CURRENT_HEADING = /^## Current — (.+)$/;
-var HISTORY_HEADING2 = /^## History$/;
+var HISTORY_HEADING3 = /^## History$/;
 var ENTRY_HEADING = /^### (.+)$/;
 function assertWritable(name, value) {
   const t2 = value.trim();
@@ -56636,7 +56638,7 @@ function parseBriefing(content) {
   const lines = content.split("\n");
   const currentAt = lines.findIndex((l) => CURRENT_HEADING.test(l));
   if (currentAt === -1) return { current: freeFormReading(content), history: [] };
-  const historyAt = lines.findIndex((l, i2) => i2 > currentAt && HISTORY_HEADING2.test(l));
+  const historyAt = lines.findIndex((l, i2) => i2 > currentAt && HISTORY_HEADING3.test(l));
   const currentEnd = historyAt === -1 ? lines.length : historyAt;
   const current = {
     date: CURRENT_HEADING.exec(lines[currentAt])[1],
