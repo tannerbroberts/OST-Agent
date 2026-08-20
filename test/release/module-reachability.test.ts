@@ -116,6 +116,26 @@ const KNOWN_UNREACHABLE: Record<string, string> = {
   "src/loop/early-push.ts":
     "built and tested; parked pending the operator's call on pushing WIP to a shared branch on a cadence",
   /*
+   * Reads an answer written into a question's open field and decides whether it
+   * carries a decision or not — built and replayed against the two recorded
+   * rejections `TRANSCRIPT:42dcb7b4-f01b-40bc-a211-ed4a44a74fd3` captured, where
+   * the operator wrote what they meant instead of picking an option
+   * (`test/loop/free-text-answer-parsing.test.ts`).
+   *
+   * Not wired, because the open field it reads from does not exist anywhere in
+   * this repository. `AskUserQuestion` is Claude Code's own tool; nothing here
+   * calls the model or can add a field to that tool's shape. This module proves
+   * the feasibility half of the solution — that a written sentence can be turned
+   * into a decision without a follow-up question — which is exactly what its
+   * assumption test asked for and no more: it says nothing about whether an
+   * open field ever reaches an operator, only that if it did, this is what would
+   * read it. It comes off when something in this repository actually presents
+   * an open field beside a question and calls this to read what came back, or
+   * goes when the node is deferred.
+   */
+  "src/loop/free-text-answer.ts":
+    "built and replayed against the two recorded rejections; parked because no open field exists anywhere in this repository for it to read from",
+  /*
    * Derives the next release number from the registry and origin's tags
    * rather than the local package.json — built and replayed against every
    * real ost-agent release (`test/release/registry-derived-version.test.ts`).

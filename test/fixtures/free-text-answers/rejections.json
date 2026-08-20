@@ -1,0 +1,22 @@
+{
+  "rejections": [
+    {
+      "transcript": "TRANSCRIPT:42dcb7b4-f01b-40bc-a211-ed4a44a74fd3",
+      "askEntry": 59,
+      "askId": "toolu_019rSHSq6M945o6Kh1VprAxy",
+      "question": "What should the appended tests be allowed to do to the build gate?",
+      "rejectionEntry": 64,
+      "answerEntry": 69,
+      "text": "The OST likes a test because it gives a definitive answer, from reality, about the epistemic uncertainty of the tree. A builder likes a test because it's well-defined, easy to run, and you know when the test is broken, because it's your job as the builder to fix it.\n\nWe need to please both parties when the OST-Agent builds out a test."
+    },
+    {
+      "transcript": "TRANSCRIPT:42dcb7b4-f01b-40bc-a211-ed4a44a74fd3",
+      "askEntry": 72,
+      "askId": "toolu_01PyJtYES8fvwBg2Adv7Kc7y",
+      "question": "When the instrument's input is the code itself (a feasibility assumption — \"the hook refuses a conflict marker\"), running it is already contact with reality. May the runner file that result and clear the build gate?",
+      "rejectionEntry": 73,
+      "answerEntry": 78,
+      "text": "The test is where we the agent prooves out their alignment to reality. If they can build an opportunity, a solution, and a test, then the test should succeed, the solution should be built, the opportunity should move the metric."
+    }
+  ]
+}

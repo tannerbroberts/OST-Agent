@@ -167,6 +167,11 @@ const PURE_MODULES = [
   // `test/loop/credentialed-step-independence.test.ts` is read by the test, not
   // by this module.
   "credentialedSteps.ts",
+  // Reads an already-in-hand answer string and decides whether it carries a
+  // decision or not, all in memory. Nothing here opens a file; the two recorded
+  // rejections it is replayed against in `test/loop/free-text-answer-parsing.test.ts`
+  // are read by the test's fixture, not by this module.
+  "free-text-answer.ts",
 ];
 
 /**
