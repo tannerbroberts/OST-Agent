@@ -3089,14 +3089,28 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,162 tests across 264 files, verified 2026-08-19 (`npx vitest run`,
-> after "Every path the config declares is checked when the config is read, not when
-> something reaches for it" landed: `readConfig` now runs `declaredPathDiagnostics`
-> (`src/config/load.ts`) on every successful read, naming `product.repos` as absent
-> when `adapters.transcript.projectDir` names a repository and `product.repos` was
-> never set — the one required-but-absent shape the 2026-08-06 sweep actually hit
-> (`test/config/declared-path-validation.test.ts`). Previously, after "Every
-> machine-selected quote carries the sentence it was cut from" landed:
+> *Today:* **met** — 3,174 tests across 265 files, verified 2026-08-19 (`npx vitest run`,
+> after "Every recorded step carries the directory and argv it actually ran with" was
+> given its definition of done: `reconstructInvocation` and `recentNonZeroExitSteps`
+> (`src/loop/replay.ts`) answer the mechanical half of "Try to reproduce ten recorded
+> failures from the record alone" — whether a step's `cwd` and `argv` are present and
+> well-formed enough to rebuild the invocation — over the 10 most recent real
+> non-refused failures in the meta vault's own ledger, closing 10 of the pre-committed
+> 5-of-10 bar (`test/loop/record-replay-sufficiency.test.ts`,
+> `test/fixtures/record-replay/PROVENANCE.md`). What it does not settle: whether the
+> rebuilt command reproduces the original exit code, which stays a person's judgement;
+> and the literal 10-most-recent-non-zero-exits reading of the assumption test would
+> have been cleared by construction, since every `refused: "spend-ceiling"` step
+> carries perfect `cwd`/`argv` despite never having spawned a command at all —
+> `recentNonZeroExitSteps` excludes them for that reason, named in the fixture's
+> PROVENANCE. Previously, after "Every path the config declares is checked when the
+> config is read, not when something reaches for it" landed: `readConfig` now runs
+> `declaredPathDiagnostics` (`src/config/load.ts`) on every successful read, naming
+> `product.repos` as absent when `adapters.transcript.projectDir` names a repository
+> and `product.repos` was never set — the one required-but-absent shape the 2026-08-06
+> sweep actually hit (`test/config/declared-path-validation.test.ts`).
+> Previously 3,162 tests across 264 files, verified 2026-08-19 (`npx vitest run`, after
+> "Every machine-selected quote carries the sentence it was cut from" landed:
 > `sentencesAround` (`src/ost/lanes.ts`) generalises the whole-sentence rendering
 > `proseLaneAmbiguity` already did for a two-lane declaration to the other lane-triage
 > quoting surfaces — `proseDeclaredLane`'s clean single-lane quote, `laneConflicts`, and

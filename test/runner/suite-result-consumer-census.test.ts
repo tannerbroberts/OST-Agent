@@ -121,7 +121,7 @@ const CENSUS: readonly Consumer[] = [
   {
     name: "the loop's own build check",
     anchors: [
-      { file: "src/loop/health.ts", reads: /run\.steps\.some\(\(s\) => s\.exit !== 0\)/ },
+      { file: "src/loop/health.ts", reads: /run\.steps\.some\(stepFailed\)/ },
       // The recorder: `loop step` spawns the phase command as argv and records
       // the exit it actually produced. `exitLaundering.ts` guards this channel;
       // it does not read it.

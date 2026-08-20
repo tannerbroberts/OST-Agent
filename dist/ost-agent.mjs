@@ -57126,8 +57126,11 @@ function appendStep(dir, step) {
   });
   return open;
 }
+function stepFailed(step) {
+  return step.exit !== 0;
+}
 function computeVerdict(run) {
-  if (run.steps.some((s) => s.exit !== 0)) return "unhealthy";
+  if (run.steps.some(stepFailed)) return "unhealthy";
   const phases = new Set(run.steps.map((s) => s.phase));
   if (!REQUIRED_PHASES.every((p2) => phases.has(p2))) return "unhealthy";
   if (run.degradations && run.degradations.length > 0) return "degraded";
