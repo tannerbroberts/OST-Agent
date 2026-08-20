@@ -29,6 +29,7 @@ import { gateSolution, hasRecordedResult } from "../../src/eval/evidence-debt.js
 import { MCP_TOOL_NAMES } from "../../src/mcp/server.js";
 import {
   declaresHeading,
+  HISTORY_HEADING,
   INSTRUMENT_LOG_HEADING,
   RESERVED_HEADINGS,
   RESULTS_HEADING,
@@ -346,7 +347,7 @@ describe("the guard and the readers cannot drift apart", () => {
     });
   }
 
-  test("the reserved set is exactly the headings a gate reads as a measurement", () => {
+  test("the reserved set is exactly the headings a gate reads, plus the one every mutator promises never to rewrite", () => {
     // `## Instrument Log` earns its place on the same rule as the other two, and
     // the bar is stated in `ost/headings.ts`: a gate reads it. A recorded RED
     // observation is what releases a solution to the build half of the loop
@@ -362,17 +363,34 @@ describe("the guard and the readers cannot drift apart", () => {
     // can see: the node a violation hangs off is no longer in the list the
     // invariant is given. Same rule, stronger claim.
     // (`test/ost/retraction-consumers.test.ts` is where that is held.)
+    //
+    // `## History` is the fifth and it widens the bar again, in the direction the
+    // other four never needed: no gate reads it, but `editProse` and `mergeNodes`
+    // rewrite a node's non-reserved prose wholesale, and before this admitted it
+    // an edit whose caller did not reproduce the node's own History section
+    // silently dropped every entry in it (`test/ost/regretted-write-invariants.test.ts`
+    // — three re-parenting records lost in one call, 2026-08-05). Reserving it
+    // buys the same carry-across `splitReservedSections`/`joinReservedSections`
+    // already give the other four, for a section no gate needed protected but
+    // every rewrite needed to leave alone.
     expect([...RESERVED_HEADINGS]).toEqual([
       RESULTS_HEADING,
       UNCOVERED_HEADING,
       INSTRUMENT_LOG_HEADING,
       RETRACTION_HEADING,
+      HISTORY_HEADING,
     ]);
   });
 
-  test("the newest reserved heading is refused on the agent's surface like the rest", async () => {
+  test("the newest measurement heading is refused on the agent's surface like the rest", async () => {
     await expect(
       call("ost_append_to_node", { title: "Asm", section: `${INSTRUMENT_LOG_HEADING}\n- 2026-08-03 **red** (exit 1)` }),
+    ).rejects.toThrow(/reserved heading/);
+  });
+
+  test("## History is refused on the agent's surface too, though no gate reads it", async () => {
+    await expect(
+      call("ost_append_to_node", { title: "Asm", section: `${HISTORY_HEADING}\n- 2026-08-03 forged entry` }),
     ).rejects.toThrow(/reserved heading/);
   });
 });
