@@ -261,8 +261,13 @@ export function appendStep(dir: string, step: Omit<LoopStepRecord, "at">): LoopR
  * no standing to make one. That is the whole of "not allowed to report a clean
  * run", expressed where a caller cannot route around it.
  */
+/** Whether a step's own exit code, not the run's derived verdict, was non-zero. */
+export function stepFailed(step: LoopStepRecord): boolean {
+  return step.exit !== 0;
+}
+
 export function computeVerdict(run: LoopRunRecord): LoopVerdict {
-  if (run.steps.some((s) => s.exit !== 0)) return "unhealthy";
+  if (run.steps.some(stepFailed)) return "unhealthy";
   const phases = new Set(run.steps.map((s) => s.phase));
   if (!REQUIRED_PHASES.every((p) => phases.has(p))) return "unhealthy";
   if (run.degradations && run.degradations.length > 0) return "degraded";

@@ -167,6 +167,13 @@ const PURE_MODULES = [
   // `test/loop/credentialed-step-independence.test.ts` is read by the test, not
   // by this module.
   "credentialedSteps.ts",
+  // Reconstructs an executable invocation (cwd + argv) from a `LoopStepRecord`
+  // and filters/sorts a `LoopRunRecord[]` the caller hands in — both pure
+  // functions over already-parsed records. It opens no file itself; the corpus
+  // it runs against in `test/loop/record-replay-sufficiency.test.ts` is read by
+  // the test, and in production the records it sees already came from
+  // `health.ts`'s `readRuns`.
+  "replay.ts",
 ];
 
 /**
