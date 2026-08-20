@@ -28,6 +28,20 @@ import type { Degradation } from "./degraded.js";
 import type { SpendCeiling } from "./spend.js";
 
 /**
+ * What a firing had, and what it declared it could not work without and did
+ * not get — stated inline rather than imported from `tool-surface-record.ts`,
+ * which derives it. That module opens an arbitrary caller-named file (the pass
+ * declaration) rather than anything Gate F polices, and reading it is exactly
+ * the "opens a file and decides nothing" shape `test/release/gate-f-deciders.ts`
+ * files under REPORTER_MODULES — a class that is only safe while no decider
+ * imports it. TypeScript's structural typing makes the two sides agree without
+ * either file importing the other.
+ */
+export type ToolSurfaceObservation =
+  | { readonly present: readonly string[]; readonly expectedAndAbsent: readonly string[] }
+  | { readonly unknown: string };
+
+/**
  * `degraded` is the newest and the only one that is not about the tree.
  *
  * The other four answer "what did this firing do to the vault?" — it advanced it,
@@ -99,6 +113,20 @@ export interface LoopRunRecord {
    * every record written before this field existed.
    */
   degradations?: Degradation[];
+  /**
+   * The tool surface this firing observed at start — what it had, and what it
+   * declared it required and did not get. Stamped once, from the same
+   * declaration and available-tools list `required-tools` already resolved
+   * ahead of `loop start`, never by listing or calling a tool a second time.
+   *
+   * `unknown` rather than absent when a pass file was named and could not be
+   * read or parsed — a run whose surface could not be determined is not the
+   * same fact as a run nobody asked to record one, and collapsing the two would
+   * make an undeclared pass look like a pass with nothing missing. Genuinely
+   * absent only when `loop start` was not given a pass to check against, and on
+   * every record written before this field existed.
+   */
+  toolSurface?: ToolSurfaceObservation;
 }
 
 /**
@@ -191,7 +219,14 @@ function nextRunId(startedAt: string): string {
 
 export function startRun(
   dir: string,
-  meta: { loopVersion: string; cliVersion: string; headBefore?: string; ceiling?: SpendCeiling },
+  meta: {
+    loopVersion: string;
+    cliVersion: string;
+    headBefore?: string;
+    ceiling?: SpendCeiling;
+    /** Already computed by the caller — this function never derives it itself. */
+    toolSurface?: ToolSurfaceObservation;
+  },
 ): LoopRunRecord {
   sweepCrashed(dir);
   const startedAt = new Date().toISOString();
@@ -202,6 +237,7 @@ export function startRun(
     cliVersion: meta.cliVersion,
     ...(meta.headBefore ? { headBefore: meta.headBefore } : {}),
     ...(meta.ceiling ? { ceiling: meta.ceiling } : {}),
+    ...(meta.toolSurface ? { toolSurface: meta.toolSurface } : {}),
     steps: [],
   };
   fs.writeFileSync(openRunPath(dir), JSON.stringify(run, null, 2));

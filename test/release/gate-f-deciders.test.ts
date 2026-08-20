@@ -241,8 +241,16 @@ const TRACE_READER_MODULES: Record<string, string> = {
  * and this classification fails the build rather than silently going stale. That
  * assertion is doing real work for `senses.ts` specifically: it is the line that
  * would fail the build if a future change ever let the census decide anything.
+ *
+ * `tool-surface-record.ts` is the fifth, and closest in shape to `senses.ts`: it
+ * reads a file — the pass declaration named at `loop start` — and returns a
+ * VALUE, `ToolSurfaceObservation`, that `health.ts` stamps into the run record
+ * verbatim. Nothing in `computeVerdict` reads that field, so the file it opens
+ * cannot move a Gate F verdict; the two modules deliberately do not import one
+ * another (see the type's own comment in `health.ts`), which is what keeps this
+ * classification, rather than READER_MODULES, honest.
  */
-const REPORTER_MODULES = ["questions.ts", "corrections.ts", "senses.ts", "question-bank.ts"];
+const REPORTER_MODULES = ["questions.ts", "corrections.ts", "senses.ts", "question-bank.ts", "tool-surface-record.ts"];
 
 /**
  * The fifth class, and the one that could most easily have been a hole.

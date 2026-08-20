@@ -30,6 +30,7 @@ import { evaluateCadence, parseCadence } from "../loop/cadence.js";
 import { detectLaunderedExit, launderedExitMessage } from "../loop/exitLaundering.js";
 import { degradedReport, observeDegradation } from "../loop/degraded.js";
 import { appendStep, readOpenRun, readRuns, sealRun, startRun, sweepCrashed } from "../loop/health.js";
+import { observeToolSurface } from "../loop/tool-surface-record.js";
 import { announceUpdate, applyAtCheckpoint, subscriptionOf, updateStatusLine } from "../loop/updates.js";
 import { observeSenses, senseCensusReport } from "../loop/senses.js";
 import { computeShortfall, declareScope, shortfallReport } from "../loop/scope.js";
@@ -468,7 +469,16 @@ export function registerLoopCommands(program: Command): void {
       "--holder-pid <pid>",
       "pid of the process that owns the whole firing (defaults to this command's parent)",
     )
-    .action((opts: { vault: string; holderPid?: string }) => {
+    .option(
+      "--pass <file>",
+      "the SKILL.md (or command file) `required-tools` was already checked against — stamps the run record's " +
+        "tool-surface block from the same declaration, without reading it a second time for a different purpose",
+    )
+    .option(
+      "--available <csv>",
+      "the tools this firing will actually be able to call — the same string handed to `required-tools --available`",
+    )
+    .action((opts: { vault: string; holderPid?: string; pass?: string; available?: string }) => {
       // FIRST, before the lock and before any record is opened, so a refusal
       // leaves nothing behind — no lock for the next firing to break, no open
       // marker for it to sweep as `crashed`. The cost of that ordering is
@@ -556,11 +566,26 @@ export function registerLoopCommands(program: Command): void {
       // to `ost.config.yaml` mid-firing cannot widen the budget of the firing
       // that is spending it. See `LoopRunRecord.ceiling`.
       const stampedCeiling = ceilingOf(opts.vault, config.loop?.spend);
+      // Computed from the same `--pass`/`--available` a wrapper already resolved
+      // for `required-tools`, never by listing or calling a tool again. `--pass`
+      // named with no `--available` (or the reverse) is a caller that asked for
+      // this to be recorded and gave it half of what it needs — `unknown` rather
+      // than silently dropping the block, same as an unreadable pass file.
+      const toolSurface =
+        opts.pass === undefined && opts.available === undefined
+          ? undefined
+          : opts.pass === undefined || opts.available === undefined
+            ? { unknown: "only one of --pass and --available was given; the tool surface needs both" }
+            : observeToolSurface({
+                passFile: path.resolve(opts.pass),
+                available: opts.available.split(",").map((t) => t.trim()).filter(Boolean),
+              });
       const opened = startRun(opts.vault, {
         loopVersion: VERSION,
         cliVersion: VERSION,
         headBefore: gitHead(opts.vault),
         ...(stampedCeiling ? { ceiling: stampedCeiling } : {}),
+        ...(toolSurface ? { toolSurface } : {}),
       });
       stampFiringLock(opts.vault, lock.record, opened.runId);
       console.log(`loop run ${opened.runId} open`);

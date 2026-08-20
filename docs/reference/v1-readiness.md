@@ -3089,7 +3089,21 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,202 tests across 268 files, verified 2026-08-20 (`npx vitest run`,
+> *Today:* **met** — 3,211 tests across 269 files, verified 2026-08-20 (`npx vitest run`,
+> after "Every run records the tool surface it actually had" was given its definition of
+> done: `test/loop/run-record-tool-surface.test.ts` pins that `loop start`, handed the same
+> `--pass`/`--available` a wrapper already resolved for `required-tools`, stamps
+> `LoopRunRecord.toolSurface` with what the firing had and which required tools it declared
+> and did not get — a tool deliberately withheld comes back `expectedAndAbsent`, the same
+> tool on the full surface comes back `present`, and a pass file that cannot be read or
+> parsed comes back `unknown` rather than the block being silently omitted. The mechanism
+> (`src/loop/tool-surface-record.ts`) derives the comparison from `required-tools.ts`'s own
+> `resolveRequiredTools` rather than re-listing a live surface, so nothing is consulted
+> twice; `examples/automation/autonomous-pass.sh` now passes the same `$SKILL_FILE`/
+> `$OST_TOOLS` it already checked once into `loop start`. What this does not settle: whether
+> the record is worth reading — that is "Hand a reader five run records and ask which passes
+> did their job," a separate, unbuilt assumption test this one deliberately does not need.
+> Previously 3,202 tests across 268 files, verified 2026-08-20 (`npx vitest run`,
 > after "Every response that can be refused for size states its size first" was given its
 > definition of done: `test/mcp/size-probe-precedes-refusal.test.ts` built a real size
 > probe on `ost_read_repo` (`probe: true` returns a file's `bytes`/`wouldTruncate` from the
