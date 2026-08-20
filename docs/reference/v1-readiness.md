@@ -3089,8 +3089,14 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,159 tests across 263 files, verified 2026-08-19 (`npx vitest run`,
-> after "Every machine-selected quote carries the sentence it was cut from" landed:
+> *Today:* **met** — 3,162 tests across 264 files, verified 2026-08-19 (`npx vitest run`,
+> after "Every path the config declares is checked when the config is read, not when
+> something reaches for it" landed: `readConfig` now runs `declaredPathDiagnostics`
+> (`src/config/load.ts`) on every successful read, naming `product.repos` as absent
+> when `adapters.transcript.projectDir` names a repository and `product.repos` was
+> never set — the one required-but-absent shape the 2026-08-06 sweep actually hit
+> (`test/config/declared-path-validation.test.ts`). Previously, after "Every
+> machine-selected quote carries the sentence it was cut from" landed:
 > `sentencesAround` (`src/ost/lanes.ts`) generalises the whole-sentence rendering
 > `proseLaneAmbiguity` already did for a two-lane declaration to the other lane-triage
 > quoting surfaces — `proseDeclaredLane`'s clean single-lane quote, `laneConflicts`, and

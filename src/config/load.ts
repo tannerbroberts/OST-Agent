@@ -68,6 +68,45 @@ export function defaultConfig(): Config {
   return ConfigSchema.parse({ outcome: BOOTSTRAP_PLACEHOLDER_OUTCOME });
 }
 
+/**
+ * A required-but-absent path caught at load time rather than at the moment
+ * something reaches for it.
+ *
+ * The only shape checked today: a repository named under
+ * `adapters.transcript.projectDir` while `product.repos` is empty. That is
+ * the case the 2026-08-06 sweep actually hit — `product.repos` has no path
+ * to validate when it is simply missing, so a check that only stats declared
+ * paths sails straight past it (see the assumption test this closes).
+ */
+export interface DeclaredPathDiagnostic {
+  /** The config key that should have been set. */
+  key: string;
+  /** One line, naming the gap and the value that would close it. */
+  message: string;
+}
+
+/**
+ * Diagnose the one required-but-absent shape this schema can recognise
+ * without asking the operator to declare intent twice: a key that already
+ * names a repository while `product.repos` — the key that grants the agent
+ * READ access to it — was never set. Silent for a fully-configured vault and
+ * for one configuring neither key, which is load-bearing: those two silent
+ * cases are what keep this from nagging every correctly-configured vault.
+ */
+export function declaredPathDiagnostics(config: Config): DeclaredPathDiagnostic[] {
+  const transcriptRepo = config.adapters.transcript.projectDir.trim();
+  if (transcriptRepo === "" || config.product.repos.length > 0) return [];
+  return [
+    {
+      key: "product.repos",
+      message:
+        `product.repos is absent in ${CONFIG_FILENAME}, but adapters.transcript.projectDir names a repository ` +
+        `(${transcriptRepo}) — add it under product.repos so the agent may read the product it is harvesting ` +
+        `sessions from, e.g.:\nproduct:\n  repos:\n    - ${transcriptRepo}`,
+    },
+  ];
+}
+
 /** What a read produced, and — when the file could not be used — why. */
 export interface ConfigLoad {
   /** The operator's config, or the schema defaults when `problem` is set. */
@@ -78,6 +117,13 @@ export interface ConfigLoad {
    * bound must refuse rather than act on a default the operator never chose.
    */
   problem?: string;
+  /**
+   * Required-but-absent declared paths, checked here so the gap is visible at
+   * load time instead of the first time something reaches for the path and
+   * finds nothing there. Always present, always `[]` when nothing was found —
+   * never `undefined`, so a caller cannot mistake "not computed" for "clean".
+   */
+  diagnostics: DeclaredPathDiagnostic[];
 }
 
 /**
@@ -97,7 +143,7 @@ export interface ConfigLoad {
 export function readConfig(vaultDir: string, opts: LoadConfigOptions = {}): ConfigLoad {
   const p = configPath(vaultDir);
   if (!fs.existsSync(p)) {
-    if (opts.missing === "defaults") return { config: defaultConfig() };
+    if (opts.missing === "defaults") return { config: defaultConfig(), diagnostics: [] };
     // A directory that is not there and a directory that is there but holds no
     // config are different mistakes with different fixes, and saying `run
     // ost-agent init` to the first one is the worse of the two answers: the
@@ -114,14 +160,18 @@ export function readConfig(vaultDir: string, opts: LoadConfigOptions = {}): Conf
   try {
     raw = parseYaml(fs.readFileSync(p, "utf8")) ?? {};
   } catch (e) {
-    return { config: defaultConfig(), problem: `${CONFIG_FILENAME} is not valid YAML: ${e instanceof Error ? e.message : String(e)}` };
+    return {
+      config: defaultConfig(),
+      problem: `${CONFIG_FILENAME} is not valid YAML: ${e instanceof Error ? e.message : String(e)}`,
+      diagnostics: [],
+    };
   }
   const result = ConfigSchema.safeParse(raw);
   if (!result.success) {
     const issues = result.error.issues.map((i) => `  - ${i.path.join(".") || "(root)"}: ${i.message}`).join("\n");
-    return { config: defaultConfig(), problem: `invalid ${CONFIG_FILENAME}:\n${issues}` };
+    return { config: defaultConfig(), problem: `invalid ${CONFIG_FILENAME}:\n${issues}`, diagnostics: [] };
   }
-  return { config: result.data };
+  return { config: result.data, diagnostics: declaredPathDiagnostics(result.data) };
 }
 
 /** Read + validate the config. Throws a readable error on invalid/missing config. */
