@@ -70,6 +70,15 @@ import { diagnoseSetup, formatSetupDiagnosis } from "../config/setup-check.js";
 import { ailingChannels, allChannels, channelHealth, renderChannels } from "../adapters/channels.js";
 import { initVault } from "../runner/init.js";
 import { prepareWorkspace } from "../runner/workspace.js";
+import {
+  buildSymbolIndex,
+  formatMemberLookup,
+  formatNameLookup,
+  formatSymbolBriefing,
+  lookupMember,
+  lookupName,
+  readProjectSources,
+} from "../runner/symbol-index.js";
 import { setOutcome } from "../runner/set-outcome.js";
 import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/render.js";
 import { ship } from "../release/ship-repo.js";
@@ -2404,6 +2413,40 @@ program
       );
       process.exitCode = 1;
     }
+  });
+
+program
+  .command("symbols")
+  .description(
+    "the project's exported symbol surface — what each module exports, what each type carries — so a run can check " +
+      "a name BEFORE it writes the call instead of learning it from `tsc` after the batch is written (read-only)",
+  )
+  .option("-r, --repo <dir>", "the project root whose sources are indexed", ".")
+  .option("--name <symbol>", "answer one question instead of printing the briefing: is this name exported anywhere?")
+  .option("--member <Type.member>", "answer one question instead: does this exported type declare this member?")
+  .option("--max-chars <n>", "clip the briefing to this many characters, naming how many modules were dropped")
+  .action((opts: { repo: string; name?: string; member?: string; maxChars?: string }) => {
+    const root = path.resolve(opts.repo);
+    const index = buildSymbolIndex(readProjectSources(root));
+
+    if (opts.name !== undefined) {
+      console.log(formatNameLookup(lookupName(index, opts.name)));
+    } else if (opts.member !== undefined) {
+      const dot = opts.member.lastIndexOf(".");
+      if (dot <= 0) {
+        console.error(`symbols: --member wants \`Type.member\`, got \`${opts.member}\``);
+        process.exitCode = 1;
+        return;
+      }
+      console.log(formatMemberLookup(lookupMember(index, opts.member.slice(0, dot), opts.member.slice(dot + 1))));
+    } else {
+      const maxChars = opts.maxChars === undefined ? undefined : Number(opts.maxChars);
+      console.log(formatSymbolBriefing(index, maxChars === undefined ? {} : { maxChars }));
+    }
+    // Always 0 when the index was built. The node this serves is explicit that the
+    // manifest "advises, it never blocks a write", and an exit code that went non-zero
+    // on an absent name would turn an advisory lookup into a gate the first time
+    // somebody wrapped it in `&&`. The answer is in the text, where a reader is.
   });
 
 registerLoopCommands(program);
