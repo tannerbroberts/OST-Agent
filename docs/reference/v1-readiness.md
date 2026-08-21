@@ -3114,8 +3114,8 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,329 tests across 279 files, verified 2026-08-20 (`npx vitest run`
-> reports 3,321 of them; the other 8 are the contended calibration file described in the
+> *Today:* **met** — 3,387 tests across 280 files, verified 2026-08-21 (`npx vitest run`
+> reports 3,379 of them; the other 8 are the contended calibration file described in the
 > previous entry. After "Golden-set evaluation harness" was given its definition of done:
 > `test/eval/golden-set-discrimination.test.ts` scores three committed sound vaults and
 > five deliberately degraded copies of one of them through `src/eval/golden-set.ts` and

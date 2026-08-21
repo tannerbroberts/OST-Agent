@@ -115,9 +115,27 @@ build rather than a silent drift:
   job in `.github/workflows/ci.yml` fails if it is stale.
 - **Changed `src/knowledge/ruleset.ts`?** Run `npm run gen:skill` and commit the
   regenerated `SKILL.md` (`test/skill/drift.test.ts` holds you to it).
+- **Changed `src/knowledge/workflow-grammar.ts`?** Same command; it also regenerates
+  `.claude/workflows/skeleton.js` (`test/skill/skeleton-validity.test.ts` holds you to it).
 
 Leave the working tree clean. An untracked file left behind is a file the next
 auto-committing tool will attribute to itself.
+
+## Composing a `Workflow` script
+
+**Start from `.claude/workflows/skeleton.js`, not from memory.** Copy it, keep the shape,
+replace the prompts. It is the dialect the `Workflow` tool accepts — plain JavaScript, `meta`
+first, one example of every construct the tool offers — generated from
+`src/knowledge/workflow-grammar.ts` and parsed in the suite by the same parser class that
+judges a submission, pinned to the line and column of every rejection that parser has
+issued against this repository.
+
+Both rejections on record were the same mistake, and it was not the TypeScript the refusal
+text guesses at: a backtick inside a template-literal prompt ends the string at the first
+one, a hundred and seventy lines in. Prose that quotes code goes in a double-quoted string.
+The skeleton shows the legal form; a script that reaches past what it shows is back to
+guessing, which is the limit of a skeleton and the reason the tool's own description is
+still worth reading for the parts you extend.
 
 ## Where the standards for this repo are written down
 

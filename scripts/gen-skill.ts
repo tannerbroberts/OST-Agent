@@ -16,6 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { OST_RULESET as R } from "../src/knowledge/ruleset.js";
+import { renderWorkflowSkeleton, skeletonProblems } from "../src/knowledge/workflow-grammar.js";
 import { firstRunSkillSection } from "../src/mcp/setup.js";
 import { MCP_PREFIX } from "./mcp-prefix.js";
 
@@ -24,6 +25,31 @@ const REPO = path.resolve(HERE, "..");
 export const SKILL_PATH = path.join(REPO, ".claude", "skills", "opportunity-solution-tree", "SKILL.md");
 export const COMMANDS_DIR = path.join(REPO, ".claude", "commands");
 export const SETUP_COMMAND_PATH = path.join(COMMANDS_DIR, "ost-setup.md");
+/**
+ * The Workflow skeleton, at the address the `Workflow` tool itself names for
+ * saved workflows (`.claude/workflows/`), so a composer finds it where the
+ * tool looks rather than where a README says.
+ */
+export const WORKFLOW_SKELETON_PATH = path.join(REPO, ".claude", "workflows", "skeleton.js");
+
+/**
+ * The skeleton, checked before it is handed over. A skeleton that does not
+ * parse as a submission would, or that shows only a subset of the constructs,
+ * teaches the wrong dialect with the authority of a starting point — so the
+ * generator throws rather than writes one. `test/skill/skeleton-validity.test.ts`
+ * runs the same check over the committed file and pins the parser to every
+ * refusal the surface has on record.
+ */
+export function renderCheckedSkeleton(): string {
+  const skeleton = renderWorkflowSkeleton();
+  const problems = skeletonProblems(skeleton);
+  if (problems.length > 0) {
+    throw new Error(
+      `refusing to write ${path.relative(REPO, WORKFLOW_SKELETON_PATH)} — it is not a legal skeleton:\n  - ${problems.join("\n  - ")}`,
+    );
+  }
+  return skeleton;
+}
 
 const bullets = (items: readonly string[]) => items.map((s) => `- ${s}`).join("\n");
 
@@ -346,6 +372,7 @@ function main(): void {
   const outputs: ReadonlyArray<readonly [string, string]> = [
     [SKILL_PATH, renderSkill()],
     [SETUP_COMMAND_PATH, renderSetupCommand()],
+    [WORKFLOW_SKELETON_PATH, renderCheckedSkeleton()],
   ];
   for (const [target, content] of outputs) {
     fs.mkdirSync(path.dirname(target), { recursive: true });
