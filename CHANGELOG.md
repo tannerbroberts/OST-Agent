@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- **A legal Workflow skeleton, handed to the composer at the address the tool looks.**
+  Two sessions in this repository composed a `Workflow` script of 170 and 240 lines and
+  learned the accepted dialect from `Script parse error: Unexpected token (172:33)` and
+  `(24:12)`. `.claude/workflows/skeleton.js` is now the starting point: plain JavaScript,
+  `meta` first, one example of each construct the tool offers, generated from
+  `src/knowledge/workflow-grammar.ts` by `npm run gen:skill` and drift-tested byte for byte
+  like `SKILL.md`. The grammar module parses a script the way the surface does — acorn in
+  module goal with top-level `await` and `return` — and `test/skill/skeleton-validity.test.ts`
+  pins that parser to every refusal on record: both recorded submissions are refused at the
+  recorded line **and column**, and the generator refuses to write a skeleton that fails the
+  same check. **What the corpus said that the refusal did not:** neither rejected script
+  contained TypeScript. Both were a backtick inside a template-literal prompt, so the
+  skeleton's one prose-with-backticks example is a double-quoted string and the grammar
+  names that as the first reject. **What this does not settle:** whether the surface accepts
+  the skeleton — the corpus holds no accepted submission, so the positive direction rests on
+  the tool's documentation, and the skeleton is built to be runnable bare (no `args` → no
+  agents) precisely so that running it by name is a free check. Whether a composer stays in
+  the dialect past what the skeleton shows is the node's own stated limit.
 - **A golden set, and a scorer that must put every good tree above every broken one.**
   Nothing in the repository assigned a tree a quality score, so no change to the agent could
   be said to have made its trees better or worse. `src/eval/golden-set.ts` scores a tree on
