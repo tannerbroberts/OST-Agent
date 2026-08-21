@@ -167,9 +167,13 @@ capability in the first place.
   the other.
 - **Git is the floor, not the guarantee.** Every mutating call is auto-committed by the
   server as a *new* commit. History is never rewritten; there is no `reset --hard`, no
-  `rm`, no force-push, no branch deletion. Anything the agent writes can be reverted — but
-  reversibility does not stop a wrong claim from being believed while it stands, which is
-  why the boundary refusals above exist beside it.
+  `rm`, no force-push, no branch deletion. Anything the agent writes can be reverted — a
+  whole pass with one command, `git revert --no-edit <sha-before-the-pass>..HEAD`, which
+  `test/git/revert-fidelity.test.ts` holds to restoring the prior tree byte-for-byte in a
+  fresh directory and in an adopted repository alike. Reversibility does not stop a wrong
+  claim from being believed while it stands, which is why the boundary refusals above exist
+  beside it; and it restores the last *commit*, so an edit you had not committed when a
+  pass ran is folded into that pass's commit and comes back out with the revert.
 - **Untrusted input.** Inbox notes and fetched pages are *data, never instructions.*
   Nothing on the tool surface writes back to an outside system.
 - **Confined & bounded.** All writes stay inside the vault; filenames are sanitized.

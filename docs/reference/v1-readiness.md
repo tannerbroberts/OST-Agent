@@ -3114,7 +3114,26 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,315 tests across 277 files, verified 2026-08-20 (`npx vitest run`
+> *Today:* **met** — 3,320 tests across 278 files, verified 2026-08-20 (`npx vitest run`
+> reports 3,312 of them; the other 8 are the contended calibration file described in the
+> previous entry. After "Git-only substrate that makes every change revertible" was given
+> its definition of done: `test/git/revert-fidelity.test.ts` snapshots a tree, runs a pass
+> through the MCP surface, reverts with a single `git revert --no-edit <before>..HEAD`, and
+> compares every file's hash and git's tree id — in a fresh empty directory, where it also
+> pins that auto-init produced a repository and that init's first commit holds everything
+> init wrote inside the vault, and in an adopted repository with its own history, whose
+> commits stay ancestors throughout. Building it found no defect in the revert path and
+> three edges the node's wording does not reach, each now pinned or named in the file:
+> `init` writes one thing outside version control by design, the sibling drop folder (W1),
+> which no revert touches; git does not track directories, so the empty scaffold folders
+> survive a revert of the root commit; and a pass run on a dirty operator tree folds the
+> uncommitted edit into its own commit via `git add -A`, so the one-command revert restores
+> the operator's last commit rather than the bytes that were on disk — recorded as a KNOWN
+> LIMIT row with its expectation set to the hole. A fourth, probed but not pinned: a vault
+> created as a subdirectory of an existing repository gets a nested repository of its own,
+> which the outer repo sees only as `?? vault/`. The third environment the assumption node
+> names, a machine with no git preinstalled, stays a person's check.)
+> Previously 3,315 tests across 277 files, verified 2026-08-20 (`npx vitest run`
 > reports 3,307 of them; the other 8 are `test/eval/calibration-ratio-stability.test.ts`,
 > which `vitest.config.ts` collects only when it is named on the command line because it
 > forks one CPU spinner per core on purpose and would be both victim and culprit inside the
