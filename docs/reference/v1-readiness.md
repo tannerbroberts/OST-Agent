@@ -3114,7 +3114,22 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,307 tests across 276 files, verified 2026-08-20 (`npx vitest run`,
+> *Today:* **met** — 3,315 tests across 277 files, verified 2026-08-20 (`npx vitest run`
+> reports 3,307 of them; the other 8 are `test/eval/calibration-ratio-stability.test.ts`,
+> which `vitest.config.ts` collects only when it is named on the command line because it
+> forks one CPU spinner per core on purpose and would be both victim and culprit inside the
+> ordinary suite. Landed for "Gate on a ratio against a calibration run taken on the same
+> machine at the same time": the file times `computeNextWork` on the Z3 tree beside a
+> same-shape calibration — the same call on a 5,000-node tree — at four induced load levels
+> and asserts the test node's two clauses, raw spread over 50% and ratio spread under 10%.
+> Named, on a quiet machine, it reads raw spread 131.5%, ratio spread 1.9%. What building it
+> found: the calibration the solution node describes, a fixed CPU loop, does not track the
+> subject under load (ratio spread 10.6–123% across four runs), and no calibration tried
+> holds while the machine's performance cores are held by other processes (12.6–32.5%),
+> because two adjacent calls on a 4P+6E Apple M4 need not run on the same class of core.
+> The identical call that recorded 249–267 ms on 2026-08-10 read ~1,400 ms at that same
+> commit with the P-cores taken, and 270 ms once they were free.)
+> Previously 3,307 tests across 276 files, verified 2026-08-20 (`npx vitest run`,
 > after "Full builder thinking-trace visibility with a self-reflection communication gauge"
 > was given its definition of done: `test/skill/reflection-questions.test.ts` pins that the
 > three self-reflection questions — what to build and why, the working environment, what
