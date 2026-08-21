@@ -13056,7 +13056,7 @@ var require_dumper = __commonJS({
       var hasFoldableLine = false;
       var shouldTrackWidth = lineWidth !== -1;
       var previousLineBreak = -1;
-      var plain2 = isPlainSafeFirst(string3.charCodeAt(0)) && !isWhitespace(string3.charCodeAt(string3.length - 1));
+      var plain3 = isPlainSafeFirst(string3.charCodeAt(0)) && !isWhitespace(string3.charCodeAt(string3.length - 1));
       if (singleLineOnly) {
         for (i2 = 0; i2 < string3.length; i2++) {
           char = string3.charCodeAt(i2);
@@ -13064,7 +13064,7 @@ var require_dumper = __commonJS({
             return STYLE_DOUBLE;
           }
           prev_char = i2 > 0 ? string3.charCodeAt(i2 - 1) : null;
-          plain2 = plain2 && isPlainSafe(char, prev_char);
+          plain3 = plain3 && isPlainSafe(char, prev_char);
         }
       } else {
         for (i2 = 0; i2 < string3.length; i2++) {
@@ -13080,12 +13080,12 @@ var require_dumper = __commonJS({
             return STYLE_DOUBLE;
           }
           prev_char = i2 > 0 ? string3.charCodeAt(i2 - 1) : null;
-          plain2 = plain2 && isPlainSafe(char, prev_char);
+          plain3 = plain3 && isPlainSafe(char, prev_char);
         }
         hasFoldableLine = hasFoldableLine || shouldTrackWidth && (i2 - previousLineBreak - 1 > lineWidth && string3[previousLineBreak + 1] !== " ");
       }
       if (!hasLineBreak && !hasFoldableLine) {
-        return plain2 && !testAmbiguousType(string3) ? STYLE_PLAIN : STYLE_SINGLE;
+        return plain3 && !testAmbiguousType(string3) ? STYLE_PLAIN : STYLE_SINGLE;
       }
       if (indentPerLevel > 9 && needIndentIndicator(string3)) {
         return STYLE_DOUBLE;
@@ -46048,6 +46048,116 @@ function renderPanel(report) {
   return lines.join("\n");
 }
 
+// src/eval/golden-set.ts
+var BUILD_VERBS = /* @__PURE__ */ new Set([
+  "add",
+  "build",
+  "create",
+  "implement",
+  "ship",
+  "write",
+  "integrate",
+  "expose",
+  "generate",
+  "automate",
+  "provide",
+  "render",
+  "emit",
+  "display",
+  "store",
+  "cache",
+  "deploy",
+  "install",
+  "migrate",
+  "refactor",
+  "wire",
+  "introduce",
+  "enable",
+  "launch",
+  "publish",
+  "schedule",
+  "configure",
+  "embed",
+  "export",
+  "import",
+  "sync",
+  "offer"
+]);
+var FEATURE_NOUNS = /\b(button|dashboard|api|endpoint|command|flag|cli|widget|integration|plugin|webhook|notification|database|modal|page|screen|script|cron|toggle|setting|feature|template|dropdown|slider|chatbot|leaderboard)\b/i;
+var NEED_MARKERS = /\b(i|i'm|i've|i'd|my|me|we|we're|our|us)\b|\b(can't|cannot|can not|don't|doesn't|won't|never|need|needs|want|wants|wish|hard|harder|worry|worrying|worried|afraid|fear|unsure|no idea|no way to|too (?:far|slow|long|many|much|late)|takes too|nothing tells|without knowing|struggle|struggles|frustrat\w*|painful|confus\w*)\b/i;
+function plain2(text2) {
+  return text2.replace(/\*\*|\*|`|\[\[|\]\]/g, "");
+}
+function opportunityShape(node) {
+  const title = plain2(node.title);
+  const opener = title.trim().split(/\s+/)[0]?.toLowerCase().replace(/[^a-z']/g, "") ?? "";
+  const titleSolution = BUILD_VERBS.has(opener) || FEATURE_NOUNS.test(title);
+  const titleNeed = NEED_MARKERS.test(title);
+  if (titleSolution && !titleNeed) return "solution";
+  if (titleNeed || NEED_MARKERS.test(plain2(solutionProse(node.body)))) return "need";
+  return "unclear";
+}
+var SHAPE_SCORE = { need: 1, unclear: 0.5, solution: 0 };
+function dimension(name, members) {
+  const total = members.reduce((sum2, m) => sum2 + m.score, 0);
+  return {
+    dimension: name,
+    value: members.length === 0 ? 0 : total / members.length,
+    inOrder: members.filter((m) => m.score >= 1).length,
+    of: members.length,
+    failing: members.filter((m) => m.score < 1).map((m) => m.title)
+  };
+}
+function scoreTree(tree) {
+  const nodes = [...tree];
+  const index = byTitle(nodes);
+  const violations = checkInvariants(nodes);
+  const violatedTitles = new Set(violations.filter((v) => v.node).map((v) => v.node));
+  const treeWide = violations.some((v) => !v.node);
+  const structure = dimension(
+    "structure",
+    nodes.map((n) => ({ title: n.title, score: treeWide || violatedTitles.has(n.title) ? 0 : 1 }))
+  );
+  const needShaped = dimension(
+    "need-shaped",
+    nodes.filter((n) => n.layer === "Opportunity").map((n) => ({ title: n.title, score: SHAPE_SCORE[opportunityShape(n)] }))
+  );
+  const grounded = dimension(
+    "grounded",
+    nodes.filter((n) => n.layer !== "Outcome").map((n) => ({ title: n.title, score: n.source?.trim() && n.evidence ? 1 : 0 }))
+  );
+  const tested = dimension(
+    "tested",
+    nodes.filter((n) => n.layer === "Solution").map((n) => ({ title: n.title, score: testsUnderSolution(n, index).length > 0 ? 1 : 0 }))
+  );
+  const fixedBars = dimension(
+    "fixed-bars",
+    nodes.filter((n) => n.layer === "AssumptionTest").map((n) => {
+      const kind = thresholdKindOf(n);
+      return { title: n.title, score: kind === "bound" || kind === "prose" ? 1 : 0 };
+    })
+  );
+  const dimensions = [structure, needShaped, grounded, tested, fixedBars];
+  const score = dimensions.reduce((sum2, d) => sum2 + d.value, 0) / dimensions.length;
+  const weakest2 = dimensions.reduce((w, d) => d.value < w.value ? d : w).dimension;
+  return { subject: { offered: tree.length, read: nodes.length }, dimensions, score, weakest: weakest2 };
+}
+var pct2 = (value) => `${Math.round(value * 100)}%`;
+function renderScore(report) {
+  const { offered, read } = report.subject;
+  if (read === 0) {
+    return `score: BLIND \u2014 read 0 of ${offered} node(s), so no score exists.`;
+  }
+  const lines = [];
+  lines.push(`score: ${pct2(report.score)} over ${read} node(s); weakest dimension ${report.weakest}.`);
+  for (const d of report.dimensions) {
+    const population = d.of === 0 ? "nothing to read \u2014 scores 0" : `${d.inOrder} of ${d.of} in order`;
+    lines.push(`  ${d.dimension.padEnd(11)} ${pct2(d.value).padStart(4)}  (${population})`);
+    for (const title of d.failing) lines.push(`    - ${title}`);
+  }
+  return lines.join("\n");
+}
+
 // src/eval/tournament.ts
 function refutingLine(test) {
   if (recordedVerdict(test) !== "refuted") return null;
@@ -47724,7 +47834,7 @@ function readTranscriptSessions(dir) {
   }
   return sessions;
 }
-function pct2(share) {
+function pct3(share) {
   return `${Math.round(share * 100)}%`;
 }
 function formatPreflightCensus(census) {
@@ -47735,7 +47845,7 @@ function formatPreflightCensus(census) {
     );
   } else {
     lines.push(
-      `Preflight uncertainty: ${census.uncertain} of ${census.readable} readable failure(s) (${pct2(census.share ?? 0)}) came from a caller already showing doubt; ${census.confident} showed none.`
+      `Preflight uncertainty: ${census.uncertain} of ${census.readable} readable failure(s) (${pct3(census.share ?? 0)}) came from a caller already showing doubt; ${census.confident} showed none.`
     );
   }
   lines.push(
@@ -48442,7 +48552,7 @@ function readTreeTitles(vaultDir) {
   }
   return names.filter((n) => n.endsWith(".md")).map((n) => n.replace(/\.md$/, "")).sort();
 }
-function pct3(share) {
+function pct4(share) {
   return share === null ? "\u2014" : `${Math.round(share * 100)}%`;
 }
 function formatSearchLiteralityCensus(census) {
@@ -48453,7 +48563,7 @@ function formatSearchLiteralityCensus(census) {
     );
   } else {
     lines.push(
-      `Search literality: ${census.treeLiteral} of ${census.treeDerived} tree-derived argument(s) (${pct3(census.share)}) are expressible as literal lookups; the bar is ${pct3(census.bar)}.`
+      `Search literality: ${census.treeLiteral} of ${census.treeDerived} tree-derived argument(s) (${pct4(census.share)}) are expressible as literal lookups; the bar is ${pct4(census.bar)}.`
     );
   }
   lines.push(
@@ -48469,17 +48579,17 @@ function formatSearchLiteralityCensus(census) {
   lines.push("  How literal counts, rung by rung:");
   for (const reading of census.readings) {
     lines.push(
-      `    ${reading.treeLiteral}/${reading.treeDerived} (${pct3(reading.share)}) ${reading.meetsBar ? "meets" : "MISSES"} the bar \u2014 ${reading.name}`
+      `    ${reading.treeLiteral}/${reading.treeDerived} (${pct4(reading.share)}) ${reading.meetsBar ? "meets" : "MISSES"} the bar \u2014 ${reading.name}`
     );
   }
   lines.push("  How much text makes an argument tree-derived:");
   for (const rung of census.provenanceLadder) {
     lines.push(
-      `    \u2265${rung.minMatchChars} chars: ${rung.treeLiteral}/${rung.treeDerived} (${pct3(rung.share)}) ${rung.meetsBar ? "meets" : "MISSES"} the bar`
+      `    \u2265${rung.minMatchChars} chars: ${rung.treeLiteral}/${rung.treeDerived} (${pct4(rung.share)}) ${rung.meetsBar ? "meets" : "MISSES"} the bar`
     );
   }
   lines.push(
-    census.ruleDecides ? `  Rule: THE RULE DECIDES THIS. The rungs above do not agree about the ${pct3(census.bar)} bar, so the verdict is as much a property of where "literal" was drawn as of the searches.` : `  Rule: stable \u2014 every rung above reaches the same verdict against the ${pct3(census.bar)} bar.`
+    census.ruleDecides ? `  Rule: THE RULE DECIDES THIS. The rungs above do not agree about the ${pct4(census.bar)} bar, so the verdict is as much a property of where "literal" was drawn as of the searches.` : `  Rule: stable \u2014 every rung above reaches the same verdict against the ${pct4(census.bar)} bar.`
   );
   const treePatterns = census.classified.filter((c3) => c3.provenance === "tree" && c3.literality === "pattern");
   lines.push("");
@@ -48786,7 +48896,7 @@ function pathFailureCensus(failures, meta) {
     bySubjectRoot
   };
 }
-function pct4(share) {
+function pct5(share) {
   return `${Math.round(share * 1e3) / 10}%`;
 }
 function formatPathFailureCensus(census) {
@@ -48799,13 +48909,13 @@ function formatPathFailureCensus(census) {
   }
   const verdict = census.meetsBar ? "CLEARS" : "REFUTED";
   lines.push(
-    `Path-failure attribution: ${verdict} \u2014 ${census.owned} of ${census.pathShaped} path-shaped failure(s) (${pct4(census.share ?? 0)}) arrived through a tool this repository controls, against a pre-committed bar of ${pct4(ATTRIBUTION_RULE.bar)}.`
+    `Path-failure attribution: ${verdict} \u2014 ${census.owned} of ${census.pathShaped} path-shaped failure(s) (${pct5(census.share ?? 0)}) arrived through a tool this repository controls, against a pre-committed bar of ${pct5(ATTRIBUTION_RULE.bar)}.`
   );
   lines.push(
     `Read from ${census.sessionsRead} session(s): ${census.calls} tool call(s), ${census.errors} failure(s), ${census.unread} unpaired and counted neither way.`
   );
   lines.push(
-    `Generous bound \u2014 crediting every call where any segment was ours: ${census.ownedUpperBound}/${census.pathShaped} (${pct4(census.shareUpperBound ?? 0)}).` + (census.boundDecides ? " THE BOUND DECIDES THIS." : "")
+    `Generous bound \u2014 crediting every call where any segment was ours: ${census.ownedUpperBound}/${census.pathShaped} (${pct5(census.shareUpperBound ?? 0)}).` + (census.boundDecides ? " THE BOUND DECIDES THIS." : "")
   );
   lines.push("");
   lines.push("By shape:");
@@ -48815,7 +48925,7 @@ function formatPathFailureCensus(census) {
   lines.push("");
   for (const r2 of census.readings) {
     lines.push(
-      `  ${r2.name.padEnd(28)} ${r2.owned}/${r2.pathShaped} (${pct4(r2.share ?? 0)}) \u2014 ${r2.meetsBar ? "clears" : "below"} the bar`
+      `  ${r2.name.padEnd(28)} ${r2.owned}/${r2.pathShaped} (${pct5(r2.share ?? 0)}) \u2014 ${r2.meetsBar ? "clears" : "below"} the bar`
     );
   }
   if (census.permissionDecides) lines.push("  THE PERMISSION-DENIAL READING DECIDES THIS.");
@@ -48830,7 +48940,7 @@ function formatPathFailureCensus(census) {
   );
   for (const ex of census.excludedByRule) {
     lines.push(
-      `Shape not counted \u2014 ${ex.name}: ${ex.n} more failure(s). Counting them all AND crediting every one to this repository would give ${pct4(ex.shareIfCountedAndOwned)}, ${ex.shareIfCountedAndOwned >= ATTRIBUTION_RULE.bar ? "which clears the bar" : "which still does not clear the bar"}.`
+      `Shape not counted \u2014 ${ex.name}: ${ex.n} more failure(s). Counting them all AND crediting every one to this repository would give ${pct5(ex.shareIfCountedAndOwned)}, ${ex.shareIfCountedAndOwned >= ATTRIBUTION_RULE.bar ? "which clears the bar" : "which still does not clear the bar"}.`
     );
   }
   return lines.join("\n");
@@ -49650,7 +49760,7 @@ function refusalCoverageCensus(failures, manifest) {
     meetsBar: verdict.meetsBar
   };
 }
-function pct5(share) {
+function pct6(share) {
   return `${Math.round(share * 100)}%`;
 }
 function formatRefusalCoverageCensus(census) {
@@ -49663,17 +49773,17 @@ function formatRefusalCoverageCensus(census) {
     return lines.join("\n");
   }
   lines.push(
-    `Reach: ${census.reach.inReach.length} of ${total} refusal class(es) (${pct5(census.reach.share)}) were refused by a tool whose schema this repository holds. The rest are outside any generator running here, whatever a schema could express in principle.`
+    `Reach: ${census.reach.inReach.length} of ${total} refusal class(es) (${pct6(census.reach.share)}) were refused by a tool whose schema this repository holds. The rest are outside any generator running here, whatever a schema could express in principle.`
   );
   lines.push(
-    `Coverage: ${census.verdict.named.length} of ${total} class(es) (${pct5(census.verdict.share)}) could have been named by a schema-derived manifest, against a bar of ${pct5(REFUSAL_RULE.bar)} \u2014 ${census.meetsBar ? "MET" : "REFUTED"}. Weighted by how often each class actually bit: ${pct5(census.verdict.weightedShare)} of ${census.classes.reduce((n, c3) => n + c3.occurrences, 0)} refusals.`
+    `Coverage: ${census.verdict.named.length} of ${total} class(es) (${pct6(census.verdict.share)}) could have been named by a schema-derived manifest, against a bar of ${pct6(REFUSAL_RULE.bar)} \u2014 ${census.meetsBar ? "MET" : "REFUTED"}. Weighted by how often each class actually bit: ${pct6(census.verdict.weightedShare)} of ${census.classes.reduce((n, c3) => n + c3.occurrences, 0)} refusals.`
   );
   lines.push(`  (the verdict is taken on the '${census.verdict.name}' reading \u2014 the widest that can come out false)`);
   lines.push("");
   lines.push("Readings, widest last:");
   for (const reading of census.readings) {
     lines.push(
-      `  ${reading.name}: ${reading.named.length}/${total} (${pct5(reading.share)}), weighted ${pct5(reading.weightedShare)}` + (reading.vacuous ? " \u2014 VACUOUS: admits every class, so it settles nothing" : "")
+      `  ${reading.name}: ${reading.named.length}/${total} (${pct6(reading.share)}), weighted ${pct6(reading.weightedShare)}` + (reading.vacuous ? " \u2014 VACUOUS: admits every class, so it settles nothing" : "")
     );
   }
   lines.push("");
@@ -59389,6 +59499,12 @@ program2.command("judge-panel").description(
   const ctx = buildPassContext(opts.vault);
   const solutions = ctx.vault.readTree().filter((n) => n.layer === "Solution").map((n) => ({ title: n.title, body: n.body }));
   console.log(renderPanel(runPanel(solutions)));
+});
+program2.command("score").description(
+  "grade the tree on the golden-set dimensions \u2014 structure, need-shaped opportunities, grounding, assumption coverage, fixed bars \u2014 with the scorer test/eval/golden-set-discrimination.test.ts holds to its fixtures (no model needed)"
+).option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
+  const ctx = buildPassContext(opts.vault);
+  console.log(renderScore(scoreTree(ctx.vault.readTree())));
 });
 program2.command("tournament").description(
   "run a bracket of solutions against each other in rounds; a candidate is eliminated only when a test beneath it has recorded a refuted result \u2014 no round crowns a winner (no model needed)"

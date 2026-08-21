@@ -84,6 +84,7 @@ import { titlesMatch } from "../ost/sanitize.js";
 import { buildableSolutions, buildPermit, confirmPermit, testsAwaitingVerification } from "../eval/buildable.js";
 import { applyCritic, criticPass, renderCritic } from "../eval/critic.js";
 import { renderPanel, runPanel } from "../eval/judge-panel.js";
+import { renderScore, scoreTree } from "../eval/golden-set.js";
 import { renderTournament, runTournament } from "../eval/tournament.js";
 import { renderCanary, runCanary, type CanaryProcess } from "../eval/canary.js";
 import { formatCensus, reconcileWithGit, reconcileWithUsage, recordCensusFiring } from "../ost/census.js";
@@ -835,6 +836,17 @@ program
       .filter((n) => n.layer === "Solution")
       .map((n) => ({ title: n.title, body: n.body }));
     console.log(renderPanel(runPanel(solutions)));
+  });
+
+program
+  .command("score")
+  .description(
+    "grade the tree on the golden-set dimensions — structure, need-shaped opportunities, grounding, assumption coverage, fixed bars — with the scorer test/eval/golden-set-discrimination.test.ts holds to its fixtures (no model needed)",
+  )
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((opts: { vault: string }) => {
+    const ctx = buildPassContext(opts.vault);
+    console.log(renderScore(scoreTree(ctx.vault.readTree())));
   });
 
 program
