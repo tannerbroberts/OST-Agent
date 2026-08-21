@@ -240,13 +240,28 @@ describe("(a) every HTTP call site in the shipped source declares GET", () => {
     // returns type signatures like `init: { method: string }`, which forbid
     // nothing; a criterion resting on that pattern would be satisfied by a
     // codebase full of POSTs.
-    const loose = files.flatMap((f) => {
+    //
+    // Counted over the files that hold a transport, and that scoping is what makes
+    // the relation true rather than approximately true. `method:` is not an HTTP
+    // word — `src/runner/symbol-index.ts` spells "this type member is a call
+    // signature" that way — and counting every `method:` in `src/` folded those in,
+    // so the relation broke as though an undeclared verb had appeared, the first
+    // time an unrelated module named a field `method`. Nothing outside this list can
+    // send anything: the transport test above asserts every `fetch`/`request` site
+    // in `src/` lands in exactly these files, so a `method:` elsewhere has no
+    // transport to hand it to. The relation still decides what it was written to
+    // decide — a verb arriving through a variable at a real call site is `loose`
+    // with no matching declaration, and still fails here.
+    const outward = files.filter((f) => OUTWARD_FILES.includes(path.relative(repoRoot, f)));
+    expect(outward, "the outward file list no longer matches what is on disk").toHaveLength(OUTWARD_FILES.length);
+
+    const loose = outward.flatMap((f) => {
       const src = fs.readFileSync(f, "utf8");
       return [...src.matchAll(ANY_METHOD)].map(() => path.relative(repoRoot, f));
     });
     expect(loose.length).toBeGreaterThan(hits.length);
 
-    const declarations = files.flatMap((f) => {
+    const declarations = outward.flatMap((f) => {
       const src = fs.readFileSync(f, "utf8");
       return [...src.matchAll(/method:\s*string\b/g)].map(() => path.relative(repoRoot, f));
     });

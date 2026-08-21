@@ -3114,9 +3114,20 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,402 tests across 281 files, verified 2026-08-21 (`npx vitest run`
-> reports 3,394 of them; the other 8 are the contended calibration file described in the
-> previous entry. After "Hand the run a layout of the workspace before it takes its first
+> *Today:* **met** — 3,427 tests across 282 files, verified 2026-08-21 (`npx vitest run`
+> reports 3,419 of them; the other 8 are the contended calibration file described in the
+> previous entry. After "Hand the run the project's symbol surface before it writes, not
+> after it compiles" was given its definition of done: `test/runner/symbol-index.test.ts`
+> rebuilds `src/runner/symbol-index.ts` over all 63 modules of `src/` at `368cf6d7`
+> (`71b9654~1`, the state the captured session was writing from) and asserts the three
+> lookups `TRANSCRIPT:e335a680` recorded — `reconcileWithUsage` absent with
+> `reconcileWithGit` volunteered as the near miss, `reconcileWithGit` present, and
+> `configProblem` absent from `ToolContext` — all three, no misses; twenty-five tests, one
+> new file. The extractor is text-only (no TypeScript program, so it answers mid-edit), and
+> the file's last block holds it to TypeScript's own parser over today's `src/`: exact
+> agreement on every exported name and every declared member, which is what caught the two
+> false absences the three cases did not. `ost-agent symbols` puts the surface in front of
+> a run. After "Hand the run a layout of the workspace before it takes its first
 > action" was given its definition of done: `test/runner/workspace-map-coverage.test.ts`
 > renders a compact workspace map through `src/runner/workspace-map.ts` and scores it against
 > the path lookups this product's own passes failed (`test/fixtures/workspace-map/`, cut by
