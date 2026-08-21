@@ -3114,9 +3114,17 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,387 tests across 280 files, verified 2026-08-21 (`npx vitest run`
-> reports 3,379 of them; the other 8 are the contended calibration file described in the
-> previous entry. After "Golden-set evaluation harness" was given its definition of done:
+> *Today:* **met** — 3,402 tests across 281 files, verified 2026-08-21 (`npx vitest run`
+> reports 3,394 of them; the other 8 are the contended calibration file described in the
+> previous entry. After "Hand the run a layout of the workspace before it takes its first
+> action" was given its definition of done: `test/runner/workspace-map-coverage.test.ts`
+> renders a compact workspace map through `src/runner/workspace-map.ts` and scores it against
+> the path lookups this product's own passes failed (`test/fixtures/workspace-map/`, cut by
+> `scripts/harvest-workspace-map-corpus.ts` from the path-failure-attribution corpus); fifteen
+> tests, one new file. It came out REFUTED and is pinned as such: a 1,619-character map answers
+> 16 of 25 workspace path-lookups (64%) against a pre-committed 70% bar, the shortfall being
+> leaf-file probes a sub-2,000-character map cannot list without exceeding its own budget — the
+> two-clause squeeze the node named. After "Golden-set evaluation harness" was given its definition of done:
 > `test/eval/golden-set-discrimination.test.ts` scores three committed sound vaults and
 > five deliberately degraded copies of one of them through `src/eval/golden-set.ts` and
 > asserts every good vault outscores every degraded one by 10 points per pair, with the
