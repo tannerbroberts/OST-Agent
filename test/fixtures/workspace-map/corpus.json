@@ -1,0 +1,15 @@
+{
+ "projectsRoot": "/Users/tanner/.claude/projects",
+ "upstreamFailures": 719,
+ "pathShaped": 76,
+ "excluded": {
+  "not-a-path": 16,
+  "unnamed": 11,
+  "cwd-unknown": 2,
+  "ephemeral": 10,
+  "foreign-project": 8,
+  "outside-territory": 4
+ },
+ "workspaceLookups": 25,
+ "layoutDirs": 128
+}

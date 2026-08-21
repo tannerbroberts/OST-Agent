@@ -1,0 +1,127 @@
+[
+ {
+  "subject": "scripts/mcp-prefix.ts",
+  "absolute": "/Users/tanner/dev/OST-Agent/scripts/mcp-prefix.ts",
+  "session": "081b644b-e90a-472e-9b3d-15562a030a94"
+ },
+ {
+  "subject": "/Users/tanner/*/ost08",
+  "absolute": "/Users/tanner",
+  "session": "081b644b-e90a-472e-9b3d-15562a030a94"
+ },
+ {
+  "subject": ".gitignore",
+  "absolute": "/Users/tanner/ost-agent-meta/.gitignore",
+  "session": "0d27cebf-9b5d-4cff-906c-0134512573bc"
+ },
+ {
+  "subject": "/Users/tanner/dev/ost-agent-meta",
+  "absolute": "/Users/tanner/dev/ost-agent-meta",
+  "session": "0d27cebf-9b5d-4cff-906c-0134512573bc"
+ },
+ {
+  "subject": "/Users/tanner/Library/Logs/ost-meta-loop.launchd.log",
+  "absolute": "/Users/tanner/Library/Logs/ost-meta-loop.launchd.log",
+  "session": "0d27cebf-9b5d-4cff-906c-0134512573bc"
+ },
+ {
+  "subject": "it.md",
+  "absolute": "/Users/tanner/ost-agent-meta/it.md",
+  "session": "42dcb7b4-f01b-40bc-a211-ed4a44a74fd3"
+ },
+ {
+  "subject": "test/tmp*",
+  "absolute": "/Users/tanner/dev/OST-Agent/test",
+  "session": "516fdfb8-bab1-41a4-b1e5-92fde97bd90d"
+ },
+ {
+  "subject": "/Users/tanner/dev/ost*",
+  "absolute": "/Users/tanner/dev",
+  "session": "5e5c119d-e5e8-4dbd-ab7c-c4bfc1247a18"
+ },
+ {
+  "subject": "src/cli/index.ts",
+  "absolute": "/Users/tanner/ost-agent-meta/src/cli/index.ts",
+  "session": "748498c4-31fb-4110-9012-464c441a463f"
+ },
+ {
+  "subject": "/Users/tanner/dev/ost*",
+  "absolute": "/Users/tanner/dev",
+  "session": "8fc8d6e3-7cae-41e0-a83b-e32346e352b1"
+ },
+ {
+  "subject": "ENOENT",
+  "absolute": "/Users/tanner/dev/OST-Agent/ENOENT",
+  "session": "97546e2f-307a-46c7-a40e-64de3ec75f68"
+ },
+ {
+  "subject": "docs/reference",
+  "absolute": "/Users/tanner/dev/OST-Agent/docs/reference/docs/reference",
+  "session": "a0eb3fd4-5a36-44c1-93fc-ac8b48258cff"
+ },
+ {
+  "subject": "src/vault/*.ts",
+  "absolute": "/Users/tanner/dev/OST-Agent/src/vault",
+  "session": "e42cd03d-b2a4-44ba-989a-9e01cc368f77"
+ },
+ {
+  "subject": "test/loop/sense-census-report.test.ts",
+  "absolute": "/Users/tanner/dev/OST-Agent/test/loop/sense-census-report.test.ts",
+  "session": "32382f64-f442-44c4-901f-3548a6392b74"
+ },
+ {
+  "subject": "/Users/tanner/dev/OST-Agent/test/mcp/preflight-required-tools.test.ts",
+  "absolute": "/Users/tanner/dev/OST-Agent/test/mcp/preflight-required-tools.test.ts",
+  "session": "48c870d7-8192-478a-bdc1-f4aef040cce3"
+ },
+ {
+  "subject": "test/loop/work-claim-vocabulary-match.test.ts",
+  "absolute": "/Users/tanner/dev/OST-Agent/test/loop/work-claim-vocabulary-match.test.ts",
+  "session": "4dd79aa6-096f-44fe-910e-30979d1a957e"
+ },
+ {
+  "subject": "test/ost/unread-subject-propagation.test.ts",
+  "absolute": "/Users/tanner/dev/OST-Agent/test/ost/unread-subject-propagation.test.ts",
+  "session": "65d1f5ac-bb72-4059-b79f-bc52d2bbadd6"
+ },
+ {
+  "subject": "test/cli/lane.test.ts",
+  "absolute": "/Users/tanner/dev/OST-Agent/test/cli/lane.test.ts",
+  "session": "6efbe29b-8303-4fdb-8e0c-a56959d80ecd"
+ },
+ {
+  "subject": "test/ost/stranded-evidence-census.test.ts",
+  "absolute": "/Users/tanner/dev/OST-Agent/test/ost/stranded-evidence-census.test.ts",
+  "session": "971dbc8e-e646-4860-8cc5-fff8165fe0cb"
+ },
+ {
+  "subject": "/Users/tanner/ost-agent-meta/src",
+  "absolute": "/Users/tanner/ost-agent-meta/src",
+  "session": "9aa6b7c9-a6a9-41f9-892b-4a330a99cc36"
+ },
+ {
+  "subject": "/Users/tanner/ost-agent-meta/",
+  "absolute": "/Users/tanner/ost-agent-meta/",
+  "session": "9aa6b7c9-a6a9-41f9-892b-4a330a99cc36"
+ },
+ {
+  "subject": "/Users/tanner/ost-agent-meta/*/",
+  "absolute": "/Users/tanner/ost-agent-meta",
+  "session": "b7bb77c7-9f8c-4a1c-9c92-43c6a2678270"
+ },
+ {
+  "subject": "/Users/tanner/dev/*vault*",
+  "absolute": "/Users/tanner/dev",
+  "session": "da754f34-726f-43b0-8820-338c5bff576d"
+ },
+ {
+  "subject": "/Users/tanner/dev/*vault*",
+  "absolute": "/Users/tanner/dev",
+  "session": "f5cffeb9-2701-4107-97f3-54c8dae432a1"
+ },
+ {
+  "subject": ".ost-agent/state/mapped.json",
+  "absolute": "/Users/tanner/ost-agent-meta/.ost-agent/state/mapped.json",
+  "session": "d0008f2c-86ea-4db8-90cf-364ce6047c99"
+ }
+]
