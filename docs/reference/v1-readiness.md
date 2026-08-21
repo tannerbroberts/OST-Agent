@@ -3114,9 +3114,15 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,320 tests across 278 files, verified 2026-08-20 (`npx vitest run`
-> reports 3,312 of them; the other 8 are the contended calibration file described in the
-> previous entry. After "Git-only substrate that makes every change revertible" was given
+> *Today:* **met** — 3,329 tests across 279 files, verified 2026-08-20 (`npx vitest run`
+> reports 3,321 of them; the other 8 are the contended calibration file described in the
+> previous entry. After "Golden-set evaluation harness" was given its definition of done:
+> `test/eval/golden-set-discrimination.test.ts` scores three committed sound vaults and
+> five deliberately degraded copies of one of them through `src/eval/golden-set.ts` and
+> asserts every good vault outscores every degraded one by 10 points per pair, with the
+> good vaults clean under `checkInvariants` and each degraded vault's planted breakage the
+> dimension the scorer finds weakest; nine tests, one new file. After "Git-only substrate
+> that makes every change revertible" was given
 > its definition of done: `test/git/revert-fidelity.test.ts` snapshots a tree, runs a pass
 > through the MCP surface, reverts with a single `git revert --no-edit <before>..HEAD`, and
 > compares every file's hash and git's tree id — in a fresh empty directory, where it also

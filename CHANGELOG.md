@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- **A golden set, and a scorer that must put every good tree above every broken one.**
+  Nothing in the repository assigned a tree a quality score, so no change to the agent could
+  be said to have made its trees better or worse. `src/eval/golden-set.ts` scores a tree on
+  five dimensions read from what the product already checks — structural invariants,
+  opportunities stated as needs rather than features, nodes that name a source and a rung,
+  solutions with an assumption test beneath them, tests with a fixed bar — and
+  `test/fixtures/golden-set/` commits three sound vaults in three domains plus five copies of
+  one of them each broken a single named way. `test/eval/golden-set-discrimination.test.ts`
+  asserts every good vault outscores every degraded one by at least 10 points **per pair**,
+  not on the means, with two controls: the good vaults pass `checkInvariants` clean, and each
+  degraded vault's planted breakage is the dimension the scorer finds weakest. `ost-agent
+  score --vault <dir>` prints the same report for a live vault. **What this does not settle:**
+  the degraded vaults are broken in ways their author imagined; a margin over them is no
+  evidence the scorer sees a bad tree nobody planted, or that the score tracks what a human
+  would call quality.
+
 - **Ideation asks for candidates that differ on a named dimension, not candidates that are
   "genuinely distinct".** Asked for three solutions, a model returns three phrasings of one
   idea, and nothing downstream recovers — elimination is bounded above by generation. The rules
