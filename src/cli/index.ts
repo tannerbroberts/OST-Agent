@@ -170,6 +170,16 @@ import { runAllowlistGenerator } from "../security/allowlist-generator.js";
 import { runGrantPreflight } from "../runner/grant-preflight.js";
 import { REQUIRED_TOOLS_EXIT, checkRequiredTools } from "../mcp/required-tools.js";
 import { TOOL_SURFACE_PREFLIGHT_EXIT, checkToolSurfaces } from "../runner/tool-surface-preflight.js";
+import { discoverShippedHelpers, generatedHelper, shebangInterpreter, type Helper } from "../runner/bash-compat-lint.js";
+import { PRE_COMMIT_HOOK } from "../git/conflict-guard.js";
+import {
+  formatHelperRefusal,
+  formatManifestCoverage,
+  manifestCoverage,
+  parseHelperManifest,
+  preflightHelper,
+  realMachineProbe,
+} from "../runner/helper-manifest.js";
 import { loopStateDir, workingTreeStatus, type VaultTreeStatus } from "../loop/state.js";
 import { bankQuestion, readQuestionBank } from "../loop/question-bank.js";
 import {
@@ -1598,6 +1608,43 @@ program
     // Nothing readable is not a clean result — it is the sweep that could not read
     // its subject, and an automation has to learn that through the exit code.
     if (census.readable === 0) process.exitCode = 1;
+  });
+
+program
+  .command("helper-preflight")
+  .description(
+    "check every shell helper's declared requirements against THIS machine before you install it, " +
+      "and report what each manifest leaves undeclared",
+  )
+  .argument("[helpers...]", "helper files to check; defaults to every helper this project ships, plus the pre-commit hook it generates")
+  .option("--repo <dir>", "the checkout to discover shipped helpers in", process.cwd())
+  .action((files: string[], opts: { repo: string }) => {
+    const helpers: Helper[] = files.length
+      ? files.map((f) => {
+          const source = fs.readFileSync(path.resolve(f), "utf8");
+          return { name: f, origin: "shipped" as const, interpreter: shebangInterpreter(source), source };
+        })
+      : [
+          ...discoverShippedHelpers(path.resolve(opts.repo)),
+          generatedHelper("pre-commit (ost-agent conflict guard)", PRE_COMMIT_HOOK),
+        ];
+    const probe = realMachineProbe();
+    const manifests = helpers.map((h) => ({ helper: h, manifest: parseHelperManifest(h.name, h.source) }));
+
+    console.log(formatManifestCoverage(manifests.map(({ helper, manifest }) => manifestCoverage(helper, manifest))));
+
+    let refused = 0;
+    for (const { manifest } of manifests) {
+      const verdict = preflightHelper(manifest, probe);
+      if (verdict.ok) continue;
+      refused++;
+      console.log("");
+      console.log(formatHelperRefusal(verdict));
+    }
+    // A helper this cannot vouch for is a refusal, not a pass — including one that
+    // declares nothing, which is unchecked rather than fine. An automation has to
+    // learn that from the exit code rather than off a report it has to read.
+    if (refused > 0 || helpers.length === 0) process.exitCode = 1;
   });
 
 program

@@ -1,0 +1,24 @@
+# The manifest for `test/fixtures/bash-compat/ost-reports.recorded.sh`, written
+# by hand from reading that script.
+#
+# It is a sidecar rather than a comment block inside the helper, and that is a
+# limit of the in-script form rather than a preference. That fixture is a
+# reconstruction pinned line-for-line by three recorded error lines — `mapfile`
+# must land on line 21 — and `test/fixtures/bash-compat/expected-findings.json`
+# asserts it. Prepending a manifest would move it. A helper whose lines somebody
+# else's spec depends on cannot carry its requirements inside itself, which is
+# the same shape as any helper you did not author.
+#
+# ost-requires: interpreter bash — indexed arrays and `${!FILES[@]}`
+# ost-requires: builtin mapfile — reads the archive listing into an array in one call
+# ost-requires: command ls — lists the archive directory
+# ost-requires: command sort — -r puts the newest report first
+# ost-requires: command basename — turns an archive path into its timestamp
+# ost-requires: command head — takes the report's title line
+# ost-requires: command tail — takes the report's body, from line 2
+# ost-requires: command fold — wraps the body to 88 columns
+# ost-requires: command sed — indents the wrapped body
+# ost-requires: command tr — flattens a body to one line, and strips wc's padding
+# ost-requires: command cut — truncates a body to 96 columns for the list view
+# ost-requires: command wc — counts the undelivered spool
+# ost-requires: command seq — enumerates the -n COUNT range

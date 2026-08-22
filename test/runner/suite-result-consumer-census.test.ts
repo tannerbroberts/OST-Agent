@@ -171,6 +171,17 @@ describe("the consumer set, enumerated and held there", () => {
     // it to pass/fail, and the command never assigns `process.exitCode`.
     // Provably not a suite-verdict consumer, proven below rather than by a
     // hardcoded-argv argument, because the command IS caller-supplied here.
+    //
+    // `runner/helper-manifest.ts` joined on 2026-08-22: an install-time
+    // preflight has to know which version of a shell this machine has, and the
+    // only way to ask is to run it. The name arrives out of a *file* — a
+    // helper's `# ost-requires: interpreter …` directive — which is exactly why
+    // the door is narrow: `PROBEABLE_INTERPRETERS` is a literal set of five
+    // shell names, the argv is the literal `["--version"]`, and any other name
+    // returns null without executing anything. The exit status is discarded —
+    // the version is parsed out of the output or the requirement is reported
+    // undecidable and the install refuses — so nothing here reduces a process
+    // to pass/fail. Asserted below.
     const doors = sources()
       .filter((f) => f.text.includes('"node:child_process"'))
       .map((f) => f.rel)
@@ -183,8 +194,19 @@ describe("the consumer set, enumerated and held there", () => {
       path.join("ost", "instrument.ts"),
       path.join("release", "ship-repo.ts"),
       path.join("release", "ship.ts"),
+      path.join("runner", "helper-manifest.ts"),
       path.join("runner", "shell-necessity.ts"),
     ]);
+
+    // `runner/helper-manifest.ts` has one spawn point, and it is gated on a
+    // literal allowlist before the name reaches it. The argv is a literal, and
+    // the result is read through `.stdout`/`.stderr` only: `.status` is never
+    // touched, so no exit code can become a verdict here.
+    const manifest = readRepo("src/runner/helper-manifest.ts");
+    expect((manifest.match(/spawnSync\(/g) ?? []).length).toBe(1);
+    expect(manifest).toMatch(/if \(!PROBEABLE_INTERPRETERS\.has\(interpreter\)\) return null;/);
+    expect(manifest).toMatch(/spawnSync\(bin, \["--version"\]/);
+    expect(manifest).not.toMatch(/out\.status/);
 
     // `cli/index.ts` has exactly one spawn point (`shellProcess`, the
     // `canary` command's runner), and that command's action never assigns
