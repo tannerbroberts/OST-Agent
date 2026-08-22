@@ -47,6 +47,7 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { configPath } from "../../src/config/load.js";
 import { resolveSessionsDir } from "../../src/cli/loop.js";
 import { claimsPath } from "../../src/loop/claim.js";
+import { dispatchLedgerPath, parityLedgerPath } from "../../src/loop/environment.js";
 import { scopePath } from "../../src/loop/scope.js";
 import { openRunPath, runsPath } from "../../src/loop/health.js";
 import { journalPath } from "../../src/loop/journal.js";
@@ -288,6 +289,17 @@ const OFF_GATE_DECIDER_MODULES: Record<string, string> = {
   "claim.ts": "the work claim — decides whether a pass may start, not whether a firing may",
   "updates.ts": "the update channel — decides which VERSION a pass runs, not whether a firing may",
   "scope.ts": "the scope declaration — decides whether a run's declared intent may be redeclared, not whether a firing may",
+  // The dispatch environment check refuses `loop due` (exit 21) when the host
+  // cannot support a firing at all — no directory, no checkout to record into, no
+  // config, a git directory this account cannot write. That is none of F1–F4's
+  // questions; it is what has to be true before any of them can be *asked*, which
+  // is why it runs ahead of them and why filing it under a Gate F criterion would
+  // attribute it to a verdict it does not compute. It takes the class's obligation
+  // instead of an exemption: both its ledgers are enumerated below and go through
+  // parts 2 and 4 byte for byte, because a parity ledger the unattended surface
+  // could append to would let the agent certify the preflight it is running under.
+  "environment.ts":
+    "the dispatch environment check — decides whether a host can support a firing at all, not which of F1–F4 hold",
 };
 
 /**
@@ -312,6 +324,8 @@ const OFF_GATE_DECIDER_PATHS = (v: string): string[] => [
   announcedPath(v)!,
   appliedPath(v)!,
   scopePath(v, "sample-run"),
+  dispatchLedgerPath(v)!,
+  parityLedgerPath(v)!,
 ];
 
 /**
@@ -529,6 +543,33 @@ beforeEach(() => {
       expiresAt: "2026-07-02T08:00:00.000Z",
       briefingDigest: "abc123",
       state: "held",
+    }) + "\n",
+    "utf8",
+  );
+  // Same reason as the records above: a dispatch reading and the parity pair it
+  // was compared against, so a write that lands on either ledger shows up as a
+  // changed hash rather than as a file that appeared.
+  const reading = {
+    cwd: vault,
+    vaultDir: vault,
+    searchPath: ["/usr/bin"],
+    user: "t(1:1)",
+    vault: { reachable: true },
+  };
+  fs.writeFileSync(
+    dispatchLedgerPath(vault)!,
+    JSON.stringify({ at: "2026-07-02T00:00:00.000Z", verdict: "dispatched", reading }) + "\n",
+    "utf8",
+  );
+  fs.writeFileSync(
+    parityLedgerPath(vault)!,
+    JSON.stringify({
+      runId: "r2",
+      dispatchedAt: "2026-07-02T00:00:00.000Z",
+      observedAt: "2026-07-02T00:00:01.000Z",
+      scheduler: reading,
+      run: reading,
+      disagreements: [],
     }) + "\n",
     "utf8",
   );

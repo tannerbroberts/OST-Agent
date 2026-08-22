@@ -3114,8 +3114,8 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,427 tests across 282 files, verified 2026-08-21 (`npx vitest run`
-> reports 3,419 of them; the other 8 are the contended calibration file described in the
+> *Today:* **met** — 3,439 tests across 283 files, verified 2026-08-21 (`npx vitest run`
+> reports 3,431 of them; the other 8 are the contended calibration file described in the
 > previous entry. After "Hand the run the project's symbol surface before it writes, not
 > after it compiles" was given its definition of done: `test/runner/symbol-index.test.ts`
 > rebuilds `src/runner/symbol-index.ts` over all 63 modules of `src/` at `368cf6d7`

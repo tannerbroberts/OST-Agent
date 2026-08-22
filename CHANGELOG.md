@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+- **The scheduler checks the host before it dispatches, and records whether that check was
+  worth anything.** `loop due` decided from the clock and the token ledger alone, and both
+  of those it reads *through* the vault — so a checkout whose `.git` had moved answered
+  "never fired" (`readRuns` returns `[]` when there is no state dir) and came back **due**
+  on every cycle, forever, with each firing dying seconds later inside `loop start` against
+  a lock and a record it could not write either. It now verifies reachability first and
+  refuses with its own exit code (**21**, `environmentUnready`), counting consecutive skips
+  across cycles — a thing a scheduler can do and a pass cannot. **The half that keeps this
+  from being a hint:** a preflight taken from a different shell, user or directory than the
+  run gets proves nothing, and a hint wired to prevent dispatch eventually cancels a run
+  that would have worked. So `loop due` writes down what it saw, `loop start` writes down
+  what the run itself sees in its first instant, and the pairs are compared on all four axes
+  — working directory, resolved `PATH`, user, vault reachability — into a ledger under
+  `.git/ost-agent/` the unattended surface cannot forge.
+  `test/loop/preflight-parity.test.ts` holds ten consecutive dispatches to exact agreement,
+  in the two processes the claim is about, with one disagreement enough to fail it.
+  **What green does NOT settle:** those ten pairs are a scheduler and a run sharing a shell,
+  which is the deployment `examples/automation/autonomous-pass.sh` produces. It says nothing
+  about a scheduler and a run on different hosts, in different containers or under different
+  users — the case where divergence is likeliest. A disagreement is recorded and said loudly
+  and does **not** stop the run: cancelling work that would have succeeded is the failure a
+  preflight exists to prevent, and whether an operator wants that trade is their call.
+
 - **A legal Workflow skeleton, handed to the composer at the address the tool looks.**
   Two sessions in this repository composed a `Workflow` script of 170 and 240 lines and
   learned the accepted dialect from `Script parse error: Unexpected token (172:33)` and

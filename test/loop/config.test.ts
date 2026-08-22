@@ -24,6 +24,13 @@ const CLI = path.resolve(__dirname, "../../src/cli/index.ts");
 let dir: string;
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "ost-loopcfg-"));
+  // A real checkout, because `loop due` now verifies the environment before it
+  // reaches either gate: a directory the loop could not record a firing into is
+  // refused (exit 21) ahead of the cadence and spend gates, and the two tests
+  // below that drive the CLI are asking about the *spend* gate. Without this they
+  // would be asserting a refusal for a reason they are not asking about — and a
+  // bare `mkdtemp` was never a state a real vault is in.
+  execFileSync("git", ["init", "--quiet"], { cwd: dir, stdio: ["ignore", "ignore", "ignore"] });
 });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 

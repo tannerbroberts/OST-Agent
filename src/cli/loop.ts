@@ -35,6 +35,17 @@ import { degradedReport, observeDegradation } from "../loop/degraded.js";
 import { fallbackBanner, fallbackRefusalReport, runFallback } from "../loop/fallback.js";
 import { appendStep, readOpenRun, readRuns, sealRun, startRun, sweepCrashed } from "../loop/health.js";
 import { observeToolSurface } from "../loop/tool-surface-record.js";
+import {
+  consecutiveSkips,
+  dispatchClearedLine,
+  dispatchSkippedReport,
+  parityLine,
+  readDispatches,
+  readEnvironment,
+  recordDispatch,
+  recordRunParity,
+  verifyDispatchEnvironment,
+} from "../loop/environment.js";
 import { announceUpdate, applyAtCheckpoint, subscriptionOf, updateStatusLine } from "../loop/updates.js";
 import { observeSenses, senseCensusReport } from "../loop/senses.js";
 import { computeShortfall, declareScope, shortfallReport } from "../loop/scope.js";
@@ -96,6 +107,19 @@ export const LOOP_EXIT = {
    * which is the exact shape the fallback exists to refuse.
    */
   fallbackRefused: 20,
+  /**
+   * `loop due` only: the host cannot support a firing, so none was dispatched.
+   *
+   * Its own code because the fix is on the machine rather than in the vault or
+   * the schedule — no directory at the path, no git checkout to record into, no
+   * config, a git directory this account cannot write. Folding it into
+   * `treeUnreadable` would send an operator looking at their working tree for a
+   * problem that is a mount, a path or a permission; folding it into
+   * `notElapsed` would be worse, because that is the one refusal a wrapper is
+   * told to treat as routine and exit 0 on, and a host that can never fire would
+   * report a quiet success on every cycle forever.
+   */
+  environmentUnready: 21,
 } as const;
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -329,11 +353,40 @@ export function registerLoopCommands(program: Command): void {
 
   loop
     .command("due")
-    .description("may this vault fire now? (cadence + spend ceiling; both refuse when undeclared)")
+    .description(
+      "may this vault fire now? (environment + cadence + spend ceiling; all three refuse when they cannot be satisfied)",
+    )
     .option("--vault <dir>", VAULT_OPTION_HELP)
     .action((opts: { vault: string }) => {
-      const config = loadConfig(opts.vault);
       const now = Date.now();
+
+      // FIRST, ahead of the config load and both ledger gates, because the two
+      // gates below read the vault to answer their questions and a vault that
+      // cannot be read answers them wrong rather than not at all: `readRuns`
+      // returns `[]` for a directory with no state dir, so a checkout whose
+      // `.git` had moved read as "never fired" and came back due on every single
+      // cycle. That is the failure this gate exists to stop, and it can only stop
+      // it by running before the gate it would fool.
+      const environment = verifyDispatchEnvironment(opts.vault);
+      if (!environment.ok) {
+        const recorded = recordDispatch(opts.vault, {
+          at: new Date(now).toISOString(),
+          verdict: "skipped",
+          reading: environment.reading,
+          reason: environment.problem!,
+        });
+        console.error(
+          dispatchSkippedReport({
+            problem: environment.problem!,
+            consecutive: consecutiveSkips(readDispatches(opts.vault)),
+            recorded,
+          }),
+        );
+        process.exitCode = LOOP_EXIT.environmentUnready;
+        return;
+      }
+
+      const config = loadConfig(opts.vault);
       const runs = readRuns(opts.vault);
 
       // Printed before any gate, so a vault that has never fired says so on
@@ -406,6 +459,20 @@ export function registerLoopCommands(program: Command): void {
             : undefined,
         )}`,
       );
+
+      // LAST, once every gate has cleared and this command is really dispatching
+      // — recording a reading for a cycle that then refused would leave `loop
+      // start` pairing a run against a dispatch that never happened. What is
+      // written is the reading the gate above decided from, not a fresh one: a
+      // second reading could differ from the one that cleared, and the whole
+      // value of the record is that it says what the scheduler acted on.
+      console.log(`  ${dispatchClearedLine(environment.reading)}`);
+      if (!recordDispatch(opts.vault, { at: new Date(now).toISOString(), verdict: "dispatched", reading: environment.reading })) {
+        console.error(
+          "  ⚠ the dispatch reading could not be written — this firing will not be able to check that the run it " +
+            "starts sees what this check saw.",
+        );
+      }
     });
 
   loop
@@ -503,6 +570,13 @@ export function registerLoopCommands(program: Command): void {
       "the tools this firing will actually be able to call — the same string handed to `required-tools --available`",
     )
     .action((opts: { vault: string; holderPid?: string; pass?: string; available?: string }) => {
+      // The run's own account of where it is standing, taken in its first
+      // instant and before this command has changed anything — no lock, no
+      // record, no checkpoint. Later would be a reading of an environment this
+      // process had already acted on, and the claim being measured is what the
+      // run *was given*, not what it made for itself.
+      const runEnvironment = readEnvironment(opts.vault);
+
       // FIRST, before the lock and before any record is opened, so a refusal
       // leaves nothing behind — no lock for the next firing to break, no open
       // marker for it to sweep as `crashed`. The cost of that ordering is
@@ -613,6 +687,24 @@ export function registerLoopCommands(program: Command): void {
       });
       stampFiringLock(opts.vault, lock.record, opened.runId);
       console.log(`loop run ${opened.runId} open`);
+
+      // The other half of the dispatch check: what `loop due` saw when it let
+      // this firing through, against what this run actually got. Recorded after
+      // the run opens because the pair is worth nothing without the run id that
+      // ties it to a firing — and printed either way, including the "nothing to
+      // compare" case, because a run nobody dispatched and a run whose readings
+      // matched are different facts and only one of them says the preflight
+      // worked. A disagreement is loud and does not stop the run; see
+      // `loop/environment.ts` for why refusing here would be the failure a
+      // preflight is meant to prevent.
+      const parity = recordRunParity(opts.vault, {
+        runId: opened.runId,
+        reading: runEnvironment,
+        at: new Date().toISOString(),
+      });
+      const line = parityLine(parity);
+      if (parity && parity.disagreements.length > 0) console.error(line);
+      else console.log(line);
     });
 
   loop
