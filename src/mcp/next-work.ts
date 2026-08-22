@@ -32,12 +32,8 @@ import {
 import type { OstNode } from "../ost/node.js";
 import type { Vault } from "../ost/vault.js";
 import { classifyUnknown, contractGaps, resolutionState, type UnknownClass } from "../knowledge/unknowns.js";
-import {
-  VARIATION_DIMENSIONS,
-  buildIdeationPrompt,
-  variationAssignments,
-  type VariationAssignment,
-} from "../knowledge/forced-variation.js";
+import { VARIATION_DIMENSIONS, type VariationAssignment } from "../knowledge/forced-variation.js";
+import { buildIdeationRound, roundAssignments, type IdeationArm } from "../knowledge/blind-ideation.js";
 import { CAUTIOUS_LANE, isLane, type LaneId } from "../knowledge/lanes.js";
 import { hasRecordedResult } from "../eval/evidence-debt.js";
 import { solutionsAwaitingObservation, solutionsMissingInstruments } from "../eval/buildable.js";
@@ -115,6 +111,20 @@ export interface UnderservedOpportunity {
    * and no more, which the length of this list shows against `needed`.
    */
   variation: VariationAssignment[];
+  /**
+   * How the candidates above are meant to be generated. `blind` — always, on
+   * this surface — means one independent ideator per entry in `variation`, each
+   * seeing this opportunity and `existingSolutions` and nothing else, merged
+   * only once all of them are back.
+   *
+   * The field is here because the list alone reads as a single request for N
+   * candidates, and a single request is precisely the anchoring that makes
+   * candidate two a rephrasing of candidate one. `anchored` is the control arm
+   * a person rates the blind set against (`src/knowledge/blind-ideation.ts`);
+   * it is not offered here, because this surface is the product rather than the
+   * experiment.
+   */
+  ideation: IdeationArm;
 }
 export interface BareSolution {
   title: string;
@@ -1118,11 +1128,12 @@ export function computeNextWork(
         const wanted = Math.min(min - existing.length, VARIATION_DIMENSIONS.length);
         const variation =
           wanted >= 1
-            ? variationAssignments(
-                buildIdeationPrompt({
+            ? roundAssignments(
+                buildIdeationRound({
                   opportunity: o.title,
                   existingSolutions: existing,
                   candidates: wanted,
+                  arm: "blind",
                 }),
               )
             : [];
@@ -1134,6 +1145,7 @@ export function computeNextWork(
             needed: min,
             existingSolutions: existing.slice(0, MAX_LISTED_CHILDREN),
             variation,
+            ideation: "blind" as IdeationArm,
           },
         };
       })
@@ -1329,7 +1341,10 @@ export function computeNextWork(
 
   const parts: string[] = [];
   if (scopedUnmappedEvidence.length) parts.push(`${scopedUnmappedEvidence.length} unmapped evidence item(s) → map into #Opportunity nodes`);
-  if (scopedUnderserved.length) parts.push(`${scopedUnderserved.length} opportunity(ies) with < ${min} solutions → ideate #Solution nodes`);
+  if (scopedUnderserved.length)
+    parts.push(
+      `${scopedUnderserved.length} opportunity(ies) with < ${min} solutions → ideate #Solution nodes, one blind ideator per assigned dimension`,
+    );
   if (scopedMissingAssumptions.length) parts.push(`${scopedMissingAssumptions.length} solution(s) with no assumption test → surface #AssumptionTest nodes`);
   if (allSolutionsMissingInstruments.length)
     parts.push(
