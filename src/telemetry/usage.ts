@@ -217,6 +217,23 @@ function stamp(value: string | undefined): string | undefined {
 }
 
 /**
+ * The session the code running right now was dispatched in, or `undefined` when
+ * no surface has declared one.
+ *
+ * A reader, not a second authority: it returns exactly what a surface entered
+ * {@link withAttribution} with, and there is still nothing outside the process
+ * that can put a value here. It exists because "which run is this call inside
+ * of" is a question one caller needs to *refuse* on rather than to record —
+ * `src/eval/judge-independence.ts` will not issue a judging call from inside the
+ * session that proposed, and a recorded identity cannot tell it that, because a
+ * judging tool bolted onto the writing surface would record a perfectly distinct
+ * one while running in the proposer's own context.
+ */
+export function ambientSession(): string | undefined {
+  return stamp(attributionScope.getStore()?.session);
+}
+
+/**
  * Attribution declared for one call, resolved the moment that call starts.
  *
  * An explicit argument to `withUsageTracing` wins outright over the ambient

@@ -3114,9 +3114,37 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,567 tests across 290 files, verified 2026-08-22 (`npx vitest run`
-> reports 3,559 of them; the other 8 are the contended calibration file described in the
-> previous entry. After "Independent ideators that never see each other's candidates" was
+> *Today:* **met** — 3,598 tests across 291 files, verified 2026-08-22 (`npx vitest run`
+> reports 3,590 of them; the other 8 are the contended calibration file described in the
+> previous entry. After "Independent judge separate from the proposer" was given its
+> definition of done: `src/eval/judge-independence.ts` makes the split between the agent
+> that proposes and the judge that checks it a property of how the two calls are wired.
+> A judging call is assembled from the claim and the cited evidence alone — `JudgeContext`
+> has no field a reasoning trace could travel in — and the check rebuilds the prompt from
+> that context before comparing it byte for byte, then reads the recorded trace back
+> against the assembled prompt as every six-word window, so a leak that was summarised or
+> re-wrapped on the way in is still caught. The judge's tools are tested against
+> `mutatesVault`, the MCP dispatcher's own read-only/mutating split, so "no write access"
+> cannot drift from what that surface actually commits; `settleReview` refuses a verdict
+> the proposer signed and one signed by an identity the call was not issued under.
+> `test/eval/judge-independence.test.ts` pins all three clauses of the instrument with
+> violations planted in both directions, thirty-one tests, one new file. Two of them are
+> the ones that would still hold against a wiring nobody has written yet: a judging call
+> issued *inside* the proposing session is refused on the ambient session
+> (`ambientSession()`, new in `src/telemetry/usage.ts`) even though its recorded identity
+> looks perfectly distinct — which is what a judging tool bolted onto the writing surface
+> would look like — and a proposal carrying no trace at all is reported `uncheckable-trace`
+> rather than cleared, because a property nothing could have violated has not been checked.
+> Two limits are pinned rather than described. The default judge shares no model with any
+> proposer only because it is not a model: `GROUNDING_RATER` is a deterministic heuristic,
+> so the "different model" half of the solution's own wording is unbought, and a judge that
+> does share the proposer's model is reported (`sameModel`) instead of refused, since
+> whether a second model is worth buying is the human's question. And structural
+> independence buys nothing on its own: `independenceReport` counts how often the judge
+> landed somewhere other than the proposer's own score and flags a judge that has never
+> once dissented across five reviews — separate roles, and no information. Whether an
+> independent judge raises an operator's trust stays with five operators and a person to
+> ask them. Previously, after "Independent ideators that never see each other's candidates" was
 > given its definition of done: `src/knowledge/blind-ideation.ts` assembles one ideation
 > round as N single-candidate prompts built from one frozen shared context, so there is no
 > parameter through which a sibling's candidate could enter another's prompt; two checks
