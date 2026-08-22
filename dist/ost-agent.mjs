@@ -46868,7 +46868,16 @@ function subtree(start, index) {
   }
   return out;
 }
-function rollUpBucket(bucket, index) {
+function actorsBehind(sources, stamps) {
+  if (stamps === void 0) return null;
+  const keys = /* @__PURE__ */ new Set();
+  for (const source of sources) {
+    const key2 = sourceTrustKey(source, stamps);
+    if (key2) keys.add(keyString(key2));
+  }
+  return [...keys].sort();
+}
+function rollUpBucket(bucket, index, stamps) {
   const nodes = subtree(bucket.title, index);
   const tests = nodes.filter((n) => n.layer === "AssumptionTest");
   const instrumented = tests.filter((t2) => nodeInstrument(t2) !== void 0);
@@ -46886,6 +46895,7 @@ function rollUpBucket(bucket, index) {
     tested: tests.filter(hasRecordedResult).length,
     refuted: tests.filter((t2) => recordedVerdict(t2) === "refuted").length,
     corroborators: sources.size,
+    actors: actorsBehind(sources, stamps),
     // `bound` is the only kind that names a number fixed in advance; `prose`,
     // `instruction` and `absent` all leave the bar to be decided after the run,
     // which is the same as having none.
@@ -46893,10 +46903,10 @@ function rollUpBucket(bucket, index) {
     weakestRung: weakest(nodes.map((n) => n.evidence))
   };
 }
-function rollupTree(tree) {
+function rollupTree(tree, stamps) {
   const index = byTitle([...tree]);
   const outcome = tree.find((n) => n.layer === "Outcome") ?? null;
-  const buckets = (outcome?.links ?? []).map((t2) => index.get(t2)).filter((n) => n !== void 0 && n.layer === "Opportunity").map((b2) => rollUpBucket(b2, index));
+  const buckets = (outcome?.links ?? []).map((t2) => index.get(t2)).filter((n) => n !== void 0 && n.layer === "Opportunity").map((b2) => rollUpBucket(b2, index, stamps));
   const filed = /* @__PURE__ */ new Set();
   for (const link of outcome?.links ?? []) {
     const node = index.get(link);
@@ -46921,6 +46931,20 @@ function rollupTree(tree) {
 function pct(part, whole) {
   return whole === 0 ? "\u2014" : `${Math.round(part / whole * 100)}%`;
 }
+function support(b2) {
+  if (b2.actors === null) return `${b2.corroborators} source(s) from unestablished actors`;
+  return `${b2.corroborators} source(s) from ${b2.actors.length} actor(s)`;
+}
+function actorWarning(b2) {
+  if (b2.actors === null || b2.corroborators < 2) return "";
+  if (b2.actors.length === 1) {
+    return `    all ${b2.corroborators} source(s) speak from one actor (${b2.actors[0]}) \u2014 that is one actor recorded ${b2.corroborators} times, not ${b2.corroborators} independent voices`;
+  }
+  if (b2.actors.length === 0) {
+    return `    none of the ${b2.corroborators} source(s) names an actor any surface stamped \u2014 the count is provenance, not corroboration`;
+  }
+  return "";
+}
 function renderRollup(rollup) {
   const lines = [];
   lines.push(`Outcome: ${rollup.outcome ?? "(none \u2014 this vault has no root)"}`);
@@ -46935,8 +46959,10 @@ function renderRollup(rollup) {
     for (const b2 of rollup.buckets) {
       lines.push(`  ${b2.title}`);
       lines.push(
-        `    ${b2.opportunities} opportunity, ${b2.solutions} solution, ${b2.tests} test \u2014 built ${pct(b2.green, b2.instrumented)} (${b2.green}/${b2.instrumented} runnable), tested ${b2.tested}${b2.refuted > 0 ? ` (${b2.refuted} refuted)` : ""}, ${b2.corroborators} source(s), rests on ${b2.weakestRung ?? "nothing declared"}`
+        `    ${b2.opportunities} opportunity, ${b2.solutions} solution, ${b2.tests} test \u2014 built ${pct(b2.green, b2.instrumented)} (${b2.green}/${b2.instrumented} runnable), tested ${b2.tested}${b2.refuted > 0 ? ` (${b2.refuted} refuted)` : ""}, ${support(b2)}, rests on ${b2.weakestRung ?? "nothing declared"}`
       );
+      const warning = actorWarning(b2);
+      if (warning !== "") lines.push(warning);
       if (b2.tests > 0 && b2.withFixedThreshold < b2.tests) {
         lines.push(`    ${b2.tests - b2.withFixedThreshold} of ${b2.tests} test(s) state no fixed bar \u2014 those cannot come out a failure`);
       }
@@ -63194,7 +63220,7 @@ program2.command("reflection").argument("<solution>", "the Solution a pass was c
 });
 program2.command("rollup").description("the top-level view: what sits under each bucket, computed from the tree (no model needed)").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
   const ctx = buildPassContext(opts.vault);
-  console.log(renderRollup(rollupTree(ctx.vault.readTree())));
+  console.log(renderRollup(rollupTree(ctx.vault.readTree(), evidenceActors(ctx.dir))));
 });
 program2.command("legacy-fallback").description(
   "what the pre-Assumption compatibility read is still carrying in this vault, and when it goes inert \u2014 the number that decides whether dropping it is safe"

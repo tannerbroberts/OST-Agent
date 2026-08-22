@@ -1017,6 +1017,19 @@ kind.**
 > first-party measuring device that has recorded nothing is trusted as a measuring
 > device. That is the claim the operator makes by declaring it an instrument at all,
 > and it is the one place in this gate where standing is granted rather than earned.
+>
+> **The ceiling held in the ledger and leaked in the view (2026-08-22).** `rollup`'s
+> per-bucket line reported a bare "N source(s)", which is a count of *recordings*
+> read by every human who skims the top-level view as a count of *voices* — so a
+> bucket built from thirty of the agent's own transcripts rendered identically to one
+> built from thirty customers, whatever the ledger said underneath. The clause now
+> resolves each source through `sourceTrustKey` and states the actor count beside the
+> source count, saying so out loud when they disagree (`src/eval/rollup.ts`,
+> `actorsBehind`/`support`/`actorWarning`). Pinned by
+> `test/adapters/corroboration-actor-ceiling.test.ts`, which drives thirty
+> single-channel records down both routes to a node — cited as `source:` and filed as
+> `dispose --verdict corroborates` — and requires one actor out of thirty sources on
+> the first and no movement at all on the second.
 
 **B7 — `classifyProvenance` has a production caller.**
 > *Check:* `grep -rn 'classifyProvenance' src/ --include=*.ts | grep -v
@@ -3114,8 +3127,8 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,684 tests across 295 files, verified 2026-08-22 (`npx vitest run`
-> reports 3,676 of them; the other 8 are the contended calibration file described in the
+> *Today:* **met** — 3,690 tests across 296 files, verified 2026-08-22 (`npx vitest run`
+> reports 3,682 of them; the other 8 are the contended calibration file described in the
 > previous entry. After "Independent judge separate from the proposer" was given its
 > definition of done: `src/eval/judge-independence.ts` makes the split between the agent
 > that proposes and the judge that checks it a property of how the two calls are wired.

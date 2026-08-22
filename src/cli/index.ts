@@ -86,6 +86,7 @@ import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/rende
 import { ship } from "../release/ship-repo.js";
 import { BUILD_CHECK_EXIT, formatBuildCheck, inheritedTreeBuildCheck } from "../release/inherited-tree.js";
 import { renderRollup, rollupTree } from "../eval/rollup.js";
+import { evidenceActors } from "../knowledge/actor-trust.js";
 import { legacyFallbackCensus, renderLegacyFallbackCensus } from "../ost/legacy-fallback.js";
 import { DEFAULT_FRACTION, drawReviewSample, formatReviewSample } from "../eval/review-sample.js";
 import { lineageOf, renderLineage } from "../eval/lineage.js";
@@ -1991,7 +1992,10 @@ program
   .option("--vault <dir>", VAULT_OPTION_HELP)
   .action((opts: { vault: string }) => {
     const ctx = buildPassContext(opts.vault);
-    console.log(renderRollup(rollupTree(ctx.vault.readTree())));
+    // The stamps are what stop the support clause reading thirty of the agent's
+    // own transcripts as thirty voices; this surface has a vault directory, so it
+    // has no excuse to leave the actors unestablished.
+    console.log(renderRollup(rollupTree(ctx.vault.readTree(), evidenceActors(ctx.dir))));
   });
 
 program
