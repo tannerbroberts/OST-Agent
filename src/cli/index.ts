@@ -98,6 +98,7 @@ import { applyCritic, criticPass, renderCritic } from "../eval/critic.js";
 import { renderPanel, runPanel } from "../eval/judge-panel.js";
 import { renderScore, scoreTree } from "../eval/golden-set.js";
 import { GROUNDING_RATER, judgeFaithfulness, renderFaithfulness, subjectsFor } from "../eval/faithfulness.js";
+import { assertJudgeOutOfSession, judgeIdentity } from "../eval/judge-independence.js";
 import { readEvidence } from "../processes/tree.js";
 import { renderTournament, runTournament } from "../eval/tournament.js";
 import { renderCanary, runCanary, type CanaryProcess } from "../eval/canary.js";
@@ -896,8 +897,17 @@ program
     // The Outcome is left out on the same exemption `golden-set.ts` makes: the
     // mandate is the human's to declare, not to source.
     const nodes = ctx.vault.readTree().filter((n) => n.layer !== "Outcome");
+    // The judge is a separate identity holding no tool that writes the tree, and
+    // this refuses to score from inside a session that proposes — a scoring pass
+    // running in the run that authored these nodes is the agent grading its own
+    // homework however the output is labelled (`src/eval/judge-independence.ts`).
+    const judge = judgeIdentity(GROUNDING_RATER.name);
+    assertJudgeOutOfSession(judge, `${nodes.length} node(s) of this tree`);
     console.log(
       renderFaithfulness(judgeFaithfulness(subjectsFor(nodes, readEvidence(ctx.dir)), GROUNDING_RATER, runs)),
+    );
+    console.log(
+      `\njudged by "${judge.agent}" (${judge.model}), holding no vault-writing tool, outside any proposing session.`,
     );
   });
 
