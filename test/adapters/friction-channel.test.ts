@@ -31,6 +31,19 @@ import { classifyProvenance } from "../../src/knowledge/believability.js";
 import { loadConfig } from "../../src/config/load.js";
 import { initVault } from "../../src/runner/init.js";
 
+/**
+ * The three fields `fileFriction` now demands. Spread into filings whose subject is
+ * something other than the fields themselves, so those tests keep saying what they
+ * said — `test/telemetry/self-filed-friction-events.test.ts` is where the fields are
+ * the point.
+ */
+const ACTIONABLE = {
+  tool: "ost-agent check",
+  input: "--vault (omitted)",
+  expected: "it reads ost.vault.yaml and finds the tree",
+} as const;
+
+
 let parent: string;
 let dir: string;
 
@@ -62,7 +75,7 @@ async function offeredIds(name: string): Promise<string[]> {
 
 describe("a filing lands in the friction channel, inside the git working tree", () => {
   test("it is written inside the vault even though channel zero now escapes it", () => {
-    const written = fileFriction(dir, { kind: "blocked", note: "The ruleset does not say which layer this is" });
+    const written = fileFriction(dir, { ...ACTIONABLE, kind: "blocked", note: "The ruleset does not say which layer this is" });
 
     expect(written.startsWith(channel(FRICTION_CHANNEL).dir)).toBe(true);
     // The consequence, not the mechanism: the filing is somewhere the vault's own
@@ -77,7 +90,7 @@ describe("a filing lands in the friction channel, inside the git working tree", 
   });
 
   test("the friction channel stops being empty, and gets its own id namespace", async () => {
-    fileFriction(dir, { kind: "guessed", note: "Guessed the vault path" });
+    fileFriction(dir, { ...ACTIONABLE, kind: "guessed", note: "Guessed the vault path" });
 
     const ids = await offeredIds(FRICTION_CHANNEL);
     expect(ids).toHaveLength(1);
@@ -106,7 +119,7 @@ describe("filings already sitting in channel zero are left exactly where they ar
     const oldId = plantOldFiling();
     writeLegacyCursor(CHANNEL_ZERO, [oldId]);
 
-    fileFriction(dir, { kind: "blocked", note: "A new one, filed after the move" });
+    fileFriction(dir, { ...ACTIONABLE, kind: "blocked", note: "A new one, filed after the move" });
 
     // The whole risk of moving where new filings land: an id that changes shape is
     // an id no cursor matches, and every old filing re-enters the tree as new.
@@ -124,7 +137,7 @@ describe("filings already sitting in channel zero are left exactly where they ar
     const stranded = plantOldFiling("2026-01-03-friction-never-ingested.md");
     writeLegacyCursor(CHANNEL_ZERO, []); // fetched once, stored nothing
 
-    fileFriction(dir, { kind: "slow", note: "Filed after the move" });
+    fileFriction(dir, { ...ACTIONABLE, kind: "slow", note: "Filed after the move" });
 
     // Moving the destination must not strand what the old destination still holds.
     expect(await offeredIds(CHANNEL_ZERO)).toEqual([stranded]);
@@ -145,7 +158,7 @@ describe("filings already sitting in channel zero are left exactly where they ar
   test("the two channels keep separate cursors — neither consumes the other's watermark", () => {
     const oldId = plantOldFiling();
     writeLegacyCursor(CHANNEL_ZERO, [oldId]);
-    fileFriction(dir, { kind: "blocked", note: "Filed after the move" });
+    fileFriction(dir, { ...ACTIONABLE, kind: "blocked", note: "Filed after the move" });
 
     // The friction channel has never been fetched, so it has no state file at all;
     // channel zero's is untouched by the filing.
@@ -170,7 +183,7 @@ describe("filings already sitting in channel zero are left exactly where they ar
  */
 describe("the rung above the floor is keyed on the channel, not on the filename", () => {
   test("a real filing still reaches 'stated', by way of the segment", async () => {
-    fileFriction(dir, { kind: "blocked", note: "Which layer is this" });
+    fileFriction(dir, { ...ACTIONABLE, kind: "blocked", note: "Which layer is this" });
     const [id] = await offeredIds(FRICTION_CHANNEL);
 
     expect(id.startsWith(channelIdPrefix(FRICTION_CHANNEL))).toBe(true);

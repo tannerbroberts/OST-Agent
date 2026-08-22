@@ -31,7 +31,32 @@ export const FRICTION_KINDS = ["blocked", "guessed", "unclear-rule", "missing-af
 
 export type FrictionFilingKind = (typeof FRICTION_KINDS)[number];
 
-export interface FrictionFiling {
+/**
+ * The three fields that separate a filing somebody can act on from a filing
+ * somebody can only sympathise with.
+ *
+ * They are required, and that is a deliberate trade against the affordance's own
+ * design note that "filing must be cheap". The record is what settled it: every
+ * one of the six filings this vault held before them is bare prose, including a
+ * 500-character one that names no tool, no input and no expectation — and the
+ * assumption beneath this affordance is not only that the agent files, but that
+ * "a one-line note carries enough context to be actionable later". Six for six
+ * says it does not, so the note is no longer the whole filing.
+ *
+ * The cost is real and is the thing to watch: three more arguments at the moment
+ * of pain is three more reasons to push through silently instead. If the per-pass
+ * count falls after this, these fields are the first suspect.
+ */
+export interface FrictionActionable {
+  /** The surface that fought back: a tool name, a CLI command, a rule, a file. */
+  tool: string;
+  /** What it was called with — the input that failed, not a description of it. */
+  input: string;
+  /** What the agent expected instead. Without this, "it broke" is all a reader gets. */
+  expected: string;
+}
+
+export interface FrictionFiling extends FrictionActionable {
   kind: FrictionFilingKind;
   /** One line: what went wrong, in the agent's own words. */
   note: string;
@@ -39,12 +64,24 @@ export interface FrictionFiling {
   context?: string;
   /** Optional: which loop/process/session filed this. */
   source?: string;
+  /**
+   * Optional: the pass this was filed during — one firing of the loop, one session.
+   *
+   * Optional in the type and load-bearing in practice. "At least one event per
+   * pass" cannot be computed from filings that do not say which pass they came
+   * from, and none of the historical filings do, which is why the count the
+   * assumption test asks for has never been available from the record. See
+   * `src/telemetry/self-filed-friction.ts`.
+   */
+  pass?: string;
   /** ISO timestamp; defaults to now. */
   at?: string;
 }
 
 const MAX_NOTE_CHARS = 500;
 const MAX_CONTEXT_CHARS = 1000;
+/** Enough for a command line or a stack frame, short enough that nobody pastes a log. */
+const MAX_FIELD_CHARS = 300;
 
 function clean(text: string, max: number): string {
   const flat = redactSecrets(text).replace(/\s+/g, " ").trim();
@@ -100,10 +137,19 @@ function frictionDir(vaultDir: string): string {
   return channel.dir;
 }
 
+/** The labels the three actionable fields are written under, and read back by. */
+export const FRICTION_FIELD_LABELS: Readonly<Record<keyof FrictionActionable, string>> = {
+  tool: "tool",
+  input: "failing input",
+  expected: "expected",
+};
+
 /**
  * File one friction event into the vault's friction channel. Returns the path
  * written. Throws on an empty note or an unknown kind — a filing that says nothing is
- * worse than no filing, because it inflates the count the assumption test reads.
+ * worse than no filing, because it inflates the count the assumption test reads —
+ * and on a missing {@link FrictionActionable} field, for the same reason one rung up:
+ * a filing nobody can act on inflates the count while answering nothing.
  */
 export function fileFriction(vaultDir: string, filing: FrictionFiling): string {
   if (!FRICTION_KINDS.includes(filing.kind)) {
@@ -111,6 +157,23 @@ export function fileFriction(vaultDir: string, filing: FrictionFiling): string {
   }
   const note = clean(filing.note ?? "", MAX_NOTE_CHARS);
   if (!note) throw new Error("a friction filing needs a note — one line describing what went wrong");
+
+  // All three named at once, not one error per missing field: a caller that
+  // forgot them forgot all three, and three round trips to learn that is the
+  // friction this command exists to record rather than to cause.
+  const actionable = {} as FrictionActionable;
+  const missing: string[] = [];
+  for (const key of ["tool", "input", "expected"] as const) {
+    const value = clean(filing[key] ?? "", MAX_FIELD_CHARS);
+    if (!value) missing.push(FRICTION_FIELD_LABELS[key]);
+    actionable[key] = value;
+  }
+  if (missing.length > 0) {
+    throw new Error(
+      `a friction filing needs ${missing.join(", ")} — bare prose is not actionable later. ` +
+        `Say the tool that fought back, the input it failed on, and what you expected instead.`,
+    );
+  }
 
   const dir = path.resolve(vaultDir);
   const inboxDir = frictionDir(dir);
@@ -120,13 +183,18 @@ export function fileFriction(vaultDir: string, filing: FrictionFiling): string {
   const day = at.slice(0, 10);
   const context = filing.context ? clean(filing.context, MAX_CONTEXT_CHARS) : "";
   const source = filing.source ? clean(filing.source, 120) : "";
+  const pass = filing.pass ? clean(filing.pass, 120) : "";
 
   const body = [
     `# Friction (${filing.kind}): ${note}`,
     "",
     `- **kind:** ${filing.kind}`,
     `- **filed:** ${at}`,
+    ...(pass ? [`- **pass:** ${pass}`] : []),
     ...(source ? [`- **filed by:** ${source}`] : []),
+    `- **${FRICTION_FIELD_LABELS.tool}:** ${actionable.tool}`,
+    `- **${FRICTION_FIELD_LABELS.input}:** ${actionable.input}`,
+    `- **${FRICTION_FIELD_LABELS.expected}:** ${actionable.expected}`,
     "",
     context ? `**Context:** ${context}` : "",
     "",

@@ -137,10 +137,13 @@ export const COMPRESSION_SURFACES = [
   {
     name: "friction filing clip",
     module: "src/adapters/friction.ts",
-    caps: ["MAX_NOTE_CHARS", "MAX_CONTEXT_CHARS"],
+    caps: ["MAX_NOTE_CHARS", "MAX_CONTEXT_CHARS", "MAX_FIELD_CHARS"],
     kind: "input-bound",
     decision: "whether a filed friction note is specific enough to map into the tree",
-    reads: ["the leading characters of the note survive, because the point of pain is stated first"],
+    reads: [
+      "the leading characters of the note survive, because the point of pain is stated first",
+      "MAX_FIELD_CHARS binds the tool, the failing input and what was expected — a clipped field is still present, so a filing never becomes unactionable by being long",
+    ],
     drops: "silent",
     proof: "declaration",
   },

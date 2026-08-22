@@ -68,7 +68,7 @@ import { Command } from "commander";
 import { buildPassContext } from "../runner/context.js";
 import { readConfig } from "../config/load.js";
 import { diagnoseSetup, formatSetupDiagnosis } from "../config/setup-check.js";
-import { ailingChannels, allChannels, channelHealth, renderChannels } from "../adapters/channels.js";
+import { ailingChannels, allChannels, channelHealth, FRICTION_CHANNEL_PATH, renderChannels } from "../adapters/channels.js";
 import { initVault } from "../runner/init.js";
 import { prepareWorkspace } from "../runner/workspace.js";
 import {
@@ -128,6 +128,9 @@ import {
 import {
   formatHandExclusionCensus, handExclusionCensus, readHandExclusions,
 } from "../telemetry/hand-exclusion.js";
+import {
+  formatSelfFiledFrictionCensus, readSelfFiledFriction, selfFiledFrictionCensus,
+} from "../telemetry/self-filed-friction.js";
 import {
   formatRefusalCoverageCensus, refusalCoverageCensus,
 } from "../telemetry/refusal-coverage.js";
@@ -430,18 +433,45 @@ program
   .description("file one line of friction at the point of pain (lands in the vault's friction channel, and is committed)")
   .argument("<note>", "what went wrong, in one line")
   .option("-k, --kind <kind>", `one of: ${FRICTION_KINDS.join(", ")}`, "blocked")
+  .requiredOption("-t, --tool <name>", "the tool, command or rule that fought back")
+  .requiredOption("-i, --input <text>", "what it was called with — the input that failed")
+  .requiredOption("-e, --expected <text>", "what you expected instead")
   .option("-c, --context <text>", "what you were doing, or what you wish existed")
   .option("-s, --source <text>", "who is filing (loop, process, session)")
+  .option(
+    "-p, --pass <id>",
+    "the pass this was filed during (default: $OST_SESSION_ID) — without it the filing cannot be counted per pass",
+  )
   .option("--vault <dir>", VAULT_OPTION_HELP)
-  .action(async (note: string, opts: { kind: string; context?: string; source?: string; vault: string }) => {
+  .action(
+    async (
+      note: string,
+      opts: {
+        kind: string;
+        tool: string;
+        input: string;
+        expected: string;
+        context?: string;
+        source?: string;
+        pass?: string;
+        vault: string;
+      },
+    ) => {
     // Read BEFORE the write. The question is whether this tree was already carrying
     // something a person has to explain, and after the write the answer is never no.
     const before = workingTreeStatus(opts.vault);
     const written = fileFriction(opts.vault, {
       kind: opts.kind as FrictionFilingKind,
       note,
+      tool: opts.tool,
+      input: opts.input,
+      expected: opts.expected,
       context: opts.context,
       source: opts.source,
+      // The environment rather than a guess: `claim` already names a pass this
+      // way, so a filing and the claim it was filed under agree without the caller
+      // looking an id up in the middle of being stuck.
+      pass: opts.pass ?? process.env.OST_SESSION_ID,
     });
     console.log(`filed ${path.basename(written)}`);
     const result = await commitFiling(opts.vault, before, written);
@@ -458,7 +488,8 @@ program
     }
     console.log(`  NOT committed (${result.reason}).`);
     console.log(`  The filing is on disk at ${written} and nothing has versioned it.`);
-  });
+    },
+  );
 
 program
   .command("retrospective")
@@ -1587,6 +1618,34 @@ program
     // sweep that could not read its subject, and an automation has to learn that
     // through the exit code rather than off a report that looks clean.
     if (census.invocations === 0) process.exitCode = 1;
+  });
+
+program
+  .command("friction-count")
+  .description(
+    "how many friction events the agent filed per pass, and how many of them anybody can act on — " +
+      "the census behind trusting the agent's own record of where it got stuck",
+  )
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option(
+    "--pass <id>",
+    "a pass to count (repeatable). The bar is stated over five, and passes are named rather than " +
+      "inferred: inferring them from the filings would define a pass as one that filed.",
+    collect,
+    [],
+  )
+  .action((opts: { vault: string; pass: string[] }) => {
+    // Not `buildPassContext`, on `exclusions`' precedent: this reads a folder and
+    // answers a question about it, and a Vault handle would create the directory a
+    // mistyped path names.
+    const vault = path.resolve(opts.vault);
+    const events = readSelfFiledFriction(path.join(vault, FRICTION_CHANNEL_PATH));
+    const census = selfFiledFrictionCensus(events, opts.pass);
+    console.log(formatSelfFiledFrictionCensus(census));
+    // Fewer passes named than the bar is stated over is not a low result, it is no
+    // result — and an automation has to learn that from the exit code rather than
+    // off a report whose every clause reads NOT MET.
+    if (!census.enoughPasses) process.exitCode = 1;
   });
 
 program

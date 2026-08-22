@@ -58,6 +58,19 @@ import { UNKNOWN_ACTOR } from "../../src/adapters/source.js";
 import { DATA_FRAME } from "../../src/security/framing.js";
 import { buildLargeTree } from "../ost/fixture-vault.js";
 
+/**
+ * The three fields `fileFriction` now demands. Spread into filings whose subject is
+ * something other than the fields themselves, so those tests keep saying what they
+ * said — `test/telemetry/self-filed-friction-events.test.ts` is where the fields are
+ * the point.
+ */
+const ACTIONABLE = {
+  tool: "ost-agent check",
+  input: "--vault (omitted)",
+  expected: "it reads ost.vault.yaml and finds the tree",
+} as const;
+
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 /**
@@ -347,7 +360,7 @@ describe("fidelity — the behavioral surfaces preserve their declared reads", (
   test(
     "ruleset proposal bound: a draft past the cap is refused whole, and one at the cap survives verbatim",
     () => {
-      const filing = path.basename(fileFriction(dir, { kind: "unclear-rule", note: "same friction three passes running" }));
+      const filing = path.basename(fileFriction(dir, { ...ACTIONABLE, kind: "unclear-rule", note: "same friction three passes running" }));
 
       // Control: the cap must actually bite — one character over is refused, and
       // the refusal names both the length and the cap rather than clipping.
