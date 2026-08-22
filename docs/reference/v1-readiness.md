@@ -3114,9 +3114,25 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,525 tests across 288 files, verified 2026-08-22 (`npx vitest run`
-> reports 3,517 of them; the other 8 are the contended calibration file described in the
-> previous entry. After "In-the-moment friction events filed by the agent" was given its
+> *Today:* **met** — 3,544 tests across 289 files, verified 2026-08-22 (`npx vitest run`
+> reports 3,536 of them; the other 8 are the contended calibration file described in the
+> previous entry. After "Independent LLM judge scores faithfulness to evidence" was given
+> its definition of done: `src/eval/faithfulness.ts` scores every node 1–5 on whether its
+> claim stays inside the evidence record it cites, refuses at construction any score that
+> is off the scale or quotes a span the exhibit does not contain, and reports the spread
+> across repeat runs against a one-point tolerance; `ost-agent faithfulness` prints it with
+> every span attached; and `test/eval/faithfulness-judge.test.ts` pins all three properties
+> over twelve real nodes and the seven evidence records they cite, committed at
+> `test/fixtures/faithfulness/`, nineteen tests, one new file. Two of those tests are the
+> ones that would still hold against a model rater: a planted fabricator whose invented
+> quotation is refused, and a planted jittery rater whose two-point swing the harness
+> reports by name — a citation check that has only ever seen spans copied out of a document
+> proves nothing about a judge that can invent one. The ceiling is pinned rather than
+> described: a claim built from an evidence sentence's own words scores 5 whether it
+> restates or contradicts it, because lexical overlap cannot see negation, and the corpus
+> contains a live instance. Agreement with a human rating stays with a human — no human
+> faithfulness ratings of these nodes exist. Previously, after "In-the-moment friction
+> events filed by the agent" was given its
 > definition of done: `ost-agent friction` refuses a filing that does not name the tool,
 > the failing input and what was expected, and carries the pass it was filed during;
 > `src/telemetry/self-filed-friction.ts` counts filings per pass behind

@@ -3433,9 +3433,9 @@ var require_anchors = __commonJS({
     "use strict";
     var identity = require_identity();
     var visit2 = require_visit();
-    function anchorIsValid(anchor) {
-      if (/[\x00-\x19\s,[\]{}]/.test(anchor)) {
-        const sa = JSON.stringify(anchor);
+    function anchorIsValid(anchor2) {
+      if (/[\x00-\x19\s,[\]{}]/.test(anchor2)) {
+        const sa = JSON.stringify(anchor2);
         const msg = `Anchor must not contain whitespace or control characters: ${sa}`;
         throw new Error(msg);
       }
@@ -3466,9 +3466,9 @@ var require_anchors = __commonJS({
         onAnchor: (source) => {
           aliasObjects.push(source);
           prevAnchors ?? (prevAnchors = anchorNames(doc));
-          const anchor = findNewAnchor(prefix, prevAnchors);
-          prevAnchors.add(anchor);
-          return anchor;
+          const anchor2 = findNewAnchor(prefix, prevAnchors);
+          prevAnchors.add(anchor2);
+          return anchor2;
         },
         /**
          * With circular references, the source node is only resolved after all
@@ -3713,8 +3713,8 @@ var require_Alias = __commonJS({
     function getAliasCount(doc, node, anchors2) {
       if (identity.isAlias(node)) {
         const source = node.resolve(doc);
-        const anchor = anchors2 && source && anchors2.get(source);
-        return anchor ? anchor.count * anchor.aliasCount : 0;
+        const anchor2 = anchors2 && source && anchors2.get(source);
+        return anchor2 ? anchor2.count * anchor2.aliasCount : 0;
       } else if (identity.isCollection(node)) {
         let count2 = 0;
         for (const item of node.items) {
@@ -4499,10 +4499,10 @@ var require_stringify = __commonJS({
       if (!doc.directives)
         return "";
       const props = [];
-      const anchor = (identity.isScalar(node) || identity.isCollection(node)) && node.anchor;
-      if (anchor && anchors.anchorIsValid(anchor)) {
-        anchors$1.add(anchor);
-        props.push(`&${anchor}`);
+      const anchor2 = (identity.isScalar(node) || identity.isCollection(node)) && node.anchor;
+      if (anchor2 && anchors.anchorIsValid(anchor2)) {
+        anchors$1.add(anchor2);
+        props.push(`&${anchor2}`);
       }
       const tag = node.tag ?? (tagObj.default ? null : tagObj.tag);
       if (tag)
@@ -6786,7 +6786,7 @@ var require_resolve_props = __commonJS({
       let hasNewline = false;
       let reqSpace = false;
       let tab = null;
-      let anchor = null;
+      let anchor2 = null;
       let tag = null;
       let newlineAfterProp = null;
       let comma = null;
@@ -6833,16 +6833,16 @@ var require_resolve_props = __commonJS({
               commentSep += token.source;
             atNewline = true;
             hasNewline = true;
-            if (anchor || tag)
+            if (anchor2 || tag)
               newlineAfterProp = token;
             hasSpace = true;
             break;
           case "anchor":
-            if (anchor)
+            if (anchor2)
               onError2(token, "MULTIPLE_ANCHORS", "A node can have at most one anchor");
             if (token.source.endsWith(":"))
               onError2(token.offset + token.source.length - 1, "BAD_ALIAS", "Anchor ending in : is ambiguous", true);
-            anchor = token;
+            anchor2 = token;
             start ?? (start = token.offset);
             atNewline = false;
             hasSpace = false;
@@ -6859,7 +6859,7 @@ var require_resolve_props = __commonJS({
             break;
           }
           case indicator:
-            if (anchor || tag)
+            if (anchor2 || tag)
               onError2(token, "BAD_PROP_ORDER", `Anchors and tags must be after the ${token.source} indicator`);
             if (found)
               onError2(token, "UNEXPECTED_TOKEN", `Unexpected ${token.source} in ${flow ?? "collection"}`);
@@ -6896,7 +6896,7 @@ var require_resolve_props = __commonJS({
         spaceBefore,
         comment,
         hasNewline,
-        anchor,
+        anchor: anchor2,
         tag,
         newlineAfterProp,
         end,
@@ -7405,8 +7405,8 @@ var require_compose_collection = __commonJS({
       const tagToken = props.tag;
       const tagName = !tagToken ? null : ctx.directives.tagName(tagToken.source, (msg) => onError2(tagToken, "TAG_RESOLVE_FAILED", msg));
       if (token.type === "block-seq") {
-        const { anchor, newlineAfterProp: nl } = props;
-        const lastProp = anchor && tagToken ? anchor.offset > tagToken.offset ? anchor : tagToken : anchor ?? tagToken;
+        const { anchor: anchor2, newlineAfterProp: nl } = props;
+        const lastProp = anchor2 && tagToken ? anchor2.offset > tagToken.offset ? anchor2 : tagToken : anchor2 ?? tagToken;
         if (lastProp && (!nl || nl.offset < lastProp.offset)) {
           const message = "Missing newline after block sequence props";
           onError2(lastProp, "MISSING_CHAR", message);
@@ -7971,13 +7971,13 @@ var require_compose_node = __commonJS({
     var CN = { composeNode, composeEmptyNode };
     function composeNode(ctx, token, props, onError2) {
       const atKey = ctx.atKey;
-      const { spaceBefore, comment, anchor, tag } = props;
+      const { spaceBefore, comment, anchor: anchor2, tag } = props;
       let node;
       let isSrcToken = true;
       switch (token.type) {
         case "alias":
           node = composeAlias(ctx, token, onError2);
-          if (anchor || tag)
+          if (anchor2 || tag)
             onError2(token, "ALIAS_PROPS", "An alias node must not specify any properties");
           break;
         case "scalar":
@@ -7985,16 +7985,16 @@ var require_compose_node = __commonJS({
         case "double-quoted-scalar":
         case "block-scalar":
           node = composeScalar.composeScalar(ctx, token, tag, onError2);
-          if (anchor)
-            node.anchor = anchor.source.substring(1);
+          if (anchor2)
+            node.anchor = anchor2.source.substring(1);
           break;
         case "block-map":
         case "block-seq":
         case "flow-collection":
           try {
             node = composeCollection.composeCollection(CN, ctx, token, props, onError2);
-            if (anchor)
-              node.anchor = anchor.source.substring(1);
+            if (anchor2)
+              node.anchor = anchor2.source.substring(1);
           } catch (error2) {
             const message = error2 instanceof Error ? error2.message : String(error2);
             onError2(token, "RESOURCE_EXHAUSTION", message);
@@ -8007,8 +8007,8 @@ var require_compose_node = __commonJS({
         }
       }
       node ?? (node = composeEmptyNode(ctx, token.offset, void 0, null, props, onError2));
-      if (anchor && node.anchor === "")
-        onError2(anchor, "BAD_ALIAS", "Anchor cannot be an empty string");
+      if (anchor2 && node.anchor === "")
+        onError2(anchor2, "BAD_ALIAS", "Anchor cannot be an empty string");
       if (atKey && ctx.options.stringKeys && (!identity.isScalar(node) || typeof node.value !== "string" || node.tag && node.tag !== "tag:yaml.org,2002:str")) {
         const msg = "With stringKeys, all keys must be strings";
         onError2(tag ?? token, "NON_STRING_KEY", msg);
@@ -8025,7 +8025,7 @@ var require_compose_node = __commonJS({
         node.srcToken = token;
       return node;
     }
-    function composeEmptyNode(ctx, offset, before, pos, { spaceBefore, comment, anchor, tag, end }, onError2) {
+    function composeEmptyNode(ctx, offset, before, pos, { spaceBefore, comment, anchor: anchor2, tag, end }, onError2) {
       const token = {
         type: "scalar",
         offset: utilEmptyScalarPosition.emptyScalarPosition(offset, before, pos),
@@ -8033,10 +8033,10 @@ var require_compose_node = __commonJS({
         source: ""
       };
       const node = composeScalar.composeScalar(ctx, token, tag, onError2);
-      if (anchor) {
-        node.anchor = anchor.source.substring(1);
+      if (anchor2) {
+        node.anchor = anchor2.source.substring(1);
         if (node.anchor === "")
-          onError2(anchor, "BAD_ALIAS", "Anchor cannot be an empty string");
+          onError2(anchor2, "BAD_ALIAS", "Anchor cannot be an empty string");
       }
       if (spaceBefore)
         node.spaceBefore = true;
@@ -13056,7 +13056,7 @@ var require_dumper = __commonJS({
       var hasFoldableLine = false;
       var shouldTrackWidth = lineWidth !== -1;
       var previousLineBreak = -1;
-      var plain3 = isPlainSafeFirst(string3.charCodeAt(0)) && !isWhitespace(string3.charCodeAt(string3.length - 1));
+      var plain4 = isPlainSafeFirst(string3.charCodeAt(0)) && !isWhitespace(string3.charCodeAt(string3.length - 1));
       if (singleLineOnly) {
         for (i2 = 0; i2 < string3.length; i2++) {
           char = string3.charCodeAt(i2);
@@ -13064,7 +13064,7 @@ var require_dumper = __commonJS({
             return STYLE_DOUBLE;
           }
           prev_char = i2 > 0 ? string3.charCodeAt(i2 - 1) : null;
-          plain3 = plain3 && isPlainSafe(char, prev_char);
+          plain4 = plain4 && isPlainSafe(char, prev_char);
         }
       } else {
         for (i2 = 0; i2 < string3.length; i2++) {
@@ -13080,12 +13080,12 @@ var require_dumper = __commonJS({
             return STYLE_DOUBLE;
           }
           prev_char = i2 > 0 ? string3.charCodeAt(i2 - 1) : null;
-          plain3 = plain3 && isPlainSafe(char, prev_char);
+          plain4 = plain4 && isPlainSafe(char, prev_char);
         }
         hasFoldableLine = hasFoldableLine || shouldTrackWidth && (i2 - previousLineBreak - 1 > lineWidth && string3[previousLineBreak + 1] !== " ");
       }
       if (!hasLineBreak && !hasFoldableLine) {
-        return plain3 && !testAmbiguousType(string3) ? STYLE_PLAIN : STYLE_SINGLE;
+        return plain4 && !testAmbiguousType(string3) ? STYLE_PLAIN : STYLE_SINGLE;
       }
       if (indentPerLevel > 9 && needIndentIndicator(string3)) {
         return STYLE_DOUBLE;
@@ -22322,11 +22322,11 @@ var require_resolve = __commonJS({
           }
           return ref;
         }
-        function addAnchor(anchor) {
-          if (typeof anchor == "string") {
-            if (!ANCHOR.test(anchor))
-              throw new Error(`invalid anchor "${anchor}"`);
-            addRef.call(this, `#${anchor}`);
+        function addAnchor(anchor2) {
+          if (typeof anchor2 == "string") {
+            if (!ANCHOR.test(anchor2))
+              throw new Error(`invalid anchor "${anchor2}"`);
+            addRef.call(this, `#${anchor2}`);
           }
         }
       });
@@ -32804,7 +32804,7 @@ function channelHealth(vaultDir, channels, opts = {}) {
     ).length;
     const deliveredMs = usable(record2.lastItemAt);
     const firstMs = usable(record2.firstFetchedAt) ?? usable(record2.lastFetchedAt);
-    const anchor = deliveredMs ?? firstMs;
+    const anchor2 = deliveredMs ?? firstMs;
     const dated = {
       ...base,
       ...record2.firstFetchedAt ? { firstFetchedAt: record2.firstFetchedAt } : {},
@@ -32813,14 +32813,14 @@ function channelHealth(vaultDir, channels, opts = {}) {
       itemsDelivered: record2.itemsDelivered ?? 0,
       ignoredFuture: future
     };
-    if (anchor === void 0) {
+    if (anchor2 === void 0) {
       return {
         ...dated,
         status: "undated",
         reason: future > 0 ? `every stamp on this channel is in the future (${future}) \u2014 ignored, so it has no age to judge` : "a state file from before channels carried timestamps \u2014 it will be dated by the next fetch"
       };
     }
-    const ageMs = now - anchor;
+    const ageMs = now - anchor2;
     const cadenceMs = parseCadence(channel.cadence);
     if (cadenceMs !== null && ageMs > cadenceMs) {
       return {
@@ -33262,11 +33262,11 @@ function tsToIso(ts) {
   return new Date(parseFloat(ts) * 1e3).toISOString();
 }
 function slackToEvidence(m) {
-  const firstLine = m.text.trim().split("\n")[0].slice(0, 80);
+  const firstLine2 = m.text.trim().split("\n")[0].slice(0, 80);
   return {
     id: `SLACK:${m.channel}:${m.ts}`,
     source: `SLACK:${m.channel}:${m.ts}`,
-    title: `#${m.channel}: ${firstLine}`,
+    title: `#${m.channel}: ${firstLine2}`,
     body: m.text.trim(),
     timestamp: tsToIso(m.ts),
     url: m.permalink
@@ -46673,8 +46673,8 @@ function plain(text2) {
 }
 var tokenize = (text2) => plain(text2).toLowerCase().match(/[a-z][a-z-]*/g) ?? [];
 function candidateAssumptions(prose) {
-  const sentences3 = plain(prose).replace(/\s+/g, " ").split(/(?<=[.?!])\s+(?=[A-Z"“(])/).map((s) => s.trim()).filter((s) => tokenize(s).length >= 6).filter((s) => !prose.includes(`**${s}**`));
-  return sentences3.map((text2, index) => ({ index, text: text2 }));
+  const sentences4 = plain(prose).replace(/\s+/g, " ").split(/(?<=[.?!])\s+(?=[A-Z"“(])/).map((s) => s.trim()).filter((s) => tokenize(s).length >= 6).filter((s) => !prose.includes(`**${s}**`));
+  return sentences4.map((text2, index) => ({ index, text: text2 }));
 }
 var weighted = (markers) => (candidate) => tokenize(candidate.text).reduce((sum2, t2) => sum2 + (markers.get(t2) ?? 0), 0);
 var marks = (weight, words) => words.map((w) => [w, weight]);
@@ -46866,6 +46866,302 @@ function renderScore(report) {
   return lines.join("\n");
 }
 
+// src/eval/faithfulness.ts
+var FAITHFULNESS_SCALE = { min: 1, max: 5 };
+var FAITHFULNESS_TOLERANCE = 1;
+function faithfulnessScore(subject, rater, score, citation, grounds) {
+  const { min, max } = FAITHFULNESS_SCALE;
+  if (!Number.isInteger(score) || score < min || score > max) {
+    throw new Error(
+      `refusing a faithfulness score of ${score} for "${subject.node}" from rater "${rater}": the scale is ${min}\u2013${max} integers, and a score off it cannot be compared to a human rating on the same scale.`
+    );
+  }
+  verifyCitation(subject, rater, citation, "the score");
+  for (const ground of grounds ?? []) {
+    verifyCitation(subject, rater, ground.citation, `ground "${ground.name}"`);
+  }
+  return { node: subject.node, score, rater, citation, ...grounds ? { grounds } : {} };
+}
+function verifyCitation(subject, rater, citation, what) {
+  if (!citation.span.trim()) {
+    throw new Error(
+      `refusing a faithfulness score for "${subject.node}" from rater "${rater}": ${what} cites an empty span. A score with nothing quoted behind it is an opinion, and a human rating cannot be compared to one.`
+    );
+  }
+  const exhibit = subject.exhibits.find((e) => e.id === citation.exhibit);
+  if (!exhibit) {
+    throw new Error(
+      `refusing a faithfulness score for "${subject.node}" from rater "${rater}": ${what} cites exhibit "${citation.exhibit}", which is not among the ${subject.exhibits.length} exhibit(s) the judge was shown (${subject.exhibits.map((e) => `"${e.id}"`).join(", ") || "none"}).`
+    );
+  }
+  if (!exhibit.text.includes(citation.span)) {
+    throw new Error(
+      `refusing a faithfulness score for "${subject.node}" from rater "${rater}": ${what} quotes "${truncate(citation.span)}" from exhibit "${citation.exhibit}", and that exhibit does not contain it. A quotation the judge invented is indistinguishable from one it read, which is the whole reason the span is checked rather than believed.`
+    );
+  }
+}
+function truncate(text2, at = 80) {
+  const flat = text2.replace(/\s+/g, " ").trim();
+  return flat.length <= at ? flat : `${flat.slice(0, at)}\u2026`;
+}
+var PROVENANCE_EXHIBIT = "provenance";
+function provenanceExhibit(node, resolved2) {
+  const source = node.source?.trim() ?? "";
+  const stored = resolved2 ? resolved2.id : claimsStoredEvidence(source) ? "none \u2014 this id names no stored record" : "not claimed \u2014 this source names no stored record";
+  return {
+    id: PROVENANCE_EXHIBIT,
+    text: [
+      `source: ${source || "(unset)"}`,
+      `rung claimed: ${node.evidence ?? "(unset)"}`,
+      `rung the source earns: ${classifyProvenance(source)}`,
+      `stored record: ${stored}`
+    ].join("\n")
+  };
+}
+function subjectsFor(nodes, records) {
+  const byId = new Map(records.map((r2) => [r2.id, r2]));
+  return nodes.map((node) => {
+    const resolved2 = byId.get(node.source?.trim() ?? "");
+    const exhibits = [provenanceExhibit(node, resolved2)];
+    if (resolved2 && resolved2.body.trim()) exhibits.push({ id: resolved2.id, text: resolved2.body.trim() });
+    return { node: node.title, claim: solutionProse(node.body), exhibits };
+  });
+}
+function plain3(text2) {
+  return text2.replace(/\*\*|\*|`|\[\[|\]\]/g, "");
+}
+var STOPWORDS = /* @__PURE__ */ new Set([
+  "about",
+  "after",
+  "again",
+  "against",
+  "because",
+  "been",
+  "before",
+  "being",
+  "between",
+  "both",
+  "cannot",
+  "could",
+  "does",
+  "doing",
+  "down",
+  "during",
+  "each",
+  "even",
+  "ever",
+  "every",
+  "from",
+  "further",
+  "have",
+  "having",
+  "here",
+  "into",
+  "just",
+  "less",
+  "like",
+  "made",
+  "make",
+  "makes",
+  "many",
+  "more",
+  "most",
+  "much",
+  "must",
+  "never",
+  "only",
+  "onto",
+  "other",
+  "over",
+  "same",
+  "should",
+  "since",
+  "some",
+  "such",
+  "than",
+  "that",
+  "them",
+  "then",
+  "there",
+  "these",
+  "they",
+  "this",
+  "those",
+  "through",
+  "under",
+  "until",
+  "very",
+  "were",
+  "what",
+  "when",
+  "where",
+  "which",
+  "while",
+  "with",
+  "without",
+  "would",
+  "your"
+]);
+function distinctive(text2) {
+  const out = /* @__PURE__ */ new Set();
+  for (const token of plain3(text2).toLowerCase().match(/[a-z][a-z-]*/g) ?? []) {
+    if (token.length >= 4 && !STOPWORDS.has(token)) out.add(token);
+  }
+  return out;
+}
+function sentences(text2) {
+  return plain3(text2).split(/\n{2,}|(?<=[.?!])\s+(?=[A-Z"“(])/).map((s) => s.replace(/\s+/g, " ").trim()).filter((s) => s.length >= 20);
+}
+function lexicalCoverage(claim, evidence) {
+  const terms = distinctive(claim);
+  if (terms.size === 0) return 0;
+  const found = distinctive(evidence);
+  let hit = 0;
+  for (const t2 of terms) if (found.has(t2)) hit++;
+  return hit / terms.size;
+}
+var GROUNDING_FLOOR = 0.3;
+var MEASURED_CLAIM = /\b\d+(\.\d+)?\s*(%|percent|x\b|×)|\b\d+\s+(of|out of|in)\s+\d+\b|\b(always|never|every|all|proves|proven|measured|guarantees|guaranteed|eliminates|impossible)\b/i;
+function carriesMeasurement(text2) {
+  return MEASURED_CLAIM.test(plain3(text2));
+}
+function bestMatch(claim, exhibit) {
+  const terms = distinctive(claim);
+  let best = "";
+  let bestHits = -1;
+  for (const sentence of sentences(exhibit.text)) {
+    const words = distinctive(sentence);
+    let hits = 0;
+    for (const t2 of terms) if (words.has(t2)) hits++;
+    if (hits > bestHits) {
+      best = sentence;
+      bestHits = hits;
+    }
+  }
+  return { exhibit: exhibit.id, span: anchor(best, exhibit) ?? firstLine(exhibit) };
+}
+function anchor(sentence, exhibit) {
+  if (!sentence) return null;
+  if (exhibit.text.includes(sentence)) return sentence;
+  const words = sentence.split(" ");
+  for (let take = words.length - 1; take >= 4; take--) {
+    const prefix = words.slice(0, take).join(" ");
+    if (exhibit.text.includes(prefix)) return prefix;
+  }
+  return null;
+}
+function firstLine(exhibit) {
+  return exhibit.text.split("\n").find((l) => l.trim())?.trim() ?? exhibit.text.trim();
+}
+function provenanceLine(subject, label) {
+  const exhibit = subject.exhibits.find((e) => e.id === PROVENANCE_EXHIBIT);
+  const line = exhibit.text.split("\n").find((l) => l.startsWith(label));
+  return { exhibit: PROVENANCE_EXHIBIT, span: line ?? firstLine(exhibit) };
+}
+var GROUNDING_RATER = {
+  name: "grounding",
+  rate(subject) {
+    const documents = subject.exhibits.filter((e) => e.id !== PROVENANCE_EXHIBIT);
+    const corpus = documents.map((d) => d.text).join("\n\n");
+    const sourceLine = provenanceLine(subject, "source: ");
+    const cites = {
+      name: "cites-a-source",
+      met: !sourceLine.span.endsWith("(unset)"),
+      citation: sourceLine
+    };
+    const resolves = {
+      name: "source-resolves",
+      met: documents.length > 0,
+      citation: documents.length > 0 ? firstSentenceOf(documents[0]) : provenanceLine(subject, "stored record: ")
+    };
+    const nothingRead = provenanceLine(subject, "stored record: ");
+    const read = documents.length > 0 ? bestMatch(subject.claim, documents[0]) : nothingRead;
+    const grounded = {
+      name: "claim-in-evidence",
+      met: documents.length > 0 && lexicalCoverage(subject.claim, corpus) >= GROUNDING_FLOOR,
+      citation: read
+    };
+    const measured = {
+      name: "no-unbacked-measurement",
+      met: documents.length > 0 && (!carriesMeasurement(subject.claim) || carriesMeasurement(corpus)),
+      citation: read
+    };
+    const grounds = [cites, resolves, grounded, measured];
+    const met = grounds.filter((g) => g.met);
+    const decisive = (met.length > 0 ? met[met.length - 1] : grounds[0]).citation;
+    return faithfulnessScore(subject, this.name, FAITHFULNESS_SCALE.min + met.length, decisive, grounds);
+  }
+};
+function firstSentenceOf(exhibit) {
+  const first2 = sentences(exhibit.text)[0];
+  return { exhibit: exhibit.id, span: (first2 && anchor(first2, exhibit)) ?? firstLine(exhibit) };
+}
+function stability(subject, rater, runs = 2) {
+  if (!Number.isInteger(runs) || runs < 1) {
+    throw new Error(`refusing to measure stability over ${runs} run(s): a spread needs at least one score.`);
+  }
+  const scores = [];
+  for (let i2 = 0; i2 < runs; i2++) scores.push(rater.rate(subject).score);
+  const spread = Math.max(...scores) - Math.min(...scores);
+  return { scores, spread, stable: spread <= FAITHFULNESS_TOLERANCE };
+}
+function judgeFaithfulness(subjects, rater = GROUNDING_RATER, runs = 2) {
+  if (!Number.isInteger(runs) || runs < 1) {
+    throw new Error(`refusing to judge over ${runs} run(s): a score needs at least one.`);
+  }
+  const rows = subjects.map((subject) => {
+    const first2 = rater.rate(subject);
+    const repeats = runs === 1 ? [first2.score] : [first2.score, ...stability(subject, rater, runs - 1).scores];
+    const spread = Math.max(...repeats) - Math.min(...repeats);
+    return {
+      node: subject.node,
+      score: first2.score,
+      citation: first2.citation,
+      ...first2.grounds ? { grounds: first2.grounds } : {},
+      repeats,
+      spread,
+      stable: spread <= FAITHFULNESS_TOLERANCE
+    };
+  });
+  const distribution = {};
+  for (let s = FAITHFULNESS_SCALE.min; s <= FAITHFULNESS_SCALE.max; s++) distribution[s] = 0;
+  for (const row of rows) distribution[row.score]++;
+  return {
+    rater: rater.name,
+    subject: { offered: subjects.length, read: rows.length },
+    rows,
+    distribution,
+    mean: rows.length === 0 ? 0 : rows.reduce((sum2, r2) => sum2 + r2.score, 0) / rows.length,
+    unstable: rows.filter((r2) => !r2.stable).map((r2) => r2.node)
+  };
+}
+function renderFaithfulness(report) {
+  const { offered, read } = report.subject;
+  if (read === 0) {
+    return `faithfulness: BLIND \u2014 read 0 of ${offered} node(s), so no score exists.`;
+  }
+  const lines = [];
+  const histogram = Object.entries(report.distribution).map(([score, count2]) => `${score}:${count2}`).join("  ");
+  lines.push(
+    `faithfulness (rater "${report.rater}"): mean ${report.mean.toFixed(2)} on a ${FAITHFULNESS_SCALE.min}\u2013${FAITHFULNESS_SCALE.max} scale over ${read} of ${offered} node(s).`
+  );
+  lines.push(`  distribution  ${histogram}`);
+  if (report.unstable.length > 0) {
+    lines.push(
+      `  UNSTABLE on ${report.unstable.length} node(s) \u2014 repeat runs moved more than ${FAITHFULNESS_TOLERANCE} point, so those scores are not comparable to a rating: ${report.unstable.join("; ")}`
+    );
+  }
+  for (const row of [...report.rows].sort((a, b2) => a.score - b2.score || a.node.localeCompare(b2.node))) {
+    lines.push(`
+- ${row.score}/${FAITHFULNESS_SCALE.max} \u2014 "${row.node}"`);
+    lines.push(`    read: [${row.citation.exhibit}] "${truncate(row.citation.span, 120)}"`);
+    for (const ground of row.grounds ?? []) {
+      lines.push(`    ${ground.met ? "\u2713" : "\u2717"} ${ground.name}: [${ground.citation.exhibit}] "${truncate(ground.citation.span)}"`);
+    }
+  }
+  return lines.join("\n");
+}
+
 // src/eval/tournament.ts
 function refutingLine(test) {
   if (recordedVerdict(test) !== "refuted") return null;
@@ -47011,9 +47307,9 @@ function workingTreeStatus(vaultDir) {
     return { kind: "unknown", reason: `git could not be run (${r2.error.code ?? r2.error.message})` };
   }
   if (r2.status !== 0) {
-    const firstLine = (r2.stderr ?? "").trim().split("\n")[0] ?? "";
+    const firstLine2 = (r2.stderr ?? "").trim().split("\n")[0] ?? "";
     const how = r2.status === null ? "was killed by a signal" : `exited ${r2.status}`;
-    return { kind: "unknown", reason: `\`git status\` ${how}${firstLine ? ` \u2014 ${firstLine}` : ""}` };
+    return { kind: "unknown", reason: `\`git status\` ${how}${firstLine2 ? ` \u2014 ${firstLine2}` : ""}` };
   }
   const entries = (r2.stdout ?? "").split("\n").map((line) => line.replace(/\s+$/, "")).filter((line) => line.length > 0);
   return entries.length === 0 ? { kind: "clean" } : { kind: "dirty", entries };
@@ -50249,7 +50545,7 @@ function bareToolName(name) {
   const parts = name.split("__");
   return parts[parts.length - 1] ?? name;
 }
-function sentences(text2) {
+function sentences2(text2) {
   return text2.replace(/\s+/g, " ").split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
 }
 function clipStatement(text2) {
@@ -50270,7 +50566,7 @@ function foldDescription(tool2) {
   }
   const found = [];
   for (const source of sources) {
-    for (const sentence of sentences(source.text)) {
+    for (const sentence of sentences2(source.text)) {
       if (!statesPrecondition(sentence)) continue;
       found.push({
         tool: name,
@@ -50805,7 +51101,7 @@ function tool(spec) {
 }
 
 // src/ost/dedupe.ts
-var STOPWORDS = /* @__PURE__ */ new Set([
+var STOPWORDS2 = /* @__PURE__ */ new Set([
   "a",
   "an",
   "the",
@@ -50832,7 +51128,7 @@ var STOPWORDS = /* @__PURE__ */ new Set([
 ]);
 function tokensOf(s) {
   return new Set(
-    s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter((t2) => t2.length > 0 && !STOPWORDS.has(t2))
+    s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter((t2) => t2.length > 0 && !STOPWORDS2.has(t2))
   );
 }
 function jaccard(ta, tb, a, b2) {
@@ -50977,15 +51273,15 @@ function* scanExtentOverlap(nodes) {
     const reps = [];
     for (const cluster of byExtent.values()) {
       reps.push(cluster[0]);
-      const anchor = cluster[0];
-      const size = extents.get(anchor).size;
+      const anchor2 = cluster[0];
+      const size = extents.get(anchor2).size;
       for (let m = 1; m < cluster.length; m++) {
-        const pairKey = `${anchor} ${cluster[m]}`;
+        const pairKey = `${anchor2} ${cluster[m]}`;
         if (emitted.has(pairKey)) continue;
         emitted.add(pairKey);
         yield {
           title: cluster[m],
-          issue: `shared evidence extent: rests on exactly the evidence sibling "${anchor}" rests on (${size} record(s)) \u2014 two names for one concept unless a solution could address one and not the other; merge with ost_merge_nodes, or rewrite each from its own evidence and say what separates them`,
+          issue: `shared evidence extent: rests on exactly the evidence sibling "${anchor2}" rests on (${size} record(s)) \u2014 two names for one concept unless a solution could address one and not the other; merge with ost_merge_nodes, or rewrite each from its own evidence and say what separates them`,
           rule: "shared-extent"
         };
       }
@@ -57141,7 +57437,7 @@ var QUESTION_DEPENDENCE_RULE = {
   brokenStateMarkers: /\b(conflict|conflicts|compile|compiles|broken|unbuildable)\b/i,
   toolchainMarkers: /\b(build|builds|rebuild|bundle|compile|tsc|typecheck|vitest|release|ship)\b/i
 };
-var STOPWORDS2 = new Set(
+var STOPWORDS3 = new Set(
   "a an and are as at be been but by can could did do does doing done for from had has have how i if in into is it its just may me mean means might more most much must my next no nor not now of off on once one only or other our out over own same set should so some such than that the their them then there these they this those to too under until up upon us was we were what when where which while who whose why will with would you your yet also both each ever every still since about after again against before below between during through very don doesn isn wasn won work works working run runs running make makes made making thing things way ways use used using new real right first get gets getting go goes going keep keeps let lets need needs want wants".split(/\s+/)
 );
 function subjectTokens(text2) {
@@ -57150,7 +57446,7 @@ function subjectTokens(text2) {
   for (const match of fused.matchAll(/[a-z0-9_]+(?:[./-][a-z0-9_]+)*/g)) {
     const token = match[0].replace(/^[./-]+|[./-]+$/g, "");
     if (token.length < 3) continue;
-    if (STOPWORDS2.has(token)) continue;
+    if (STOPWORDS3.has(token)) continue;
     if (/^\d+$/.test(token)) continue;
     tokens.add(token);
   }
@@ -57462,7 +57758,7 @@ var MAX_PERMITTED_CHARS = 400;
 var MAX_ATTEMPTED_CHARS = 200;
 var REMEDY_CUES = [/\buse\b/i, /\bmust\b/i, /\binstead\b/i, /\btry\b/i];
 var GUARD_MARKER = /<tool_use_error>/;
-function sentences2(text2) {
+function sentences3(text2) {
   const out = [];
   let start = 0;
   const re = /(?:\.\s+|\n+)/g;
@@ -57480,7 +57776,7 @@ function flatten(text2, max) {
 }
 function splitRefusal(message) {
   const body = message.replace(/<\/?tool_use_error>/g, "");
-  for (const s of sentences2(body)) {
+  for (const s of sentences3(body)) {
     if (body.length - s.start > MAX_PERMITTED_CHARS) continue;
     if (!REMEDY_CUES.some((re) => re.test(s.text))) continue;
     const permitted = flatten(body.slice(s.start), MAX_PERMITTED_CHARS);
@@ -57687,7 +57983,7 @@ import fs51 from "node:fs";
 import path52 from "node:path";
 var CLAIMS_FILENAME = "work-claims.jsonl";
 var DEFAULT_CLAIM_TTL_HOURS = 8;
-var STOPWORDS3 = /* @__PURE__ */ new Set([
+var STOPWORDS4 = /* @__PURE__ */ new Set([
   "a",
   "an",
   "the",
@@ -57753,7 +58049,7 @@ function fold(term) {
   return term.slice(0, -1);
 }
 function termsOf(text2) {
-  return text2.replace(new RegExp("([\\p{Ll}\\p{N}])(\\p{Lu})", "gu"), "$1 $2").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").split(/\s+/).filter((t2) => t2.length > 1 && !STOPWORDS3.has(t2)).map(fold).filter((t2) => !STOPWORDS3.has(t2));
+  return text2.replace(new RegExp("([\\p{Ll}\\p{N}])(\\p{Lu})", "gu"), "$1 $2").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").split(/\s+/).filter((t2) => t2.length > 1 && !STOPWORDS4.has(t2)).map(fold).filter((t2) => !STOPWORDS4.has(t2));
 }
 function briefingItems(briefing) {
   const blocks = [];
@@ -57789,9 +58085,9 @@ function identityKey(item, items) {
     if (other.index === item.index) continue;
     for (const t2 of other.terms) if (item.terms.has(t2)) shared.add(t2);
   }
-  let distinctive = [...item.terms].filter((t2) => !shared.has(t2));
-  if (distinctive.length < 3) distinctive = [...item.terms];
-  return createHash3("sha1").update(distinctive.sort().join("\0")).digest("hex").slice(0, 16);
+  let distinctive2 = [...item.terms].filter((t2) => !shared.has(t2));
+  if (distinctive2.length < 3) distinctive2 = [...item.terms];
+  return createHash3("sha1").update(distinctive2.sort().join("\0")).digest("hex").slice(0, 16);
 }
 function briefingDigest(briefing) {
   return createHash3("sha1").update(briefing.replace(/\s+/g, " ").trim()).digest("hex").slice(0, 12);
@@ -60718,6 +61014,16 @@ program2.command("judge-panel").description(
   const ctx = buildPassContext(opts.vault);
   const solutions = ctx.vault.readTree().filter((n) => n.layer === "Solution").map((n) => ({ title: n.title, body: n.body }));
   console.log(renderPanel(runPanel(solutions)));
+});
+program2.command("faithfulness").description(
+  "score every node 1-5 on whether its claim stays inside the evidence record it cites, quoting the span each score was read against; repeat runs must land within a point (no model needed, and a model can be swapped in)"
+).option("--vault <dir>", VAULT_OPTION_HELP).option("--runs <n>", "how many times to score each node; the spread is reported per node", "2").action((opts) => {
+  const ctx = buildPassContext(opts.vault);
+  const runs = Number.parseInt(opts.runs, 10);
+  const nodes = ctx.vault.readTree().filter((n) => n.layer !== "Outcome");
+  console.log(
+    renderFaithfulness(judgeFaithfulness(subjectsFor(nodes, readEvidence(ctx.dir)), GROUNDING_RATER, runs))
+  );
 });
 program2.command("score").description(
   "grade the tree on the golden-set dimensions \u2014 structure, need-shaped opportunities, grounding, assumption coverage, fixed bars \u2014 with the scorer test/eval/golden-set-discrimination.test.ts holds to its fixtures (no model needed)"
