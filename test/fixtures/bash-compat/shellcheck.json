@@ -1,0 +1,265 @@
+{
+ "tool": "shellcheck",
+ "version": "0.11.0",
+ "dialectOptions": [
+  "sh",
+  "bash",
+  "dash",
+  "ksh",
+  "busybox"
+ ],
+ "versionOption": null,
+ "probe": "#!/usr/bin/env bash\n# One construct per release above the bash 3.2 floor.\nmapfile -t FILES < <(ls)            # 4.0\ndeclare -A table                    # 4.0\nlower=${RAW,,}                      # 4.0\ndeclare -g everywhere=1             # 4.2\ndeclare -n alias=FILES              # 4.3\nquoted=${RAW@Q}                     # 4.4\nnow=$EPOCHSECONDS                   # 5.0\necho \"$FILES $table $lower $everywhere $alias $quoted $now\"\n",
+ "runs": [
+  {
+   "subject": "examples/automation/autonomous-pass.sh",
+   "dialect": "bash",
+   "findings": [
+    {
+     "file": "autonomous-pass.sh",
+     "line": 298,
+     "code": "SC2016",
+     "message": "Expressions don't expand in single quotes, use double quotes for that."
+    }
+   ]
+  },
+  {
+   "subject": "examples/automation/autonomous-pass.sh",
+   "dialect": "sh",
+   "findings": [
+    {
+     "file": "autonomous-pass.sh",
+     "line": 44,
+     "code": "SC3040",
+     "message": "In POSIX sh, set option pipefail is undefined."
+    },
+    {
+     "file": "autonomous-pass.sh",
+     "line": 47,
+     "code": "SC3028",
+     "message": "In POSIX sh, BASH_SOURCE is undefined."
+    },
+    {
+     "file": "autonomous-pass.sh",
+     "line": 47,
+     "code": "SC3054",
+     "message": "In POSIX sh, array references are undefined."
+    },
+    {
+     "file": "autonomous-pass.sh",
+     "line": 236,
+     "code": "SC3001",
+     "message": "In POSIX sh, process substitution is undefined."
+    },
+    {
+     "file": "autonomous-pass.sh",
+     "line": 236,
+     "code": "SC3001",
+     "message": "In POSIX sh, process substitution is undefined."
+    },
+    {
+     "file": "autonomous-pass.sh",
+     "line": 298,
+     "code": "SC2016",
+     "message": "Expressions don't expand in single quotes, use double quotes for that."
+    }
+   ]
+  },
+  {
+   "subject": "examples/automation/build-pass.sh",
+   "dialect": "bash",
+   "findings": [
+    {
+     "file": "build-pass.sh",
+     "line": 139,
+     "code": "SC2015",
+     "message": "Note that A && B || C is not if-then-else. C may run when A is true."
+    },
+    {
+     "file": "build-pass.sh",
+     "line": 442,
+     "code": "SC2015",
+     "message": "Note that A && B || C is not if-then-else. C may run when A is true."
+    },
+    {
+     "file": "build-pass.sh",
+     "line": 823,
+     "code": "SC2143",
+     "message": "Use grep -q instead of comparing output with [ -n .. ]."
+    }
+   ]
+  },
+  {
+   "subject": "examples/automation/build-pass.sh",
+   "dialect": "sh",
+   "findings": [
+    {
+     "file": "build-pass.sh",
+     "line": 60,
+     "code": "SC3040",
+     "message": "In POSIX sh, set option pipefail is undefined."
+    },
+    {
+     "file": "build-pass.sh",
+     "line": 63,
+     "code": "SC3028",
+     "message": "In POSIX sh, BASH_SOURCE is undefined."
+    },
+    {
+     "file": "build-pass.sh",
+     "line": 63,
+     "code": "SC3054",
+     "message": "In POSIX sh, array references are undefined."
+    },
+    {
+     "file": "build-pass.sh",
+     "line": 139,
+     "code": "SC2015",
+     "message": "Note that A && B || C is not if-then-else. C may run when A is true."
+    },
+    {
+     "file": "build-pass.sh",
+     "line": 197,
+     "code": "SC3001",
+     "message": "In POSIX sh, process substitution is undefined."
+    },
+    {
+     "file": "build-pass.sh",
+     "line": 198,
+     "code": "SC3001",
+     "message": "In POSIX sh, process substitution is undefined."
+    },
+    {
+     "file": "build-pass.sh",
+     "line": 208,
+     "code": "SC3001",
+     "message": "In POSIX sh, process substitution is undefined."
+    },
+    {
+     "file": "build-pass.sh",
+     "line": 442,
+     "code": "SC2015",
+     "message": "Note that A && B || C is not if-then-else. C may run when A is true."
+    },
+    {
+     "file": "build-pass.sh",
+     "line": 474,
+     "code": "SC3003",
+     "message": "In POSIX sh, $'..' is undefined."
+    },
+    {
+     "file": "build-pass.sh",
+     "line": 474,
+     "code": "SC3001",
+     "message": "In POSIX sh, process substitution is undefined."
+    },
+    {
+     "file": "build-pass.sh",
+     "line": 777,
+     "code": "SC3003",
+     "message": "In POSIX sh, $'..' is undefined."
+    },
+    {
+     "file": "build-pass.sh",
+     "line": 777,
+     "code": "SC3001",
+     "message": "In POSIX sh, process substitution is undefined."
+    },
+    {
+     "file": "build-pass.sh",
+     "line": 823,
+     "code": "SC2143",
+     "message": "Use grep -q instead of comparing output with [ -n .. ]."
+    }
+   ]
+  },
+  {
+   "subject": "src/git/conflict-guard.ts#PRE_COMMIT_HOOK",
+   "dialect": "bash",
+   "findings": []
+  },
+  {
+   "subject": "src/git/conflict-guard.ts#PRE_COMMIT_HOOK",
+   "dialect": "sh",
+   "findings": []
+  },
+  {
+   "subject": "floor-probe.sh",
+   "dialect": "bash",
+   "findings": [
+    {
+     "file": "floor-probe.sh",
+     "line": 10,
+     "code": "SC2128",
+     "message": "Expanding an array without an index only gives the first element."
+    },
+    {
+     "file": "floor-probe.sh",
+     "line": 10,
+     "code": "SC2128",
+     "message": "Expanding an array without an index only gives the first element."
+    }
+   ]
+  },
+  {
+   "subject": "floor-probe.sh",
+   "dialect": "sh",
+   "findings": [
+    {
+     "file": "floor-probe.sh",
+     "line": 3,
+     "code": "SC3044",
+     "message": "In POSIX sh, 'mapfile' is undefined."
+    },
+    {
+     "file": "floor-probe.sh",
+     "line": 3,
+     "code": "SC3001",
+     "message": "In POSIX sh, process substitution is undefined."
+    },
+    {
+     "file": "floor-probe.sh",
+     "line": 4,
+     "code": "SC3044",
+     "message": "In POSIX sh, 'declare' is undefined."
+    },
+    {
+     "file": "floor-probe.sh",
+     "line": 5,
+     "code": "SC3059",
+     "message": "In POSIX sh, case modification is undefined."
+    },
+    {
+     "file": "floor-probe.sh",
+     "line": 6,
+     "code": "SC3044",
+     "message": "In POSIX sh, 'declare' is undefined."
+    },
+    {
+     "file": "floor-probe.sh",
+     "line": 7,
+     "code": "SC3044",
+     "message": "In POSIX sh, 'declare' is undefined."
+    },
+    {
+     "file": "floor-probe.sh",
+     "line": 9,
+     "code": "SC3028",
+     "message": "In POSIX sh, EPOCHSECONDS is undefined."
+    },
+    {
+     "file": "floor-probe.sh",
+     "line": 10,
+     "code": "SC2128",
+     "message": "Expanding an array without an index only gives the first element."
+    },
+    {
+     "file": "floor-probe.sh",
+     "line": 10,
+     "code": "SC2128",
+     "message": "Expanding an array without an index only gives the first element."
+    }
+   ]
+  }
+ ]
+}

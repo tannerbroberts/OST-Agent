@@ -3114,8 +3114,8 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,439 tests across 283 files, verified 2026-08-21 (`npx vitest run`
-> reports 3,431 of them; the other 8 are the contended calibration file described in the
+> *Today:* **met** — 3,462 tests across 284 files, verified 2026-08-21 (`npx vitest run`
+> reports 3,454 of them; the other 8 are the contended calibration file described in the
 > previous entry. After "Hand the run the project's symbol surface before it writes, not
 > after it compiles" was given its definition of done: `test/runner/symbol-index.test.ts`
 > rebuilds `src/runner/symbol-index.ts` over all 63 modules of `src/` at `368cf6d7`
@@ -3157,7 +3157,20 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > LIMIT row with its expectation set to the hole. A fourth, probed but not pinned: a vault
 > created as a subdirectory of an existing repository gets a nested repository of its own,
 > which the outer repo sees only as `?? vault/`. The third environment the assumption node
-> names, a machine with no git preinstalled, stays a person's check.)
+> names, a machine with no git preinstalled, stays a person's check. After "Helpers are
+> written against the lowest version actually present, and a check enforces it" was given
+> its definition of done: `test/runner/helper-bash-compat-lint.test.ts` runs
+> `src/runner/bash-compat-lint.ts` at a committed bash 3.2 floor over every helper this
+> project installs — the two `examples/automation` scripts, the generated pre-commit hook,
+> and the recorded `mapfile` failure in both its broken and its fixed form — and comes out
+> **1 flagged, 0 findings outside the committed expected set** against a bar of at most 2;
+> twenty-three tests, one new file. The build refuted the node's own means: ShellCheck
+> 0.11.0 has no bash-version option at all, only a shell *family* (`-s sh|bash|dash|ksh|
+> busybox`), and the recorded runs in `test/fixtures/bash-compat/shellcheck.json` show
+> `-s bash` missing all eight above-floor constructs on the probe including `mapfile`,
+> while `-s sh` raises 15 findings against this project's own helpers of which zero are
+> above the floor. `SC3044` and `SC3028` carry the release in their English rather than in
+> the code, so even that route must re-derive a version table first.)
 > Previously 3,315 tests across 277 files, verified 2026-08-20 (`npx vitest run`
 > reports 3,307 of them; the other 8 are `test/eval/calibration-ratio-stability.test.ts`,
 > which `vitest.config.ts` collects only when it is named on the command line because it

@@ -1,0 +1,13 @@
+{
+ "why": "The committed expected set for the bash 3.2 version-floor lint. A finding outside this list is an unexpected finding, and the assumption test's bar is at most 2 of them across every helper the project installs. The bar is on false alarms because a check people learn to ignore is what actually kills this approach — flagging the known failure was never the doubtful half.",
+ "floor": "3.2",
+ "expected": [
+  {
+   "helper": "test/fixtures/bash-compat/ost-reports.recorded.sh",
+   "line": 21,
+   "feature": "mapfile",
+   "recordedAs": "/Users/tanner/.local/bin/ost-reports: line 21: mapfile: command not found",
+   "source": "TRANSCRIPT:3d729ebc-348f-4d45-8f3c-25df1de8fbc9, pinned in test/fixtures/path-failure-attribution/failures.jsonl"
+  }
+ ]
+}
