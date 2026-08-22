@@ -23,7 +23,7 @@ import { afterEach, beforeEach, expect, test } from "vitest";
 import { initVault } from "../../src/runner/init.js";
 import { buildPassContext } from "../../src/runner/context.js";
 import { computeNextWork } from "../../src/mcp/next-work.js";
-import { readEvidence, writeEvidence } from "../../src/processes/tree.js";
+import { byTitle, readEvidence, writeEvidence } from "../../src/processes/tree.js";
 import { fileNameForTitle } from "../../src/ost/sanitize.js";
 import { rollupTree } from "../../src/eval/rollup.js";
 import { appendDisposition, corroborationsFor, readDispositionLedger } from "../../src/knowledge/dispositions.js";
@@ -78,6 +78,7 @@ test("thirty items filed against one opportunity: cleared from the sweep, counte
         verdict: "corroborates",
         node: NEED,
       },
+      byTitle(v.readTree()),
       CLOCK,
     );
   }

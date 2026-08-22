@@ -47,9 +47,17 @@
  *   3. **Every disposition is reversible.** A `reopened` entry puts the subject back on
  *      its bucket. An irreversible hide is the mirror image of the unclearable red this
  *      repository keeps re-learning.
+ *   4. **An acknowledgement is only as good as the node it names.** `corroborates [[X]]`
+ *      is the one verdict whose whole justification for removing work is a pointer into
+ *      the tree, so the pointer is resolved against the tree — at the funnel, and again
+ *      on every read ({@link isOrphanedAcknowledgement}). An acknowledgement filed under
+ *      a title no node carries would otherwise be the perfect silent dismissal: it clears
+ *      the item, it prints in the audit like a filing, and it strengthens nothing forever.
  */
 import fs from "node:fs";
 import path from "node:path";
+import { nearestName } from "../fs/near-miss.js";
+import type { OstNode } from "../ost/node.js";
 
 /**
  * The three faces of "settled" this ledger covers, in the vocabulary a human reads.
@@ -150,10 +158,15 @@ export function dispositionLedgerPath(dir: string): string {
  * rule enforced at one of two callers is not a rule. An unattributed or unexplained
  * dismissal is refused outright: the entire safeguard on a write that removes work by
  * assertion is that a human can read the assertion and see whose it was.
+ *
+ * `index` is the tree the acknowledgement is filed against — the same node set every
+ * bucket reads. It is required rather than optional for the funnel's own reason: an
+ * existence check a caller can decline to pass is not an existence check.
  */
 export function appendDisposition(
   dir: string,
   rec: Omit<DispositionRecord, "ts">,
+  index: ReadonlyMap<string, OstNode>,
   now: () => Date = () => new Date(),
 ): DispositionRecord {
   if (!rec.subject.trim()) throw new Error("a disposition needs the subject it settles");
@@ -169,6 +182,18 @@ export function appendDisposition(
   }
   if (rec.verdict !== "corroborates" && rec.node !== undefined) {
     throw new Error('only a "corroborates" verdict names a node — an item that counts toward a node corroborates it');
+  }
+  // Last, because it is the only check that needs the tree and the cheapest thing to
+  // get wrong by hand: a title with a typo, a node renamed since the work list printed
+  // it. Refused rather than stored, because the alternative is the surface telling the
+  // operator their item was "counted toward" a node that is not there.
+  if (rec.verdict === "corroborates" && !index.has(rec.node as string)) {
+    const near = nearestName(rec.node as string, [...index.keys()]);
+    throw new Error(
+      `no node in this tree is titled "${rec.node}" — an acknowledgement filed under a node that is not there ` +
+        "takes the item off the sweep and strengthens nothing" +
+        (near ? `. Did you mean "${near}"?` : ""),
+    );
   }
   const record: DispositionRecord = {
     ts: now().toISOString(),
@@ -281,6 +306,25 @@ export function isDisposed(ledger: DispositionLedger, subject: string): boolean 
   return latestDisposition(ledger, subject)?.state === "closed";
 }
 
+/**
+ * An acknowledgement whose node the tree no longer holds — the case the funnel check
+ * cannot reach, and the reason the pointer is resolved twice.
+ *
+ * The funnel refuses a title that is missing at write time. It cannot refuse a node
+ * being retitled, retired or removed *afterwards*, and this vault retitles nodes
+ * routinely. An orphaned acknowledgement is exactly the shape rule 4 exists to refuse:
+ * the item is off the sweep, the filing it was traded for is gone, and nothing on any
+ * surface would ever say so. So it withholds nothing — the item comes back on its
+ * bucket, which is the same fail-closed direction a damaged ledger line takes, and the
+ * same "the fact changing IS the revival" a suppression takes.
+ *
+ * An entry with no verdict carries no pointer and is never orphaned; `no-genuine-need`
+ * names no node by construction and is never orphaned either.
+ */
+export function isOrphanedAcknowledgement(rec: DispositionRecord, index: ReadonlyMap<string, OstNode>): boolean {
+  return rec.verdict === "corroborates" && rec.node !== undefined && !index.has(rec.node);
+}
+
 /** One item a live disposition kept off a list, carried on the response that withheld it. */
 export interface Withheld {
   /** The `NextWork` field it would otherwise have appeared on. */
@@ -305,6 +349,7 @@ export function omitDisposed<T>(
   items: readonly T[],
   subjectOf: (item: T) => string,
   ledger: DispositionLedger,
+  index: ReadonlyMap<string, OstNode>,
   list: string,
   into: Withheld[],
 ): T[] {
@@ -312,7 +357,7 @@ export function omitDisposed<T>(
   for (const item of items) {
     const subject = subjectOf(item);
     const standing = latestDisposition(ledger, subject);
-    if (standing?.state === "closed") {
+    if (standing?.state === "closed" && !isOrphanedAcknowledgement(standing, index)) {
       into.push({ list, subject, kind: standing.kind, reason: standing.reason, by: standing.by, at: standing.ts });
       continue;
     }
@@ -358,9 +403,16 @@ export function liveDispositions(ledger: DispositionLedger): DispositionRecord[]
  * Reversal is printed beside the list rather than left to be looked up. The cost of a
  * wrong disposition is work that never comes back, and the difference between that and a
  * recoverable mistake is whether the person reading the list knows the one command.
+ *
+ * Orphaned acknowledgements print in a block of their own rather than among the live
+ * ones. They hide nothing, so counting them as "work no bucket is listing" would be a
+ * lie in the other direction — but the operator who wrote one believes an item is filed
+ * and it is not, and this screen is the only place that mismatch can surface.
  */
-export function formatDispositions(ledger: DispositionLedger): string {
-  const live = liveDispositions(ledger);
+export function formatDispositions(ledger: DispositionLedger, index: ReadonlyMap<string, OstNode>): string {
+  const standing = liveDispositions(ledger);
+  const orphaned = standing.filter((d) => isOrphanedAcknowledgement(d, index));
+  const live = standing.filter((d) => !isOrphanedAcknowledgement(d, index));
   const lines: string[] = [];
   if (live.length === 0) {
     lines.push("No live dispositions — every bucket is listing everything it derives.");
@@ -381,6 +433,17 @@ export function formatDispositions(ledger: DispositionLedger): string {
       lines.push("");
     }
     lines.push('Disagree with one? `ost-agent dispose "<subject>" --reopen --by <you> --why "<why>"` puts it back.');
+  }
+  if (orphaned.length) {
+    lines.push(
+      `\n${orphaned.length} acknowledgement(s) name a node this tree does not hold — retitled, retired or ` +
+        "never there. Each one hides nothing (its item is back on the work list) and strengthens nothing. " +
+        "Re-file each under a node that exists:",
+    );
+    for (const d of orphaned) {
+      lines.push(`  ${d.ts.slice(0, 10)}  ${d.subject}  → corroborates [[${d.node}]] — no such node`);
+      lines.push(`      ${d.reason} — ${d.by}`);
+    }
   }
   if (ledger.damaged) {
     lines.push(

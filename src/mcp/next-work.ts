@@ -1065,6 +1065,7 @@ export function computeNextWork(
     evidence.filter((e) => !citedSources.has(e.id)),
     (e) => e.id,
     dispositions,
+    index,
     "unmappedEvidence",
     withheld,
   );
@@ -1170,6 +1171,7 @@ export function computeNextWork(
       .map(({ entry }) => entry),
     (o) => o.title,
     dispositions,
+    index,
     "underservedOpportunities",
     withheld,
   );
@@ -1191,6 +1193,7 @@ export function computeNextWork(
         .map((s) => ({ title: s.title, opportunity: firstOpportunityParent.get(s.title) ?? null })),
       (s) => s.title,
       dispositions,
+      index,
       "solutionsMissingAssumptions",
       withheld,
     ),
@@ -1288,7 +1291,7 @@ export function computeNextWork(
   const solutionsMissingAssumptions = capList(scopedMissingAssumptions, "solutionsMissingAssumptions", truncated, listLimit);
   const allSolutionsMissingInstruments = excludeByScope(
     omitSuppressed(
-      omitDisposed(solutionsMissingInstruments(tree), (title) => title, dispositions, "solutionsMissingInstruments", withheld),
+      omitDisposed(solutionsMissingInstruments(tree), (title) => title, dispositions, index, "solutionsMissingInstruments", withheld),
       (title) => title,
       suppressions,
       index,
@@ -1306,7 +1309,7 @@ export function computeNextWork(
   );
   const allSolutionsAwaitingObservation = excludeByScope(
     omitSuppressed(
-      omitDisposed(solutionsAwaitingObservation(tree), (title) => title, dispositions, "solutionsAwaitingObservation", withheld),
+      omitDisposed(solutionsAwaitingObservation(tree), (title) => title, dispositions, index, "solutionsAwaitingObservation", withheld),
       (title) => title,
       suppressions,
       index,

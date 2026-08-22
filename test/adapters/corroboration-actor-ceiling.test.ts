@@ -34,7 +34,7 @@ import path from "node:path";
 import { afterEach, beforeEach, expect, test } from "vitest";
 import { initVault } from "../../src/runner/init.js";
 import { buildPassContext } from "../../src/runner/context.js";
-import { writeEvidence } from "../../src/processes/tree.js";
+import { byTitle, writeEvidence } from "../../src/processes/tree.js";
 import { fileNameForTitle } from "../../src/ost/sanitize.js";
 import { renderRollup, rollupTree } from "../../src/eval/rollup.js";
 import { appendDisposition } from "../../src/knowledge/dispositions.js";
@@ -126,6 +126,7 @@ test("thirty filings against one node move no rung, add no source and add no act
         verdict: "corroborates",
         node: NEED,
       },
+      byTitle(v.readTree()),
       CLOCK,
     );
   }

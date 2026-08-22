@@ -28,7 +28,7 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { initVault } from "../../src/runner/init.js";
 import { buildPassContext } from "../../src/runner/context.js";
 import { computeNextWork } from "../../src/mcp/next-work.js";
-import { writeEvidence } from "../../src/processes/tree.js";
+import { byTitle, writeEvidence } from "../../src/processes/tree.js";
 import {
   appendDisposition,
   DISPOSITION_KINDS,
@@ -79,9 +79,12 @@ function threeFaces() {
   return v;
 }
 
+/** The tree an acknowledgement is filed against — read fresh, the way every caller does. */
+const treeIndex = () => byTitle(buildPassContext(dir).vault.readTree());
+
 /** Write one disposition through the single entry type. Identical call for all three kinds. */
 function settle(subject: string, kind: DispositionKind, reason: string): void {
-  appendDisposition(dir, { subject, kind, state: "closed", reason, by: "operator" }, CLOCK);
+  appendDisposition(dir, { subject, kind, state: "closed", reason, by: "operator" }, treeIndex(), CLOCK);
 }
 
 describe("one entry type carries all three dispositions", () => {
@@ -182,6 +185,7 @@ describe("every bucket reads the ledger through one shared call", () => {
     appendDisposition(
       dir,
       { subject: SERVED, kind: "opportunity", state: "reopened", reason: "children are not solutions", by: "operator" },
+      treeIndex(),
       CLOCK,
     );
 
@@ -233,8 +237,8 @@ describe("nothing is hidden silently", () => {
   test("a dismissal with no author or no reason is refused at the funnel", () => {
     // The only safeguard on a write that removes work by asserting is that a human can
     // read the assertion and see whose it was. Enforced here, not at the caller.
-    expect(() => appendDisposition(dir, { subject: SHIPPED, kind: "solution", state: "closed", reason: "r", by: " " }, CLOCK)).toThrow(/attribution/);
-    expect(() => appendDisposition(dir, { subject: SHIPPED, kind: "solution", state: "closed", reason: "", by: "operator" }, CLOCK)).toThrow(/reason/);
+    expect(() => appendDisposition(dir, { subject: SHIPPED, kind: "solution", state: "closed", reason: "r", by: " " }, treeIndex(), CLOCK)).toThrow(/attribution/);
+    expect(() => appendDisposition(dir, { subject: SHIPPED, kind: "solution", state: "closed", reason: "", by: "operator" }, treeIndex(), CLOCK)).toThrow(/reason/);
     expect(fs.existsSync(dispositionLedgerPath(dir))).toBe(false);
   });
 });
