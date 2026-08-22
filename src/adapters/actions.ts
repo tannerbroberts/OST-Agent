@@ -53,6 +53,7 @@
  * worth more than a fetch that throws, because the half that parsed is still the
  * exit code somebody needs.
  */
+import { getOnlyFetch } from "./get-only-client.js";
 import type { Actor, Cursor, EvidenceItem, FetchResult, Source } from "./source.js";
 
 /** One workflow run, after the source's payload has been reduced to what is used. */
@@ -392,7 +393,11 @@ export class HttpActionsClient implements ActionsClient {
     this.token = cfg.token;
     this.perPage = Math.min(cfg.perPage ?? DEFAULT_PER_PAGE, 100);
     this.maxPages = cfg.maxPages ?? DEFAULT_MAX_PAGES;
-    this.fetchFn = cfg.fetchFn ?? ((globalThis as unknown as { fetch: FetchFn }).fetch);
+    // Guarded, never raw — and this client is the one that most needs it: a
+    // public repository needs no credential, so `context.ts` hands it no
+    // brokered fetch and the platform fallback is its live path rather than a
+    // corner of it.
+    this.fetchFn = getOnlyFetch(cfg.fetchFn);
   }
 
   async fetchRuns(opts: { createdSince: string | null }): Promise<unknown[]> {

@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+- **A write from an adapter is now refused here, not out there by whatever scope the token
+  happened to have.** The three HTTP clients each hardcoded a GET against their own private
+  copy of the transport, so "read-only" was three separate habits and nothing held them: a
+  fourth call, or a fourth client, would have sent whatever it wrote and the *remote* would
+  have been the only thing deciding — which makes a token that turns out to be over-scoped
+  the one case where nothing refuses anything, and that is the case least privilege exists
+  for. `src/adapters/get-only-client.ts` is now the one transport all three are built over.
+  It refuses any verb but GET, in any casing and however it was spelled at the call site,
+  before the request leaves this process; it refuses a body on a read; and it puts the verb
+  on the wire itself rather than trusting the caller to.
+  `test/adapters/get-only-client.test.ts` drives a full ingest of all three sources against
+  a deliberately **permissive** fake remote — 200 to any verb, like an over-scoped token —
+  so every refusal it records came from the client or did not happen at all, and a control
+  asserts the fake really would have said yes. The client list is read off `src/adapters/`
+  rather than written down, so a fourth one fails the build until somebody decides how it
+  reads.
+  **What measuring it turned up.** The `?? globalThis.fetch` fallback was written out once
+  per client, and for the `actions` adapter that fallback is not a corner: a public
+  repository needs no credential, so `context.ts` hands it no brokered fetch and the raw
+  path was its *live* path. It was also the only one of the three whose request layer no
+  test had ever exercised. The fallback now exists in one module, guarded.
+  **What green does NOT settle:** whether GET-only is *sufficient* — whether a real
+  project's Jira/Confluence evidence is fully retrievable without write scope. That needs a
+  real corpus and stays with a person.
+
 - **The one compatibility read this product performs now has an end date, and says what it
   is holding up.** `testsUnderSolution` has resolved a pre-Assumption direct
   Solution→AssumptionTest edge since the layer landed on 2026-08-05, so a schema addition

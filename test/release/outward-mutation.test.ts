@@ -92,6 +92,13 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../
 const OUTWARD_FILES = [
   "src/adapters/actions.ts",
   "src/adapters/atlassian.ts",
+  // The adapters' shared transport. It is on this list for the ordinary reason —
+  // it holds `globalThis.fetch`, so a request can leave from it — and it is worth
+  // noticing that the three files above it now hold LESS: the `?? globalThis.fetch`
+  // fallback each of them used to write out itself moved here, so the number of
+  // places an unguarded transport can be reached went from three to one while this
+  // list grew by one. See `test/adapters/get-only-client.test.ts`.
+  "src/adapters/get-only-client.ts",
   "src/adapters/slack.ts",
   "src/security/brokered-fetch.ts",
   "src/web/federated.ts",
@@ -192,13 +199,13 @@ describe("(a) every HTTP call site in the shipped source declares GET", () => {
     expect(stray.map((h) => `${h.file}:${h.line}`)).toEqual([]);
   });
 
-  test("the seven call sites are named, so an eighth is a deliberate commit", () => {
+  test("the outward files are named, so one more is a deliberate commit", () => {
     // Pinned as a set rather than a count: a call site that MOVES should not fail
     // this, and a call site that APPEARS should.
     expect([...new Set(hits.map((h) => h.file))].sort()).toEqual(OUTWARD_FILES);
   });
 
-  test("and there is no outward transport outside those seven files — the check the method scan cannot make", () => {
+  test("and there is no outward transport outside those files — the check the method scan cannot make", () => {
     // The gap this closes, stated plainly. Everything above reasons about the
     // string `method: "…"`. A POST written any other way is invisible to it:
     //

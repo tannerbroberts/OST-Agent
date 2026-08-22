@@ -32982,6 +32982,35 @@ function encodeSeen2(seen) {
   return JSON.stringify(seen);
 }
 
+// src/adapters/get-only-client.ts
+var READ_ONLY_VERB = "GET";
+var NonGetRequestError = class extends Error {
+  constructor(verb, url) {
+    super(
+      `the adapter transport sends ${READ_ONLY_VERB} only \u2014 it refused ${verb} ${url} in this process, before anything was sent. Adapters read the systems of record; they never write back.`
+    );
+    this.verb = verb;
+    this.url = url;
+    this.name = "NonGetRequestError";
+  }
+  verb;
+  url;
+};
+function getOnlyFetch(injected) {
+  const raw = injected ?? globalThis.fetch;
+  return async (url, init) => {
+    const asked = init;
+    const verb = typeof asked?.method === "string" ? asked.method.trim() : "";
+    if (verb && verb.toUpperCase() !== READ_ONLY_VERB) {
+      throw new NonGetRequestError(verb.toUpperCase(), url);
+    }
+    if (asked?.body !== void 0 && asked?.body !== null) {
+      throw new NonGetRequestError(`${READ_ONLY_VERB}-with-a-body`, url);
+    }
+    return raw(url, { ...init, method: "GET" });
+  };
+}
+
 // src/adapters/atlassian.ts
 var AtlassianSource = class {
   constructor(client, opts) {
@@ -33049,7 +33078,7 @@ var HttpAtlassianClient = class {
     this.base = cfg.baseUrl.replace(/\/$/, "");
     this.auth = "Basic " + Buffer.from(`${cfg.email}:${cfg.apiToken}`).toString("base64");
     this.max = cfg.maxResults ?? 50;
-    this.fetchFn = cfg.fetchFn ?? globalThis.fetch;
+    this.fetchFn = getOnlyFetch(cfg.fetchFn);
   }
   headers() {
     return { Authorization: this.auth, Accept: "application/json" };
@@ -33299,7 +33328,7 @@ var HttpSlackClient = class {
   constructor(cfg) {
     this.token = cfg.token;
     this.max = cfg.maxResults ?? 100;
-    this.fetchFn = cfg.fetchFn ?? globalThis.fetch;
+    this.fetchFn = getOnlyFetch(cfg.fetchFn);
   }
   async get(url) {
     const res = await this.fetchFn(url, {
@@ -33540,7 +33569,7 @@ var HttpActionsClient = class {
     this.token = cfg.token;
     this.perPage = Math.min(cfg.perPage ?? DEFAULT_PER_PAGE, 100);
     this.maxPages = cfg.maxPages ?? DEFAULT_MAX_PAGES;
-    this.fetchFn = cfg.fetchFn ?? globalThis.fetch;
+    this.fetchFn = getOnlyFetch(cfg.fetchFn);
   }
   async fetchRuns(opts) {
     const out = [];

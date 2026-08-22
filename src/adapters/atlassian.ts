@@ -11,6 +11,7 @@
  * cursor logic is exercised offline with a fake client, and the real HTTP client
  * is exercised with an injected `fetch` (verifying GET-only + auth shape).
  */
+import { getOnlyFetch } from "./get-only-client.js";
 import type { Actor, Cursor, EvidenceItem, FetchResult, Source } from "./source.js";
 
 export interface JiraIssue {
@@ -147,7 +148,9 @@ export class HttpAtlassianClient implements AtlassianClient {
     this.base = cfg.baseUrl.replace(/\/$/, "");
     this.auth = "Basic " + Buffer.from(`${cfg.email}:${cfg.apiToken}`).toString("base64");
     this.max = cfg.maxResults ?? 50;
-    this.fetchFn = cfg.fetchFn ?? ((globalThis as unknown as { fetch: FetchFn }).fetch);
+    // Guarded, never raw: `get-only-client.ts` is where the verb is decided and
+    // where the fallback to the platform transport lives.
+    this.fetchFn = getOnlyFetch(cfg.fetchFn);
   }
 
   private headers(): Record<string, string> {
