@@ -31,11 +31,21 @@ function cli(args: string[]) {
   return run(TSX, [CLI, ...args], { cwd: path.resolve(__dirname, "../..") });
 }
 
+/**
+ * The three fields `friction` now requires, in flag form. Appended to the cases
+ * below, whose subject is where a filing lands rather than what it carries.
+ */
+const ACTIONABLE_FLAGS = [
+  "--tool", "ost-agent check",
+  "--input", "--vault (omitted)",
+  "--expected", "it reads ost.vault.yaml and finds the tree",
+];
+
 const frictionDir = () => path.join(dir, FRICTION_CHANNEL_PATH);
 
 describe("ost-agent friction", () => {
   test("files a one-line friction note into the vault's friction channel", async () => {
-    const { stdout } = await cli(["friction", "The vault is not discoverable from the repo", "--vault", dir]);
+    const { stdout } = await cli(["friction", "The vault is not discoverable from the repo", ...ACTIONABLE_FLAGS, "--vault", dir]);
 
     const notes = fs.readdirSync(frictionDir());
     expect(notes).toHaveLength(1);
@@ -55,6 +65,7 @@ describe("ost-agent friction", () => {
       "guessed",
       "--context",
       "four candidate vault directories exist",
+      ...ACTIONABLE_FLAGS,
       "--vault",
       dir,
     ]);
@@ -65,7 +76,7 @@ describe("ost-agent friction", () => {
   }, 30_000);
 
   test("rejects an unknown kind instead of filing a mislabelled note", async () => {
-    await expect(cli(["friction", "x", "--kind", "vibes", "--vault", dir])).rejects.toThrow(/blocked/);
+    await expect(cli(["friction", "x", "--kind", "vibes", ...ACTIONABLE_FLAGS, "--vault", dir])).rejects.toThrow(/blocked/);
     expect(fs.existsSync(frictionDir())).toBe(false);
   }, 30_000);
 });

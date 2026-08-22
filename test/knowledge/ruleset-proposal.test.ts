@@ -42,9 +42,21 @@ afterEach(() => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+/**
+ * The three fields `fileFriction` now demands. Spread into filings whose subject is
+ * something other than the fields themselves, so those tests keep saying what they
+ * said — `test/telemetry/self-filed-friction-events.test.ts` is where the fields are
+ * the point.
+ */
+const ACTIONABLE = {
+  tool: "ost-agent check",
+  input: "--vault (omitted)",
+  expected: "it reads ost.vault.yaml and finds the tree",
+} as const;
+
 /** File real friction and hand back what a drafter would cite. */
 function fileSomeFriction(note: string): string {
-  return path.basename(fileFriction(dir, { kind: "unclear-rule", note, source: "test" }));
+  return path.basename(fileFriction(dir, { ...ACTIONABLE, kind: "unclear-rule", note, source: "test" }));
 }
 
 function draft(overrides: Partial<Parameters<typeof draftRulesetProposal>[1]> = {}) {

@@ -21,9 +21,20 @@ afterEach(() => {
 const friction = () => path.join(dir, FRICTION_CHANNEL_PATH);
 const channelZero = () => path.join(dir, ".ost-agent", "inbox");
 
+/**
+ * The three fields a filing must carry. Spread into the cases below, whose subject
+ * is where a filing lands rather than what it says; the fields themselves are the
+ * subject of `test/telemetry/self-filed-friction-events.test.ts`.
+ */
+const ACTIONABLE = {
+  tool: "ost-agent check",
+  input: "--vault (omitted)",
+  expected: "it reads ost.vault.yaml and finds the tree",
+} as const;
+
 describe("fileFriction", () => {
   test("drops a note into the vault's friction channel, not into channel zero", () => {
-    const written = fileFriction(dir, { kind: "blocked", note: "Could not find the vault from the repo" });
+    const written = fileFriction(dir, { ...ACTIONABLE, kind: "blocked", note: "Could not find the vault from the repo" });
 
     expect(written.startsWith(friction())).toBe(true);
     expect(fs.existsSync(written)).toBe(true);
@@ -38,6 +49,7 @@ describe("fileFriction", () => {
 
   test("records the context and who filed it when given", () => {
     const written = fileFriction(dir, {
+      ...ACTIONABLE,
       kind: "guessed",
       note: "Guessed the inbox path",
       context: "no docs link the repo to its vault",
@@ -50,8 +62,8 @@ describe("fileFriction", () => {
   });
 
   test("never overwrites an earlier filing of the same friction", () => {
-    const first = fileFriction(dir, { kind: "blocked", note: "Same wording twice" });
-    const second = fileFriction(dir, { kind: "blocked", note: "Same wording twice" });
+    const first = fileFriction(dir, { ...ACTIONABLE, kind: "blocked", note: "Same wording twice" });
+    const second = fileFriction(dir, { ...ACTIONABLE, kind: "blocked", note: "Same wording twice" });
 
     expect(second).not.toBe(first);
     expect(fs.existsSync(first)).toBe(true);
@@ -59,15 +71,16 @@ describe("fileFriction", () => {
   });
 
   test("rejects an empty note", () => {
-    expect(() => fileFriction(dir, { kind: "blocked", note: "   " })).toThrow(/note/i);
+    expect(() => fileFriction(dir, { ...ACTIONABLE, kind: "blocked", note: "   " })).toThrow(/note/i);
   });
 
   test("rejects an unknown kind and names the ones it accepts", () => {
-    expect(() => fileFriction(dir, { kind: "vibes" as never, note: "x" })).toThrow(/blocked/);
+    expect(() => fileFriction(dir, { ...ACTIONABLE, kind: "vibes" as never, note: "x" })).toThrow(/blocked/);
   });
 
   test("redacts secrets pasted into a note", () => {
     const written = fileFriction(dir, {
+      ...ACTIONABLE,
       kind: "blocked",
       note: "auth failed with Bearer abcDEF123456ghijkl",
     });
@@ -80,7 +93,7 @@ describe("fileFriction", () => {
   test("creates the friction directory when the vault has never received a filing", () => {
     fs.rmSync(friction(), { recursive: true, force: true });
 
-    const written = fileFriction(dir, { kind: "unclear-rule", note: "Which layer does this belong to?" });
+    const written = fileFriction(dir, { ...ACTIONABLE, kind: "unclear-rule", note: "Which layer does this belong to?" });
 
     expect(fs.existsSync(written)).toBe(true);
     // Named, not merely existing: a filing that landed anywhere at all would satisfy
@@ -95,11 +108,11 @@ describe("fileFriction", () => {
    */
   test("files against a broken config, and against no config at all", () => {
     fs.writeFileSync(path.join(dir, "ost.config.yaml"), "adapters:\n  inbox:\n    cadence: soon\n", "utf8");
-    const broken = fileFriction(dir, { kind: "blocked", note: "ost.config.yaml will not parse" });
+    const broken = fileFriction(dir, { ...ACTIONABLE, kind: "blocked", note: "ost.config.yaml will not parse" });
     expect(broken.startsWith(friction())).toBe(true);
 
     fs.rmSync(path.join(dir, "ost.config.yaml"));
-    const absent = fileFriction(dir, { kind: "blocked", note: "there is no config here at all" });
+    const absent = fileFriction(dir, { ...ACTIONABLE, kind: "blocked", note: "there is no config here at all" });
     expect(absent.startsWith(friction())).toBe(true);
 
     // Non-vacuity: the two filings are distinct files that really exist, so the
@@ -118,7 +131,7 @@ describe("fileFriction", () => {
   test("files even when the drop-folder adapter is switched off", () => {
     fs.writeFileSync(path.join(dir, "ost.config.yaml"), 'outcome: "X"\nadapters:\n  inbox:\n    enabled: false\n', "utf8");
 
-    const written = fileFriction(dir, { kind: "blocked", note: "filed while the adapter is switched off" });
+    const written = fileFriction(dir, { ...ACTIONABLE, kind: "blocked", note: "filed while the adapter is switched off" });
     expect(written.startsWith(friction())).toBe(true);
     expect(fs.readFileSync(written, "utf8")).toContain("switched off");
 

@@ -41,8 +41,18 @@ beforeEach(async () => {
 });
 afterEach(() => fs.rmSync(parent, { recursive: true, force: true }));
 
+/**
+ * Every case here is about what filing leaves behind in git, not about what the
+ * filing says, so the three required fields are supplied once here rather than
+ * repeated into each call.
+ */
 function friction(args: string[]) {
-  return run(TSX, [CLI, "friction", ...args, "--vault", dir], { cwd: path.resolve(__dirname, "../..") });
+  const actionable = [
+    "--tool", "ost-agent check",
+    "--input", "--vault (omitted)",
+    "--expected", "it reads ost.vault.yaml and finds the tree",
+  ];
+  return run(TSX, [CLI, "friction", ...args, ...actionable, "--vault", dir], { cwd: path.resolve(__dirname, "../..") });
 }
 
 /** Exactly what `loop start` would refuse over. Empty means the next firing may begin. */

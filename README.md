@@ -674,9 +674,17 @@ The complement to that channel is filing friction *as it happens* — the confus
 
 ```bash
 ost-agent friction "had to guess which vault to read" --kind guessed \
+  --tool "ost-agent check" --input "--vault (omitted)" \
+  --expected "it reads ost.vault.yaml and finds the tree" \
   --context "four candidate vault directories exist" --vault ~/my-vault
 # kinds: blocked, guessed, unclear-rule, missing-affordance, slow
 ```
+
+**`--tool`, `--input` and `--expected` are required, and that is a deliberate trade against filing being cheap.** The whole archive of filings made before them — six, every one the agent had ever filed — is bare prose: not one names the tool that fought back, the input it failed on, or what was expected instead, and a note that says only *it broke* is not evidence anybody can act on a month later. The archive is committed at `test/fixtures/self-filed-friction/archive/` so the claim is a test rather than a recollection.
+
+`--pass` (defaulting to `$OST_SESSION_ID`, the same id `ost-agent claim` uses) records which firing filed it. Without it a filing can be counted but not attributed, and *per pass* is the only rate that says anything: the historical filings carry `filed by: session` or `filed by: loop`, which is a role rather than a firing, so no per-pass count was computable from them at all.
+
+**`ost-agent friction-count --pass <id> …` is what reads them back** — filings per pass against a floor of one, and the share carrying all three fields against a bar of all of them. It names the passes that filed nothing rather than averaging them away, counts unattributed filings apart from silent passes (a filing nobody can place is still evidence the agent filed), and prints, every time including on a met bar, the clause it cannot settle: how much friction went by *unfiled*, which needs a person reading the same sessions.
 
 Both of those channels feed the ladder from the bottom. A `USAGE:` item is a counted, unnarrated trace and cannot climb above `assertion` on its own; a `TRANSCRIPT:` item is a model's reading of a session, and what it can claim is bounded the same way. Nothing an agent produces about itself moves a node up the ladder — that is the point of having the rungs at all.
 

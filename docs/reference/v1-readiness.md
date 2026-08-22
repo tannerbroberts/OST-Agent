@@ -3114,9 +3114,21 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,508 tests across 287 files, verified 2026-08-21 (`npx vitest run`
-> reports 3,500 of them; the other 8 are the contended calibration file described in the
-> previous entry. After "Idle down when a pass produces commentary instead of structure"
+> *Today:* **met** — 3,525 tests across 288 files, verified 2026-08-22 (`npx vitest run`
+> reports 3,517 of them; the other 8 are the contended calibration file described in the
+> previous entry. After "In-the-moment friction events filed by the agent" was given its
+> definition of done: `ost-agent friction` refuses a filing that does not name the tool,
+> the failing input and what was expected, and carries the pass it was filed during;
+> `src/telemetry/self-filed-friction.ts` counts filings per pass behind
+> `ost-agent friction-count`; and `test/telemetry/self-filed-friction-events.test.ts` reads
+> the two computable clauses of that assumption's threshold — one event per pass across
+> five, and every event actionable — with controls in both directions, seventeen tests, one
+> new file. The finding is pinned rather than described: the entire archive of self-filed
+> friction is committed at `test/fixtures/self-filed-friction/archive/`, it is six filings,
+> and not one of them names a pass or carries the three fields — so the per-pass count this
+> assumption test is named for was never computable from the record. The third clause, the
+> unfiled-to-filed ratio, stays with a human, and the census prints that refusal even on a
+> met bar. Previously, after "Idle down when a pass produces commentary instead of structure"
 > was given its definition of done: `test/loop/pass-shape-classifier.test.ts` runs
 > `src/loop/pass-shape.ts` — which reads a commit's *subject* and nothing else — against
 > all 2,950 commits of the meta vault labelled from their *diffs*
