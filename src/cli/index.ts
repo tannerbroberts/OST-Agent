@@ -34,6 +34,7 @@
  *   ost-agent refusals [--transcripts DIR]    how many of the refusals a pass hit a schema-derived manifest could have named
  *   ost-agent channels [--vault DIR]          every drop folder, its last delivery, and what has gone silent
  *   ost-agent resources [--vault DIR]         each standing resource question, and whether the vault already answers it without asking
+ *   ost-agent review-sample [--seed S]        a stratified, reproducible 10% draw of the tree for a human to rate against the faithfulness rubric — the draw only, never a score
  *   ost-agent friction "<note>" [--vault DIR] file friction at the point of pain
  *   ost-agent propose-rule "<rule>" ...       draft a change to the agent's own ruleset, with friction evidence attached
  *   ost-agent proposals [--vault DIR]         the review queue: every ruleset proposal and its status
@@ -84,6 +85,7 @@ import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/rende
 import { ship } from "../release/ship-repo.js";
 import { BUILD_CHECK_EXIT, formatBuildCheck, inheritedTreeBuildCheck } from "../release/inherited-tree.js";
 import { renderRollup, rollupTree } from "../eval/rollup.js";
+import { DEFAULT_FRACTION, drawReviewSample, formatReviewSample } from "../eval/review-sample.js";
 import { lineageOf, renderLineage } from "../eval/lineage.js";
 import { reflectionBinding, renderReflectionGauge } from "../loop/reflection.js";
 import { BELIEVABILITY_LADDER, type RungId } from "../knowledge/believability.js";
@@ -1772,6 +1774,45 @@ program
   .action((opts: { vault: string }) => {
     const ctx = buildPassContext(opts.vault);
     console.log(renderRollup(rollupTree(ctx.vault.readTree())));
+  });
+
+program
+  .command("review-sample")
+  .description(
+    "draw a stratified, reproducible sample of the tree for a human to rate against the faithfulness rubric — the " +
+      "draw only; this command rates nothing and produces no score",
+  )
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option(
+    "--seed <label>",
+    "the string the draw is derived from — same seed, same sample; different seed, different sample (default: today's UTC date)",
+  )
+  .option("--fraction <n>", "share of the reviewable nodes to draw, 0–1 (default 0.1; `1` prints the whole-tree sheet the sample is compared against)")
+  .option("--titles", "print the drawn titles alone, one per line, for a script")
+  .action((opts: { vault: string; seed?: string; fraction?: string; titles?: boolean }) => {
+    // The clock is read HERE and nowhere below: `drawReviewSample` is a pure
+    // function of the seed string, which is the only reason the header's
+    // "reproduce this exact draw" line is true. A default that changes daily is
+    // deliberate — a periodic review that draws the same nodes every time is
+    // measuring one tenth of the tree forever.
+    const seed = opts.seed ?? new Date().toISOString().slice(0, 10);
+    const fraction = opts.fraction === undefined ? DEFAULT_FRACTION : Number(opts.fraction);
+    if (!Number.isFinite(fraction) || fraction <= 0 || fraction > 1) {
+      console.error(`--fraction must be a number in (0, 1]; got ${JSON.stringify(opts.fraction)}`);
+      process.exitCode = 1;
+      return;
+    }
+    const ctx = buildPassContext(opts.vault);
+    const sample = drawReviewSample(ctx.vault.readTreeCensus(), { seed, fraction });
+    if (sample.reviewable === 0) {
+      // Exit 1 for the same reason a blind sweep does: an empty sheet over an
+      // empty frame is not a clean review, and a cadence that pipes this to a
+      // reviewer must not read "nothing to rate" as "nothing wrong".
+      console.error(formatReviewSample(sample));
+      process.exitCode = 1;
+      return;
+    }
+    console.log(opts.titles ? sample.drawn.map((n) => n.title).join("\n") : formatReviewSample(sample));
   });
 
 program

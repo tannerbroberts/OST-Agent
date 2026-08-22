@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- **A tenth of the tree, drawn so a person can actually review it — the draw only, never a
+  score.** `docs/reference/evaluating-ost-agent.md` has said since the faithfulness judge
+  was deleted that layers 2 and 3 are read by a human "one node at a time", which on a
+  1,400-node tree is a method nobody runs, so the reading was not being done at all.
+  `ost-agent review-sample` prints a review sheet: 10% of the reviewable nodes, stratified
+  by `bucket × layer` cell so every bucket and every layer is on it rather than whichever
+  sorts first, reproducible under `--seed` so two reviewers rate the same nodes, with the
+  three rubric questions (grounded / classified / useful) as unfilled checkboxes beside
+  each. `test/cli/review-sample.test.ts` holds all three properties, and holds them against
+  the defect rather than the adjective — the fixture's alphabetical head is one bucket of
+  three, so a head-of-the-list draw fails eight of its assertions. **The line it does not
+  cross:** the command reads no node's prose and emits no number. There is still no command
+  in this repo that scores faithfulness or usefulness.
+  **What building it surfaced, and it changes how a finished sheet must be read:** on this
+  repo's own vault the frame has 150 `bucket × layer` cells and a tenth of the tree is 142
+  nodes, so covering every cell costs *more* than the fraction asks and every cell draws
+  exactly one node — a five-node cell and a fifty-node cell weigh the same. A tenth of this
+  tree is therefore a **coverage** sample and not a proportional one, and the flat mean of
+  its checkmarks is a mean over cells rather than over the tree. The sheet says so, prints
+  how many nodes each rating stands for, and does not compute the weighted figure for you.
+
 - **The scheduler checks the host before it dispatches, and records whether that check was
   worth anything.** `loop due` decided from the clock and the token ledger alone, and both
   of those it reads *through* the vault — so a checkout whose `.git` had moved answered
