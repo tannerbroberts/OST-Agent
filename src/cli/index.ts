@@ -86,6 +86,7 @@ import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/rende
 import { ship } from "../release/ship-repo.js";
 import { BUILD_CHECK_EXIT, formatBuildCheck, inheritedTreeBuildCheck } from "../release/inherited-tree.js";
 import { renderRollup, rollupTree } from "../eval/rollup.js";
+import { legacyFallbackCensus, renderLegacyFallbackCensus } from "../ost/legacy-fallback.js";
 import { DEFAULT_FRACTION, drawReviewSample, formatReviewSample } from "../eval/review-sample.js";
 import { lineageOf, renderLineage } from "../eval/lineage.js";
 import { reflectionBinding, renderReflectionGauge } from "../loop/reflection.js";
@@ -1991,6 +1992,23 @@ program
   .action((opts: { vault: string }) => {
     const ctx = buildPassContext(opts.vault);
     console.log(renderRollup(rollupTree(ctx.vault.readTree())));
+  });
+
+program
+  .command("legacy-fallback")
+  .description(
+    "what the pre-Assumption compatibility read is still carrying in this vault, and when it goes inert — the " +
+      "number that decides whether dropping it is safe",
+  )
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option("--as-version <semver>", "answer as a build at this version, to see what the drop release does (default: this build)")
+  .action((opts: { vault: string; asVersion?: string }) => {
+    const ctx = buildPassContext(opts.vault);
+    const census = legacyFallbackCensus(ctx.vault.readTree(), opts.asVersion ?? VERSION);
+    console.log(renderLegacyFallbackCensus(census));
+    // Exit 0 either way. A compatibility layer carrying something is not a
+    // fault — the count is the point, and a non-zero exit would turn a report
+    // into a gate nobody agreed to.
   });
 
 program

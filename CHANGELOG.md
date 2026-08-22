@@ -2,6 +2,36 @@
 
 ## Unreleased
 
+- **The one compatibility read this product performs now has an end date, and says what it
+  is holding up.** `testsUnderSolution` has resolved a pre-Assumption direct
+  Solution→AssumptionTest edge since the layer landed on 2026-08-05, so a schema addition
+  would not reopen every un-migrated vault's finished work. That was right, and it was
+  unbounded: it applied to any direct edge at any age, it had no expiry, and a solution
+  counted tested through it was byte-identical to one counted through an Assumption — the
+  exact shape a compatibility layer has just before it becomes the thing nobody can remove.
+  `src/ost/legacy-fallback.ts` bounds it three ways. The edge is honoured only for tests
+  created before the boundary; the fallback goes inert at **0.26.0**, a release
+  `legacyTestEdgeStatus` reads off `VERSION` rather than one written in a comment; and
+  `ost-agent legacy-fallback` prints what it is carrying, separating the solutions it is
+  holding up *alone* — the population that reopens the day it expires — from the ones that
+  also have a current route. `buildPermit` now carries `viaLegacyEdge`, so a builder can
+  tell a permit that stops clearing at 0.26.0 from one that does not.
+  **What measuring it turned up, and it is the thing the node did not say.** Against this
+  repository's own 1,445-node vault the fallback is carrying **zero** edges: the 2026-08-05
+  restructure migrated every one of them, so a layer that has been running for seventeen
+  days is holding up nothing and is droppable today — which no surface could have said
+  before, and which is precisely why "report what the legacy signal alone is holding up"
+  had to be a clause rather than a nicety. The bound is also weaker than it reads in one
+  named place: 297 of those 1,445 files carry no `created` line at all (the field is
+  stamped by `ost_create_node`, not by hand), and an undated node is honoured as
+  pre-boundary — reading it the other way would reopen the work the fallback exists to keep
+  counted. Those edges are counted separately, because they are exactly the population the
+  boundary cannot bound and the release date is the only thing that ever ends them.
+  **What green does NOT settle:** whether the union is *correct* — whether work a legacy
+  edge keeps counted was genuinely finished by the newer standard. A perfectly bounded
+  fallback around a wrong rule is a wrong rule with a deadline, and that is a person's
+  judgement, not an exit code's.
+
 - **Two operators can now exchange vaults directly, and find out first what it will cost
   them.** `ost-agent peer-census --peer <dir>` runs the exchange as a real `git merge`
   into a scratch repository neither vault can see — `--allow-unrelated-histories`, because

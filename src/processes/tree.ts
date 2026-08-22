@@ -22,6 +22,7 @@ import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
 import { parseFrontmatter } from "../ost/frontmatter.js";
+import { resolveTestsUnderSolution } from "../ost/legacy-fallback.js";
 import { redactSecrets } from "../adapters/transcript.js";
 import { isActor, transcriptFileExists, UNKNOWN_ACTOR, type Actor } from "../adapters/source.js";
 import type { Layer, OstNode } from "../ost/node.js";
@@ -380,23 +381,18 @@ export function opportunitiesServedBeneath(tree: readonly OstNode[], index: Map<
  * run — the strictness lives on the WRITE side (`CHILD_HIERARCHY`), where it
  * only constrains edges being drawn now.
  *
+ * **That tolerance is BOUNDED, and the bound lives in
+ * {@link ../ost/legacy-fallback.ts}.** It applies only to tests created before
+ * the release that introduced the Assumption layer, it goes inert at a release
+ * named in code, and what it is carrying is countable — because an unbounded
+ * second reading of "is this tested" quietly becomes the definition of done and
+ * then nobody can show it is safe to remove. Callers that need to know *which*
+ * route a test came by take {@link resolveTestsUnderSolution} instead; this
+ * spelling drops the attribution for the callers that only count.
+ *
  * De-duplicated by title, because two Assumptions under one Solution may share
  * a test and a solution should not read as twice-tested for it.
  */
 export function testsUnderSolution(solution: OstNode, index: Map<string, OstNode>): OstNode[] {
-  const out = new Map<string, OstNode>();
-  for (const link of solution.links) {
-    const child = index.get(link);
-    if (!child) continue;
-    if (child.layer === "AssumptionTest") {
-      out.set(child.title, child); // legacy direct edge
-      continue;
-    }
-    if (child.layer !== "Assumption") continue;
-    for (const grand of child.links) {
-      const test = index.get(grand);
-      if (test?.layer === "AssumptionTest") out.set(test.title, test);
-    }
-  }
-  return [...out.values()];
+  return resolveTestsUnderSolution(solution, index).map((r) => r.test);
 }

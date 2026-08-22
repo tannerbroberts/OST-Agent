@@ -61,7 +61,7 @@ import type { OstNode } from "../ost/node.js";
 import { isInstrument, parseInstrument, type ParsedInstrument } from "../knowledge/instruments.js";
 import { thresholdKindOf } from "./coverage.js";
 import { trustsShippedStatus } from "./shipped-audit.js";
-import { testsUnderSolution } from "../processes/tree.js";
+import { resolveTestsUnderSolution, LEGACY_TEST_EDGE, type ResolvedTest } from "../ost/legacy-fallback.js";
 
 export interface BuildPermit {
   cleared: boolean;
@@ -87,6 +87,18 @@ export interface BuildPermit {
    * one would put a whole index on a path that exists to run a single command.
    */
   thresholdBound?: boolean;
+  /**
+   * Set when the test this permit rests on was reached ONLY through the
+   * pre-Assumption direct edge ({@link ../ost/legacy-fallback.ts}).
+   *
+   * The permit still clears — an un-migrated vault keeping a working gate is the
+   * whole reason that fallback exists — but a builder handed one has to be able
+   * to tell it from a permit the current accounting produced, because this one
+   * stops clearing at the release the fallback goes inert at. A second reading
+   * of "is this tested" that nothing distinguishes is a second reading nobody
+   * can ever retire.
+   */
+  viaLegacyEdge?: boolean;
 }
 
 /**
@@ -104,8 +116,8 @@ function indexByTitle(tree: readonly OstNode[]): Map<string, OstNode> {
   return index;
 }
 
-function testsUnder(index: Map<string, OstNode>, solution: OstNode): OstNode[] {
-  return testsUnderSolution(solution, index);
+function testsUnder(index: Map<string, OstNode>, solution: OstNode): ResolvedTest[] {
+  return resolveTestsUnderSolution(solution, index);
 }
 
 /**
@@ -133,19 +145,19 @@ function permitFrom(index: Map<string, OstNode>, title: string): BuildPermit {
     };
   }
 
-  const withInstruments = tests.filter((t) => nodeInstrument(t));
+  const withInstruments = tests.filter((t) => nodeInstrument(t.test));
   if (withInstruments.length === 0) {
     return {
       cleared: false,
       reason:
         `none of the ${tests.length} test(s) under "${title}" declares a runnable instrument, so none of them ` +
-        `can go red or green. Add an \`instrument:\` naming one spec file to: ${tests.map((t) => t.title).join("; ")}`,
+        `can go red or green. Add an \`instrument:\` naming one spec file to: ${tests.map((t) => t.test.title).join("; ")}`,
     };
   }
 
-  const live = withInstruments.filter((t) => observedRed(t) && !observedGreen(t));
+  const live = withInstruments.filter((t) => observedRed(t.test) && !observedGreen(t.test));
   if (live.length === 0) {
-    const built = withInstruments.filter((t) => observedGreen(t));
+    const built = withInstruments.filter((t) => observedGreen(t.test));
     if (built.length > 0 && built.length === withInstruments.length) {
       return {
         cleared: false,
@@ -156,20 +168,26 @@ function permitFrom(index: Map<string, OstNode>, title: string): BuildPermit {
       cleared: false,
       reason:
         `"${title}" declares an instrument that has never been run, so nobody knows whether it fails today. ` +
-        `Run \`ost-agent verify\` on: ${withInstruments.map((t) => t.title).join("; ")}`,
+        `Run \`ost-agent verify\` on: ${withInstruments.map((t) => t.test.title).join("; ")}`,
     };
   }
 
   const chosen = live[0];
-  const instrument = nodeInstrument(chosen)!;
+  const instrument = nodeInstrument(chosen.test)!;
+  const viaLegacyEdge = chosen.via === "legacy-edge";
   return {
     cleared: true,
     reason:
-      `"${chosen.title}" is red against the repository — \`${instrument.command}\` fails today and passes when ` +
-      `"${title}" is built. That is the definition of done.`,
+      `"${chosen.test.title}" is red against the repository — \`${instrument.command}\` fails today and passes when ` +
+      `"${title}" is built. That is the definition of done.` +
+      (viaLegacyEdge
+        ? ` This test is reached through the pre-${LEGACY_TEST_EDGE.boundary} direct edge, not through an Assumption, ` +
+          `so the permit rests on the legacy fallback and stops clearing at ${LEGACY_TEST_EDGE.droppedIn}.`
+        : ""),
     instrument: instrument.command,
-    test: chosen.title,
-    thresholdBound: thresholdKindOf(chosen) === "bound",
+    test: chosen.test.title,
+    thresholdBound: thresholdKindOf(chosen.test) === "bound",
+    ...(viaLegacyEdge ? { viaLegacyEdge: true } : {}),
   };
 }
 
@@ -332,7 +350,7 @@ export function solutionsMissingInstruments(tree: readonly OstNode[]): string[] 
     if (trustsShippedStatus(n)) continue;
     const tests = testsUnder(index, n);
     if (tests.length === 0) continue; // already counted by solutionsMissingAssumptions
-    if (tests.some((t) => nodeInstrument(t))) continue;
+    if (tests.some((t) => nodeInstrument(t.test))) continue;
     out.push(n.title);
   }
   return out;
@@ -367,7 +385,7 @@ export function solutionsAwaitingObservation(tree: readonly OstNode[]): string[]
     if (!trustsShippedStatus(n)) continue;
     const tests = testsUnder(index, n);
     if (tests.length === 0) continue;
-    if (tests.some((t) => observedGreen(t))) continue;
+    if (tests.some((t) => observedGreen(t.test))) continue;
     out.push(n.title);
   }
   return out;
