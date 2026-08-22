@@ -104,6 +104,7 @@ import { renderTournament, runTournament } from "../eval/tournament.js";
 import { renderCanary, runCanary, type CanaryProcess } from "../eval/canary.js";
 import { formatCensus, reconcileWithGit, reconcileWithUsage, recordCensusFiring } from "../ost/census.js";
 import { formatStrandedCensus, strandedEvidenceCensus } from "../ost/stranded.js";
+import { censusPeerMerge, formatMergeCensus } from "../ost/vault-merge.js";
 import { blindnessCensus, formatBlindnessCensus, readSweepRuns, recordSweepRun } from "../ost/sweep.js";
 import {
   formatSearchTotal,
@@ -1409,6 +1410,47 @@ program
     console.error(`buildable: ${permit.spent ? "SPENT" : "BLOCKED"} — ${permit.reason}`);
     process.exitCode = 1;
   });
+
+program
+  .command("peer-census")
+  .description(
+    "dry-run a peer exchange: merge another operator's vault into a scratch copy of this one and count the conflicts a person has to settle",
+  )
+  .requiredOption("--peer <dir>", "the peer's vault — any path a `git fetch` can reach; never written to")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option("--scratch <dir>", "where to run the dry merge (default: a fresh temp directory, left in place)")
+  .option("--peer-ref <ref>", "which of the peer's refs to exchange", "HEAD")
+  .option("--vault-ref <ref>", "which of your own refs to exchange", "HEAD")
+  .option(
+    "--carry-all",
+    "also count conflicts on `.ost-agent/`, `.obsidian/` and `.claude/` — local run state the exchange does not carry by default",
+  )
+  .action(
+    async (opts: {
+      vault: string;
+      peer: string;
+      scratch?: string;
+      peerRef: string;
+      vaultRef: string;
+      carryAll?: boolean;
+    }) => {
+      // Deliberately NOT `buildPassContext`: this reads two vaults, one of them
+      // somebody else's, and a context per vault would construct adapters and
+      // create any directory that was mistyped.
+      const scratch = opts.scratch ?? fs.mkdtempSync(path.join(os.tmpdir(), "ost-peer-census-"));
+      const census = await censusPeerMerge({
+        localDir: path.resolve(opts.vault),
+        peerDir: path.resolve(opts.peer),
+        scratchDir: scratch,
+        localRef: opts.vaultRef,
+        peerRef: opts.peerRef,
+        notExchanged: opts.carryAll ? [] : undefined,
+        at: new Date().toISOString().slice(0, 10),
+        peerLabel: path.resolve(opts.peer),
+      });
+      console.log(formatMergeCensus(census));
+    },
+  );
 
 program
   .command("stranded")

@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+- **Two operators can now exchange vaults directly, and find out first what it will cost
+  them.** `ost-agent peer-census --peer <dir>` runs the exchange as a real `git merge`
+  into a scratch repository neither vault can see — `--allow-unrelated-histories`, because
+  two peers who each ran `ost-agent init` share no ancestor — and partitions every conflict
+  git stops on into the ones a stated rule settles and the ones a person has to rule on.
+  Nothing is committed and neither vault is touched. A rule counts only when it is
+  deterministic, symmetric, and lossless: every value it does not adopt is written into the
+  node's `## History`, so a reviewer can see each choice and what it cost. Ledgers, tags and
+  child edges union; the weaker evidence rung and the weaker provenance win; a verdict, a
+  pre-committed bar, an instrument, a lane, a rewritten body and a one-sided retraction are
+  never settled by machine. A settlement is an `OstNode`, never bytes — `Vault` remains the
+  only thing that renders a node file.
+  **What measuring it turned up.** Against this repository's own vault at `HEAD` versus its
+  own past, re-rooted as independent repositories, the judgement count scales with how long
+  the peers have been apart: 1 at 25 commits, 3 at 100, 10 at 300, 10 against a three-week
+  branch tip. So peer exchange is cheap if you do it often and stops being cheap at roughly
+  two days of divergence — a qualification the assumption test's flat "at most 5" did not
+  carry. And the single largest cost was not disagreement at all: 39 of the 52 collisions
+  no other rule could settle differed only in whether a cited title was written `[[Title]]`
+  or `"Title"`, a dialect this tree changed mid-life, which is why `citation-style-normalised`
+  exists and why it compares sigils and nothing else.
+
 - **Installing a helper now runs the helper's own preflight and refuses what cannot run
   here.** A helper declares what it needs — `# ost-requires: command git — reads the staged
   index` — in its own header, so the declaration travels in the one file that gets copied.
