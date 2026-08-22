@@ -152,6 +152,12 @@ const READER_MODULES: Record<string, string> = {
 const PURE_MODULES = [
   "cadence.ts",
   "exitLaundering.ts",
+  // Reads a commit subject string and says structure-or-commentary, and folds a
+  // pass's subjects into one shape — pure string work over whatever the caller
+  // hands in. It never opens a git log itself; the 2,950-commit corpus it is
+  // measured against in `test/loop/pass-shape-classifier.test.ts` is read by the
+  // test, and cut by `scripts/harvest-pass-shape-corpus.ts`, not by this module.
+  "pass-shape.ts",
   "stall.ts",
   "authority-contract.ts",
   "early-push.ts",

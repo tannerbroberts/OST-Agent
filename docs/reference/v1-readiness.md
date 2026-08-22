@@ -3114,9 +3114,24 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,480 tests across 285 files, verified 2026-08-21 (`npx vitest run`
-> reports 3,472 of them; the other 8 are the contended calibration file described in the
-> previous entry. After "Hand the run the project's symbol surface before it writes, not
+> *Today:* **met** — 3,495 tests across 286 files, verified 2026-08-21 (`npx vitest run`
+> reports 3,487 of them; the other 8 are the contended calibration file described in the
+> previous entry. After "Idle down when a pass produces commentary instead of structure"
+> was given its definition of done: `test/loop/pass-shape-classifier.test.ts` runs
+> `src/loop/pass-shape.ts` — which reads a commit's *subject* and nothing else — against
+> all 2,950 commits of the meta vault labelled from their *diffs*
+> (`test/fixtures/pass-shape/`, cut by `scripts/harvest-pass-shape-corpus.ts`), and gets
+> 91.12% agreement against a 90% bar pre-committed before the corpus existed; fifteen
+> tests, one new file. Two findings are pinned rather than described: the rule is already
+> at the ceiling of its input (an oracle reading subjects scores 91.80%, and 199 of the 262
+> disagreements are `ost_append_to_node`, whose subject is identical whether the append
+> carried a wikilink or not), and the result survives either reading of "status" —
+> `instrument:`/`evidence:` structural scores 91.12%, the strict reading with a re-cut rule
+> scores 91.97%, and *mixing* the two readings drops to 85.46%, so coherence between
+> classifier and ledger is the real constraint rather than which cut is chosen. The module
+> is on the unreachable register with its reason: the assumption test licenses detection
+> and says in its own words that it "does not say throttling on that signal is a good
+> idea." After "Hand the run the project's symbol surface before it writes, not
 > after it compiles" was given its definition of done: `test/runner/symbol-index.test.ts`
 > rebuilds `src/runner/symbol-index.ts` over all 63 modules of `src/` at `368cf6d7`
 > (`71b9654~1`, the state the captured session was writing from) and asserts the three
