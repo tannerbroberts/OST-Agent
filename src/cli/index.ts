@@ -10,6 +10,7 @@
  *   ost-agent debt [--vault DIR]              evidence each solution still owes + unbounded results + unfixed thresholds
  *   ost-agent critic [--vault DIR]            attack the tree: every claim that outruns its backing, and what would settle it
  *   ost-agent judge-panel [--vault DIR]       three judges name each solution's riskiest assumption; disagreement is the signal
+ *   ost-agent faithfulness [--vault DIR]      score each node 1-5 against the evidence record it cites, quoting the span read
  *   ost-agent tournament [<solutions...>]     eliminate on refuted recorded results only; the set shrinks, nothing is crowned
  *   ost-agent canary --incumbent C --candidate C  run two commands over the same input side by side; the incumbent never stops
  *   ost-agent lanes [--vault DIR]             assumption tests by the human minutes they cost
@@ -96,6 +97,8 @@ import { buildableSolutions, buildPermit, confirmPermit, testsAwaitingVerificati
 import { applyCritic, criticPass, renderCritic } from "../eval/critic.js";
 import { renderPanel, runPanel } from "../eval/judge-panel.js";
 import { renderScore, scoreTree } from "../eval/golden-set.js";
+import { GROUNDING_RATER, judgeFaithfulness, renderFaithfulness, subjectsFor } from "../eval/faithfulness.js";
+import { readEvidence } from "../processes/tree.js";
 import { renderTournament, runTournament } from "../eval/tournament.js";
 import { renderCanary, runCanary, type CanaryProcess } from "../eval/canary.js";
 import { formatCensus, reconcileWithGit, reconcileWithUsage, recordCensusFiring } from "../ost/census.js";
@@ -878,6 +881,24 @@ program
       .filter((n) => n.layer === "Solution")
       .map((n) => ({ title: n.title, body: n.body }));
     console.log(renderPanel(runPanel(solutions)));
+  });
+
+program
+  .command("faithfulness")
+  .description(
+    "score every node 1-5 on whether its claim stays inside the evidence record it cites, quoting the span each score was read against; repeat runs must land within a point (no model needed, and a model can be swapped in)",
+  )
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option("--runs <n>", "how many times to score each node; the spread is reported per node", "2")
+  .action((opts: { vault: string; runs: string }) => {
+    const ctx = buildPassContext(opts.vault);
+    const runs = Number.parseInt(opts.runs, 10);
+    // The Outcome is left out on the same exemption `golden-set.ts` makes: the
+    // mandate is the human's to declare, not to source.
+    const nodes = ctx.vault.readTree().filter((n) => n.layer !== "Outcome");
+    console.log(
+      renderFaithfulness(judgeFaithfulness(subjectsFor(nodes, readEvidence(ctx.dir)), GROUNDING_RATER, runs)),
+    );
   });
 
 program
