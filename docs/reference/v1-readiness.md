@@ -3127,9 +3127,40 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,690 tests across 296 files, verified 2026-08-22 (`npx vitest run`
-> reports 3,682 of them; the other 8 are the contended calibration file described in the
-> previous entry. After "Independent judge separate from the proposer" was given its
+> *Today:* **met** — 3,696 tests across 297 files, verified 2026-08-22 (`npx vitest run`
+> reports 3,688 of them, all passing; the other 8 are the contended calibration file
+> described below. Recorded here because the run before it was not green and the reason is
+> worth a number: with a second full suite running beside it, 15 wall-clock assertions
+> failed — every timed check in the suite and nothing else. The cause was measured rather
+> than assumed. This box's `fseventsd` sat at ~180% CPU absorbing the suite's own
+> tmp-vault churn, and identical code ran roughly 100× slower inside the harness than
+> outside it: `test/mcp/wall-clock-budget.test.ts`, the Z3 gate, timed out at 180s under
+> vitest while the two calls it measures — same 10,000-node fixture, same `buildLargeTree`
+> — answered in 317ms and 277ms against the criterion's own 2,000ms budget when driven
+> straight through `tsx`, and the same file failed identically at 77bc9ae with every
+> change stashed. On the idle box that gate passes in 11.7s. So the timed gates here
+> measure the filesystem daemon as much as the product, and two concurrent suite runs are
+> enough to flip all of them at once — a second reading, with a number, for the tree's
+> "Run the timed check under isolation, or do not let it fail the build at all".
+> After "Let a pass mark evidence acknowledged, with
+> a reason, without inventing an opportunity" was given its definition of done:
+> `corroborates [[X]]` is the one disposition verdict whose entire justification for
+> removing work is a pointer into the tree, and nothing resolved that pointer.
+> `ost-agent dispose --corroborates "A node nobody ever wrote down"` exited 0, printed
+> "the one verdict that can strengthen that node's evidence later", and took the evidence
+> item off `unmappedEvidence` in exchange for a filing that did not exist. The title is now
+> resolved against the node set at the write funnel (`appendDisposition` takes the index
+> rather than trusting a caller to check it) and again on every read
+> (`isOrphanedAcknowledgement`), so a node retitled in Obsidian afterwards — a plain file
+> rename, since the title *is* the filename — orphans its acknowledgements and puts their
+> items back on the sweep rather than leaving them hidden behind a pointer to nothing.
+> `test/ost/evidence-acknowledge.test.ts` pins the definition of done verb-first, through
+> the CLI a human runs and the sweep `computeNextWork` computes: six tests, one new file.
+> What a green there does not settle is the assumption test's own question — whether the
+> reasons a pass wrote were honest filing or avoidance — which is a blind human review and
+> stays with a human. Previously 3,690 tests across 296 files, verified 2026-08-22
+> (`npx vitest run` reports 3,682 of them.
+> After "Independent judge separate from the proposer" was given its
 > definition of done: `src/eval/judge-independence.ts` makes the split between the agent
 > that proposes and the judge that checks it a property of how the two calls are wired.
 > A judging call is assembled from the claim and the cited evidence alone — `JudgeContext`
