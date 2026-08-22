@@ -3114,9 +3114,27 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,544 tests across 289 files, verified 2026-08-22 (`npx vitest run`
-> reports 3,536 of them; the other 8 are the contended calibration file described in the
-> previous entry. After "Independent LLM judge scores faithfulness to evidence" was given
+> *Today:* **met** — 3,567 tests across 290 files, verified 2026-08-22 (`npx vitest run`
+> reports 3,559 of them; the other 8 are the contended calibration file described in the
+> previous entry. After "Independent ideators that never see each other's candidates" was
+> given its definition of done: `src/knowledge/blind-ideation.ts` assembles one ideation
+> round as N single-candidate prompts built from one frozen shared context, so there is no
+> parameter through which a sibling's candidate could enter another's prompt; two checks
+> carry the blindness, one that rebuilds every prompt from that context before a model has
+> run and one that reads the returned candidates against every sibling prompt afterwards;
+> the merge refuses a leaked round rather than laundering it, and reports two ideators
+> landing on one idea instead of deduping it away. `ost_next_work` publishes the round —
+> `underservedOpportunities[].ideation` is `blind` and its `variation` list is one
+> independent ideator per entry — and `test/eval/blind-ideator-isolation.test.ts` pins the
+> property with a leak planted in both directions, twenty-three tests, one new file. What
+> it does not settle is pinned too: whether a blind set is *more* distinct than one agent
+> asked for three stays with a person, which is what the `anchored` arm is for, and a test
+> asserts the two arms ask for the same dimensions so the only thing that differs between
+> them is how many contexts they were asked in. One finding came out of building it: the
+> P6 scan in `test/release/outward-mutation.test.ts` reads every `method` key in `src/`
+> with a string-literal value as an HTTP call site, so a domain field of that name three
+> directories from any fetch fails the safety gate — the field is `arm`. Previously, after
+> "Independent LLM judge scores faithfulness to evidence" was given
 > its definition of done: `src/eval/faithfulness.ts` scores every node 1–5 on whether its
 > claim stays inside the evidence record it cites, refuses at construction any score that
 > is off the scale or quotes a span the exhibit does not contain, and reports the spread
