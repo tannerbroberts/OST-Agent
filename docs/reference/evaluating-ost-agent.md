@@ -49,6 +49,14 @@ It is three layers, and their composition is the holistic test.
    question is answerable by a reader opening the node — but it is answered by a person,
    one node at a time, not by a percentage.
 
+   *One node at a time does not survive a 1,400-node tree, so the reading is sampled rather
+   than exhaustive.* `ost-agent review-sample` draws a tenth of the tree — stratified so
+   every bucket and every layer is represented, reproducible under a seed — and prints it
+   as a sheet carrying the two truth-values above, plus layer 3's question, as unfilled
+   checkboxes. **It draws; it does not rate.** Nothing in `src/eval/review-sample.ts` reads
+   a node's prose or emits a number, which is the line this document draws and the reason
+   the command is a sampler rather than the judge coming back.
+
 3. **Usefulness — a human-acceptance metric, measured in use. Never automated, and not
    automatable.**
    Because the agent marks everything `unvalidated`, the terminal signal is which ideated
@@ -101,11 +109,12 @@ miss. That last clause used to say "the judge and your own read". Now it is only
 ## Running what still exists
 
 ```bash
-ost-agent check    # deterministic tree invariants, no model, exit 1 on any violation
-ost-agent status   # what the tree contains, per evidence rung, and what is outstanding
+ost-agent check           # deterministic tree invariants, no model, exit 1 on any violation
+ost-agent status          # what the tree contains, per evidence rung, and what is outstanding
+ost-agent review-sample   # a stratified, reproducible 10% draw + the rubric, for a person to fill in
 ```
 
-Both operate on a vault directory (`--vault <dir>`, defaulting to the working directory).
+All three operate on a vault directory (`--vault <dir>`, defaulting to the working directory).
 `ost-agent` here is the CLI in `src/cli/index.ts`; the package publishes no `bin`, so from a
 plugin install invoke the committed bundle directly —
 `node "$CLAUDE_PLUGIN_ROOT/dist/ost-agent.mjs" check` — exactly as the README's operator
@@ -116,7 +125,19 @@ not that it is *good*. **There is no command that scores faithfulness or usefuln
 you are looking for one because a document told you it exists, that document is this one,
 in an older revision.**
 
-Layers 2 and 3 are read, not run: open the tree in Obsidian, and for each node the agent
-created, check its cited sources against what it claims and decide whether you would keep
-it. The gap between that and a number is real, is deliberate as of this revision, and is
-tracked in [`v1-readiness.md`](v1-readiness.md) rather than papered over here.
+Layers 2 and 3 are read, not run: for each node the agent created, check its cited sources
+against what it claims and decide whether you would keep it. `ost-agent review-sample` says
+*which* nodes to read — a tenth of them, drawn so the reading is not a reading of whichever
+bucket sorts first — and prints the three questions beside each one. It stops there. The
+gap between a filled-in sheet and a number is real, is deliberate as of this revision, and
+is tracked in [`v1-readiness.md`](v1-readiness.md) rather than papered over here.
+
+**One thing to know before averaging a finished sheet, because the arithmetic is silent.**
+The draw is stratified by `bucket × layer` cell, and on this repo's own vault there are
+more such cells (150) than a tenth of the tree has nodes (142) — so every cell contributes
+exactly one node, whether it holds five or fifty. That makes the sheet a *coverage* sample
+rather than a proportional one: the flat mean of its checkmarks is a mean over cells, not
+over the tree, and it over-weights the small buckets. Each cell prints how many nodes one
+rating stands for; weight by that figure, or compare the sample against a `--fraction 1`
+sheet and find out how far the unweighted read is off. Neither number is computed for you,
+and that is the same line as everywhere else on this page.

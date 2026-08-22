@@ -33,9 +33,9 @@ var __export = (target, all) => {
 };
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+    for (let key2 of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key2) && key2 !== except)
+        __defProp(to, key2, { get: () => from[key2], enumerable: !(desc = __getOwnPropDesc(from, key2)) || desc.enumerable });
   }
   return to;
 };
@@ -852,9 +852,9 @@ var require_option = __commonJS({
             this.positiveOptions.set(option.attributeName(), option);
           }
         });
-        this.negativeOptions.forEach((value, key) => {
-          if (this.positiveOptions.has(key)) {
-            this.dualOptions.add(key);
+        this.negativeOptions.forEach((value, key2) => {
+          if (this.positiveOptions.has(key2)) {
+            this.dualOptions.add(key2);
           }
         });
       }
@@ -1738,11 +1738,11 @@ Expecting one of '${allowedValues.join("', '")}'`);
        * @param {string} key
        * @return {object} value
        */
-      getOptionValue(key) {
+      getOptionValue(key2) {
         if (this._storeOptionsAsProperties) {
-          return this[key];
+          return this[key2];
         }
-        return this._optionValues[key];
+        return this._optionValues[key2];
       }
       /**
        * Store option value.
@@ -1751,8 +1751,8 @@ Expecting one of '${allowedValues.join("', '")}'`);
        * @param {object} value
        * @return {Command} `this` command for chaining
        */
-      setOptionValue(key, value) {
-        return this.setOptionValueWithSource(key, value, void 0);
+      setOptionValue(key2, value) {
+        return this.setOptionValueWithSource(key2, value, void 0);
       }
       /**
        * Store option value and where the value came from.
@@ -1762,13 +1762,13 @@ Expecting one of '${allowedValues.join("', '")}'`);
        * @param {string} source - expected values are default/config/env/cli/implied
        * @return {Command} `this` command for chaining
        */
-      setOptionValueWithSource(key, value, source) {
+      setOptionValueWithSource(key2, value, source) {
         if (this._storeOptionsAsProperties) {
-          this[key] = value;
+          this[key2] = value;
         } else {
-          this._optionValues[key] = value;
+          this._optionValues[key2] = value;
         }
-        this._optionValueSources[key] = source;
+        this._optionValueSources[key2] = source;
         return this;
       }
       /**
@@ -1778,8 +1778,8 @@ Expecting one of '${allowedValues.join("', '")}'`);
        * @param {string} key
        * @return {string}
        */
-      getOptionValueSource(key) {
-        return this._optionValueSources[key];
+      getOptionValueSource(key2) {
+        return this._optionValueSources[key2];
       }
       /**
        * Get source of option value. See also .optsWithGlobals().
@@ -1788,11 +1788,11 @@ Expecting one of '${allowedValues.join("', '")}'`);
        * @param {string} key
        * @return {string}
        */
-      getOptionValueSourceWithGlobals(key) {
+      getOptionValueSourceWithGlobals(key2) {
         let source;
         this._getCommandAndAncestors().forEach((cmd) => {
-          if (cmd.getOptionValueSource(key) !== void 0) {
-            source = cmd.getOptionValueSource(key);
+          if (cmd.getOptionValueSource(key2) !== void 0) {
+            source = cmd.getOptionValueSource(key2);
           }
         });
         return source;
@@ -2447,8 +2447,8 @@ Expecting one of '${allowedValues.join("', '")}'`);
           const result = {};
           const len = this.options.length;
           for (let i2 = 0; i2 < len; i2++) {
-            const key = this.options[i2].attributeName();
-            result[key] = key === this._versionOptionName ? this._version : this[key];
+            const key2 = this.options[i2].attributeName();
+            result[key2] = key2 === this._versionOptionName ? this._version : this[key2];
           }
           return result;
         }
@@ -3118,11 +3118,11 @@ var require_visit = __commonJS({
     visit2.BREAK = BREAK;
     visit2.SKIP = SKIP;
     visit2.REMOVE = REMOVE;
-    function visit_(key, node, visitor, path69) {
-      const ctrl = callVisitor(key, node, visitor, path69);
+    function visit_(key2, node, visitor, path69) {
+      const ctrl = callVisitor(key2, node, visitor, path69);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path69, ctrl);
-        return visit_(key, ctrl, visitor, path69);
+        replaceNode(key2, path69, ctrl);
+        return visit_(key2, ctrl, visitor, path69);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
@@ -3166,11 +3166,11 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node, visitor, path69) {
-      const ctrl = await callVisitor(key, node, visitor, path69);
+    async function visitAsync_(key2, node, visitor, path69) {
+      const ctrl = await callVisitor(key2, node, visitor, path69);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path69, ctrl);
-        return visitAsync_(key, ctrl, visitor, path69);
+        replaceNode(key2, path69, ctrl);
+        return visitAsync_(key2, ctrl, visitor, path69);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
@@ -3220,27 +3220,27 @@ var require_visit = __commonJS({
       }
       return visitor;
     }
-    function callVisitor(key, node, visitor, path69) {
+    function callVisitor(key2, node, visitor, path69) {
       if (typeof visitor === "function")
-        return visitor(key, node, path69);
+        return visitor(key2, node, path69);
       if (identity.isMap(node))
-        return visitor.Map?.(key, node, path69);
+        return visitor.Map?.(key2, node, path69);
       if (identity.isSeq(node))
-        return visitor.Seq?.(key, node, path69);
+        return visitor.Seq?.(key2, node, path69);
       if (identity.isPair(node))
-        return visitor.Pair?.(key, node, path69);
+        return visitor.Pair?.(key2, node, path69);
       if (identity.isScalar(node))
-        return visitor.Scalar?.(key, node, path69);
+        return visitor.Scalar?.(key2, node, path69);
       if (identity.isAlias(node))
-        return visitor.Alias?.(key, node, path69);
+        return visitor.Alias?.(key2, node, path69);
       return void 0;
     }
-    function replaceNode(key, path69, node) {
+    function replaceNode(key2, path69, node) {
       const parent = path69[path69.length - 1];
       if (identity.isCollection(parent)) {
-        parent.items[key] = node;
+        parent.items[key2] = node;
       } else if (identity.isPair(parent)) {
-        if (key === "key")
+        if (key2 === "key")
           parent.key = node;
         else
           parent.value = node;
@@ -3501,7 +3501,7 @@ var require_anchors = __commonJS({
 var require_applyReviver = __commonJS({
   "node_modules/yaml/dist/doc/applyReviver.js"(exports2) {
     "use strict";
-    function applyReviver(reviver, obj, key, val) {
+    function applyReviver(reviver, obj, key2, val) {
       if (val && typeof val === "object") {
         if (Array.isArray(val)) {
           for (let i2 = 0, len = val.length; i2 < len; ++i2) {
@@ -3541,7 +3541,7 @@ var require_applyReviver = __commonJS({
           }
         }
       }
-      return reviver.call(obj, key, val);
+      return reviver.call(obj, key2, val);
     }
     exports2.applyReviver = applyReviver;
   }
@@ -3902,14 +3902,14 @@ var require_Collection = __commonJS({
         if (isEmptyPath(path69))
           this.add(value);
         else {
-          const [key, ...rest] = path69;
-          const node = this.get(key, true);
+          const [key2, ...rest] = path69;
+          const node = this.get(key2, true);
           if (identity.isCollection(node))
             node.addIn(rest, value);
           else if (node === void 0 && this.schema)
-            this.set(key, collectionFromPath(this.schema, rest, value));
+            this.set(key2, collectionFromPath(this.schema, rest, value));
           else
-            throw new Error(`Expected YAML collection at ${key}. Remaining path: ${rest}`);
+            throw new Error(`Expected YAML collection at ${key2}. Remaining path: ${rest}`);
         }
       }
       /**
@@ -3917,14 +3917,14 @@ var require_Collection = __commonJS({
        * @returns `true` if the item was found and removed.
        */
       deleteIn(path69) {
-        const [key, ...rest] = path69;
+        const [key2, ...rest] = path69;
         if (rest.length === 0)
-          return this.delete(key);
-        const node = this.get(key, true);
+          return this.delete(key2);
+        const node = this.get(key2, true);
         if (identity.isCollection(node))
           return node.deleteIn(rest);
         else
-          throw new Error(`Expected YAML collection at ${key}. Remaining path: ${rest}`);
+          throw new Error(`Expected YAML collection at ${key2}. Remaining path: ${rest}`);
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -3932,8 +3932,8 @@ var require_Collection = __commonJS({
        * `true` (collections are always returned intact).
        */
       getIn(path69, keepScalar) {
-        const [key, ...rest] = path69;
-        const node = this.get(key, true);
+        const [key2, ...rest] = path69;
+        const node = this.get(key2, true);
         if (rest.length === 0)
           return !keepScalar && identity.isScalar(node) ? node.value : node;
         else
@@ -3951,10 +3951,10 @@ var require_Collection = __commonJS({
        * Checks if the collection includes a value with the key `key`.
        */
       hasIn(path69) {
-        const [key, ...rest] = path69;
+        const [key2, ...rest] = path69;
         if (rest.length === 0)
-          return this.has(key);
-        const node = this.get(key, true);
+          return this.has(key2);
+        const node = this.get(key2, true);
         return identity.isCollection(node) ? node.hasIn(rest) : false;
       }
       /**
@@ -3962,17 +3962,17 @@ var require_Collection = __commonJS({
        * boolean to add/remove the item from the set.
        */
       setIn(path69, value) {
-        const [key, ...rest] = path69;
+        const [key2, ...rest] = path69;
         if (rest.length === 0) {
-          this.set(key, value);
+          this.set(key2, value);
         } else {
-          const node = this.get(key, true);
+          const node = this.get(key2, true);
           if (identity.isCollection(node))
             node.setIn(rest, value);
           else if (node === void 0 && this.schema)
-            this.set(key, collectionFromPath(this.schema, rest, value));
+            this.set(key2, collectionFromPath(this.schema, rest, value));
           else
-            throw new Error(`Expected YAML collection at ${key}. Remaining path: ${rest}`);
+            throw new Error(`Expected YAML collection at ${key2}. Remaining path: ${rest}`);
         }
       }
     };
@@ -4550,19 +4550,19 @@ var require_stringifyPair = __commonJS({
     var Scalar = require_Scalar();
     var stringify = require_stringify();
     var stringifyComment = require_stringifyComment();
-    function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
+    function stringifyPair({ key: key2, value }, ctx, onComment, onChompKeep) {
       const { allNullValues, doc, indent, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
-      let keyComment = identity.isNode(key) && key.comment || null;
+      let keyComment = identity.isNode(key2) && key2.comment || null;
       if (simpleKeys) {
         if (keyComment) {
           throw new Error("With simple keys, key nodes cannot have comments");
         }
-        if (identity.isCollection(key) || !identity.isNode(key) && typeof key === "object") {
+        if (identity.isCollection(key2) || !identity.isNode(key2) && typeof key2 === "object") {
           const msg = "With simple keys, collection cannot be used as a key value";
           throw new Error(msg);
         }
       }
-      let explicitKey = !simpleKeys && (!key || keyComment && value == null && !ctx.inFlow || identity.isCollection(key) || (identity.isScalar(key) ? key.type === Scalar.Scalar.BLOCK_FOLDED || key.type === Scalar.Scalar.BLOCK_LITERAL : typeof key === "object"));
+      let explicitKey = !simpleKeys && (!key2 || keyComment && value == null && !ctx.inFlow || identity.isCollection(key2) || (identity.isScalar(key2) ? key2.type === Scalar.Scalar.BLOCK_FOLDED || key2.type === Scalar.Scalar.BLOCK_LITERAL : typeof key2 === "object"));
       ctx = Object.assign({}, ctx, {
         allNullValues: false,
         implicitKey: !explicitKey && (simpleKeys || !allNullValues),
@@ -4570,7 +4570,7 @@ var require_stringifyPair = __commonJS({
       });
       let keyCommentDone = false;
       let chompKeep = false;
-      let str3 = stringify.stringify(key, ctx, () => keyCommentDone = true, () => chompKeep = true);
+      let str3 = stringify.stringify(key2, ctx, () => keyCommentDone = true, () => chompKeep = true);
       if (!explicitKey && !ctx.inFlow && str3.length > 1024) {
         if (simpleKeys)
           throw new Error("With simple keys, single line scalar must not span more than 1024 characters");
@@ -4714,7 +4714,7 @@ var require_merge = __commonJS({
       }),
       stringify: () => MERGE_KEY
     };
-    var isMergeKey = (ctx, key) => (merge2.identify(key) || identity.isScalar(key) && (!key.type || key.type === Scalar.Scalar.PLAIN) && merge2.identify(key.value)) && ctx?.doc.schema.tags.some((tag) => tag.tag === merge2.tag && tag.default);
+    var isMergeKey = (ctx, key2) => (merge2.identify(key2) || identity.isScalar(key2) && (!key2.type || key2.type === Scalar.Scalar.PLAIN) && merge2.identify(key2.value)) && ctx?.doc.schema.tags.some((tag) => tag.tag === merge2.tag && tag.default);
     function addMergeToJSMap(ctx, map, value) {
       const source = resolveAliasValue(ctx, value);
       if (identity.isSeq(source))
@@ -4731,14 +4731,14 @@ var require_merge = __commonJS({
       if (!identity.isMap(source))
         throw new Error("Merge sources must be maps or map aliases");
       const srcMap = source.toJSON(null, ctx, Map);
-      for (const [key, value2] of srcMap) {
+      for (const [key2, value2] of srcMap) {
         if (map instanceof Map) {
-          if (!map.has(key))
-            map.set(key, value2);
+          if (!map.has(key2))
+            map.set(key2, value2);
         } else if (map instanceof Set) {
-          map.add(key);
-        } else if (!Object.prototype.hasOwnProperty.call(map, key)) {
-          Object.defineProperty(map, key, {
+          map.add(key2);
+        } else if (!Object.prototype.hasOwnProperty.call(map, key2)) {
+          Object.defineProperty(map, key2, {
             value: value2,
             writable: true,
             enumerable: true,
@@ -4766,19 +4766,19 @@ var require_addPairToJSMap = __commonJS({
     var stringify = require_stringify();
     var identity = require_identity();
     var toJS = require_toJS();
-    function addPairToJSMap(ctx, map, { key, value }) {
-      if (identity.isNode(key) && key.addToJSMap)
-        key.addToJSMap(ctx, map, value);
-      else if (merge2.isMergeKey(ctx, key))
+    function addPairToJSMap(ctx, map, { key: key2, value }) {
+      if (identity.isNode(key2) && key2.addToJSMap)
+        key2.addToJSMap(ctx, map, value);
+      else if (merge2.isMergeKey(ctx, key2))
         merge2.addMergeToJSMap(ctx, map, value);
       else {
-        const jsKey = toJS.toJS(key, "", ctx);
+        const jsKey = toJS.toJS(key2, "", ctx);
         if (map instanceof Map) {
           map.set(jsKey, toJS.toJS(value, jsKey, ctx));
         } else if (map instanceof Set) {
           map.add(jsKey);
         } else {
-          const stringKey = stringifyKey(key, jsKey, ctx);
+          const stringKey = stringifyKey(key2, jsKey, ctx);
           const jsValue = toJS.toJS(value, stringKey, ctx);
           if (stringKey in map)
             Object.defineProperty(map, stringKey, {
@@ -4793,19 +4793,19 @@ var require_addPairToJSMap = __commonJS({
       }
       return map;
     }
-    function stringifyKey(key, jsKey, ctx) {
+    function stringifyKey(key2, jsKey, ctx) {
       if (jsKey === null)
         return "";
       if (typeof jsKey !== "object")
         return String(jsKey);
-      if (identity.isNode(key) && ctx?.doc) {
+      if (identity.isNode(key2) && ctx?.doc) {
         const strCtx = stringify.createStringifyContext(ctx.doc, {});
         strCtx.anchors = /* @__PURE__ */ new Set();
         for (const node of ctx.anchors.keys())
           strCtx.anchors.add(node.anchor);
         strCtx.inFlow = true;
         strCtx.inStringifyKey = true;
-        const strKey = key.toString(strCtx);
+        const strKey = key2.toString(strCtx);
         if (!ctx.mapKeyWarned) {
           let jsonStr = JSON.stringify(strKey);
           if (jsonStr.length > 40)
@@ -4829,24 +4829,24 @@ var require_Pair = __commonJS({
     var stringifyPair = require_stringifyPair();
     var addPairToJSMap = require_addPairToJSMap();
     var identity = require_identity();
-    function createPair(key, value, ctx) {
-      const k2 = createNode.createNode(key, void 0, ctx);
+    function createPair(key2, value, ctx) {
+      const k2 = createNode.createNode(key2, void 0, ctx);
       const v = createNode.createNode(value, void 0, ctx);
       return new Pair(k2, v);
     }
     var Pair = class _Pair {
-      constructor(key, value = null) {
+      constructor(key2, value = null) {
         Object.defineProperty(this, identity.NODE_TYPE, { value: identity.PAIR });
-        this.key = key;
+        this.key = key2;
         this.value = value;
       }
       clone(schema) {
-        let { key, value } = this;
-        if (identity.isNode(key))
-          key = key.clone(schema);
+        let { key: key2, value } = this;
+        if (identity.isNode(key2))
+          key2 = key2.clone(schema);
         if (identity.isNode(value))
           value = value.clone(schema);
-        return new _Pair(key, value);
+        return new _Pair(key2, value);
       }
       toJSON(_2, ctx) {
         const pair = ctx?.mapAsMap ? /* @__PURE__ */ new Map() : {};
@@ -5022,11 +5022,11 @@ var require_YAMLMap = __commonJS({
     var identity = require_identity();
     var Pair = require_Pair();
     var Scalar = require_Scalar();
-    function findPair(items, key) {
-      const k2 = identity.isScalar(key) ? key.value : key;
+    function findPair(items, key2) {
+      const k2 = identity.isScalar(key2) ? key2.value : key2;
       for (const it of items) {
         if (identity.isPair(it)) {
-          if (it.key === key || it.key === k2)
+          if (it.key === key2 || it.key === k2)
             return it;
           if (identity.isScalar(it.key) && it.key.value === k2)
             return it;
@@ -5049,20 +5049,20 @@ var require_YAMLMap = __commonJS({
       static from(schema, obj, ctx) {
         const { keepUndefined, replacer } = ctx;
         const map = new this(schema);
-        const add = (key, value) => {
+        const add = (key2, value) => {
           if (typeof replacer === "function")
-            value = replacer.call(obj, key, value);
-          else if (Array.isArray(replacer) && !replacer.includes(key))
+            value = replacer.call(obj, key2, value);
+          else if (Array.isArray(replacer) && !replacer.includes(key2))
             return;
           if (value !== void 0 || keepUndefined)
-            map.items.push(Pair.createPair(key, value, ctx));
+            map.items.push(Pair.createPair(key2, value, ctx));
         };
         if (obj instanceof Map) {
-          for (const [key, value] of obj)
-            add(key, value);
+          for (const [key2, value] of obj)
+            add(key2, value);
         } else if (obj && typeof obj === "object") {
-          for (const key of Object.keys(obj))
-            add(key, obj[key]);
+          for (const key2 of Object.keys(obj))
+            add(key2, obj[key2]);
         }
         if (typeof schema.sortMapEntries === "function") {
           map.items.sort(schema.sortMapEntries);
@@ -5102,23 +5102,23 @@ var require_YAMLMap = __commonJS({
           this.items.push(_pair);
         }
       }
-      delete(key) {
-        const it = findPair(this.items, key);
+      delete(key2) {
+        const it = findPair(this.items, key2);
         if (!it)
           return false;
         const del = this.items.splice(this.items.indexOf(it), 1);
         return del.length > 0;
       }
-      get(key, keepScalar) {
-        const it = findPair(this.items, key);
+      get(key2, keepScalar) {
+        const it = findPair(this.items, key2);
         const node = it?.value;
         return (!keepScalar && identity.isScalar(node) ? node.value : node) ?? void 0;
       }
-      has(key) {
-        return !!findPair(this.items, key);
+      has(key2) {
+        return !!findPair(this.items, key2);
       }
-      set(key, value) {
-        this.add(new Pair.Pair(key, value), true);
+      set(key2, value) {
+        this.add(new Pair.Pair(key2, value), true);
       }
       /**
        * @param ctx - Conversion context, originally set in Document#toJS()
@@ -5207,15 +5207,15 @@ var require_YAMLSeq = __commonJS({
        *
        * @returns `true` if the item was found and removed.
        */
-      delete(key) {
-        const idx = asItemIndex(key);
+      delete(key2) {
+        const idx = asItemIndex(key2);
         if (typeof idx !== "number")
           return false;
         const del = this.items.splice(idx, 1);
         return del.length > 0;
       }
-      get(key, keepScalar) {
-        const idx = asItemIndex(key);
+      get(key2, keepScalar) {
+        const idx = asItemIndex(key2);
         if (typeof idx !== "number")
           return void 0;
         const it = this.items[idx];
@@ -5227,8 +5227,8 @@ var require_YAMLSeq = __commonJS({
        * `key` must contain a representation of an integer for this to succeed.
        * It may be wrapped in a `Scalar`.
        */
-      has(key) {
-        const idx = asItemIndex(key);
+      has(key2) {
+        const idx = asItemIndex(key2);
         return typeof idx === "number" && idx < this.items.length;
       }
       /**
@@ -5238,10 +5238,10 @@ var require_YAMLSeq = __commonJS({
        * If `key` does not contain a representation of an integer, this will throw.
        * It may be wrapped in a `Scalar`.
        */
-      set(key, value) {
-        const idx = asItemIndex(key);
+      set(key2, value) {
+        const idx = asItemIndex(key2);
         if (typeof idx !== "number")
-          throw new Error(`Expected a valid index, not ${key}.`);
+          throw new Error(`Expected a valid index, not ${key2}.`);
         const prev = this.items[idx];
         if (identity.isScalar(prev) && Scalar.isScalarValue(value))
           prev.value = value;
@@ -5275,8 +5275,8 @@ var require_YAMLSeq = __commonJS({
           let i2 = 0;
           for (let it of obj) {
             if (typeof replacer === "function") {
-              const key = obj instanceof Set ? it : String(i2++);
-              it = replacer.call(obj, key, it);
+              const key2 = obj instanceof Set ? it : String(i2++);
+              it = replacer.call(obj, key2, it);
             }
             seq.items.push(createNode.createNode(it, void 0, ctx));
           }
@@ -5284,8 +5284,8 @@ var require_YAMLSeq = __commonJS({
         return seq;
       }
     };
-    function asItemIndex(key) {
-      let idx = identity.isScalar(key) ? key.value : key;
+    function asItemIndex(key2) {
+      let idx = identity.isScalar(key2) ? key2.value : key2;
       if (idx && typeof idx === "string")
         idx = Number(idx);
       return typeof idx === "number" && Number.isInteger(idx) && idx >= 0 ? idx : null;
@@ -5699,25 +5699,25 @@ ${cn.comment}` : item.comment;
         for (let it of iterable) {
           if (typeof replacer === "function")
             it = replacer.call(iterable, String(i2++), it);
-          let key, value;
+          let key2, value;
           if (Array.isArray(it)) {
             if (it.length === 2) {
-              key = it[0];
+              key2 = it[0];
               value = it[1];
             } else
               throw new TypeError(`Expected [key, value] tuple: ${it}`);
           } else if (it && it instanceof Object) {
             const keys = Object.keys(it);
             if (keys.length === 1) {
-              key = keys[0];
-              value = it[key];
+              key2 = keys[0];
+              value = it[key2];
             } else {
               throw new TypeError(`Expected tuple with one key, not ${keys.length} keys`);
             }
           } else {
-            key = it;
+            key2 = it;
           }
-          pairs2.items.push(Pair.createPair(key, value, ctx));
+          pairs2.items.push(Pair.createPair(key2, value, ctx));
         }
       return pairs2;
     }
@@ -5764,16 +5764,16 @@ var require_omap = __commonJS({
         if (ctx?.onCreate)
           ctx.onCreate(map);
         for (const pair of this.items) {
-          let key, value;
+          let key2, value;
           if (identity.isPair(pair)) {
-            key = toJS.toJS(pair.key, "", ctx);
-            value = toJS.toJS(pair.value, key, ctx);
+            key2 = toJS.toJS(pair.key, "", ctx);
+            value = toJS.toJS(pair.value, key2, ctx);
           } else {
-            key = toJS.toJS(pair, "", ctx);
+            key2 = toJS.toJS(pair, "", ctx);
           }
-          if (map.has(key))
+          if (map.has(key2))
             throw new Error("Ordered maps must not include duplicate keys");
-          map.set(key, value);
+          map.set(key2, value);
         }
         return map;
       }
@@ -5794,12 +5794,12 @@ var require_omap = __commonJS({
       resolve(seq, onError2) {
         const pairs$1 = pairs.resolvePairs(seq, onError2);
         const seenKeys = [];
-        for (const { key } of pairs$1.items) {
-          if (identity.isScalar(key)) {
-            if (seenKeys.includes(key.value)) {
-              onError2(`Ordered maps must not include duplicate keys: ${key.value}`);
+        for (const { key: key2 } of pairs$1.items) {
+          if (identity.isScalar(key2)) {
+            if (seenKeys.includes(key2.value)) {
+              onError2(`Ordered maps must not include duplicate keys: ${key2.value}`);
             } else {
-              seenKeys.push(key.value);
+              seenKeys.push(key2.value);
             }
           }
         }
@@ -5984,14 +5984,14 @@ var require_set = __commonJS({
         super(schema);
         this.tag = _YAMLSet.tag;
       }
-      add(key) {
+      add(key2) {
         let pair;
-        if (identity.isPair(key))
-          pair = key;
-        else if (key && typeof key === "object" && "key" in key && "value" in key && key.value === null)
-          pair = new Pair.Pair(key.key, null);
+        if (identity.isPair(key2))
+          pair = key2;
+        else if (key2 && typeof key2 === "object" && "key" in key2 && "value" in key2 && key2.value === null)
+          pair = new Pair.Pair(key2.key, null);
         else
-          pair = new Pair.Pair(key, null);
+          pair = new Pair.Pair(key2, null);
         const prev = YAMLMap.findPair(this.items, pair.key);
         if (!prev)
           this.items.push(pair);
@@ -6000,18 +6000,18 @@ var require_set = __commonJS({
        * If `keepPair` is `true`, returns the Pair matching `key`.
        * Otherwise, returns the value of that Pair's key.
        */
-      get(key, keepPair) {
-        const pair = YAMLMap.findPair(this.items, key);
+      get(key2, keepPair) {
+        const pair = YAMLMap.findPair(this.items, key2);
         return !keepPair && identity.isPair(pair) ? identity.isScalar(pair.key) ? pair.key.value : pair.key : pair;
       }
-      set(key, value) {
+      set(key2, value) {
         if (typeof value !== "boolean")
           throw new Error(`Expected boolean value for set(key, value) in a YAML set, not ${typeof value}`);
-        const prev = YAMLMap.findPair(this.items, key);
+        const prev = YAMLMap.findPair(this.items, key2);
         if (prev && !value) {
           this.items.splice(this.items.indexOf(prev), 1);
         } else if (!prev && value) {
-          this.items.push(new Pair.Pair(key));
+          this.items.push(new Pair.Pair(key2));
         }
       }
       toJSON(_2, ctx) {
@@ -6258,7 +6258,7 @@ var require_tags = __commonJS({
         if (Array.isArray(customTags))
           tags = [];
         else {
-          const keys = Array.from(schemas.keys()).filter((key) => key !== "yaml11").map((key) => JSON.stringify(key)).join(", ");
+          const keys = Array.from(schemas.keys()).filter((key2) => key2 !== "yaml11").map((key2) => JSON.stringify(key2)).join(", ");
           throw new Error(`Unknown schema "${schemaName}"; use one of ${keys} or define customTags array`);
         }
       }
@@ -6274,7 +6274,7 @@ var require_tags = __commonJS({
         const tagObj = typeof tag === "string" ? tagsByName[tag] : tag;
         if (!tagObj) {
           const tagName = JSON.stringify(tag);
-          const keys = Object.keys(tagsByName).map((key) => JSON.stringify(key)).join(", ");
+          const keys = Object.keys(tagsByName).map((key2) => JSON.stringify(key2)).join(", ");
           throw new Error(`Unknown custom tag ${tagName}; use one of ${keys}`);
         }
         if (!tags2.includes(tagObj))
@@ -6538,8 +6538,8 @@ var require_Document = __commonJS({
        * Convert a key and a value into a `Pair` using the current schema,
        * recursively wrapping all values as `Scalar` or `Collection` nodes.
        */
-      createPair(key, value, options2 = {}) {
-        const k2 = this.createNode(key, null, options2);
+      createPair(key2, value, options2 = {}) {
+        const k2 = this.createNode(key2, null, options2);
         const v = this.createNode(value, null, options2);
         return new Pair.Pair(k2, v);
       }
@@ -6547,8 +6547,8 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      delete(key) {
-        return assertCollection(this.contents) ? this.contents.delete(key) : false;
+      delete(key2) {
+        return assertCollection(this.contents) ? this.contents.delete(key2) : false;
       }
       /**
        * Removes a value from the document.
@@ -6568,8 +6568,8 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      get(key, keepScalar) {
-        return identity.isCollection(this.contents) ? this.contents.get(key, keepScalar) : void 0;
+      get(key2, keepScalar) {
+        return identity.isCollection(this.contents) ? this.contents.get(key2, keepScalar) : void 0;
       }
       /**
        * Returns item at `path`, or `undefined` if not found. By default unwraps
@@ -6584,8 +6584,8 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value with the key `key`.
        */
-      has(key) {
-        return identity.isCollection(this.contents) ? this.contents.has(key) : false;
+      has(key2) {
+        return identity.isCollection(this.contents) ? this.contents.has(key2) : false;
       }
       /**
        * Checks if the document includes a value at `path`.
@@ -6599,11 +6599,11 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      set(key, value) {
+      set(key2, value) {
         if (this.contents == null) {
-          this.contents = Collection.collectionFromPath(this.schema, [key], value);
+          this.contents = Collection.collectionFromPath(this.schema, [key2], value);
         } else if (assertCollection(this.contents)) {
-          this.contents.set(key, value);
+          this.contents.set(key2, value);
         }
       }
       /**
@@ -6911,24 +6911,24 @@ var require_resolve_props = __commonJS({
 var require_util_contains_newline = __commonJS({
   "node_modules/yaml/dist/compose/util-contains-newline.js"(exports2) {
     "use strict";
-    function containsNewline(key) {
-      if (!key)
+    function containsNewline(key2) {
+      if (!key2)
         return null;
-      switch (key.type) {
+      switch (key2.type) {
         case "alias":
         case "scalar":
         case "double-quoted-scalar":
         case "single-quoted-scalar":
-          if (key.source.includes("\n"))
+          if (key2.source.includes("\n"))
             return true;
-          if (key.end) {
-            for (const st of key.end)
+          if (key2.end) {
+            for (const st of key2.end)
               if (st.type === "newline")
                 return true;
           }
           return false;
         case "flow-collection":
-          for (const it of key.items) {
+          for (const it of key2.items) {
             for (const st of it.start)
               if (st.type === "newline")
                 return true;
@@ -7002,10 +7002,10 @@ var require_resolve_block_map = __commonJS({
       let offset = bm.offset;
       let commentEnd = null;
       for (const collItem of bm.items) {
-        const { start, key, sep, value } = collItem;
+        const { start, key: key2, sep, value } = collItem;
         const keyProps = resolveProps.resolveProps(start, {
           indicator: "explicit-key-ind",
-          next: key ?? sep?.[0],
+          next: key2 ?? sep?.[0],
           offset,
           onError: onError2,
           parentIndent: bm.indent,
@@ -7013,10 +7013,10 @@ var require_resolve_block_map = __commonJS({
         });
         const implicitKey = !keyProps.found;
         if (implicitKey) {
-          if (key) {
-            if (key.type === "block-seq")
+          if (key2) {
+            if (key2.type === "block-seq")
               onError2(offset, "BLOCK_AS_IMPLICIT_KEY", "A block sequence may not be used as an implicit map key");
-            else if ("indent" in key && key.indent !== bm.indent)
+            else if ("indent" in key2 && key2.indent !== bm.indent)
               onError2(offset, "BAD_INDENT", startColMsg);
           }
           if (!keyProps.anchor && !keyProps.tag && !sep) {
@@ -7029,17 +7029,17 @@ var require_resolve_block_map = __commonJS({
             }
             continue;
           }
-          if (keyProps.newlineAfterProp || utilContainsNewline.containsNewline(key)) {
-            onError2(key ?? start[start.length - 1], "MULTILINE_IMPLICIT_KEY", "Implicit keys need to be on a single line");
+          if (keyProps.newlineAfterProp || utilContainsNewline.containsNewline(key2)) {
+            onError2(key2 ?? start[start.length - 1], "MULTILINE_IMPLICIT_KEY", "Implicit keys need to be on a single line");
           }
         } else if (keyProps.found?.indent !== bm.indent) {
           onError2(offset, "BAD_INDENT", startColMsg);
         }
         ctx.atKey = true;
         const keyStart = keyProps.end;
-        const keyNode = key ? composeNode(ctx, key, keyProps, onError2) : composeEmptyNode(ctx, keyStart, start, null, keyProps, onError2);
+        const keyNode = key2 ? composeNode(ctx, key2, keyProps, onError2) : composeEmptyNode(ctx, keyStart, start, null, keyProps, onError2);
         if (ctx.schema.compat)
-          utilFlowIndentCheck.flowIndentCheck(bm.indent, key, onError2);
+          utilFlowIndentCheck.flowIndentCheck(bm.indent, key2, onError2);
         ctx.atKey = false;
         if (utilMapIncludes.mapIncludes(ctx, map.items, keyNode))
           onError2(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
@@ -7049,7 +7049,7 @@ var require_resolve_block_map = __commonJS({
           offset: keyNode.range[2],
           onError: onError2,
           parentIndent: bm.indent,
-          startOnNewline: !key || key.type === "block-scalar"
+          startOnNewline: !key2 || key2.type === "block-scalar"
         });
         offset = valueProps.end;
         if (valueProps.found) {
@@ -7213,11 +7213,11 @@ var require_resolve_flow_collection = __commonJS({
       let offset = fc.offset + fc.start.source.length;
       for (let i2 = 0; i2 < fc.items.length; ++i2) {
         const collItem = fc.items[i2];
-        const { start, key, sep, value } = collItem;
+        const { start, key: key2, sep, value } = collItem;
         const props = resolveProps.resolveProps(start, {
           flow: fcName,
           indicator: "explicit-key-ind",
-          next: key ?? sep?.[0],
+          next: key2 ?? sep?.[0],
           offset,
           onError: onError2,
           parentIndent: fc.indent,
@@ -7238,9 +7238,9 @@ var require_resolve_flow_collection = __commonJS({
             offset = props.end;
             continue;
           }
-          if (!isMap && ctx.options.strict && utilContainsNewline.containsNewline(key))
+          if (!isMap && ctx.options.strict && utilContainsNewline.containsNewline(key2))
             onError2(
-              key,
+              key2,
               // checked by containsNewline()
               "MULTILINE_IMPLICIT_KEY",
               "Implicit keys of flow sequence pairs need to be on a single line"
@@ -7287,8 +7287,8 @@ var require_resolve_flow_collection = __commonJS({
         } else {
           ctx.atKey = true;
           const keyStart = props.end;
-          const keyNode = key ? composeNode(ctx, key, props, onError2) : composeEmptyNode(ctx, keyStart, start, null, props, onError2);
-          if (isBlock(key))
+          const keyNode = key2 ? composeNode(ctx, key2, props, onError2) : composeEmptyNode(ctx, keyStart, start, null, props, onError2);
+          if (isBlock(key2))
             onError2(keyNode.range, "BLOCK_IN_FLOW", blockMsg);
           ctx.atKey = false;
           const valueProps = resolveProps.resolveProps(sep ?? [], {
@@ -8437,9 +8437,9 @@ var require_cst_scalar = __commonJS({
         ];
         if (!addEndtoBlockProps(props, "end" in token ? token.end : void 0))
           props.push({ type: "newline", offset: -1, indent, source: "\n" });
-        for (const key of Object.keys(token))
-          if (key !== "type" && key !== "offset")
-            delete token[key];
+        for (const key2 of Object.keys(token))
+          if (key2 !== "type" && key2 !== "offset")
+            delete token[key2];
         Object.assign(token, { type: "block-scalar", indent, props, source: body });
       }
     }
@@ -8487,9 +8487,9 @@ var require_cst_scalar = __commonJS({
         default: {
           const indent = "indent" in token ? token.indent : -1;
           const end = "end" in token && Array.isArray(token.end) ? token.end.filter((st) => st.type === "space" || st.type === "comment" || st.type === "newline") : [];
-          for (const key of Object.keys(token))
-            if (key !== "type" && key !== "offset")
-              delete token[key];
+          for (const key2 of Object.keys(token))
+            if (key2 !== "type" && key2 !== "offset")
+              delete token[key2];
           Object.assign(token, { type, indent, source, end });
         }
       }
@@ -8544,12 +8544,12 @@ var require_cst_stringify = __commonJS({
         }
       }
     }
-    function stringifyItem({ start, key, sep, value }) {
+    function stringifyItem({ start, key: key2, sep, value }) {
       let res = "";
       for (const st of start)
         res += st.source;
-      if (key)
-        res += stringifyToken(key);
+      if (key2)
+        res += stringifyToken(key2);
       if (sep)
         for (const st of sep)
           res += st.source;
@@ -9881,7 +9881,7 @@ var require_parser = __commonJS({
                   });
                 } else if (isFlowToken(it.key) && !includesToken(it.sep, "newline")) {
                   const start2 = getFirstKeyStartProps(it.start);
-                  const key = it.key;
+                  const key2 = it.key;
                   const sep = it.sep;
                   sep.push(this.sourceToken);
                   delete it.key;
@@ -9890,7 +9890,7 @@ var require_parser = __commonJS({
                     type: "block-map",
                     offset: this.offset,
                     indent: this.indent,
-                    items: [{ start: start2, key, sep }]
+                    items: [{ start: start2, key: key2, sep }]
                   });
                 } else if (start.length > 0) {
                   it.sep = it.sep.concat(start, this.sourceToken);
@@ -10518,14 +10518,14 @@ var require_extend_shallow = __commonJS({
       return o2;
     };
     function assign(a, b2) {
-      for (var key in b2) {
-        if (hasOwn(b2, key)) {
-          a[key] = b2[key];
+      for (var key2 in b2) {
+        if (hasOwn(b2, key2)) {
+          a[key2] = b2[key2];
         }
       }
     }
-    function hasOwn(obj, key) {
-      return Object.prototype.hasOwnProperty.call(obj, key);
+    function hasOwn(obj, key2) {
+      return Object.prototype.hasOwnProperty.call(obj, key2);
     }
   }
 });
@@ -10653,12 +10653,12 @@ var require_common = __commonJS({
       return [sequence];
     }
     function extend2(target, source) {
-      var index, length, key, sourceKeys;
+      var index, length, key2, sourceKeys;
       if (source) {
         sourceKeys = Object.keys(source);
         for (index = 0, length = sourceKeys.length; index < length; index += 1) {
-          key = sourceKeys[index];
-          target[key] = source[key];
+          key2 = sourceKeys[index];
+          target[key2] = source[key2];
         }
       }
       return target;
@@ -11563,10 +11563,10 @@ var require_set2 = __commonJS({
     var _hasOwnProperty = Object.prototype.hasOwnProperty;
     function resolveYamlSet(data) {
       if (data === null) return true;
-      var key, object3 = data;
-      for (key in object3) {
-        if (_hasOwnProperty.call(object3, key)) {
-          if (object3[key] !== null) return false;
+      var key2, object3 = data;
+      for (key2 in object3) {
+        if (_hasOwnProperty.call(object3, key2)) {
+          if (object3[key2] !== null) return false;
         }
       }
       return true;
@@ -11827,16 +11827,16 @@ var require_loader = __commonJS({
         (c3 - 65536 & 1023) + 56320
       );
     }
-    function setProperty2(object3, key, value) {
-      if (key === "__proto__") {
-        Object.defineProperty(object3, key, {
+    function setProperty2(object3, key2, value) {
+      if (key2 === "__proto__") {
+        Object.defineProperty(object3, key2, {
           configurable: true,
           enumerable: true,
           writable: true,
           value
         });
       } else {
-        object3[key] = value;
+        object3[key2] = value;
       }
     }
     var simpleEscapeCheck = new Array(256);
@@ -11940,19 +11940,19 @@ var require_loader = __commonJS({
       }
     }
     function mergeMappings(state, destination, source, overridableKeys) {
-      var sourceKeys, key, index, quantity;
+      var sourceKeys, key2, index, quantity;
       if (!common.isObject(source)) {
         throwError(state, "cannot merge mappings; the provided source object is unacceptable");
       }
       sourceKeys = Object.keys(source);
       for (index = 0, quantity = sourceKeys.length; index < quantity; index += 1) {
-        key = sourceKeys[index];
+        key2 = sourceKeys[index];
         if (state.maxTotalMergeKeys !== -1 && ++state.totalMergeKeys > state.maxTotalMergeKeys) {
           throwError(state, "merge keys exceeded maxTotalMergeKeys (" + state.maxTotalMergeKeys + ")");
         }
-        if (!_hasOwnProperty.call(destination, key)) {
-          setProperty2(destination, key, source[key]);
-          overridableKeys[key] = true;
+        if (!_hasOwnProperty.call(destination, key2)) {
+          setProperty2(destination, key2, source[key2]);
+          overridableKeys[key2] = true;
         }
       }
     }
@@ -13522,8 +13522,8 @@ var require_utils = __commonJS({
     "use strict";
     var stripBom = require_strip_bom_string();
     var typeOf = require_kind_of();
-    exports2.define = function(obj, key, val) {
-      Reflect.defineProperty(obj, key, {
+    exports2.define = function(obj, key2, val) {
+      Reflect.defineProperty(obj, key2, {
         enumerable: false,
         configurable: true,
         writable: true,
@@ -13984,8 +13984,8 @@ var require_common2 = __commonJS({
       createDebug.enabled = enabled;
       createDebug.humanize = require_ms();
       createDebug.destroy = destroy;
-      Object.keys(env).forEach((key) => {
-        createDebug[key] = env[key];
+      Object.keys(env).forEach((key2) => {
+        createDebug[key2] = env[key2];
       });
       createDebug.names = [];
       createDebug.skips = [];
@@ -14420,13 +14420,13 @@ var require_node = __commonJS({
       }
     } catch (error2) {
     }
-    exports2.inspectOpts = Object.keys(process.env).filter((key) => {
-      return /^debug_/i.test(key);
-    }).reduce((obj, key) => {
-      const prop = key.substring(6).toLowerCase().replace(/_([a-z])/g, (_2, k2) => {
+    exports2.inspectOpts = Object.keys(process.env).filter((key2) => {
+      return /^debug_/i.test(key2);
+    }).reduce((obj, key2) => {
+      const prop = key2.substring(6).toLowerCase().replace(/_([a-z])/g, (_2, k2) => {
         return k2.toUpperCase();
       });
-      let val = process.env[key];
+      let val = process.env[key2];
       if (/^(yes|on|true|enabled)$/i.test(val)) {
         val = true;
       } else if (/^(no|off|false|disabled)$/i.test(val)) {
@@ -14774,19 +14774,19 @@ function floatSafeRemainder2(val, step) {
   const stepInt = Number.parseInt(step.toFixed(decCount).replace(".", ""));
   return valInt % stepInt / 10 ** decCount;
 }
-function defineLazy(object3, key, getter) {
+function defineLazy(object3, key2, getter) {
   const set = false;
-  Object.defineProperty(object3, key, {
+  Object.defineProperty(object3, key2, {
     get() {
       if (!set) {
         const value = getter();
-        object3[key] = value;
+        object3[key2] = value;
         return value;
       }
       throw new Error("cached value already set");
     },
     set(v) {
-      Object.defineProperty(object3, key, {
+      Object.defineProperty(object3, key2, {
         value: v
         // configurable: true,
       });
@@ -14805,11 +14805,11 @@ function assignProp(target, prop, value) {
 function getElementAtPath(obj, path69) {
   if (!path69)
     return obj;
-  return path69.reduce((acc, key) => acc?.[key], obj);
+  return path69.reduce((acc, key2) => acc?.[key2], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
-  const promises = keys.map((key) => promisesObj[key]);
+  const promises = keys.map((key2) => promisesObj[key2]);
   return Promise.all(promises).then((results) => {
     const resolvedObj = {};
     for (let i2 = 0; i2 < keys.length; i2++) {
@@ -14848,8 +14848,8 @@ function isPlainObject(o2) {
 }
 function numKeys(data) {
   let keyCount = 0;
-  for (const key in data) {
-    if (Object.prototype.hasOwnProperty.call(data, key)) {
+  for (const key2 in data) {
+    if (Object.prototype.hasOwnProperty.call(data, key2)) {
       keyCount++;
     }
   }
@@ -14928,13 +14928,13 @@ function optionalKeys(shape) {
 function pick2(schema, mask) {
   const newShape = {};
   const currDef = schema._zod.def;
-  for (const key in mask) {
-    if (!(key in currDef.shape)) {
-      throw new Error(`Unrecognized key: "${key}"`);
+  for (const key2 in mask) {
+    if (!(key2 in currDef.shape)) {
+      throw new Error(`Unrecognized key: "${key2}"`);
     }
-    if (!mask[key])
+    if (!mask[key2])
       continue;
-    newShape[key] = currDef.shape[key];
+    newShape[key2] = currDef.shape[key2];
   }
   return clone(schema, {
     ...schema._zod.def,
@@ -14945,13 +14945,13 @@ function pick2(schema, mask) {
 function omit(schema, mask) {
   const newShape = { ...schema._zod.def.shape };
   const currDef = schema._zod.def;
-  for (const key in mask) {
-    if (!(key in currDef.shape)) {
-      throw new Error(`Unrecognized key: "${key}"`);
+  for (const key2 in mask) {
+    if (!(key2 in currDef.shape)) {
+      throw new Error(`Unrecognized key: "${key2}"`);
     }
-    if (!mask[key])
+    if (!mask[key2])
       continue;
-    delete newShape[key];
+    delete newShape[key2];
   }
   return clone(schema, {
     ...schema._zod.def,
@@ -14992,23 +14992,23 @@ function partial(Class2, schema, mask) {
   const oldShape = schema._zod.def.shape;
   const shape = { ...oldShape };
   if (mask) {
-    for (const key in mask) {
-      if (!(key in oldShape)) {
-        throw new Error(`Unrecognized key: "${key}"`);
+    for (const key2 in mask) {
+      if (!(key2 in oldShape)) {
+        throw new Error(`Unrecognized key: "${key2}"`);
       }
-      if (!mask[key])
+      if (!mask[key2])
         continue;
-      shape[key] = Class2 ? new Class2({
+      shape[key2] = Class2 ? new Class2({
         type: "optional",
-        innerType: oldShape[key]
-      }) : oldShape[key];
+        innerType: oldShape[key2]
+      }) : oldShape[key2];
     }
   } else {
-    for (const key in oldShape) {
-      shape[key] = Class2 ? new Class2({
+    for (const key2 in oldShape) {
+      shape[key2] = Class2 ? new Class2({
         type: "optional",
-        innerType: oldShape[key]
-      }) : oldShape[key];
+        innerType: oldShape[key2]
+      }) : oldShape[key2];
     }
   }
   return clone(schema, {
@@ -15021,22 +15021,22 @@ function required(Class2, schema, mask) {
   const oldShape = schema._zod.def.shape;
   const shape = { ...oldShape };
   if (mask) {
-    for (const key in mask) {
-      if (!(key in shape)) {
-        throw new Error(`Unrecognized key: "${key}"`);
+    for (const key2 in mask) {
+      if (!(key2 in shape)) {
+        throw new Error(`Unrecognized key: "${key2}"`);
       }
-      if (!mask[key])
+      if (!mask[key2])
         continue;
-      shape[key] = new Class2({
+      shape[key2] = new Class2({
         type: "nonoptional",
-        innerType: oldShape[key]
+        innerType: oldShape[key2]
       });
     }
   } else {
-    for (const key in oldShape) {
-      shape[key] = new Class2({
+    for (const key2 in oldShape) {
+      shape[key2] = new Class2({
         type: "nonoptional",
-        innerType: oldShape[key]
+        innerType: oldShape[key2]
       });
     }
   }
@@ -15887,28 +15887,28 @@ function handleArrayResult(result, final, index) {
   }
   final.value[index] = result.value;
 }
-function handleObjectResult(result, final, key) {
+function handleObjectResult(result, final, key2) {
   if (result.issues.length) {
-    final.issues.push(...prefixIssues(key, result.issues));
+    final.issues.push(...prefixIssues(key2, result.issues));
   }
-  final.value[key] = result.value;
+  final.value[key2] = result.value;
 }
-function handleOptionalObjectResult(result, final, key, input) {
+function handleOptionalObjectResult(result, final, key2, input) {
   if (result.issues.length) {
-    if (input[key] === void 0) {
-      if (key in input) {
-        final.value[key] = void 0;
+    if (input[key2] === void 0) {
+      if (key2 in input) {
+        final.value[key2] = void 0;
       } else {
-        final.value[key] = result.value;
+        final.value[key2] = result.value;
       }
     } else {
-      final.issues.push(...prefixIssues(key, result.issues));
+      final.issues.push(...prefixIssues(key2, result.issues));
     }
   } else if (result.value === void 0) {
-    if (key in input)
-      final.value[key] = void 0;
+    if (key2 in input)
+      final.value[key2] = void 0;
   } else {
-    final.value[key] = result.value;
+    final.value[key2] = result.value;
   }
 }
 function handleUnionResults(results, final, inst, ctx) {
@@ -15935,17 +15935,17 @@ function mergeValues2(a, b2) {
   }
   if (isPlainObject(a) && isPlainObject(b2)) {
     const bKeys = Object.keys(b2);
-    const sharedKeys = Object.keys(a).filter((key) => bKeys.indexOf(key) !== -1);
+    const sharedKeys = Object.keys(a).filter((key2) => bKeys.indexOf(key2) !== -1);
     const newObj = { ...a, ...b2 };
-    for (const key of sharedKeys) {
-      const sharedValue = mergeValues2(a[key], b2[key]);
+    for (const key2 of sharedKeys) {
+      const sharedValue = mergeValues2(a[key2], b2[key2]);
       if (!sharedValue.valid) {
         return {
           valid: false,
-          mergeErrorPath: [key, ...sharedValue.mergeErrorPath]
+          mergeErrorPath: [key2, ...sharedValue.mergeErrorPath]
         };
       }
-      newObj[key] = sharedValue.data;
+      newObj[key2] = sharedValue.data;
     }
     return { valid: true, data: newObj };
   }
@@ -16521,12 +16521,12 @@ var init_schemas = __esm({
       defineLazy(inst._zod, "propValues", () => {
         const shape = def.shape;
         const propValues = {};
-        for (const key in shape) {
-          const field = shape[key]._zod;
+        for (const key2 in shape) {
+          const field = shape[key2]._zod;
           if (field.values) {
-            propValues[key] ?? (propValues[key] = /* @__PURE__ */ new Set());
+            propValues[key2] ?? (propValues[key2] = /* @__PURE__ */ new Set());
             for (const v of field.values)
-              propValues[key].add(v);
+              propValues[key2].add(v);
           }
         }
         return propValues;
@@ -16534,22 +16534,22 @@ var init_schemas = __esm({
       const generateFastpass = (shape) => {
         const doc = new Doc(["shape", "payload", "ctx"]);
         const normalized = _normalized.value;
-        const parseStr = (key) => {
-          const k2 = esc(key);
+        const parseStr = (key2) => {
+          const k2 = esc(key2);
           return `shape[${k2}]._zod.run({ value: input[${k2}], issues: [] }, ctx)`;
         };
         doc.write(`const input = payload.value;`);
         const ids = /* @__PURE__ */ Object.create(null);
         let counter = 0;
-        for (const key of normalized.keys) {
-          ids[key] = `key_${counter++}`;
+        for (const key2 of normalized.keys) {
+          ids[key2] = `key_${counter++}`;
         }
         doc.write(`const newResult = {}`);
-        for (const key of normalized.keys) {
-          if (normalized.optionalKeys.has(key)) {
-            const id = ids[key];
-            doc.write(`const ${id} = ${parseStr(key)};`);
-            const k2 = esc(key);
+        for (const key2 of normalized.keys) {
+          if (normalized.optionalKeys.has(key2)) {
+            const id = ids[key2];
+            doc.write(`const ${id} = ${parseStr(key2)};`);
+            const k2 = esc(key2);
             doc.write(`
         if (${id}.issues.length) {
           if (input[${k2}] === undefined) {
@@ -16571,14 +16571,14 @@ var init_schemas = __esm({
         }
         `);
           } else {
-            const id = ids[key];
-            doc.write(`const ${id} = ${parseStr(key)};`);
+            const id = ids[key2];
+            doc.write(`const ${id} = ${parseStr(key2)};`);
             doc.write(`
           if (${id}.issues.length) payload.issues = payload.issues.concat(${id}.issues.map(iss => ({
             ...iss,
-            path: iss.path ? [${esc(key)}, ...iss.path] : [${esc(key)}]
+            path: iss.path ? [${esc(key2)}, ...iss.path] : [${esc(key2)}]
           })));`);
-            doc.write(`newResult[${esc(key)}] = ${id}.value`);
+            doc.write(`newResult[${esc(key2)}] = ${id}.value`);
           }
         }
         doc.write(`payload.value = newResult;`);
@@ -16613,16 +16613,16 @@ var init_schemas = __esm({
         } else {
           payload.value = {};
           const shape = value.shape;
-          for (const key of value.keys) {
-            const el = shape[key];
-            const r2 = el._zod.run({ value: input[key], issues: [] }, ctx);
+          for (const key2 of value.keys) {
+            const el = shape[key2];
+            const r2 = el._zod.run({ value: input[key2], issues: [] }, ctx);
             const isOptional = el._zod.optin === "optional" && el._zod.optout === "optional";
             if (r2 instanceof Promise) {
-              proms.push(r2.then((r3) => isOptional ? handleOptionalObjectResult(r3, payload, key, input) : handleObjectResult(r3, payload, key)));
+              proms.push(r2.then((r3) => isOptional ? handleOptionalObjectResult(r3, payload, key2, input) : handleObjectResult(r3, payload, key2)));
             } else if (isOptional) {
-              handleOptionalObjectResult(r2, payload, key, input);
+              handleOptionalObjectResult(r2, payload, key2, input);
             } else {
-              handleObjectResult(r2, payload, key);
+              handleObjectResult(r2, payload, key2);
             }
           }
         }
@@ -16633,18 +16633,18 @@ var init_schemas = __esm({
         const keySet = value.keySet;
         const _catchall = catchall._zod;
         const t2 = _catchall.def.type;
-        for (const key of Object.keys(input)) {
-          if (keySet.has(key))
+        for (const key2 of Object.keys(input)) {
+          if (keySet.has(key2))
             continue;
           if (t2 === "never") {
-            unrecognized.push(key);
+            unrecognized.push(key2);
             continue;
           }
-          const r2 = _catchall.run({ value: input[key], issues: [] }, ctx);
+          const r2 = _catchall.run({ value: input[key2], issues: [] }, ctx);
           if (r2 instanceof Promise) {
-            proms.push(r2.then((r3) => handleObjectResult(r3, payload, key)));
+            proms.push(r2.then((r3) => handleObjectResult(r3, payload, key2)));
           } else {
-            handleObjectResult(r2, payload, key);
+            handleObjectResult(r2, payload, key2);
           }
         }
         if (unrecognized.length) {
@@ -16799,29 +16799,29 @@ var init_schemas = __esm({
         if (def.keyType._zod.values) {
           const values = def.keyType._zod.values;
           payload.value = {};
-          for (const key of values) {
-            if (typeof key === "string" || typeof key === "number" || typeof key === "symbol") {
-              const result = def.valueType._zod.run({ value: input[key], issues: [] }, ctx);
+          for (const key2 of values) {
+            if (typeof key2 === "string" || typeof key2 === "number" || typeof key2 === "symbol") {
+              const result = def.valueType._zod.run({ value: input[key2], issues: [] }, ctx);
               if (result instanceof Promise) {
                 proms.push(result.then((result2) => {
                   if (result2.issues.length) {
-                    payload.issues.push(...prefixIssues(key, result2.issues));
+                    payload.issues.push(...prefixIssues(key2, result2.issues));
                   }
-                  payload.value[key] = result2.value;
+                  payload.value[key2] = result2.value;
                 }));
               } else {
                 if (result.issues.length) {
-                  payload.issues.push(...prefixIssues(key, result.issues));
+                  payload.issues.push(...prefixIssues(key2, result.issues));
                 }
-                payload.value[key] = result.value;
+                payload.value[key2] = result.value;
               }
             }
           }
           let unrecognized;
-          for (const key in input) {
-            if (!values.has(key)) {
+          for (const key2 in input) {
+            if (!values.has(key2)) {
               unrecognized = unrecognized ?? [];
-              unrecognized.push(key);
+              unrecognized.push(key2);
             }
           }
           if (unrecognized && unrecognized.length > 0) {
@@ -16834,10 +16834,10 @@ var init_schemas = __esm({
           }
         } else {
           payload.value = {};
-          for (const key of Reflect.ownKeys(input)) {
-            if (key === "__proto__")
+          for (const key2 of Reflect.ownKeys(input)) {
+            if (key2 === "__proto__")
               continue;
-            const keyResult = def.keyType._zod.run({ value: key, issues: [] }, ctx);
+            const keyResult = def.keyType._zod.run({ value: key2, issues: [] }, ctx);
             if (keyResult instanceof Promise) {
               throw new Error("Async schemas not supported in object keys currently");
             }
@@ -16846,24 +16846,24 @@ var init_schemas = __esm({
                 origin: "record",
                 code: "invalid_key",
                 issues: keyResult.issues.map((iss) => finalizeIssue(iss, ctx, config())),
-                input: key,
-                path: [key],
+                input: key2,
+                path: [key2],
                 inst
               });
               payload.value[keyResult.value] = keyResult.value;
               continue;
             }
-            const result = def.valueType._zod.run({ value: input[key], issues: [] }, ctx);
+            const result = def.valueType._zod.run({ value: input[key2], issues: [] }, ctx);
             if (result instanceof Promise) {
               proms.push(result.then((result2) => {
                 if (result2.issues.length) {
-                  payload.issues.push(...prefixIssues(key, result2.issues));
+                  payload.issues.push(...prefixIssues(key2, result2.issues));
                 }
                 payload.value[keyResult.value] = result2.value;
               }));
             } else {
               if (result.issues.length) {
-                payload.issues.push(...prefixIssues(key, result.issues));
+                payload.issues.push(...prefixIssues(key2, result.issues));
               }
               payload.value[keyResult.value] = result.value;
             }
@@ -20193,15 +20193,15 @@ var require_code = __commonJS({
       return JSON.stringify(x2).replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
     }
     exports2.safeStringify = safeStringify;
-    function getProperty(key) {
-      return typeof key == "string" && exports2.IDENTIFIER.test(key) ? new _Code(`.${key}`) : _2`[${key}]`;
+    function getProperty(key2) {
+      return typeof key2 == "string" && exports2.IDENTIFIER.test(key2) ? new _Code(`.${key2}`) : _2`[${key2}]`;
     }
     exports2.getProperty = getProperty;
-    function getEsmExportName(key) {
-      if (typeof key == "string" && exports2.IDENTIFIER.test(key)) {
-        return new _Code(`${key}`);
+    function getEsmExportName(key2) {
+      if (typeof key2 == "string" && exports2.IDENTIFIER.test(key2)) {
+        return new _Code(`${key2}`);
       }
-      throw new Error(`CodeGen: invalid export name: ${key}, use explicit $id name mapping`);
+      throw new Error(`CodeGen: invalid export name: ${key2}, use explicit $id name mapping`);
     }
     exports2.getEsmExportName = getEsmExportName;
     function regexpCode(rx) {
@@ -20828,11 +20828,11 @@ var require_codegen = __commonJS({
       // returns code for object literal for the passed argument list of key-value pairs
       object(...keyValues) {
         const code = ["{"];
-        for (const [key, value] of keyValues) {
+        for (const [key2, value] of keyValues) {
           if (code.length > 1)
             code.push(",");
-          code.push(key);
-          if (key !== value || this.opts.es5) {
+          code.push(key2);
+          if (key2 !== value || this.opts.es5) {
             code.push(":");
             (0, code_1.addCodeArg)(code, value);
           }
@@ -21107,17 +21107,17 @@ var require_util = __commonJS({
       if (typeof schema === "boolean")
         return;
       const rules = self.RULES.keywords;
-      for (const key in schema) {
-        if (!rules[key])
-          checkStrictMode(it, `unknown keyword: "${key}"`);
+      for (const key2 in schema) {
+        if (!rules[key2])
+          checkStrictMode(it, `unknown keyword: "${key2}"`);
       }
     }
     exports2.checkUnknownRules = checkUnknownRules;
     function schemaHasRules(schema, rules) {
       if (typeof schema == "boolean")
         return !schema;
-      for (const key in schema)
-        if (rules[key])
+      for (const key2 in schema)
+        if (rules[key2])
           return true;
       return false;
     }
@@ -21125,8 +21125,8 @@ var require_util = __commonJS({
     function schemaHasRulesButRef(schema, RULES) {
       if (typeof schema == "boolean")
         return !schema;
-      for (const key in schema)
-        if (key !== "$ref" && RULES.all[key])
+      for (const key2 in schema)
+        if (key2 !== "$ref" && RULES.all[key2])
           return true;
       return false;
     }
@@ -21704,8 +21704,8 @@ var require_defaults2 = __commonJS({
     function assignDefaults(it, ty) {
       const { properties, items } = it.schema;
       if (ty === "object" && properties) {
-        for (const key in properties) {
-          assignDefault(it, key, properties[key].default);
+        for (const key2 in properties) {
+          assignDefault(it, key2, properties[key2].default);
         }
       } else if (ty === "array" && Array.isArray(items)) {
         items.forEach((sch, i2) => assignDefault(it, i2, sch.default));
@@ -22089,8 +22089,8 @@ var require_fast_deep_equal = __commonJS({
         for (i2 = length; i2-- !== 0; )
           if (!Object.prototype.hasOwnProperty.call(b2, keys[i2])) return false;
         for (i2 = length; i2-- !== 0; ) {
-          var key = keys[i2];
-          if (!equal(a[key], b2[key])) return false;
+          var key2 = keys[i2];
+          if (!equal(a[key2], b2[key2])) return false;
         }
         return true;
       }
@@ -22162,20 +22162,20 @@ var require_json_schema_traverse = __commonJS({
     function _traverse(opts, pre, post, schema, jsonPtr, rootSchema, parentJsonPtr, parentKeyword, parentSchema, keyIndex) {
       if (schema && typeof schema == "object" && !Array.isArray(schema)) {
         pre(schema, jsonPtr, rootSchema, parentJsonPtr, parentKeyword, parentSchema, keyIndex);
-        for (var key in schema) {
-          var sch = schema[key];
+        for (var key2 in schema) {
+          var sch = schema[key2];
           if (Array.isArray(sch)) {
-            if (key in traverse.arrayKeywords) {
+            if (key2 in traverse.arrayKeywords) {
               for (var i2 = 0; i2 < sch.length; i2++)
-                _traverse(opts, pre, post, sch[i2], jsonPtr + "/" + key + "/" + i2, rootSchema, jsonPtr, key, schema, i2);
+                _traverse(opts, pre, post, sch[i2], jsonPtr + "/" + key2 + "/" + i2, rootSchema, jsonPtr, key2, schema, i2);
             }
-          } else if (key in traverse.propsKeywords) {
+          } else if (key2 in traverse.propsKeywords) {
             if (sch && typeof sch == "object") {
               for (var prop in sch)
-                _traverse(opts, pre, post, sch[prop], jsonPtr + "/" + key + "/" + escapeJsonPtr(prop), rootSchema, jsonPtr, key, schema, prop);
+                _traverse(opts, pre, post, sch[prop], jsonPtr + "/" + key2 + "/" + escapeJsonPtr(prop), rootSchema, jsonPtr, key2, schema, prop);
             }
-          } else if (key in traverse.keywords || opts.allKeys && !(key in traverse.skipKeywords)) {
-            _traverse(opts, pre, post, sch, jsonPtr + "/" + key, rootSchema, jsonPtr, key, schema);
+          } else if (key2 in traverse.keywords || opts.allKeys && !(key2 in traverse.skipKeywords)) {
+            _traverse(opts, pre, post, sch, jsonPtr + "/" + key2, rootSchema, jsonPtr, key2, schema);
           }
         }
         post(schema, jsonPtr, rootSchema, parentJsonPtr, parentKeyword, parentSchema, keyIndex);
@@ -22232,10 +22232,10 @@ var require_resolve = __commonJS({
       "$dynamicAnchor"
     ]);
     function hasRef(schema) {
-      for (const key in schema) {
-        if (REF_KEYWORDS.has(key))
+      for (const key2 in schema) {
+        if (REF_KEYWORDS.has(key2))
           return true;
-        const sch = schema[key];
+        const sch = schema[key2];
         if (Array.isArray(sch) && sch.some(hasRef))
           return true;
         if (typeof sch == "object" && hasRef(sch))
@@ -22245,14 +22245,14 @@ var require_resolve = __commonJS({
     }
     function countKeys(schema) {
       let count2 = 0;
-      for (const key in schema) {
-        if (key === "$ref")
+      for (const key2 in schema) {
+        if (key2 === "$ref")
           return Infinity;
         count2++;
-        if (SIMPLE_INLINED.has(key))
+        if (SIMPLE_INLINED.has(key2))
           continue;
-        if (typeof schema[key] == "object") {
-          (0, util_1.eachItem)(schema[key], (sch) => count2 += countKeys(sch));
+        if (typeof schema[key2] == "object") {
+          (0, util_1.eachItem)(schema[key2], (sch) => count2 += countKeys(sch));
         }
         if (count2 === Infinity)
           return Infinity;
@@ -22441,8 +22441,8 @@ var require_validate = __commonJS({
     function schemaCxtHasRules({ schema, self }) {
       if (typeof schema == "boolean")
         return !schema;
-      for (const key in schema)
-        if (self.RULES.all[key])
+      for (const key2 in schema)
+        if (self.RULES.all[key2])
           return true;
       return false;
     }
@@ -24177,7 +24177,7 @@ var require_core2 = __commonJS({
         }
       }
       // Adds schema to the instance
-      addSchema(schema, key, _meta, _validateSchema = this.opts.validateSchema) {
+      addSchema(schema, key2, _meta, _validateSchema = this.opts.validateSchema) {
         if (Array.isArray(schema)) {
           for (const sch of schema)
             this.addSchema(sch, void 0, _meta, _validateSchema);
@@ -24191,15 +24191,15 @@ var require_core2 = __commonJS({
             throw new Error(`schema ${schemaId} must be string`);
           }
         }
-        key = (0, resolve_1.normalizeId)(key || id);
-        this._checkUnique(key);
-        this.schemas[key] = this._addSchema(schema, _meta, key, _validateSchema, true);
+        key2 = (0, resolve_1.normalizeId)(key2 || id);
+        this._checkUnique(key2);
+        this.schemas[key2] = this._addSchema(schema, _meta, key2, _validateSchema, true);
         return this;
       }
       // Add schema that will be used to validate other schemas
       // options in META_IGNORE_OPTIONS are alway set to false
-      addMetaSchema(schema, key, _validateSchema = this.opts.validateSchema) {
-        this.addSchema(schema, key, true, _validateSchema);
+      addMetaSchema(schema, key2, _validateSchema = this.opts.validateSchema) {
+        this.addSchema(schema, key2, true, _validateSchema);
         return this;
       }
       //  Validate schema against its meta-schema
@@ -24355,14 +24355,14 @@ var require_core2 = __commonJS({
           let keywords = metaSchema;
           for (const seg of segments)
             keywords = keywords[seg];
-          for (const key in rules) {
-            const rule = rules[key];
+          for (const key2 in rules) {
+            const rule = rules[key2];
             if (typeof rule != "object")
               continue;
             const { $data } = rule.definition;
-            const schema = keywords[key];
+            const schema = keywords[key2];
             if ($data && schema)
-              keywords[key] = schemaOrData(schema);
+              keywords[key2] = schemaOrData(schema);
           }
         }
         return metaSchema;
@@ -24435,10 +24435,10 @@ var require_core2 = __commonJS({
     Ajv2.MissingRefError = ref_error_1.default;
     exports2.default = Ajv2;
     function checkOptions(checkOpts, options2, msg, log = "error") {
-      for (const key in checkOpts) {
-        const opt = key;
+      for (const key2 in checkOpts) {
+        const opt = key2;
         if (opt in options2)
-          this.logger[log](`${msg}: option ${key}. ${checkOpts[opt]}`);
+          this.logger[log](`${msg}: option ${key2}. ${checkOpts[opt]}`);
       }
     }
     function getSchEnv(keyRef) {
@@ -24452,8 +24452,8 @@ var require_core2 = __commonJS({
       if (Array.isArray(optsSchemas))
         this.addSchema(optsSchemas);
       else
-        for (const key in optsSchemas)
-          this.addSchema(optsSchemas[key], key);
+        for (const key2 in optsSchemas)
+          this.addSchema(optsSchemas[key2], key2);
     }
     function addInitialFormats() {
       for (const name in this.opts.formats) {
@@ -25501,11 +25501,11 @@ var require_dependencies = __commonJS({
     function splitDependencies({ schema }) {
       const propertyDeps = {};
       const schemaDeps = {};
-      for (const key in schema) {
-        if (key === "__proto__")
+      for (const key2 in schema) {
+        if (key2 === "__proto__")
           continue;
-        const deps = Array.isArray(schema[key]) ? propertyDeps : schemaDeps;
-        deps[key] = schema[key];
+        const deps = Array.isArray(schema[key2]) ? propertyDeps : schemaDeps;
+        deps[key2] = schema[key2];
       }
       return [propertyDeps, schemaDeps];
     }
@@ -25582,13 +25582,13 @@ var require_propertyNames = __commonJS({
         if ((0, util_1.alwaysValidSchema)(it, schema))
           return;
         const valid = gen.name("valid");
-        gen.forIn("key", data, (key) => {
-          cxt.setParams({ propertyName: key });
+        gen.forIn("key", data, (key2) => {
+          cxt.setParams({ propertyName: key2 });
           cxt.subschema({
             keyword: "propertyNames",
-            data: key,
+            data: key2,
             dataTypes: ["string"],
-            propertyName: key,
+            propertyName: key2,
             compositeRule: true
           }, valid);
           gen.if((0, codegen_1.not)(valid), () => {
@@ -25637,38 +25637,38 @@ var require_additionalProperties = __commonJS({
         checkAdditionalProperties();
         cxt.ok((0, codegen_1._)`${errsCount} === ${names_1.default.errors}`);
         function checkAdditionalProperties() {
-          gen.forIn("key", data, (key) => {
+          gen.forIn("key", data, (key2) => {
             if (!props.length && !patProps.length)
-              additionalPropertyCode(key);
+              additionalPropertyCode(key2);
             else
-              gen.if(isAdditional(key), () => additionalPropertyCode(key));
+              gen.if(isAdditional(key2), () => additionalPropertyCode(key2));
           });
         }
-        function isAdditional(key) {
+        function isAdditional(key2) {
           let definedProp;
           if (props.length > 8) {
             const propsSchema = (0, util_1.schemaRefOrVal)(it, parentSchema.properties, "properties");
-            definedProp = (0, code_1.isOwnProperty)(gen, propsSchema, key);
+            definedProp = (0, code_1.isOwnProperty)(gen, propsSchema, key2);
           } else if (props.length) {
-            definedProp = (0, codegen_1.or)(...props.map((p2) => (0, codegen_1._)`${key} === ${p2}`));
+            definedProp = (0, codegen_1.or)(...props.map((p2) => (0, codegen_1._)`${key2} === ${p2}`));
           } else {
             definedProp = codegen_1.nil;
           }
           if (patProps.length) {
-            definedProp = (0, codegen_1.or)(definedProp, ...patProps.map((p2) => (0, codegen_1._)`${(0, code_1.usePattern)(cxt, p2)}.test(${key})`));
+            definedProp = (0, codegen_1.or)(definedProp, ...patProps.map((p2) => (0, codegen_1._)`${(0, code_1.usePattern)(cxt, p2)}.test(${key2})`));
           }
           return (0, codegen_1.not)(definedProp);
         }
-        function deleteAdditional(key) {
-          gen.code((0, codegen_1._)`delete ${data}[${key}]`);
+        function deleteAdditional(key2) {
+          gen.code((0, codegen_1._)`delete ${data}[${key2}]`);
         }
-        function additionalPropertyCode(key) {
+        function additionalPropertyCode(key2) {
           if (opts.removeAdditional === "all" || opts.removeAdditional && schema === false) {
-            deleteAdditional(key);
+            deleteAdditional(key2);
             return;
           }
           if (schema === false) {
-            cxt.setParams({ additionalProperty: key });
+            cxt.setParams({ additionalProperty: key2 });
             cxt.error();
             if (!allErrors)
               gen.break();
@@ -25677,22 +25677,22 @@ var require_additionalProperties = __commonJS({
           if (typeof schema == "object" && !(0, util_1.alwaysValidSchema)(it, schema)) {
             const valid = gen.name("valid");
             if (opts.removeAdditional === "failing") {
-              applyAdditionalSchema(key, valid, false);
+              applyAdditionalSchema(key2, valid, false);
               gen.if((0, codegen_1.not)(valid), () => {
                 cxt.reset();
-                deleteAdditional(key);
+                deleteAdditional(key2);
               });
             } else {
-              applyAdditionalSchema(key, valid);
+              applyAdditionalSchema(key2, valid);
               if (!allErrors)
                 gen.if((0, codegen_1.not)(valid), () => gen.break());
             }
           }
         }
-        function applyAdditionalSchema(key, valid, errors) {
+        function applyAdditionalSchema(key2, valid, errors) {
           const subschema = {
             keyword: "additionalProperties",
-            dataProp: key,
+            dataProp: key2,
             dataPropType: util_1.Type.Str
           };
           if (errors === false) {
@@ -25817,19 +25817,19 @@ var require_patternProperties = __commonJS({
           }
         }
         function validateProperties(pat) {
-          gen.forIn("key", data, (key) => {
-            gen.if((0, codegen_1._)`${(0, code_1.usePattern)(cxt, pat)}.test(${key})`, () => {
+          gen.forIn("key", data, (key2) => {
+            gen.if((0, codegen_1._)`${(0, code_1.usePattern)(cxt, pat)}.test(${key2})`, () => {
               const alwaysValid = alwaysValidPatterns.includes(pat);
               if (!alwaysValid) {
                 cxt.subschema({
                   keyword: "patternProperties",
                   schemaProp: pat,
-                  dataProp: key,
+                  dataProp: key2,
                   dataPropType: util_2.Type.Str
                 }, valid);
               }
               if (it.opts.unevaluated && props !== true) {
-                gen.assign((0, codegen_1._)`${props}[${key}]`, true);
+                gen.assign((0, codegen_1._)`${props}[${key2}]`, true);
               } else if (!alwaysValid && !it.allErrors) {
                 gen.if((0, codegen_1.not)(valid), () => gen.break());
               }
@@ -27204,9 +27204,9 @@ var util;
   };
   util2.objectKeys = typeof Object.keys === "function" ? (obj) => Object.keys(obj) : (object3) => {
     const keys = [];
-    for (const key in object3) {
-      if (Object.prototype.hasOwnProperty.call(object3, key)) {
-        keys.push(key);
+    for (const key2 in object3) {
+      if (Object.prototype.hasOwnProperty.call(object3, key2)) {
+        keys.push(key2);
       }
     }
     return keys;
@@ -27606,10 +27606,10 @@ var ParseStatus = class _ParseStatus {
   static async mergeObjectAsync(status, pairs) {
     const syncPairs = [];
     for (const pair of pairs) {
-      const key = await pair.key;
+      const key2 = await pair.key;
       const value = await pair.value;
       syncPairs.push({
-        key,
+        key: key2,
         value
       });
     }
@@ -27618,17 +27618,17 @@ var ParseStatus = class _ParseStatus {
   static mergeObjectSync(status, pairs) {
     const finalObject = {};
     for (const pair of pairs) {
-      const { key, value } = pair;
-      if (key.status === "aborted")
+      const { key: key2, value } = pair;
+      if (key2.status === "aborted")
         return INVALID;
       if (value.status === "aborted")
         return INVALID;
-      if (key.status === "dirty")
+      if (key2.status === "dirty")
         status.dirty();
       if (value.status === "dirty")
         status.dirty();
-      if (key.value !== "__proto__" && (typeof value.value !== "undefined" || pair.alwaysSet)) {
-        finalObject[key.value] = value.value;
+      if (key2.value !== "__proto__" && (typeof value.value !== "undefined" || pair.alwaysSet)) {
+        finalObject[key2.value] = value.value;
       }
     }
     return { status: status.value, value: finalObject };
@@ -27653,12 +27653,12 @@ var errorUtil;
 
 // node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path69, key) {
+  constructor(parent, value, path69, key2) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
     this._path = path69;
-    this._key = key;
+    this._key = key2;
   }
   get path() {
     if (!this._cachedPath.length) {
@@ -29403,9 +29403,9 @@ ZodArray.create = (schema, params) => {
 function deepPartialify(schema) {
   if (schema instanceof ZodObject) {
     const newShape = {};
-    for (const key in schema.shape) {
-      const fieldSchema = schema.shape[key];
-      newShape[key] = ZodOptional.create(deepPartialify(fieldSchema));
+    for (const key2 in schema.shape) {
+      const fieldSchema = schema.shape[key2];
+      newShape[key2] = ZodOptional.create(deepPartialify(fieldSchema));
     }
     return new ZodObject({
       ...schema._def,
@@ -29456,29 +29456,29 @@ var ZodObject = class _ZodObject extends ZodType {
     const { shape, keys: shapeKeys } = this._getCached();
     const extraKeys = [];
     if (!(this._def.catchall instanceof ZodNever && this._def.unknownKeys === "strip")) {
-      for (const key in ctx.data) {
-        if (!shapeKeys.includes(key)) {
-          extraKeys.push(key);
+      for (const key2 in ctx.data) {
+        if (!shapeKeys.includes(key2)) {
+          extraKeys.push(key2);
         }
       }
     }
     const pairs = [];
-    for (const key of shapeKeys) {
-      const keyValidator = shape[key];
-      const value = ctx.data[key];
+    for (const key2 of shapeKeys) {
+      const keyValidator = shape[key2];
+      const value = ctx.data[key2];
       pairs.push({
-        key: { status: "valid", value: key },
-        value: keyValidator._parse(new ParseInputLazyPath(ctx, value, ctx.path, key)),
-        alwaysSet: key in ctx.data
+        key: { status: "valid", value: key2 },
+        value: keyValidator._parse(new ParseInputLazyPath(ctx, value, ctx.path, key2)),
+        alwaysSet: key2 in ctx.data
       });
     }
     if (this._def.catchall instanceof ZodNever) {
       const unknownKeys = this._def.unknownKeys;
       if (unknownKeys === "passthrough") {
-        for (const key of extraKeys) {
+        for (const key2 of extraKeys) {
           pairs.push({
-            key: { status: "valid", value: key },
-            value: { status: "valid", value: ctx.data[key] }
+            key: { status: "valid", value: key2 },
+            value: { status: "valid", value: ctx.data[key2] }
           });
         }
       } else if (unknownKeys === "strict") {
@@ -29495,15 +29495,15 @@ var ZodObject = class _ZodObject extends ZodType {
       }
     } else {
       const catchall = this._def.catchall;
-      for (const key of extraKeys) {
-        const value = ctx.data[key];
+      for (const key2 of extraKeys) {
+        const value = ctx.data[key2];
         pairs.push({
-          key: { status: "valid", value: key },
+          key: { status: "valid", value: key2 },
           value: catchall._parse(
-            new ParseInputLazyPath(ctx, value, ctx.path, key)
+            new ParseInputLazyPath(ctx, value, ctx.path, key2)
             //, ctx.child(key), value, getParsedType(value)
           ),
-          alwaysSet: key in ctx.data
+          alwaysSet: key2 in ctx.data
         });
       }
     }
@@ -29511,10 +29511,10 @@ var ZodObject = class _ZodObject extends ZodType {
       return Promise.resolve().then(async () => {
         const syncPairs = [];
         for (const pair of pairs) {
-          const key = await pair.key;
+          const key2 = await pair.key;
           const value = await pair.value;
           syncPairs.push({
-            key,
+            key: key2,
             value,
             alwaysSet: pair.alwaysSet
           });
@@ -29639,8 +29639,8 @@ var ZodObject = class _ZodObject extends ZodType {
   //   }) as any;
   //   return merged;
   // }
-  setKey(key, schema) {
-    return this.augment({ [key]: schema });
+  setKey(key2, schema) {
+    return this.augment({ [key2]: schema });
   }
   // merge<Incoming extends AnyZodObject>(
   //   merging: Incoming
@@ -29671,9 +29671,9 @@ var ZodObject = class _ZodObject extends ZodType {
   }
   pick(mask) {
     const shape = {};
-    for (const key of util.objectKeys(mask)) {
-      if (mask[key] && this.shape[key]) {
-        shape[key] = this.shape[key];
+    for (const key2 of util.objectKeys(mask)) {
+      if (mask[key2] && this.shape[key2]) {
+        shape[key2] = this.shape[key2];
       }
     }
     return new _ZodObject({
@@ -29683,9 +29683,9 @@ var ZodObject = class _ZodObject extends ZodType {
   }
   omit(mask) {
     const shape = {};
-    for (const key of util.objectKeys(this.shape)) {
-      if (!mask[key]) {
-        shape[key] = this.shape[key];
+    for (const key2 of util.objectKeys(this.shape)) {
+      if (!mask[key2]) {
+        shape[key2] = this.shape[key2];
       }
     }
     return new _ZodObject({
@@ -29701,12 +29701,12 @@ var ZodObject = class _ZodObject extends ZodType {
   }
   partial(mask) {
     const newShape = {};
-    for (const key of util.objectKeys(this.shape)) {
-      const fieldSchema = this.shape[key];
-      if (mask && !mask[key]) {
-        newShape[key] = fieldSchema;
+    for (const key2 of util.objectKeys(this.shape)) {
+      const fieldSchema = this.shape[key2];
+      if (mask && !mask[key2]) {
+        newShape[key2] = fieldSchema;
       } else {
-        newShape[key] = fieldSchema.optional();
+        newShape[key2] = fieldSchema.optional();
       }
     }
     return new _ZodObject({
@@ -29716,16 +29716,16 @@ var ZodObject = class _ZodObject extends ZodType {
   }
   required(mask) {
     const newShape = {};
-    for (const key of util.objectKeys(this.shape)) {
-      if (mask && !mask[key]) {
-        newShape[key] = this.shape[key];
+    for (const key2 of util.objectKeys(this.shape)) {
+      if (mask && !mask[key2]) {
+        newShape[key2] = this.shape[key2];
       } else {
-        const fieldSchema = this.shape[key];
+        const fieldSchema = this.shape[key2];
         let newField = fieldSchema;
         while (newField instanceof ZodOptional) {
           newField = newField._def.innerType;
         }
-        newShape[key] = newField;
+        newShape[key2] = newField;
       }
     }
     return new _ZodObject({
@@ -29969,14 +29969,14 @@ function mergeValues(a, b2) {
     return { valid: true, data: a };
   } else if (aType === ZodParsedType.object && bType === ZodParsedType.object) {
     const bKeys = util.objectKeys(b2);
-    const sharedKeys = util.objectKeys(a).filter((key) => bKeys.indexOf(key) !== -1);
+    const sharedKeys = util.objectKeys(a).filter((key2) => bKeys.indexOf(key2) !== -1);
     const newObj = { ...a, ...b2 };
-    for (const key of sharedKeys) {
-      const sharedValue = mergeValues(a[key], b2[key]);
+    for (const key2 of sharedKeys) {
+      const sharedValue = mergeValues(a[key2], b2[key2]);
       if (!sharedValue.valid) {
         return { valid: false };
       }
-      newObj[key] = sharedValue.data;
+      newObj[key2] = sharedValue.data;
     }
     return { valid: true, data: newObj };
   } else if (aType === ZodParsedType.array && bType === ZodParsedType.array) {
@@ -30140,11 +30140,11 @@ var ZodRecord = class _ZodRecord extends ZodType {
     const pairs = [];
     const keyType = this._def.keyType;
     const valueType = this._def.valueType;
-    for (const key in ctx.data) {
+    for (const key2 in ctx.data) {
       pairs.push({
-        key: keyType._parse(new ParseInputLazyPath(ctx, key, ctx.path, key)),
-        value: valueType._parse(new ParseInputLazyPath(ctx, ctx.data[key], ctx.path, key)),
-        alwaysSet: key in ctx.data
+        key: keyType._parse(new ParseInputLazyPath(ctx, key2, ctx.path, key2)),
+        value: valueType._parse(new ParseInputLazyPath(ctx, ctx.data[key2], ctx.path, key2)),
+        alwaysSet: key2 in ctx.data
       });
     }
     if (ctx.common.async) {
@@ -30192,9 +30192,9 @@ var ZodMap = class extends ZodType {
     }
     const keyType = this._def.keyType;
     const valueType = this._def.valueType;
-    const pairs = [...ctx.data.entries()].map(([key, value], index) => {
+    const pairs = [...ctx.data.entries()].map(([key2, value], index) => {
       return {
-        key: keyType._parse(new ParseInputLazyPath(ctx, key, ctx.path, [index, "key"])),
+        key: keyType._parse(new ParseInputLazyPath(ctx, key2, ctx.path, [index, "key"])),
         value: valueType._parse(new ParseInputLazyPath(ctx, value, ctx.path, [index, "value"]))
       };
     });
@@ -30202,30 +30202,30 @@ var ZodMap = class extends ZodType {
       const finalMap = /* @__PURE__ */ new Map();
       return Promise.resolve().then(async () => {
         for (const pair of pairs) {
-          const key = await pair.key;
+          const key2 = await pair.key;
           const value = await pair.value;
-          if (key.status === "aborted" || value.status === "aborted") {
+          if (key2.status === "aborted" || value.status === "aborted") {
             return INVALID;
           }
-          if (key.status === "dirty" || value.status === "dirty") {
+          if (key2.status === "dirty" || value.status === "dirty") {
             status.dirty();
           }
-          finalMap.set(key.value, value.value);
+          finalMap.set(key2.value, value.value);
         }
         return { status: status.value, value: finalMap };
       });
     } else {
       const finalMap = /* @__PURE__ */ new Map();
       for (const pair of pairs) {
-        const key = pair.key;
+        const key2 = pair.key;
         const value = pair.value;
-        if (key.status === "aborted" || value.status === "aborted") {
+        if (key2.status === "aborted" || value.status === "aborted") {
           return INVALID;
         }
-        if (key.status === "dirty" || value.status === "dirty") {
+        if (key2.status === "dirty" || value.status === "dirty") {
           status.dirty();
         }
-        finalMap.set(key.value, value.value);
+        finalMap.set(key2.value, value.value);
       }
       return { status: status.value, value: finalMap };
     }
@@ -33110,10 +33110,10 @@ function percentile(sorted2, p2) {
   const idx = Math.min(sorted2.length - 1, Math.ceil(p2 / 100 * sorted2.length) - 1);
   return sorted2[Math.max(0, idx)];
 }
-function countBy(items, key) {
+function countBy(items, key2) {
   const out = /* @__PURE__ */ new Map();
   for (const item of items) {
-    const k2 = key(item);
+    const k2 = key2(item);
     out.set(k2, (out.get(k2) ?? 0) + 1);
   }
   return out;
@@ -33477,11 +33477,11 @@ var ActionsSource = class {
     const worstQueue = queues.length > 0 ? Math.max(...queues) : null;
     const byWorkflow = /* @__PURE__ */ new Map();
     for (const r2 of runs) {
-      const key = r2.name || r2.workflowPath || "(unnamed)";
-      const entry = byWorkflow.get(key) ?? { total: 0, failed: 0 };
+      const key2 = r2.name || r2.workflowPath || "(unnamed)";
+      const entry = byWorkflow.get(key2) ?? { total: 0, failed: 0 };
       entry.total++;
       if (r2.conclusion === "failure") entry.failed++;
-      byWorkflow.set(key, entry);
+      byWorkflow.set(key2, entry);
     }
     const failureLines = failed.slice(0, 10).map(
       (r2) => `- \`${r2.name || r2.workflowPath}\` on \`${r2.branch}\` (${r2.event}, attempt ${r2.attempt}) \u2014 ${r2.sha.slice(0, 8)}${r2.url ? ` \u2014 ${r2.url}` : ""}`
@@ -34416,9 +34416,9 @@ var __export2 = (target, all) => {
 };
 var __copyProps2 = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames2(from))
-      if (!__hasOwnProp2.call(to, key) && key !== except)
-        __defProp2(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc2(from, key)) || desc.enumerable });
+    for (let key2 of __getOwnPropNames2(from))
+      if (!__hasOwnProp2.call(to, key2) && key2 !== except)
+        __defProp2(to, key2, { get: () => from[key2], enumerable: !(desc = __getOwnPropDesc2(from, key2)) || desc.enumerable });
   }
   return to;
 };
@@ -34562,9 +34562,9 @@ function bufferToString(input) {
 }
 function pick(source, properties) {
   const out = {};
-  properties.forEach((key) => {
-    if (source[key] !== void 0) {
-      out[key] = source[key];
+  properties.forEach((key2) => {
+    if (source[key2] !== void 0) {
+      out[key2] = source[key2];
     }
   });
   return out;
@@ -34743,20 +34743,20 @@ function appendTaskOptions(options2, commands = []) {
   if (!filterPlainObject(options2)) {
     return commands;
   }
-  return Object.keys(options2).reduce((commands2, key) => {
-    const value = options2[key];
+  return Object.keys(options2).reduce((commands2, key2) => {
+    const value = options2[key2];
     if (r(value)) {
       commands2.push(value);
     } else if (filterPrimitives(value, ["boolean"])) {
-      commands2.push(key + "=" + value);
+      commands2.push(key2 + "=" + value);
     } else if (Array.isArray(value)) {
       for (const v of value) {
         if (!filterPrimitives(v, ["string", "number"])) {
-          commands2.push(key + "=" + v);
+          commands2.push(key2 + "=" + v);
         }
       }
     } else {
-      commands2.push(key);
+      commands2.push(key2);
     }
     return commands2;
   }, commands);
@@ -35137,12 +35137,12 @@ function configListParser(text2) {
   }
   return config2;
 }
-function configGetParser(text2, key) {
+function configGetParser(text2, key2) {
   let value = null;
   const values = [];
   const scopes = /* @__PURE__ */ new Map();
-  for (const item of configParser(text2, key)) {
-    if (item.key !== key) {
+  for (const item of configParser(text2, key2)) {
+    if (item.key !== key2) {
       continue;
     }
     values.push(value = item.value);
@@ -35152,7 +35152,7 @@ function configGetParser(text2, key) {
     scopes.get(item.file).push(value);
   }
   return {
-    key,
+    key: key2,
     paths: Array.from(scopes.keys()),
     scopes,
     value,
@@ -35167,13 +35167,13 @@ function* configParser(text2, requestedKey = null) {
   for (let i2 = 0, max = lines.length - 1; i2 < max; ) {
     const file = configFilePath(lines[i2++]);
     let value = lines[i2++];
-    let key = requestedKey;
+    let key2 = requestedKey;
     if (value.includes("\n")) {
       const line = splitOn(value, "\n");
-      key = line[0];
+      key2 = line[0];
       value = line[1];
     }
-    yield { file, key, value };
+    yield { file, key: key2, value };
   }
 }
 var ConfigList;
@@ -35202,14 +35202,14 @@ var init_ConfigList = __esm2({
         }
         return this.values[file];
       }
-      addValue(file, key, value) {
+      addValue(file, key2, value) {
         const values = this.addFile(file);
-        if (!Object.hasOwn(values, key)) {
-          values[key] = value;
-        } else if (Array.isArray(values[key])) {
-          values[key].push(value);
+        if (!Object.hasOwn(values, key2)) {
+          values[key2] = value;
+        } else if (Array.isArray(values[key2])) {
+          values[key2].push(value);
         } else {
-          values[key] = [values[key], value];
+          values[key2] = [values[key2], value];
         }
         this._all = void 0;
       }
@@ -35222,12 +35222,12 @@ function asConfigScope(scope, fallback) {
   }
   return fallback;
 }
-function addConfigTask(key, value, append22, scope) {
+function addConfigTask(key2, value, append22, scope) {
   const commands = ["config", `--${scope}`];
   if (append22) {
     commands.push("--add");
   }
-  commands.push(key, value);
+  commands.push(key2, value);
   return {
     commands,
     format: "utf-8",
@@ -35236,8 +35236,8 @@ function addConfigTask(key, value, append22, scope) {
     }
   };
 }
-function getConfigTask(key, scope) {
-  const commands = ["config", "--null", "--show-origin", "--get-all", key];
+function getConfigTask(key2, scope) {
+  const commands = ["config", "--null", "--show-origin", "--get-all", key2];
   if (scope) {
     commands.splice(1, 0, `--${scope}`);
   }
@@ -35245,7 +35245,7 @@ function getConfigTask(key, scope) {
     commands,
     format: "utf-8",
     parser(text2) {
-      return configGetParser(text2, key);
+      return configGetParser(text2, key2);
     }
   };
 }
@@ -35264,10 +35264,10 @@ function listConfigTask(scope) {
 }
 function config_default() {
   return {
-    addConfig(key, value, ...rest) {
+    addConfig(key2, value, ...rest) {
       return this._runTask(
         addConfigTask(
-          key,
+          key2,
           value,
           rest[0] === true,
           asConfigScope(
@@ -35279,9 +35279,9 @@ function config_default() {
         trailingFunctionArgument(arguments)
       );
     },
-    getConfig(key, scope) {
+    getConfig(key2, scope) {
       return this._runTask(
-        getConfigTask(key, asConfigScope(scope, void 0)),
+        getConfigTask(key2, asConfigScope(scope, void 0)),
         trailingFunctionArgument(arguments)
       );
     },
@@ -35489,12 +35489,12 @@ function createLogger(label, verbose, initialStep, infoDebugger = createLog()) {
   const labelPrefix2 = label && `[${label}]` || "";
   const spawned = [];
   const debugDebugger = typeof verbose === "string" ? infoDebugger.extend(verbose) : verbose;
-  const key = childLoggerName(filterType(verbose, filterString), debugDebugger, infoDebugger);
+  const key2 = childLoggerName(filterType(verbose, filterString), debugDebugger, infoDebugger);
   return step(initialStep);
   function sibling(name, initial) {
     return append(
       spawned,
-      createLogger(label, key.replace(/^[^:]+/, name), initial, infoDebugger)
+      createLogger(label, key2.replace(/^[^:]+/, name), initial, infoDebugger)
     );
   }
   function step(phase) {
@@ -35964,8 +35964,8 @@ var init_count_objects = __esm2({
     init_utils();
     parser2 = new LineParser(
       /([a-z-]+): (\d+)$/,
-      (result, [key, value]) => {
-        const property = asCamelCase(key);
+      (result, [key2, value]) => {
+        const property = asCamelCase(key2);
         if (Object.hasOwn(result, property)) {
           result[property] = asNumber(value);
         }
@@ -36431,9 +36431,9 @@ function prettyFormat(format2, splitter) {
   return [fields, formatStr.join(splitter)];
 }
 function userOptions(input) {
-  return Object.keys(input).reduce((out, key) => {
-    if (!(key in excludeOptions)) {
-      out[key] = input[key];
+  return Object.keys(input).reduce((out, key2) => {
+    if (!(key2 in excludeOptions)) {
+      out[key2] = input[key2];
     }
     return out;
   }, {});
@@ -36633,17 +36633,17 @@ var init_parse_remote_objects = __esm2({
       new RemoteLineParser(
         /^remote:\s*(enumerating|counting|compressing) objects: (\d+),/i,
         (result, [action, count2]) => {
-          const key = action.toLowerCase();
+          const key2 = action.toLowerCase();
           const enumeration = objectEnumerationResult(result.remoteMessages);
-          Object.assign(enumeration, { [key]: asNumber(count2) });
+          Object.assign(enumeration, { [key2]: asNumber(count2) });
         }
       ),
       new RemoteLineParser(
         /^remote:\s*(enumerating|counting|compressing) objects: \d+% \(\d+\/(\d+)\),/i,
         (result, [action, count2]) => {
-          const key = action.toLowerCase();
+          const key2 = action.toLowerCase();
           const enumeration = objectEnumerationResult(result.remoteMessages);
-          Object.assign(enumeration, { [key]: asNumber(count2) });
+          Object.assign(enumeration, { [key2]: asNumber(count2) });
         }
       ),
       new RemoteLineParser(
@@ -39141,8 +39141,8 @@ var SINGLETON_IDS = Object.freeze({
 });
 var HOSTNAME_SHAPE = /^(?=.{1,253}$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
 var UNATTRIBUTED_KEY = Object.freeze({ kind: "unattributed", id: UNKNOWN_ACTOR });
-function keyString(key) {
-  return `${key.kind}:${key.id}`;
+function keyString(key2) {
+  return `${key2.kind}:${key2.id}`;
 }
 function sameKey(a, b2) {
   return a.kind === b2.kind && a.id === b2.id;
@@ -39164,9 +39164,9 @@ function actorKey(kind, id) {
   if (!isTrustKind(kind)) {
     throw new Error(`"${kind}" is not a trust kind \u2014 one of: ${TRUST_KINDS.join(", ")}`);
   }
-  const key = tryActorKey(kind, id);
-  if (!key) throw new Error(namespaceRefusal(kind, String(id).trim()));
-  return key;
+  const key2 = tryActorKey(kind, id);
+  if (!key2) throw new Error(namespaceRefusal(kind, String(id).trim()));
+  return key2;
 }
 function tryActorKey(kind, id) {
   const singleton = SINGLETON_IDS[kind];
@@ -39237,11 +39237,11 @@ function trustNeighbours(tree, test) {
     ...throughAssumption
   ];
 }
-function joinedTests(tree, key, actors, candidates) {
+function joinedTests(tree, key2, actors, candidates) {
   const cites = (n) => {
     if (!n) return false;
     const k2 = sourceTrustKey(n.source, actors);
-    return !!k2 && sameKey(k2, key);
+    return !!k2 && sameKey(k2, key2);
   };
   const out = [];
   for (const test of candidates) {
@@ -39288,14 +39288,14 @@ function parseObservation(raw) {
   return null;
 }
 function appendObservation(dir, rec, now = () => /* @__PURE__ */ new Date()) {
-  const key = actorKey(rec.kind, rec.id);
+  const key2 = actorKey(rec.kind, rec.id);
   if (rec.type !== "corroboration" && !rec.reason.trim()) {
     throw new Error("a trust change needs a reason \u2014 name what happened, not that something did");
   }
   if (rec.type === "corroboration" && !rec.test.trim()) {
     throw new Error("a corroboration is keyed on the test that produced it \u2014 name the test");
   }
-  const record2 = { ...rec, kind: key.kind, id: key.id, ts: now().toISOString() };
+  const record2 = { ...rec, kind: key2.kind, id: key2.id, ts: now().toISOString() };
   const file = trustLedgerPath(dir);
   fs12.mkdirSync(path11.dirname(file), { recursive: true });
   fs12.appendFileSync(file, JSON.stringify(record2) + "\n");
@@ -39318,15 +39318,15 @@ function readTrustLedger(dir) {
       continue;
     }
     if (rec.type === "migration") continue;
-    const key = keyString({ kind: rec.kind, id: rec.id });
-    const list = histories.get(key) ?? [];
+    const key2 = keyString({ kind: rec.kind, id: rec.id });
+    const list = histories.get(key2) ?? [];
     list.push(rec);
-    histories.set(key, list);
+    histories.set(key2, list);
   }
   return { histories, damaged };
 }
-function historyOf(ledger, key) {
-  return ledger.histories.get(keyString(key)) ?? [];
+function historyOf(ledger, key2) {
+  return ledger.histories.get(keyString(key2)) ?? [];
 }
 var CORROBORATIONS_FOR_CEILING = 3;
 function oneRungAbove(rung) {
@@ -39340,13 +39340,13 @@ function since(history) {
   });
   return history.slice(last2 + 1);
 }
-function rungOf(ledger, key) {
-  return explainRung(ledger, key).rung;
+function rungOf(ledger, key2) {
+  return explainRung(ledger, key2).rung;
 }
-function explainRung(ledger, key) {
-  const ceiling = TRUST_CEILINGS[key.kind];
-  const initial = TRUST_INITIAL[key.kind];
-  const history = since(historyOf(ledger, key));
+function explainRung(ledger, key2) {
+  const ceiling = TRUST_CEILINGS[key2.kind];
+  const initial = TRUST_INITIAL[key2.kind];
+  const history = since(historyOf(ledger, key2));
   const strikes = history.filter((r2) => r2.type === "strike");
   if (strikes.length > 0) return { rung: FLOOR_RUNG, ceiling, because: strikes };
   const refutations = history.filter((r2) => r2.type === "corroboration" && r2.verdict === "refuted");
@@ -39357,8 +39357,8 @@ function explainRung(ledger, key) {
   return { rung: weakestRung([earned, ceiling]), ceiling, because: supporting };
 }
 function webStanding(ledger, host) {
-  const key = tryActorKey("web", host);
-  return key ? rungOf(ledger, key) : FLOOR_RUNG;
+  const key2 = tryActorKey("web", host);
+  return key2 ? rungOf(ledger, key2) : FLOOR_RUNG;
 }
 var MIGRATION_SOURCE = "hosts.jsonl";
 var MIGRATION_BY = `migration:${MIGRATION_SOURCE}`;
@@ -39386,12 +39386,12 @@ function migrateLegacyHostTrust(dir) {
   const retired = [];
   const lines = [];
   for (const [host, state] of byHost) {
-    const key = tryActorKey("web", host);
-    if (!key) {
+    const key2 = tryActorKey("web", host);
+    if (!key2) {
       retired.push(host);
       continue;
     }
-    const common = { ts: state.ts, kind: key.kind, id: key.id, by: MIGRATION_BY };
+    const common = { ts: state.ts, kind: key2.kind, id: key2.id, by: MIGRATION_BY };
     if (state.rung === "expert") {
       appended.push({ ...common, type: "corroboration", test: LEGACY_TEST, verdict: "supported", reason: state.reason });
     } else if (state.everExpert) {
@@ -39493,8 +39493,8 @@ function quotableSource(source) {
   return flat.length > MAX_QUOTED_SOURCE_LENGTH ? `${flat.slice(0, MAX_QUOTED_SOURCE_LENGTH)}\u2026` : flat;
 }
 var SUSPECT_SOURCE_RULE = "suspect-source";
-function rungOver(key, history) {
-  return explainRung({ histories: /* @__PURE__ */ new Map([[keyString(key), history]]), damaged: 0 }, key).rung;
+function rungOver(key2, history) {
+  return explainRung({ histories: /* @__PURE__ */ new Map([[keyString(key2), history]]), damaged: 0 }, key2).rung;
 }
 function sinceReset(history) {
   let last2 = -1;
@@ -39508,7 +39508,7 @@ function isWithdrawal(rec) {
 }
 function withdrawnStanding(ledger) {
   const out = /* @__PURE__ */ new Map();
-  for (const [key, history] of ledger.histories) {
+  for (const [key2, history] of ledger.histories) {
     const first2 = history[0];
     if (!first2 || first2.type === "migration") continue;
     const actor = { kind: first2.kind, id: first2.id };
@@ -39524,7 +39524,7 @@ function withdrawnStanding(ledger) {
       reason: `the test "${rec.test}" was refuted${rec.node ? `, on the claim in "${rec.node}"` : ""}`
     } : null;
     if (!said) continue;
-    out.set(key, {
+    out.set(key2, {
       ...said,
       from: rungOver(actor, live.slice(0, at)),
       to: rungOver(actor, live),
@@ -39545,9 +39545,9 @@ function reconcileWithTrust(vaultRoot, census) {
   const actors = evidenceActors(vaultRoot);
   const byKey = /* @__PURE__ */ new Map();
   for (const n of census.nodes) {
-    const key = sourceTrustKey(n.source, actors);
-    if (key === null) continue;
-    const k2 = keyString(key);
+    const key2 = sourceTrustKey(n.source, actors);
+    if (key2 === null) continue;
+    const k2 = keyString(key2);
     if (!lost.has(k2)) continue;
     const seen = byKey.get(k2);
     if (seen) seen.push(n.title);
@@ -39555,11 +39555,11 @@ function reconcileWithTrust(vaultRoot, census) {
   }
   const withdrawn = [];
   let nodes = 0;
-  for (const [key, change] of lost) {
-    const affected = byKey.get(key) ?? [];
+  for (const [key2, change] of lost) {
+    const affected = byKey.get(key2) ?? [];
     nodes += affected.length;
     withdrawn.push({
-      key: quotableSource(key),
+      key: quotableSource(key2),
       why: change.why,
       from: change.from,
       to: change.to,
@@ -40615,9 +40615,9 @@ function interleave(lists, count2) {
       if (out.length >= count2) break;
       const r2 = list[i2];
       if (!r2) continue;
-      const key = r2.url.replace(/\/+$/, "").toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
+      const key2 = r2.url.replace(/\/+$/, "").toLowerCase();
+      if (seen.has(key2)) continue;
+      seen.add(key2);
       out.push(r2);
     }
   }
@@ -46137,6 +46137,226 @@ function renderRollup(rollup) {
   return lines.join("\n");
 }
 
+// src/eval/review-sample.ts
+var NO_BUCKET = "(in no bucket)";
+var DEFAULT_FRACTION = 0.1;
+var FAITHFULNESS_RUBRIC = [
+  {
+    id: "grounded",
+    question: "Does the node's claim stay inside the evidence it cites?",
+    looksFor: "invented support \u2014 a source that does not say what the node says it says"
+  },
+  {
+    id: "classified",
+    question: "Is it in the right layer? An opportunity is a need, not a feature.",
+    looksFor: "a solution filed as an opportunity, or a belief filed as its own test"
+  },
+  {
+    id: "useful",
+    question: "Would you keep it?",
+    looksFor: "true, well-formed and not worth anybody's next hour"
+  }
+];
+function hash32(s) {
+  let h2 = 2166136261;
+  for (let i2 = 0; i2 < s.length; i2++) {
+    h2 ^= s.charCodeAt(i2);
+    h2 = Math.imul(h2, 16777619);
+  }
+  return h2 >>> 0;
+}
+function prng(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = a + 1831565813 >>> 0;
+    let t2 = a;
+    t2 = Math.imul(t2 ^ t2 >>> 15, t2 | 1);
+    t2 ^= t2 + Math.imul(t2 ^ t2 >>> 7, t2 | 61);
+    return ((t2 ^ t2 >>> 14) >>> 0) / 4294967296;
+  };
+}
+function shuffled(items, rand) {
+  const out = [...items];
+  for (let i2 = out.length - 1; i2 > 0; i2--) {
+    const j2 = Math.floor(rand() * (i2 + 1));
+    [out[i2], out[j2]] = [out[j2], out[i2]];
+  }
+  return out;
+}
+function key(bucket, layer) {
+  return `${bucket}\0${layer}`;
+}
+function homeBuckets(tree) {
+  const index = byTitle([...tree]);
+  const outcome = tree.find((n) => n.layer === "Outcome");
+  const buckets = (outcome?.links ?? []).map((t2) => index.get(t2)).filter((n) => n !== void 0 && n.layer === "Opportunity").map((n) => n.title).sort((a, b2) => a.localeCompare(b2));
+  const homes = /* @__PURE__ */ new Map();
+  for (const bucket of buckets) {
+    for (const n of subtree(bucket, index)) {
+      const existing = homes.get(n.title);
+      if (existing) existing.push(bucket);
+      else homes.set(n.title, [bucket]);
+    }
+  }
+  return homes;
+}
+function allocate(populations, keys, target) {
+  const total = populations.reduce((a, b2) => a + b2, 0);
+  if (total === 0) return populations.map(() => 0);
+  const alloc = populations.map((p2) => p2 > 0 ? 1 : 0);
+  let left = target - alloc.reduce((a, b2) => a + b2, 0);
+  while (left > 0) {
+    let pick3 = -1;
+    let best = -Infinity;
+    for (let i2 = 0; i2 < populations.length; i2++) {
+      if (alloc[i2] >= populations[i2]) continue;
+      const deficit = populations[i2] * target / total - alloc[i2];
+      if (deficit > best || deficit === best && pick3 >= 0 && keys[i2] < keys[pick3]) {
+        best = deficit;
+        pick3 = i2;
+      }
+    }
+    if (pick3 < 0) break;
+    alloc[pick3]++;
+    left--;
+  }
+  return alloc;
+}
+function drawReviewSample(census, opts) {
+  const fraction = opts.fraction ?? DEFAULT_FRACTION;
+  const reviewable = census.nodes.filter((n) => n.layer !== "Outcome");
+  const homes = homeBuckets(census.nodes);
+  const cells = /* @__PURE__ */ new Map();
+  for (const n of reviewable) {
+    const under = homes.get(n.title) ?? [];
+    const bucket = under[0] ?? NO_BUCKET;
+    const k2 = key(bucket, n.layer);
+    const cell = cells.get(k2) ?? { bucket, layer: n.layer, nodes: [] };
+    cell.nodes.push(n);
+    cells.set(k2, cell);
+  }
+  const ordered = [...cells.entries()].sort(([, a], [, b2]) => {
+    const byBucket = a.bucket.localeCompare(b2.bucket);
+    return byBucket !== 0 ? byBucket : LAYERS.indexOf(a.layer) - LAYERS.indexOf(b2.layer);
+  });
+  const target = reviewable.length === 0 ? 0 : Math.max(1, Math.ceil(fraction * reviewable.length));
+  const alloc = allocate(
+    ordered.map(([, c3]) => c3.nodes.length),
+    ordered.map(([k2]) => k2),
+    target
+  );
+  const strata = [];
+  const drawn = [];
+  for (let i2 = 0; i2 < ordered.length; i2++) {
+    const [k2, cell] = ordered[i2];
+    strata.push({ bucket: cell.bucket, layer: cell.layer, population: cell.nodes.length, drawn: alloc[i2] });
+    const byName = [...cell.nodes].sort((a, b2) => a.title.localeCompare(b2.title));
+    for (const n of shuffled(byName, prng(hash32(`${opts.seed}\0${k2}`))).slice(0, alloc[i2])) {
+      const under = homes.get(n.title) ?? [];
+      drawn.push({
+        title: n.title,
+        layer: n.layer,
+        bucket: cell.bucket,
+        evidence: n.evidence,
+        status: n.status,
+        source: n.source,
+        alsoUnder: under.slice(1)
+      });
+    }
+  }
+  return {
+    seed: opts.seed,
+    fraction,
+    reviewable: reviewable.length,
+    target,
+    drawn,
+    strata,
+    overflow: Math.max(0, drawn.length - target),
+    // Over the whole frame rather than over the sheet: whether a node had a
+    // choice of homes is a fact about the frame, and counting only the drawn ones
+    // would report zero on a tree full of them just because none came up.
+    multiHomed: reviewable.filter((n) => (homes.get(n.title) ?? []).length > 1).length,
+    uniform: new Set(strata.filter((s) => s.drawn > 0).map((s) => s.drawn)).size <= 1,
+    unreadable: census.unreadable
+  };
+}
+function pct2(fraction) {
+  const n = fraction * 100;
+  return `${Number.isInteger(n) ? n : n.toFixed(1)}%`;
+}
+function formatReviewSample(sample) {
+  const lines = [];
+  lines.push(
+    `Review sample \u2014 ${sample.drawn.length} of ${sample.reviewable} reviewable node(s) (${pct2(sample.fraction)} asks for ${sample.target}), seed ${JSON.stringify(sample.seed)}`
+  );
+  lines.push(`Reproduce this exact draw: ost-agent review-sample --seed ${JSON.stringify(sample.seed)}`);
+  lines.push("");
+  if (sample.reviewable === 0) {
+    lines.push("Nothing to review: this vault holds no node other than its Outcome.");
+    return lines.join("\n");
+  }
+  lines.push("Rubric \u2014 applied by a person, to each node below. This command rates nothing.");
+  for (const c3 of FAITHFULNESS_RUBRIC) {
+    lines.push(`  ${c3.id} \u2014 ${c3.question}`);
+    lines.push(`    looking for: ${c3.looksFor}`);
+  }
+  lines.push("");
+  const covered = sample.strata.filter((s) => s.drawn > 0).length;
+  lines.push(
+    `Frame: ${sample.strata.length} bucket \xD7 layer cell(s) hold a node; ${covered} are represented in this draw${covered === sample.strata.length ? " \u2014 every bucket and every layer" : ` (${sample.strata.length - covered} MISSED)`}.`
+  );
+  if (sample.overflow > 0) {
+    lines.push(
+      `  The draw is ${sample.overflow} above the ${pct2(sample.fraction)} target: there are more cells than that fraction has nodes, and one per cell is what "every bucket and every layer" costs.`
+    );
+  }
+  if (sample.multiHomed > 0) {
+    lines.push(
+      `  ${sample.multiHomed} node(s) in the frame hang under more than one bucket and are homed under the first alphabetically, so each occupies one cell and can be on this sheet at most once.`
+    );
+  }
+  lines.push(
+    sample.uniform ? `  Every cell drew the same number, so this is a COVERAGE sample and not a proportional one: to estimate the whole tree, weight each node's ratings by the "stands for" figure on its cell rather than averaging the sheet.` : `  Cells drew in proportion to their size where the fraction allowed it. Weight each node's ratings by the "stands for" figure on its cell anyway \u2014 the one-per-cell floor leaves small cells over-represented.`
+  );
+  const orphans = sample.strata.filter((s) => s.bucket === NO_BUCKET);
+  if (orphans.length > 0) {
+    lines.push(
+      `  ${orphans.reduce((a, s) => a + s.population, 0)} node(s) sit under no bucket at all and are drawn as "${NO_BUCKET}" rather than dropped \u2014 \`ost-agent rollup\` names these unfiled.`
+    );
+  }
+  if (sample.unreadable.length > 0) {
+    lines.push(
+      `  ${sample.unreadable.length} file(s) could not be read and are OUTSIDE this frame entirely \u2014 a sample of a tree it cannot read is not a sample of that tree:`
+    );
+    for (const u of sample.unreadable) lines.push(`    ${u.file} \u2014 ${u.reason}`);
+  }
+  lines.push("");
+  const boxes = FAITHFULNESS_RUBRIC.map((c3) => `[ ] ${c3.id}`).join("  ");
+  let bucket = null;
+  for (const s of sample.strata) {
+    if (s.drawn === 0) continue;
+    if (s.bucket !== bucket) {
+      bucket = s.bucket;
+      lines.push(`Bucket: ${bucket}`);
+    }
+    const weight = s.population / s.drawn;
+    lines.push(
+      `  ${s.layer} \u2014 ${s.drawn} of ${s.population} drawn \xB7 each stands for ${Number.isInteger(weight) ? weight : weight.toFixed(2)}`
+    );
+    for (const n of sample.drawn.filter((d) => d.bucket === s.bucket && d.layer === s.layer)) {
+      const meta = [n.evidence ?? "no rung declared", n.status ?? "no status", n.source ?? "no source"];
+      lines.push(`    ${boxes}  ${n.title}`);
+      lines.push(`        ${meta.join(" \xB7 ")}`);
+      if (n.alsoUnder.length > 0) lines.push(`        also under: ${n.alsoUnder.join(", ")}`);
+    }
+  }
+  lines.push("");
+  lines.push(
+    'This is the draw, and only the draw. Whether a sample this size estimates whole-tree quality is settled by a person rating BOTH this sheet and the whole tree (`--fraction 1`) against the rubric above, weighting each rated node by its cell\'s "stands for" figure, and comparing the two \u2014 no command in this repo does that, and none scores faithfulness or usefulness.'
+  );
+  return lines.join("\n");
+}
+
 // src/eval/lineage.ts
 function lineageOf(tree, target) {
   const index = byTitle([...tree]);
@@ -46627,17 +46847,17 @@ function scoreTree(tree) {
   const weakest2 = dimensions.reduce((w, d) => d.value < w.value ? d : w).dimension;
   return { subject: { offered: tree.length, read: nodes.length }, dimensions, score, weakest: weakest2 };
 }
-var pct2 = (value) => `${Math.round(value * 100)}%`;
+var pct3 = (value) => `${Math.round(value * 100)}%`;
 function renderScore(report) {
   const { offered, read } = report.subject;
   if (read === 0) {
     return `score: BLIND \u2014 read 0 of ${offered} node(s), so no score exists.`;
   }
   const lines = [];
-  lines.push(`score: ${pct2(report.score)} over ${read} node(s); weakest dimension ${report.weakest}.`);
+  lines.push(`score: ${pct3(report.score)} over ${read} node(s); weakest dimension ${report.weakest}.`);
   for (const d of report.dimensions) {
     const population = d.of === 0 ? "nothing to read \u2014 scores 0" : `${d.inOrder} of ${d.of} in order`;
-    lines.push(`  ${d.dimension.padEnd(11)} ${pct2(d.value).padStart(4)}  (${population})`);
+    lines.push(`  ${d.dimension.padEnd(11)} ${pct3(d.value).padStart(4)}  (${population})`);
     for (const title of d.failing) lines.push(`    - ${title}`);
   }
   return lines.join("\n");
@@ -47393,17 +47613,17 @@ function profileCommittedRecord(record2) {
   for (const artifact of [...record2.commits, ...record2.prs]) {
     const capability = nameCapability(artifact);
     for (const author of artifact.authors.filter(isAttributable)) {
-      const key = builderKey(author);
-      let profile = byBuilder.get(key);
+      const key2 = builderKey(author);
+      let profile = byBuilder.get(key2);
       if (!profile) {
-        profile = { builder: key, name: author.name, email: author.email, attributed: 0, legible: 0, capabilities: [] };
-        byBuilder.set(key, profile);
-        evidence.set(key, /* @__PURE__ */ new Map());
+        profile = { builder: key2, name: author.name, email: author.email, attributed: 0, legible: 0, capabilities: [] };
+        byBuilder.set(key2, profile);
+        evidence.set(key2, /* @__PURE__ */ new Map());
       }
       profile.attributed += 1;
       if (!capability) continue;
       profile.legible += 1;
-      const caps = evidence.get(key);
+      const caps = evidence.get(key2);
       const seen = caps.get(capability.label);
       if (seen) {
         seen.count += 1;
@@ -47413,8 +47633,8 @@ function profileCommittedRecord(record2) {
       }
     }
   }
-  for (const [key, profile] of byBuilder) {
-    profile.capabilities = [...evidence.get(key).values()].sort(
+  for (const [key2, profile] of byBuilder) {
+    profile.capabilities = [...evidence.get(key2).values()].sort(
       (a, b2) => b2.count - a.count || a.label.localeCompare(b2.label)
     );
   }
@@ -48319,7 +48539,7 @@ function readTranscriptSessions(dir) {
   }
   return sessions;
 }
-function pct3(share) {
+function pct4(share) {
   return `${Math.round(share * 100)}%`;
 }
 function formatPreflightCensus(census) {
@@ -48330,7 +48550,7 @@ function formatPreflightCensus(census) {
     );
   } else {
     lines.push(
-      `Preflight uncertainty: ${census.uncertain} of ${census.readable} readable failure(s) (${pct3(census.share ?? 0)}) came from a caller already showing doubt; ${census.confident} showed none.`
+      `Preflight uncertainty: ${census.uncertain} of ${census.readable} readable failure(s) (${pct4(census.share ?? 0)}) came from a caller already showing doubt; ${census.confident} showed none.`
     );
   }
   lines.push(
@@ -49037,7 +49257,7 @@ function readTreeTitles(vaultDir) {
   }
   return names.filter((n) => n.endsWith(".md")).map((n) => n.replace(/\.md$/, "")).sort();
 }
-function pct4(share) {
+function pct5(share) {
   return share === null ? "\u2014" : `${Math.round(share * 100)}%`;
 }
 function formatSearchLiteralityCensus(census) {
@@ -49048,7 +49268,7 @@ function formatSearchLiteralityCensus(census) {
     );
   } else {
     lines.push(
-      `Search literality: ${census.treeLiteral} of ${census.treeDerived} tree-derived argument(s) (${pct4(census.share)}) are expressible as literal lookups; the bar is ${pct4(census.bar)}.`
+      `Search literality: ${census.treeLiteral} of ${census.treeDerived} tree-derived argument(s) (${pct5(census.share)}) are expressible as literal lookups; the bar is ${pct5(census.bar)}.`
     );
   }
   lines.push(
@@ -49064,17 +49284,17 @@ function formatSearchLiteralityCensus(census) {
   lines.push("  How literal counts, rung by rung:");
   for (const reading of census.readings) {
     lines.push(
-      `    ${reading.treeLiteral}/${reading.treeDerived} (${pct4(reading.share)}) ${reading.meetsBar ? "meets" : "MISSES"} the bar \u2014 ${reading.name}`
+      `    ${reading.treeLiteral}/${reading.treeDerived} (${pct5(reading.share)}) ${reading.meetsBar ? "meets" : "MISSES"} the bar \u2014 ${reading.name}`
     );
   }
   lines.push("  How much text makes an argument tree-derived:");
   for (const rung of census.provenanceLadder) {
     lines.push(
-      `    \u2265${rung.minMatchChars} chars: ${rung.treeLiteral}/${rung.treeDerived} (${pct4(rung.share)}) ${rung.meetsBar ? "meets" : "MISSES"} the bar`
+      `    \u2265${rung.minMatchChars} chars: ${rung.treeLiteral}/${rung.treeDerived} (${pct5(rung.share)}) ${rung.meetsBar ? "meets" : "MISSES"} the bar`
     );
   }
   lines.push(
-    census.ruleDecides ? `  Rule: THE RULE DECIDES THIS. The rungs above do not agree about the ${pct4(census.bar)} bar, so the verdict is as much a property of where "literal" was drawn as of the searches.` : `  Rule: stable \u2014 every rung above reaches the same verdict against the ${pct4(census.bar)} bar.`
+    census.ruleDecides ? `  Rule: THE RULE DECIDES THIS. The rungs above do not agree about the ${pct5(census.bar)} bar, so the verdict is as much a property of where "literal" was drawn as of the searches.` : `  Rule: stable \u2014 every rung above reaches the same verdict against the ${pct5(census.bar)} bar.`
   );
   const treePatterns = census.classified.filter((c3) => c3.provenance === "tree" && c3.literality === "pattern");
   lines.push("");
@@ -49381,7 +49601,7 @@ function pathFailureCensus(failures, meta) {
     bySubjectRoot
   };
 }
-function pct5(share) {
+function pct6(share) {
   return `${Math.round(share * 1e3) / 10}%`;
 }
 function formatPathFailureCensus(census) {
@@ -49394,13 +49614,13 @@ function formatPathFailureCensus(census) {
   }
   const verdict = census.meetsBar ? "CLEARS" : "REFUTED";
   lines.push(
-    `Path-failure attribution: ${verdict} \u2014 ${census.owned} of ${census.pathShaped} path-shaped failure(s) (${pct5(census.share ?? 0)}) arrived through a tool this repository controls, against a pre-committed bar of ${pct5(ATTRIBUTION_RULE.bar)}.`
+    `Path-failure attribution: ${verdict} \u2014 ${census.owned} of ${census.pathShaped} path-shaped failure(s) (${pct6(census.share ?? 0)}) arrived through a tool this repository controls, against a pre-committed bar of ${pct6(ATTRIBUTION_RULE.bar)}.`
   );
   lines.push(
     `Read from ${census.sessionsRead} session(s): ${census.calls} tool call(s), ${census.errors} failure(s), ${census.unread} unpaired and counted neither way.`
   );
   lines.push(
-    `Generous bound \u2014 crediting every call where any segment was ours: ${census.ownedUpperBound}/${census.pathShaped} (${pct5(census.shareUpperBound ?? 0)}).` + (census.boundDecides ? " THE BOUND DECIDES THIS." : "")
+    `Generous bound \u2014 crediting every call where any segment was ours: ${census.ownedUpperBound}/${census.pathShaped} (${pct6(census.shareUpperBound ?? 0)}).` + (census.boundDecides ? " THE BOUND DECIDES THIS." : "")
   );
   lines.push("");
   lines.push("By shape:");
@@ -49410,7 +49630,7 @@ function formatPathFailureCensus(census) {
   lines.push("");
   for (const r2 of census.readings) {
     lines.push(
-      `  ${r2.name.padEnd(28)} ${r2.owned}/${r2.pathShaped} (${pct5(r2.share ?? 0)}) \u2014 ${r2.meetsBar ? "clears" : "below"} the bar`
+      `  ${r2.name.padEnd(28)} ${r2.owned}/${r2.pathShaped} (${pct6(r2.share ?? 0)}) \u2014 ${r2.meetsBar ? "clears" : "below"} the bar`
     );
   }
   if (census.permissionDecides) lines.push("  THE PERMISSION-DENIAL READING DECIDES THIS.");
@@ -49425,7 +49645,7 @@ function formatPathFailureCensus(census) {
   );
   for (const ex of census.excludedByRule) {
     lines.push(
-      `Shape not counted \u2014 ${ex.name}: ${ex.n} more failure(s). Counting them all AND crediting every one to this repository would give ${pct5(ex.shareIfCountedAndOwned)}, ${ex.shareIfCountedAndOwned >= ATTRIBUTION_RULE.bar ? "which clears the bar" : "which still does not clear the bar"}.`
+      `Shape not counted \u2014 ${ex.name}: ${ex.n} more failure(s). Counting them all AND crediting every one to this repository would give ${pct6(ex.shareIfCountedAndOwned)}, ${ex.shareIfCountedAndOwned >= ATTRIBUTION_RULE.bar ? "which clears the bar" : "which still does not clear the bar"}.`
     );
   }
   return lines.join("\n");
@@ -49800,8 +50020,8 @@ function foldDescription(tool2) {
   const name = bareToolName(tool2.name);
   const properties = tool2.input_schema.properties ?? {};
   const sources = [{ where: "description", text: tool2.description }];
-  for (const [key, spec] of Object.entries(properties)) {
-    if (typeof spec?.description === "string") sources.push({ where: `properties.${key}.description`, text: spec.description });
+  for (const [key2, spec] of Object.entries(properties)) {
+    if (typeof spec?.description === "string") sources.push({ where: `properties.${key2}.description`, text: spec.description });
   }
   const found = [];
   for (const source of sources) {
@@ -49844,13 +50064,13 @@ function foldKeywords(tool2) {
     });
   }
   const properties = schema.properties ?? {};
-  for (const [key, spec] of Object.entries(properties)) {
+  for (const [key2, spec] of Object.entries(properties)) {
     if (Array.isArray(spec?.enum)) {
       rules.push({
         tool: name,
         kind: "enumerated-value",
-        statement: `${key} must be one of: ${spec.enum.map(String).join(" | ")}.`,
-        derivedFrom: `properties.${key}.enum`
+        statement: `${key2} must be one of: ${spec.enum.map(String).join(" | ")}.`,
+        derivedFrom: `properties.${key2}.enum`
       });
     }
     const bounds = [];
@@ -49861,8 +50081,8 @@ function foldKeywords(tool2) {
       rules.push({
         tool: name,
         kind: "value-bound",
-        statement: `${key} is bounded: ${bounds.join(", ")}.`,
-        derivedFrom: `properties.${key}.${bounds.length === 1 ? bounds[0].split(" ")[0] : "bounds"}`
+        statement: `${key2} is bounded: ${bounds.join(", ")}.`,
+        derivedFrom: `properties.${key2}.${bounds.length === 1 ? bounds[0].split(" ")[0] : "bounds"}`
       });
     }
   }
@@ -50245,7 +50465,7 @@ function refusalCoverageCensus(failures, manifest) {
     meetsBar: verdict.meetsBar
   };
 }
-function pct6(share) {
+function pct7(share) {
   return `${Math.round(share * 100)}%`;
 }
 function formatRefusalCoverageCensus(census) {
@@ -50258,17 +50478,17 @@ function formatRefusalCoverageCensus(census) {
     return lines.join("\n");
   }
   lines.push(
-    `Reach: ${census.reach.inReach.length} of ${total} refusal class(es) (${pct6(census.reach.share)}) were refused by a tool whose schema this repository holds. The rest are outside any generator running here, whatever a schema could express in principle.`
+    `Reach: ${census.reach.inReach.length} of ${total} refusal class(es) (${pct7(census.reach.share)}) were refused by a tool whose schema this repository holds. The rest are outside any generator running here, whatever a schema could express in principle.`
   );
   lines.push(
-    `Coverage: ${census.verdict.named.length} of ${total} class(es) (${pct6(census.verdict.share)}) could have been named by a schema-derived manifest, against a bar of ${pct6(REFUSAL_RULE.bar)} \u2014 ${census.meetsBar ? "MET" : "REFUTED"}. Weighted by how often each class actually bit: ${pct6(census.verdict.weightedShare)} of ${census.classes.reduce((n, c3) => n + c3.occurrences, 0)} refusals.`
+    `Coverage: ${census.verdict.named.length} of ${total} class(es) (${pct7(census.verdict.share)}) could have been named by a schema-derived manifest, against a bar of ${pct7(REFUSAL_RULE.bar)} \u2014 ${census.meetsBar ? "MET" : "REFUTED"}. Weighted by how often each class actually bit: ${pct7(census.verdict.weightedShare)} of ${census.classes.reduce((n, c3) => n + c3.occurrences, 0)} refusals.`
   );
   lines.push(`  (the verdict is taken on the '${census.verdict.name}' reading \u2014 the widest that can come out false)`);
   lines.push("");
   lines.push("Readings, widest last:");
   for (const reading of census.readings) {
     lines.push(
-      `  ${reading.name}: ${reading.named.length}/${total} (${pct6(reading.share)}), weighted ${pct6(reading.weightedShare)}` + (reading.vacuous ? " \u2014 VACUOUS: admits every class, so it settles nothing" : "")
+      `  ${reading.name}: ${reading.named.length}/${total} (${pct7(reading.share)}), weighted ${pct7(reading.weightedShare)}` + (reading.vacuous ? " \u2014 VACUOUS: admits every class, so it settles nothing" : "")
     );
   }
   lines.push("");
@@ -50504,10 +50724,10 @@ function* scanExtentOverlap(nodes) {
     for (const title of siblings) {
       const e = extents.get(title);
       if (!e || e.size === 0) continue;
-      const key = [...e].sort().join(" ");
-      const cluster = byExtent.get(key);
+      const key2 = [...e].sort().join(" ");
+      const cluster = byExtent.get(key2);
       if (cluster) cluster.push(title);
-      else byExtent.set(key, [title]);
+      else byExtent.set(key2, [title]);
     }
     const reps = [];
     for (const cluster of byExtent.values()) {
@@ -52176,9 +52396,9 @@ function standingCeiling(dir, source) {
   const s = (source ?? "").trim();
   if (!s) return null;
   const actors = claimsStoredEvidence(s) ? evidenceActors(dir) : /* @__PURE__ */ new Map();
-  const key = sourceTrustKey(s, actors);
-  if (!key || sameKey(key, UNATTRIBUTED_KEY)) return null;
-  return { key, rung: rungOf(readTrustLedger(dir), key) };
+  const key2 = sourceTrustKey(s, actors);
+  if (!key2 || sameKey(key2, UNATTRIBUTED_KEY)) return null;
+  return { key: key2, rung: rungOf(readTrustLedger(dir), key2) };
 }
 function standingRefusal(title, declared, earned) {
   return `"${title}" cannot declare '${declared}': it cites ${keyString(earned.key)}, which has earned '${earned.rung}' \u2014 and '${TRUST_CEILINGS[earned.key.kind]}' is the ceiling for a ${earned.key.kind}. A report is ranked by the channel it arrived on, never by what the report says about itself: neither the note's own frontmatter nor the name it was filed under can lift it. Declare '${earned.rung}' or lower (demotion is never gated), or let this source earn it \u2014 put its claim to an assumption test, have a human record the outcome (ost-agent result "<test>" -v <verdict> ...), then ost_rank_source({kind:"${earned.key.kind}", id:"${earned.key.id}", direction:"corroborated", reason:"corroborated by [[<test>]]"}).`;
@@ -52808,16 +53028,16 @@ ${instruction}`;
         required: ["kind", "id", "direction", "reason"]
       },
       run: async (input) => {
-        const key = actorKey(input.kind, input.id);
-        assertRankableKind(key.kind);
+        const key2 = actorKey(input.kind, input.id);
+        assertRankableKind(key2.kind);
         const reason = (input.reason ?? "").trim();
         if (!reason) {
           throw new Error("a trust change needs a reason \u2014 say what happened, not that something did");
         }
         if (input.direction === "contradicted") {
-          appendObservation(dir, { kind: key.kind, id: key.id, type: "strike", reason, by: rankedBy });
-          const after2 = explainRung(readTrustLedger(dir), key);
-          return `${keyString(key)} is struck \u2014 ${reason}. It now stands at '${after2.rung}' (the floor). A strike is not cleared by a later corroboration; a human clears it with \`ost-agent trust reset\`.`;
+          appendObservation(dir, { kind: key2.kind, id: key2.id, type: "strike", reason, by: rankedBy });
+          const after2 = explainRung(readTrustLedger(dir), key2);
+          return `${keyString(key2)} is struck \u2014 ${reason}. It now stands at '${after2.rung}' (the floor). A strike is not cleared by a later corroboration; a human clears it with \`ost-agent trust reset\`.`;
         }
         if (input.direction !== "corroborated") {
           throw new Error(`"${input.direction}" is not a direction \u2014 use one of: ${RANK_DIRECTIONS.join(", ")}`);
@@ -52825,19 +53045,19 @@ ${instruction}`;
         const tree = vault.readTree();
         const verdict = checkCorroboration(tree, { rung: "expert", reason });
         if (!verdict.ok) {
-          throw new Error((verdict.refusal ?? "").replace(/a promotion to "expert"/g, `raising ${keyString(key)}`));
+          throw new Error((verdict.refusal ?? "").replace(/a promotion to "expert"/g, `raising ${keyString(key2)}`));
         }
         const named = namedNodes(reason).map((t2) => tree.find((n) => titlesMatch(n.title, t2))).filter((n) => !!n);
-        const joins = joinedTests(tree, key, evidenceActors(dir), named);
+        const joins = joinedTests(tree, key2, evidenceActors(dir), named);
         if (joins.length === 0) {
           throw new Error(
-            `${keyString(key)} was never cited on the test(s) named here, so this result was not a test of it. A source's standing moves on the tests its own claims were put to: create the node that carries the claim with source pointing at this actor (ost_create_node's \`source\`, settable only at creation), surface an assumption test under it, and let a human record the outcome. Naming a test that already passed for other reasons is the replay this refuses.`
+            `${keyString(key2)} was never cited on the test(s) named here, so this result was not a test of it. A source's standing moves on the tests its own claims were put to: create the node that carries the claim with source pointing at this actor (ost_create_node's \`source\`, settable only at creation), surface an assumption test under it, and let a human record the outcome. Naming a test that already passed for other reasons is the replay this refuses.`
           );
         }
         for (const join of joins) {
           appendObservation(dir, {
-            kind: key.kind,
-            id: key.id,
+            kind: key2.kind,
+            id: key2.id,
             type: "corroboration",
             test: join.test.title,
             // Read off the recorded result, never supplied: a test whose verdict is
@@ -52849,9 +53069,9 @@ ${instruction}`;
             by: rankedBy
           });
         }
-        const after = explainRung(readTrustLedger(dir), key);
+        const after = explainRung(readTrustLedger(dir), key2);
         const observed = joins.map((j2) => `"${j2.test.title}" \u2192 ${j2.verdict ?? "no readable verdict (scores nothing)"}`);
-        return `recorded ${joins.length} observation(s) for ${keyString(key)}: ${observed.join("; ")}. It now stands at '${after.rung}' (ceiling for a ${key.kind}: '${after.ceiling}') \u2014 computed from its whole history, never declared.`;
+        return `recorded ${joins.length} observation(s) for ${keyString(key2)}: ${observed.join("; ")}. It now stands at '${after.rung}' (ceiling for a ${key2.kind}: '${after.ceiling}') \u2014 computed from its whole history, never declared.`;
       }
     }),
     tool({
@@ -54417,8 +54637,8 @@ function isPlainObject2(value) {
 }
 function mergeCapabilities(base, additional) {
   const result = { ...base };
-  for (const key in additional) {
-    const k2 = key;
+  for (const key2 in additional) {
+    const k2 = key2;
     const addValue = additional[k2];
     if (addValue === void 0)
       continue;
@@ -55148,21 +55368,21 @@ function validateToolInput(schema, input, path69 = "") {
   }
   if (schema.type === "object" || schema.properties) {
     const obj = input ?? {};
-    for (const key of schema.required ?? []) {
-      if (obj[key] === void 0) {
-        problems.push(`missing required property \`${key}\`${at}`);
+    for (const key2 of schema.required ?? []) {
+      if (obj[key2] === void 0) {
+        problems.push(`missing required property \`${key2}\`${at}`);
       }
     }
     if (schema.additionalProperties === false && schema.properties) {
-      for (const key of Object.keys(obj)) {
-        if (!(key in schema.properties)) {
-          problems.push(`unexpected property \`${key}\`${at} \u2014 allowed: ${Object.keys(schema.properties).join(", ")}`);
+      for (const key2 of Object.keys(obj)) {
+        if (!(key2 in schema.properties)) {
+          problems.push(`unexpected property \`${key2}\`${at} \u2014 allowed: ${Object.keys(schema.properties).join(", ")}`);
         }
       }
     }
-    for (const [key, sub] of Object.entries(schema.properties ?? {})) {
-      if (obj[key] !== void 0) {
-        problems.push(...validateToolInput(sub, obj[key], path69 ? `${path69}.${key}` : key));
+    for (const [key2, sub] of Object.entries(schema.properties ?? {})) {
+      if (obj[key2] !== void 0) {
+        problems.push(...validateToolInput(sub, obj[key2], path69 ? `${path69}.${key2}` : key2));
       }
     }
   }
@@ -55367,9 +55587,9 @@ var PRIMARY_NODE_KEY = {
   ost_merge_nodes: "into"
 };
 function referencedNodeTitle(name, args) {
-  const key = PRIMARY_NODE_KEY[name];
-  if (!key || !args || typeof args !== "object") return void 0;
-  const v = args[key];
+  const key2 = PRIMARY_NODE_KEY[name];
+  if (!key2 || !args || typeof args !== "object") return void 0;
+  const v = args[key2];
   return typeof v === "string" && v.trim().length > 0 ? v.trim() : void 0;
 }
 function provenanceSuffix(vault, title) {
@@ -56043,13 +56263,13 @@ function applyElicitationDefaults(schema, data) {
   if (schema.type === "object" && schema.properties && typeof schema.properties === "object") {
     const obj = data;
     const props = schema.properties;
-    for (const key of Object.keys(props)) {
-      const propSchema = props[key];
-      if (obj[key] === void 0 && Object.prototype.hasOwnProperty.call(propSchema, "default")) {
-        obj[key] = propSchema.default;
+    for (const key2 of Object.keys(props)) {
+      const propSchema = props[key2];
+      if (obj[key2] === void 0 && Object.prototype.hasOwnProperty.call(propSchema, "default")) {
+        obj[key2] = propSchema.default;
       }
-      if (obj[key] !== void 0) {
-        applyElicitationDefaults(propSchema, obj[key]);
+      if (obj[key2] !== void 0) {
+        applyElicitationDefaults(propSchema, obj[key2]);
       }
     }
   }
@@ -57555,8 +57775,8 @@ function renderClaims(claims) {
   as: ${c3.naming}
   since ${c3.claimedAt}, until ${c3.expiresAt}`).join("\n");
 }
-function releaseClaim(stateDir2, key, session, now = Date.now()) {
-  const held = readClaims(stateDir2).find((c3) => c3.key === key);
+function releaseClaim(stateDir2, key2, session, now = Date.now()) {
+  const held = readClaims(stateDir2).find((c3) => c3.key === key2);
   if (!held || held.state !== "held" || held.session !== session) return false;
   append2(stateDir2, { ...held, state: "released", expiresAt: new Date(now).toISOString() });
   return true;
@@ -60716,6 +60936,28 @@ program2.command("reflection").argument("<solution>", "the Solution a pass was c
 program2.command("rollup").description("the top-level view: what sits under each bucket, computed from the tree (no model needed)").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
   const ctx = buildPassContext(opts.vault);
   console.log(renderRollup(rollupTree(ctx.vault.readTree())));
+});
+program2.command("review-sample").description(
+  "draw a stratified, reproducible sample of the tree for a human to rate against the faithfulness rubric \u2014 the draw only; this command rates nothing and produces no score"
+).option("--vault <dir>", VAULT_OPTION_HELP).option(
+  "--seed <label>",
+  "the string the draw is derived from \u2014 same seed, same sample; different seed, different sample (default: today's UTC date)"
+).option("--fraction <n>", "share of the reviewable nodes to draw, 0\u20131 (default 0.1; `1` prints the whole-tree sheet the sample is compared against)").option("--titles", "print the drawn titles alone, one per line, for a script").action((opts) => {
+  const seed = opts.seed ?? (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  const fraction = opts.fraction === void 0 ? DEFAULT_FRACTION : Number(opts.fraction);
+  if (!Number.isFinite(fraction) || fraction <= 0 || fraction > 1) {
+    console.error(`--fraction must be a number in (0, 1]; got ${JSON.stringify(opts.fraction)}`);
+    process.exitCode = 1;
+    return;
+  }
+  const ctx = buildPassContext(opts.vault);
+  const sample = drawReviewSample(ctx.vault.readTreeCensus(), { seed, fraction });
+  if (sample.reviewable === 0) {
+    console.error(formatReviewSample(sample));
+    process.exitCode = 1;
+    return;
+  }
+  console.log(opts.titles ? sample.drawn.map((n) => n.title).join("\n") : formatReviewSample(sample));
 });
 program2.command("corrections").description(
   "the corrections this workspace has already been given: refusals harvested from finished sessions, deduplicated by the permitted form they named, rendered for the next session to read before it composes"
