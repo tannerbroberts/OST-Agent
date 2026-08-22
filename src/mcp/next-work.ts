@@ -937,6 +937,16 @@ function capList<T>(list: T[], name: string, into: Truncation[], limit = MAX_ITE
  * way `target` is: `undefined`/`null` means the feature is off and every
  * unmapped item lists individually forever, unchanged from before this knob
  * existed.
+ *
+ * `listLimit` is the per-list display cap, {@link MAX_ITEMS_PER_LIST} by default
+ * and never anything else on the MCP surface — it exists because a response has
+ * a budget. A caller with no response budget that needs the WHOLE list may pass
+ * `Infinity`, and exactly one does: the ageing replay
+ * (`src/eval/ageing-replay.ts`) counts how many consecutive passes an item has
+ * sat on a queue, and a cap applied after ordering would let an item slip out of
+ * the visible window and read as "somebody dealt with it". What the cap governs
+ * is display and only display — `done` and every count are taken over the full
+ * sets at any limit — so raising it changes what is shown and nothing else.
  */
 export function computeNextWork(
   vault: Vault,
@@ -945,6 +955,7 @@ export function computeNextWork(
   now: () => Date = () => new Date(),
   target?: string | null,
   ageOutDays?: number | null,
+  listLimit: number = MAX_ITEMS_PER_LIST,
 ): NextWork {
   // ONE parse. The census is read rather than `readTree()` so the retired
   // accounting Z4 needs comes from the same walk that produced the nodes —
@@ -1272,9 +1283,9 @@ export function computeNextWork(
   // `truncated` and in the summary a human reads. A cap that silently shortened
   // a list would read as "that is all there is".
   const truncated: Truncation[] = [];
-  const unmappedEvidence = capList(scopedUnmappedEvidence, "unmappedEvidence", truncated);
-  const underservedOpportunities = capList(scopedUnderserved, "underservedOpportunities", truncated);
-  const solutionsMissingAssumptions = capList(scopedMissingAssumptions, "solutionsMissingAssumptions", truncated);
+  const unmappedEvidence = capList(scopedUnmappedEvidence, "unmappedEvidence", truncated, listLimit);
+  const underservedOpportunities = capList(scopedUnderserved, "underservedOpportunities", truncated, listLimit);
+  const solutionsMissingAssumptions = capList(scopedMissingAssumptions, "solutionsMissingAssumptions", truncated, listLimit);
   const allSolutionsMissingInstruments = excludeByScope(
     omitSuppressed(
       omitDisposed(solutionsMissingInstruments(tree), (title) => title, dispositions, "solutionsMissingInstruments", withheld),
@@ -1291,6 +1302,7 @@ export function computeNextWork(
     allSolutionsMissingInstruments,
     "solutionsMissingInstruments",
     truncated,
+    listLimit,
   );
   const allSolutionsAwaitingObservation = excludeByScope(
     omitSuppressed(
@@ -1308,26 +1320,27 @@ export function computeNextWork(
     allSolutionsAwaitingObservation,
     "solutionsAwaitingObservation",
     truncated,
+    listLimit,
   );
   // `hygiene.issues` is already bounded at the source (it is never fully
   // materialized), so the total has to come from the scan rather than from the
   // array's length — the one list here whose full set is never in memory.
-  const hygieneIssues = capList(hygiene.issues, "hygieneIssues", truncated, MAX_ITEMS_PER_LIST, hygiene.total);
-  const openUnknowns = capList(scopedOpenUnknowns, "openUnknowns", truncated);
-  const retiredFromDuplicateScan = capList(allRetired, "retiredFromDuplicateScan", truncated);
-  const withheldByDisposition = capList(withheld, "withheldByDisposition", truncated);
-  const suppressedByCondition = capList(suppressed, "suppressedByCondition", truncated);
+  const hygieneIssues = capList(hygiene.issues, "hygieneIssues", truncated, listLimit, hygiene.total);
+  const openUnknowns = capList(scopedOpenUnknowns, "openUnknowns", truncated, listLimit);
+  const retiredFromDuplicateScan = capList(allRetired, "retiredFromDuplicateScan", truncated, listLimit);
+  const withheldByDisposition = capList(withheld, "withheldByDisposition", truncated, listLimit);
+  const suppressedByCondition = capList(suppressed, "suppressedByCondition", truncated, listLimit);
   // Each lane's queue is capped the same way and names what it hid. On a done
   // tree these can be the only capped lists, which is why the truncation note is
   // now appended in every summary branch below and not only when there is
   // outstanding maintenance.
   const assumptionWork: AssumptionWork = {
-    runnable: capList(scopedAssumptionWork.runnable, "assumptionWork.runnable", truncated),
-    awaitingOneCommand: capList(scopedAssumptionWork.awaitingOneCommand, "assumptionWork.awaitingOneCommand", truncated),
-    blockedOnPermission: capList(scopedAssumptionWork.blockedOnPermission, "assumptionWork.blockedOnPermission", truncated),
-    needsHumans: capList(scopedAssumptionWork.needsHumans, "assumptionWork.needsHumans", truncated),
+    runnable: capList(scopedAssumptionWork.runnable, "assumptionWork.runnable", truncated, listLimit),
+    awaitingOneCommand: capList(scopedAssumptionWork.awaitingOneCommand, "assumptionWork.awaitingOneCommand", truncated, listLimit),
+    blockedOnPermission: capList(scopedAssumptionWork.blockedOnPermission, "assumptionWork.blockedOnPermission", truncated, listLimit),
+    needsHumans: capList(scopedAssumptionWork.needsHumans, "assumptionWork.needsHumans", truncated, listLimit),
   };
-  const outstandingAsks = capList(allOutstandingAsks, "outstandingAsks", truncated);
+  const outstandingAsks = capList(allOutstandingAsks, "outstandingAsks", truncated, listLimit);
 
   // Under a resolved scope every term here is the SCOPED set — that is the whole
   // deal: `done` means "this branch is current", the summary says so in as many
