@@ -622,6 +622,20 @@ Append-only means a claim cannot be deleted, which is right, and it used to mean
 
 `ost-agent stranded` is the other side of the same concern: evidence that no node cites, split by which fix would actually clear it — an item some live node's prose already quotes (an appendable `source` is enough) versus one nothing quotes at all (which needs a new node). Computed from the tree rather than counted by hand, because a hand census of this is what it was written to replace.
 
+### `backlog-replay` — trying an ageing rule on history before adopting it
+
+A queue that reports the same item on every pass has stopped being information, and the obvious remedy is ageing: an item outstanding for N consecutive passes with nothing done about it stops leading the list and moves to a backlog that is still counted and still recoverable. The obvious objection is just as strong — ageing rewards neglect, so the backlog it assembles may be exactly the work that most needed attention. No argument settles that; somebody has to look at what the rule *would have* buried.
+
+```bash
+ost-agent backlog-replay --queue unmappedEvidence --passes 5 --sweeps 8
+```
+
+Nothing about a live sweep changes. The command clones the vault (it never checks the real one out, so it is safe to point at a tree a loop is committing to), reconstructs each past pass by recomputing `next_work` at that commit, applies the rule, and prints what would have moved — with the pass each item aged out on and the item itself, because a backlog that loses an item is a deletion wearing a nicer word. A pass is a commit that touched `.ost-agent/census-history/firings.jsonl`, which is the only record this vault keeps of a sweep having fired; with no such history it samples commits evenly instead and says so, since a sample and a record are not the same authority.
+
+Two things it takes care over. **"Nothing was done about it" is checked, not inferred from presence** — an opportunity that gained its second solution is still on the queue and is emphatically not being neglected, so a changed solution count restarts the streak and frees anything already backlogged. And **the lists it reads are uncapped**, because a display limit applied after ordering would let an item drop out of the visible window and read as one somebody dealt with.
+
+The first reading on this project's own vault, at five passes over eight recorded firings: **361 of 379** unmapped evidence items would have aged out, virtually all of them harvested transcript records. That is the number the rule has to be judged on, and it is a long way from the "nineteen stranded items" the idea was written about.
+
 ### Dispositions — a way to say "settled", once, where every bucket reads it
 
 `ost_next_work` re-derives outstanding work from the tree's raw structure on every pass, and until now it had no notion of *closed*. So work a previous pass settled came back on the next list and got re-decided, and each bucket leaked its own way: an opportunity whose solution space really does live on its children stayed underserved forever; a solution that shipped still owed an assumption test; and an evidence item corroborating a node the tree already has could not be cleared by any smarter derivation at all, because mapped-ness is `source:` equality and nothing can add a `source:` to an existing node. Something has to be written down.

@@ -106,6 +106,8 @@ import { formatCensus, reconcileWithGit, reconcileWithUsage, recordCensusFiring 
 import { formatStrandedCensus, strandedEvidenceCensus } from "../ost/stranded.js";
 import { censusPeerMerge, formatMergeCensus } from "../ost/vault-merge.js";
 import { blindnessCensus, formatBlindnessCensus, readSweepRuns, recordSweepRun } from "../ost/sweep.js";
+import { formatAgeingReplay, replayAgeingRule } from "../ost/ageing.js";
+import { REPLAYABLE_QUEUES, replayPastSweeps, type ReplayableQueue } from "../eval/ageing-replay.js";
 import {
   formatSearchTotal,
   searchSubjects,
@@ -1587,6 +1589,42 @@ program
       return;
     }
     console.log(formatBlindnessCensus(blindnessCensus(runs)));
+  });
+
+program
+  .command("backlog-replay")
+  .description(
+    "replay past sweeps and report what an ageing rule would have moved to a backlog — counted and recoverable, never dropped",
+  )
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option("--queue <name>", `which queue to age: ${REPLAYABLE_QUEUES.join(", ")}`, "unmappedEvidence")
+  .option("--passes <n>", "consecutive untouched passes before an item ages out", (v) => Number(v), 5)
+  .option("--sweeps <n>", "how many past passes to reconstruct", (v) => Number(v), 8)
+  .option("--scratch <dir>", "where to clone the vault for the replay (default: a temp directory, removed afterwards)")
+  .action(async (opts: { vault: string; queue: string; passes: number; sweeps: number; scratch?: string }) => {
+    if (!REPLAYABLE_QUEUES.includes(opts.queue as ReplayableQueue)) {
+      console.error(`unknown queue \`${opts.queue}\` — one of: ${REPLAYABLE_QUEUES.join(", ")}`);
+      process.exitCode = 1;
+      return;
+    }
+    const dir = path.resolve(opts.vault);
+    const min = readConfig(dir).config.processes["P3_ideate"]?.minSolutionsPerOpportunity ?? 3;
+    const past = await replayPastSweeps(dir, {
+      queue: opts.queue as ReplayableQueue,
+      sweeps: opts.sweeps,
+      minSolutions: min,
+      scratchDir: opts.scratch,
+    });
+    const replay = replayAgeingRule(past.observations, { passes: opts.passes });
+    // The basis leads, above the finding it qualifies. A replay over sampled
+    // commits and a replay over recorded firings answer the same question with
+    // different authority, and the number alone does not say which one this is.
+    console.log(
+      past.basis === "firing-ledger"
+        ? "passes taken from the `.ost-agent/census-history/firings.jsonl` ledger — commits on which a sweep actually fired."
+        : `no firing history in this vault, so passes are ${past.observations.length} commits sampled evenly across all ${past.commits} — a weaker basis than a record of firings.`,
+    );
+    console.log(formatAgeingReplay(replay, opts.queue).join("\n"));
   });
 
 program
