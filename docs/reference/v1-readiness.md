@@ -3114,8 +3114,8 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,495 tests across 286 files, verified 2026-08-21 (`npx vitest run`
-> reports 3,487 of them; the other 8 are the contended calibration file described in the
+> *Today:* **met** — 3,508 tests across 287 files, verified 2026-08-21 (`npx vitest run`
+> reports 3,500 of them; the other 8 are the contended calibration file described in the
 > previous entry. After "Idle down when a pass produces commentary instead of structure"
 > was given its definition of done: `test/loop/pass-shape-classifier.test.ts` runs
 > `src/loop/pass-shape.ts` — which reads a commit's *subject* and nothing else — against
@@ -3185,7 +3185,22 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > `-s bash` missing all eight above-floor constructs on the probe including `mapfile`,
 > while `-s sh` raises 15 findings against this project's own helpers of which zero are
 > above the floor. `SC3044` and `SC3028` carry the release in their English rather than in
-> the code, so even that route must re-derive a version table first.)
+> the code, so even that route must re-derive a version table first. After "Immutable goal
+> contract" was given its definition of done: `test/loop/goal-contract-recorded.test.ts`
+> drives the real `loop start`/`step`/`seal` bracket and holds the three clauses of "Every
+> pass records the outcome text it ran against, and a changed outcome is visible as a
+> change" — the sealed record carries the mandate verbatim, two firings under different
+> mandates are told apart from `runs.jsonl` alone *with the vault edited to a third text
+> neither ever ran against*, and a retune landing between the pass step and the seal comes
+> out `drift: "changed"` with both texts on the line; thirteen tests, one new file.
+> `src/loop/goal-contract.ts` reads the mandate at both ends of every firing and is a
+> REPORTER in the Gate F sense — nothing branches on it, deliberately, because retuning the
+> outcome is a human's operation and a firing that refused to seal over it would be the
+> escape hatch this solution requires closing. What the build found that the node does not
+> say: the mandate lives in two places `set-outcome` keeps in step — `ost.config.yaml`'s
+> `outcome:` key and the root node's body — and the contract records only the first, the one
+> `buildPassContext` renders, so a hand-edit of the node body alone is drift this cannot
+> see.)
 > Previously 3,315 tests across 277 files, verified 2026-08-20 (`npx vitest run`
 > reports 3,307 of them; the other 8 are `test/eval/calibration-ratio-stability.test.ts`,
 > which `vitest.config.ts` collects only when it is named on the command line because it

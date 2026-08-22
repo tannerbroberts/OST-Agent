@@ -982,7 +982,7 @@ var require_command = __commonJS({
     var EventEmitter2 = __require("node:events").EventEmitter;
     var childProcess = __require("node:child_process");
     var path69 = __require("node:path");
-    var fs69 = __require("node:fs");
+    var fs70 = __require("node:fs");
     var process3 = __require("node:process");
     var { Argument: Argument2, humanReadableArgName } = require_argument();
     var { CommanderError: CommanderError2 } = require_error();
@@ -1915,10 +1915,10 @@ Expecting one of '${allowedValues.join("', '")}'`);
         const sourceExt = [".js", ".ts", ".tsx", ".mjs", ".cjs"];
         function findFile(baseDir, baseName2) {
           const localBin = path69.resolve(baseDir, baseName2);
-          if (fs69.existsSync(localBin)) return localBin;
+          if (fs70.existsSync(localBin)) return localBin;
           if (sourceExt.includes(path69.extname(baseName2))) return void 0;
           const foundExt = sourceExt.find(
-            (ext) => fs69.existsSync(`${localBin}${ext}`)
+            (ext) => fs70.existsSync(`${localBin}${ext}`)
           );
           if (foundExt) return `${localBin}${foundExt}`;
           return void 0;
@@ -1930,7 +1930,7 @@ Expecting one of '${allowedValues.join("', '")}'`);
         if (this._scriptPath) {
           let resolvedScriptPath;
           try {
-            resolvedScriptPath = fs69.realpathSync(this._scriptPath);
+            resolvedScriptPath = fs70.realpathSync(this._scriptPath);
           } catch (err) {
             resolvedScriptPath = this._scriptPath;
           }
@@ -9919,14 +9919,14 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs69 = this.flowScalar(this.type);
+              const fs70 = this.flowScalar(this.type);
               if (atNextItem || it.value) {
-                map.items.push({ start, key: fs69, sep: [] });
+                map.items.push({ start, key: fs70, sep: [] });
                 this.onKeyLine = true;
               } else if (it.sep) {
-                this.stack.push(fs69);
+                this.stack.push(fs70);
               } else {
-                Object.assign(it, { key: fs69, sep: [] });
+                Object.assign(it, { key: fs70, sep: [] });
                 this.onKeyLine = true;
               }
               return;
@@ -10054,13 +10054,13 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs69 = this.flowScalar(this.type);
+              const fs70 = this.flowScalar(this.type);
               if (!it || it.value)
-                fc.items.push({ start: [], key: fs69, sep: [] });
+                fc.items.push({ start: [], key: fs70, sep: [] });
               else if (it.sep)
-                this.stack.push(fs69);
+                this.stack.push(fs70);
               else
-                Object.assign(it, { key: fs69, sep: [] });
+                Object.assign(it, { key: fs70, sep: [] });
               return;
             }
             case "flow-map-end":
@@ -13744,7 +13744,7 @@ var require_parse = __commonJS({
 var require_gray_matter = __commonJS({
   "node_modules/gray-matter/index.js"(exports2, module2) {
     "use strict";
-    var fs69 = __require("fs");
+    var fs70 = __require("fs");
     var sections = require_section_matter();
     var defaults = require_defaults();
     var stringify = require_stringify2();
@@ -13828,7 +13828,7 @@ var require_gray_matter = __commonJS({
       return stringify(file, data, options2);
     };
     matter4.read = function(filepath, options2) {
-      const str3 = fs69.readFileSync(filepath, "utf8");
+      const str3 = fs70.readFileSync(filepath, "utf8");
       const file = matter4(str3, options2);
       file.path = filepath;
       return file;
@@ -26906,12 +26906,12 @@ var require_dist4 = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs69, exportName) {
+    function addFormats(ajv, list, fs70, exportName) {
       var _a2;
       var _b;
       (_a2 = (_b = ajv.opts.code).formats) !== null && _a2 !== void 0 ? _a2 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs69[f]);
+        ajv.addFormat(f, fs70[f]);
     }
     module2.exports = exports2 = formatsPlugin;
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -27026,7 +27026,7 @@ var init_stdio2 = __esm({
 });
 
 // src/cli/index.ts
-import fs68 from "node:fs";
+import fs69 from "node:fs";
 import os7 from "node:os";
 import path68 from "node:path";
 import { spawnSync as spawnSync6 } from "node:child_process";
@@ -31803,7 +31803,7 @@ function extractFriction(jsonl) {
   }
   return events;
 }
-function renderBody(sessionId, origin, events, shown) {
+function renderBody(sessionId, origin, events, shown2) {
   const counts = /* @__PURE__ */ new Map();
   for (const e of events) counts.set(e.kind, (counts.get(e.kind) ?? 0) + 1);
   const summary = [...counts.entries()].map(([kind, n]) => `${kind} \xD7${n}`).join(", ");
@@ -31812,10 +31812,10 @@ function renderBody(sessionId, origin, events, shown) {
     "",
     "Evidence class: **observed behavior** \u2014 the agent's own usage of this product, captured mechanically from its session transcript. It is not outside-user demand data: it grounds usability, not desirability, and must not be counted as external evidence of want.",
     "",
-    shown.length < events.length ? `Showing the first ${shown.length}; the rest are counted only.` : "All events shown.",
+    shown2.length < events.length ? `Showing the first ${shown2.length}; the rest are counted only.` : "All events shown.",
     ""
   ];
-  for (const e of shown) {
+  for (const e of shown2) {
     lines.push(`- **${e.kind}**${e.tool ? ` (${e.tool})` : ""}: ${e.detail}`);
   }
   return lines.join("\n");
@@ -31862,12 +31862,12 @@ var TranscriptSource = class {
       seen.add(id);
       const events = extractFriction(fs3.readFileSync(s.full, "utf8"));
       if (events.length === 0) continue;
-      const shown = events.slice(0, this.maxEvents);
+      const shown2 = events.slice(0, this.maxEvents);
       items.push({
         id,
         source: id,
         title: `Session friction ${s.id}`,
-        body: renderBody(s.id, s.origin, events, shown),
+        body: renderBody(s.id, s.origin, events, shown2),
         timestamp: new Date(s.mtimeMs).toISOString()
       });
     }
@@ -45377,17 +45377,17 @@ function newBudget(cap = DETAIL_BUDGET_BYTES) {
 }
 function appendSample(out, items, toLines, opts) {
   const limit = opts.limit ?? MAX_ITEMS_PER_LIST;
-  let shown = 0;
+  let shown2 = 0;
   for (const item of items) {
-    if (shown >= limit) break;
+    if (shown2 >= limit) break;
     const rendered = toLines(item);
     if (!opts.budget.take(rendered)) break;
     out.push(...rendered);
-    shown++;
+    shown2++;
   }
-  const hidden = items.length - shown;
+  const hidden = items.length - shown2;
   if (hidden > 0) {
-    out.push(`${opts.indent ?? "  "}\u2026 ${hidden} more ${opts.what} not listed (showing ${shown} of ${items.length}).`);
+    out.push(`${opts.indent ?? "  "}\u2026 ${hidden} more ${opts.what} not listed (showing ${shown2} of ${items.length}).`);
   }
   return hidden;
 }
@@ -45661,11 +45661,11 @@ function renderGate(tree, solution) {
   const outstanding = verdict.debt?.outstanding ?? [];
   const tail2 = outstanding.join("; ");
   if (outstanding.length > MAX_ITEMS_PER_LIST && verdict.reason.endsWith(tail2)) {
-    const shown = outstanding.slice(0, MAX_ITEMS_PER_LIST);
-    const hidden = outstanding.length - shown.length;
+    const shown2 = outstanding.slice(0, MAX_ITEMS_PER_LIST);
+    const hidden = outstanding.length - shown2.length;
     const head = verdict.reason.slice(0, verdict.reason.length - tail2.length);
     return {
-      text: `gate: BLOCKED \u2014 ${head}${shown.join("; ")} \u2026 and ${hidden} more not listed (showing ${shown.length} of ${outstanding.length}). The refusal counts all ${outstanding.length}; every one of them is linked from this solution's node, so \`ost_read_tree\` names them.`,
+      text: `gate: BLOCKED \u2014 ${head}${shown2.join("; ")} \u2026 and ${hidden} more not listed (showing ${shown2.length} of ${outstanding.length}). The refusal counts all ${outstanding.length}; every one of them is linked from this solution's node, so \`ost_read_tree\` names them.`,
       cleared: false
     };
   }
@@ -51469,9 +51469,9 @@ function readEvidenceBody(dir, id) {
   };
 }
 function capList(list, name, into, limit = MAX_ITEMS_PER_LIST2, total = list.length) {
-  const shown = list.slice(0, limit);
-  if (total > shown.length) into.push({ list: name, shown: shown.length, total, hidden: total - shown.length });
-  return shown;
+  const shown2 = list.slice(0, limit);
+  if (total > shown2.length) into.push({ list: name, shown: shown2.length, total, hidden: total - shown2.length });
+  return shown2;
 }
 function computeNextWork(vault, dir, min, now = () => /* @__PURE__ */ new Date(), target, ageOutDays) {
   const census = vault.readTreeCensus();
@@ -53163,9 +53163,9 @@ ${instruction}`;
           });
           captured += capturedTitles.length;
           if (capturedTitles.length > 0) producing++;
-          const shown = capturedTitles.slice(0, MAX_TITLES_LISTED).map(displaySafeTitle);
-          const overflow = capturedTitles.length - shown.length;
-          const list = `${shown.join(", ")}${overflow > 0 ? ` (+${overflow} more)` : ""}`;
+          const shown2 = capturedTitles.slice(0, MAX_TITLES_LISTED).map(displaySafeTitle);
+          const overflow = capturedTitles.length - shown2.length;
+          const list = `${shown2.join(", ")}${overflow > 0 ? ` (+${overflow} more)` : ""}`;
           const head = capturedTitles.length > 0 ? `captured ${capturedTitles.length}: ${list}` : "0 new";
           if (failure) {
             lines.push(
@@ -58044,9 +58044,9 @@ function composeStandingBriefing(tree, today) {
   } else {
     lines.push(`${recent.length} node(s) entered the tree since ${since2}, newest first:`);
     lines.push("");
-    const shown = recent.slice(0, 10);
-    for (const n of shown) lines.push(`- ${n.created} \u2014 ${n.layer}: "${n.title}"`);
-    if (recent.length > shown.length) lines.push(`- \u2026and ${recent.length - shown.length} more, in the tree itself.`);
+    const shown2 = recent.slice(0, 10);
+    for (const n of shown2) lines.push(`- ${n.created} \u2014 ${n.layer}: "${n.title}"`);
+    if (recent.length > shown2.length) lines.push(`- \u2026and ${recent.length - shown2.length} more, in the tree itself.`);
   }
   return lines.join("\n") + "\n";
 }
@@ -58306,6 +58306,7 @@ function startRun(dir, meta) {
     ...meta.headBefore ? { headBefore: meta.headBefore } : {},
     ...meta.ceiling ? { ceiling: meta.ceiling } : {},
     ...meta.toolSurface ? { toolSurface: meta.toolSurface } : {},
+    ...meta.goal ? { goal: meta.goal } : {},
     steps: []
   };
   fs55.writeFileSync(openRunPath(dir), JSON.stringify(run, null, 2));
@@ -58355,6 +58356,7 @@ function sealRun(dir, meta = {}) {
   const withHead = {
     ...open,
     ...meta.headAfter ? { headAfter: meta.headAfter } : {},
+    ...meta.goal && open.goal ? { goal: meta.goal } : {},
     // Stamped before the verdict is computed, so the verdict is derived from the
     // same list the record carries — a reader can always re-run `computeVerdict`
     // over a sealed line and get the verdict it was sealed with.
@@ -58388,6 +58390,9 @@ function readRuns(dir) {
       if (parsed.degradations !== void 0 && !Array.isArray(parsed.degradations)) delete parsed.degradations;
       if (parsed.fallback !== void 0 && (typeof parsed.fallback !== "object" || parsed.fallback === null || !Array.isArray(parsed.fallback.verbs))) {
         delete parsed.fallback;
+      }
+      if (parsed.goal !== void 0 && (typeof parsed.goal !== "object" || parsed.goal === null || typeof parsed.goal.opened !== "object" || parsed.goal.opened === null)) {
+        delete parsed.goal;
       }
       runs.push(parsed);
     } catch {
@@ -58521,8 +58526,77 @@ function observeToolSurface(opts) {
   };
 }
 
-// src/loop/environment.ts
+// src/loop/goal-contract.ts
+import { createHash as createHash4 } from "node:crypto";
 import fs57 from "node:fs";
+function isGoalUnreadable(o2) {
+  return "unknown" in o2;
+}
+var DIGEST_CHARS = 16;
+function goalDigest(text2) {
+  return createHash4("sha256").update(text2, "utf8").digest("hex").slice(0, DIGEST_CHARS);
+}
+function observeGoal(vaultDir, now = Date.now()) {
+  const at = new Date(now).toISOString();
+  if (!fs57.existsSync(configPath(vaultDir))) {
+    return { unknown: `${CONFIG_FILENAME} is absent \u2014 this directory states no outcome to run against`, at };
+  }
+  try {
+    const text2 = loadConfig(vaultDir).outcome;
+    return { text: text2, digest: goalDigest(text2), source: CONFIG_FILENAME, at };
+  } catch (e) {
+    return { unknown: `${CONFIG_FILENAME} could not be read (${e instanceof Error ? e.message : String(e)})`, at };
+  }
+}
+function openGoalContract(opened) {
+  return { opened };
+}
+function closeGoalContract(opened, sealed) {
+  return { opened, sealed, drift: driftBetween(opened, sealed) };
+}
+function driftBetween(opened, sealed) {
+  if (isGoalUnreadable(opened) || isGoalUnreadable(sealed)) return "unknown";
+  return opened.digest === sealed.digest ? "held" : "changed";
+}
+function goalDriftIsLoud(contract) {
+  return contract !== void 0 && contract.drift !== void 0 && contract.drift !== "held";
+}
+var SHOWN_CHARS = 120;
+function shown(text2) {
+  const oneLine8 = text2.replace(/\s+/g, " ").trim();
+  return oneLine8.length <= SHOWN_CHARS ? oneLine8 : `${oneLine8.slice(0, SHOWN_CHARS - 1)}\u2026`;
+}
+function describe3(o2) {
+  return isGoalUnreadable(o2) ? `no readable outcome (${o2.unknown})` : `"${shown(o2.text)}" (${o2.digest})`;
+}
+function goalContractReport(contract) {
+  if (contract === void 0) return [];
+  if (contract.sealed === void 0) {
+    return [`goal: this run opened against ${describe3(contract.opened)} \u2014 it has not sealed, so nothing re-read it.`];
+  }
+  switch (contract.drift) {
+    case "held":
+      return [
+        `goal: this run ran against ${describe3(contract.opened)} from open to seal \u2014 ${isGoalUnreadable(contract.opened) ? CONFIG_FILENAME : contract.opened.source}.`
+      ];
+    case "changed":
+      return [
+        `\u26A0 goal changed mid-run: opened against ${describe3(contract.opened)}, sealed against ${describe3(contract.sealed)}.`,
+        "  Neither text held for the whole firing, so the record carries both rather than stamping either as the one",
+        "  that stood. Which of them this run's work was actually steered by is not recoverable from it.",
+        "  Retuning the outcome is a human's call (`ost-agent set-outcome`) and this does not refuse it \u2014 what it",
+        "  reports is that it happened while a pass was in flight."
+      ];
+    default:
+      return [
+        `\u26A0 goal: opened against ${describe3(contract.opened)}, sealed against ${describe3(contract.sealed)} \u2014 the two`,
+        "  cannot be compared, so whether this run's mandate held cannot be said either way."
+      ];
+  }
+}
+
+// src/loop/environment.ts
+import fs58 from "node:fs";
 import os4 from "node:os";
 import path57 from "node:path";
 var DISPATCH_LEDGER = "dispatch.jsonl";
@@ -58538,7 +58612,7 @@ function parityLedgerPath(vaultDir) {
 function resolved(p2) {
   const abs = path57.resolve(p2);
   try {
-    return fs57.realpathSync(abs);
+    return fs58.realpathSync(abs);
   } catch {
     return abs;
   }
@@ -58547,7 +58621,7 @@ function reachVault(vaultDir) {
   const abs = path57.resolve(vaultDir);
   let stat = null;
   try {
-    stat = fs57.statSync(abs);
+    stat = fs58.statSync(abs);
   } catch {
     stat = null;
   }
@@ -58561,11 +58635,11 @@ function reachVault(vaultDir) {
       reason: `${abs} is not a git checkout \u2014 the loop records every firing under .git/ost-agent/ and cannot record one here`
     };
   }
-  if (!fs57.existsSync(path57.join(abs, CONFIG_FILENAME))) {
+  if (!fs58.existsSync(path57.join(abs, CONFIG_FILENAME))) {
     return { reachable: false, reason: `${abs} has no ost.config.yaml \u2014 nothing here declares a cadence or a ceiling` };
   }
   try {
-    fs57.accessSync(path57.dirname(state), fs57.constants.W_OK);
+    fs58.accessSync(path57.dirname(state), fs58.constants.W_OK);
   } catch {
     return {
       reachable: false,
@@ -58615,8 +58689,8 @@ function verifyDispatchEnvironment(vaultDir) {
 }
 function appendLine(file, value) {
   try {
-    fs57.mkdirSync(path57.dirname(file), { recursive: true });
-    fs57.appendFileSync(file, JSON.stringify(value) + "\n");
+    fs58.mkdirSync(path57.dirname(file), { recursive: true });
+    fs58.appendFileSync(file, JSON.stringify(value) + "\n");
     return true;
   } catch {
     return false;
@@ -58627,9 +58701,9 @@ function recordDispatch(vaultDir, record2) {
   return file === null ? false : appendLine(file, record2);
 }
 function readLedger2(file, keep) {
-  if (file === null || !fs57.existsSync(file)) return [];
+  if (file === null || !fs58.existsSync(file)) return [];
   const out = [];
-  for (const line of fs57.readFileSync(file, "utf8").split("\n")) {
+  for (const line of fs58.readFileSync(file, "utf8").split("\n")) {
     if (!line.trim()) continue;
     try {
       const parsed = JSON.parse(line);
@@ -58702,11 +58776,11 @@ function parityLine(pair) {
 }
 
 // src/loop/updates.ts
-import fs59 from "node:fs";
+import fs60 from "node:fs";
 import path59 from "node:path";
 
 // src/loop/lock.ts
-import fs58 from "node:fs";
+import fs59 from "node:fs";
 import os5 from "node:os";
 import path58 from "node:path";
 function firingLockPath(vaultDir) {
@@ -58715,9 +58789,9 @@ function firingLockPath(vaultDir) {
 }
 function readFiringLock(vaultDir) {
   const p2 = firingLockPath(vaultDir);
-  if (p2 === null || !fs58.existsSync(p2)) return null;
+  if (p2 === null || !fs59.existsSync(p2)) return null;
   try {
-    const parsed = JSON.parse(fs58.readFileSync(p2, "utf8"));
+    const parsed = JSON.parse(fs59.readFileSync(p2, "utf8"));
     return typeof parsed?.pid === "number" && typeof parsed?.acquiredAt === "string" ? parsed : null;
   } catch {
     return null;
@@ -58747,15 +58821,15 @@ function staleness(held, opts) {
 var tmpCounter = 0;
 function linkInPlace(stateDir2, lockFile, record2) {
   const tmp = path58.join(stateDir2, `.firing.lock.${record2.pid}.${tmpCounter++}`);
-  fs58.writeFileSync(tmp, JSON.stringify(record2) + "\n");
+  fs59.writeFileSync(tmp, JSON.stringify(record2) + "\n");
   try {
-    fs58.linkSync(tmp, lockFile);
+    fs59.linkSync(tmp, lockFile);
     return true;
   } catch (e) {
     if (e.code !== "EEXIST") throw e;
     return false;
   } finally {
-    fs58.rmSync(tmp, { force: true });
+    fs59.rmSync(tmp, { force: true });
   }
 }
 function acquireFiringLock(vaultDir, opts) {
@@ -58775,8 +58849,8 @@ function acquireFiringLock(vaultDir, opts) {
   if (!stale) return { ok: false, held, reason: `another firing holds the lock \u2014 ${why}` };
   try {
     const sidelined = `${lockFile}.stale-${now}-${record2.pid}`;
-    fs58.renameSync(lockFile, sidelined);
-    fs58.rmSync(sidelined, { force: true });
+    fs59.renameSync(lockFile, sidelined);
+    fs59.rmSync(sidelined, { force: true });
   } catch (e) {
     if (e.code !== "ENOENT") throw e;
   }
@@ -58788,8 +58862,8 @@ function stampFiringLock(vaultDir, record2, runId) {
   const lockFile = path58.join(stateDir2, "firing.lock");
   const next = { ...record2, runId };
   const tmp = path58.join(stateDir2, `.firing.lock.${record2.pid}.${tmpCounter++}`);
-  fs58.writeFileSync(tmp, JSON.stringify(next) + "\n");
-  fs58.renameSync(tmp, lockFile);
+  fs59.writeFileSync(tmp, JSON.stringify(next) + "\n");
+  fs59.renameSync(tmp, lockFile);
   return next;
 }
 function releaseFiringLock(vaultDir, match) {
@@ -58800,7 +58874,7 @@ function releaseFiringLock(vaultDir, match) {
   if (match.pid !== void 0 && held.pid !== match.pid) return false;
   if (match.acquiredAt !== void 0 && held.acquiredAt !== match.acquiredAt) return false;
   if (match.runId !== void 0 && held.runId !== match.runId) return false;
-  fs58.rmSync(p2, { force: true });
+  fs59.rmSync(p2, { force: true });
   return true;
 }
 
@@ -58859,15 +58933,15 @@ function announceUpdate(vaultDir, input, opts = { subscription: null }) {
     return { ok: false, reason: `addressed to channel "${announcement.channel}"; this vault subscribes to "${subscription.channel}"` };
   }
   const dir = path59.join(requireLoopStateDir(vaultDir), "updates");
-  fs59.mkdirSync(dir, { recursive: true });
-  fs59.appendFileSync(path59.join(dir, "announced.jsonl"), JSON.stringify(announcement) + "\n");
+  fs60.mkdirSync(dir, { recursive: true });
+  fs60.appendFileSync(path59.join(dir, "announced.jsonl"), JSON.stringify(announcement) + "\n");
   return { ok: true, announcement };
 }
 function readAnnouncements(vaultDir) {
   const p2 = announcedPath(vaultDir);
-  if (p2 === null || !fs59.existsSync(p2)) return [];
+  if (p2 === null || !fs60.existsSync(p2)) return [];
   const out = [];
-  for (const line of fs59.readFileSync(p2, "utf8").split("\n")) {
+  for (const line of fs60.readFileSync(p2, "utf8").split("\n")) {
     if (line.trim().length === 0) continue;
     let parsed;
     try {
@@ -58882,9 +58956,9 @@ function readAnnouncements(vaultDir) {
 }
 function readAppliedUpdate(vaultDir) {
   const p2 = appliedPath(vaultDir);
-  if (p2 === null || !fs59.existsSync(p2)) return null;
+  if (p2 === null || !fs60.existsSync(p2)) return null;
   try {
-    const raw = JSON.parse(fs59.readFileSync(p2, "utf8"));
+    const raw = JSON.parse(fs60.readFileSync(p2, "utf8"));
     const projected = projectAnnouncement(raw);
     if (projected === null) return null;
     const appliedAt = typeof raw.appliedAt === "string" ? raw.appliedAt : "";
@@ -58915,10 +58989,10 @@ function pendingUpdate(input) {
 var tmpCounter2 = 0;
 function writePin(vaultDir, pin) {
   const dir = path59.join(requireLoopStateDir(vaultDir), "updates");
-  fs59.mkdirSync(dir, { recursive: true });
+  fs60.mkdirSync(dir, { recursive: true });
   const tmp = path59.join(dir, `.applied.json.${process.pid}.${tmpCounter2++}`);
-  fs59.writeFileSync(tmp, JSON.stringify(pin) + "\n");
-  fs59.renameSync(tmp, path59.join(dir, "applied.json"));
+  fs60.writeFileSync(tmp, JSON.stringify(pin) + "\n");
+  fs60.renameSync(tmp, path59.join(dir, "applied.json"));
 }
 function applyAtCheckpoint(vaultDir, opts) {
   const { subscription, ttlMs, holdsLock = false } = opts;
@@ -58966,7 +59040,7 @@ function updateStatusLine(vaultDir, subscription, now) {
 }
 
 // src/loop/senses.ts
-import fs60 from "node:fs";
+import fs61 from "node:fs";
 import path60 from "node:path";
 var HARNESS_SENSE = "harness-tools";
 var RESERVED_SENSE_NAMES = /* @__PURE__ */ new Set(["all", "tree", "product-repo", "web-search", "web-read", HARNESS_SENSE]);
@@ -59101,8 +59175,8 @@ function toolCallsByToolSince(vaultDir, startedAt) {
 function repoProblem(vaultDir, repo) {
   const resolved2 = path60.resolve(vaultDir, repo);
   try {
-    if (!fs60.statSync(resolved2).isDirectory()) return "not a directory";
-    fs60.readdirSync(resolved2);
+    if (!fs61.statSync(resolved2).isDirectory()) return "not a directory";
+    fs61.readdirSync(resolved2);
     return null;
   } catch (e) {
     return (e instanceof Error ? e.message : String(e)).replace(/\s+/g, " ").trim();
@@ -59185,7 +59259,7 @@ function senseCensusReport(senses) {
 }
 
 // src/loop/scope.ts
-import fs61 from "node:fs";
+import fs62 from "node:fs";
 import path61 from "node:path";
 function scopePath(dir, runId) {
   return path61.join(requireLoopStateDir(dir), `scope-${runId}.json`);
@@ -59194,9 +59268,9 @@ function readScope(dir, runId) {
   const state = loopStateDir(dir);
   if (state === null) return null;
   const p2 = path61.join(state, `scope-${runId}.json`);
-  if (!fs61.existsSync(p2)) return null;
+  if (!fs62.existsSync(p2)) return null;
   try {
-    const parsed = JSON.parse(fs61.readFileSync(p2, "utf8"));
+    const parsed = JSON.parse(fs62.readFileSync(p2, "utf8"));
     return typeof parsed?.statement === "string" ? parsed : null;
   } catch {
     return null;
@@ -59212,7 +59286,7 @@ function declareScope(dir, run, statement, now = Date.now()) {
     throw new Error(`run ${run.runId} already declared its scope \u2014 a scope is recorded once and never rewritten`);
   }
   const declaration = { runId: run.runId, statement, declaredAt: new Date(now).toISOString() };
-  fs61.writeFileSync(scopePath(dir, run.runId), JSON.stringify(declaration, null, 2));
+  fs62.writeFileSync(scopePath(dir, run.runId), JSON.stringify(declaration, null, 2));
   return declaration;
 }
 function computeShortfall(dir, runId, attempted) {
@@ -59257,11 +59331,11 @@ function assessStall(runs, threshold = STALL_STREAK_THRESHOLD) {
 }
 
 // src/loop/spend.ts
-import fs63 from "node:fs";
+import fs64 from "node:fs";
 import path62 from "node:path";
 
 // src/adapters/tokens.ts
-import fs62 from "node:fs";
+import fs63 from "node:fs";
 function count(value) {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
 }
@@ -59271,7 +59345,7 @@ function text(value) {
 function* readEntries(file) {
   let raw;
   try {
-    raw = fs62.readFileSync(file, "utf8");
+    raw = fs63.readFileSync(file, "utf8");
   } catch {
     return;
   }
@@ -59328,7 +59402,7 @@ function sessionCwd(file) {
 // src/loop/spend.ts
 function canonical(p2) {
   try {
-    return fs63.realpathSync(path62.resolve(p2));
+    return fs64.realpathSync(path62.resolve(p2));
   } catch {
     return path62.resolve(p2);
   }
@@ -59337,7 +59411,7 @@ function measureFiring(sessionsDir, opts) {
   const dir = path62.resolve(sessionsDir);
   let names;
   try {
-    names = fs63.readdirSync(dir);
+    names = fs64.readdirSync(dir);
   } catch (e) {
     return {
       measurable: false,
@@ -59390,11 +59464,11 @@ function checkCeiling(ceiling, measurement) {
 }
 
 // src/loop/questions.ts
-import fs64 from "node:fs";
+import fs65 from "node:fs";
 import path63 from "node:path";
 function canonical2(p2) {
   try {
-    return fs64.realpathSync(path63.resolve(p2));
+    return fs65.realpathSync(path63.resolve(p2));
   } catch {
     return path63.resolve(p2);
   }
@@ -59403,7 +59477,7 @@ function measureInterruptions(sessionsDir, opts) {
   const dir = path63.resolve(sessionsDir);
   let names;
   try {
-    names = fs64.readdirSync(dir);
+    names = fs65.readdirSync(dir);
   } catch (e) {
     return {
       measurable: false,
@@ -59432,7 +59506,7 @@ function measureInterruptions(sessionsDir, opts) {
 function readAsks(file) {
   let text2;
   try {
-    text2 = fs64.readFileSync(file, "utf8");
+    text2 = fs65.readFileSync(file, "utf8");
   } catch {
     return [];
   }
@@ -59474,22 +59548,22 @@ function formatQuestionBudget(budget, measurement) {
 }
 
 // src/cli/vault-option.ts
-import fs67 from "node:fs";
+import fs68 from "node:fs";
 import path66 from "node:path";
 
 // src/config/pointer.ts
 var import_yaml3 = __toESM(require_dist(), 1);
-import fs66 from "node:fs";
+import fs67 from "node:fs";
 import os6 from "node:os";
 import path65 from "node:path";
 
 // src/config/vault-search.ts
-import fs65 from "node:fs";
+import fs66 from "node:fs";
 import path64 from "node:path";
 function findVaultAbove(startDir) {
   let dir = path64.resolve(startDir);
   for (; ; ) {
-    if (fs65.existsSync(path64.join(dir, CONFIG_FILENAME))) return dir;
+    if (fs66.existsSync(path64.join(dir, CONFIG_FILENAME))) return dir;
     const parent = path64.dirname(dir);
     if (parent === dir) return null;
     dir = parent;
@@ -59518,10 +59592,10 @@ function resolveAgainst(baseDir, declared) {
 }
 function readVaultPointer(dir) {
   const file = path65.join(path65.resolve(dir), VAULT_POINTER_FILENAME);
-  if (!fs66.existsSync(file)) return null;
+  if (!fs67.existsSync(file)) return null;
   let raw;
   try {
-    raw = (0, import_yaml3.parse)(fs66.readFileSync(file, "utf8"));
+    raw = (0, import_yaml3.parse)(fs67.readFileSync(file, "utf8"));
   } catch (e) {
     throw new Error(`${file} is not valid YAML: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -59594,7 +59668,7 @@ function resolvedVaultSource() {
 }
 function stalePointerWarning(r2) {
   if (r2.via !== "pointer" || !r2.pointer) return null;
-  if (fs67.existsSync(path66.join(r2.dir, CONFIG_FILENAME))) return null;
+  if (fs68.existsSync(path66.join(r2.dir, CONFIG_FILENAME))) return null;
   return `${r2.pointer.file} names ${r2.dir}, which is not a vault (no ${CONFIG_FILENAME}). The pointer is stale, or that vault has not been cloned onto this machine.`;
 }
 
@@ -59699,11 +59773,11 @@ function dirtyTreeMessage(vaultDir, tree) {
     ].join("\n");
   }
   if (tree.kind === "clean") return "";
-  const shown = tree.entries.slice(0, DIRTY_PATHS_SHOWN);
-  const rest = tree.entries.length - shown.length;
+  const shown2 = tree.entries.slice(0, DIRTY_PATHS_SHOWN);
+  const rest = tree.entries.length - shown2.length;
   return [
     `not firing: ${tree.entries.length} path(s) are already dirty in ${abs}, and this firing did not put them there:`,
-    ...shown.map((e) => `    ${e}`),
+    ...shown2.map((e) => `    ${e}`),
     ...rest > 0 ? [`    \u2026 and ${rest} more`] : [],
     "  Every mutating tool in this vault commits with `git add -A`, so these get committed by whatever tool runs",
     "  next, under that tool's name \u2014 and this firing's verdict would then be earned by somebody else's change.",
@@ -59894,15 +59968,18 @@ function registerLoopCommands(program3) {
       passFile: path67.resolve(opts.pass),
       available: opts.available.split(",").map((t2) => t2.trim()).filter(Boolean)
     });
+    const goal = openGoalContract(observeGoal(opts.vault));
     const opened = startRun(opts.vault, {
       loopVersion: VERSION,
       cliVersion: VERSION,
       headBefore: gitHead(opts.vault),
       ...stampedCeiling ? { ceiling: stampedCeiling } : {},
-      ...toolSurface ? { toolSurface } : {}
+      ...toolSurface ? { toolSurface } : {},
+      goal
     });
     stampFiringLock(opts.vault, lock.record, opened.runId);
     console.log(`loop run ${opened.runId} open`);
+    for (const line2 of goalContractReport(goal)) console.log(line2);
     const parity = recordRunParity(opts.vault, {
       runId: opened.runId,
       reading: runEnvironment,
@@ -60022,6 +60099,7 @@ function registerLoopCommands(program3) {
       const ageMin = Math.floor((now - new Date(last2.startedAt).getTime()) / 6e4);
       console.log(`last-fired: ${last2.startedAt} (${ageMin} minute(s) ago, ${last2.verdict ?? "unsealed"})`);
       for (const line of degradedReport(last2.degradations ?? [])) console.log(line);
+      for (const line of goalContractReport(last2.goal)) console.log(line);
     }
     const stall = assessStall(runs);
     if (stall.stalled) console.log(`stalled: ${stall.reason}`);
@@ -60053,12 +60131,21 @@ function registerLoopCommands(program3) {
     const degradations = open ? observeDegradation(opts.vault, open) : [];
     const senses = open ? observeSenses(opts.vault, open) : [];
     const shortfall = open && opts.attempted !== void 0 ? computeShortfall(opts.vault, open.runId, opts.attempted) : null;
-    const sealed = sealRun(opts.vault, { headAfter: gitHead(opts.vault), degradations });
+    const goal = open?.goal ? closeGoalContract(open.goal.opened, observeGoal(opts.vault)) : void 0;
+    const sealed = sealRun(opts.vault, {
+      headAfter: gitHead(opts.vault),
+      degradations,
+      ...goal ? { goal } : {}
+    });
     const released = releaseFiringLock(opts.vault, { runId: sealed.runId });
     console.log(`loop run ${sealed.runId} sealed: ${sealed.verdict}`);
     for (const s of sealed.steps) console.log(`  ${s.exit === 0 ? "\u2713" : "\u2717"} ${s.phase} (exit ${s.exit})`);
     for (const line of senseCensusReport(senses)) console.log(line);
     for (const line of shortfallReport(shortfall)) console.log(line);
+    for (const line of goalContractReport(goal)) {
+      if (goalDriftIsLoud(goal)) console.error(line);
+      else console.log(line);
+    }
     for (const line of degradedReport(degradations)) console.error(line);
     if (!released) {
       console.error("note: the firing lock is no longer this run's \u2014 it was broken as stale and retaken. Left alone.");
@@ -60087,7 +60174,7 @@ function collect(value, previous) {
   return [...previous, value];
 }
 function readLedgerRowsFile(file) {
-  const parsed = JSON.parse(fs68.readFileSync(file, "utf8"));
+  const parsed = JSON.parse(fs69.readFileSync(file, "utf8"));
   if (!Array.isArray(parsed)) throw new Error(`${file}: expected a JSON array of {title, reason} rows`);
   return parsed.map((row, i2) => {
     const r2 = row;
@@ -60460,7 +60547,7 @@ function shellProcess(command) {
 program2.command("canary").description(
   "run the incumbent command and a changed candidate over the same input, side by side, without stopping the incumbent \u2014 for a human to judge and adopt or discard"
 ).requiredOption("--incumbent <command>", "the command already trusted, run through the shell").requiredOption("--candidate <command>", "the changed command to compare against it, run through the shell").option("--input <file>", "file piped to both commands on stdin (defaults to empty input)").action(async (opts) => {
-  const input = opts.input ? fs68.readFileSync(opts.input, "utf8") : "";
+  const input = opts.input ? fs69.readFileSync(opts.input, "utf8") : "";
   const result = await runCanary(input, shellProcess(opts.incumbent), shellProcess(opts.candidate));
   console.log(renderCanary(result));
 });
@@ -61173,7 +61260,7 @@ program2.command("bank-question").argument("[question]", "the question the run c
 var CONSEQUENCE_SET_FILENAME = "consequence-set.json";
 function readConsequenceSet(state) {
   try {
-    return JSON.parse(fs68.readFileSync(path68.join(state, CONSEQUENCE_SET_FILENAME), "utf8"));
+    return JSON.parse(fs69.readFileSync(path68.join(state, CONSEQUENCE_SET_FILENAME), "utf8"));
   } catch {
     return null;
   }
@@ -61230,8 +61317,8 @@ program2.command("consequence-set").argument("[premise]", "the stated premise th
       process.exitCode = 1;
       return;
     }
-    fs68.mkdirSync(state, { recursive: true });
-    fs68.writeFileSync(path68.join(state, CONSEQUENCE_SET_FILENAME), JSON.stringify(set));
+    fs69.mkdirSync(state, { recursive: true });
+    fs69.writeFileSync(path68.join(state, CONSEQUENCE_SET_FILENAME), JSON.stringify(set));
     console.log(formatConsequenceBatch(set));
   }
 );
