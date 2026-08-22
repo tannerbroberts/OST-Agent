@@ -259,12 +259,31 @@ async function runCensus(local: FixtureNode[], peer: FixtureNode[], extra?: Reco
   return censusPeerMerge({ localDir, peerDir, scratchDir: scratch, at: AT, peerLabel: "peer" });
 }
 
+/**
+ * The plain exchange over the standard fixture, run once for the whole file.
+ *
+ * `seedTree`/`diverge` are deterministic and `censusPeerMerge` writes to neither
+ * vault, so a second identical exchange costs a full git merge over fifty-odd
+ * conflicting files and returns the same object. Two tests wanted it, and the
+ * second was paying for it: "state the exchange does not carry…" ran this AND its
+ * own exchange, which made it the heaviest test in the heaviest file in the suite
+ * and the one that crossed the 20s cap under parallel load (6.3s idle, timing out
+ * at 20s beside 294 other files — twice on 2026-08-22, and a sibling in this same
+ * file on the run before). Sharing the result is the repair that costs no
+ * assertion; nothing here mutates what it returns.
+ */
+let plainExchange: Promise<MergeCensus> | undefined;
+function baselineCensus(): Promise<MergeCensus> {
+  const { local, peer } = diverge(seedTree());
+  plainExchange ??= runCensus(local, peer);
+  return plainExchange;
+}
+
 // ---------------------------------------------------------------------------
 
 describe("peer exchange — counting the conflicts a person has to settle", () => {
   test("an ordinary exchange leaves at most five conflicts needing human judgement", async () => {
-    const { local, peer } = diverge(seedTree());
-    const census = await runCensus(local, peer);
+    const census = await baselineCensus();
 
     // The census has to have had work to do. A merge that conflicted on nothing
     // would pass the bar by measuring nothing, which is the failure mode this
@@ -329,7 +348,7 @@ describe("peer exchange — counting the conflicts a person has to settle", () =
 
   test("state the exchange does not carry is counted and named, never silently dropped", async () => {
     const { local, peer } = diverge(seedTree());
-    const census = await runCensus(local, peer, {});
+    const census = await baselineCensus();
 
     const localDir = tempDir("ost-vm-local2-");
     const peerDir = tempDir("ost-vm-peer2-");
