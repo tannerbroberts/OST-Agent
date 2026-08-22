@@ -196,6 +196,32 @@ const KNOWN_UNREACHABLE: Record<string, string> = {
    */
   "src/git/branch-isolation.ts":
     "built and tested; parked pending a decision to run more than one build pass concurrently, which nothing in this repository does yet",
+  /*
+   * Reads a commit subject and says whether that commit built structure or wrote
+   * commentary about structure that already existed — the detection half of
+   * "Idle down when a pass produces commentary instead of structure". Measured
+   * against 2,950 commits of the meta vault labelled from their diffs, at 91.12%
+   * against a bar of 90% pre-committed before the corpus was cut
+   * (`test/loop/pass-shape-classifier.test.ts`).
+   *
+   * Parked because the assumption test that cleared this build measures
+   * *detection*, and its own text refuses to carry further: "a green exit says the
+   * classifier agrees with the fixture; it does not say the hand labels were
+   * right, and it does not say throttling on that signal is a good idea." The
+   * solution node names the counter-example itself — the most valuable artefact of
+   * the run that first showed the decay was a builder briefing, it was
+   * commentary-only, and it was last, so a classifier at 100% agreement would have
+   * idled the loop immediately after the best thing the agent did. Wiring this to
+   * `loop/cadence.ts` would answer a question about value with a commit instead of
+   * with the evidence that was meant to answer it.
+   *
+   * It comes off when a schedule-backoff policy adopts `classifyPassShape` — which
+   * needs the "commentary that repeats the previous pass's commentary" comparison
+   * the solution node says the real rule requires, and which this module does not
+   * attempt — or goes when the node is deferred.
+   */
+  "src/loop/pass-shape.ts":
+    "built and measured at 91.12% against its pre-committed 90% bar; parked because that bar licenses detection, and the throttle it would feed is a spend decision the assumption test explicitly does not settle",
 };
 
 function tsFiles(dir: string): string[] {
