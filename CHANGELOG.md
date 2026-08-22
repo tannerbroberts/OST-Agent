@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+- **Installing a helper now runs the helper's own preflight and refuses what cannot run
+  here.** A helper declares what it needs — `# ost-requires: command git — reads the staged
+  index` — in its own header, so the declaration travels in the one file that gets copied.
+  `ensurePreCommitHook` checks the generated hook's manifest against the machine *before*
+  writing it and returns a refusal naming what is missing and what was found instead;
+  `ost-agent helper-preflight` does the same for the helpers an operator installs by hand.
+  A builtin's release comes from the compat lint's own version table, so an author declares
+  `mapfile` rather than having to know it is bash 4.0 — which is how the recorded failure
+  (`ost-reports: line 21: mapfile: command not found`, macOS bash 3.2) is caught at install
+  time instead of at line 21. `test/runner/helper-manifest-coverage.test.ts` holds the bar
+  the assumption test fixed: the manifests catch that failure, and each omits at most one
+  command its script genuinely invokes (measured: 0 of 5 omit anything).
+  **Three things the design turned up.** A manifest cannot always live inside the helper —
+  two of the five here are verbatim copies whose line numbers another spec pins, which is
+  the general case of any helper you did not author, so they carry sidecars. A real
+  dependency can be invisible to any command-position analysis: `autonomous-pass.sh` needs
+  `claude` (an *argument* to `ost-agent loop step`) and `rm` (inside a single-quoted `trap`
+  body), so the omission count is a floor rather than a ceiling. And the compat lint's
+  scanner is not reusable for this — it keeps double-quoted spans on purpose, which over
+  these mostly-English helpers reads "ran 3 instrument(s)" as commands named `instrument`
+  and `s`; the first honest run scored 48 omissions against `build-pass.sh`, none of them a
+  command. Every one of those failure modes is now asserted, because a scanner that has
+  quietly gone silent produces a *perfect* omission score.
+
 - **A tenth of the tree, drawn so a person can actually review it — the draw only, never a
   score.** `docs/reference/evaluating-ost-agent.md` has said since the faithfulness judge
   was deleted that layers 2 and 3 are read by a human "one node at a time", which on a

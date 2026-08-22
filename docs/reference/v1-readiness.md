@@ -3114,8 +3114,8 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,598 tests across 291 files, verified 2026-08-22 (`npx vitest run`
-> reports 3,590 of them; the other 8 are the contended calibration file described in the
+> *Today:* **met** — 3,634 tests across 292 files, verified 2026-08-22 (`npx vitest run`
+> reports 3,626 of them; the other 8 are the contended calibration file described in the
 > previous entry. After "Independent judge separate from the proposer" was given its
 > definition of done: `src/eval/judge-independence.ts` makes the split between the agent
 > that proposes and the judge that checks it a property of how the two calls are wired.

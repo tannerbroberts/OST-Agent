@@ -1,0 +1,25 @@
+# The manifest for `test/fixtures/bash-compat/ost-reports.fixed.sh`, written by
+# hand from reading that script.
+#
+# Sidecar for the same reason as its broken twin: that file is a verbatim copy of
+# a live artefact (`~/.local/bin/ost-reports`, 2026-08-21) and the negative
+# control for the bash-compat lint, so nothing may be added to it.
+#
+# The interesting line is the one that is NOT here. This is the same helper after
+# its fix, and the fix replaced `mapfile` with a `read` loop — a builtin the floor
+# has — so the manifest loses a requirement while the script keeps every external
+# command it had. That is the shape a manifest is supposed to track, and it is
+# also the shape it will miss when the change runs the other way.
+#
+# ost-requires: interpreter bash — indexed arrays and `${!FILES[@]}`
+# ost-requires: command ls — lists the archive directory
+# ost-requires: command sort — -r puts the newest report first
+# ost-requires: command basename — turns an archive path into its timestamp
+# ost-requires: command head — takes the report's title line
+# ost-requires: command tail — takes the report's body, from line 2
+# ost-requires: command fold — wraps the body to 88 columns
+# ost-requires: command sed — indents the wrapped body
+# ost-requires: command tr — flattens a body to one line, and strips wc's padding
+# ost-requires: command cut — truncates a body to 96 columns for the list view
+# ost-requires: command wc — counts the undelivered spool
+# ost-requires: command seq — enumerates the -n COUNT range

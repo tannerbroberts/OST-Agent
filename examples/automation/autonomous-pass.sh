@@ -41,6 +41,24 @@
 #
 #     Run this script as often as you like — every 5 minutes from cron is fine. The
 #     cadence gate is what decides whether a firing actually happens.
+#
+# What this helper needs from the machine it runs on. `ost-agent helper-preflight`
+# checks these before you install it, so a machine that cannot run this says so
+# up front rather than at the line that first reaches for something absent.
+# ost-requires: interpreter bash — arrays, process substitution and ${BASH_SOURCE}
+# ost-requires: command node — runs dist/ost-agent.mjs, which is the whole CLI
+# ost-requires: command claude — the Claude Code CLI is the reasoning half of the pass
+# ost-requires: command git — pushes the vault's auto-committed writes
+# ost-requires: command mktemp — the MCP config, rollup, corrections and prompt files
+# ost-requires: command awk — strips the frontmatter off .claude/commands/ost-pass.md
+# ost-requires: command sed — extracts allowed-tools and reshapes the tool lists
+# ost-requires: command sort — -u on both tool lists, so comm can diff them
+# ost-requires: command tr — splits the comma-separated tool lists into lines
+# ost-requires: command comm — the withheld-tool derivation is a set difference
+# ost-requires: command cat — reads the skill and the assembled prompt back
+# ost-requires: command head — takes the first allowed-tools line
+# ost-requires: command dirname — resolves OST_AGENT_DIR from ${BASH_SOURCE[0]}
+# ost-requires: command rm — the EXIT trap clears the four temp files
 set -euo pipefail
 
 VAULT_DIR="${1:-.}"

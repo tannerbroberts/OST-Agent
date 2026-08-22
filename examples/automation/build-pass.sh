@@ -57,6 +57,31 @@
 #                              discovery after the first firing.
 #   OST_BUILD_REPORT           file this pass writes its one-paragraph report to
 #   OST_BUILD_LOCK_TTL_MINUTES a lock older than this is treated as a dead firing (60)
+#
+# What this helper needs from the machine it runs on. `ost-agent helper-preflight`
+# checks these before you install it, so a machine that cannot run this says so
+# up front rather than at the line that first reaches for something absent.
+# ost-requires: interpreter bash — arrays, process substitution and ${BASH_SOURCE}
+# ost-requires: command node — runs dist/ost-agent.mjs, which is the whole CLI
+# ost-requires: command claude — the Claude Code CLI is the reasoning half of the pass
+# ost-requires: command git — records instrument observations and inspects node history
+# ost-requires: command date — the cadence stamp and the inbox note's timestamp
+# ost-requires: command mktemp — the MCP config and the prompt file
+# ost-requires: command mkdir — the state directory and the atomic overlap lock
+# ost-requires: command rm — releases the lock and clears the temp files
+# ost-requires: command mv — swaps the rewritten stuck-target table into place
+# ost-requires: command cat — reads the report, the stamp and the prompt back
+# ost-requires: command grep — narrows candidates and parses the CLI's own output
+# ost-requires: command sed — trims the health-report and permit-refusal lines
+# ost-requires: command awk — looks up and rewrites the stuck-target table
+# ost-requires: command tr — slugs the inbox filename and strips wc's padding
+# ost-requires: command cut — truncates the inbox slug
+# ost-requires: command wc — counts pending and buildable candidates
+# ost-requires: command sort — -u over the candidate list
+# ost-requires: command find — ages the lock directory for the TTL check
+# ost-requires: command basename — turns node paths back into node titles
+# ost-requires: command head — takes the first line of a report or a match
+# ost-requires: command dirname — resolves OST_AGENT_DIR from ${BASH_SOURCE[0]}
 set -uo pipefail
 
 VAULT_DIR="${1:-.}"
