@@ -38884,6 +38884,162 @@ var import_gray_matter3 = __toESM(require_gray_matter(), 1);
 import { createHash } from "node:crypto";
 import fs10 from "node:fs";
 import path9 from "node:path";
+
+// src/index.ts
+var VERSION = "0.23.0";
+
+// src/release/next-version.ts
+function parseVersion(raw) {
+  const match = /^v?(\d+)\.(\d+)\.(\d+)$/.exec(raw.trim());
+  if (!match) return null;
+  const [, major, minor, patch] = match;
+  return { major: Number(major), minor: Number(minor), patch: Number(patch) };
+}
+function compareVersions(a, b2) {
+  for (const key2 of ["major", "minor", "patch"]) {
+    if (a[key2] !== b2[key2]) return a[key2] < b2[key2] ? -1 : 1;
+  }
+  return 0;
+}
+
+// src/ost/legacy-fallback.ts
+var LEGACY_TEST_EDGE = {
+  /** The shape being read as a fallback. */
+  signal: "a direct Solution\u2192AssumptionTest edge",
+  /** The release that introduced the Assumption layer and made this shape legacy. */
+  introducedIn: "0.23.0",
+  /**
+   * The version boundary, as a date, because a node stamps `created` and not a
+   * version. This is the day the Assumption layer landed on `main`; a test
+   * created before it could not have been attached under an Assumption.
+   */
+  boundary: "2026-08-05",
+  /**
+   * The release this fallback goes inert at. Three minor releases past the
+   * boundary — roughly two weeks at this repository's release cadence, which is
+   * long enough for a vault to be migrated by ordinary use and short enough that
+   * the second accounting does not outlive anyone's memory of why it exists.
+   */
+  droppedIn: "0.26.0"
+};
+function legacyTestEdgeStatus(version2 = VERSION) {
+  const core = version2.trim().replace(/[-+].*$/, "");
+  const running = parseVersion(core);
+  const dropped = parseVersion(LEGACY_TEST_EDGE.droppedIn);
+  if (!running) {
+    return {
+      active: true,
+      running: version2,
+      droppedIn: LEGACY_TEST_EDGE.droppedIn,
+      reason: `"${version2}" is not a version this rule can read, so the fallback stays active \u2014 an unreadable version says nothing about a deadline`
+    };
+  }
+  const active = compareVersions(running, dropped) < 0;
+  return {
+    active,
+    running: core,
+    droppedIn: LEGACY_TEST_EDGE.droppedIn,
+    reason: active ? `${core} is before ${LEGACY_TEST_EDGE.droppedIn}: ${LEGACY_TEST_EDGE.signal} is still read for tests created before ${LEGACY_TEST_EDGE.boundary}` : `${core} is at or past ${LEGACY_TEST_EDGE.droppedIn}: ${LEGACY_TEST_EDGE.signal} is no longer read at all`
+  };
+}
+function boundaryStanding(node) {
+  if (!node.created) return "undated";
+  return node.created < LEGACY_TEST_EDGE.boundary ? "before" : "after";
+}
+function resolveTestsUnderSolution(solution, index, version2 = VERSION) {
+  const fallbackActive = legacyTestEdgeStatus(version2).active;
+  const out = /* @__PURE__ */ new Map();
+  const legacy = [];
+  for (const link of solution.links) {
+    const child = index.get(link);
+    if (!child) continue;
+    if (child.layer === "AssumptionTest") {
+      if (fallbackActive && boundaryStanding(child) !== "after") legacy.push(child);
+      continue;
+    }
+    if (child.layer !== "Assumption") continue;
+    for (const grand of child.links) {
+      const test = index.get(grand);
+      if (test?.layer === "AssumptionTest") out.set(test.title, { test, via: "assumption" });
+    }
+  }
+  for (const test of legacy) if (!out.has(test.title)) out.set(test.title, { test, via: "legacy-edge" });
+  return [...out.values()];
+}
+function legacyFallbackCensus(tree, version2 = VERSION) {
+  const status = legacyTestEdgeStatus(version2);
+  const index = /* @__PURE__ */ new Map();
+  for (const n of tree) index.set(n.title, n);
+  const reliant = [];
+  let carrying = 0;
+  let undated = 0;
+  let refusedAfterBoundary = 0;
+  for (const solution of tree) {
+    if (solution.layer !== "Solution") continue;
+    for (const link of solution.links) {
+      const child = index.get(link);
+      if (child?.layer === "AssumptionTest" && boundaryStanding(child) === "after") refusedAfterBoundary++;
+    }
+    const resolved2 = resolveTestsUnderSolution(solution, index, version2);
+    const legacy = resolved2.filter((r2) => r2.via === "legacy-edge");
+    if (legacy.length === 0) continue;
+    carrying += legacy.length;
+    const undatedHere = legacy.filter((r2) => boundaryStanding(r2.test) === "undated").length;
+    undated += undatedHere;
+    reliant.push({
+      solution: solution.title,
+      tests: legacy.map((r2) => r2.test.title).sort(),
+      soleSource: legacy.length === resolved2.length,
+      standing: undatedHere > 0 ? "undated" : "dated"
+    });
+  }
+  reliant.sort((a, b2) => a.solution.localeCompare(b2.solution));
+  return {
+    status,
+    boundary: LEGACY_TEST_EDGE.boundary,
+    reliant,
+    carrying,
+    undated,
+    soleSource: reliant.filter((r2) => r2.soleSource).length,
+    refusedAfterBoundary
+  };
+}
+function renderLegacyFallbackCensus(census) {
+  const lines = [];
+  lines.push(`Legacy signal: ${LEGACY_TEST_EDGE.signal}, read as a fallback so pre-${LEGACY_TEST_EDGE.boundary} work still counts.`);
+  lines.push(`  ${census.status.active ? "ACTIVE" : "INERT"} \u2014 ${census.status.reason}`);
+  lines.push(`  boundary ${census.boundary} (the release that made this shape legacy: ${LEGACY_TEST_EDGE.introducedIn})`);
+  lines.push("");
+  if (!census.status.active) {
+    lines.push("The fallback is inert, so it carries nothing here by construction.");
+    return lines.join("\n");
+  }
+  lines.push(`Carrying ${census.carrying} edge(s) across ${census.reliant.length} solution(s).`);
+  lines.push(
+    census.soleSource === 0 ? "  0 solution(s) are counted tested by the legacy signal ALONE \u2014 nothing reopens when it goes inert, so it is droppable today." : `  ${census.soleSource} solution(s) are counted tested by the legacy signal ALONE \u2014 they reopen the day it goes inert.`
+  );
+  if (census.undated > 0) {
+    lines.push(
+      `  ${census.undated} of those edge(s) are kept only because the test carries no \`created\` date, which the boundary cannot bound. Only ${LEGACY_TEST_EDGE.droppedIn} ends them.`
+    );
+  }
+  if (census.refusedAfterBoundary > 0) {
+    lines.push(
+      `  ${census.refusedAfterBoundary} direct edge(s) were REFUSED \u2014 the test was created on or after the boundary, so the old shape is being written today and no migration will finish.`
+    );
+  }
+  if (census.reliant.length > 0) {
+    lines.push("");
+    for (const r2 of census.reliant) {
+      const marks2 = [r2.soleSource ? "sole source" : "also has an assumption route", r2.standing].join(", ");
+      lines.push(`  ${r2.solution} (${marks2})`);
+      for (const t2 of r2.tests) lines.push(`    \u2190 ${t2}`);
+    }
+  }
+  return lines.join("\n");
+}
+
+// src/processes/tree.ts
 function evidenceDir(dir) {
   return path9.join(dir, ".ost-agent", "evidence");
 }
@@ -39007,21 +39163,7 @@ function opportunitiesServedBeneath(tree, index) {
   return served;
 }
 function testsUnderSolution(solution, index) {
-  const out = /* @__PURE__ */ new Map();
-  for (const link of solution.links) {
-    const child = index.get(link);
-    if (!child) continue;
-    if (child.layer === "AssumptionTest") {
-      out.set(child.title, child);
-      continue;
-    }
-    if (child.layer !== "Assumption") continue;
-    for (const grand of child.links) {
-      const test = index.get(grand);
-      if (test?.layer === "AssumptionTest") out.set(test.title, test);
-    }
-  }
-  return [...out.values()];
+  return resolveTestsUnderSolution(solution, index).map((r2) => r2.test);
 }
 
 // src/eval/evidence-debt.ts
@@ -45539,7 +45681,7 @@ function indexByTitle(tree) {
   return index;
 }
 function testsUnder(index, solution) {
-  return testsUnderSolution(solution, index);
+  return resolveTestsUnderSolution(solution, index);
 }
 function buildPermit(tree, title) {
   return permitFrom(indexByTitle(tree), title);
@@ -45556,16 +45698,16 @@ function permitFrom(index, title) {
       reason: `"${title}" has no assumption test beneath it \u2014 there is nothing that could tell a builder what to build`
     };
   }
-  const withInstruments = tests.filter((t2) => nodeInstrument(t2));
+  const withInstruments = tests.filter((t2) => nodeInstrument(t2.test));
   if (withInstruments.length === 0) {
     return {
       cleared: false,
-      reason: `none of the ${tests.length} test(s) under "${title}" declares a runnable instrument, so none of them can go red or green. Add an \`instrument:\` naming one spec file to: ${tests.map((t2) => t2.title).join("; ")}`
+      reason: `none of the ${tests.length} test(s) under "${title}" declares a runnable instrument, so none of them can go red or green. Add an \`instrument:\` naming one spec file to: ${tests.map((t2) => t2.test.title).join("; ")}`
     };
   }
-  const live = withInstruments.filter((t2) => observedRed(t2) && !observedGreen(t2));
+  const live = withInstruments.filter((t2) => observedRed(t2.test) && !observedGreen(t2.test));
   if (live.length === 0) {
-    const built = withInstruments.filter((t2) => observedGreen(t2));
+    const built = withInstruments.filter((t2) => observedGreen(t2.test));
     if (built.length > 0 && built.length === withInstruments.length) {
       return {
         cleared: false,
@@ -45574,17 +45716,19 @@ function permitFrom(index, title) {
     }
     return {
       cleared: false,
-      reason: `"${title}" declares an instrument that has never been run, so nobody knows whether it fails today. Run \`ost-agent verify\` on: ${withInstruments.map((t2) => t2.title).join("; ")}`
+      reason: `"${title}" declares an instrument that has never been run, so nobody knows whether it fails today. Run \`ost-agent verify\` on: ${withInstruments.map((t2) => t2.test.title).join("; ")}`
     };
   }
   const chosen = live[0];
-  const instrument = nodeInstrument(chosen);
+  const instrument = nodeInstrument(chosen.test);
+  const viaLegacyEdge = chosen.via === "legacy-edge";
   return {
     cleared: true,
-    reason: `"${chosen.title}" is red against the repository \u2014 \`${instrument.command}\` fails today and passes when "${title}" is built. That is the definition of done.`,
+    reason: `"${chosen.test.title}" is red against the repository \u2014 \`${instrument.command}\` fails today and passes when "${title}" is built. That is the definition of done.` + (viaLegacyEdge ? ` This test is reached through the pre-${LEGACY_TEST_EDGE.boundary} direct edge, not through an Assumption, so the permit rests on the legacy fallback and stops clearing at ${LEGACY_TEST_EDGE.droppedIn}.` : ""),
     instrument: instrument.command,
-    test: chosen.title,
-    thresholdBound: thresholdKindOf(chosen) === "bound"
+    test: chosen.test.title,
+    thresholdBound: thresholdKindOf(chosen.test) === "bound",
+    ...viaLegacyEdge ? { viaLegacyEdge: true } : {}
   };
 }
 function confirmPermit(permit, repoDir, run = runInstrument) {
@@ -45642,7 +45786,7 @@ function solutionsMissingInstruments(tree) {
     if (trustsShippedStatus(n)) continue;
     const tests = testsUnder(index, n);
     if (tests.length === 0) continue;
-    if (tests.some((t2) => nodeInstrument(t2))) continue;
+    if (tests.some((t2) => nodeInstrument(t2.test))) continue;
     out.push(n.title);
   }
   return out;
@@ -45655,7 +45799,7 @@ function solutionsAwaitingObservation(tree) {
     if (!trustsShippedStatus(n)) continue;
     const tests = testsUnder(index, n);
     if (tests.length === 0) continue;
-    if (tests.some((t2) => observedGreen(t2))) continue;
+    if (tests.some((t2) => observedGreen(t2.test))) continue;
     out.push(n.title);
   }
   return out;
@@ -52671,9 +52815,6 @@ function bootstrapNextWork(r2) {
     nextStep: r2.nextStep
   };
 }
-
-// src/index.ts
-var VERSION = "0.23.0";
 
 // src/mcp/server.ts
 var MCP_TOOL_NAMES = [
@@ -63054,6 +63195,13 @@ program2.command("reflection").argument("<solution>", "the Solution a pass was c
 program2.command("rollup").description("the top-level view: what sits under each bucket, computed from the tree (no model needed)").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
   const ctx = buildPassContext(opts.vault);
   console.log(renderRollup(rollupTree(ctx.vault.readTree())));
+});
+program2.command("legacy-fallback").description(
+  "what the pre-Assumption compatibility read is still carrying in this vault, and when it goes inert \u2014 the number that decides whether dropping it is safe"
+).option("--vault <dir>", VAULT_OPTION_HELP).option("--as-version <semver>", "answer as a build at this version, to see what the drop release does (default: this build)").action((opts) => {
+  const ctx = buildPassContext(opts.vault);
+  const census = legacyFallbackCensus(ctx.vault.readTree(), opts.asVersion ?? VERSION);
+  console.log(renderLegacyFallbackCensus(census));
 });
 program2.command("review-sample").description(
   "draw a stratified, reproducible sample of the tree for a human to rate against the faithfulness rubric \u2014 the draw only; this command rates nothing and produces no score"

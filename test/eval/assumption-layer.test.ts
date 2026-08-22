@@ -18,6 +18,13 @@
  *     working gate. Making every un-migrated vault red would have turned a
  *     schema addition into an outage for people who never asked for one.
  *
+ * That tolerance is **bounded** — by the version boundary, by a drop release
+ * named in code, and by a census of what it is carrying. The bound and its three
+ * clauses live in `src/ost/legacy-fallback.ts` and are pinned by
+ * `test/ost/legacy-signal-fallback-bounds.test.ts`; the fixtures below carry no
+ * `created` line, so they exercise the undated arm of clause 1 (honoured, and
+ * counted as the population the boundary cannot bound).
+ *
  * The interesting case is neither of those on its own but the two together: a
  * PARTIALLY migrated solution, which is what every vault looks like mid-walk.
  */
