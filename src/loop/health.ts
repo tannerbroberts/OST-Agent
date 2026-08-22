@@ -42,6 +42,26 @@ export type ToolSurfaceObservation =
   | { readonly unknown: string };
 
 /**
+ * The outcome text this firing ran against, at each end of it — stated inline
+ * for the same reason as {@link ToolSurfaceObservation} above, and it is the same
+ * class of module on the other side. `goal-contract.ts` reads `ost.config.yaml`
+ * and decides nothing, which files it under REPORTER_MODULES; a decider that
+ * imported it would turn its read into a decider input. Structural typing makes
+ * the two sides agree with neither file importing the other.
+ */
+export type GoalObservationRecord =
+  | { readonly text: string; readonly digest: string; readonly source: string; readonly at: string }
+  | { readonly unknown: string; readonly at: string };
+
+export interface GoalContractRecord {
+  readonly opened: GoalObservationRecord;
+  /** The second reading, taken at seal. Absent on a run that never sealed. */
+  readonly sealed?: GoalObservationRecord;
+  /** `held`, `changed` or `unknown`, stamped beside `sealed`. */
+  readonly drift?: "held" | "changed" | "unknown";
+}
+
+/**
  * `degraded` is the newest and the only one that is not about the tree.
  *
  * The other four answer "what did this firing do to the vault?" — it advanced it,
@@ -162,6 +182,21 @@ export interface LoopRunRecord {
    * every record written before this field existed.
    */
   toolSurface?: ToolSurfaceObservation;
+  /**
+   * The outcome text this firing ran against — read when the run opened, read
+   * again at seal, both ends kept.
+   *
+   * The one thing about a firing that is otherwise unrecoverable afterwards.
+   * The vault's *current* mandate is readable at any moment, so a reader who
+   * wants to know what a pass from last Tuesday was steered by has, without
+   * this, only today's answer and no way to tell whether it is the same one.
+   * Stamped by the loop from the vault, never by the pass — the firing has no
+   * say in what it says it was aimed at.
+   *
+   * Absent on a run started before this field existed, and on one whose
+   * `startRun` caller did not observe a goal.
+   */
+  goal?: GoalContractRecord;
 }
 
 /**
@@ -261,6 +296,8 @@ export function startRun(
     ceiling?: SpendCeiling;
     /** Already computed by the caller — this function never derives it itself. */
     toolSurface?: ToolSurfaceObservation;
+    /** Likewise: the caller reads the vault's mandate, this only records what it was handed. */
+    goal?: GoalContractRecord;
   },
 ): LoopRunRecord {
   sweepCrashed(dir);
@@ -273,6 +310,7 @@ export function startRun(
     ...(meta.headBefore ? { headBefore: meta.headBefore } : {}),
     ...(meta.ceiling ? { ceiling: meta.ceiling } : {}),
     ...(meta.toolSurface ? { toolSurface: meta.toolSurface } : {}),
+    ...(meta.goal ? { goal: meta.goal } : {}),
     steps: [],
   };
   fs.writeFileSync(openRunPath(dir), JSON.stringify(run, null, 2));
@@ -366,12 +404,25 @@ export function computeVerdict(run: LoopRunRecord): LoopVerdict {
 
 export function sealRun(
   dir: string,
-  meta: { headAfter?: string; degradations?: readonly Degradation[] } = {},
+  meta: {
+    headAfter?: string;
+    degradations?: readonly Degradation[];
+    /**
+     * The contract closed with the reading taken at seal — computed by the
+     * caller against the run's OWN opening stamp, and written over the open
+     * one-ended record. A firing cannot supply the first reading here: this
+     * only ever replaces a contract `startRun` already opened, so a caller
+     * handing in a closed contract for a run that never stamped one is
+     * ignored rather than allowed to invent what the run was aimed at.
+     */
+    goal?: GoalContractRecord;
+  } = {},
 ): LoopRunRecord {
   const open = requireOpenRun(dir);
   const withHead: LoopRunRecord = {
     ...open,
     ...(meta.headAfter ? { headAfter: meta.headAfter } : {}),
+    ...(meta.goal && open.goal ? { goal: meta.goal } : {}),
     // Stamped before the verdict is computed, so the verdict is derived from the
     // same list the record carries — a reader can always re-run `computeVerdict`
     // over a sealed line and get the verdict it was sealed with.
@@ -432,6 +483,17 @@ export function readRuns(dir: string): LoopRunRecord[] {
         (typeof parsed.fallback !== "object" || parsed.fallback === null || !Array.isArray(parsed.fallback.verbs))
       ) {
         delete parsed.fallback;
+      }
+      // And the goal contract: an object carrying an opening reading, or absent.
+      // A half-shape is dropped rather than repaired, because the value of this
+      // field is entirely that what it says a run was aimed at is what the loop
+      // observed — a reader handed a `goal` with no `opened` would be reading a
+      // reconstruction, and a reconstruction is the thing this exists to replace.
+      if (
+        parsed.goal !== undefined &&
+        (typeof parsed.goal !== "object" || parsed.goal === null || typeof parsed.goal.opened !== "object" || parsed.goal.opened === null)
+      ) {
+        delete parsed.goal;
       }
       runs.push(parsed);
     } catch {

@@ -36,6 +36,13 @@ import { fallbackBanner, fallbackRefusalReport, runFallback } from "../loop/fall
 import { appendStep, readOpenRun, readRuns, sealRun, startRun, sweepCrashed } from "../loop/health.js";
 import { observeToolSurface } from "../loop/tool-surface-record.js";
 import {
+  closeGoalContract,
+  goalContractReport,
+  goalDriftIsLoud,
+  observeGoal,
+  openGoalContract,
+} from "../loop/goal-contract.js";
+import {
   consecutiveSkips,
   dispatchClearedLine,
   dispatchSkippedReport,
@@ -678,15 +685,25 @@ export function registerLoopCommands(program: Command): void {
                 passFile: path.resolve(opts.pass),
                 available: opts.available.split(",").map((t) => t.trim()).filter(Boolean),
               });
+      // The mandate this firing is about to run against, read from the vault at
+      // the last moment before the run opens and stamped unconditionally — every
+      // firing records one, because a stamp a caller could omit is a stamp that
+      // is missing from exactly the firing whose aim someone later disputes. It
+      // is read here rather than by `startRun` for the same reason as the tool
+      // surface: the record's writer observes nothing itself, so there is one
+      // place a reading can come from and the firing is not it.
+      const goal = openGoalContract(observeGoal(opts.vault));
       const opened = startRun(opts.vault, {
         loopVersion: VERSION,
         cliVersion: VERSION,
         headBefore: gitHead(opts.vault),
         ...(stampedCeiling ? { ceiling: stampedCeiling } : {}),
         ...(toolSurface ? { toolSurface } : {}),
+        goal,
       });
       stampFiringLock(opts.vault, lock.record, opened.runId);
       console.log(`loop run ${opened.runId} open`);
+      for (const line of goalContractReport(goal)) console.log(line);
 
       // The other half of the dispatch check: what `loop due` saw when it let
       // this firing through, against what this run actually got. Recorded after
@@ -904,6 +921,12 @@ export function registerLoopCommands(program: Command): void {
         // go and look. On stdout with the rest of the report: this is a reporter,
         // and a `degraded` line here is information rather than an alarm.
         for (const line of degradedReport(last.degradations ?? [])) console.log(line);
+        // What that firing was aimed at, off its own record rather than off the
+        // vault's current config. Those are the same string most of the time and
+        // the report is worth nothing on the day they are not — an operator
+        // asking "is it still pointed where I left it" is asking about the run,
+        // and the vault answers only about now.
+        for (const line of goalContractReport(last.goal)) console.log(line);
       }
 
       const stall = assessStall(runs);
@@ -974,7 +997,18 @@ export function registerLoopCommands(program: Command): void {
       // scope to diff against instead. Null (never declared, or nothing attempted
       // was said) prints nothing, which `shortfallReport` treats the same way.
       const shortfall = open && opts.attempted !== undefined ? computeShortfall(opts.vault, open.runId, opts.attempted) : null;
-      const sealed = sealRun(opts.vault, { headAfter: gitHead(opts.vault), degradations });
+      // The second reading of the mandate, taken now and compared against the
+      // run's OWN opening stamp — `open.goal.opened`, off the marker, never a
+      // text this command was handed. A firing whose outcome moved under it
+      // seals with both ends on the record; one whose outcome held seals with a
+      // comparison that was actually made, which is a different fact from never
+      // having re-read it.
+      const goal = open?.goal ? closeGoalContract(open.goal.opened, observeGoal(opts.vault)) : undefined;
+      const sealed = sealRun(opts.vault, {
+        headAfter: gitHead(opts.vault),
+        degradations,
+        ...(goal ? { goal } : {}),
+      });
       const released = releaseFiringLock(opts.vault, { runId: sealed.runId });
       console.log(`loop run ${sealed.runId} sealed: ${sealed.verdict}`);
       for (const s of sealed.steps) console.log(`  ${s.exit === 0 ? "✓" : "✗"} ${s.phase} (exit ${s.exit})`);
@@ -990,6 +1024,14 @@ export function registerLoopCommands(program: Command): void {
       // it implements is explicit that it has no teeth — it must not be buried on
       // stderr as though a shortfall were itself a failure.
       for (const line of shortfallReport(shortfall)) console.log(line);
+      // Unconditionally, like the census: a drift line that only ever appeared
+      // when something had moved could not be trusted to be silent because the
+      // mandate held. Loud on stderr when it did move or could not be compared —
+      // that is the one line in this report a cron's mail must not bury.
+      for (const line of goalContractReport(goal)) {
+        if (goalDriftIsLoud(goal)) console.error(line);
+        else console.log(line);
+      }
       // On stderr, beside the stall escalation, because a cron mails stderr and
       // this is the line that must not be scrolled past. Printed whenever a
       // degradation was observed — including on an `unhealthy` firing, where it is

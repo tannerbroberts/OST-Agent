@@ -269,8 +269,29 @@ const TRACE_READER_MODULES: Record<string, string> = {
  * cannot move a Gate F verdict; the two modules deliberately do not import one
  * another (see the type's own comment in `health.ts`), which is what keeps this
  * classification, rather than READER_MODULES, honest.
+ *
+ * `goal-contract.ts` is the sixth and takes the same shape one step further: it
+ * reads `ost.config.yaml` — already a decider input three times over, via
+ * `loadConfig` — and returns a value `health.ts` stamps into the run record, plus
+ * the lines seal prints beside the verdict. Nothing branches on it. That is a
+ * deliberate design choice and not an accident of where the code landed: the
+ * mandate is retuned by a human (`ost-agent set-outcome`, never an agent tool),
+ * the solution behind this requires the escape hatch to stay easy for a human,
+ * and a firing that refused to seal because someone edited the outcome while it
+ * ran would be that hatch closing. What the contract owes is that the edit is
+ * visible in the record afterwards, which is a reporter's job exactly. The
+ * no-decider-imports-a-reporter assertion is what keeps that true: `health.ts`
+ * declares the record's shape inline rather than importing it, the same trick and
+ * for the same reason as `ToolSurfaceObservation`.
  */
-const REPORTER_MODULES = ["questions.ts", "corrections.ts", "senses.ts", "question-bank.ts", "tool-surface-record.ts"];
+const REPORTER_MODULES = [
+  "questions.ts",
+  "corrections.ts",
+  "senses.ts",
+  "question-bank.ts",
+  "tool-surface-record.ts",
+  "goal-contract.ts",
+];
 
 /**
  * The fifth class, and the one that could most easily have been a hole.
