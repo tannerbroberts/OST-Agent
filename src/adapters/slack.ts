@@ -11,6 +11,7 @@
  * logic runs offline against a fake client, and the real HTTP client is exercised
  * with an injected `fetch` (verifying GET-only + Bearer auth shape).
  */
+import { getOnlyFetch } from "./get-only-client.js";
 import type { Actor, Cursor, EvidenceItem, FetchResult, Source } from "./source.js";
 
 export interface SlackMessage {
@@ -163,7 +164,9 @@ export class HttpSlackClient implements SlackClient {
   constructor(cfg: HttpSlackConfig) {
     this.token = cfg.token;
     this.max = cfg.maxResults ?? 100;
-    this.fetchFn = cfg.fetchFn ?? ((globalThis as unknown as { fetch: FetchFn }).fetch);
+    // Guarded, never raw: `get-only-client.ts` is where the verb is decided and
+    // where the fallback to the platform transport lives.
+    this.fetchFn = getOnlyFetch(cfg.fetchFn);
   }
 
   private async get<T>(url: string): Promise<T> {

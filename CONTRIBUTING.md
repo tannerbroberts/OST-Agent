@@ -46,8 +46,12 @@ Mirror `src/adapters/atlassian.ts` / `src/adapters/slack.ts`:
 
 - implement `Source` with an **injected client** so the cursor/mapping logic is tested
   offline against a fake, and a real HTTP client tested with an injected `fetch`;
-- every request is a **GET** (or otherwise read-only) — adapters read the business,
-  they never write back;
+- every request is a **GET** — adapters read the business, they never write back. This
+  is not a habit to keep: build the client's transport with `getOnlyFetch()` from
+  `src/adapters/get-only-client.ts` and never reach `globalThis.fetch` yourself, so a
+  write is refused in this process rather than by whatever scope the operator's token
+  turned out to have. `test/adapters/get-only-client.test.ts` reads the client list off
+  this directory, so a new `Http…Client` fails the build until it is covered there;
 - read secrets from env in `src/runner/context.ts`; never write them into the vault.
 
 ## Tests & style

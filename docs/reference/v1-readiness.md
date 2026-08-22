@@ -1420,6 +1420,18 @@ not.**
 > driven with an injected fetch and the recorded method asserted. A grep over
 > source text was never going to decide this, and saying so is cheaper than a
 > regex that looks like it does.
+>
+> *2026-08-22 — the runtime half arrived, and the file set grew by one while the
+> exposure shrank.* Every adapter HTTP client is now built over
+> `src/adapters/get-only-client.ts`, which refuses any verb but GET **as a value**,
+> before the request leaves the process — so the three spellings named above, which
+> no source scan can read, are decided anyway on what actually arrives. The
+> `?? globalThis.fetch` fallback each client used to write out itself moved into
+> that one module, so the eighth entry on the outward-file list corresponds to
+> three fewer places an unguarded transport can be reached. `test/adapters/
+> get-only-client.test.ts` drives a full ingest against a remote that answers 200
+> to any verb — an over-scoped token's world — so a refusal there is the client's
+> or it is nothing.
 
 **P7 — The name-level guard would flag a real-world-action tool.**
 > *Check:* `isDestructiveToolName` on `ost_send_email`, `ost_sign_document`,
@@ -3114,7 +3126,31 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,684 tests across 295 files, verified 2026-08-22 (`npx vitest run`
+> *Today:* **met** — 3,709 tests across 296 files, verified 2026-08-22 (`npx vitest run`
+> reports 3,701 of them; the other 8 are the contended calibration file described in the
+> entries below. After "Least-privilege read-only tokens, GET-only clients" was given its
+> definition of done: `src/adapters/get-only-client.ts` is now the one transport all three
+> HTTP clients are built over, and it refuses any verb but GET — in any casing, however the
+> verb was spelled at the call site — before the request leaves this process, refuses a body
+> on a read, and puts the verb on the wire itself rather than trusting the caller to.
+> `test/adapters/get-only-client.test.ts` drives a full ingest of all three sources against
+> a deliberately PERMISSIVE fake remote, one that answers 200 to any verb exactly as an
+> over-scoped token would, so every refusal it records came from the client or did not
+> happen at all; a control asserts the fake really would have said yes, and the client list
+> is read off `src/adapters/` rather than written down, so a fourth `Http…Client` fails the
+> build until somebody decides how it reads. Twenty-five tests, one new source file, one new
+> test file. What building it found, and the solution node does not say it: the node has
+> every integration authenticating with a least-privilege token, and one does not — a public
+> repository needs no credential, so `context.ts` hands `HttpActionsClient` no brokered
+> fetch and its `?? globalThis.fetch` fallback was its LIVE path, outside the only non-GET
+> refusal that existed (the broker's, in `src/security/brokered-fetch.ts`). It was also the
+> only one of the three whose request layer no test had ever constructed. P6's file list in
+> `test/release/outward-mutation.test.ts` grew by one entry while the number of places an
+> unguarded transport can be reached went from three to one.
+> What green does NOT settle: whether GET-only is SUFFICIENT — whether a real project's
+> Jira/Confluence evidence is fully retrievable without write scope. That needs a real
+> corpus and stays with a person, exactly as the node assigns it.)
+> Previously 3,684 tests across 295 files, verified 2026-08-22 (`npx vitest run`
 > reports 3,676 of them; the other 8 are the contended calibration file described in the
 > previous entry. After "Independent judge separate from the proposer" was given its
 > definition of done: `src/eval/judge-independence.ts` makes the split between the agent
