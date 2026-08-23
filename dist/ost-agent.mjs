@@ -46112,6 +46112,19 @@ var COMPRESSION_SURFACES = [
     proof: "declaration"
   },
   {
+    name: "symbol-failure text clip",
+    module: "src/telemetry/symbol-failure.ts",
+    caps: ["MAX_SYMBOL_TEXT_CHARS"],
+    kind: "bounded-output",
+    decision: "whether a symbol a run could not find was one it meant to add",
+    reads: [
+      "the symbol name and the compiler's suggestion are parsed before anything is clipped, so the classification never turns on the cap",
+      "the leading characters of command, message and repair evidence survive"
+    ],
+    drops: "silent",
+    proof: "declaration"
+  },
+  {
     name: "usage rollup error clip",
     module: "src/telemetry/usage.ts",
     caps: ["MAX_ERR_CHARS"],

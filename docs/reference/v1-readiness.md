@@ -3127,8 +3127,8 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,696 tests across 297 files, verified 2026-08-22 (`npx vitest run`
-> reports 3,688 of them, all passing; the other 8 are the contended calibration file
+> *Today:* **met** — 3,746 tests across 298 files, verified 2026-08-22 (`npx vitest run`
+> reports 3,738 of them, all passing; the other 8 are the contended calibration file
 > described below. Recorded here because the run before it was not green and the reason is
 > worth a number: with a second full suite running beside it, 15 wall-clock assertions
 > failed — every timed check in the suite and nothing else. The cause was measured rather

@@ -1,0 +1,30 @@
+{"session":"agent-a627571427c901efb","entry":31,"tool":"Read","subject":"/private/tmp/claude-501/-Users-tanner-ost-agent-meta/2a4bcf6e-89c7-4507-a9ea-1d1ec200fe23/scratchpad/opps.md","errors":1}
+{"session":"agent-a627571427c901efb","entry":34,"tool":"Read","subject":"/private/tmp/claude-501/-Users-tanner-ost-agent-meta/2a4bcf6e-89c7-4507-a9ea-1d1ec200fe23/scratchpad/opps.md","errors":1}
+{"session":"agent-a627571427c901efb","entry":42,"tool":"Read","subject":"/private/tmp/claude-501/-Users-tanner-ost-agent-meta/2a4bcf6e-89c7-4507-a9ea-1d1ec200fe23/scratchpad/opps.md","errors":1}
+{"session":"2e4ce6b3-178f-49cd-b8a2-9d1e67a536e4","entry":13,"tool":"Read","subject":"/Users/tanner/ost-agent-meta/A merge conflict got committed into a source file, so the next run inherits a repo that cannot build.md","errors":1}
+{"session":"3ec827c0-1f17-4e41-becc-92fb80c95638","entry":73,"tool":"mcp__ost-agent__ost_read_tree","subject":"","errors":1}
+{"session":"467b3b38-9ed7-490f-8915-7c7a7b12ff13","entry":63,"tool":"mcp__ost-agent__ost_next_work","subject":"","errors":1}
+{"session":"598061c2-bd9c-4964-b0d3-017cb5f78f2a","entry":74,"tool":"Bash","subject":"grep -iE \"no such file|not found|no matches|does not exist|ENOENT|not a git repos|permission denied|cannot access\" /tmp/all-events.txt | cut -c1-220","errors":1}
+{"session":"5e29c8b9-0999-4414-b6eb-bc1602b378c0","entry":92,"tool":"mcp__ost-agent__ost_read_tree","subject":"","errors":1}
+{"session":"620c6a51-56ff-4f00-8138-266e485f93e0","entry":25,"tool":"Read","subject":"/Users/tanner/ost-agent-meta/I call a symbol I never wrote, and a whole-project typecheck at the end of the batch is what tells me.md","errors":1}
+{"session":"6308a576-c305-4d14-aef9-d0f71f8a1aaa","entry":46,"tool":"mcp__ost-agent__ost_next_work","subject":"","errors":1}
+{"session":"6e66c934-24d8-4200-b6f2-7af23002c478","entry":114,"tool":"Read","subject":"/Users/tanner/ost-agent-meta/The agent has to guess what resources it's actually working with.md","errors":1}
+{"session":"6fbf2b9b-899d-4998-8147-0e26b133e6b8","entry":44,"tool":"mcp__ost-agent__ost_next_work","subject":"","errors":1}
+{"session":"743f3b45-0dae-4e2b-b603-97919dff7548","entry":88,"tool":"mcp__ost-agent__ost_read_tree","subject":"","errors":1}
+{"session":"7492895f-2934-4f44-86af-265127dc11fb","entry":102,"tool":"Read","subject":"/Users/tanner/ost-agent-meta/The agent has to guess what resources it's actually working with.md","errors":1}
+{"session":"85aae0ea-c826-420d-871c-048add62d2e6","entry":74,"tool":"Read","subject":"/Users/tanner/dev/OST-Agent/test/friction/path-failure-attribution.test.ts","errors":1}
+{"session":"860ade27-1b95-44c5-9662-08e3024cbcf6","entry":86,"tool":"mcp__ost-agent__ost_next_work","subject":"","errors":1}
+{"session":"9aa6b7c9-a6a9-41f9-892b-4a330a99cc36","entry":119,"tool":"Read","subject":"/Users/tanner/ost-agent-meta/.ost-agent/evidence/TRANSCRIPT_e335a680-ee48-4171-b8ad-4cfb526e4129.md","errors":2}
+{"session":"9aa6b7c9-a6a9-41f9-892b-4a330a99cc36","entry":138,"tool":"Read","subject":"/Users/tanner/ost-agent-meta/The agent has to guess what resources it's actually working with.md","errors":1}
+{"session":"aacea5c8-b422-438b-bdde-6704d9c92ee3","entry":127,"tool":"Read","subject":"/Users/tanner/ost-agent-meta/.ost-agent/evidence/TRANSCRIPT_e335a680-ee48-4171-b8ad-4cfb526e4129.md","errors":2}
+{"session":"afce034c-e2c2-464b-80d8-f18969299aef","entry":80,"tool":"mcp__ost-agent__ost_next_work","subject":"","errors":1}
+{"session":"b1ff6306-d7fa-4720-87cc-30557b03c062","entry":230,"tool":"mcp__ost-agent__ost_next_work","subject":"","errors":1}
+{"session":"bfc39d6e-5468-421f-ac49-fe919cdb9b97","entry":79,"tool":"Bash","subject":"cd /Users/tanner/dev/OST-Agent && grep -rn \"configProblem\" src/ test/","errors":3}
+{"session":"c6881c3b-0504-499d-8937-c9181d547a0c","entry":88,"tool":"Read","subject":"/Users/tanner/ost-agent-meta/.ost-agent/evidence/TRANSCRIPT_e335a680-ee48-4171-b8ad-4cfb526e4129.md","errors":2}
+{"session":"caf22321-99fd-4cb9-b0f4-9378d527d875","entry":39,"tool":"mcp__ost-agent__ost_read_tree","subject":"","errors":1}
+{"session":"d1537b68-092f-449a-a1a1-ccfb185bd0d7","entry":53,"tool":"mcp__ost-agent__ost_read_tree","subject":"","errors":1}
+{"session":"d738f765-60df-44c8-92c3-3ba96644ee17","entry":35,"tool":"mcp__ost-agent__ost_read_tree","subject":"","errors":1}
+{"session":"da806545-43ec-47a4-a748-7a93635738f0","entry":35,"tool":"mcp__ost-agent__ost_read_tree","subject":"","errors":1}
+{"session":"f605e0fb-3fb2-4205-98a0-97c49a98f53a","entry":124,"tool":"Read","subject":"/Users/tanner/ost-agent-meta/The agent has to guess what resources it's actually working with.md","errors":1}
+{"session":"fe05964f-a644-4aeb-af57-3a37bde1f137","entry":89,"tool":"Read","subject":"/Users/tanner/ost-agent-meta/.ost-agent/evidence/TRANSCRIPT_e335a680-ee48-4171-b8ad-4cfb526e4129.md","errors":2}
+{"session":"ffb9eb47-e2ef-4dd8-9d85-67f69b97044b","entry":61,"tool":"mcp__ost-agent__ost_read_tree","subject":"","errors":1}
