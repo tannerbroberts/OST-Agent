@@ -95,6 +95,7 @@ export function ostToolOptions(ctx: PassContext, surface: string): Parameters<ty
     minSolutionsPerOpportunity: ctx.config.processes["P3_ideate"]?.minSolutionsPerOpportunity,
     discoveryTarget: ctx.config.discovery?.target ?? undefined,
     ageOutDays: ctx.config.evidence?.ageOutDays ?? undefined,
+    staleAfterDays: ctx.config.evidence?.staleAfterDays ?? undefined,
     surface,
     web: ctx.web,
     productRepos: ctx.productRepos,

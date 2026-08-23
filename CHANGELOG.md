@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+- **The mirror says how old it is.** `.ost-agent/evidence/` has always BEEN a local
+  read-only replica of the systems the adapters fetch from — every adapter is GET-only and
+  everything downstream reads their output off disk, so nothing in a maintenance pass ever
+  touches a live system. What was missing was the price of that arrangement: a replica is
+  correct in proportion to how recently it was filled, and nothing on a record said when
+  that was. `writeEvidence` now stamps `fetchedAt` from the ingesting surface's clock,
+  beside `actor` and omitted from `UnstampedEvidence` for the same reason — a producer that
+  can date its own capture can make a stale record look current. `src/adapters/mirror.ts`
+  turns that stamp into four verdicts and refuses to collapse any two of them: `fresh`,
+  `stale`, `undated` (no stamp — age unknown, which is neither), and `unbounded` (no
+  `evidence.staleAfterDays` set, so nothing here calls the age too old). Only `fresh`
+  licenses treating a mirrored read like a live one, and `isCertifiedFresh` is where that
+  is written once, so no call site gets to decide `undated` is probably fine.
+  `ost_next_work` carries the verdict on every unmapped row and on the full-record read,
+  and says so in its summary.
+  **What the build turned up, and the node did not say.** `timestamp` — the field ageing
+  already ran on — is the *item's* time, not ours: an inbox file's mtime answers to
+  `touch`, a Jira `updated` to whoever edited the issue. So `evidence.ageOutDays` was
+  reading a producer-controlled clock, which meant a record could arrive already buried
+  (the actions adapter's own 14-day cold-start lookback mints records at exactly a 14-day
+  limit) and the untrusted drop folder could bury its own report by dating it 2019. Age-out
+  now reads `fetchedAt`, falling back to `timestamp` only on records written before the
+  stamp existed.
+  **What green does NOT settle:** whether the staleness is *acceptable*. That is the
+  assumption test's actual question, it depends on what a team is deciding with the data,
+  and it stays a person's call — this only makes the number exist and travel with the read.
+
 - **The one compatibility read this product performs now has an end date, and says what it
   is holding up.** `testsUnderSolution` has resolved a pre-Assumption direct
   Solution→AssumptionTest edge since the layer landed on 2026-08-05, so a schema addition

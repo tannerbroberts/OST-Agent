@@ -105,7 +105,9 @@ describe("the surface stamps the actor", () => {
     const fm = frontmatterOnDisk();
     expect(fm.rung).toBeUndefined();
     expect(fm.by).toBeUndefined();
-    expect(Object.keys(fm).sort()).toEqual(["actor", "id", "source", "timestamp", "title"]);
+    // `fetchedAt` joins the closed set for the same reason `actor` is in it: it is
+    // stamped by the surface, so a payload naming one is a claim with nowhere to land.
+    expect(Object.keys(fm).sort()).toEqual(["actor", "fetchedAt", "id", "source", "timestamp", "title"]);
   });
 
   test("a second channel is still recorded as the inbox, not as its own name", async () => {

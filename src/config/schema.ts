@@ -345,9 +345,17 @@ const DiscoverySchema = z
 // `discovery.target` already keep: a number that decides when unread work stops
 // being shown is exactly the kind of call this schema refuses to make on the
 // operator's behalf.
+//
+// `staleAfterDays` is the mirror's bound: how old a captured record may be before a
+// read of it is served marked STALE (`src/adapters/mirror.ts`). Same no-default rule
+// and a sharper reason — how stale is too stale depends on what the team is deciding
+// with the data, so a number chosen here would be this repository declaring somebody
+// else's evidence current. Absent ⇒ every read comes back `unbounded`, which is
+// deliberately not the same answer as `fresh`.
 const EvidenceSchema = z
   .object({
     ageOutDays: z.number().int().positive().nullish(),
+    staleAfterDays: z.number().int().positive().nullish(),
   })
   .nullish();
 
@@ -490,5 +498,8 @@ processes:
 #   ageOutDays: 14        # an unmapped item stops being listed individually once it is this old AND its
                           # content already matches something a node has cited — never on age alone.
                           # No default: absent means nothing ages out.
+#   staleAfterDays: 7     # captured evidence is a MIRROR of the system it came from; past this age a read
+                          # of it is served marked STALE, with the age, so nobody mistakes it for a live
+                          # look. No default: only you know how fast the data you decide on goes off.
 `;
 }

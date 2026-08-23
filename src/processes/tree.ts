@@ -40,10 +40,31 @@ export interface EvidenceRecord {
    * captured.
    */
   actor: Actor;
+  /**
+   * When the ingesting surface fetched this record — the mirror's freshness clock.
+   *
+   * Separate from `timestamp`, which is the item's own time and therefore the
+   * producer's to choose: an inbox file's mtime answers to `touch`, and a Jira
+   * `updated` answers to whoever edited the issue. Neither says when THIS replica
+   * was filled, which is the only thing an age computed off it could mean.
+   *
+   * Stamped here from the surface's clock and, like `actor`, absent from
+   * {@link UnstampedEvidence} so no producer can supply one. `undefined` on records
+   * written before the stamp existed; `src/adapters/mirror.ts` reads that as
+   * `undated` rather than as fresh or stale.
+   */
+  fetchedAt?: string;
 }
 
-/** An item as a source hands it over: every field but the identity of the channel. */
-export type UnstampedEvidence = Omit<EvidenceRecord, "actor">;
+/**
+ * An item as a source hands it over: every field but the two the SURFACE stamps.
+ *
+ * `actor` (who produced it) and `fetchedAt` (when we pulled it) are both omitted for
+ * one reason — they are the fields a record's producer must have no say in. A
+ * producer that can date its own capture can make a stale record look current, which
+ * is the whole failure the mirror's age is there to prevent.
+ */
+export type UnstampedEvidence = Omit<EvidenceRecord, "actor" | "fetchedAt">;
 
 function evidenceDir(dir: string): string {
   return path.join(dir, ".ost-agent", "evidence");
@@ -118,8 +139,20 @@ function evidenceFile(dir: string, id: string): string {
  * one thing on the record whose producer must have no say in it. It comes off the
  * `Source` that did the fetching, and a new adapter cannot forget to supply one
  * without failing to compile.
+ *
+ * `now` is the second such field and arrives the same way: it becomes `fetchedAt`,
+ * the moment this replica was filled, and it is what makes the mirror's staleness a
+ * number rather than a property nobody can see (`src/adapters/mirror.ts`). It is
+ * written ONCE, on the call that actually stores the record — a re-offer returns
+ * `false` above without touching the file, so the stamp keeps saying when the bytes
+ * on disk were fetched rather than when something last looked at them.
  */
-export function writeEvidence(dir: string, rec: UnstampedEvidence, actor: Actor): boolean {
+export function writeEvidence(
+  dir: string,
+  rec: UnstampedEvidence,
+  actor: Actor,
+  now: Date = new Date(),
+): boolean {
   const d = evidenceDir(dir);
   fs.mkdirSync(d, { recursive: true });
   const p = evidenceFile(d, rec.id);
@@ -149,6 +182,7 @@ export function writeEvidence(dir: string, rec: UnstampedEvidence, actor: Actor)
     title: redactSecrets(rec.title),
     timestamp: rec.timestamp,
     actor,
+    fetchedAt: now.toISOString(),
   });
   fs.writeFileSync(p, content, "utf8");
   return true;
@@ -218,6 +252,10 @@ export function readEvidenceScan(dir: string): EvidenceScan {
       // the vocabulary, reads as `unknown` — the least-trusted answer — rather than as
       // whichever producer the file claims to be.
       actor: isActor(data.actor) ? data.actor : UNKNOWN_ACTOR,
+      // Carried through as written or not at all — no fallback to `timestamp`, which
+      // is the producer's field and would hand back a fetch time nobody fetched.
+      // A record without one is `undated` to the mirror, never fresh.
+      fetchedAt: typeof data.fetchedAt === "string" ? data.fetchedAt : undefined,
     });
   }
   return { offered, records: out, unreadable };

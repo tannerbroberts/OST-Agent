@@ -705,6 +705,13 @@ export interface ToolContext {
    * as `discoveryTarget`: absent means nothing ages out.
    */
   ageOutDays?: number;
+  /**
+   * The operator's `evidence.staleAfterDays` — how old a captured record may be
+   * before `ost_next_work` serves it marked STALE. Config-only, same reason as the
+   * two above: how stale is too stale depends on what is being decided with the
+   * data. Absent means every read is reported `unbounded`, never `fresh`.
+   */
+  staleAfterDays?: number;
   /** Which surface is dispatching ("mcp", "cli-tool", "pass:P2_map"); lands in the usage trace. */
   surface?: string;
   /** Outward web sensing: search key, injectable fetch, and the per-session lookup budget. */
@@ -786,8 +793,17 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
       run: async (input: { evidence?: string }) =>
         JSON.stringify(
           input.evidence
-            ? readEvidenceBody(dir, input.evidence)
-            : computeNextWork(vault, dir, minSolutions, undefined, ctx.discoveryTarget, ctx.ageOutDays),
+            ? readEvidenceBody(dir, input.evidence, { staleAfterDays: ctx.staleAfterDays })
+            : computeNextWork(
+                vault,
+                dir,
+                minSolutions,
+                undefined,
+                ctx.discoveryTarget,
+                ctx.ageOutDays,
+                undefined,
+                ctx.staleAfterDays,
+              ),
           null,
           2,
         ),
