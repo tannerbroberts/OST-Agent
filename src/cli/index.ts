@@ -151,6 +151,12 @@ import { Vault } from "../ost/vault.js";
 import { defaultTranscriptDir } from "../adapters/transcript.js";
 import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
 import { formatMigrationReport, migrateEvidenceClass } from "../ost/migrate.js";
+import {
+  accountingDrift,
+  formatAccountingDrift,
+  formatAccountingMigration,
+  migrateAccounting,
+} from "../ost/accounting-reconstruction.js";
 import { findRenameShapedBreaks } from "../git/rename-topology.js";
 import { liveRenameRepairs } from "../ost/rename-repair.js";
 import { readPendingAskQueue } from "../ost/pending-asks.js";
@@ -673,21 +679,59 @@ program
  * test holds it there), a node-by-node report, and a refusal list naming what
  * only a human may decide. Dry run by default; `--write` applies and commits.
  */
+/**
+ * `migrate accounting` — the other tightening, the one that changed what "done"
+ * means rather than what a node must carry.
+ *
+ * It records, once and in the vault, which accounting was in force and what it
+ * answered item by item; after that {@link accountingDrift} can say whether an
+ * upgrade has changed the answer, which is the thing that went unsaid when the same
+ * vault read 9 outstanding under one build and 27 under the next. Re-opened items
+ * set the exit code, because that is the direction that loses work. Withheld claims
+ * do not: they are a standing property of the vault a person has to settle, and a
+ * command that stayed red on them forever would be a wedge rather than an alarm.
+ */
+async function migrateAccountingCommand(dir: string, write: boolean): Promise<void> {
+  const tree = new Vault(dir, { create: false }).readTree();
+  const report = migrateAccounting(dir, tree, { write, now: new Date().toISOString() });
+  console.log(formatAccountingMigration(report));
+
+  if (write && report.recorded) {
+    const r = await gitCommit(dir, `migrate(accounting): record ${report.recorded.build}'s answer over ${report.recorded.items} record(s)`);
+    console.log(
+      r.committed
+        ? `  committed ${r.sha.slice(0, 8)} — the baseline every later accounting is compared against`
+        : "  NOT committed — git saw nothing to commit, so nothing durable records that this ran",
+    );
+  }
+
+  const drift = accountingDrift(dir, tree);
+  if (drift.comparable) {
+    console.log("");
+    console.log(formatAccountingDrift(drift));
+    if (drift.reopened.length > 0) process.exitCode = 1;
+  }
+}
+
 program
   .command("migrate")
   .description("run the migration a tightening should have shipped with — reports by default, applies and commits with --write")
-  .argument("<rule>", "the check rule to remediate (available: evidence-class)")
+  .argument("<rule>", "the check rule to remediate (available: evidence-class, accounting)")
   .option("--vault <dir>", VAULT_OPTION_HELP)
   .option("--write", "apply the changes and commit them (default: report what would change)")
   .action(async (rule: string, opts: { vault: string; write?: boolean }) => {
-    if (rule !== "evidence-class") {
+    if (rule !== "evidence-class" && rule !== "accounting") {
       console.error(
-        `no migration for "${rule}" — available: evidence-class. A tightening with no entry here shipped without the half that brings the existing tree with it.`,
+        `no migration for "${rule}" — available: evidence-class, accounting. A tightening with no entry here shipped without the half that brings the existing tree with it.`,
       );
       process.exitCode = 1;
       return;
     }
     const dir = path.resolve(opts.vault);
+    if (rule === "accounting") {
+      await migrateAccountingCommand(dir, Boolean(opts.write));
+      return;
+    }
     if (opts.write) {
       // Same stance as `friction`: gitCommit stages with `git add -A`, so from a
       // dirty tree it would put a stranger's edits into history under the
