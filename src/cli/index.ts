@@ -141,6 +141,10 @@ import {
   formatSelfFiledFrictionCensus, readSelfFiledFriction, selfFiledFrictionCensus,
 } from "../telemetry/self-filed-friction.js";
 import {
+  deriveFrictionClasses, evidenceDirOf, formatLogOnlyFrictionRecall, logOnlyFrictionRecall,
+  readKnownFriction, windowEndingOn,
+} from "../telemetry/log-only-friction.js";
+import {
   formatRefusalCoverageCensus, refusalCoverageCensus,
 } from "../telemetry/refusal-coverage.js";
 import {
@@ -1861,6 +1865,41 @@ program
     // result — and an automation has to learn that from the exit code rather than
     // off a report whose every clause reads NOT MET.
     if (!census.enoughPasses) process.exitCode = 1;
+  });
+
+program
+  .command("log-friction")
+  .description(
+    "how much of the friction the transcript channel already found is recoverable from the machine trace alone — " +
+      "the census behind mining friction out of logs instead of prose",
+  )
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option(
+    "--last-day <YYYY-MM-DD>",
+    "last UTC day of the thirty-day window. Supplied rather than read off the clock: a window that moved with " +
+      "the wall clock would give a different answer every day it ran.",
+  )
+  .action((opts: { vault: string; lastDay?: string }) => {
+    // Not `buildPassContext`, on `exclusions`' precedent: this reads two folders and
+    // answers a question about them, and a Vault handle would create the directory a
+    // mistyped path names.
+    const vault = path.resolve(opts.vault);
+    const lastDay = opts.lastDay ?? new Date().toISOString().slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(lastDay)) {
+      console.error(`--last-day must be YYYY-MM-DD, got ${lastDay}`);
+      process.exitCode = 1;
+      return;
+    }
+    const window = windowEndingOn(lastDay);
+    const derived = deriveFrictionClasses(readUsageEvents(vault), window);
+    const known = readKnownFriction(evidenceDirOf(vault));
+    const census = logOnlyFrictionRecall(derived, known, window);
+    console.log(formatLogOnlyFrictionRecall(census));
+    // A window holding no traced call, or no harvested friction to score against, is
+    // not "the trace carries everything" — it is a sweep that could not read its
+    // subject, and an automation has to learn that through the exit code rather than
+    // off a report whose recall line reads 0/0.
+    if (census.derivation.events === 0 || census.recall === null) process.exitCode = 1;
   });
 
 program

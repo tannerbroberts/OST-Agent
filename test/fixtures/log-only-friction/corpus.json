@@ -1,0 +1,16 @@
+{
+ "vault": "/Users/tanner/ost-agent-meta",
+ "lastDay": "2026-08-23",
+ "window": {
+  "from": "2026-07-25",
+  "to": "2026-08-23"
+ },
+ "traceLines": 6234,
+ "traceTorn": 0,
+ "traceEventsInWindow": 6234,
+ "traceEventsOutsideWindow": 0,
+ "evidenceItemsRead": 431,
+ "knownEventsDeclared": 1753,
+ "knownEventsShown": 1753,
+ "knownEventsInWindow": 1747
+}
