@@ -432,7 +432,7 @@ const AIM: Record<string, (n: number) => Record<string, unknown>> = {
   // `assertMergeAllowed` lets it through and the write actually happens.
   ost_detach_nodes: () => ({ parent: OUTCOME, child: SECOND_OPPORTUNITY, why: "driven probe" }),
   ost_edit_node: () => ({ title: TEST, prose: "A driven rewrite.", why: "driven probe" }),
-  ost_merge_nodes: () => ({ from: SECOND_OPPORTUNITY, into: OPPORTUNITY, prose: "One framing.", why: "driven probe" }),
+  ost_merge_nodes: () => ({ from: SECOND_OPPORTUNITY, into: OPPORTUNITY, contribution: "One framing.", why: "driven probe" }),
   ost_flag_humans_required: () => ({ test: TEST, why: 'a person has to read it: "interview"' }),
   ost_rank_source: () => ({ kind: "web", id: "example.com", direction: "contradicted", reason: "a strike needs no citation" }),
   ost_search_web: () => ({ query: "prior art" }),

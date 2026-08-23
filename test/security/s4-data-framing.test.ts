@@ -183,7 +183,7 @@ const EXERCISE: Record<string, unknown[]> = {
   ost_annotate: [{ title: "Setup is slow", issue: "checked" }],
   ost_detach_nodes: [{ parent: OUTCOME, child: "Setup is slow", why: "re-parenting" }],
   ost_edit_node: [{ title: "Setup is slow", prose: "A sharper framing.", why: "the first draft conflated two needs" }],
-  ost_merge_nodes: [{ from: "Setup is slow", into: "A second need", prose: "One framing.", why: "same claim, said twice" }],
+  ost_merge_nodes: [{ from: "Setup is slow", into: "A second need", contribution: "One framing.", why: "same claim, said twice" }],
   ost_search_web: [{ query: "onboarding" }],
   ost_read_web: [{ url: "https://example.com/a" }],
   ost_read_repo: [{}, { path: "docs" }, { path: "docs/readme.md" }],

@@ -910,6 +910,12 @@ export class Vault {
    * reserved blocks are carried across so no recorded result or observed exit
    * code is lost in the fold.
    *
+   * This is the REPLACEMENT shape, and taking the survivor's whole body is what
+   * makes it dangerous to a caller who has not read that body. It is no longer
+   * the tool surface: `ost_merge_nodes` calls {@link Vault.mergeNodesByPatch}
+   * instead, and this remains as the library/CLI shape for a human who has read
+   * both nodes and is genuinely rewriting the survivor's claim.
+   *
    * Refusals, each a way a merge destroys rather than consolidates:
    *   - a node cannot merge into itself
    *   - the two must share a layer, because an Opportunity folded into a Solution
@@ -919,7 +925,60 @@ export class Vault {
    */
   mergeNodes(from: string, into: string, opts: { prose: string; why: string }): string {
     assertWritableContent(`the merged body of "${into}"`, opts.prose);
-    assertWritableContent(`the reason for merging "${from}" into "${into}"`, opts.why);
+    return this.fold(from, into, opts.why, () => opts.prose);
+  }
+
+  /**
+   * Fold one node into another WITHOUT asking for the survivor's body.
+   *
+   * The same operation as {@link Vault.mergeNodes} in everything a gate, a
+   * counter or the graph can see — identical refusals, identical inbound
+   * repointing, identical outbound union, identical carry of reserved sections,
+   * identical History line, same deleted file. Both shapes run {@link Vault.fold}
+   * and differ in exactly one expression: what the survivor's prose becomes.
+   *
+   * The difference is the whole point. `mergeNodes` takes the survivor's
+   * COMPLETE merged body, which means a caller who never read the survivor can
+   * replace prose it has never seen with a paragraph composed from a title —
+   * silently, and with no way for the vault to tell that from a real rewrite.
+   * This shape takes only what the LOSER contributes and appends it under a
+   * dated heading. The survivor's existing prose is not an argument, so there is
+   * no call a caller can make that puts it at risk. That is a removal of the
+   * failure mode rather than a guard against it, which is worth more because it
+   * cannot be skipped.
+   *
+   * What it costs, stated plainly because the tool surface does not say it: a
+   * node merged three times reads as an original plus three appended
+   * contributions rather than as one coherent claim. Tidying that up is a
+   * genuine rewrite and belongs to `ost_edit_node`, whose caller has to read the
+   * body first.
+   */
+  mergeNodesByPatch(from: string, into: string, opts: { contribution: string; why: string }): string {
+    assertWritableContent(`the contribution "${from}" brings to "${into}"`, opts.contribution);
+    return this.fold(from, into, opts.why, (survivorProse, loserTitle) => {
+      const heading = `### Merged from "${loserTitle}" — ${isoToday()}`;
+      return [survivorProse.trimEnd(), heading, opts.contribution.trim()].filter((p) => p !== "").join("\n\n");
+    });
+  }
+
+  /**
+   * The mechanics both merge shapes share, parameterised on the one thing they
+   * disagree about.
+   *
+   * `composeProse` receives the survivor's CURRENT prose (reserved sections
+   * already held aside) and the loser's sanitised title, and returns the prose
+   * the survivor ends up with. Every other decision — which merges are refused,
+   * which edges move, which sections carry, what History records — is made here
+   * once, so "the two shapes agree" is a property of there being one
+   * implementation rather than of a test noticing when they stop.
+   */
+  private fold(
+    from: string,
+    into: string,
+    why: string,
+    composeProse: (survivorProse: string, loserTitle: string) => string,
+  ): string {
+    assertWritableContent(`the reason for merging "${from}" into "${into}"`, why);
     if (sanitizeTitle(from) === sanitizeTitle(into)) {
       throw new Error(`refusing to merge "${from}" into itself`);
     }
@@ -965,11 +1024,15 @@ export class Vault {
     const loserTitle = sanitizeTitle(from);
     const survivorTitle = sanitizeTitle(into);
 
-    // The survivor's prose is the caller's; both nodes' reserved blocks are kept.
-    // The loser's go on last so a result it carried survives the file's deletion.
-    const survivorReserved = splitReservedSections(survivor.body).reserved;
+    // The survivor's prose is `composeProse`'s; both nodes' reserved blocks are
+    // kept. The loser's go on last so a result it carried survives the deletion.
+    const survivorSplit = splitReservedSections(survivor.body);
+    const survivorReserved = survivorSplit.reserved;
     const loserReserved = splitReservedSections(loser.body).reserved;
-    survivor.body = joinReservedSections(opts.prose, [...survivorReserved, ...loserReserved]);
+    survivor.body = joinReservedSections(composeProse(survivorSplit.prose, loserTitle), [
+      ...survivorReserved,
+      ...loserReserved,
+    ]);
 
     // Outbound edges: union, minus any edge that would now point at the survivor
     // itself (the loser linking to the survivor is the commonest duplicate shape).
@@ -978,7 +1041,7 @@ export class Vault {
     }
 
     const line =
-      `- ${isoToday()} merged "${loserTitle}" into this node and deleted its file — ${opts.why}` +
+      `- ${isoToday()} merged "${loserTitle}" into this node and deleted its file — ${why}` +
       (loserReserved.length > 0 ? ` (carried ${loserReserved.length} reserved section(s) across)` : "");
     survivor.body = appendUnderHeading(survivor.body, "## History", line);
     // The survivor's prose is the caller's — the agent's — so it folds `machine`
