@@ -160,6 +160,14 @@ const SILENT_SURFACES = [
   "retrospective field clip",
   "search-literality excerpt clip",
   "sense census detail",
+  // Grown deliberately with the symbol-failure census, on the same terms as the
+  // sibling censuses above: the clip binds only text carried for a human reader —
+  // the command, the compiler's message, the repair evidence. Every value the
+  // census computes from is read off the UNCLIPPED text before the clip is
+  // applied: the symbol and the `Did you mean` come out of the full message,
+  // `isTypecheckCommand` runs against the full command, and the resolution is
+  // decided from the full edit. No cap here can move the number it reports.
+  "symbol-failure text clip",
   "title sanitization",
   "transcript adapter event digest",
   "usage rollup error clip",
@@ -190,6 +198,7 @@ const DECLARATION_ONLY_SURFACES = [
   "search-literality excerpt clip",
   "sense census detail",
   "standing briefing recent-node window",
+  "symbol-failure text clip",
   "title sanitization",
   "transcript adapter event digest",
   "transcript reading served to the model reader",

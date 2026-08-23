@@ -29,7 +29,7 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { initVault } from "../../src/runner/init.js";
 import { buildPassContext } from "../../src/runner/context.js";
 import { computeNextWork } from "../../src/mcp/next-work.js";
-import { readEvidence, writeEvidence } from "../../src/processes/tree.js";
+import { byTitle, readEvidence, writeEvidence } from "../../src/processes/tree.js";
 import {
   appendDisposition,
   corroborationsFor,
@@ -67,11 +67,15 @@ function vaultWithStrandedEvidence() {
   return v;
 }
 
+/** The tree an acknowledgement is filed against — read fresh, the way every caller does. */
+const treeIndex = () => byTitle(buildPassContext(dir).vault.readTree());
+
 /** Acknowledge one evidence item with a typed verdict, the way the CLI write path does. */
 function acknowledge(subject: string, verdict: "corroborates" | "no-genuine-need", reason: string): void {
   appendDisposition(
     dir,
     { subject, kind: "evidence", state: "closed", reason, by: "operator", verdict, node: verdict === "corroborates" ? NEED : undefined },
+    treeIndex(),
     CLOCK,
   );
 }
@@ -108,6 +112,7 @@ describe("an acknowledged item leaves the sweep without being deleted and withou
 
 describe("the reason persists append-only", () => {
   test("later entries extend the file; nothing rewrites the acknowledgement already on it", () => {
+    vaultWithStrandedEvidence();
     acknowledge(CORROBORATING, "corroborates", "ninth independent session with the same stall");
     const file = dispositionLedgerPath(dir);
     const first = fs.readFileSync(file, "utf8");
@@ -116,6 +121,7 @@ describe("the reason persists append-only", () => {
     appendDisposition(
       dir,
       { subject: CORROBORATING, kind: "evidence", state: "reopened", reason: "read it again — it is new after all", by: "operator" },
+      treeIndex(),
       CLOCK,
     );
 
@@ -131,6 +137,7 @@ describe("the reason persists append-only", () => {
 
 describe('"corroborates [[X]]" is a distinct verdict from "no genuine need"', () => {
   test("the two verdicts are stored typed, not as prose a reader would have to parse", () => {
+    vaultWithStrandedEvidence();
     acknowledge(CORROBORATING, "corroborates", "ninth session");
     acknowledge(EMPTY, "no-genuine-need", "clean day");
 
@@ -144,6 +151,7 @@ describe('"corroborates [[X]]" is a distinct verdict from "no genuine need"', ()
   });
 
   test("only a corroboration can strengthen a node later — the other verdict surfaces for no node", () => {
+    vaultWithStrandedEvidence();
     acknowledge(CORROBORATING, "corroborates", "ninth session");
     acknowledge(EMPTY, "no-genuine-need", "clean day");
 
@@ -154,12 +162,14 @@ describe('"corroborates [[X]]" is a distinct verdict from "no genuine need"', ()
   });
 
   test("a reopened corroboration stops strengthening — the dispute wins until it is re-closed", () => {
+    vaultWithStrandedEvidence();
     acknowledge(CORROBORATING, "corroborates", "ninth session");
     expect(corroborationsFor(readDispositionLedger(dir), NEED)).toHaveLength(1);
 
     appendDisposition(
       dir,
       { subject: CORROBORATING, kind: "evidence", state: "reopened", reason: "the filing looks wrong", by: "operator" },
+      treeIndex(),
       CLOCK,
     );
     expect(corroborationsFor(readDispositionLedger(dir), NEED)).toHaveLength(0);
@@ -169,13 +179,14 @@ describe('"corroborates [[X]]" is a distinct verdict from "no genuine need"', ()
     // A corroboration that names no node cannot strengthen anything, which is the
     // entire point of the verdict — refused, not stored degraded.
     expect(() =>
-      appendDisposition(dir, { subject: CORROBORATING, kind: "evidence", state: "closed", reason: "r", by: "o", verdict: "corroborates" }, CLOCK),
+      appendDisposition(dir, { subject: CORROBORATING, kind: "evidence", state: "closed", reason: "r", by: "o", verdict: "corroborates" }, treeIndex(), CLOCK),
     ).toThrow(/needs the node/);
     // And "no genuine need" naming a node is a contradiction wearing a verdict.
     expect(() =>
       appendDisposition(
         dir,
         { subject: EMPTY, kind: "evidence", state: "closed", reason: "r", by: "o", verdict: "no-genuine-need", node: NEED },
+        treeIndex(),
         CLOCK,
       ),
     ).toThrow(/corroborates/);

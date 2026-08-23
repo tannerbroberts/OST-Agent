@@ -17,7 +17,12 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { initVault } from "../../src/runner/init.js";
+import { buildPassContext } from "../../src/runner/context.js";
 import { dispositionLedgerPath, isDisposed, readDispositionLedger } from "../../src/knowledge/dispositions.js";
+
+/** The node the acknowledgement tests file against. `--corroborates` resolves against
+ * the tree, so the title it names has to be one the vault actually holds. */
+const NEED = "Users churn after week one";
 
 // See the note in `test/cli/result.test.ts`: the local tsx binary directly, never
 // through `npx`, so concurrent spawns do not contend on npm's cacache lock.
@@ -30,6 +35,9 @@ let dir: string;
 beforeEach(async () => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "ost-cli-dispose-"));
   await initVault(dir, "Reach 10,000 daily active users");
+  buildPassContext(dir).vault.createNode({
+    title: NEED, layer: "Opportunity", evidence: "assertion", body: "x", tags: [], links: [],
+  });
 });
 afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
@@ -91,13 +99,13 @@ describe("ost-agent dispose", () => {
     // The acknowledgement in its sharpened form: not "dismissed", but "read, counted
     // toward an existing node" — the one verdict that can strengthen that node later.
     const { stdout } = await cli([
-      "dispose", "TRANSCRIPT:ninth-session.md", "--kind", "evidence", "--corroborates", "Users churn after week one",
+      "dispose", "TRANSCRIPT:ninth-session.md", "--kind", "evidence", "--corroborates", NEED,
       "--by", "Tanner", "--why", "ninth session with the same stall", "--vault", dir,
     ]);
     expect(stdout).toContain("corroborating");
     const entry = readDispositionLedger(dir).histories.get("TRANSCRIPT:ninth-session.md")?.[0];
     expect(entry?.verdict).toBe("corroborates");
-    expect(entry?.node).toBe("Users churn after week one");
+    expect(entry?.node).toBe(NEED);
   }, 60_000);
 
   test("--no-genuine-need writes the other verdict, and the two refuse to share an entry", async () => {

@@ -1217,7 +1217,17 @@ program
       }
       const state = opts.reopen ? "reopened" : "closed";
       const verdict = opts.corroborates !== undefined ? ("corroborates" as const) : noGenuineNeed ? ("no-genuine-need" as const) : undefined;
-      appendDisposition(opts.vault, { subject, kind, state, reason: opts.why, by: opts.by, verdict, node: opts.corroborates });
+      // The tree the acknowledgement is filed against. Read here so the funnel can
+      // resolve `--corroborates` against real nodes: the message below promises the
+      // item was counted toward one, and an unresolvable title makes that a lie.
+      const index = new Map(buildPassContext(opts.vault).vault.readTree().map((n) => [n.title, n]));
+      try {
+        appendDisposition(opts.vault, { subject, kind, state, reason: opts.why, by: opts.by, verdict, node: opts.corroborates }, index);
+      } catch (e) {
+        console.error(`ost-agent dispose: ${e instanceof Error ? e.message : String(e)}`);
+        process.exitCode = 1;
+        return;
+      }
       console.log(
         opts.reopen
           ? `reopened "${subject}" — it is back on its ${kind} bucket.`
@@ -1238,7 +1248,8 @@ program
   .description("every item currently settled, dated and attributed — the dismissed-work list, in bulk")
   .option("--vault <dir>", VAULT_OPTION_HELP)
   .action((opts: { vault: string }) => {
-    console.log(formatDispositions(readDispositionLedger(opts.vault)));
+    const index = new Map(buildPassContext(opts.vault).vault.readTree().map((n) => [n.title, n]));
+    console.log(formatDispositions(readDispositionLedger(opts.vault), index));
   });
 
 /*

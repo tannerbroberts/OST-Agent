@@ -46112,6 +46112,19 @@ var COMPRESSION_SURFACES = [
     proof: "declaration"
   },
   {
+    name: "symbol-failure text clip",
+    module: "src/telemetry/symbol-failure.ts",
+    caps: ["MAX_SYMBOL_TEXT_CHARS"],
+    kind: "bounded-output",
+    decision: "whether a symbol a run could not find was one it meant to add",
+    reads: [
+      "the symbol name and the compiler's suggestion are parsed before anything is clipped, so the classification never turns on the cap",
+      "the leading characters of command, message and repair evidence survive"
+    ],
+    drops: "silent",
+    proof: "declaration"
+  },
+  {
     name: "usage rollup error clip",
     module: "src/telemetry/usage.ts",
     caps: ["MAX_ERR_CHARS"],
@@ -50412,7 +50425,7 @@ function isAcknowledgementVerdict(v) {
 function dispositionLedgerPath(dir) {
   return path31.join(dir, ".ost-agent", "dispositions", "dispositions.jsonl");
 }
-function appendDisposition(dir, rec, now = () => /* @__PURE__ */ new Date()) {
+function appendDisposition(dir, rec, index, now = () => /* @__PURE__ */ new Date()) {
   if (!rec.subject.trim()) throw new Error("a disposition needs the subject it settles");
   if (!isDispositionKind(rec.kind)) throw new Error(`kind must be one of: ${DISPOSITION_KINDS.join(", ")}`);
   if (!isDispositionState(rec.state)) throw new Error(`state must be one of: ${DISPOSITION_STATES.join(", ")}`);
@@ -50426,6 +50439,12 @@ function appendDisposition(dir, rec, now = () => /* @__PURE__ */ new Date()) {
   }
   if (rec.verdict !== "corroborates" && rec.node !== void 0) {
     throw new Error('only a "corroborates" verdict names a node \u2014 an item that counts toward a node corroborates it');
+  }
+  if (rec.verdict === "corroborates" && !index.has(rec.node)) {
+    const near = nearestName(rec.node, [...index.keys()]);
+    throw new Error(
+      `no node in this tree is titled "${rec.node}" \u2014 an acknowledgement filed under a node that is not there takes the item off the sweep and strengthens nothing` + (near ? `. Did you mean "${near}"?` : "")
+    );
   }
   const record2 = {
     ts: now().toISOString(),
@@ -50493,12 +50512,15 @@ function latestDisposition(ledger, subject) {
   if (!list || list.length === 0) return null;
   return list[list.length - 1];
 }
-function omitDisposed(items, subjectOf3, ledger, list, into) {
+function isOrphanedAcknowledgement(rec, index) {
+  return rec.verdict === "corroborates" && rec.node !== void 0 && !index.has(rec.node);
+}
+function omitDisposed(items, subjectOf3, ledger, index, list, into) {
   const kept = [];
   for (const item of items) {
     const subject = subjectOf3(item);
     const standing = latestDisposition(ledger, subject);
-    if (standing?.state === "closed") {
+    if (standing?.state === "closed" && !isOrphanedAcknowledgement(standing, index)) {
       into.push({ list, subject, kind: standing.kind, reason: standing.reason, by: standing.by, at: standing.ts });
       continue;
     }
@@ -50514,8 +50536,10 @@ function liveDispositions(ledger) {
   }
   return live.sort((a, b2) => a.ts.localeCompare(b2.ts));
 }
-function formatDispositions(ledger) {
-  const live = liveDispositions(ledger);
+function formatDispositions(ledger, index) {
+  const standing = liveDispositions(ledger);
+  const orphaned = standing.filter((d) => isOrphanedAcknowledgement(d, index));
+  const live = standing.filter((d) => !isOrphanedAcknowledgement(d, index));
   const lines = [];
   if (live.length === 0) {
     lines.push("No live dispositions \u2014 every bucket is listing everything it derives.");
@@ -50534,6 +50558,16 @@ function formatDispositions(ledger) {
       lines.push("");
     }
     lines.push('Disagree with one? `ost-agent dispose "<subject>" --reopen --by <you> --why "<why>"` puts it back.');
+  }
+  if (orphaned.length) {
+    lines.push(
+      `
+${orphaned.length} acknowledgement(s) name a node this tree does not hold \u2014 retitled, retired or never there. Each one hides nothing (its item is back on the work list) and strengthens nothing. Re-file each under a node that exists:`
+    );
+    for (const d of orphaned) {
+      lines.push(`  ${d.ts.slice(0, 10)}  ${d.subject}  \u2192 corroborates [[${d.node}]] \u2014 no such node`);
+      lines.push(`      ${d.reason} \u2014 ${d.by}`);
+    }
   }
   if (ledger.damaged) {
     lines.push(
@@ -50929,6 +50963,7 @@ function computeNextWork(vault, dir, min, now = () => /* @__PURE__ */ new Date()
     evidence.filter((e) => !citedSources.has(e.id)),
     (e) => e.id,
     dispositions,
+    index,
     "unmappedEvidence",
     withheld
   );
@@ -50990,6 +51025,7 @@ function computeNextWork(vault, dir, min, now = () => /* @__PURE__ */ new Date()
     }).map(({ entry }) => entry),
     (o2) => o2.title,
     dispositions,
+    index,
     "underservedOpportunities",
     withheld
   );
@@ -51007,6 +51043,7 @@ function computeNextWork(vault, dir, min, now = () => /* @__PURE__ */ new Date()
       tree.filter((n) => n.layer === "Solution").filter((s) => testsUnderSolution(s, index).length === 0).map((s) => ({ title: s.title, opportunity: firstOpportunityParent.get(s.title) ?? null })),
       (s) => s.title,
       dispositions,
+      index,
       "solutionsMissingAssumptions",
       withheld
     ),
@@ -51063,7 +51100,7 @@ function computeNextWork(vault, dir, min, now = () => /* @__PURE__ */ new Date()
   const solutionsMissingAssumptions = capList(scopedMissingAssumptions, "solutionsMissingAssumptions", truncated, listLimit);
   const allSolutionsMissingInstruments = excludeByScope(
     omitSuppressed(
-      omitDisposed(solutionsMissingInstruments(tree), (title) => title, dispositions, "solutionsMissingInstruments", withheld),
+      omitDisposed(solutionsMissingInstruments(tree), (title) => title, dispositions, index, "solutionsMissingInstruments", withheld),
       (title) => title,
       suppressions,
       index,
@@ -51081,7 +51118,7 @@ function computeNextWork(vault, dir, min, now = () => /* @__PURE__ */ new Date()
   );
   const allSolutionsAwaitingObservation = excludeByScope(
     omitSuppressed(
-      omitDisposed(solutionsAwaitingObservation(tree), (title) => title, dispositions, "solutionsAwaitingObservation", withheld),
+      omitDisposed(solutionsAwaitingObservation(tree), (title) => title, dispositions, index, "solutionsAwaitingObservation", withheld),
       (title) => title,
       suppressions,
       index,
@@ -62818,7 +62855,14 @@ program2.command("dispose").description("settle one item so no bucket lists it a
     }
     const state = opts.reopen ? "reopened" : "closed";
     const verdict = opts.corroborates !== void 0 ? "corroborates" : noGenuineNeed ? "no-genuine-need" : void 0;
-    appendDisposition(opts.vault, { subject, kind, state, reason: opts.why, by: opts.by, verdict, node: opts.corroborates });
+    const index = new Map(buildPassContext(opts.vault).vault.readTree().map((n) => [n.title, n]));
+    try {
+      appendDisposition(opts.vault, { subject, kind, state, reason: opts.why, by: opts.by, verdict, node: opts.corroborates }, index);
+    } catch (e) {
+      console.error(`ost-agent dispose: ${e instanceof Error ? e.message : String(e)}`);
+      process.exitCode = 1;
+      return;
+    }
     console.log(
       opts.reopen ? `reopened "${subject}" \u2014 it is back on its ${kind} bucket.` : `settled "${subject}" (${kind}) \u2014 no bucket will list it again.
 ` + (verdict === "corroborates" ? `  Recorded as corroborating "${opts.corroborates}" \u2014 the one verdict that can strengthen that node's evidence later.
@@ -62827,7 +62871,8 @@ program2.command("dispose").description("settle one item so no bucket lists it a
   }
 );
 program2.command("dispositions").description("every item currently settled, dated and attributed \u2014 the dismissed-work list, in bulk").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
-  console.log(formatDispositions(readDispositionLedger(opts.vault)));
+  const index = new Map(buildPassContext(opts.vault).vault.readTree().map((n) => [n.title, n]));
+  console.log(formatDispositions(readDispositionLedger(opts.vault), index));
 });
 program2.command("suppress").description("decline one item until a machine-checkable fact flips \u2014 it leaves every work bucket while the condition holds and comes back by itself").argument("<subject>", "an evidence id, or a node title, exactly as the work list printed it").requiredOption(
   "--holds-while <kind>",
