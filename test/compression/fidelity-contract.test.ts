@@ -40,6 +40,7 @@ import {
   SURFACE_BY_NAME,
   type CensusConstant,
 } from "../../src/compression/registry.js";
+import { MAX_SITE_LINES, renderIntendedSite, textAtIntendedSite } from "../../src/fs/current-text.js";
 import { initVault } from "../../src/runner/init.js";
 import { buildPassContext } from "../../src/runner/context.js";
 import {
@@ -237,6 +238,7 @@ describe("contracts — every surface states what its squeeze preserves", () => 
 const DRIVEN_SURFACES = [
   "computed rollup",
   "evidence body channel",
+  "failed-match site excerpt",
   "next-work sweep",
   "ruleset proposal bound",
   "tree read",
@@ -468,4 +470,30 @@ describe("fidelity — the behavioral surfaces preserve their declared reads", (
     },
     120_000,
   );
+
+  test("failed-match site excerpt: the shown text is verbatim, and a clip says how much it is showing", () => {
+    // The decision this bound serves is "can I retry from the refusal alone",
+    // so the contract is stricter than "it fits": the excerpt has to be a
+    // substring of the file, or the retry composed from it misses again.
+    const file = Array.from({ length: 400 }, (_, i) => `line ${i} as the file holds it`).join("\n");
+
+    // Control, small: a quote well inside the cap is not reported as clipped.
+    const small = textAtIntendedSite(file, "line 7 as the CALLER remembered it");
+    expect(small.kind).toBe("site");
+    if (small.kind !== "site") return;
+    expect(small.site.truncated).toBe(false);
+    expect(file).toContain(small.site.text);
+
+    // Control, large: a quote past the cap IS clipped, and says so with both
+    // numbers — the shown count and the true length of what was asked for.
+    const quoted = Array.from({ length: 120 }, (_, i) => `line ${i} as the CALLER remembered it`).join("\n");
+    const big = textAtIntendedSite(file, quoted);
+    expect(big.kind).toBe("site");
+    if (big.kind !== "site") return;
+    expect(big.site.truncated).toBe(true);
+    expect(big.site.text.split("\n").length).toBe(MAX_SITE_LINES);
+    expect(file, "a clipped excerpt is still verbatim — it is the retry's quote").toContain(big.site.text);
+    const rendered = renderIntendedSite(big, "f.ts");
+    expect(rendered).toContain(`first ${MAX_SITE_LINES} of ${big.site.linesQuoted} lines`);
+  });
 });

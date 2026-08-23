@@ -73,6 +73,40 @@ describe("failed-match attribution", () => {
     expect(message).not.toMatch(/changed since you read it|quote is wrong/);
   });
 
+  test("handed the failing quote, both arms carry the text that is at that site now", () => {
+    // The cause and the correction are separate questions, and knowing which
+    // one it was still leaves a run with nothing to write instead.
+    const stale = seedFile("e.ts", "const total = subtotal + tax;\n");
+    const journal = new ReadJournal();
+    journal.recordRead(stale, fs.readFileSync(stale, "utf8"));
+    fs.writeFileSync(stale, "const total = subtotal + tax + shipping;\n", "utf8");
+
+    const staleMessage = describeFailedMatchAttribution(
+      classifyFailedMatch(journal, stale, "const total = subtotal + tax;"),
+    );
+    expect(staleMessage).toContain("changed since you read it");
+    expect(staleMessage).toContain("const total = subtotal + tax + shipping;");
+
+    const badQuote = seedFile("f.ts", "  const flag = enabled ?? false;\n");
+    journal.recordRead(badQuote, fs.readFileSync(badQuote, "utf8"));
+    const quoteMessage = describeFailedMatchAttribution(
+      classifyFailedMatch(journal, badQuote, "        const flag = enabled ?? true;"),
+    );
+    expect(quoteMessage).toContain("quote is wrong, not the file");
+    expect(quoteMessage).toContain("const flag = enabled ?? false;");
+  });
+
+  test("without the failing quote the verdict stays cause-only — no site is guessed", () => {
+    const p = seedFile("g.ts", "export const only = 1;\n");
+    const journal = new ReadJournal();
+    journal.recordRead(p, fs.readFileSync(p, "utf8"));
+    const attribution = classifyFailedMatch(journal, p);
+    expect(attribution.kind).toBe("bad-quote");
+    if (attribution.kind !== "bad-quote") return;
+    expect(attribution.atSite).toBeUndefined();
+    expect(describeFailedMatchAttribution(attribution)).not.toContain("what is at");
+  });
+
   test("the third arm is load-bearing: an unjournalled file must not collapse into either verdict", () => {
     // A two-arm implementation that always answers "changed" (or always
     // "bad-quote") would satisfy the two tests above without ever reaching

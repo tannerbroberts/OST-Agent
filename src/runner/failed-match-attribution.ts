@@ -17,6 +17,15 @@
  * explicit `cannot-say` instead. A two-arm version that always answers
  * "changed" would pass every test that only checks the other two arms.
  *
+ * **The cause and the correction are different questions.** Knowing *why* a
+ * match failed does not tell a run what to write instead, and both arms leave
+ * that half open — a stale file leaves the caller not knowing what replaced its
+ * quote, an unchanged one not knowing which part of the quote it got wrong.
+ * Hand {@link classifyFailedMatch} the `old_string` and the verdict carries the
+ * text at that site too, from `../fs/current-text.ts`. Omit it and the
+ * behaviour is the older cause-only one, because a caller that never captured
+ * the failing string should get no site rather than a guessed one.
+ *
  * **What this does not do.** It does not journal reads itself — the caller
  * decides what counts as a read and calls {@link ReadJournal.recordRead} at
  * that moment — and it does not decide what a run should do with the verdict
@@ -30,6 +39,7 @@
  */
 import fs from "node:fs";
 import { hashContent } from "../git/read-write-hash-guard.js";
+import { renderIntendedSite, textAtIntendedSite } from "../fs/current-text.js";
 
 /** The run's record of what it has read this pass: file path to content hash, at the moment of the read. */
 export class ReadJournal {
@@ -48,9 +58,9 @@ export class ReadJournal {
 
 export type FailedMatchAttribution =
   /** The file's content hash has moved since the journalled read — a second writer, not a bad quote. */
-  | { kind: "stale-file"; filePath: string; journalledHash: string; currentHash: string }
+  | { kind: "stale-file"; filePath: string; journalledHash: string; currentHash: string; atSite?: string }
   /** The file is byte-identical to the journalled read — the replacement text simply never matched it. */
-  | { kind: "bad-quote"; filePath: string; hash: string }
+  | { kind: "bad-quote"; filePath: string; hash: string; atSite?: string }
   /** No journalled read exists for this file this run — attribution cannot be made, and is not guessed. */
   | { kind: "cannot-say"; filePath: string; reason: string };
 
@@ -60,8 +70,20 @@ export type FailedMatchAttribution =
  * never makes — and answers the question a `String to replace not found`
  * message cannot: did the file change since the run read it, or did the run
  * quote it wrong?
+ *
+ * Pass `quoted` — the `old_string` that failed — to have the verdict carry the
+ * text that is actually at that site. The cause and the correction are
+ * different questions and both arms need the second one: a stale file leaves
+ * the caller not knowing what replaced its quote, and a bad quote leaves it not
+ * knowing which part it got wrong. Omitting `quoted` keeps the older
+ * cause-only behaviour, because a caller that never captured the failing string
+ * should get no site rather than a guessed one.
  */
-export function classifyFailedMatch(journal: ReadJournal, filePath: string): FailedMatchAttribution {
+export function classifyFailedMatch(
+  journal: ReadJournal,
+  filePath: string,
+  quoted?: string,
+): FailedMatchAttribution {
   const journalledHash = journal.hashAt(filePath);
   if (journalledHash === undefined) {
     return {
@@ -73,21 +95,39 @@ export function classifyFailedMatch(journal: ReadJournal, filePath: string): Fai
   }
   const currentContent = fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf8") : "";
   const currentHash = hashContent(currentContent);
+  const atSite = quoted === undefined ? undefined : renderIntendedSite(textAtIntendedSite(currentContent, quoted), filePath);
   if (currentHash !== journalledHash) {
-    return { kind: "stale-file", filePath, journalledHash, currentHash };
+    return { kind: "stale-file", filePath, journalledHash, currentHash, atSite };
   }
-  return { kind: "bad-quote", filePath, hash: currentHash };
+  return { kind: "bad-quote", filePath, hash: currentHash, atSite };
 }
 
 /** The verdict, in one line a person or a transcript reader can act on without decoding the union. */
 export function describeFailedMatchAttribution(attribution: FailedMatchAttribution): string {
   switch (attribution.kind) {
     case "stale-file":
-      return `the file changed since you read it: ${attribution.filePath} — re-read it before retrying the replacement.`;
+      return withSite(
+        `the file changed since you read it: ${attribution.filePath} — re-read it before retrying the replacement.`,
+        attribution.atSite,
+      );
     case "bad-quote":
-      return `${attribution.filePath} is unchanged since you read it — the replacement text does not match its ` +
-        `content, so the quote is wrong, not the file.`;
+      return withSite(
+        `${attribution.filePath} is unchanged since you read it — the replacement text does not match its ` +
+          `content, so the quote is wrong, not the file.`,
+        attribution.atSite,
+      );
     case "cannot-say":
       return `cannot attribute the failed match on ${attribution.filePath}: ${attribution.reason}`;
   }
+}
+
+/**
+ * Append the site to the cause, when there is one.
+ *
+ * The cause sentence keeps its exact wording so the two halves stay separable:
+ * a caller that only ever wanted the diagnosis reads the first sentence and
+ * stops, and one that wants to retry reads on.
+ */
+function withSite(cause: string, atSite: string | undefined): string {
+  return atSite === undefined ? cause : `${cause}\n${atSite}`;
 }

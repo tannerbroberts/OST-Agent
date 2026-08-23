@@ -946,14 +946,14 @@ var require_suggestSimilar = __commonJS({
       const minSimilarity = 0.4;
       candidates.forEach((candidate) => {
         if (candidate.length <= 1) return;
-        const distance3 = editDistance(word, candidate);
+        const distance4 = editDistance(word, candidate);
         const length = Math.max(word.length, candidate.length);
-        const similarity2 = (length - distance3) / length;
-        if (similarity2 > minSimilarity) {
-          if (distance3 < bestDistance) {
-            bestDistance = distance3;
+        const similarity3 = (length - distance4) / length;
+        if (similarity3 > minSimilarity) {
+          if (distance4 < bestDistance) {
+            bestDistance = distance4;
             similar = [candidate];
-          } else if (distance3 === bestDistance) {
+          } else if (distance4 === bestDistance) {
             similar.push(candidate);
           }
         }
@@ -36302,7 +36302,7 @@ var init_parse_diff_summary = __esm2({
     nameStatusParser = [
       new LineParser(
         /([ACDMRTUXB])([0-9]{0,3})\t(.[^\t]*)(\t(.[^\t]*))?$/,
-        (result, [status, similarity2, from, _to, to]) => {
+        (result, [status, similarity3, from, _to, to]) => {
           result.changed++;
           result.files.push({
             file: to ?? from,
@@ -36312,7 +36312,7 @@ var init_parse_diff_summary = __esm2({
             binary: false,
             status: orVoid(isDiffNameStatus(status) && status),
             from: orVoid(!!to && from !== to && from),
-            similarity: asNumber(similarity2)
+            similarity: asNumber(similarity3)
           });
         }
       )
@@ -39792,6 +39792,98 @@ function readCensusHistory(vaultDir) {
 // src/git/read-write-hash-guard.ts
 import fs14 from "node:fs";
 import { createHash as createHash2 } from "node:crypto";
+
+// src/fs/current-text.ts
+var CONTEXT_LINES = 3;
+var MAX_SITE_LINES = 20;
+function distance2(a, b2) {
+  if (a === b2) return 0;
+  if (a.length === 0 || b2.length === 0) return Math.max(a.length, b2.length);
+  let prev = Array.from({ length: b2.length + 1 }, (_2, i2) => i2);
+  for (let i2 = 1; i2 <= a.length; i2++) {
+    const row = [i2];
+    for (let j2 = 1; j2 <= b2.length; j2++) {
+      row[j2] = Math.min(prev[j2] + 1, row[j2 - 1] + 1, prev[j2 - 1] + (a[i2 - 1] === b2[j2 - 1] ? 0 : 1));
+    }
+    prev = row;
+  }
+  return prev[b2.length];
+}
+function similarity(a, b2) {
+  if (a === b2) return 1;
+  const longest = Math.max(a.length, b2.length);
+  if (longest === 0) return 1;
+  const cap = 400;
+  const [x2, y2] = longest > cap ? [a.slice(0, cap), b2.slice(0, cap)] : [a, b2];
+  return Math.max(0, 1 - distance2(x2, y2) / Math.max(x2.length, y2.length, 1));
+}
+function quotedLinesOf(quoted) {
+  const lines = quoted.split("\n");
+  if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
+  return lines;
+}
+function unescapeUnicode(s) {
+  return s.replace(/\\u([0-9a-fA-F]{4})/g, (_2, hex) => String.fromCharCode(parseInt(hex, 16)));
+}
+var collapse = (s) => s.replace(/\s+/g, " ").trim();
+function classifyDifference(quoted, present) {
+  if (collapse(quoted) === collapse(present)) return "whitespace";
+  if (unescapeUnicode(quoted) === present || collapse(unescapeUnicode(quoted)) === collapse(present)) return "escape";
+  if (collapse(quoted).toLowerCase() === collapse(present).toLowerCase()) return "case";
+  return "content";
+}
+function describeDifference(differs) {
+  switch (differs) {
+    case "whitespace":
+      return "the same characters with different whitespace \u2014 indentation, a trailing space, or a blank line";
+    case "escape":
+      return "you quoted a `\\uXXXX` escape where the file holds the character itself";
+    case "case":
+      return "the same text in a different case";
+    case "content":
+      return "different content \u2014 the file says something else here now";
+  }
+}
+function siteAtLine(current, startLine, span, quoted, knownSimilarity) {
+  const currentLines = current.split("\n");
+  const lineAt2 = (i2) => currentLines[i2] ?? "";
+  const quotedLines = quotedLinesOf(quoted);
+  const trimmedQuoted = quotedLines.map((l) => l.trim());
+  const shown2 = Math.min(span, MAX_SITE_LINES);
+  const end = Math.min(startLine + shown2, currentLines.length);
+  const text2 = currentLines.slice(startLine, end).join("\n");
+  const contextFrom = Math.max(0, startLine - CONTEXT_LINES);
+  const contextTo = Math.min(currentLines.length, Math.max(end, startLine) + CONTEXT_LINES);
+  const withContext = currentLines.slice(contextFrom, contextTo).join("\n");
+  let linesMatched = 0;
+  for (let j2 = 0; j2 < Math.min(span, quotedLines.length); j2++) {
+    const line = lineAt2(startLine + j2);
+    if (line === quotedLines[j2] || trimmedQuoted[j2] !== "" && line.trim() === trimmedQuoted[j2]) linesMatched += 1;
+  }
+  const present = Array.from({ length: span }, (_2, j2) => lineAt2(startLine + j2)).join("\n");
+  return {
+    line: startLine + 1,
+    text: text2,
+    withContext,
+    truncated: span > MAX_SITE_LINES,
+    linesMatched,
+    linesQuoted: quotedLines.length,
+    similarity: knownSimilarity ?? similarity(quoted.replace(/\n$/, ""), present),
+    differs: classifyDifference(quoted.replace(/\n$/, ""), present)
+  };
+}
+function renderSite(site, where) {
+  if (site.text === "") {
+    return `what is at ${where}:${site.line} now \u2014 the lines you quoted were deleted outright, so there is nothing there to re-quote. What surrounds the gap:
+${site.withContext}`;
+  }
+  const cut = site.truncated ? ` (first ${MAX_SITE_LINES} of ${site.linesQuoted} lines)` : "";
+  return `what is at ${where}:${site.line} now \u2014 ${site.linesMatched} of ${site.linesQuoted} quoted line(s) still match there, and the rest is ${describeDifference(site.differs)}${cut}:
+${site.withContext}
+Retry quoting the text above; it is what the file holds, so this does not need a re-read.`;
+}
+
+// src/git/read-write-hash-guard.ts
 var DriftError = class extends Error {
   filePath;
   expectedHash;
@@ -39815,11 +39907,21 @@ function writeWithHash(filePath, newContent, read) {
   const currentContent = fs14.existsSync(filePath) ? fs14.readFileSync(filePath, "utf8") : "";
   const currentHash = hashContent(currentContent);
   if (currentHash !== read.hash) {
-    throw new DriftError(filePath, read.hash, currentHash, describeDrift(read.content, currentContent));
+    const whatDrifted = `${describeDrift(read.content, currentContent)}. ` + currentTextAtDrift(read.content, currentContent, filePath);
+    throw new DriftError(filePath, read.hash, currentHash, whatDrifted);
   }
   fs14.writeFileSync(filePath, newContent, "utf8");
 }
 function describeDrift(before, after) {
+  const { removed, added, head } = divergentRegion(before, after);
+  const lineNo = head + 1;
+  if (removed.length === 0 && added.length === 0) {
+    return `content differs starting at byte ${firstByteDiff(before, after)}, though every line matches`;
+  }
+  const preview = (lines) => lines.slice(0, 2).map((l) => JSON.stringify(l.length > 80 ? l.slice(0, 80) + "\u2026" : l)).join(", ");
+  return `around line ${lineNo}, ${removed.length} line(s) became ${added.length} line(s)` + (removed.length ? ` \u2014 was ${preview(removed)}` : " \u2014 was nothing (an insertion)") + (added.length ? `, now ${preview(added)}` : ", now nothing (a deletion)");
+}
+function divergentRegion(before, after) {
   const beforeLines = before.split("\n");
   const afterLines = after.split("\n");
   let head = 0;
@@ -39829,14 +39931,18 @@ function describeDrift(before, after) {
   while (tail2 < maxTail && beforeLines[beforeLines.length - 1 - tail2] === afterLines[afterLines.length - 1 - tail2]) {
     tail2++;
   }
-  const removed = beforeLines.slice(head, beforeLines.length - tail2);
-  const added = afterLines.slice(head, afterLines.length - tail2);
-  const lineNo = head + 1;
-  if (removed.length === 0 && added.length === 0) {
-    return `content differs starting at byte ${firstByteDiff(before, after)}, though every line matches`;
+  return {
+    removed: beforeLines.slice(head, beforeLines.length - tail2),
+    added: afterLines.slice(head, afterLines.length - tail2),
+    head
+  };
+}
+function currentTextAtDrift(before, after, filePath) {
+  const { removed, added, head } = divergentRegion(before, after);
+  if (removed.length === 0) {
+    return "nothing you read was replaced \u2014 the drift is an insertion, so your quote is still accurate";
   }
-  const preview = (lines) => lines.slice(0, 2).map((l) => JSON.stringify(l.length > 80 ? l.slice(0, 80) + "\u2026" : l)).join(", ");
-  return `around line ${lineNo}, ${removed.length} line(s) became ${added.length} line(s)` + (removed.length ? ` \u2014 was ${preview(removed)}` : " \u2014 was nothing (an insertion)") + (added.length ? `, now ${preview(added)}` : ", now nothing (a deletion)");
+  return renderSite(siteAtLine(after, head, added.length, removed.join("\n")), filePath);
 }
 function firstByteDiff(a, b2) {
   const len = Math.min(a.length, b2.length);
@@ -40429,6 +40535,13 @@ var Vault = class {
    * a human editing the vault in Obsidian, a second agent process, another
    * tool call landing between the read and this write — the write refuses,
    * naming what drifted, instead of overwriting whatever arrived.
+   *
+   * Read that window narrowly, because it is narrow: the hash compared is the
+   * one THIS METHOD took, microseconds before the write, not the one the agent
+   * took when it read the node to decide what to say. A second writer that
+   * lands in between those two reads is invisible here. Widening it means
+   * carrying a fingerprint across the tool boundary, which is a change to the
+   * `ost_edit_node` surface, not to this method.
    */
   editProse(title, newProse, why) {
     assertWritableContent(`the new body of "${title}"`, newProse);
@@ -40445,7 +40558,7 @@ var Vault = class {
       writeWithHash(p2, serialize(node), read);
     } catch (err) {
       if (err instanceof DriftError) {
-        throw new Error(`cannot edit "${title}": ${err.message} \u2014 re-read the node and retry the edit.`);
+        throw new Error(`cannot edit "${title}": ${err.message}`);
       }
       throw err;
     }
@@ -44573,7 +44686,7 @@ function readProjectSources(root) {
   walk(root);
   return files;
 }
-function distance2(a, b2) {
+function distance3(a, b2) {
   if (a === b2) return 0;
   let prev = Array.from({ length: b2.length + 1 }, (_2, i2) => i2);
   for (let i2 = 1; i2 <= a.length; i2++) {
@@ -44592,7 +44705,7 @@ function nearestNames(target, candidates, limit = 3) {
   for (const name of candidates) {
     if (name === target || seen.has(name)) continue;
     seen.add(name);
-    const d = distance2(target.toLowerCase(), name.toLowerCase());
+    const d = distance3(target.toLowerCase(), name.toLowerCase());
     if (d <= cutoff) scored.push({ name, d });
   }
   scored.sort((x2, y2) => x2.d - y2.d || (x2.name < y2.name ? -1 : x2.name > y2.name ? 1 : 0));
@@ -45907,6 +46020,19 @@ var COMPRESSION_SURFACES = [
     ],
     drops: "prose-note",
     proof: "declaration"
+  },
+  {
+    name: "failed-match site excerpt",
+    module: "src/fs/current-text.ts",
+    caps: ["MAX_SITE_LINES"],
+    kind: "bounded-output",
+    decision: "whether a caller can retry a failed literal match by quoting the refusal instead of re-reading the file",
+    reads: [
+      "the excerpt is verbatim, so the text shown is quotable as the retry's old_string rather than a paraphrase of it",
+      "a cut excerpt says how many of the quoted lines it is showing, so a caller never reads a clip as the whole site"
+    ],
+    drops: "prose-note",
+    proof: "behavioral"
   },
   {
     name: "near-miss directory listing",
@@ -55321,10 +55447,10 @@ function preflightUncertaintyCensus(events, sessions) {
       for (const session of parsed) {
         for (const call of session.calls) {
           if (!sameTool(call.name, event.tool)) continue;
-          const distance3 = Math.abs(call.tsMs - eventMs);
-          if (distance3 > UNCERTAINTY_RULE.joinWindowMs) continue;
+          const distance4 = Math.abs(call.tsMs - eventMs);
+          if (distance4 > UNCERTAINTY_RULE.joinWindowMs) continue;
           if (claimed.has(`${call.session}:${call.entry}:${call.block}`)) continue;
-          if (!best || distance3 < best.distance) best = { session, call, distance: distance3 };
+          if (!best || distance4 < best.distance) best = { session, call, distance: distance4 };
         }
       }
     }
