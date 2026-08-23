@@ -1,0 +1,29 @@
+# OST-Agent configuration
+outcome: "Grow external returning operators: the number of non-founder operators who run a discovery pass on a real vault of their own and voluntarily return for another pass within 14 days, measured weekly. Until that number is above zero, the target opportunity is external demand evidence (I can't tell if anyone outside my own head wants this), and no node in this tree may climb the believability ladder on founder or model sources alone."
+outcomeTitle: "OST-Agent (meta)"   # stable label for the root node (rarely changed)
+model: claude-opus-4-8
+
+remote:
+  enabled: false            # default: local-only, no push. Set url + enabled to push.
+
+adapters:
+  inbox:
+    enabled: true
+    path: .ost-agent/inbox  # drop notes here; kept out of the vault root so Obsidian's graph shows only OST nodes
+  transcript:
+    enabled: false          # the agent's own finished sessions, harvested as usage evidence (observed behavior, not demand)
+    quietMinutes: 30        # never harvest a session that is still being written to
+  atlassian:
+    enabled: false
+    projects: []
+    spaces: []
+  slack:
+    enabled: false
+    channels: []
+
+processes:
+  P1_ingest:      { cron: "*/15 * * * *", triggers: ["inbox:new"] }
+  P2_map:         { cron: "",             triggers: ["after:P1_ingest"] }
+  P3_ideate:      { cron: "0 */6 * * *",  triggers: ["after:P2_map"], minSolutionsPerOpportunity: 3 }
+  P4_assumptions: { cron: "",             triggers: ["after:P3_ideate"] }
+  P5_hygiene:     { cron: "0 3 * * *",    triggers: [] }
