@@ -161,7 +161,7 @@ describe("regret 7 — a merge hands the survivor a result nobody ran on it", ()
     recordResult(dir, { test: "Ran", verdict: "supported", note: "6 of 20 booked", by: "Tanner", uncovered: "desktop only", on: "2026-07-25" });
 
     await expect(
-      call("ost_merge_nodes", { from: "Ran", into: "NotRun", prose: "One test.", why: "look like duplicates" }),
+      call("ost_merge_nodes", { from: "Ran", into: "NotRun", contribution: "One test.", why: "look like duplicates" }),
     ).rejects.toThrow(/run nobody performed on it/i);
   });
 });

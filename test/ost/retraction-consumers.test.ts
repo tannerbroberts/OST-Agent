@@ -502,7 +502,7 @@ describe("retraction is a human's, and there is no way for the agent to reach it
     retract(REGRETTED);
 
     await expect(
-      call("ost_merge_nodes", { from: REGRETTED, into: KEPT, prose: "one need", why: "same claim" }),
+      call("ost_merge_nodes", { from: REGRETTED, into: KEPT, contribution: "one need", why: "same claim" }),
     ).rejects.toThrow(/retracted/);
 
     expect(vault.readTree().map((n) => n.title)).toContain(KEPT);
@@ -513,7 +513,7 @@ describe("retraction is a human's, and there is no way for the agent to reach it
     retract(KEPT);
 
     await expect(
-      call("ost_merge_nodes", { from: REGRETTED, into: KEPT, prose: "one need", why: "same claim" }),
+      call("ost_merge_nodes", { from: REGRETTED, into: KEPT, contribution: "one need", why: "same claim" }),
     ).rejects.toThrow(/retracted/);
 
     expect(vault.readTree().map((n) => n.title)).toContain(REGRETTED);
