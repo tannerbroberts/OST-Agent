@@ -25,6 +25,7 @@
  */
 import matter from "gray-matter";
 import { parseFrontmatter } from "./frontmatter.js";
+import { isAuthorship, type Authorship } from "./authorship.js";
 import { isRung, type RungId } from "../knowledge/believability.js";
 import { isLane, type LaneId } from "../knowledge/lanes.js";
 
@@ -153,6 +154,18 @@ export interface OstNode {
    * verdict.
    */
   sight?: RepoSight;
+  /**
+   * Whose prose this node holds — `machine`, `human`, or `mixed` once both have
+   * written in it. Folded by {@link ../ost/authorship.ts#foldAuthorship} at every
+   * write in {@link ./vault.ts}, never replaced, and never accepted from the
+   * caller: `human` is set only by the CLI writes that carry a named person's
+   * attribution, which no allowlisted tool can reach.
+   *
+   * Absent means nobody recorded anything — a node predating the field, or a file
+   * a person hand-wrote beside the vault's own writer. That is `unlabelled` in
+   * the census and never either verdict, on the same posture as `sight`.
+   */
+  authorship?: Authorship;
   /** Extra tags beyond the layer tag (e.g. ["unvalidated"]). */
   tags: string[];
   /** Titles of child nodes, rendered as `[[wikilinks]]`. */
@@ -201,6 +214,7 @@ export function serialize(node: OstNode): string {
   if (node.threshold) data.threshold = node.threshold;
   if (node.instrument) data.instrument = node.instrument;
   if (node.sight) data.sight = node.sight;
+  if (node.authorship) data.authorship = node.authorship;
 
   // The evidence tag is derived from `evidence`, never carried in `tags`, so a
   // round-trip cannot render it twice.
@@ -300,5 +314,8 @@ export function deserialize(title: string, markdown: string): OstNode {
   // Same posture as `lane`: a sight value nobody defined must never be the
   // reason an instrument counts as grounded.
   if (isRepoSight(data.sight)) node.sight = data.sight;
+  // Same posture again, and here it is the load-bearing one: an unrecognised
+  // authorship value must never be the reason a node reads as a person's work.
+  if (isAuthorship(data.authorship)) node.authorship = data.authorship;
   return node;
 }

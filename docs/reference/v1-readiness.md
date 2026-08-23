@@ -3127,9 +3127,34 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,803 tests across 301 files, verified 2026-08-22 (`npx vitest run`
-> reports 3,795 of them, all passing; the other 8 are the contended calibration file
+> *Today:* **met** — 3,819 tests across 302 files, verified 2026-08-22 (`npx vitest run`
+> reports 3,811 of them, all passing; the other 8 are the contended calibration file
 > described below.
+> After "Mark what the machine chose differently from what a human wrote" was given its
+> definition of done: a node now carries `authorship` — `machine`, `human`, or `mixed` —
+> and it is the first marker in this vault that says who wrote the PROSE rather than what
+> standing the claim has. `#unvalidated` was the only provenance signal a node had, it is
+> stamped on every node the agent creates (211 of 219 here), and a marker true of 97% of
+> what a reader sees discriminates nothing; a human's node and the agent's were the same
+> bytes. `src/ost/authorship.ts` makes the vocabulary a three-point lattice whose join is
+> the only way the field is ever set, so a write folds its own author in and never
+> replaces what is there — an agent edit on a person's node lands on `mixed`, not
+> `machine`, and a person's `record-result`, `promote` or `retract` on the agent's node
+> lands on `mixed`, not `machine` either. Which literal each writer passes is decided the
+> way `ost/headings.ts` decides who may name a reserved heading: `human` appears only on
+> the CLI writers no allowlisted tool can reach, `createNode` stamps `machine` over
+> whatever the caller asked for, and the peer merge's new `authorship-union` rule resolves
+> a disagreement to `mixed` — never to `human`, which is the direction that would let a
+> peer launder the agent's sentences into a person's. `renderRollup` states the
+> human-written share out of the field, with the unlabelled backlog named in the same
+> breath. `test/ost/authorship-marker.test.ts`, 16 tests, one new file.
+> What a green does NOT settle is the assumption's actual question — whether a reader
+> still READS a marker once it is on everything — which needs people. The cheap half of
+> that test now runs on every rollup: when every labelled node reads the same, the rollup
+> says so out loud, which is the signal that spending five operators on the expensive half
+> would be re-learning what `#unvalidated` already taught.
+> Previously 3,803 tests across 301 files, verified 2026-08-22 (`npx vitest run` reports
+> 3,795 of them.
 > After "Make the threshold a field the node carries, not a sentence in its prose" was
 > given its definition of done: the `threshold` field shipped accepting any string, and the
 > assumption recorded against it said what that costs — "the field fills with the same

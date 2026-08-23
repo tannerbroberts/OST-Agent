@@ -59,6 +59,7 @@ import {
   LAYERS,
 } from "./node.js";
 import { parseFrontmatter } from "./frontmatter.js";
+import { foldAuthorship, type Writer } from "./authorship.js";
 import { canonicalTitle, fileNameForTitle, sanitizeTitle } from "./sanitize.js";
 import { isHeadingLine, reservedHeadingIn } from "./headings.js";
 import { joinReservedSections, splitReservedSections } from "./sections.js";
@@ -201,6 +202,30 @@ export class Vault {
     // Probe-only callers (the MCP server's readiness check and its pre-ready
     // tool listing) opt out: probing a directory must never create it.
     if (opts.create !== false) fs.mkdirSync(this.root, { recursive: true });
+  }
+
+  /**
+   * Fold this write's own author into the node, immediately before it is
+   * rendered. Returns the node so it can wrap a `serialize` argument in place.
+   *
+   * The writer is a LITERAL at every call site below, never a value that reached
+   * this class from a tool argument, for the reason {@link ./authorship.ts}
+   * states: `human` is the flattering label and the agent is the party that
+   * benefits from it. Which literal a method passes is decided the same way
+   * {@link ./headings.ts} decides who may name a reserved heading — by whether
+   * any allowlisted tool can reach the method at all. `promoteToValidated` and
+   * `setOutcomeBody` are human-only writers with no tool wrapping them, and
+   * `appendUnderSection` takes the choice as a parameter because both a person
+   * (`recordResult`, `retractNode`) and a process (`instrument.ts`) come through
+   * that door; every other method here is reachable from the tool surface and
+   * says `machine`.
+   *
+   * `linkNodes` deliberately does not stamp: an edge is structure, not prose,
+   * and drawing one authors no sentence anybody reads.
+   */
+  private authoredBy(node: OstNode, writer: Writer): OstNode {
+    node.authorship = foldAuthorship(node.authorship, writer);
+    return node;
   }
 
   /** Absolute path for a node title, asserted to stay within the vault root. */
@@ -426,7 +451,15 @@ export class Vault {
     return deserialize(title, fs.readFileSync(p, "utf8"));
   }
 
-  /** Create a new node file. Throws if a file for this title already exists. */
+  /**
+   * Create a new node file. Throws if a file for this title already exists.
+   *
+   * Stamped `authorship: machine` regardless of what the caller put in the node,
+   * for the reason the tag above it is stamped server-side: this is a writer the
+   * tool surface reaches, and the caller must not be able to declare its own
+   * prose a person's. A node born through a program is the machine's until
+   * somebody writes in it.
+   */
   createNode(node: OstNode): void {
     assertWritableContent(`the body of "${node.title}"`, node.body);
     for (const tag of node.tags) assertWritableTag(node.title, tag);
@@ -434,6 +467,7 @@ export class Vault {
     if (fs.existsSync(p)) {
       throw new Error(`node already exists (create is non-overwriting): ${node.title}`);
     }
+    node.authorship = "machine";
     fs.writeFileSync(p, serialize(node), "utf8");
     // The single writer reports the one thing only it can know: that this file now
     // exists because something asked for it. Nothing else in the process can
@@ -445,12 +479,29 @@ export class Vault {
   /**
    * Append a prose section to an existing node's file. Strictly grows the file —
    * the prior bytes remain an exact prefix of the new content.
+   *
+   * That byte guarantee and the authorship marker pull against each other, and
+   * the split here is deliberate. This is the one prose write the tool surface
+   * can reach that does not go through `serialize`, so folding `machine` in
+   * would mean re-rendering the whole file and the prefix property would be
+   * gone from every append. So the file is re-rendered ONLY when the marker
+   * would actually move — a node the agent created already reads `machine`, and
+   * the append leaves it there, which is the case the prefix property was pinned
+   * on. The case that does re-render is the one that matters: the agent adding a
+   * section to a node it did not write, which must not go on reading as
+   * nobody's or as a person's.
    */
   appendToNode(title: string, section: string): void {
     assertWritableContent(`a section of "${title}"`, section);
     const p = this.nodePath(title);
     if (!fs.existsSync(p)) throw this.noSuchNode(title);
     const prev = fs.readFileSync(p, "utf8");
+    const node = deserialize(title, prev);
+    if (foldAuthorship(node.authorship, "machine") !== node.authorship) {
+      node.body = `${node.body}\n\n${section.trim()}`;
+      fs.writeFileSync(p, serialize(this.authoredBy(node, "machine")), "utf8");
+      return;
+    }
     const sep = prev.endsWith("\n") ? "\n" : "\n\n";
     fs.writeFileSync(p, prev + sep + section.trim() + "\n", "utf8");
   }
@@ -459,12 +510,19 @@ export class Vault {
    * Append one line under a `## Heading` in a node's body, creating the heading
    * only if it is absent. Grows the file like every other write here — nothing
    * already recorded under that heading is touched.
+   *
+   * `writer` is the other half of the asymmetry `heading` already carries. Both
+   * a person (`recordResult`, `retractNode` — CLI-only, off every allowlist) and
+   * a process (`instrument.ts`, filing an exit code it watched) come through this
+   * one door, so which of them is writing has to travel with the call. It
+   * defaults to `machine`: a caller that says nothing has not established a
+   * person, and `human` is the label that must never be reached by omission.
    */
-  appendUnderSection(title: string, heading: string, line: string): void {
+  appendUnderSection(title: string, heading: string, line: string, writer: Writer = "machine"): void {
     assertWritableContent(`a line under ${heading} of "${title}"`, line);
     const node = this.read(title);
     node.body = appendUnderHeading(node.body, heading, line);
-    fs.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+    fs.writeFileSync(this.nodePath(title), serialize(this.authoredBy(node, writer)), "utf8");
   }
 
   /**
@@ -597,7 +655,10 @@ export class Vault {
       throw new Error(`setOutcomeBody only applies to the Outcome node, not a ${node.layer}`);
     }
     node.body = newBody;
-    fs.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+    // A human writer, by construction: `set-outcome` is a CLI command with no
+    // tool wrapping it, precisely so the agent can never rewrite its own
+    // mandate. The text landing here is the operator's own.
+    fs.writeFileSync(this.nodePath(title), serialize(this.authoredBy(node, "human")), "utf8");
   }
 
   /**
@@ -621,7 +682,11 @@ export class Vault {
     node.status = "validated";
     const line = `- ${isoToday()} status: ${prev} → validated (promoted by ${by}) — ${why}`;
     node.body = appendUnderHeading(node.body, "## History", line);
-    fs.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+    // The named person's own reason goes into the node, so their hand is now in
+    // its prose. An agent-created node promoted here reads `mixed` afterwards,
+    // never `machine` — inheriting the machine marker across a human's write is
+    // the exact failure this field exists to make visible.
+    fs.writeFileSync(this.nodePath(title), serialize(this.authoredBy(node, "human")), "utf8");
     return line;
   }
 
@@ -630,7 +695,7 @@ export class Vault {
     assertWritableContent(`an annotation on "${title}"`, issue);
     const node = this.read(title);
     node.body = appendUnderHeading(node.body, "## Issues", `- ${isoToday()} ${issue}`);
-    fs.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+    fs.writeFileSync(this.nodePath(title), serialize(this.authoredBy(node, "machine")), "utf8");
   }
 
   /**
@@ -737,7 +802,7 @@ export class Vault {
     const line = `- ${isoToday()} body edited — ${why}`;
     node.body = appendUnderHeading(node.body, "## History", line);
     try {
-      writeWithHash(p, serialize(node), read);
+      writeWithHash(p, serialize(this.authoredBy(node, "machine")), read);
     } catch (err) {
       if (err instanceof DriftError) {
         // No "re-read the node" any more. The DriftError now quotes what the
@@ -839,7 +904,12 @@ export class Vault {
       `- ${isoToday()} merged "${loserTitle}" into this node and deleted its file — ${opts.why}` +
       (loserReserved.length > 0 ? ` (carried ${loserReserved.length} reserved section(s) across)` : "");
     survivor.body = appendUnderHeading(survivor.body, "## History", line);
-    fs.writeFileSync(this.nodePath(into), serialize(survivor), "utf8");
+    // The survivor's prose is the caller's — the agent's — so it folds `machine`
+    // in. The loser's marker does not travel with its reserved sections: those
+    // are measurements, and a merge that could import a `human` marker along
+    // with them would be a way to have the agent's prose read as a person's by
+    // choosing what to fold into it.
+    fs.writeFileSync(this.nodePath(into), serialize(this.authoredBy(survivor, "machine")), "utf8");
 
     // Repoint every inbound edge in the tree. Done after the survivor is written
     // so a crash between the two leaves edges pointing at a node that still

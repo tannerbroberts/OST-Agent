@@ -45,6 +45,7 @@
  *     is only as believed as its least-supported claim.
  */
 import type { Actor } from "../adapters/source.js";
+import { authorshipCensus, type AuthorshipCensus } from "../ost/authorship.js";
 import type { OstNode } from "../ost/node.js";
 import { byTitle } from "../processes/tree.js";
 import { keyString, sourceTrustKey } from "../knowledge/actor-trust.js";
@@ -105,6 +106,16 @@ export interface TreeRollup {
   /** Nodes the Outcome links that are not Opportunities — the shape the migration removes. */
   nonOpportunityChildren: string[];
   totals: { nodes: number; opportunities: number; solutions: number; tests: number };
+  /**
+   * How much of this tree a person actually wrote.
+   *
+   * Read off `authorship`, which the vault's writers stamp and no tool argument
+   * can set — the same provenance discipline as every other figure here. It
+   * belongs at the top level rather than per bucket because the question it
+   * answers is about the tree as a whole: a reader deciding how much of what
+   * they are about to read is the agent talking to itself.
+   */
+  authorship: AuthorshipCensus;
 }
 
 /**
@@ -237,6 +248,7 @@ export function rollupTree(tree: readonly OstNode[], stamps?: ReadonlyMap<string
       solutions: tree.filter((n) => n.layer === "Solution").length,
       tests: tree.filter((n) => n.layer === "AssumptionTest").length,
     },
+    authorship: authorshipCensus(tree),
   };
 }
 
@@ -280,6 +292,35 @@ function actorWarning(b: BucketRollup): string {
 }
 
 /**
+ * The human-written share, and — when it is true — the fact that the marker is
+ * not discriminating anything.
+ *
+ * The second line is the assumption this field was built under, said out loud
+ * rather than left for somebody to notice: a marker that reads the same on every
+ * node a reader sees carries no information, which is what already happened to
+ * `#unvalidated` in this vault (211 of 219). Stating it here is the cheap half
+ * of that test, run on every rollup and costing nobody anything — and it is the
+ * half that says whether the expensive half (five operators, an hour each) is
+ * worth running at all.
+ */
+function authorshipLines(c: AuthorshipCensus): string[] {
+  if (c.total === 0) return [];
+  const lines = [
+    `Authorship: ${c.humanWritten}/${c.total} node(s) carry human-written prose ` +
+      `(machine-only ${c.machine}, unlabelled ${c.unlabelled} — written before authorship was recorded)`,
+  ];
+  const labelled = c.total - c.unlabelled;
+  const uniform = [c.machine, c.human, c.mixed].some((n) => n === labelled);
+  if (labelled >= 10 && uniform) {
+    lines.push(
+      `  every one of those ${labelled} labelled node(s) reads the same — a marker true of all of them ` +
+        `is not telling a reader which is which`,
+    );
+  }
+  return lines;
+}
+
+/**
  * The top-level view, as the thing a loop reads on the way in.
  *
  * One line per bucket, widest signal first, and every number traceable to a
@@ -294,6 +335,7 @@ export function renderRollup(rollup: TreeRollup): string {
     `Tree: ${rollup.totals.nodes} nodes — ${rollup.totals.opportunities} opportunity, ` +
       `${rollup.totals.solutions} solution, ${rollup.totals.tests} test`,
   );
+  lines.push(...authorshipLines(rollup.authorship));
   lines.push("");
 
   if (rollup.buckets.length === 0) {
