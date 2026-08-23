@@ -399,13 +399,16 @@ const ROWS: Record<string, Row> = {
     // `instrument` is aimed for the same reason as `layer` and `evidence`: the
     // boundary refuses anything that is not a spec-file command, so the generic
     // filler would get this row refused on every attempt and it would test
-    // nothing — the failure mode the landing count exists to catch.
+    // nothing — the failure mode the landing count exists to catch. `threshold`
+    // joined that list when the field began requiring an actual bar: "text for
+    // threshold" is now refused, so aiming it is what keeps this row landing.
     aim: (n) => ({
       title: `A forged test ${n}`,
       parent: BLOCKED_BELIEF,
       layer: "AssumptionTest",
       evidence: "assertion",
       instrument: "npx vitest run test/forged.test.ts",
+      threshold: "at least 5 of 20 forge a pass",
     }),
   },
   ost_append_to_node: {

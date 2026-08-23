@@ -401,12 +401,15 @@ const AIM: Record<string, (n: number) => Record<string, unknown>> = {
   // refuses anything that is not a spec-file command, so the generic `text for
   // instrument` would make this a call that writes nothing — and a driver that
   // silently stops writing proves nothing about the push path it is testing.
+  // `threshold` is aimed for the identical reason since the field started
+  // requiring a bar — `text for threshold` fixes nothing and is refused.
   ost_create_node: (n) => ({
     title: `A new test ${n}`,
     parent: BELIEF,
     layer: "AssumptionTest",
     evidence: "assertion",
     instrument: "npx vitest run test/driven.test.ts",
+    threshold: "at least 5 of 20 drive a write",
   }),
   ost_append_to_node: () => ({ title: TEST, section: "## Notes\nsomething true" }),
   // A NEW edge, and a LEGAL one: `linkNodes` no-ops on a duplicate, so aiming at

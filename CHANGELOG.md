@@ -2,6 +2,43 @@
 
 ## Unreleased
 
+- **The `threshold` field has to be a bar now, or it is not written.** The field shipped on
+  2026-08-01 as the readable half of "the threshold is a field, not a sentence buried in
+  prose", and it shipped accepting any string. The assumption recorded against it named the
+  cost in advance: the field fills with the same unbounded sentence, "at which point the
+  structure improved and the commitment did not" — and a test whose bar is a sentence
+  cannot come out a failure, because whoever wants to build the thing can read whatever
+  came back as a pass. It is load-bearing beyond rigour, too: `confirmPermit` keeps a
+  `no-spec` instrument's build permit **if and only if** the test carries a bound
+  threshold, so an unbounded one is the difference between handing a builder a definition
+  of done and handing them nothing. `parseThresholdField` (`src/eval/coverage.ts`) reads
+  the field strictly and `ost_create_node` refuses what is not a bar — refused before
+  anything reaches disk, like every other create-node guard, and at the only door there
+  is (`ost_edit_node` does not touch frontmatter and no `ost_set_threshold` exists).
+  Strict is three requirements, each closing a different way of failing: **one line**,
+  because a hard-wrapped paragraph in the field IS the relocation the field was meant to
+  prevent and is the one form the field can rule out that the prose scan — which reads
+  across line breaks on purpose — never could; **a comparator adjacent to its number**, so
+  "Over the next 15 nodes, classify each threshold" is refused and "over 15" is not, which
+  a co-presence check ("some comparator word, some digit") gets exactly backwards; and
+  **`A_BOUND` on top**, which makes the strict field reading a *subset* of the census
+  classifier by construction — nothing the field accepts can be something `ost-agent debt`
+  would then call unfixed. Word-numbers count beside digits, because this repository had
+  already refused a threshold for spelling its numbers out and accepted the identical bar
+  in digits, and a rule that turns on typography is not reading the commitment.
+  **What is deliberately unchanged:** the field is still optional and the prose fallback is
+  untouched, and that is what makes a strict rule safe here rather than the nag the parent
+  opportunity warned would get switched off. A bar whose reasoning must travel with it —
+  *">= 2 incidents beyond the known one, else defer (…)"* — belongs in the body under a
+  `**Pre-committed threshold:**` lead-in, and the refusal message says so, so no author is
+  left with nowhere to put it.
+  **What green does NOT settle,** and it is the question the assumption test actually
+  asked: whether *authors* write bounds. This closes the door rather than measuring who
+  walks through it. The pre-committed observation — 10 of the next 15 field values classify
+  as `bound` — can no longer be run as written, because the population it would sample is
+  now empty by construction. The behavioural question that survives is where authors go
+  instead, into a real bar or into the fallback, and only the next 15 tests show that.
+
 - **The mirror says how old it is.** `.ost-agent/evidence/` has always BEEN a local
   read-only replica of the systems the adapters fetch from — every adapter is GET-only and
   everything downstream reads their output off disk, so nothing in a maintenance pass ever

@@ -45752,6 +45752,44 @@ var DEFERRING_VERBS = /* @__PURE__ */ new Set([
   "nominate",
   "specify"
 ]);
+var NUM = String.raw`(?:[$£€]?\d[\d,.]*\s*%?|two thirds|three quarters|a third|a quarter|a half|half|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|dozen|majority)`;
+var FUZZ = String.raw`(?:\s+(?:about|around|roughly|approximately))?`;
+var BOUND_FORMS = [
+  // >= 2 · ≤ 5% · > 100
+  new RegExp(String.raw`(?:[<>]=?|[≥≤])\s*${NUM}`, "i"),
+  // at least 5 · no more than a third · up to 20 · at or below 5%
+  new RegExp(
+    String.raw`\b(?:at least|at most|no more than|no fewer than|no less than|fewer than|less than|more than|greater than|at or above|at or below|up to|under|over|above|below|exactly|a minimum of|a maximum of|minimum of|maximum of)${FUZZ}\s+(?:the\s+)?${NUM}`,
+    "i"
+  ),
+  // 5 or more · a third or fewer · 90% or better
+  new RegExp(String.raw`${NUM}\s+(?:or more|or fewer|or less|or better|or worse|or higher|or lower|and above|and up)\b`, "i"),
+  // 10 of 15 · 5 out of 20 · 3 in 4
+  new RegExp(String.raw`${NUM}\s+(?:of|out of|in)\s+(?:the\s+)?${NUM}`, "i"),
+  // between 5 and 10
+  new RegExp(String.raw`\bbetween\s+${NUM}\s+and\s+${NUM}`, "i"),
+  // zero crashes · 0 hits · none at all · unanimous
+  /\b(?:zero|none|nothing|unanimous)\b/i,
+  new RegExp("(?<![\\d.])0\\s+\\p{L}", "u")
+];
+function parseThresholdField(value) {
+  const trimmed2 = value.trim();
+  if (!trimmed2) return { bound: false, reason: "it is empty" };
+  if (/\n/.test(trimmed2)) {
+    return { bound: false, reason: "it is wrapped over more than one line, which is what a pasted paragraph looks like and what a bar does not" };
+  }
+  const bar = BOUND_FORMS.reduce((found, form) => found ?? (form.exec(trimmed2)?.[0].trim() ?? null), null);
+  if (bar === null) {
+    return {
+      bound: false,
+      reason: 'nothing in it fixes a bar \u2014 a threshold needs a comparator and the number it commits to, next to each other ("at least 5 of 20", ">= 2", "zero")'
+    };
+  }
+  if (!A_BOUND.test(trimmed2)) {
+    return { bound: false, reason: `"${bar}" reads as a bar here, but \`ost-agent debt\` would still count the test unfixed \u2014 two readers of one threshold must not disagree` };
+  }
+  return { bound: true, bar };
+}
 function thresholdKindOf(test) {
   const asked = askedOf(test);
   if (asked === null) return "absent";
@@ -52166,7 +52204,7 @@ function buildOstTools(ctx, allowedNames) {
           tags: { type: "array", items: { type: "string" }, description: "Extra topical tags. You do not need to pass 'unvalidated' \u2014 it is stamped for you." },
           threshold: {
             type: "string",
-            description: "AssumptionTest only: the pre-committed bar as a field, not a sentence buried in the body \u2014 e.g. 'at least 5 of 20 book a kickoff.' `ost-agent debt`/`status` read this in place of the body's prose lead-in when it is set. Refused for any layer other than AssumptionTest."
+            description: "AssumptionTest only: the pre-committed bar as a field, not a sentence buried in the body \u2014 e.g. 'at least 5 of 20 book a kickoff.' `ost-agent debt`/`status` read this in place of the body's prose lead-in when it is set. Refused for any layer other than AssumptionTest. It must be an ACTUAL BAR on ONE line: a comparator next to the number it commits to ('at least 5 of 20', '>= 2 incidents', 'no more than a third', 'zero data-loss reports'). A restated sentence is refused, because a threshold a person has to interpret after the run can be read as a pass whatever comes back, which is the entire failure this field exists to close. The field is optional and that refusal is not a trap: if the bar's reasoning has to travel with it, omit `threshold` and write the paragraph in the body under a '**Pre-committed threshold:**' lead-in, which the reader falls back to unchanged."
           },
           instrument: {
             type: "string",
@@ -52204,6 +52242,15 @@ function buildOstTools(ctx, allowedNames) {
         if (input.status === "validated") throw new Error(VALIDATED_REFUSAL);
         if (input.threshold !== void 0 && input.layer !== "AssumptionTest") {
           throw new Error(`threshold is only meaningful for an AssumptionTest, not a ${input.layer}`);
+        }
+        if (input.threshold !== void 0) {
+          const reading = parseThresholdField(input.threshold);
+          if (!reading.bound) {
+            throw new Error(
+              `"${input.title}" cannot carry that threshold: ${reading.reason}. A pre-commitment that needs a human to interpret it after the run is not one \u2014 whatever comes back can be read as a pass.
+Either fix a bar in the field ("at least 5 of 20 book a kickoff", ">= 2 incidents", "zero data-loss reports"), or leave \`threshold\` off entirely and write the bar as prose in the body under a **Pre-committed threshold:** lead-in \u2014 the reader falls back to it, and that is the place for a bar whose reasoning has to travel with it.`
+            );
+          }
         }
         if (input.instrument !== void 0) {
           if (input.layer !== "AssumptionTest") {
