@@ -3127,8 +3127,8 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,819 tests across 302 files, verified 2026-08-22 (`npx vitest run`
-> reports 3,811 of them, all passing; the other 8 are the contended calibration file
+> *Today:* **met** — 3,832 tests across 304 files, verified 2026-08-23 (`npx vitest run`
+> reports 3,824 of them, all passing; the other 8 are the contended calibration file
 > described below.
 > After "Mark what the machine chose differently from what a human wrote" was given its
 > definition of done: a node now carries `authorship` — `machine`, `human`, or `mixed` —

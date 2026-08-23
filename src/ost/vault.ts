@@ -46,7 +46,7 @@ import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
 import { nearestName } from "../fs/near-miss.js";
-import { noteNodeFileCreated } from "../telemetry/usage.js";
+import { TRACED_NODE_FIELDS, noteNodeFileCreated, noteNodeFileWritten } from "../telemetry/usage.js";
 import {
   AGENT_IDEATED_TAG,
   deserialize,
@@ -78,6 +78,51 @@ import { Plan } from "./plan.js";
 
 function isoToday(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * Which of the trace's closed field vocabulary this file's frontmatter carries.
+ *
+ * `undefined` — not the empty list — when the frontmatter will not parse, and the
+ * distinction is the whole reason this returns two kinds of nothing: a file whose
+ * YAML is broken holds fields nobody here can enumerate, and calling that "no
+ * fields" would report every one of them lost on the next write that repairs it.
+ *
+ * Defence rather than a live path, and honestly so: every write in this class
+ * deserializes the node before it renders one, so a file this cannot parse throws
+ * on the READ and never reaches a write. `test/ost/vault-write-census.test.ts`
+ * pins that, so if a write path ever stops reading first, the branch is here.
+ */
+function tracedFields(markdown: string): string[] | undefined {
+  try {
+    const data = parseFrontmatter(markdown).data as Record<string, unknown>;
+    return TRACED_NODE_FIELDS.filter((f) => {
+      const value = data[f];
+      return typeof value === "string" ? value.trim().length > 0 : value !== undefined && value !== null;
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Report one node-file write to the trace: what the file holds now, and what it
+ * held before and does not hold now.
+ *
+ * The single writer reports the one thing only it can know, exactly as it does for
+ * `noteNodeFileCreated` — that these bytes replaced those bytes. Nothing downstream
+ * can reconstruct it: the vault is committed with `git add -A` after the fact, so a
+ * field that vanished between two writes inside one call leaves no trace in the
+ * commit trail either. Field NAMES only travel (see {@link TRACED_NODE_FIELDS});
+ * no value crosses this boundary.
+ */
+function reportNodeWrite(filePath: string, before: string[] | undefined, after: string): void {
+  const fields = tracedFields(after) ?? [];
+  noteNodeFileWritten({
+    file: path.basename(filePath),
+    fields,
+    lost: (before ?? []).filter((f) => !fields.includes(f)),
+  });
 }
 
 /**
@@ -452,6 +497,28 @@ export class Vault {
   }
 
   /**
+   * The one door every node-file write in this class goes through.
+   *
+   * It exists so that the before/after field comparison cannot be forgotten at a
+   * write site. This class already had fifteen `fs.writeFileSync` calls and gains
+   * one whenever a new typed transition does; a census wired into fifteen of them
+   * is a census that is wrong at the sixteenth, and wrong silently, which is the
+   * exact failure mode it was added to detect. `test/ost/vault-write-census.test.ts`
+   * holds the file to having no raw write left.
+   *
+   * The read-before is unconditional and costs one `readFileSync` per write. That
+   * is affordable here — these are single files of a few KB, and every one of them
+   * was just read by the method calling this anyway — and it is the only way to
+   * know what the bytes held, since the caller hands over a rendered string and no
+   * longer has the original.
+   */
+  private writeNodeFile(filePath: string, contents: string): void {
+    const before = fs.existsSync(filePath) ? tracedFields(fs.readFileSync(filePath, "utf8")) : [];
+    fs.writeFileSync(filePath, contents, "utf8");
+    reportNodeWrite(filePath, before, contents);
+  }
+
+  /**
    * Create a new node file. Throws if a file for this title already exists.
    *
    * Stamped `authorship: machine` regardless of what the caller put in the node,
@@ -468,7 +535,7 @@ export class Vault {
       throw new Error(`node already exists (create is non-overwriting): ${node.title}`);
     }
     node.authorship = "machine";
-    fs.writeFileSync(p, serialize(node), "utf8");
+    this.writeNodeFile(p, serialize(node));
     // The single writer reports the one thing only it can know: that this file now
     // exists because something asked for it. Nothing else in the process can
     // distinguish a node the tree grew from a node that appeared beside it, and a
@@ -499,11 +566,14 @@ export class Vault {
     const node = deserialize(title, prev);
     if (foldAuthorship(node.authorship, "machine") !== node.authorship) {
       node.body = `${node.body}\n\n${section.trim()}`;
-      fs.writeFileSync(p, serialize(this.authoredBy(node, "machine")), "utf8");
+      this.writeNodeFile(p, serialize(this.authoredBy(node, "machine")));
       return;
     }
     const sep = prev.endsWith("\n") ? "\n" : "\n\n";
-    fs.writeFileSync(p, prev + sep + section.trim() + "\n", "utf8");
+    // Goes through the same door as every re-render, even though a strict append
+    // provably cannot lose a field: the census is a property of the write site,
+    // not of the writer's confidence about what this particular write does.
+    this.writeNodeFile(p, prev + sep + section.trim() + "\n");
   }
 
   /**
@@ -522,7 +592,7 @@ export class Vault {
     assertWritableContent(`a line under ${heading} of "${title}"`, line);
     const node = this.read(title);
     node.body = appendUnderHeading(node.body, heading, line);
-    fs.writeFileSync(this.nodePath(title), serialize(this.authoredBy(node, writer)), "utf8");
+    this.writeNodeFile(this.nodePath(title), serialize(this.authoredBy(node, writer)));
   }
 
   /**
@@ -563,7 +633,7 @@ export class Vault {
     const target = sanitizeTitle(child);
     if (node.links.includes(target)) return; // already linked — no-op
     node.links.push(target);
-    fs.writeFileSync(this.nodePath(parent), serialize(node), "utf8");
+    this.writeNodeFile(this.nodePath(parent), serialize(node));
   }
 
   /**
@@ -577,7 +647,7 @@ export class Vault {
     node.status = status;
     const line = `- ${isoToday()} status: ${prev} → ${status}${note ? ` — ${note}` : ""}`;
     node.body = appendUnderHeading(node.body, "## History", line);
-    fs.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+    this.writeNodeFile(this.nodePath(title), serialize(node));
   }
 
   /**
@@ -592,7 +662,7 @@ export class Vault {
     node.evidence = evidence;
     const line = `- ${isoToday()} evidence: ${prev} \u2192 ${evidence}${note ? ` \u2014 ${note}` : ""}`;
     node.body = appendUnderHeading(node.body, "## History", line);
-    fs.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+    this.writeNodeFile(this.nodePath(title), serialize(node));
   }
 
   /**
@@ -607,7 +677,7 @@ export class Vault {
     node.lane = lane;
     const line = `- ${isoToday()} lane: ${prev} → ${lane}${note ? ` — ${note}` : ""}`;
     node.body = appendUnderHeading(node.body, "## History", line);
-    fs.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+    this.writeNodeFile(this.nodePath(title), serialize(node));
     return line;
   }
 
@@ -639,7 +709,7 @@ export class Vault {
     if (sight) node.sight = sight;
     const line = `- ${isoToday()} instrument: ${prev} → ${instrument}${sight ? ` [sight: ${sight}]` : ""}${note ? ` — ${note}` : ""}`;
     node.body = appendUnderHeading(node.body, "## History", line);
-    fs.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+    this.writeNodeFile(this.nodePath(title), serialize(node));
     return line;
   }
 
@@ -658,7 +728,7 @@ export class Vault {
     // A human writer, by construction: `set-outcome` is a CLI command with no
     // tool wrapping it, precisely so the agent can never rewrite its own
     // mandate. The text landing here is the operator's own.
-    fs.writeFileSync(this.nodePath(title), serialize(this.authoredBy(node, "human")), "utf8");
+    this.writeNodeFile(this.nodePath(title), serialize(this.authoredBy(node, "human")));
   }
 
   /**
@@ -686,7 +756,7 @@ export class Vault {
     // its prose. An agent-created node promoted here reads `mixed` afterwards,
     // never `machine` — inheriting the machine marker across a human's write is
     // the exact failure this field exists to make visible.
-    fs.writeFileSync(this.nodePath(title), serialize(this.authoredBy(node, "human")), "utf8");
+    this.writeNodeFile(this.nodePath(title), serialize(this.authoredBy(node, "human")));
     return line;
   }
 
@@ -695,7 +765,7 @@ export class Vault {
     assertWritableContent(`an annotation on "${title}"`, issue);
     const node = this.read(title);
     node.body = appendUnderHeading(node.body, "## Issues", `- ${isoToday()} ${issue}`);
-    fs.writeFileSync(this.nodePath(title), serialize(this.authoredBy(node, "machine")), "utf8");
+    this.writeNodeFile(this.nodePath(title), serialize(this.authoredBy(node, "machine")));
   }
 
   /**
@@ -726,7 +796,7 @@ export class Vault {
     // The record keeps every word; only the syntax changes.
     const line = `- ${isoToday()} unlinked "${target}" — ${why}`;
     node.body = appendUnderHeading(node.body, "## History", line);
-    fs.writeFileSync(this.nodePath(parent), serialize(node), "utf8");
+    this.writeNodeFile(this.nodePath(parent), serialize(node));
     return line;
   }
 
@@ -757,7 +827,7 @@ export class Vault {
     node.links = node.links.map((l) => (l === oldTarget ? newTarget : l));
     const line = `- ${isoToday()} repointed "${oldTarget}" → "${newTarget}" — ${why}`;
     node.body = appendUnderHeading(node.body, "## History", line);
-    fs.writeFileSync(this.nodePath(parent), serialize(node), "utf8");
+    this.writeNodeFile(this.nodePath(parent), serialize(node));
     return line;
   }
 
@@ -801,8 +871,15 @@ export class Vault {
     node.body = joinReservedSections(newProse, reserved);
     const line = `- ${isoToday()} body edited — ${why}`;
     node.body = appendUnderHeading(node.body, "## History", line);
+    const rendered = serialize(this.authoredBy(node, "machine"));
     try {
-      writeWithHash(p, serialize(this.authoredBy(node, "machine")), read);
+      // The one write that does not go through `writeNodeFile`, because it must
+      // carry the drift guard's hash. It reports by hand instead, from the content
+      // the guard already read — which is a better `before` than a second
+      // `readFileSync` would be, since it is the exact bytes the write is checked
+      // against rather than whatever is on disk a moment later.
+      writeWithHash(p, rendered, read);
+      reportNodeWrite(p, tracedFields(read.content), rendered);
     } catch (err) {
       if (err instanceof DriftError) {
         // No "re-read the node" any more. The DriftError now quotes what the
@@ -909,7 +986,7 @@ export class Vault {
     // are measurements, and a merge that could import a `human` marker along
     // with them would be a way to have the agent's prose read as a person's by
     // choosing what to fold into it.
-    fs.writeFileSync(this.nodePath(into), serialize(this.authoredBy(survivor, "machine")), "utf8");
+    this.writeNodeFile(this.nodePath(into), serialize(this.authoredBy(survivor, "machine")));
 
     // Repoint every inbound edge in the tree. Done after the survivor is written
     // so a crash between the two leaves edges pointing at a node that still
@@ -924,7 +1001,7 @@ export class Vault {
         "## History",
         `- ${isoToday()} link "${loserTitle}" repointed to "${survivorTitle}" — that node was merged away`,
       );
-      fs.writeFileSync(this.nodePath(n.title), serialize(n), "utf8");
+      this.writeNodeFile(this.nodePath(n.title), serialize(n));
     }
 
     fs.unlinkSync(this.nodePath(from));
