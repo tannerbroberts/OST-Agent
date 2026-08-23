@@ -105,19 +105,36 @@ async function fixtureAt(size: number) {
 }
 
 /**
- * Fastest of `runs` — the same statistic `wall-clock-budget.test.ts` uses,
- * for the same reason: vitest runs test files in parallel, and the minimum
- * is the sample least contaminated by a co-scheduled file.
+ * Fastest of `runs` per size, with the runs INTERLEAVED across sizes.
+ *
+ * Minimum-of-N is the same statistic `wall-clock-budget.test.ts` uses, for the
+ * same reason: vitest runs test files in parallel and the minimum is the sample
+ * least contaminated by a co-scheduled file. But taking all N samples for one
+ * size before moving to the next does not survive that contention, and this
+ * instrument was red on `main` because of it — under a full `npx vitest run`,
+ * size 2400's whole five-sample window landed inside another file's heavy phase
+ * (538ms) while 4800's did not (515ms), and the monotonicity assertion read a
+ * scheduling accident as a size inversion. Reproduced at the base commit with
+ * no source change, so it was the measurement, not the code under it.
+ *
+ * Round-robin fixes it at the measurement rather than at the bound: every size
+ * is sampled once per round, so a contended round taxes all six equally and the
+ * per-size minimum is taken over the same set of windows. Every bound below is
+ * unchanged.
  */
-function fastest(ctx: PassContext, dir: string, runs: number) {
-  let bestMs = Number.POSITIVE_INFINITY;
-  let workUnits = 0;
-  for (let i = 0; i < runs; i++) {
-    const m = measureNextWork(ctx, dir, 3);
-    bestMs = Math.min(bestMs, m.elapsedMs);
-    workUnits = m.workUnits; // identical every rep on an unchanged fixture — asserted separately below
+function fastestInterleaved(
+  fixtures: readonly { size: number; ctx: PassContext; dir: string }[],
+  runs: number,
+): { size: number; workUnits: number; ms: number }[] {
+  const best = fixtures.map((f) => ({ size: f.size, workUnits: 0, ms: Number.POSITIVE_INFINITY }));
+  for (let round = 0; round < runs; round++) {
+    for (let i = 0; i < fixtures.length; i++) {
+      const m = measureNextWork(fixtures[i].ctx, fixtures[i].dir, 3);
+      best[i].ms = Math.min(best[i].ms, m.elapsedMs);
+      best[i].workUnits = m.workUnits; // identical every rep on an unchanged fixture — asserted separately below
+    }
   }
-  return { ms: bestMs, workUnits };
+  return best;
 }
 
 /** Pearson correlation coefficient. */
@@ -141,13 +158,18 @@ function correlation(xs: number[], ys: number[]): number {
 test(
   "elapsed time correlates with work units across vault sizes, above a committed bound",
   async () => {
-    const points: { size: number; workUnits: number; ms: number }[] = [];
+    // Every fixture is built before any of them is timed, so the measurement
+    // rounds below see six vaults in the same state rather than one being
+    // constructed while another is being clocked.
+    const fixtures: { size: number; ctx: PassContext; dir: string }[] = [];
     for (const size of SIZES) {
       const ctx = await fixtureAt(size);
-      const dir = ctx.vault.root;
-      const { ms, workUnits } = fastest(ctx, dir, 5);
-      expect(workUnits).toBe(size); // non-vacuity: the count tracks real files, not a constant
-      points.push({ size, workUnits, ms });
+      fixtures.push({ size, ctx, dir: ctx.vault.root });
+    }
+
+    const points = fastestInterleaved(fixtures, 5);
+    for (const p of points) {
+      expect(p.workUnits).toBe(p.size); // non-vacuity: the count tracks real files, not a constant
     }
 
     // Monotonic: a larger fixture never answers faster than a smaller one.

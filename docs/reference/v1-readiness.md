@@ -3127,9 +3127,34 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,756 tests across 299 files, verified 2026-08-22 (`npx vitest run`
-> reports 3,748 of them, all passing; the other 8 are the contended calibration file
+> *Today:* **met** — 3,774 tests across 300 files, verified 2026-08-22 (`npx vitest run`
+> reports 3,766 of them, all passing; the other 8 are the contended calibration file
 > described below.
+> After "Make the refusal show the text that is actually there now" was given its
+> definition of done: a failed literal match now answers with the text that is at the
+> intended site. `src/fs/current-text.ts` takes the content the caller already holds and
+> the quote that missed, locates the closest region, and returns it VERBATIM — so the
+> string in the refusal is the retry's `old_string`, not a paraphrase of it — with the
+> difference classified (whitespace, a `\uXXXX` escape quoted against the character,
+> case, or real content) and three lines of context to re-anchor on. A region below the
+> similarity bar comes back `vanished` carrying the score it reached, never as the
+> least-bad window: the candidate's own stated limit is that a target gone entirely has
+> no near-miss to show, and a mechanism that always names a site would score full marks
+> on the replay while being worse than the refusal it replaces. Wired into the two places
+> this repository refuses a write: `writeWithHash`'s `DriftError` now quotes the drifted
+> region as it reads now, and `Vault.editProse` no longer ends "re-read the node and
+> retry the edit" — the correction travels with the refusal. `classifyFailedMatch` takes
+> the failing quote optionally and carries the site on both its stale-file and bad-quote
+> arms. `test/mcp/refusal-shows-current-text.test.ts` replays all six captured Edit
+> failures against the assumption test's pre-committed bar of 4 of 6 and scores exactly
+> 4: fifteen tests, one new file. What a green there does not settle is whether a caller
+> handed the correction uses it rather than re-reading the file anyway, which only the
+> next sessions' traces show. Two of the six were recovered from git for real
+> (`8261a6f^`→`8261a6f` and `21ef1a1^`→`21ef1a1`); the transcript records are one-line
+> summaries carrying ~60 characters of the error, so the other four could not be, and
+> the test says which is which rather than presenting six equal replays.
+> Previously 3,756 tests across 299 files, verified 2026-08-22 (`npx vitest run` reports
+> 3,748 of them.
 > After "Local read-only mirror of source systems" was given its definition of done:
 > `.ost-agent/evidence/` already WAS that mirror — every adapter is read-only and nothing
 > downstream touches a live system — so what was missing was not the isolation but its

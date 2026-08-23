@@ -717,6 +717,13 @@ export class Vault {
    * a human editing the vault in Obsidian, a second agent process, another
    * tool call landing between the read and this write — the write refuses,
    * naming what drifted, instead of overwriting whatever arrived.
+   *
+   * Read that window narrowly, because it is narrow: the hash compared is the
+   * one THIS METHOD took, microseconds before the write, not the one the agent
+   * took when it read the node to decide what to say. A second writer that
+   * lands in between those two reads is invisible here. Widening it means
+   * carrying a fingerprint across the tool boundary, which is a change to the
+   * `ost_edit_node` surface, not to this method.
    */
   editProse(title: string, newProse: string, why: string): string {
     assertWritableContent(`the new body of "${title}"`, newProse);
@@ -733,7 +740,11 @@ export class Vault {
       writeWithHash(p, serialize(node), read);
     } catch (err) {
       if (err instanceof DriftError) {
-        throw new Error(`cannot edit "${title}": ${err.message} — re-read the node and retry the edit.`);
+        // No "re-read the node" any more. The DriftError now quotes what the
+        // node holds at the place that moved, so the correction travels with
+        // the refusal; sending the caller back to the file for an answer it is
+        // already holding is the cost `../fs/current-text.ts` exists to remove.
+        throw new Error(`cannot edit "${title}": ${err.message}`);
       }
       throw err;
     }

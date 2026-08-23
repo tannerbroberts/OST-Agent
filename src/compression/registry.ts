@@ -205,6 +205,19 @@ export const COMPRESSION_SURFACES = [
     proof: "declaration",
   },
   {
+    name: "failed-match site excerpt",
+    module: "src/fs/current-text.ts",
+    caps: ["MAX_SITE_LINES"],
+    kind: "bounded-output",
+    decision: "whether a caller can retry a failed literal match by quoting the refusal instead of re-reading the file",
+    reads: [
+      "the excerpt is verbatim, so the text shown is quotable as the retry's old_string rather than a paraphrase of it",
+      "a cut excerpt says how many of the quoted lines it is showing, so a caller never reads a clip as the whole site",
+    ],
+    drops: "prose-note",
+    proof: "behavioral",
+  },
+  {
     name: "near-miss directory listing",
     module: "src/fs/near-miss.ts",
     caps: ["MAX_PRESENT"],

@@ -17,9 +17,16 @@
  * the caller's problem. It also does not say what a caller should do on
  * refusal (re-read, merge, ask) — only that proceeding on the stale read
  * would be wrong.
+ *
+ * What it DOES now say is what the file holds at the place that moved. Naming
+ * the cause and supplying the correction are complementary halves of the same
+ * refusal — `../fs/current-text.ts` carries the argument — so a `DriftError`
+ * quotes the drifted region verbatim rather than leaving "re-read the file" as
+ * the caller's only next move.
  */
 import fs from "node:fs";
 import { createHash } from "node:crypto";
+import { renderSite, siteAtLine } from "../fs/current-text.js";
 
 export interface ReadWithHash {
   readonly content: string;
@@ -63,7 +70,10 @@ export function writeWithHash(filePath: string, newContent: string, read: ReadWi
   const currentContent = fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf8") : "";
   const currentHash = hashContent(currentContent);
   if (currentHash !== read.hash) {
-    throw new DriftError(filePath, read.hash, currentHash, describeDrift(read.content, currentContent));
+    const whatDrifted =
+      `${describeDrift(read.content, currentContent)}. ` +
+      currentTextAtDrift(read.content, currentContent, filePath);
+    throw new DriftError(filePath, read.hash, currentHash, whatDrifted);
   }
   fs.writeFileSync(filePath, newContent, "utf8");
 }
@@ -81,23 +91,7 @@ export function writeWithHash(filePath: string, newContent: string, read: ReadWi
  * not learn a different vocabulary for that than for the write-time refusal here.
  */
 export function describeDrift(before: string, after: string): string {
-  const beforeLines = before.split("\n");
-  const afterLines = after.split("\n");
-
-  let head = 0;
-  while (head < beforeLines.length && head < afterLines.length && beforeLines[head] === afterLines[head]) head++;
-
-  let tail = 0;
-  const maxTail = Math.min(beforeLines.length - head, afterLines.length - head);
-  while (
-    tail < maxTail &&
-    beforeLines[beforeLines.length - 1 - tail] === afterLines[afterLines.length - 1 - tail]
-  ) {
-    tail++;
-  }
-
-  const removed = beforeLines.slice(head, beforeLines.length - tail);
-  const added = afterLines.slice(head, afterLines.length - tail);
+  const { removed, added, head } = divergentRegion(before, after);
   const lineNo = head + 1;
 
   if (removed.length === 0 && added.length === 0) {
@@ -116,6 +110,59 @@ export function describeDrift(before: string, after: string): string {
     (removed.length ? ` — was ${preview(removed)}` : " — was nothing (an insertion)") +
     (added.length ? `, now ${preview(added)}` : ", now nothing (a deletion)")
   );
+}
+
+/**
+ * The block that differs between two versions: the lines `before` held there,
+ * the lines `after` holds there, and how far in the divergence starts. Trimming
+ * the common head and tail is what turns "these two files differ" into "this
+ * region moved".
+ */
+function divergentRegion(before: string, after: string): { removed: string[]; added: string[]; head: number } {
+  const beforeLines = before.split("\n");
+  const afterLines = after.split("\n");
+
+  let head = 0;
+  while (head < beforeLines.length && head < afterLines.length && beforeLines[head] === afterLines[head]) head++;
+
+  let tail = 0;
+  const maxTail = Math.min(beforeLines.length - head, afterLines.length - head);
+  while (
+    tail < maxTail &&
+    beforeLines[beforeLines.length - 1 - tail] === afterLines[afterLines.length - 1 - tail]
+  ) {
+    tail++;
+  }
+
+  return {
+    removed: beforeLines.slice(head, beforeLines.length - tail),
+    added: afterLines.slice(head, afterLines.length - tail),
+    head,
+  };
+}
+
+/**
+ * What the file holds at the place that drifted, verbatim.
+ *
+ * {@link describeDrift} names the change in one line and truncates both sides
+ * to eighty characters for readability, which is right for "where do I look"
+ * and useless for "what do I write instead". This is the other half: the
+ * region the caller was aiming at, as it reads now, quotable without a re-read.
+ *
+ * The head/tail trim has already located the region exactly, so this renders
+ * the site it names rather than searching for one. Handing a known position to
+ * a similarity search is how a one-line replacement that shares three words
+ * with its replacement comes back "nothing close enough" about a line whose
+ * position was never in doubt.
+ */
+export function currentTextAtDrift(before: string, after: string, filePath: string): string {
+  const { removed, added, head } = divergentRegion(before, after);
+  if (removed.length === 0) {
+    // A pure insertion: nothing the caller read was replaced, so there is no
+    // stale quote to correct — `describeDrift` has already said what arrived.
+    return "nothing you read was replaced — the drift is an insertion, so your quote is still accurate";
+  }
+  return renderSite(siteAtLine(after, head, added.length, removed.join("\n")), filePath);
 }
 
 function firstByteDiff(a: string, b: string): number {
