@@ -3127,9 +3127,27 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,746 tests across 298 files, verified 2026-08-22 (`npx vitest run`
-> reports 3,738 of them, all passing; the other 8 are the contended calibration file
-> described below. Recorded here because the run before it was not green and the reason is
+> *Today:* **met** — 3,756 tests across 299 files, verified 2026-08-22 (`npx vitest run`
+> reports 3,748 of them, all passing; the other 8 are the contended calibration file
+> described below.
+> After "Local read-only mirror of source systems" was given its definition of done:
+> `.ost-agent/evidence/` already WAS that mirror — every adapter is read-only and nothing
+> downstream touches a live system — so what was missing was not the isolation but its
+> price. `writeEvidence` now stamps `fetchedAt` from the ingesting surface's clock, beside
+> `actor` and for the same reason: `timestamp` is the item's own time and therefore the
+> producer's to choose, so an age computed off it is an age a drop-folder note can set with
+> `touch`. `src/adapters/mirror.ts` reads that stamp into four verdicts — `fresh`, `stale`,
+> `undated` (no stamp: age unknown, which is neither) and `unbounded` (no
+> `evidence.staleAfterDays` set, so nothing here calls the age too old) — and only `fresh`
+> licenses treating a mirrored read as a live one (`isCertifiedFresh`).
+> `ost_next_work` carries the verdict on every unmapped row and on the full-record read.
+> `test/adapters/mirror-staleness.test.ts` pins the three clauses, ten tests, one new file.
+> The same stamp fixed a defect it exposed: age-out read `timestamp`, so a record could
+> arrive already buried — the actions adapter's own 14-day cold-start lookback mints
+> records at exactly a 14-day `ageOutDays` — and the untrusted channel could bury itself by
+> dating itself. What a green here does NOT settle is the assumption test's actual
+> question, whether the staleness is *acceptable*: that depends on what a team is deciding
+> with the data and stays a person's call. Recorded here because the run before it was not green and the reason is
 > worth a number: with a second full suite running beside it, 15 wall-clock assertions
 > failed — every timed check in the suite and nothing else. The cause was measured rather
 > than assumed. This box's `fseventsd` sat at ~180% CPU absorbing the suite's own

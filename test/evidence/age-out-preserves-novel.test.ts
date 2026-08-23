@@ -32,6 +32,15 @@ const AGE_OUT_DAYS = 14;
 const NOW = () => new Date("2026-08-12T00:00:00.000Z");
 /** 42 days before NOW — comfortably past the 14-day limit, no ambiguity. */
 const OLD = "2026-07-01T00:00:00.000Z";
+/**
+ * The same instant, handed to `writeEvidence` as the CAPTURE time.
+ *
+ * Ageing reads `fetchedAt` — when this vault pulled the record — rather than the
+ * item's own `timestamp`, which is the producer's field and would let a drop-folder
+ * note bury itself by dating itself 2019. So a fixture of genuinely old records has
+ * to be captured long ago, not merely dated so; the assertions below are unchanged.
+ */
+const CAPTURED = new Date(OLD);
 
 const REDUNDANT_BODY = "Users say the onboarding checklist is too long to finish in one sitting.";
 const NOVEL_BODY = "Users say the export button silently fails on files over 50MB.";
@@ -52,14 +61,14 @@ function seedFixture(): void {
   const v = buildPassContext(dir).vault;
   // The record already distilled into the tree — what makes REDUNDANT_BODY's
   // signature "already mapped to an opportunity".
-  writeEvidence(dir, { id: MAPPED_ID, source: MAPPED_ID, title: "Checklist too long", timestamp: OLD, body: REDUNDANT_BODY }, "transcript");
+  writeEvidence(dir, { id: MAPPED_ID, source: MAPPED_ID, title: "Checklist too long", timestamp: OLD, body: REDUNDANT_BODY }, "transcript", CAPTURED);
   v.createNode({ title: NEED, layer: "Opportunity", source: MAPPED_ID, evidence: "assertion", body: "x", tags: [], links: [] });
   v.linkNodes(OUTCOME, NEED);
 
   for (const id of REDUNDANT_IDS) {
-    writeEvidence(dir, { id, source: id, title: "Checklist too long, again", timestamp: OLD, body: REDUNDANT_BODY }, "transcript");
+    writeEvidence(dir, { id, source: id, title: "Checklist too long, again", timestamp: OLD, body: REDUNDANT_BODY }, "transcript", CAPTURED);
   }
-  writeEvidence(dir, { id: NOVEL_ID, source: NOVEL_ID, title: "Export silently fails", timestamp: OLD, body: NOVEL_BODY }, "transcript");
+  writeEvidence(dir, { id: NOVEL_ID, source: NOVEL_ID, title: "Export silently fails", timestamp: OLD, body: NOVEL_BODY }, "transcript", CAPTURED);
 }
 
 test("twenty items past the age limit that repeat a mapped signature collapse; the equally old novel item stays listed", () => {
