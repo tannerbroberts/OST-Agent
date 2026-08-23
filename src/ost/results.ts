@@ -79,10 +79,14 @@ export function recordResult(vaultDir: string, filing: ResultFiling): string {
   // The heading travels as `appendUnderSection`'s own argument, which is the position
   // the content guard does not scan — that asymmetry IS this path's exclusivity, so
   // do not inline the heading into `line` (ost/headings.ts).
-  vault.appendUnderSection(filing.test, RESULTS_HEADING, line);
+  // `human` for the same reason the heading may be named here at all: this path is
+  // CLI-only, off every allowlist, and `by` is a person it required. The node's
+  // authorship marker folds to `mixed` on an agent-created test, so a reader can
+  // see that some of what they are reading is a person's finding.
+  vault.appendUnderSection(filing.test, RESULTS_HEADING, line, "human");
   // One statement per result, in the same order, so a second run cannot ride on
   // the first run's limits — see computeCoverageDebt, which counts the pair.
-  vault.appendUnderSection(filing.test, UNCOVERED_HEADING, `- ${on} (${filing.verdict}) — ${uncovered}`);
+  vault.appendUnderSection(filing.test, UNCOVERED_HEADING, `- ${on} (${filing.verdict}) — ${uncovered}`, "human");
 
   if (filing.evidence) {
     if (!isRung(filing.evidence)) throw new Error(`"${filing.evidence}" is not on the believability ladder`);
@@ -201,7 +205,7 @@ export function retractNode(vaultDir: string, filing: RetractionFiling): string 
   // The heading travels as `appendUnderSection`'s own argument — the position the
   // content guard does not scan — which IS this path's exclusivity. Do not inline
   // it into `line` (ost/headings.ts).
-  vault.appendUnderSection(filing.node, RETRACTION_HEADING, line);
+  vault.appendUnderSection(filing.node, RETRACTION_HEADING, line, "human");
   return line;
 }
 

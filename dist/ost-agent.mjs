@@ -33595,6 +33595,32 @@ function parseFrontmatter(raw) {
   return (0, import_gray_matter.default)(raw, {});
 }
 
+// src/ost/authorship.ts
+function isAuthorship(value) {
+  return value === "machine" || value === "human" || value === "mixed";
+}
+function joinAuthorship(a, b2) {
+  if (a === void 0) return b2;
+  if (b2 === void 0) return a;
+  return a === b2 ? a : "mixed";
+}
+function foldAuthorship(prev, writer) {
+  return joinAuthorship(prev, writer);
+}
+function authorshipCensus(tree) {
+  const machine = tree.filter((n) => n.authorship === "machine").length;
+  const human = tree.filter((n) => n.authorship === "human").length;
+  const mixed = tree.filter((n) => n.authorship === "mixed").length;
+  return {
+    total: tree.length,
+    machine,
+    human,
+    mixed,
+    unlabelled: tree.length - machine - human - mixed,
+    humanWritten: human + mixed
+  };
+}
+
 // src/knowledge/believability.ts
 var BELIEVABILITY_LADDER = [
   {
@@ -33744,6 +33770,7 @@ function serialize(node) {
   if (node.threshold) data.threshold = node.threshold;
   if (node.instrument) data.instrument = node.instrument;
   if (node.sight) data.sight = node.sight;
+  if (node.authorship) data.authorship = node.authorship;
   const extraTags = node.tags.filter((t2) => !EVIDENCE_TAG.test(t2));
   const tagLine = [
     "#" + node.layer,
@@ -33802,6 +33829,7 @@ function deserialize(title, markdown) {
   if (typeof data.threshold === "string") node.threshold = data.threshold;
   if (typeof data.instrument === "string") node.instrument = data.instrument;
   if (isRepoSight(data.sight)) node.sight = data.sight;
+  if (isAuthorship(data.authorship)) node.authorship = data.authorship;
   return node;
 }
 
@@ -40100,6 +40128,29 @@ var Vault = class {
     this.root = path13.resolve(rootDir);
     if (opts.create !== false) fs16.mkdirSync(this.root, { recursive: true });
   }
+  /**
+   * Fold this write's own author into the node, immediately before it is
+   * rendered. Returns the node so it can wrap a `serialize` argument in place.
+   *
+   * The writer is a LITERAL at every call site below, never a value that reached
+   * this class from a tool argument, for the reason {@link ./authorship.ts}
+   * states: `human` is the flattering label and the agent is the party that
+   * benefits from it. Which literal a method passes is decided the same way
+   * {@link ./headings.ts} decides who may name a reserved heading — by whether
+   * any allowlisted tool can reach the method at all. `promoteToValidated` and
+   * `setOutcomeBody` are human-only writers with no tool wrapping them, and
+   * `appendUnderSection` takes the choice as a parameter because both a person
+   * (`recordResult`, `retractNode`) and a process (`instrument.ts`) come through
+   * that door; every other method here is reachable from the tool surface and
+   * says `machine`.
+   *
+   * `linkNodes` deliberately does not stamp: an edge is structure, not prose,
+   * and drawing one authors no sentence anybody reads.
+   */
+  authoredBy(node, writer) {
+    node.authorship = foldAuthorship(node.authorship, writer);
+    return node;
+  }
   /** Absolute path for a node title, asserted to stay within the vault root. */
   nodePath(title) {
     const p2 = path13.resolve(this.root, fileNameForTitle(title));
@@ -40272,7 +40323,15 @@ var Vault = class {
     if (!fs16.existsSync(p2)) throw this.noSuchNode(title);
     return deserialize(title, fs16.readFileSync(p2, "utf8"));
   }
-  /** Create a new node file. Throws if a file for this title already exists. */
+  /**
+   * Create a new node file. Throws if a file for this title already exists.
+   *
+   * Stamped `authorship: machine` regardless of what the caller put in the node,
+   * for the reason the tag above it is stamped server-side: this is a writer the
+   * tool surface reaches, and the caller must not be able to declare its own
+   * prose a person's. A node born through a program is the machine's until
+   * somebody writes in it.
+   */
   createNode(node) {
     assertWritableContent(`the body of "${node.title}"`, node.body);
     for (const tag of node.tags) assertWritableTag(node.title, tag);
@@ -40280,18 +40339,38 @@ var Vault = class {
     if (fs16.existsSync(p2)) {
       throw new Error(`node already exists (create is non-overwriting): ${node.title}`);
     }
+    node.authorship = "machine";
     fs16.writeFileSync(p2, serialize(node), "utf8");
     noteNodeFileCreated(path13.basename(p2));
   }
   /**
    * Append a prose section to an existing node's file. Strictly grows the file —
    * the prior bytes remain an exact prefix of the new content.
+   *
+   * That byte guarantee and the authorship marker pull against each other, and
+   * the split here is deliberate. This is the one prose write the tool surface
+   * can reach that does not go through `serialize`, so folding `machine` in
+   * would mean re-rendering the whole file and the prefix property would be
+   * gone from every append. So the file is re-rendered ONLY when the marker
+   * would actually move — a node the agent created already reads `machine`, and
+   * the append leaves it there, which is the case the prefix property was pinned
+   * on. The case that does re-render is the one that matters: the agent adding a
+   * section to a node it did not write, which must not go on reading as
+   * nobody's or as a person's.
    */
   appendToNode(title, section) {
     assertWritableContent(`a section of "${title}"`, section);
     const p2 = this.nodePath(title);
     if (!fs16.existsSync(p2)) throw this.noSuchNode(title);
     const prev = fs16.readFileSync(p2, "utf8");
+    const node = deserialize(title, prev);
+    if (foldAuthorship(node.authorship, "machine") !== node.authorship) {
+      node.body = `${node.body}
+
+${section.trim()}`;
+      fs16.writeFileSync(p2, serialize(this.authoredBy(node, "machine")), "utf8");
+      return;
+    }
     const sep = prev.endsWith("\n") ? "\n" : "\n\n";
     fs16.writeFileSync(p2, prev + sep + section.trim() + "\n", "utf8");
   }
@@ -40299,12 +40378,19 @@ var Vault = class {
    * Append one line under a `## Heading` in a node's body, creating the heading
    * only if it is absent. Grows the file like every other write here — nothing
    * already recorded under that heading is touched.
+   *
+   * `writer` is the other half of the asymmetry `heading` already carries. Both
+   * a person (`recordResult`, `retractNode` — CLI-only, off every allowlist) and
+   * a process (`instrument.ts`, filing an exit code it watched) come through this
+   * one door, so which of them is writing has to travel with the call. It
+   * defaults to `machine`: a caller that says nothing has not established a
+   * person, and `human` is the label that must never be reached by omission.
    */
-  appendUnderSection(title, heading, line) {
+  appendUnderSection(title, heading, line, writer = "machine") {
     assertWritableContent(`a line under ${heading} of "${title}"`, line);
     const node = this.read(title);
     node.body = appendUnderHeading(node.body, heading, line);
-    fs16.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+    fs16.writeFileSync(this.nodePath(title), serialize(this.authoredBy(node, writer)), "utf8");
   }
   /**
    * Everything {@link linkNodes} can refuse, asked BEFORE anything is written.
@@ -40424,7 +40510,7 @@ var Vault = class {
       throw new Error(`setOutcomeBody only applies to the Outcome node, not a ${node.layer}`);
     }
     node.body = newBody;
-    fs16.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+    fs16.writeFileSync(this.nodePath(title), serialize(this.authoredBy(node, "human")), "utf8");
   }
   /**
    * Human promotion: set `validated` AND drop the agent-ideated marker.
@@ -40447,7 +40533,7 @@ var Vault = class {
     node.status = "validated";
     const line = `- ${isoToday()} status: ${prev} \u2192 validated (promoted by ${by}) \u2014 ${why}`;
     node.body = appendUnderHeading(node.body, "## History", line);
-    fs16.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+    fs16.writeFileSync(this.nodePath(title), serialize(this.authoredBy(node, "human")), "utf8");
     return line;
   }
   /** Attach a hygiene/issue annotation under a `## Issues` section. Add-only. */
@@ -40455,7 +40541,7 @@ var Vault = class {
     assertWritableContent(`an annotation on "${title}"`, issue2);
     const node = this.read(title);
     node.body = appendUnderHeading(node.body, "## Issues", `- ${isoToday()} ${issue2}`);
-    fs16.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+    fs16.writeFileSync(this.nodePath(title), serialize(this.authoredBy(node, "machine")), "utf8");
   }
   /**
    * Remove one parent→child edge, recording the removal in the parent's History.
@@ -40555,7 +40641,7 @@ var Vault = class {
     const line = `- ${isoToday()} body edited \u2014 ${why}`;
     node.body = appendUnderHeading(node.body, "## History", line);
     try {
-      writeWithHash(p2, serialize(node), read);
+      writeWithHash(p2, serialize(this.authoredBy(node, "machine")), read);
     } catch (err) {
       if (err instanceof DriftError) {
         throw new Error(`cannot edit "${title}": ${err.message}`);
@@ -40620,7 +40706,7 @@ var Vault = class {
     }
     const line = `- ${isoToday()} merged "${loserTitle}" into this node and deleted its file \u2014 ${opts.why}` + (loserReserved.length > 0 ? ` (carried ${loserReserved.length} reserved section(s) across)` : "");
     survivor.body = appendUnderHeading(survivor.body, "## History", line);
-    fs16.writeFileSync(this.nodePath(into), serialize(survivor), "utf8");
+    fs16.writeFileSync(this.nodePath(into), serialize(this.authoredBy(survivor, "machine")), "utf8");
     for (const n of this.readTree()) {
       if (n.title === loserTitle || n.title === survivorTitle) continue;
       if (!n.links.includes(loserTitle)) continue;
@@ -47111,7 +47197,8 @@ function rollupTree(tree, stamps) {
       opportunities: tree.filter((n) => n.layer === "Opportunity").length,
       solutions: tree.filter((n) => n.layer === "Solution").length,
       tests: tree.filter((n) => n.layer === "AssumptionTest").length
-    }
+    },
+    authorship: authorshipCensus(tree)
   };
 }
 function pct(part, whole) {
@@ -47131,12 +47218,27 @@ function actorWarning(b2) {
   }
   return "";
 }
+function authorshipLines(c3) {
+  if (c3.total === 0) return [];
+  const lines = [
+    `Authorship: ${c3.humanWritten}/${c3.total} node(s) carry human-written prose (machine-only ${c3.machine}, unlabelled ${c3.unlabelled} \u2014 written before authorship was recorded)`
+  ];
+  const labelled = c3.total - c3.unlabelled;
+  const uniform = [c3.machine, c3.human, c3.mixed].some((n) => n === labelled);
+  if (labelled >= 10 && uniform) {
+    lines.push(
+      `  every one of those ${labelled} labelled node(s) reads the same \u2014 a marker true of all of them is not telling a reader which is which`
+    );
+  }
+  return lines;
+}
 function renderRollup(rollup) {
   const lines = [];
   lines.push(`Outcome: ${rollup.outcome ?? "(none \u2014 this vault has no root)"}`);
   lines.push(
     `Tree: ${rollup.totals.nodes} nodes \u2014 ${rollup.totals.opportunities} opportunity, ${rollup.totals.solutions} solution, ${rollup.totals.tests} test`
   );
+  lines.push(...authorshipLines(rollup.authorship));
   lines.push("");
   if (rollup.buckets.length === 0) {
     lines.push("No buckets: the Outcome links no Opportunity, so there is no top-level view to roll up.");
@@ -47502,8 +47604,8 @@ function recordResult(vaultDir, filing) {
   }
   const on = filing.on ?? (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
   const line = `- ${on} **${filing.verdict}** (ran by ${by}) \u2014 ${note}`;
-  vault.appendUnderSection(filing.test, RESULTS_HEADING, line);
-  vault.appendUnderSection(filing.test, UNCOVERED_HEADING, `- ${on} (${filing.verdict}) \u2014 ${uncovered}`);
+  vault.appendUnderSection(filing.test, RESULTS_HEADING, line, "human");
+  vault.appendUnderSection(filing.test, UNCOVERED_HEADING, `- ${on} (${filing.verdict}) \u2014 ${uncovered}`, "human");
   if (filing.evidence) {
     if (!isRung(filing.evidence)) throw new Error(`"${filing.evidence}" is not on the believability ladder`);
     vault.setEvidence(filing.test, filing.evidence, `result recorded by ${by}`);
@@ -47551,7 +47653,7 @@ function retractNode(vaultDir, filing) {
   }
   const on = filing.on ?? (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
   const line = `- ${on} **retracted** (by ${by}) \u2014 ${why}`;
-  vault.appendUnderSection(filing.node, RETRACTION_HEADING, line);
+  vault.appendUnderSection(filing.node, RETRACTION_HEADING, line, "human");
   return line;
 }
 
@@ -53755,7 +53857,8 @@ var KNOWN_FIELDS = /* @__PURE__ */ new Set([
   "lane",
   "threshold",
   "instrument",
-  "sight"
+  "sight",
+  "authorship"
 ]);
 function extraFields(text2) {
   let data;
@@ -53839,6 +53942,17 @@ function settleNodeCollision(title, ours, theirs, opts) {
       merged.sight = "blind";
       rules.push("blind-sight-wins");
       history.push(historyLine(opts.at, `sight ${a.sight} / ${b2.sight}${peer} \u2192 blind, the unproven side`));
+    }
+  }
+  if (a.authorship !== b2.authorship) {
+    merged.authorship = joinAuthorship(a.authorship, b2.authorship);
+    if (a.authorship === void 0 || b2.authorship === void 0) {
+      rules.push("one-sided-field");
+    } else {
+      rules.push("authorship-union");
+      history.push(
+        historyLine(opts.at, `authorship ${a.authorship} / ${b2.authorship}${peer} \u2192 mixed, both hands kept`)
+      );
     }
   }
   if (a.created !== b2.created) {

@@ -58,6 +58,7 @@ import path from "node:path";
 import matter from "gray-matter";
 import { simpleGit, type SimpleGit } from "simple-git";
 import { classifyProvenance, rungRank, weakestRung } from "../knowledge/believability.js";
+import { joinAuthorship } from "./authorship.js";
 import { HISTORY_HEADING, RESERVED_HEADINGS, RETRACTION_HEADING, isHeadingLine } from "./headings.js";
 import { deserialize, type OstNode } from "./node.js";
 
@@ -87,6 +88,8 @@ export type SettlementRule =
   | "weaker-provenance-wins"
   /** `sight` differs; `blind` is adopted, because an unlabelled instrument must never read as grounded. */
   | "blind-sight-wins"
+  /** `authorship` differs; both are kept as `mixed`, because two hands wrote the node this merge produces. */
+  | "authorship-union"
   /** `created` differs; the earlier date is adopted — the node exists from when the first peer wrote it. */
   | "earliest-created-wins"
   /** Two agent-set confidences disagree, so neither is a claim; the field is dropped and both recorded. */
@@ -258,6 +261,7 @@ const KNOWN_FIELDS = new Set([
   "threshold",
   "instrument",
   "sight",
+  "authorship",
 ]);
 
 function extraFields(text: string): Record<string, unknown> {
@@ -388,6 +392,25 @@ export function settleNodeCollision(
       merged.sight = "blind";
       rules.push("blind-sight-wins");
       history.push(historyLine(opts.at, `sight ${a.sight} / ${b.sight}${peer} → blind, the unproven side`));
+    }
+  }
+
+  // The join on the authorship lattice, which is exactly what a settlement rule
+  // has to be: deterministic, symmetric, and lossless — neither peer's claim
+  // about who wrote the node is discarded to reach the answer. Note the
+  // direction it fails in: `machine` against `human` resolves to `mixed`, which
+  // says a machine's prose is in there, never to `human`. A rule that could
+  // launder the agent's sentences into a person's by merging a peer would be
+  // worth more to the agent than any other line in this file.
+  if (a.authorship !== b.authorship) {
+    merged.authorship = joinAuthorship(a.authorship, b.authorship);
+    if (a.authorship === undefined || b.authorship === undefined) {
+      rules.push("one-sided-field");
+    } else {
+      rules.push("authorship-union");
+      history.push(
+        historyLine(opts.at, `authorship ${a.authorship} / ${b.authorship}${peer} → mixed, both hands kept`),
+      );
     }
   }
 
