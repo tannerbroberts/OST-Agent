@@ -3127,9 +3127,35 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,774 tests across 300 files, verified 2026-08-22 (`npx vitest run`
-> reports 3,766 of them, all passing; the other 8 are the contended calibration file
+> *Today:* **met** — 3,803 tests across 301 files, verified 2026-08-22 (`npx vitest run`
+> reports 3,795 of them, all passing; the other 8 are the contended calibration file
 > described below.
+> After "Make the threshold a field the node carries, not a sentence in its prose" was
+> given its definition of done: the `threshold` field shipped accepting any string, and the
+> assumption recorded against it said what that costs — "the field fills with the same
+> unbounded sentence, at which point the structure improved and the commitment did not."
+> `parseThresholdField` (`src/eval/coverage.ts`) now reads the field strictly and
+> `ost_create_node` refuses anything that is not a bar. Strict means three things: one
+> line (a hard-wrapped paragraph in the field IS the relocation the field was meant to
+> stop, and the one form the field can rule out that the prose scan, which reads across
+> line breaks by design, never could); a comparator ADJACENT to the number it commits to,
+> so "Over the next 15 nodes, classify each threshold" is refused while "over 15" is not;
+> and `A_BOUND` on top, which makes the strict reading a subset of the census classifier
+> by construction rather than by luck — nothing the field accepts can be something
+> `ost-agent debt` would go on to call unfixed. Word-numbers are accepted beside digits,
+> because this repository had already refused a threshold for spelling its numbers out and
+> accepted the identical bar in digits. The field stays optional and the prose fallback is
+> untouched, which is what makes a strict rule safe here: the refusal names that fallback,
+> so a bar whose reasoning has to travel with it goes in the body and is read exactly as
+> before. `test/ost/threshold-field-bound.test.ts`, 29 tests, one new file.
+> What a green does NOT settle is the question the assumption actually asked — whether
+> *authors* write bounds now. This guard makes a non-bar unwritable through the only door
+> that writes the field, so the 10-of-15 observation the test pre-committed to can no
+> longer be run as stated: the population it was going to sample is now empty by
+> construction. The behavioural question that survives is where authors go instead — into
+> a real bar, or into the prose fallback — and only the next 15 tests show that.
+> Previously 3,774 tests across 300 files, verified 2026-08-22 (`npx vitest run` reports
+> 3,766 of them.
 > After "Make the refusal show the text that is actually there now" was given its
 > definition of done: a failed literal match now answers with the text that is at the
 > intended site. `src/fs/current-text.ts` takes the content the caller already holds and

@@ -234,6 +234,105 @@ const DEFERRING_VERBS = new Set([
 ]);
 
 /**
+ * Something countable, spelled either way.
+ *
+ * The word forms are not decoration. This repository has already watched the
+ * digit-only reading refuse a threshold that spelled its numbers out and accept
+ * the identical threshold in digits, which is a rule about typography wearing
+ * the costume of a rule about commitment.
+ */
+const NUM = String.raw`(?:[$£€]?\d[\d,.]*\s*%?|two thirds|three quarters|a third|a quarter|a half|half|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|dozen|majority)`;
+
+/** Hedges that may sit between a comparator and its number without breaking the pair. */
+const FUZZ = String.raw`(?:\s+(?:about|around|roughly|approximately))?`;
+
+/**
+ * The forms a fixed bar actually takes, each one a comparator *bound to* a
+ * quantity rather than merely in the same sentence as one.
+ *
+ * Adjacency is the whole design. A list that asks only "is there a comparator
+ * word anywhere, and a number anywhere" reads "Over the next 15 nodes, classify
+ * each threshold" as a bar — `over` and `15`, neither one commenting on the
+ * other — and that sentence is a *description of a study*, which is precisely
+ * the prose this field was supposed to stop absorbing.
+ *
+ * `zero`/`none`/`nothing`/`unanimous` stand alone because they are a quantity
+ * and a comparator in one word; bare `no` is not on that list, because "no
+ * candidate whose criterion was met is still live" is a clause, not a bar.
+ */
+const BOUND_FORMS: readonly RegExp[] = [
+  // >= 2 · ≤ 5% · > 100
+  new RegExp(String.raw`(?:[<>]=?|[≥≤])\s*${NUM}`, "i"),
+  // at least 5 · no more than a third · up to 20 · at or below 5%
+  new RegExp(
+    String.raw`\b(?:at least|at most|no more than|no fewer than|no less than|fewer than|less than|more than|greater than|at or above|at or below|up to|under|over|above|below|exactly|a minimum of|a maximum of|minimum of|maximum of)${FUZZ}\s+(?:the\s+)?${NUM}`,
+    "i",
+  ),
+  // 5 or more · a third or fewer · 90% or better
+  new RegExp(String.raw`${NUM}\s+(?:or more|or fewer|or less|or better|or worse|or higher|or lower|and above|and up)\b`, "i"),
+  // 10 of 15 · 5 out of 20 · 3 in 4
+  new RegExp(String.raw`${NUM}\s+(?:of|out of|in)\s+(?:the\s+)?${NUM}`, "i"),
+  // between 5 and 10
+  new RegExp(String.raw`\bbetween\s+${NUM}\s+and\s+${NUM}`, "i"),
+  // zero crashes · 0 hits · none at all · unanimous
+  /\b(?:zero|none|nothing|unanimous)\b/i,
+  /(?<![\d.])0\s+\p{L}/u,
+];
+
+/** What the `threshold` field turned out to be, once read strictly. */
+export type ThresholdFieldReading = { bound: true; bar: string } | { bound: false; reason: string };
+
+/**
+ * Read the `threshold` FIELD strictly — one line carrying a comparator and the
+ * number it commits to — and say why not when it carries neither.
+ *
+ * This is deliberately stricter than {@link thresholdKindOf}, and it applies to
+ * the field alone. The prose scan reads sentences written before anyone was
+ * asked for a bar, so it forgives; the field is a new, optional, opt-in slot,
+ * and the question the tree actually asked about it was whether an author hands
+ * it a bound or "just re-paste[s] the same hard-wrapped prose into the field".
+ * A reading that accepts any string cannot tell those two apart — which is how
+ * a test ends up carrying a threshold nothing can come out a failure against.
+ *
+ * Three things are required, each answering a different way of failing:
+ *
+ * - **one line** — a hard-wrapped paragraph in the field IS the relocation this
+ *   was meant to prevent, and it is the one form the field can rule out that
+ *   prose never could;
+ * - **a bound form** — a comparator and its number, per the definition of done
+ *   this was built to;
+ * - **`A_BOUND` as well** — so the field can never accept something the tree's
+ *   own census would go on to call unfixed. The strict reading is a *subset* of
+ *   the loose one by construction rather than by coincidence; `debt`, `rollup`
+ *   and `confirmPermit` already read one classifier three ways, and a fourth
+ *   reader that could clear what all three refuse would be the worst of them.
+ *
+ * A false refusal costs the author nothing they cannot recover: the field is
+ * optional, and a bar that needs its reasoning inline — *">= 2 incidents beyond
+ * the known one, else defer (…)"* — can still be written as prose in the body,
+ * where the scan finds it exactly as it always has. That escape hatch is why a
+ * strict rule here is safe and the same rule in the scan would not be.
+ */
+export function parseThresholdField(value: string): ThresholdFieldReading {
+  const trimmed = value.trim();
+  if (!trimmed) return { bound: false, reason: "it is empty" };
+  if (/\n/.test(trimmed)) {
+    return { bound: false, reason: "it is wrapped over more than one line, which is what a pasted paragraph looks like and what a bar does not" };
+  }
+  const bar = BOUND_FORMS.reduce<string | null>((found, form) => found ?? (form.exec(trimmed)?.[0].trim() ?? null), null);
+  if (bar === null) {
+    return {
+      bound: false,
+      reason: "nothing in it fixes a bar — a threshold needs a comparator and the number it commits to, next to each other (\"at least 5 of 20\", \">= 2\", \"zero\")",
+    };
+  }
+  if (!A_BOUND.test(trimmed)) {
+    return { bound: false, reason: `"${bar}" reads as a bar here, but \`ost-agent debt\` would still count the test unfixed — two readers of one threshold must not disagree` };
+  }
+  return { bound: true, bar };
+}
+
+/**
  * Read a node's pre-commitment and say what kind of thing it is.
  *
  * Shallow by construction, and in a stated order: a bar anywhere in the

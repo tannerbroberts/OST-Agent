@@ -17,7 +17,7 @@ import { AGENT_IDEATED_TAG, type NodeStatus, type OstNode } from "../ost/node.js
 import { BELIEVABILITY_LADDER, isRung, rungRank, type RungId } from "../knowledge/believability.js";
 import { isInstrument, parseInstrument } from "../knowledge/instruments.js";
 import { specResolves } from "../ost/instrument.js";
-import { thresholdKindOf } from "../eval/coverage.js";
+import { parseThresholdField, thresholdKindOf } from "../eval/coverage.js";
 import { classifyUnknown, hasNonEmptySection } from "../knowledge/unknowns.js";
 import { titlesMatch } from "../ost/sanitize.js";
 import { Vault } from "../ost/vault.js";
@@ -834,7 +834,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
           threshold: {
             type: "string",
             description:
-              "AssumptionTest only: the pre-committed bar as a field, not a sentence buried in the body — e.g. 'at least 5 of 20 book a kickoff.' `ost-agent debt`/`status` read this in place of the body's prose lead-in when it is set. Refused for any layer other than AssumptionTest.",
+              "AssumptionTest only: the pre-committed bar as a field, not a sentence buried in the body — e.g. 'at least 5 of 20 book a kickoff.' `ost-agent debt`/`status` read this in place of the body's prose lead-in when it is set. Refused for any layer other than AssumptionTest. It must be an ACTUAL BAR on ONE line: a comparator next to the number it commits to ('at least 5 of 20', '>= 2 incidents', 'no more than a third', 'zero data-loss reports'). A restated sentence is refused, because a threshold a person has to interpret after the run can be read as a pass whatever comes back, which is the entire failure this field exists to close. The field is optional and that refusal is not a trap: if the bar's reasoning has to travel with it, omit `threshold` and write the paragraph in the body under a '**Pre-committed threshold:**' lead-in, which the reader falls back to unchanged.",
           },
           instrument: {
             type: "string",
@@ -901,6 +901,28 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         // carrying one is almost certainly a caller error.
         if (input.threshold !== undefined && input.layer !== "AssumptionTest") {
           throw new Error(`threshold is only meaningful for an AssumptionTest, not a ${input.layer}`);
+        }
+        // And on an AssumptionTest, it has to be a bar. The field shipped
+        // accepting any string, on the reasoning that structure would improve
+        // what authors wrote — and the assumption recorded against it said the
+        // failure mode plainly: the field fills with the same unbounded
+        // sentence, "at which point the structure improved and the commitment
+        // did not." A slot that takes prose is prose with a colon in front of
+        // it, and every one of those is a test whose run cannot come out a
+        // failure. Refused here because here is the only door: `ost_edit_node`
+        // does not touch frontmatter and no `ost_set_threshold` exists.
+        if (input.threshold !== undefined) {
+          const reading = parseThresholdField(input.threshold);
+          if (!reading.bound) {
+            throw new Error(
+              `"${input.title}" cannot carry that threshold: ${reading.reason}. A pre-commitment that needs a human to ` +
+                `interpret it after the run is not one — whatever comes back can be read as a pass.\n` +
+                `Either fix a bar in the field ("at least 5 of 20 book a kickoff", ">= 2 incidents", "zero data-loss reports"), ` +
+                `or leave \`threshold\` off entirely and write the bar as prose in the body under a ` +
+                `**Pre-committed threshold:** lead-in — the reader falls back to it, and that is the place for a bar whose ` +
+                `reasoning has to travel with it.`,
+            );
+          }
         }
         // Same rule for the instrument, and then the stricter one: a declaration
         // that does not parse is refused HERE rather than written and discovered
