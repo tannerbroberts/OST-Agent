@@ -87,6 +87,71 @@ export interface UsageEvent {
    * would hide nothing and cost the join.
    */
   wrote?: string[];
+  /**
+   * Frontmatter fields this call's own write REMOVED from a node file that had them.
+   *
+   * The counts-and-timings trace has one blind spot and it is a large one: a defect
+   * that leaves every call green is invisible in it. The 2026-07-24 serializer bug —
+   * a rewrite that dropped `evidence:` from every node it touched — produced fifty
+   * successful calls, no error, no outlying duration, and a tree that had quietly
+   * lost its believability labels. Nothing in `ok`/`ms`/`argBytes` could ever have
+   * shown it, so the trace records the one further fact the single writer knows: the
+   * set of schema fields the file held before the write and does not hold after.
+   *
+   * Names from {@link TRACED_NODE_FIELDS} only, which is why this is not a hole in
+   * the "never content" contract above. A closed vocabulary of eleven schema keys
+   * carries no vault data — `evidence` is the name of a field, not the value in it.
+   */
+  lost?: string[];
+  /**
+   * Fields the CALL declared and no file it wrote came out holding.
+   *
+   * The other half of the same blind spot, and the other 2026-07-24 defect:
+   * `ost_create_node`@0.1.3 accepted an `evidence` argument, refused the call
+   * without one, and then did not put it on the node it built. Every call returned
+   * a created node; the field was simply not there. {@link lost} cannot see this
+   * one — there was no prior file to lose anything — so it is caught from the
+   * other side, by comparing what the input named against what landed.
+   *
+   * Computed only for calls that actually wrote a node file, so a read tool
+   * filtering on `status` is never mistaken for a write that lost one.
+   */
+  dropped?: string[];
+}
+
+/**
+ * The frontmatter fields the trace may name — a closed vocabulary, and the only
+ * strings from a call's input that {@link UsageEvent.dropped} can ever contain.
+ *
+ * Declared here rather than beside `serialize` for the reason {@link INIT_TRACE_TOOL}
+ * is: the writer that reports a field loss (`src/ost/vault.ts`) and the recorder that
+ * files it live in different halves of the tree, and a shared literal is the only form
+ * of agreement that cannot drift. `test/telemetry/trace-defect-replay.test.ts` pins it
+ * against what the serializer actually emits, so a twelfth field cannot be added to the
+ * schema and silently stay outside the census.
+ */
+export const TRACED_NODE_FIELDS = [
+  "type",
+  "status",
+  "source",
+  "created",
+  "confidence",
+  "evidence",
+  "lane",
+  "threshold",
+  "instrument",
+  "sight",
+  "authorship",
+] as const;
+
+/** One node-file write, as the single writer saw it. */
+export interface NodeWriteRecord {
+  /** Basename of the file written. */
+  file: string;
+  /** Which of {@link TRACED_NODE_FIELDS} the file carries AFTER the write. */
+  fields: string[];
+  /** Which it carried before and does not carry now. */
+  lost: string[];
 }
 
 /**
@@ -113,6 +178,33 @@ export function noteNodeFileCreated(file: string): void {
 /** Take and clear what the writer has reported since the last drain. */
 export function drainCreatedNodeFiles(): string[] {
   return createdNodeFiles.splice(0, createdNodeFiles.length);
+}
+
+/**
+ * Node-file writes reported since the last drain, on the same bridge and with the
+ * same single-writer caveat as {@link createdNodeFiles} above.
+ *
+ * Deliberately uncapped, and the arithmetic is worth stating because it is worse
+ * here than for the sibling array: a create is one file, while `mergeNodes` rewrites
+ * the survivor plus every node in the tree that linked to the loser. What bounds it
+ * is not a number but the drain contract — every surface that can reach a write
+ * wraps its tools in {@link withUsageTracing}, which drains on both the success and
+ * the failure path, so the array holds at most one call's worth of writes. The
+ * residue is the honest one and it is the sibling's too: a CLI process writing
+ * outside any tool (a migration over the whole tree) accumulates until it exits.
+ * A cap would trade that for a silent clip on the one signal added here to make a
+ * silent loss visible, which is the wrong trade to make in this module.
+ */
+const nodeWrites: NodeWriteRecord[] = [];
+
+/** Called by the single writer immediately after a node file's bytes change. */
+export function noteNodeFileWritten(record: NodeWriteRecord): void {
+  nodeWrites.push(record);
+}
+
+/** Take and clear the writes reported since the last drain. */
+export function drainNodeWrites(): NodeWriteRecord[] {
+  return nodeWrites.splice(0, nodeWrites.length);
 }
 
 /**
@@ -255,6 +347,40 @@ function resolveAttribution(source: AttributionSource | undefined): UsageAttribu
 }
 
 /**
+ * What one call did to the frontmatter of the files it wrote, as two field lists.
+ *
+ * `lost` is the union over the call's writes — a call that strips `evidence` from
+ * forty nodes reports the field once, because the trace answers "did this call lose
+ * a field", not "how many files did it touch" (`wrote` already carries that).
+ *
+ * `dropped` compares the call's OWN input against what landed, and is deliberately
+ * silent for a call that wrote nothing: a read tool taking `status` as a filter has
+ * not dropped it, and a census that said otherwise would bury the real losses in
+ * false ones. The input is read for KEY NAMES from {@link TRACED_NODE_FIELDS} and
+ * nothing else — no value is inspected beyond "is it empty", and no value is kept.
+ */
+function fieldCensus(input: unknown, writes: NodeWriteRecord[]): { lost?: string[]; dropped?: string[] } {
+  if (writes.length === 0) return {};
+  const lost = [...new Set(writes.flatMap((w) => w.lost))].sort();
+  const landed = new Set(writes.flatMap((w) => w.fields));
+  const declared =
+    input && typeof input === "object" && !Array.isArray(input)
+      ? TRACED_NODE_FIELDS.filter((f) => {
+          const value = (input as Record<string, unknown>)[f];
+          return typeof value === "string" ? value.trim().length > 0 : value !== undefined && value !== null;
+        })
+      : [];
+  // Sorted like `lost`, and not left in schema order: the two lists are read side
+  // by side in the rollup, and one ordered by the schema beside one ordered
+  // alphabetically reads as a difference that means something.
+  const dropped = declared.filter((f) => !landed.has(f)).sort();
+  return {
+    ...(lost.length > 0 ? { lost } : {}),
+    ...(dropped.length > 0 ? { dropped } : {}),
+  };
+}
+
+/**
  * Wrap every tool's `run` so each invocation lands in the vault's usage log.
  * Results and thrown errors pass through untouched; only observation is added.
  *
@@ -296,6 +422,10 @@ export function withUsageTracing<T extends RunnableTool>(
           ...(session ? { session } : {}),
           ...(unknown ? { unknown } : {}),
           ...(wrote.length > 0 ? { wrote } : {}),
+          // The success path is the one that matters here: a call that threw is
+          // already visible as a failure, and the defects this census exists for
+          // are the ones that come back green.
+          ...fieldCensus(input, drainNodeWrites()),
         });
         return result;
       } catch (e) {
@@ -320,6 +450,10 @@ export function withUsageTracing<T extends RunnableTool>(
           ...(session ? { session } : {}),
           ...(unknown ? { unknown } : {}),
           ...(wrote.length > 0 ? { wrote } : {}),
+          // Drained on this path for the reason `wrote` is: a write that happened
+          // before the throw happened, and leaving its record in the array would
+          // stamp this call's field loss onto whatever call came next.
+          ...fieldCensus(input, drainNodeWrites()),
         });
         throw e;
       }

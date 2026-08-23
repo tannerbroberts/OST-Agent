@@ -31905,12 +31905,32 @@ function encodeSeen(seen) {
 import fs4 from "node:fs";
 import path4 from "node:path";
 import { AsyncLocalStorage } from "node:async_hooks";
+var TRACED_NODE_FIELDS = [
+  "type",
+  "status",
+  "source",
+  "created",
+  "confidence",
+  "evidence",
+  "lane",
+  "threshold",
+  "instrument",
+  "sight",
+  "authorship"
+];
 var createdNodeFiles = [];
 function noteNodeFileCreated(file) {
   createdNodeFiles.push(file);
 }
 function drainCreatedNodeFiles() {
   return createdNodeFiles.splice(0, createdNodeFiles.length);
+}
+var nodeWrites = [];
+function noteNodeFileWritten(record2) {
+  nodeWrites.push(record2);
+}
+function drainNodeWrites() {
+  return nodeWrites.splice(0, nodeWrites.length);
 }
 var INIT_TRACE_TOOL = "vault_init";
 var PermissionDeniedError = class extends Error {
@@ -31952,6 +31972,20 @@ function resolveAttribution(source) {
     ...stamp2(effective.unknown) ? { unknown: stamp2(effective.unknown) } : {}
   };
 }
+function fieldCensus(input, writes) {
+  if (writes.length === 0) return {};
+  const lost = [...new Set(writes.flatMap((w) => w.lost))].sort();
+  const landed = new Set(writes.flatMap((w) => w.fields));
+  const declared = input && typeof input === "object" && !Array.isArray(input) ? TRACED_NODE_FIELDS.filter((f) => {
+    const value = input[f];
+    return typeof value === "string" ? value.trim().length > 0 : value !== void 0 && value !== null;
+  }) : [];
+  const dropped = declared.filter((f) => !landed.has(f)).sort();
+  return {
+    ...lost.length > 0 ? { lost } : {},
+    ...dropped.length > 0 ? { dropped } : {}
+  };
+}
 function withUsageTracing(tools, vaultDir, surface, attribution) {
   return tools.map((tool2) => ({
     ...tool2,
@@ -31975,7 +32009,11 @@ function withUsageTracing(tools, vaultDir, surface, attribution) {
           argBytes,
           ...session ? { session } : {},
           ...unknown2 ? { unknown: unknown2 } : {},
-          ...wrote.length > 0 ? { wrote } : {}
+          ...wrote.length > 0 ? { wrote } : {},
+          // The success path is the one that matters here: a call that threw is
+          // already visible as a failure, and the defects this census exists for
+          // are the ones that come back green.
+          ...fieldCensus(input, drainNodeWrites())
         });
         return result;
       } catch (e) {
@@ -31993,7 +32031,11 @@ function withUsageTracing(tools, vaultDir, surface, attribution) {
           ...denied ? { denied: true } : {},
           ...session ? { session } : {},
           ...unknown2 ? { unknown: unknown2 } : {},
-          ...wrote.length > 0 ? { wrote } : {}
+          ...wrote.length > 0 ? { wrote } : {},
+          // Drained on this path for the reason `wrote` is: a write that happened
+          // before the throw happened, and leaving its record in the array would
+          // stamp this call's field loss onto whatever call came next.
+          ...fieldCensus(input, drainNodeWrites())
         });
         throw e;
       }
@@ -33132,6 +33174,26 @@ function classifyUsageEvent(event) {
   if (event.ok) return "ok";
   return event.denied ? "denied" : "error";
 }
+var LOSS_MEANING = {
+  stripped: "the node carried it before the write and not after",
+  dropped: "the call declared it and nothing it wrote holds it"
+};
+function fieldLosses(events) {
+  const counts = /* @__PURE__ */ new Map();
+  const add = (tool2, field2, kind) => {
+    const key2 = `${tool2}\0${field2}\0${kind}`;
+    const existing = counts.get(key2);
+    if (existing) existing.calls += 1;
+    else counts.set(key2, { tool: tool2, field: field2, kind, calls: 1 });
+  };
+  for (const ev of events) {
+    for (const field2 of ev.lost ?? []) add(ev.tool, field2, "stripped");
+    for (const field2 of ev.dropped ?? []) add(ev.tool, field2, "dropped");
+  }
+  return [...counts.values()].sort(
+    (a, b2) => b2.calls - a.calls || (a.tool < b2.tool ? -1 : a.tool > b2.tool ? 1 : 0) || (a.field < b2.field ? -1 : 1)
+  );
+}
 var UsageSource = class {
   name = "usage";
   actor = "usage";
@@ -33193,6 +33255,8 @@ var UsageSource = class {
     const sample = (e) => `- \`${e.tool}\` on ${e.surface}${e.unknown ? ` (working: ${e.unknown})` : ""}: ${e.err ?? "(no message)"}`;
     const deniedSamples = denied.slice(0, 3).map(sample);
     const errSamples = trueErrors.slice(0, 3).map(sample);
+    const losses = fieldLosses(events);
+    const lossyCalls = events.filter((e) => (e.lost?.length ?? 0) > 0 || (e.dropped?.length ?? 0) > 0).length;
     const body = [
       `# Usage trace \u2014 ${day} (${events.length} tool invocations, machine-recorded)`,
       "",
@@ -33202,6 +33266,9 @@ var UsageSource = class {
       `- **Calls:** ${events.length} (${events.length - errors.length} ok` + (denied.length > 0 ? `, ${denied.length} denied` : "") + `, ${trueErrors.length} failed)`,
       `- **Duration:** p50 ${percentile(durations, 50)}ms, max ${percentile(durations, 100)}ms`,
       ...sessions.size > 0 ? [`- **Sessions:** ${sessions.size}`] : [],
+      ...lossyCalls > 0 ? [
+        `- **Silent frontmatter loss:** ${lossyCalls} call(s) returned OK and still lost a field (${[...new Set(losses.map((l) => l.field))].join(", ")}) \u2014 see below`
+      ] : [],
       "",
       "| Tool | Calls |",
       "| --- | --- |",
@@ -33210,6 +33277,16 @@ var UsageSource = class {
       "| Surface | Calls |",
       "| --- | --- |",
       table(countBy(events, (e) => e.surface ?? "unknown")),
+      ...losses.length > 0 ? [
+        "",
+        "**Silent frontmatter loss \u2014 calls that succeeded and still cost a node a field.**",
+        "Nothing in the counts, the error rate or the durations above can show this; it is read",
+        "off the before/after field sets the vault's single writer reported at each write.",
+        "",
+        "| Tool | Field | What happened | Calls |",
+        "| --- | --- | --- | --- |",
+        ...losses.map((l) => `| ${l.tool} | \`${l.field}\` | ${LOSS_MEANING[l.kind]} | ${l.calls} |`)
+      ] : [],
       ...deniedSamples.length > 0 ? ["", "**Denied calls (refused for lack of a grant; redacted, first 3):**", ...deniedSamples] : [],
       ...errSamples.length > 0 ? ["", "**Failed calls (redacted, first 3):**", ...errSamples] : [],
       "",
@@ -33220,7 +33297,10 @@ var UsageSource = class {
     return {
       id: `USAGE:${day}`,
       source: `USAGE:${day}`,
-      title: `Usage trace ${day} \u2014 ${events.length} calls, ${errors.length} failed`,
+      // The loss count rides in the title only when there is one, so a quiet day's
+      // headline is unchanged and a reader who never opens the body still sees the
+      // one number the body was added for.
+      title: `Usage trace ${day} \u2014 ${events.length} calls, ${errors.length} failed` + (lossyCalls > 0 ? `, ${lossyCalls} silently lost a field` : ""),
       body,
       timestamp: `${day}T23:59:59.000Z`
     };
@@ -40081,6 +40161,25 @@ var Plan = class {
 function isoToday() {
   return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 }
+function tracedFields(markdown) {
+  try {
+    const data = parseFrontmatter(markdown).data;
+    return TRACED_NODE_FIELDS.filter((f) => {
+      const value = data[f];
+      return typeof value === "string" ? value.trim().length > 0 : value !== void 0 && value !== null;
+    });
+  } catch {
+    return void 0;
+  }
+}
+function reportNodeWrite(filePath, before, after) {
+  const fields = tracedFields(after) ?? [];
+  noteNodeFileWritten({
+    file: path13.basename(filePath),
+    fields,
+    lost: (before ?? []).filter((f) => !fields.includes(f))
+  });
+}
 var VOID_CONTENT = /* @__PURE__ */ new Set(["undefined", "null"]);
 function assertWritableContent(what, value) {
   const trimmed2 = value.trim();
@@ -40324,6 +40423,27 @@ var Vault = class {
     return deserialize(title, fs16.readFileSync(p2, "utf8"));
   }
   /**
+   * The one door every node-file write in this class goes through.
+   *
+   * It exists so that the before/after field comparison cannot be forgotten at a
+   * write site. This class already had fifteen `fs.writeFileSync` calls and gains
+   * one whenever a new typed transition does; a census wired into fifteen of them
+   * is a census that is wrong at the sixteenth, and wrong silently, which is the
+   * exact failure mode it was added to detect. `test/ost/vault-write-census.test.ts`
+   * holds the file to having no raw write left.
+   *
+   * The read-before is unconditional and costs one `readFileSync` per write. That
+   * is affordable here — these are single files of a few KB, and every one of them
+   * was just read by the method calling this anyway — and it is the only way to
+   * know what the bytes held, since the caller hands over a rendered string and no
+   * longer has the original.
+   */
+  writeNodeFile(filePath, contents) {
+    const before = fs16.existsSync(filePath) ? tracedFields(fs16.readFileSync(filePath, "utf8")) : [];
+    fs16.writeFileSync(filePath, contents, "utf8");
+    reportNodeWrite(filePath, before, contents);
+  }
+  /**
    * Create a new node file. Throws if a file for this title already exists.
    *
    * Stamped `authorship: machine` regardless of what the caller put in the node,
@@ -40340,7 +40460,7 @@ var Vault = class {
       throw new Error(`node already exists (create is non-overwriting): ${node.title}`);
     }
     node.authorship = "machine";
-    fs16.writeFileSync(p2, serialize(node), "utf8");
+    this.writeNodeFile(p2, serialize(node));
     noteNodeFileCreated(path13.basename(p2));
   }
   /**
@@ -40368,11 +40488,11 @@ var Vault = class {
       node.body = `${node.body}
 
 ${section.trim()}`;
-      fs16.writeFileSync(p2, serialize(this.authoredBy(node, "machine")), "utf8");
+      this.writeNodeFile(p2, serialize(this.authoredBy(node, "machine")));
       return;
     }
     const sep = prev.endsWith("\n") ? "\n" : "\n\n";
-    fs16.writeFileSync(p2, prev + sep + section.trim() + "\n", "utf8");
+    this.writeNodeFile(p2, prev + sep + section.trim() + "\n");
   }
   /**
    * Append one line under a `## Heading` in a node's body, creating the heading
@@ -40390,7 +40510,7 @@ ${section.trim()}`;
     assertWritableContent(`a line under ${heading} of "${title}"`, line);
     const node = this.read(title);
     node.body = appendUnderHeading(node.body, heading, line);
-    fs16.writeFileSync(this.nodePath(title), serialize(this.authoredBy(node, writer)), "utf8");
+    this.writeNodeFile(this.nodePath(title), serialize(this.authoredBy(node, writer)));
   }
   /**
    * Everything {@link linkNodes} can refuse, asked BEFORE anything is written.
@@ -40426,7 +40546,7 @@ ${section.trim()}`;
     const target = sanitizeTitle(child);
     if (node.links.includes(target)) return;
     node.links.push(target);
-    fs16.writeFileSync(this.nodePath(parent), serialize(node), "utf8");
+    this.writeNodeFile(this.nodePath(parent), serialize(node));
   }
   /**
    * Set a node's status and append the transition to a `## History` section so
@@ -40439,7 +40559,7 @@ ${section.trim()}`;
     node.status = status;
     const line = `- ${isoToday()} status: ${prev} \u2192 ${status}${note ? ` \u2014 ${note}` : ""}`;
     node.body = appendUnderHeading(node.body, "## History", line);
-    fs16.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+    this.writeNodeFile(this.nodePath(title), serialize(node));
   }
   /**
    * Declare which rung of the believability ladder a node rests on, recording the
@@ -40453,7 +40573,7 @@ ${section.trim()}`;
     node.evidence = evidence;
     const line = `- ${isoToday()} evidence: ${prev} \u2192 ${evidence}${note ? ` \u2014 ${note}` : ""}`;
     node.body = appendUnderHeading(node.body, "## History", line);
-    fs16.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+    this.writeNodeFile(this.nodePath(title), serialize(node));
   }
   /**
    * Classify an assumption test into a lane, recording the call in History.
@@ -40467,7 +40587,7 @@ ${section.trim()}`;
     node.lane = lane;
     const line = `- ${isoToday()} lane: ${prev} \u2192 ${lane}${note ? ` \u2014 ${note}` : ""}`;
     node.body = appendUnderHeading(node.body, "## History", line);
-    fs16.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+    this.writeNodeFile(this.nodePath(title), serialize(node));
     return line;
   }
   /**
@@ -40495,7 +40615,7 @@ ${section.trim()}`;
     if (sight) node.sight = sight;
     const line = `- ${isoToday()} instrument: ${prev} \u2192 ${instrument}${sight ? ` [sight: ${sight}]` : ""}${note ? ` \u2014 ${note}` : ""}`;
     node.body = appendUnderHeading(node.body, "## History", line);
-    fs16.writeFileSync(this.nodePath(title), serialize(node), "utf8");
+    this.writeNodeFile(this.nodePath(title), serialize(node));
     return line;
   }
   /**
@@ -40510,7 +40630,7 @@ ${section.trim()}`;
       throw new Error(`setOutcomeBody only applies to the Outcome node, not a ${node.layer}`);
     }
     node.body = newBody;
-    fs16.writeFileSync(this.nodePath(title), serialize(this.authoredBy(node, "human")), "utf8");
+    this.writeNodeFile(this.nodePath(title), serialize(this.authoredBy(node, "human")));
   }
   /**
    * Human promotion: set `validated` AND drop the agent-ideated marker.
@@ -40533,7 +40653,7 @@ ${section.trim()}`;
     node.status = "validated";
     const line = `- ${isoToday()} status: ${prev} \u2192 validated (promoted by ${by}) \u2014 ${why}`;
     node.body = appendUnderHeading(node.body, "## History", line);
-    fs16.writeFileSync(this.nodePath(title), serialize(this.authoredBy(node, "human")), "utf8");
+    this.writeNodeFile(this.nodePath(title), serialize(this.authoredBy(node, "human")));
     return line;
   }
   /** Attach a hygiene/issue annotation under a `## Issues` section. Add-only. */
@@ -40541,7 +40661,7 @@ ${section.trim()}`;
     assertWritableContent(`an annotation on "${title}"`, issue2);
     const node = this.read(title);
     node.body = appendUnderHeading(node.body, "## Issues", `- ${isoToday()} ${issue2}`);
-    fs16.writeFileSync(this.nodePath(title), serialize(this.authoredBy(node, "machine")), "utf8");
+    this.writeNodeFile(this.nodePath(title), serialize(this.authoredBy(node, "machine")));
   }
   /**
    * Remove one parent→child edge, recording the removal in the parent's History.
@@ -40567,7 +40687,7 @@ ${section.trim()}`;
     node.links = node.links.filter((l) => l !== target);
     const line = `- ${isoToday()} unlinked "${target}" \u2014 ${why}`;
     node.body = appendUnderHeading(node.body, "## History", line);
-    fs16.writeFileSync(this.nodePath(parent), serialize(node), "utf8");
+    this.writeNodeFile(this.nodePath(parent), serialize(node));
     return line;
   }
   /**
@@ -40597,7 +40717,7 @@ ${section.trim()}`;
     node.links = node.links.map((l) => l === oldTarget ? newTarget : l);
     const line = `- ${isoToday()} repointed "${oldTarget}" \u2192 "${newTarget}" \u2014 ${why}`;
     node.body = appendUnderHeading(node.body, "## History", line);
-    fs16.writeFileSync(this.nodePath(parent), serialize(node), "utf8");
+    this.writeNodeFile(this.nodePath(parent), serialize(node));
     return line;
   }
   /**
@@ -40640,8 +40760,10 @@ ${section.trim()}`;
     node.body = joinReservedSections(newProse, reserved);
     const line = `- ${isoToday()} body edited \u2014 ${why}`;
     node.body = appendUnderHeading(node.body, "## History", line);
+    const rendered = serialize(this.authoredBy(node, "machine"));
     try {
-      writeWithHash(p2, serialize(this.authoredBy(node, "machine")), read);
+      writeWithHash(p2, rendered, read);
+      reportNodeWrite(p2, tracedFields(read.content), rendered);
     } catch (err) {
       if (err instanceof DriftError) {
         throw new Error(`cannot edit "${title}": ${err.message}`);
@@ -40706,7 +40828,7 @@ ${section.trim()}`;
     }
     const line = `- ${isoToday()} merged "${loserTitle}" into this node and deleted its file \u2014 ${opts.why}` + (loserReserved.length > 0 ? ` (carried ${loserReserved.length} reserved section(s) across)` : "");
     survivor.body = appendUnderHeading(survivor.body, "## History", line);
-    fs16.writeFileSync(this.nodePath(into), serialize(this.authoredBy(survivor, "machine")), "utf8");
+    this.writeNodeFile(this.nodePath(into), serialize(this.authoredBy(survivor, "machine")));
     for (const n of this.readTree()) {
       if (n.title === loserTitle || n.title === survivorTitle) continue;
       if (!n.links.includes(loserTitle)) continue;
@@ -40717,7 +40839,7 @@ ${section.trim()}`;
         "## History",
         `- ${isoToday()} link "${loserTitle}" repointed to "${survivorTitle}" \u2014 that node was merged away`
       );
-      fs16.writeFileSync(this.nodePath(n.title), serialize(n), "utf8");
+      this.writeNodeFile(this.nodePath(n.title), serialize(n));
     }
     fs16.unlinkSync(this.nodePath(from));
     return line;
