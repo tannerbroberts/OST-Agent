@@ -14,6 +14,7 @@
  * mandatory human interrupt, so that reading is the expensive one.
  */
 import { checkInvariants, type Violation } from "./invariants.js";
+import { countUndatedOffenders, partitionByInception, todayIso, type Predating } from "./grandfathered.js";
 import { computeAttention, weightedTokenCost } from "./attention.js";
 import { computeEvidenceDebt, gateSolution } from "./evidence-debt.js";
 import { solutionsMissingInstruments } from "./buildable.js";
@@ -406,19 +407,68 @@ function appendViolationsByRule(lines: string[], violations: readonly Violation[
   return hidden;
 }
 
-export function renderCheck(census: TreeCensus): { text: string; violations: number } {
+/**
+ * The nodes a tightening caught that were written before it — listed with the
+ * date each stops being excused.
+ *
+ * Below the verdict and never part of it: these are not defects the tree is
+ * being asked to fix today, which is the whole point of recording when a rule
+ * came into force. What they are is a backlog with a clock on it, so the section
+ * leads with the deadline rather than the count — a grandfathered list with no
+ * date on it is the amnesty this design says it is not.
+ */
+function appendPredating(lines: string[], predating: readonly Predating[], budget: Budget): number {
+  if (predating.length === 0) return 0;
+  const byRule = new Map<string, Predating[]>();
+  for (const p of predating) {
+    const group = byRule.get(p.violation.rule);
+    if (group) group.push(p);
+    else byRule.set(p.violation.rule, [p]);
+  }
+  lines.push(
+    `predating: ${predating.length} node(s) written before the rule they break came into force — ` +
+      `not counted above, and not excused past the date on each line`,
+  );
+  let hidden = 0;
+  for (const [rule, group] of byRule) {
+    lines.push(`  [${rule}] ${group.length} node(s), in force from ${group[0].inForceFrom}, binding from ${group[0].bindsOn}:`);
+    hidden += appendSample(
+      lines,
+      group,
+      (p) => [`  ~ [${rule}] "${p.violation.node}" (created ${p.created}, binds ${p.bindsOn}): ${p.violation.detail}`],
+      { budget, what: `[${rule}] predating node(s)`, indent: "    " },
+    );
+  }
+  return hidden;
+}
+
+export function renderCheck(census: TreeCensus, opts: { asOf?: string } = {}): { text: string; violations: number } {
   const lines: string[] = [];
   const budget = newBudget();
   let hidden = 0;
-  const violations = checkInvariants(census.nodes);
+  const all = checkInvariants(census.nodes);
+  // A rule binds a node written before it came into force only once its grace
+  // period has run out; until then the two populations are reported apart. The
+  // verdict, and therefore the CLI's exit code, is taken from `binding` alone.
+  const { binding: violations, predating } = partitionByInception(all, census.nodes, opts.asOf ?? todayIso());
   if (violations.length === 0) {
     // "0 violations" over an unstated denominator is the shape of a check that
     // passed because it looked at nothing. State what was checked.
     lines.push(`invariants: PASS (0 violations over ${census.nodes.length} node(s))`);
   } else {
     lines.push(`invariants: FAIL (${violations.length} violation(s) over ${census.nodes.length} node(s))`);
+    // Said out loud rather than left to be inferred: an undated node cannot show
+    // it predates anything, so it is bound. That is the fail-closed direction,
+    // and a reader who assumed the opposite would misread the count. It goes on
+    // its own line and never into the verdict line, which is a fixed string
+    // several callers compare against and one this must not move.
+    const undated = countUndatedOffenders(violations, census.nodes);
+    if (undated > 0) {
+      lines.push(`  ${undated} of them carry no 'created' and are bound for that reason, not judged old enough to be excused.`);
+    }
     hidden += appendViolationsByRule(lines, violations, budget);
   }
+  hidden += appendPredating(lines, predating, budget);
   const unexplained = appendUnexplained(lines, census, budget);
   hidden += unexplained.hidden;
   // After the two findings that DO fail, before the census. It never contributes

@@ -28,6 +28,7 @@ import {
   type MirrorRead,
 } from "../adapters/mirror.js";
 import { checkInvariants } from "../eval/invariants.js";
+import { partitionByInception } from "../eval/grandfathered.js";
 import { scanNearDuplicates } from "../ost/dedupe.js";
 import { EXTENT_RULES, scanExtentOverlap } from "../ost/extent.js";
 import {
@@ -683,7 +684,13 @@ function detectHygiene(
   // that names no node of its own gets attached — an issue with no node is an
   // issue no one can annotate, and therefore a wedge.
   const outcome = tree.find((n) => n.layer === "Outcome")?.title;
-  for (const v of checkInvariants(tree)) {
+  // The same partition `renderCheck` reports, applied here for the reason
+  // `NOT_DONE_BLOCKING` exists: two gates that can disagree permanently mean
+  // neither is a health signal. A node written before the rule it breaks is not
+  // outstanding work until that rule's grace period ends, and it has to be
+  // absent from `done` and from `check` together or the pair goes back to
+  // contradicting itself. When the grace runs out it reappears on both.
+  for (const v of partitionByInception(checkInvariants(tree), tree).binding) {
     if (v.rule in NOT_DONE_BLOCKING) continue;
     const title = v.node ?? outcome;
     if (!title) continue; // nothing to hang it on; the parity test is what keeps this unreachable

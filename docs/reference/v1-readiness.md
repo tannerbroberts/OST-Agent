@@ -3127,9 +3127,38 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,879 tests across 307 files, verified 2026-08-23 (`npx vitest run`
-> reports 3,871 of them, all passing; the other 8 are the contended calibration file
+> *Today:* **met** — 3,890 tests across 308 files, verified 2026-08-26 (`npx vitest run`
+> reports 3,882 of them, all passing; the other 8 are the contended calibration file
 > described below.
+> After "New rules apply forward only, and existing nodes are marked as predating them" was
+> given its definition of done: a rule now records the day it came into force, so a check
+> can tell a tree that is *wrong* from one that is *old*. `RULE_INCEPTIONS`
+> (`src/eval/rule-inception.ts`) carries all fourteen rule literals `checkInvariants` emits
+> with the date and the commit that landed each; `partitionByInception`
+> (`src/eval/grandfathered.ts`) splits a check into what binds and what predates, and BOTH
+> health gates read it — `renderCheck` takes its verdict and the CLI's exit code from the
+> binding half, `detectHygiene` takes `done` from the same half — because two gates that
+> can disagree permanently mean neither is a signal, which is the argument
+> `NOT_DONE_BLOCKING` already makes. Every ambiguity resolves toward the rule: an
+> unregistered rule binds everything, a violation naming no node binds, a node stamped the
+> day the rule landed binds, and a node with no `created` at all binds, with that count
+> stated on its own line under the verdict. The exemption expires —
+> `CLEARANCE_WINDOW_DAYS` is 30, the same window the assumption test measures history over,
+> so the design parameter and its judge cannot drift.
+> What the replay of that history found is the part worth reading: across the last three
+> tightenings, 306 nodes would have been grandfathered and all 306 cleared — 100% against a
+> 60% bar — but every one of them cleared on day zero, because the migration shipped in the
+> same commit as the rule. No grandfathered backlog has ever existed in this vault to be
+> observed, so that 100% is the weakest possible support for the mechanism it appears to
+> endorse; the assumption test predicted exactly this ("clearance under that pressure is an
+> upper bound"). The counter-evidence is in the same fixture: over the eleven days before
+> `single-backlink` bound, with nothing enforcing it, the offender count rose 3 → 324 and
+> never once fell. `scripts/capture-tightening-replay.ts` takes the reading from the vault's
+> git log; `test/fixtures/tightening-replay.json` is what it recorded, one row per day
+> naming the commit it was read from; `test/ost/grandfathered-backlog-replay.test.ts`, 11
+> tests, one new file, does the arithmetic offline.
+> Previously 3,879 tests across 307 files, verified 2026-08-23 (`npx vitest run`
+> reports 3,871 of them.
 > After "Mark what the machine chose differently from what a human wrote" was given its
 > definition of done: a node now carries `authorship` — `machine`, `human`, or `mixed` —
 > and it is the first marker in this vault that says who wrote the PROSE rather than what
