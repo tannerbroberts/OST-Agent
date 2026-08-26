@@ -45514,6 +45514,146 @@ function reachableOpportunities(tree, index) {
   return reachable;
 }
 
+// src/eval/rule-inception.ts
+var CLEARANCE_WINDOW_DAYS = 30;
+var RULE_INCEPTIONS = [
+  {
+    rule: "single-outcome",
+    inForceFrom: "2026-07-22",
+    commit: "192dc33",
+    note: "founding set \u2014 exactly one root Outcome"
+  },
+  {
+    rule: "dangling-link",
+    inForceFrom: "2026-07-22",
+    commit: "192dc33",
+    note: "founding set \u2014 every [[link]] resolves to a node"
+  },
+  {
+    rule: "opportunity-connected",
+    inForceFrom: "2026-07-22",
+    commit: "192dc33",
+    note: "founding set \u2014 every Opportunity is reachable from the Outcome"
+  },
+  {
+    rule: "solution-mapped",
+    inForceFrom: "2026-07-22",
+    commit: "192dc33",
+    note: "founding set \u2014 every Solution sits under an Opportunity"
+  },
+  {
+    rule: "assumption-mapped",
+    inForceFrom: "2026-07-22",
+    commit: "192dc33",
+    note: "founding set \u2014 every Assumption sits under a Solution"
+  },
+  {
+    rule: "no-self-validation",
+    inForceFrom: "2026-07-22",
+    commit: "192dc33",
+    note: "founding set \u2014 an #unvalidated node may not also claim status: validated"
+  },
+  {
+    rule: "evidence-class",
+    inForceFrom: "2026-07-24",
+    commit: "47066d5",
+    note: "every node declares the rung it rests on \u2014 flagged all 57 then-existing meta-vault nodes with no remediation path, which is the friction that produced this whole branch"
+  },
+  {
+    rule: "wrapped-wikilink",
+    inForceFrom: "2026-07-26",
+    commit: "1790775",
+    note: "a wikilink a wrapped paragraph broke in two is an edge the author wrote that the graph does not have"
+  },
+  {
+    rule: "lane-conflict",
+    inForceFrom: "2026-07-26",
+    commit: "d1442c3",
+    note: "a test may not answer 'may an unattended pass run this?' twice, differently"
+  },
+  {
+    rule: "rung-unearned",
+    inForceFrom: "2026-07-29",
+    commit: "102b90d",
+    note: "a declared measurement rung must point at a measurement \u2014 deliberately kept a detector so nodes predating the write guard land here"
+  },
+  {
+    rule: "outcome-files-categories",
+    inForceFrom: "2026-08-04",
+    commit: "6a4f32f",
+    note: "the bucket layer became structural \u2014 only category Opportunities attach to the Outcome"
+  },
+  {
+    rule: "test-mapped",
+    inForceFrom: "2026-08-05",
+    commit: "3078441",
+    note: "the Assumption layer landed; an AssumptionTest hangs under an Assumption (a direct Solution edge is the bounded legacy read, see LEGACY_TEST_EDGE)"
+  },
+  {
+    rule: "single-parent",
+    inForceFrom: "2026-08-05",
+    commit: "6953276",
+    note: "the tree is a tree, not a graph \u2014 the meta vault held three solutions under two opportunities each"
+  },
+  {
+    rule: "single-backlink",
+    inForceFrom: "2026-08-05",
+    commit: "8504ddf",
+    note: "a title is wikilinked exactly once, by its parent \u2014 2,214 prose links across 920 meta-vault nodes"
+  }
+];
+var BY_RULE = new Map(RULE_INCEPTIONS.map((r2) => [r2.rule, r2]));
+function ruleInception(rule) {
+  return BY_RULE.get(rule);
+}
+function shiftDays(date3, days) {
+  const at = /* @__PURE__ */ new Date(`${date3}T00:00:00.000Z`);
+  if (Number.isNaN(at.getTime())) throw new Error(`not an ISO date: ${date3}`);
+  at.setUTCDate(at.getUTCDate() + days);
+  return at.toISOString().slice(0, 10);
+}
+
+// src/eval/grandfathered.ts
+function todayIso() {
+  return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+}
+function partitionByInception(violations, tree, asOf = todayIso()) {
+  const created = /* @__PURE__ */ new Map();
+  for (const n of tree) created.set(n.title, n.created);
+  const binding = [];
+  const predating = [];
+  for (const violation of violations) {
+    const rule = ruleInception(violation.rule);
+    if (!rule || !violation.node || !created.has(violation.node)) {
+      binding.push(violation);
+      continue;
+    }
+    const when = created.get(violation.node);
+    if (when === void 0 || when >= rule.inForceFrom) {
+      binding.push(violation);
+      continue;
+    }
+    const bindsOn = shiftDays(rule.inForceFrom, CLEARANCE_WINDOW_DAYS);
+    if (asOf >= bindsOn) {
+      binding.push(violation);
+      continue;
+    }
+    predating.push({ violation, created: when, inForceFrom: rule.inForceFrom, bindsOn });
+  }
+  return { binding, predating };
+}
+function countUndatedOffenders(violations, tree) {
+  const created = /* @__PURE__ */ new Map();
+  for (const n2 of tree) created.set(n2.title, n2.created);
+  let n = 0;
+  for (const v of violations) {
+    if (!v.node || !created.has(v.node)) continue;
+    if (created.get(v.node) !== void 0) continue;
+    if (ruleInception(v.rule)) n += 1;
+  }
+  return n;
+}
+
 // src/knowledge/unknowns.ts
 var DEFAULT_CLASSIFIER = {
   contractSections: ["Format", "Methodology", "Rationale"],
@@ -46786,17 +46926,46 @@ function appendViolationsByRule(lines, violations, budget) {
   }
   return hidden;
 }
-function renderCheck(census) {
+function appendPredating(lines, predating, budget) {
+  if (predating.length === 0) return 0;
+  const byRule = /* @__PURE__ */ new Map();
+  for (const p2 of predating) {
+    const group = byRule.get(p2.violation.rule);
+    if (group) group.push(p2);
+    else byRule.set(p2.violation.rule, [p2]);
+  }
+  lines.push(
+    `predating: ${predating.length} node(s) written before the rule they break came into force \u2014 not counted above, and not excused past the date on each line`
+  );
+  let hidden = 0;
+  for (const [rule, group] of byRule) {
+    lines.push(`  [${rule}] ${group.length} node(s), in force from ${group[0].inForceFrom}, binding from ${group[0].bindsOn}:`);
+    hidden += appendSample(
+      lines,
+      group,
+      (p2) => [`  ~ [${rule}] "${p2.violation.node}" (created ${p2.created}, binds ${p2.bindsOn}): ${p2.violation.detail}`],
+      { budget, what: `[${rule}] predating node(s)`, indent: "    " }
+    );
+  }
+  return hidden;
+}
+function renderCheck(census, opts = {}) {
   const lines = [];
   const budget = newBudget();
   let hidden = 0;
-  const violations = checkInvariants(census.nodes);
+  const all = checkInvariants(census.nodes);
+  const { binding: violations, predating } = partitionByInception(all, census.nodes, opts.asOf ?? todayIso());
   if (violations.length === 0) {
     lines.push(`invariants: PASS (0 violations over ${census.nodes.length} node(s))`);
   } else {
     lines.push(`invariants: FAIL (${violations.length} violation(s) over ${census.nodes.length} node(s))`);
+    const undated = countUndatedOffenders(violations, census.nodes);
+    if (undated > 0) {
+      lines.push(`  ${undated} of them carry no 'created' and are bound for that reason, not judged old enough to be excused.`);
+    }
     hidden += appendViolationsByRule(lines, violations, budget);
   }
+  hidden += appendPredating(lines, predating, budget);
   const unexplained = appendUnexplained(lines, census, budget);
   hidden += unexplained.hidden;
   hidden += appendStanding(lines, census, budget);
@@ -51309,7 +51478,7 @@ function detectHygiene(tree, live, limit, storedEvidenceIds, standing, inScope =
     if (issues.length < limit) issues.push(issue2);
   };
   const outcome = tree.find((n) => n.layer === "Outcome")?.title;
-  for (const v of checkInvariants(tree)) {
+  for (const v of partitionByInception(checkInvariants(tree), tree).binding) {
     if (v.rule in NOT_DONE_BLOCKING) continue;
     const title = v.node ?? outcome;
     if (!title) continue;

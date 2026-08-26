@@ -2,6 +2,39 @@
 
 ## Unreleased
 
+- **A rule now records when it came into force, so a check can tell a tree that is *wrong*
+  from a tree that is *old*.** A new invariant used to bind the whole vault the instant it
+  landed: `evidence-class` flagged all 57 then-existing meta-vault nodes, `single-backlink`
+  flagged 920, and work that was finished reopened on the day the rule was most likely to
+  be abandoned as unusable. `RULE_INCEPTIONS` (`src/eval/rule-inception.ts`) records, per
+  rule, the day it began to bind and the commit that landed it;
+  `partitionByInception` (`src/eval/grandfathered.ts`) splits a check into what binds and
+  what predates. `ost_check` reports the two apart — the verdict and the CLI exit code come
+  from the binding half alone — and `ost_next_work` reads the same partition, because two
+  health gates that can disagree permanently mean neither is a signal.
+  **Every ambiguity resolves toward the rule.** An unregistered rule binds everything; a
+  violation naming no node binds; a node stamped the same day the rule landed binds,
+  because a date-only `created` cannot be ordered against a commit that landed at 17:12;
+  and a node carrying **no `created` at all binds**, with the count said out loud in the
+  verdict line. That last one reverses this design's first draft, which read an absent date
+  as evidence of age — it is the one direction in which a missing field can quietly turn a
+  red gate green, on exactly the nodes least able to show they predate anything.
+  **The exemption is a grace period, not an amnesty**: `CLEARANCE_WINDOW_DAYS` (30) after a
+  rule lands, the nodes that predate it bind like anything else, and the predating section
+  leads with that date rather than with a count.
+  Thirty is the window the assumption test underneath this measures history over, so the
+  design parameter and the thing that judges it cannot drift.
+  **What the replay of that history actually found**, captured from the meta vault's git
+  log by `scripts/capture-tightening-replay.ts` and replayed offline in
+  `test/ost/grandfathered-backlog-replay.test.ts`: across the last three tightenings, 306
+  nodes would have been grandfathered and 306 cleared — 100%, against a 60% bar — but every
+  one of them cleared on **day zero**, because the migration shipped in the same commit as
+  the rule. No grandfathered backlog has ever existed in this vault to be observed, so the
+  rate is the weakest possible evidence for the mechanism it appears to support. The
+  counter-evidence is in the same fixture: over the eleven days before `single-backlink`
+  bound, when nothing enforced it, the offender count rose 3 → 324 and never once fell.
+  That is the only unpressured stretch on record, and it is why the exemption expires.
+
 - **The `threshold` field has to be a bar now, or it is not written.** The field shipped on
   2026-08-01 as the readable half of "the threshold is a field, not a sentence buried in
   prose", and it shipped accepting any string. The assumption recorded against it named the

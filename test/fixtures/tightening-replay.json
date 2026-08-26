@@ -1,0 +1,2502 @@
+{
+  "capturedAt": "2026-08-26",
+  "vault": {
+    "head": "c4fc3d19145012f5128728edd5619ce59f46eaec",
+    "firstCommit": "0b0b7445c42266b0906f32aef797171490aa86b3"
+  },
+  "clearanceWindowDays": 30,
+  "tightenings": [
+    {
+      "rule": "single-backlink",
+      "inForceFrom": "2026-08-05",
+      "commit": "8504ddf",
+      "eve": {
+        "date": "2026-08-04",
+        "vaultCommit": "98ba98b74eb7d5dd5e7ad84fbd6540e692cb4a02",
+        "nodes": 615
+      },
+      "boundAtInception": 23,
+      "nodes": [
+        {
+          "node": "A Context node type for evidence that is true, useful, and not a customer need",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "A builder capability profile read off the work already committed, with no deposit asked for",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "A call the tool should have refused is permanent, because append-only cannot take it back",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "A check with an empty subject is a failure, not a pass",
+          "created": "2026-07-27",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "A declared resource manifest the planner must cite before it ranks anything",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "A degraded pass has its own name and is not allowed to report a clean run",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "A failed pass reports success, so my automation can't tell",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "A first-run branch that walks a stranger to a vault in one question",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "A merge conflict got committed into a source file, so the next run inherits a repo that cannot build",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "A model reads the raw transcript and files what the pattern scan cannot see",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "A push channel the operator subscribes to, applied at the next safe checkpoint",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "A question queue the run banks and works around, instead of stopping at the fork",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "A quoted justification makes me check the agent's advice less",
+          "created": "2026-07-26",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "A recorded failure can't be reproduced, because the record omits where it ran",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "A result must state what it did not cover",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "A run declares the tools it needs and halts loudly when they are absent",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "A scheduled run finds out its tools are missing only after it has started",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "A standing Next Build node the agent rewrites every pass",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "A standing authority contract naming which classes of decision compute may take alone",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "A sweep that cannot read its subject reports a clean result",
+          "created": "2026-07-27",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "A test that failed because the machine was busy looks exactly like one that failed because I broke something",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "A third of my calls go on re-asking what is outstanding",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "A tool call I got slightly wrong destroyed the note I was filing",
+          "created": "2026-07-26",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Acceptance rate of five self-drafted ruleset changes",
+          "created": "2026-07-24",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Add the hook and check whether the commit paths a run actually uses all pass through it",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Add the pointer file and count how many tools actually look for it unprompted",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Adopt session transcripts as the trace source instead of new instrumentation",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Agent proposes its own workflow changes for one-click adoption",
+          "created": "2026-07-24",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Allowlist Tool Runner registers only OST tools",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "An acknowledgement that records a decision not to act, and takes the item off the sweep",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Answering one question costs me three turns, because I have to fix its options before I can reply",
+          "created": "2026-08-04",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Append-only audit trail the operator can replay",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Ask five operators whether they would let a stated default stand while they are away",
+          "created": "2026-08-04",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Ask five operators whether they would put their secret in a broker that acts for a run",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Assert on work units instead of milliseconds",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Attempt ledger of what was already tried",
+          "created": "2026-07-24",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Audit both vault histories for rename-shaped link breaks",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Audit every consumer of the tree for whether it would honour a retraction flag",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Autonomous web-research loop that files findings into the inbox",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Backpressure-tolerant ingest channel that preserves provenance under load",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Bank each question, proceed on a stated default, and present the banked set at the end",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Be found through the agent ecosystem's own directories rather than through product channels",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Blind-judge what could have continued, before reading the answer that was given",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Blind-rate a model's reading of five already-harvested sessions",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Blind-rate ten dry-run web findings for whether they bear on an open assumption",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Blind-rate ten records as typo or friction and compare against the recovery rule",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Blind-review a pass's acknowledge-or-map calls on the seven stranded items",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Break one pass on purpose and check cron notices within a cycle",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Budget against a same-run baseline instead of against the clock",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Build the queue from asks already outstanding and see whether the operator empties it once",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Bundled local model for zero-credential trial",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Can a pass tell a human edit from its own, using only git",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Can riskiest-assumption-tested be judged mechanically",
+          "created": "2026-07-24",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Carry a content hash from read to write and refuse on drift, naming what drifted",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Census every source of new work in this vault and check which can be watched as an event",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Check how many past failed paths fall inside a small set of nameable roots",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Check how often the caller knew to be uncertain before the call that failed",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Check past failures against the snapshot fields before building the snapshot",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Check the deferred nodes for whether what killed them repeats by category",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Check three past pass notes for the wrong turn they left out",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Check transcript-derived call parity against the in-band trace for one session",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Check whether a toolless session can even run the tool check",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Check whether isolation correctly acquits a flake and convicts a real regression",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Check whether naming the acceptable rung leads callers to take it without new grounds",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Check whether the near-miss text would have supplied the correction",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Check whether the threshold field gets a bound or just the same wrapped prose",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Check whether the writing version is recoverable from vault state at all",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Classify every filesystem event in three real sessions as meaningful or churn",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Classify the steps of ten past runs as credentialed or not, and see how much work sits upstream",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Cold-offer test - will outside teams hand over real discovery work",
+          "created": "2026-07-24",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Compare the scheduler's view of the environment against the run's",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Connecting my systems of record could leak or corrupt them",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Constraint profile mined from what actually blocked the loop",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Continuous story-based interview habit",
+          "created": "2026-07-24",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Count how many existing rules would need a conditional to support two live versions",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Count how many of the captured failures were a dropped intention rather than a wrong name",
+          "created": "2026-08-04",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Count how many of the harvested shell failures a curated set of safe forms would have covered",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Count how many of this vault's recommendations would go silent under a refuse-when-unclear rule",
+          "created": "2026-07-26",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Count how many open assumptions in this tree could be moved by anything public at all",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Count how many past releases a push-first rule would have blocked",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Count how many recorded steps are safely replayable at all",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Count how many timed checks would run somewhere that cannot guarantee isolation",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Count how many vault conflicts are mechanical, to see what a human-only rule would actually cost",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Count how much of the committed record could name a capability at all",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Count how much of the tree a recorded decision could actually order",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Count stranded evidence items across both vaults that only a Context node could home",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Count the distinct credential forms in play and how often each changed in a year",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Crash a run holding the lock and time how long the vault stays unusable",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Critic pass rated for actionability",
+          "created": "2026-07-24",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Declare the tool surface a pass requires and abort in the first second if it is absent",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Degrade five passes on purpose and count how many admit it",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Derive the next version from the registry, never from the local file",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Detect renames from link topology and repair the edge",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Diff three past sessions' claims against their traces by hand",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Do named unfixed thresholds actually get fixed",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Do six cold artefacts show a test beating a verdict draft",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Do the shipped sweeps actually find a planted instance",
+          "created": "2026-07-27",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Do written reasons get challenged, or only read",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Does a briefing node change which node a builder actually opens first",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Does a first-run branch actually get a stranger to a working vault",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Does a forced uncovered field change what a second reader believes",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Does a stated denominator catch a drop nobody predicted",
+          "created": null,
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Does an operator notice a bad write when the tool echoes the line back",
+          "created": "2026-07-26",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Does cheapest-disconfirmer ordering eliminate more candidates per hour spent",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Does refusing a newline inside a wiki-link catch breaks nothing else catches",
+          "created": "2026-07-26",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Does the side-by-side change what a reviewer does about a threshold",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Don't want to buy a second AI credential just to try it",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Draft the corrections file from past refusals and check whether it would have fitted in context",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Draft the decision classes from the older half of the stops and test them on the newer half",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Draft the workspace map and check how many past failed lookups it would have answered",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "End-of-session retrospective the agent must write before the session closes",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Enumerate the hosts this tool runs under and check which expose a delegable capability",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Every recorded step carries the directory and argv it actually ran with",
+          "created": "2026-07-27",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Every run ends blocked on a credential only I hold",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Every run records the tool surface it actually had",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Experiment data sits at its source until a human carries it into the inbox",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Expiring resource questions asked at a fixed cadence",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Fall back to the command-line path automatically when the MCP tools are absent",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Fear the agent could take a destructive, irreversible action",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Flag a threshold that is still an instruction to choose one",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Fresh outside findings never reach the tree unless I go get them",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Full builder thinking-trace visibility with a self-reflection communication gauge",
+          "created": "2026-07-26",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Generate near-miss suggestions for past failures and count how many point at the right thing",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Group the harvested tool errors by hand and see whether one rule reproduces the grouping",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Guided dry-run mode before unattended operation",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Hand-distil three past sessions",
+          "created": "2026-07-24",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Hand-fill the manifest and count how many of the top five priorities move",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Have a blind reader sort ten shortfall reports into justified and evasive",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Have a human review a pass's acknowledgements and count how many were avoidance",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Have an unattended pass resolve ten seeded merge conflicts and grade every resolution",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Have the operator answer questions about their own tree from the briefing alone",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Have the scheduler verify the environment before it dispatches a run at all",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Have three independent judges nominate for ten solutions and see whether they agree with each other",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "I can't leave the process running unattended without worrying",
+          "created": "2026-07-24",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "I can't tell another PM 'just run npm install' and have it work",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "I can't tell if anyone outside my own head wants this",
+          "created": "2026-07-24",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "I can't tell what a half-finished run actually finished",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "I don't know what unit of this anyone would pay for",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "I have a tree full of unvalidated nodes and no idea which one to pick up",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "I need the tree's output to be actionable by compute alone, because my hours don't exist",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "I opened the vault in Obsidian and the agent lost half the tree",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "I probe for files that were never there, because nothing hands me the layout of the workspace I am in",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "I repeat one shell mistake five times in a session, because the first failure never said it was a class",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "I want my usage to automatically feed into and make the OST-Agent better",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Improvements I ship never reach the agents already running",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Improving how the agent works means interrupting it",
+          "created": "2026-07-24",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "In-the-moment friction events filed by the agent",
+          "created": "2026-07-24",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Installation runs the helper's own preflight and refuses to install what cannot run here",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Interrupt a pass mid-plan with an outside write and see what state its accepted writes leave",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Keep reading the legacy signal as a fallback so old work still counts",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Kill ten runs at random points and check what the journal's last line claims",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Kill-at-random-points restart test",
+          "created": "2026-07-24",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Leave a permanent test behind instead of a one-off verdict draft",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Let a pass mark evidence acknowledged, with a reason, without inventing an opportunity",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "List in two directories and measure installs against how far the listing was scrolled",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "List what a detection probe would touch and have someone say whether they consent to each",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Load the ingest channel at ten times observed peak and check provenance survives",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Load the machine deliberately and check that the calibration ratio holds while the raw number does not",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Local read-only mirror of source systems",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Maintain a sweep from returned deltas alone across a full pass and compare against a fresh read",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Make the refusal show the text that is actually there now",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Make the threshold a field the node carries, not a sentence in its prose",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Measure how long the last human-gated release actually waited",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Measure how much signal a refuse-on-unknown-context rule would delete",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Measure whether work count actually tracks elapsed time across vault sizes",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Merge the enabling config into five real project settings files and check nothing was lost",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Merge two real vaults as a dry run and count the conflicts a person has to settle",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Migrate the old accounting into the new ledger on first run, and record that it happened",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Mine tool errors and retries from run logs",
+          "created": "2026-07-24",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "My loop spends its time waiting for a check it cannot subscribe to",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "My tests carry thresholds nobody ever fixed, so nothing can come out a failure",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "My unattended run stops at a prompt that assumes a person is sitting there",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "No one outside my own network could discover this product exists",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Nonzero exit code and failure summary when a pass errors",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "OST-Agent (meta)",
+          "created": "2026-07-24",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Offer the deposit prompt and count who comes back a second time unasked",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "One migration stopped me seven times, because settling the policy once never settled the rest",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Operator-owned local event log with consented raw export",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Paired ideation run with and without the ledger",
+          "created": "2026-07-24",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Paper test of the confidence roll-up rule",
+          "created": "2026-07-24",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Paper-classify the existing commit history as structure versus commentary",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Partition today's sweep by actor and see whether the unattended share is reachable",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Post-session transcript harvester",
+          "created": "2026-07-24",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Pre-order probe - will anyone pay before the map proves itself",
+          "created": "2026-07-24",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Prerequisite edges between assumption tests",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Prompt-injection red-team harness in CI",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Publish the preconditions of every call so they can be checked before it is made",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Published capability manifest with signed build",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Put two vaults on one machine and see whether the upward search picks the right one",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Rank each session's questions by consequence and check whether the first ones asked were the important ones",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Rank every node by how many blocked tests one build would unblock",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Raw-first telemetry store with summaries as derived views",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Re-run once and report the disagreement rather than the first result",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Read back four weeks of spend and judge how much bought something worth having",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Real-world signal gates outcome achievement",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Rebuild the symbol index at the commit that failed, and check it would have named the right symbol",
+          "created": "2026-08-04",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Reconstruct the old accounting on a copy and see if it agrees",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Refuse a proving command whose exit code cannot report failure",
+          "created": "2026-07-27",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Refuse a wiki-link that contains a newline",
+          "created": "2026-07-26",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Refuse a write whose content is empty or literally undefined",
+          "created": "2026-07-26",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Refuse to record a result against a threshold that was never fixed",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Refuse to record a step whose context could not be determined",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Refuse to release from history that has not been pushed",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Replay a recorded failure in its recorded context on demand",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Replay all 29 records through the surface rule and see what it keeps",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Replay both flakes and one planted regression against the ratio",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Replay captured sessions to count how often a hash guard would refuse a good write",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Replay every past release against a registry-derived number",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Replay five known blockers and check whether mining would have named each before it cost a pass",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Replay historical runs against a stall definition",
+          "created": "2026-07-24",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Replay one week of raw events against five questions the rollup cannot answer",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Replay past sweeps to see how many were blind all the way rather than partly",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Replay past sweeps to see what an ageing rule would have moved to the backlog",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Replay the four toolless passes and see whether the check names the right file",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Replay the hard-fix session's trace against its known defects",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Replay the last ten releases and count how many a pull-at-start instance would have received",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Replay the last three tightenings and see whether the grandfathered backlog ever cleared",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Replay the recorded question sessions and count whether framing first adds stops or removes them",
+          "created": "2026-08-04",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Replay the routing record and count how many work classes ever reached more than one collaborator",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Replay the same 29 records through the recurrence rule and count what files",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Replay the stored measurements and check whether they came from comparable conditions",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Replay the three recorded failed runs through the journal-alert rule on paper",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Replay the two recorded rejections and check the run could act on the operator's own words",
+          "created": "2026-08-04",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Replay this vault's whole git history as events and see if the projection matches",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Replay two hundred commits and count what a dead-end scan flags",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Report the accounting change explicitly instead of folding it into the counts",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Resolve the newest published version at pass start and refuse to run silently on a stale one",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Resumable append-only process journal",
+          "created": "2026-07-24",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Resume three handed-off passes from their recorded state and check they continue correctly",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Run a bash 3.2 linter over every helper and count what it flags and what it misses",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Run five passes with the blocking wait and count refusals against the polling record",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Run the compute-only backlog today and count decisive verdict drafts",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Run the timed check under isolation, or do not let it fail the build at all",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Seed every sweep with a known-present instance it must find",
+          "created": "2026-07-27",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Send one notification per block for two weeks and count how many the operator acts on",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Set the non-interactive flags and check whether the tools that stalled actually honour them",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Ship a starter vault whose outcome is a placeholder the human must replace",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Show me the whole priority order, and why each item sits where it does",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Snapshot the resolved environment, but only for the step that failed",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Sort a day of real failed calls into shape errors and meaning errors",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Sort the observed prompts into safe-to-default and must-stop, and see whether a rule separates them",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Sort the seven questions by reversal cost and count how many were safe to default",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Status and digest lead with the last failed run",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Supervisor heartbeat consumes run journals and alerts on error",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Sweep both vault histories for writes that landed as undefined or empty",
+          "created": "2026-07-26",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Take a week of this vault's refusals and check whether any leaks content when quoted",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Take ten past blocked runs and measure how much work sat independent of the block",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Take the harvested commands and count how many genuinely need a shell to do their work",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Take the last ten regretted writes and check whether each could have been refused mechanically",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Test audit that no tool outside the allowlist is ever registered",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Test can a full pass be done with no delete or edit tool",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Test can an ambient agent drive a pass at API-driver quality",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Test do operators actually replay the audit trail to regain trust",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Test does git auto-init and one-command revert work everywhere",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Test does the golden set discriminate good trees from bad",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Test does the red-team harness catch known injection attacks",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Test is a bundled local model good enough for a pass",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "The agent has no picture of what the builder can do, because reasoning traces never reach it",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "The agent has to guess what resources it's actually working with",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "The agent narrows its own capability to get past a gate I set",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "The candidate maps all look alike, so the route that would have worked is never among them",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "The file changed after I read it, and the failed edit is how I find out",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "The friction that matters leaves no error behind",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "The loop proposes a release and a human tags it",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "The pass never says it is done, so I can't tell when to stop paying for compute",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "The same agent has a different tool surface on every surface I run it on",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "The same refusal is rediscovered every session, because nothing carries the lesson forward",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "The uncovered statement printed next to what the test asked for",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "The vault carries the agent it runs, upgraded by an ordinary git pull",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "The whole loop waits on one human command, and nobody is told it is waiting",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Time a candidate version computation against producing the full sweep",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Time a single-file check against the whole-project run it would replace",
+          "created": "2026-08-04",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Time the build check against how often a run would actually have found a broken tree",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Time the resource questions once and count answers the vault could not already recover",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Timed side-by-side judgement of canary output",
+          "created": "2026-07-24",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Triage every assumption test by the human-minutes it actually needs, and let compute run the zero-minute lane",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Trust an unmonitored agent enough to walk away",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Try to confirm a tool surface without invoking any of it",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Try to derive the seven questions from the premise alone, before reading the session",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Try to express every refusal this tool can issue as a precondition, and count the ones that resist",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Try to express the scope of five existing gates and see which ones resist it",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Try to load the tools from inside the vault directory at all",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Try to reproduce ten recorded failures from the record alone",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Twenty-question grounding check for answer faithfulness",
+          "created": "2026-07-24",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Two agents sharing my vault can trample each other",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Two thirds of my calls failed, and each one only told me after I made it",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Usage reaches me as summaries, with the raw signal already discarded",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Want proof no hijackable capability even exists",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Watch the working tree and invalidate the agent's copy the moment an external write lands",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Weekly ten-minute docket - every pending decision arrives prepared as one yes or no",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Weekly what-changed-and-why digest",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "What the agent learns doesn't accumulate over time",
+          "created": "2026-07-24",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "When the rules tighten, my existing tree is stranded out of compliance",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Worry the agent is grading its own homework",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Would an operator accept an elimination they initially disagreed with once shown the evidence",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Would an operator accept the agent living inside the vault it maintains",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Would operators enable an update channel that can change an unattended agent",
+          "created": "2026-08-02",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Write manifests for the existing helpers and check whether they catch the failures already seen",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Write one adapter against the messiest source and time how long it stays working",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Write the migration for one past tightening and have a reader check it changed nothing's meaning",
+          "created": "2026-08-03",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "npm setup wizard that scaffolds the vault first and asks for a key last",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        }
+      ],
+      "daily": [
+        {
+          "date": "2026-07-24",
+          "vaultCommit": "a445c6e6",
+          "nodes": 183,
+          "offenders": 3
+        },
+        {
+          "date": "2026-07-25",
+          "vaultCommit": "5fdb1cc5",
+          "nodes": 212,
+          "offenders": 59
+        },
+        {
+          "date": "2026-07-26",
+          "vaultCommit": "a1c69271",
+          "nodes": 238,
+          "offenders": 83
+        },
+        {
+          "date": "2026-07-27",
+          "vaultCommit": "09db0067",
+          "nodes": 241,
+          "offenders": 86
+        },
+        {
+          "date": "2026-07-28",
+          "vaultCommit": "09db0067",
+          "nodes": 241,
+          "offenders": 86
+        },
+        {
+          "date": "2026-07-29",
+          "vaultCommit": "09db0067",
+          "nodes": 241,
+          "offenders": 86
+        },
+        {
+          "date": "2026-07-30",
+          "vaultCommit": "09db0067",
+          "nodes": 241,
+          "offenders": 86
+        },
+        {
+          "date": "2026-07-31",
+          "vaultCommit": "bfecfefd",
+          "nodes": 241,
+          "offenders": 86
+        },
+        {
+          "date": "2026-08-01",
+          "vaultCommit": "f77981e1",
+          "nodes": 241,
+          "offenders": 86
+        },
+        {
+          "date": "2026-08-02",
+          "vaultCommit": "c0ac4440",
+          "nodes": 276,
+          "offenders": 108
+        },
+        {
+          "date": "2026-08-03",
+          "vaultCommit": "a8a80453",
+          "nodes": 566,
+          "offenders": 169
+        },
+        {
+          "date": "2026-08-04",
+          "vaultCommit": "98ba98b7",
+          "nodes": 615,
+          "offenders": 324
+        },
+        {
+          "date": "2026-08-05",
+          "vaultCommit": "08a61bc4",
+          "nodes": 952,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-06",
+          "vaultCommit": "7f77535a",
+          "nodes": 1071,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-07",
+          "vaultCommit": "864d5ed1",
+          "nodes": 1136,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-08",
+          "vaultCommit": "864d5ed1",
+          "nodes": 1136,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-09",
+          "vaultCommit": "c04dafc8",
+          "nodes": 1164,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-10",
+          "vaultCommit": "d46b8544",
+          "nodes": 1217,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-11",
+          "vaultCommit": "54c20506",
+          "nodes": 1247,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-12",
+          "vaultCommit": "1abb28a6",
+          "nodes": 1247,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-13",
+          "vaultCommit": "bf7a2441",
+          "nodes": 1247,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-14",
+          "vaultCommit": "a1776b23",
+          "nodes": 1247,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-15",
+          "vaultCommit": "dc323a68",
+          "nodes": 1247,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-16",
+          "vaultCommit": "677e2a7c",
+          "nodes": 1251,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-17",
+          "vaultCommit": "8f62743e",
+          "nodes": 1309,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-18",
+          "vaultCommit": "e1dadcc1",
+          "nodes": 1319,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-19",
+          "vaultCommit": "022f6084",
+          "nodes": 1329,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-20",
+          "vaultCommit": "2567021e",
+          "nodes": 1366,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-21",
+          "vaultCommit": "8f71d3de",
+          "nodes": 1418,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-22",
+          "vaultCommit": "8f6909c3",
+          "nodes": 1467,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-23",
+          "vaultCommit": "80e12182",
+          "nodes": 1468,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-24",
+          "vaultCommit": "f8240ce5",
+          "nodes": 1468,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-25",
+          "vaultCommit": "178051c3",
+          "nodes": 1468,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-26",
+          "vaultCommit": "c4fc3d19",
+          "nodes": 1468,
+          "offenders": 0
+        }
+      ]
+    },
+    {
+      "rule": "single-parent",
+      "inForceFrom": "2026-08-05",
+      "commit": "6953276",
+      "eve": {
+        "date": "2026-08-04",
+        "vaultCommit": "98ba98b74eb7d5dd5e7ad84fbd6540e692cb4a02",
+        "nodes": 615
+      },
+      "boundAtInception": 0,
+      "nodes": [
+        {
+          "node": "Allowlist Tool Runner registers only OST tools",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Do named unfixed thresholds actually get fixed",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "My tests carry thresholds nobody ever fixed, so nothing can come out a failure",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Prompt-injection red-team harness in CI",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        },
+        {
+          "node": "Published capability manifest with signed build",
+          "created": "2026-07-25",
+          "clearedOn": "2026-08-05",
+          "resolution": "compliant"
+        }
+      ],
+      "daily": [
+        {
+          "date": "2026-07-24",
+          "vaultCommit": "a445c6e6",
+          "nodes": 183,
+          "offenders": 3
+        },
+        {
+          "date": "2026-07-25",
+          "vaultCommit": "5fdb1cc5",
+          "nodes": 212,
+          "offenders": 5
+        },
+        {
+          "date": "2026-07-26",
+          "vaultCommit": "a1c69271",
+          "nodes": 238,
+          "offenders": 5
+        },
+        {
+          "date": "2026-07-27",
+          "vaultCommit": "09db0067",
+          "nodes": 241,
+          "offenders": 5
+        },
+        {
+          "date": "2026-07-28",
+          "vaultCommit": "09db0067",
+          "nodes": 241,
+          "offenders": 5
+        },
+        {
+          "date": "2026-07-29",
+          "vaultCommit": "09db0067",
+          "nodes": 241,
+          "offenders": 5
+        },
+        {
+          "date": "2026-07-30",
+          "vaultCommit": "09db0067",
+          "nodes": 241,
+          "offenders": 5
+        },
+        {
+          "date": "2026-07-31",
+          "vaultCommit": "bfecfefd",
+          "nodes": 241,
+          "offenders": 5
+        },
+        {
+          "date": "2026-08-01",
+          "vaultCommit": "f77981e1",
+          "nodes": 241,
+          "offenders": 5
+        },
+        {
+          "date": "2026-08-02",
+          "vaultCommit": "c0ac4440",
+          "nodes": 276,
+          "offenders": 5
+        },
+        {
+          "date": "2026-08-03",
+          "vaultCommit": "a8a80453",
+          "nodes": 566,
+          "offenders": 5
+        },
+        {
+          "date": "2026-08-04",
+          "vaultCommit": "98ba98b7",
+          "nodes": 615,
+          "offenders": 5
+        },
+        {
+          "date": "2026-08-05",
+          "vaultCommit": "08a61bc4",
+          "nodes": 952,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-06",
+          "vaultCommit": "7f77535a",
+          "nodes": 1071,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-07",
+          "vaultCommit": "864d5ed1",
+          "nodes": 1136,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-08",
+          "vaultCommit": "864d5ed1",
+          "nodes": 1136,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-09",
+          "vaultCommit": "c04dafc8",
+          "nodes": 1164,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-10",
+          "vaultCommit": "d46b8544",
+          "nodes": 1217,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-11",
+          "vaultCommit": "54c20506",
+          "nodes": 1247,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-12",
+          "vaultCommit": "1abb28a6",
+          "nodes": 1247,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-13",
+          "vaultCommit": "bf7a2441",
+          "nodes": 1247,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-14",
+          "vaultCommit": "a1776b23",
+          "nodes": 1247,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-15",
+          "vaultCommit": "dc323a68",
+          "nodes": 1247,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-16",
+          "vaultCommit": "677e2a7c",
+          "nodes": 1251,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-17",
+          "vaultCommit": "8f62743e",
+          "nodes": 1309,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-18",
+          "vaultCommit": "e1dadcc1",
+          "nodes": 1319,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-19",
+          "vaultCommit": "022f6084",
+          "nodes": 1329,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-20",
+          "vaultCommit": "2567021e",
+          "nodes": 1366,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-21",
+          "vaultCommit": "8f71d3de",
+          "nodes": 1418,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-22",
+          "vaultCommit": "8f6909c3",
+          "nodes": 1467,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-23",
+          "vaultCommit": "80e12182",
+          "nodes": 1468,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-24",
+          "vaultCommit": "f8240ce5",
+          "nodes": 1468,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-25",
+          "vaultCommit": "178051c3",
+          "nodes": 1468,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-26",
+          "vaultCommit": "c4fc3d19",
+          "nodes": 1468,
+          "offenders": 0
+        }
+      ]
+    },
+    {
+      "rule": "test-mapped",
+      "inForceFrom": "2026-08-05",
+      "commit": "3078441",
+      "eve": {
+        "date": "2026-08-04",
+        "vaultCommit": "98ba98b74eb7d5dd5e7ad84fbd6540e692cb4a02",
+        "nodes": 615
+      },
+      "boundAtInception": 0,
+      "nodes": [],
+      "daily": [
+        {
+          "date": "2026-07-24",
+          "vaultCommit": "a445c6e6",
+          "nodes": 183,
+          "offenders": 0
+        },
+        {
+          "date": "2026-07-25",
+          "vaultCommit": "5fdb1cc5",
+          "nodes": 212,
+          "offenders": 0
+        },
+        {
+          "date": "2026-07-26",
+          "vaultCommit": "a1c69271",
+          "nodes": 238,
+          "offenders": 0
+        },
+        {
+          "date": "2026-07-27",
+          "vaultCommit": "09db0067",
+          "nodes": 241,
+          "offenders": 0
+        },
+        {
+          "date": "2026-07-28",
+          "vaultCommit": "09db0067",
+          "nodes": 241,
+          "offenders": 0
+        },
+        {
+          "date": "2026-07-29",
+          "vaultCommit": "09db0067",
+          "nodes": 241,
+          "offenders": 0
+        },
+        {
+          "date": "2026-07-30",
+          "vaultCommit": "09db0067",
+          "nodes": 241,
+          "offenders": 0
+        },
+        {
+          "date": "2026-07-31",
+          "vaultCommit": "bfecfefd",
+          "nodes": 241,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-01",
+          "vaultCommit": "f77981e1",
+          "nodes": 241,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-02",
+          "vaultCommit": "c0ac4440",
+          "nodes": 276,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-03",
+          "vaultCommit": "a8a80453",
+          "nodes": 566,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-04",
+          "vaultCommit": "98ba98b7",
+          "nodes": 615,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-05",
+          "vaultCommit": "08a61bc4",
+          "nodes": 952,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-06",
+          "vaultCommit": "7f77535a",
+          "nodes": 1071,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-07",
+          "vaultCommit": "864d5ed1",
+          "nodes": 1136,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-08",
+          "vaultCommit": "864d5ed1",
+          "nodes": 1136,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-09",
+          "vaultCommit": "c04dafc8",
+          "nodes": 1164,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-10",
+          "vaultCommit": "d46b8544",
+          "nodes": 1217,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-11",
+          "vaultCommit": "54c20506",
+          "nodes": 1247,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-12",
+          "vaultCommit": "1abb28a6",
+          "nodes": 1247,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-13",
+          "vaultCommit": "bf7a2441",
+          "nodes": 1247,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-14",
+          "vaultCommit": "a1776b23",
+          "nodes": 1247,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-15",
+          "vaultCommit": "dc323a68",
+          "nodes": 1247,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-16",
+          "vaultCommit": "677e2a7c",
+          "nodes": 1251,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-17",
+          "vaultCommit": "8f62743e",
+          "nodes": 1309,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-18",
+          "vaultCommit": "e1dadcc1",
+          "nodes": 1319,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-19",
+          "vaultCommit": "022f6084",
+          "nodes": 1329,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-20",
+          "vaultCommit": "2567021e",
+          "nodes": 1366,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-21",
+          "vaultCommit": "8f71d3de",
+          "nodes": 1418,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-22",
+          "vaultCommit": "8f6909c3",
+          "nodes": 1467,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-23",
+          "vaultCommit": "80e12182",
+          "nodes": 1468,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-24",
+          "vaultCommit": "f8240ce5",
+          "nodes": 1468,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-25",
+          "vaultCommit": "178051c3",
+          "nodes": 1468,
+          "offenders": 0
+        },
+        {
+          "date": "2026-08-26",
+          "vaultCommit": "c4fc3d19",
+          "nodes": 1468,
+          "offenders": 0
+        }
+      ]
+    }
+  ]
+}
