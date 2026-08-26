@@ -1,0 +1,1 @@
+{"merge":"merge bb3d804b","file":"OST-Agent (meta).md","date":"2026-08-03T10:00:01-05:00","verdict":"mechanical","reason":"both sides only added lines, and no line was added twice","hunks":1,"hesitations":["the base region is empty, so both insertions land at the same point and their order is a choice neither writer made"]}

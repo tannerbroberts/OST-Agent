@@ -1,0 +1,148 @@
+<<<<<<< ours
+_Last rewritten: 2026-08-01 (scheduled routine, nineteenth pass)._
+||||||| base
+_Last rewritten: 2026-08-01 (autonomous bootstrap loop, seventeenth pass)._
+=======
+_Last rewritten: 2026-08-01 (autonomous bootstrap loop, eighteenth pass)._
+
+---
+
+## 0. Before acting on anything here, re-fetch both repos and re-read this file
+
+**Fourth straight pass (15th–18th) in the same two-repo-only scope — `OST-Agent`
+and `ost-agent-meta`, no `tetrix-ost` checkout, no `ost_*` MCP tools.** The
+seventeenth pass filed this as friction (`4ff23462`, kind `blocked`) rather than
+narrating it again; this pass re-verified the friction note is still the current,
+unresolved state and deliberately did **not** file a second, duplicate note — the
+seventeenth pass's own §4 named a fourth pass that "only re-verifies and defers"
+as the point where this stops being a session limitation and starts being a
+pattern. That threshold is now crossed, so this pass escalated it directly to the
+human operator outside the vault instead of adding more vault prose that says the
+same thing a fourth time. See the superseded seventeenth-pass entry below for the
+original filing.
+
+```bash
+git -C OST-Agent      fetch origin main && git -C OST-Agent      log --oneline -3 origin/main
+git -C ost-agent-meta fetch origin main && cat ost-agent-meta/.ost-agent/NEXT-BUILD.md
+```
+
+**Both checkouts arrive in DETACHED HEAD.** `git push -u origin main` fails with
+"src refspec main does not match any" and reads like an auth problem. It is not —
+`git checkout -B main origin/main` first. **The Tetrix product repo's default branch
+is `master`**, and `git fetch origin main` there fails outright with "couldn't find
+remote ref main", which is the fastest way to spot it.
+
+**Local `git tag` / `git ls-remote --tags origin` are not trustworthy in this
+environment — checked this pass, not carried forward.** Both returned empty here,
+which reads like the tags vanished. They did not: `mcp__github__list_tags` (the
+GitHub API, not local git) still lists all seven, topping out at **v0.19.1**,
+unchanged from the fourteenth pass. This session's git proxy just doesn't mirror
+tags — use the GitHub MCP tool for tag state, not local git, in this environment.
+
+**The publish path — checked this pass, and the picture changed.** `npm view
+ost-agent version` now returns **404, "Unpublished on 2026-07-28T16:29:34.971Z" —
+the whole package, not one version.** GitHub shows a release titled "npm archive:
+0.20.0–0.22.0" published 2026-07-27T17:33Z, a day earlier — reads as a deliberate
+archive, not decay, but no prior briefing named the end state plainly: **npm
+currently serves no version of `ost-agent` at all**, and `package.json` sits at
+`0.23.0`, unpublished. Naming it here in case leaving the registry fully empty
+wasn't the intent — a human should confirm and re-publish if not.
+
+## What changed since the last briefing
+
+**Nothing built, and nothing new filed.** Same structural reason as the fifteenth
+through seventeenth: no `ost_*` MCP tools this session, so no mapping, ideation, or
+re-ranking — only the CLI. What this pass did:
+
+- **Re-ran the gates.** `npm install`, `npx tsc --noEmit` (0 errors), `npx vitest
+  run` (**141 files, 1586 tests, all green** — identical counts to the
+  seventeenth pass).
+- **Re-ran `status`/`check`/`debt` against the vault** — 241 nodes, 0 violations,
+  12/91 unfixed thresholds — identical to the seventeenth pass. No new inbox note,
+  no new mapped evidence.
+- **Checked the deferral condition for item (1) below directly**: `grep -rl
+  "^## Results"` across this vault still returns zero files, so no human has run
+  `ost-agent result` yet. The gate on building it has not moved.
+- **Did not re-file the missing-MCP-tools friction.** It is already on file
+  (`4ff23462`, filed the seventeenth pass) and unresolved; a second note saying the
+  same thing would be exactly the noise the append-only hygiene rules exist to
+  prevent. Escalated it out-of-band to the human operator instead, since no
+  vault edit can restore MCP tool access to a session.
+
+**`ost-agent check` and `status` before and after this pass: 0 violations, 241
+nodes, unchanged** — this pass touched no tree node, wrote no new friction, and
+changed only this file.
+
+## 2. The next build
+
+1. **[[Refuse to record a result against a threshold that was never fixed]]** —
+   still ranked first by the debt count, still gated by its own trade-off, and now
+   on its **eighth** pass unbuilt. The deferral condition is unchanged and was
+   re-checked directly this pass (see above): no human has run `ost-agent result`
+   under the current rules.
+2. **No second candidate is ranked here, for the same reason as the four passes
+   before this one: no `ost_*` MCP tools, no ideation session.** The next pass with
+   ideation access should either surface a new (2) or say explicitly that item (1)
+   is the only live candidate.
+
+**Do not read** [[Does the guard catch real laundering without refusing honest
+commands]] before 10 firings have accumulated — unchanged, one firing of data still
+recorded, nine to go.
+
+**Also do not read** [[Does a stated denominator catch a drop nobody predicted]]
+before 10 firings — unchanged, same trap.
+
+**Still under a standing do-not-build:**
+[[Ship a starter vault whose outcome is a placeholder the human must replace]] —
+unchanged.
+
+## 3. The highest-information action
+
+**Talk to the warm n=1 participant. Ten passes now, never actioned.**
+
+This vault: **241 nodes, 0 at `observed`, `stated`, `expert` or `money`** —
+unchanged from the seventeenth pass; this pass added no new node and demoted
+nothing. The sibling vault's count (18 nodes, zero from a customer) is carried
+forward unverified — this session had no `tetrix-ost` checkout to re-check it
+against.
+
+## 4. The bias in this pass, declared
+
+**This pass is the fourth in a row that only re-verified and deferred — exactly
+the pattern the seventeenth pass's own §4 warned would stop reading as a session
+limitation and start reading as the norm.** The honest response was not a fifth
+prose restatement of the same blocker; it was confirming, mechanically, that
+nothing on disk has moved (gates, vault counts, and the `## Results` grep were all
+re-checked rather than assumed) and then routing the actual ask — restoring
+`ost_*` MCP tool access to this scheduled session — to the one party who can act
+on it. **The next session with full tool access should re-open ranking from
+scratch rather than defer to this one's list.**
+
+---
+
+## History
+
+### Superseded 2026-08-01 — the seventeenth pass's briefing
+
+<details>
+<summary>Seventeenth pass (2026-08-01) — verified the gates instead of citing them, filed the missing-MCP-tools gap as friction</summary>
+
+# NEXT BUILD — OST-Agent
+
+**Stable address. Rewritten at the end of every pass; superseded briefings are kept
+below under History, so this file only ever grows.** A reading of what the tree
+implies, not a decision. Promotion, killing, and validation stay human.
+
+_Last rewritten: 2026-08-01 (autonomous bootstrap loop, seventeenth pass)._
+>>>>>>> theirs
+<<<<<<< ours
+</details>
+||||||| base
+---
+
+## History
+=======
+</details>
+
+### Superseded 2026-08-01 — the sixteenth pass's briefing
+>>>>>>> theirs

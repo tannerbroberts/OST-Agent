@@ -3127,7 +3127,35 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,879 tests across 307 files, verified 2026-08-23 (`npx vitest run`
+> *Today:* **met** — 3,902 tests across 308 files, verified 2026-08-26 (`npx vitest run`
+> reports 3,894 of them, all passing; the other 8 are the contended calibration file
+> described below.
+> After "Count how many vault conflicts are mechanical, to see what a human-only rule would
+> actually cost" was given its definition of done: the cost of "No agent resolves a conflict
+> it did not create; the merge is handed back to a human" is now a number. `classifyHunk`
+> and `conflictMechanicalityCensus` (`src/git/conflict-mechanicality.ts`) sort a diff3 hunk
+> into mechanical or contested — never a third bucket, because a census with an `unknown`
+> bucket has measured nothing — and record a `hesitation` beside the verdicts that rest on a
+> judgement a person might make differently, which is the separate recording the assumption
+> test's design asked for. `scripts/harvest-conflict-corpus.ts` cuts the corpus out of a
+> `--mirror` clone of the vault (the subject is only read; `git merge-tree --write-tree`
+> would otherwise leave 861 dangling trees in a vault somebody else is using) and commits it
+> to `test/fixtures/conflict-mechanicality/`, slices trimmed to the conflict blocks alone —
+> 43 kB rather than 315 kB, and the test asserts a slice classifies as the whole file did.
+> **The objection the solution raised against itself does not hold, in either direction.** It
+> predicted a flood of trivia. Over 4.7 weeks and 35 real merges the vault produced *one*
+> conflict — 0.21 escalations per week against a bar of 3 — and it was mechanical: two sides
+> appending different sections to the root outcome node at the same empty insertion point.
+> Replaying all 861 pairs of coexisting branches produces 201 conflicts and 0 of them are
+> mechanical, so the replayed corpus is not trivia either. What a green does NOT settle is
+> whether the price is worth paying, which is the operator's call and does not depend on the
+> count. `test/git/conflict-mechanicality-census.test.ts`, 23 tests, one new file.
+> **The finding the census was not looking for:** all 201 replayed conflicts are in one
+> file, `.ost-agent/NEXT-BUILD.md` — the loop's own scratch briefing, rewritten wholesale by
+> every agent branch — and not one is in a vault node. Concurrency in this repository does
+> not collide over knowledge; it collides over a machine-written state file, and that file's
+> 42.6 conflicts per week is the cost of a format choice rather than of any merge rule.
+> Previously 3,879 tests across 307 files, verified 2026-08-23 (`npx vitest run`
 > reports 3,871 of them, all passing; the other 8 are the contended calibration file
 > described below.
 > After "Mark what the machine chose differently from what a human wrote" was given its
