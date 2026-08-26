@@ -1,0 +1,14 @@
+{
+  "repo": "ost-agent-meta",
+  "head": "1839a40d15ed5250b286c687d0d32343e5779e70",
+  "commits": 3241,
+  "firstCommit": "2026-07-24T14:25:04-05:00",
+  "lastCommit": "2026-08-26T14:50:47-05:00",
+  "weeks": 4.716836970899471,
+  "mergesObserved": 35,
+  "mergesConflicted": 1,
+  "branchPairs": 861,
+  "branchPairsConflicted": 201,
+  "branches": 42,
+  "slices": 3
+}
