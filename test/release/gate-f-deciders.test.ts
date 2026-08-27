@@ -152,6 +152,14 @@ const READER_MODULES: Record<string, string> = {
 const PURE_MODULES = [
   "cadence.ts",
   "exitLaundering.ts",
+  // Folds a sealed `LoopRunRecord` and an already-observed `NodeTouch` into the
+  // lines a failed firing prints. It reads the trace only in the sense that its
+  // caller does: the observation is made by `src/telemetry/node-touch.ts` and
+  // handed in, so nothing here opens a file and nothing here is a decider input.
+  // Kept that way on purpose — the trace is the one input the unattended surface
+  // can move, and a firing that could name its own last node INTO a verdict would
+  // be grading itself. Naming it into a sentence a human reads is not that.
+  "failure-summary.ts",
   // Reads a commit subject string and says structure-or-commentary, and folds a
   // pass's subjects into one shape — pure string work over whatever the caller
   // hands in. It never opens a git log itself; the 2,950-commit corpus it is

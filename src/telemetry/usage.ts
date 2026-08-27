@@ -88,6 +88,23 @@ export interface UsageEvent {
    */
   wrote?: string[];
   /**
+   * Node files whose bytes this call CHANGED, as basenames — created or edited.
+   *
+   * A superset of {@link wrote}, and the difference is the whole reason it exists.
+   * `wrote` answers "what did the tree gain", which is the question a census of
+   * unexplained node files asks. A reader asking "what was this firing working on
+   * when it died" is asking the other one — what did it *reach* — and a pass that
+   * spent its night annotating, editing and merging answers `wrote` with nothing at
+   * all. The failing-run summary reads this field (`src/loop/failure-summary.ts`),
+   * because a summary reporting "no node touched" over a night of edits would be
+   * worse than silence: it would be a measurement, and wrong.
+   *
+   * Same contract as `wrote` on the two things that matter. Basenames only, never a
+   * value out of a file — and reported by the single writer (`Vault`) at the instant
+   * the bytes land, so a pass cannot author one by claiming to have been busy.
+   */
+  touched?: string[];
+  /**
    * Frontmatter fields this call's own write REMOVED from a node file that had them.
    *
    * The counts-and-timings trace has one blind spot and it is a large one: a defect
@@ -347,6 +364,22 @@ function resolveAttribution(source: AttributionSource | undefined): UsageAttribu
 }
 
 /**
+ * The node files one call changed, deduplicated and in the order the writer
+ * reported them.
+ *
+ * Order is preserved rather than sorted, unlike the two field lists below: this is
+ * the field a reader asks "what was it on last" of, and sorting it alphabetically
+ * would answer a question nobody asked with a file that happens to start with A.
+ * Within one call the answer is still approximate — a call that rewrites forty
+ * linked nodes reports them in write order, which is the honest best the writer
+ * knows — and across calls the trace's own timestamps do the ordering.
+ */
+function touchedFiles(writes: NodeWriteRecord[]): { touched?: string[] } {
+  const touched = [...new Set(writes.map((w) => w.file))];
+  return touched.length > 0 ? { touched } : {};
+}
+
+/**
  * What one call did to the frontmatter of the files it wrote, as two field lists.
  *
  * `lost` is the union over the call's writes — a call that strips `evidence` from
@@ -412,6 +445,10 @@ export function withUsageTracing<T extends RunnableTool>(
       try {
         const result = await tool.run(input);
         const wrote = drainCreatedNodeFiles();
+        // Drained into a name rather than inline, because two fields are folded
+        // out of the same list now and draining twice would hand the second one
+        // an empty array.
+        const writes = drainNodeWrites();
         recordUsageEvent(vaultDir, {
           ts: new Date(started).toISOString(),
           tool: tool.name,
@@ -422,10 +459,11 @@ export function withUsageTracing<T extends RunnableTool>(
           ...(session ? { session } : {}),
           ...(unknown ? { unknown } : {}),
           ...(wrote.length > 0 ? { wrote } : {}),
+          ...touchedFiles(writes),
           // The success path is the one that matters here: a call that threw is
           // already visible as a failure, and the defects this census exists for
           // are the ones that come back green.
-          ...fieldCensus(input, drainNodeWrites()),
+          ...fieldCensus(input, writes),
         });
         return result;
       } catch (e) {
@@ -438,6 +476,7 @@ export function withUsageTracing<T extends RunnableTool>(
         // an undrained entry would be stamped onto whatever call came next — attributing
         // a real write to an innocent tool, which is worse than not recording it.
         const wrote = drainCreatedNodeFiles();
+        const writes = drainNodeWrites();
         recordUsageEvent(vaultDir, {
           ts: new Date(started).toISOString(),
           tool: tool.name,
@@ -450,10 +489,14 @@ export function withUsageTracing<T extends RunnableTool>(
           ...(session ? { session } : {}),
           ...(unknown ? { unknown } : {}),
           ...(wrote.length > 0 ? { wrote } : {}),
+          // On this path especially: a call that edited three nodes and threw on
+          // the fourth touched three nodes, and the summary that names where a
+          // firing died is exactly the reader that must not be told otherwise.
+          ...touchedFiles(writes),
           // Drained on this path for the reason `wrote` is: a write that happened
           // before the throw happened, and leaving its record in the array would
           // stamp this call's field loss onto whatever call came next.
-          ...fieldCensus(input, drainNodeWrites()),
+          ...fieldCensus(input, writes),
         });
         throw e;
       }
