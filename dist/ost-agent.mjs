@@ -27029,7 +27029,7 @@ var init_stdio2 = __esm({
 import fs76 from "node:fs";
 import os8 from "node:os";
 import path75 from "node:path";
-import { spawnSync as spawnSync7 } from "node:child_process";
+import { spawnSync as spawnSync5 } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 
 // node_modules/commander/esm.mjs
@@ -45778,9 +45778,123 @@ function computeAttention(tree, vaultDir, opts = {}) {
 }
 
 // src/ost/instrument.ts
-import { spawnSync as spawnSync2 } from "node:child_process";
 import { existsSync } from "node:fs";
 import path28 from "node:path";
+
+// src/runner/non-interactive.ts
+import { spawnSync as spawnSync2 } from "node:child_process";
+var NON_INTERACTIVE_ENV = Object.freeze({
+  /** The signal the widest range of tools already reads. */
+  CI: "1",
+  DEBIAN_FRONTEND: "noninteractive",
+  /** No credential prompt on the terminal; git says so and exits. */
+  GIT_TERMINAL_PROMPT: "0",
+  /** An editor that opens is a hang. `false` exits non-zero and git says why. */
+  GIT_EDITOR: "false",
+  EDITOR: "false",
+  VISUAL: "false",
+  /** A pager waiting for `q` is the same stall wearing different clothes. */
+  GIT_PAGER: "cat",
+  PAGER: "cat",
+  /** An askpass helper that fails is a reported failure; one that pops a window is not. */
+  GIT_ASKPASS: "false",
+  SSH_ASKPASS: "false",
+  SSH_ASKPASS_REQUIRE: "never",
+  /**
+   * `false`, not `true`. `npx some-package` asks "Ok to proceed?" before it
+   * installs, and `true` would answer that question — installing software on
+   * the operator's behalf is precisely what this module does not do. `false`
+   * makes the same invocation exit with an error naming the missing package.
+   */
+  NPM_CONFIG_YES: "false",
+  PIP_NO_INPUT: "1",
+  /** No cursor addressing, no progress spinner, nothing that assumes a screen. */
+  TERM: "dumb"
+});
+var NON_INTERACTIVE_UNSET = Object.freeze(["DISPLAY"]);
+function nonInteractiveEnv(base = process.env) {
+  const env = { ...base, ...NON_INTERACTIVE_ENV };
+  for (const name of NON_INTERACTIVE_UNSET) delete env[name];
+  return env;
+}
+var NON_INTERACTIVE_STDIN = "ignore";
+var DEFAULT_NON_INTERACTIVE_TIMEOUT_MS = 10 * 6e4;
+var PROMPT_SHAPES = Object.freeze([
+  // `overwrite src/web/budget.ts? (y/n [n]) not overwritten` — TRANSCRIPT:e42cd03d.
+  { id: "overwrite-confirmation", pattern: /\boverwrit(?:e|ing)\b[^\n]{0,160}\?/i },
+  { id: "yes-no-question", pattern: /\?[^\n]{0,40}[[(]\s*y(?:es)?\s*\/\s*n(?:o)?[^)\]\n]*[)\]]/i },
+  { id: "ok-to-proceed", pattern: /\bok to proceed\b/i },
+  { id: "are-you-sure", pattern: /\bare you sure\b/i },
+  { id: "press-a-key", pattern: /\bpress\s+(?:any\s+key|enter|return)\b/i },
+  { id: "secret-request", pattern: /\b(?:enter\s+)?pass(?:word|phrase)\b[^\n]{0,80}:/i },
+  // git honouring GIT_TERMINAL_PROMPT=0 and saying so, rather than waiting.
+  { id: "terminal-prompts-disabled", pattern: /terminal prompts disabled/i }
+]);
+function detectPrompt(output) {
+  for (const line of output.split("\n")) {
+    for (const shape of PROMPT_SHAPES) {
+      if (shape.pattern.test(line)) return { shapeId: shape.id, line: line.trim() };
+    }
+  }
+  return void 0;
+}
+function runNonInteractive(argv, options2 = {}) {
+  const [command, ...args] = argv;
+  if (!command) throw new Error("runNonInteractive needs a command");
+  const timeoutMs = options2.timeoutMs ?? DEFAULT_NON_INTERACTIVE_TIMEOUT_MS;
+  const now = options2.now ?? Date.now;
+  const startedAt = now();
+  const run = spawnSync2(command, args, {
+    cwd: options2.cwd,
+    encoding: "utf8",
+    env: nonInteractiveEnv(options2.env),
+    stdio: [NON_INTERACTIVE_STDIN, "pipe", "pipe"],
+    timeout: timeoutMs,
+    maxBuffer: options2.maxBuffer ?? 64 * 1024 * 1024
+  });
+  const durationMs = now() - startedAt;
+  const output = `${run.stdout ?? ""}${run.stderr ?? ""}`;
+  const timedOut = run.error?.code === "ETIMEDOUT";
+  if (timedOut) return { argv, outcome: { kind: "hung", output, durationMs, timeoutMs } };
+  if (run.error) {
+    return { argv, outcome: { kind: "not-run", output, durationMs, message: run.error.message } };
+  }
+  const status = run.status;
+  if (status !== 0) {
+    const prompt2 = detectPrompt(output);
+    if (prompt2) return { argv, outcome: { kind: "prompted", status, output, durationMs, prompt: prompt2 } };
+  }
+  return { argv, outcome: { kind: "completed", status: status ?? 1, output, durationMs } };
+}
+function describeOutcome(run) {
+  const cmd = run.argv.join(" ");
+  const o2 = run.outcome;
+  switch (o2.kind) {
+    case "completed":
+      return `\`${cmd}\` exited ${o2.status} in ${o2.durationMs}ms`;
+    case "prompted":
+      return `\`${cmd}\` stopped on a question nobody could answer (${o2.prompt.shapeId}): ${o2.prompt.line}`;
+    case "hung":
+      return `\`${cmd}\` was still running after ${o2.timeoutMs}ms with no terminal attached, and was killed`;
+    case "not-run":
+      return `\`${cmd}\` never started: ${o2.message}`;
+  }
+}
+function nonInteractiveResult(run) {
+  const o2 = run.outcome;
+  switch (o2.kind) {
+    case "completed":
+      return { status: o2.status, output: o2.output };
+    case "prompted":
+      return { status: o2.status === 0 || o2.status === null ? 1 : o2.status, output: `${o2.output}
+${describeOutcome(run)}` };
+    case "hung":
+      return { status: null, output: `${o2.output}
+${describeOutcome(run)}` };
+    case "not-run":
+      return { status: null, output: `${o2.output}${o2.message}` };
+  }
+}
 
 // src/knowledge/instruments.ts
 var INSTRUMENT_FORMS = [
@@ -45900,18 +46014,20 @@ function runInstrument(instrument, repoDir) {
       excerpt: `${instrument.target} does not exist \u2014 no spec was collected, so nothing was measured`
     };
   }
-  const run = spawnSync2("npx", instrument.argv, {
+  const run = runNonInteractive(["npx", ...instrument.argv], {
     cwd: path28.resolve(repoDir),
-    encoding: "utf8",
     // A spec suite that hangs would otherwise hang the loop that called it.
-    timeout: 10 * 6e4,
+    timeoutMs: 10 * 6e4,
     maxBuffer: 32 * 1024 * 1024
   });
-  const exitCode = run.status;
-  const output = `${run.stdout ?? ""}
-${run.stderr ?? ""}`;
+  if (run.outcome.kind === "hung" || run.outcome.kind === "prompted") {
+    return { observation: "red", exitCode: null, excerpt: describeOutcome(run).slice(0, 200) };
+  }
+  const exitCode = run.outcome.kind === "not-run" ? null : run.outcome.status;
+  const spawnError = run.outcome.kind === "not-run" ? run.outcome.message : void 0;
+  const output = run.outcome.output;
   if (exitCode === 0) {
-    return { observation: "green", exitCode, excerpt: firstMeaningfulLine(output, run.error?.message) };
+    return { observation: "green", exitCode, excerpt: firstMeaningfulLine(output, spawnError) };
   }
   if (collectedNothing(output)) {
     return {
@@ -45920,7 +46036,7 @@ ${run.stderr ?? ""}`;
       excerpt: `${instrument.target} collected no test cases \u2014 nothing in it can fail, so nothing was measured`
     };
   }
-  return { observation: "red", exitCode, excerpt: firstMeaningfulLine(output, run.error?.message) };
+  return { observation: "red", exitCode, excerpt: firstMeaningfulLine(output, spawnError) };
 }
 function firstMeaningfulLine(output, spawnError) {
   if (spawnError) return spawnError.slice(0, 200);
@@ -47034,11 +47150,7 @@ function renderStatus(ctx, census) {
   return lines.join("\n");
 }
 
-// src/release/ship-repo.ts
-import { spawnSync as spawnSync4 } from "node:child_process";
-
 // src/release/ship.ts
-import { spawnSync as spawnSync3 } from "node:child_process";
 var CORE_GATES = [
   {
     name: "tsc",
@@ -47102,10 +47214,7 @@ function tail(output, lines = 20) {
   return kept.join("\n");
 }
 var spawnRunner = (argv, cwd) => {
-  const [command, ...args] = argv;
-  const run = spawnSync3(command, args, { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
-  const output = `${run.stdout ?? ""}${run.stderr ?? ""}`;
-  return { status: run.error ? null : run.status, output: run.error ? `${output}${run.error.message}` : output };
+  return nonInteractiveResult(runNonInteractive(argv, { cwd }));
 };
 function runGates(gates, repo, run = spawnRunner) {
   const runs = [];
@@ -47132,12 +47241,7 @@ function summarize(branch, refusals, runs) {
 }
 
 // src/release/ship-repo.ts
-var realRunner = (argv, cwd) => {
-  const [command, ...args] = argv;
-  const run = spawnSync4(command, args, { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
-  const output = `${run.stdout ?? ""}${run.stderr ?? ""}`;
-  return { status: run.error ? null : run.status, output: run.error ? `${output}${run.error.message}` : output };
-};
+var realRunner = (argv, cwd) => nonInteractiveResult(runNonInteractive(argv, { cwd }));
 var MERGE_ATTEMPTS = 5;
 var MERGE_RETRY_MS = 2e3;
 function isStaleMergeability(output) {
@@ -53716,7 +53820,7 @@ import fs37 from "node:fs";
 import path39 from "node:path";
 
 // src/loop/state.ts
-import { spawnSync as spawnSync5 } from "node:child_process";
+import { spawnSync as spawnSync3 } from "node:child_process";
 import fs36 from "node:fs";
 import path38 from "node:path";
 var STATE_DIRNAME = "ost-agent";
@@ -53751,7 +53855,7 @@ function requireLoopStateDir(vaultDir) {
   return dir;
 }
 function gitHead(vaultDir) {
-  const r2 = spawnSync5("git", ["rev-parse", "HEAD"], {
+  const r2 = spawnSync3("git", ["rev-parse", "HEAD"], {
     cwd: path38.resolve(vaultDir),
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"]
@@ -53760,7 +53864,7 @@ function gitHead(vaultDir) {
   return sha.length > 0 ? sha : void 0;
 }
 function workingTreeStatus(vaultDir) {
-  const r2 = spawnSync5("git", ["status", "--porcelain"], {
+  const r2 = spawnSync3("git", ["status", "--porcelain"], {
     cwd: path38.resolve(vaultDir),
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"]
@@ -61125,7 +61229,7 @@ function regenerateStandingBriefing(vaultDir, tree, today) {
 }
 
 // src/cli/loop.ts
-import { spawnSync as spawnSync6 } from "node:child_process";
+import { spawnSync as spawnSync4 } from "node:child_process";
 import path74 from "node:path";
 
 // src/loop/exitLaundering.ts
@@ -63095,7 +63199,10 @@ function registerLoopCommands(program3) {
     }
     const startedAt = Date.now();
     const cwd = process.cwd();
-    const child = spawnSync6(command[0], command.slice(1), { stdio: "inherit" });
+    const child = spawnSync4(command[0], command.slice(1), {
+      stdio: [NON_INTERACTIVE_STDIN, "inherit", "inherit"],
+      env: nonInteractiveEnv()
+    });
     const exit = child.status ?? 1;
     if (child.error) console.error(`${command[0]}: ${child.error.message}`);
     appendStep(opts.vault, {
@@ -63641,7 +63748,7 @@ program2.command("tournament").description(
 });
 function shellProcess(command) {
   return (input) => {
-    const result = spawnSync7(command, { shell: true, input, encoding: "utf8" });
+    const result = spawnSync5(command, { shell: true, input, encoding: "utf8" });
     if (result.error) throw result.error;
     if (result.status !== 0) {
       throw new Error(`exit ${result.status ?? "signal"}: ${(result.stderr || "").trim() || "(no stderr)"}`);

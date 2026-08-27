@@ -145,7 +145,7 @@ const CENSUS: readonly Consumer[] = [
 ];
 
 describe("the consumer set, enumerated and held there", () => {
-  test("every subprocess door under src/ is one of eight files, and only three of them can run a suite", () => {
+  test("every subprocess door under src/ is one of ten files, and only three of them can run a suite", () => {
     // A suite verdict enters this codebase through a spawned process, so the
     // spawners bound the firsthand consumers. Exact, like the retraction
     // census's pin: a new spawner is an argument someone makes in a diff —
@@ -182,8 +182,23 @@ describe("the consumer set, enumerated and held there", () => {
     // the version is parsed out of the output or the requirement is reported
     // undecidable and the install refuses — so nothing here reduces a process
     // to pass/fail. Asserted below.
+    // `runner/non-interactive.ts` joined on 2026-08-27, and it is the first door
+    // that OTHER doors go through: it declares the run unattended (stdin closed,
+    // no editor, no askpass, no pager, a timeout) and converts a command that
+    // stopped on a question into a named failure. `ship.ts`, `ship-repo.ts` and
+    // `ost/instrument.ts` now reach a subprocess through it rather than
+    // importing `node:child_process` themselves.
+    //
+    // That is why "a door" is no longer "imports node:child_process": read that
+    // way, this census would have silently LOST three of its own channels the
+    // day they were centralised, and a census that shrinks when nothing was
+    // removed is worse than one that never counted. A door is a file that can
+    // start a process, whether it opens the syscall itself or goes through the
+    // one module that does — and the set below is unchanged in membership by
+    // that commit, with `runner/non-interactive.ts` added.
+    const NON_INTERACTIVE_DOOR = "runner/non-interactive.js";
     const doors = sources()
-      .filter((f) => f.text.includes('"node:child_process"'))
+      .filter((f) => f.text.includes('"node:child_process"') || f.text.includes(NON_INTERACTIVE_DOOR))
       .map((f) => f.rel)
       .sort();
     expect(doors).toEqual([
@@ -195,8 +210,16 @@ describe("the consumer set, enumerated and held there", () => {
       path.join("release", "ship-repo.ts"),
       path.join("release", "ship.ts"),
       path.join("runner", "helper-manifest.ts"),
+      path.join("runner", "non-interactive.ts"),
       path.join("runner", "shell-necessity.ts"),
     ]);
+
+    // The shared door's own spawn point: one, argv (never a shell string, since
+    // the recorded overwrite prompt came from a shell alias), and stdin closed
+    // as a constant rather than an option a caller could pass back open.
+    const nonInteractive = readRepo("src/runner/non-interactive.ts");
+    expect((nonInteractive.match(/spawnSync\(/g) ?? []).length).toBe(1);
+    expect(nonInteractive).toMatch(/stdio: \[NON_INTERACTIVE_STDIN, "pipe", "pipe"\]/);
 
     // `runner/helper-manifest.ts` has one spawn point, and it is gated on a
     // literal allowlist before the name reaches it. The argv is a literal, and

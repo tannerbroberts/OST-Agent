@@ -34,9 +34,9 @@
  * matched it ({@link ../knowledge/instruments.ts}), so there is no interpreter
  * for a metacharacter to reach even if one survived the parse.
  */
-import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { describeOutcome, runNonInteractive } from "../runner/non-interactive.js";
 import { isInstrument, parseInstrument, type ParsedInstrument } from "../knowledge/instruments.js";
 import { testAnswersForShippedSolution } from "../eval/shipped-audit.js";
 import { INSTRUMENT_LOG_HEADING } from "./headings.js";
@@ -214,18 +214,29 @@ export function runInstrument(instrument: ParsedInstrument, repoDir: string): In
     };
   }
 
-  const run = spawnSync("npx", instrument.argv, {
+  // Unattended by declaration ({@link ../runner/non-interactive.ts}): stdin
+  // closed, no editor, no askpass, no pager, and the timeout that already kept
+  // a hanging suite from hanging the loop now reports itself as a hang instead
+  // of arriving as a null exit code with "no output" beside it.
+  const run = runNonInteractive(["npx", ...instrument.argv], {
     cwd: path.resolve(repoDir),
-    encoding: "utf8",
     // A spec suite that hangs would otherwise hang the loop that called it.
-    timeout: 10 * 60_000,
+    timeoutMs: 10 * 60_000,
     maxBuffer: 32 * 1024 * 1024,
   });
 
-  const exitCode = run.status;
-  const output = `${run.stdout ?? ""}\n${run.stderr ?? ""}`;
+  // A suite that stopped on a question measured nothing, and the reason it
+  // measured nothing is the one fact worth carrying: red with a null exit code
+  // and "no output" is what this used to look like, and it named nothing.
+  if (run.outcome.kind === "hung" || run.outcome.kind === "prompted") {
+    return { observation: "red", exitCode: null, excerpt: describeOutcome(run).slice(0, 200) };
+  }
+
+  const exitCode = run.outcome.kind === "not-run" ? null : run.outcome.status;
+  const spawnError = run.outcome.kind === "not-run" ? run.outcome.message : undefined;
+  const output = run.outcome.output;
   if (exitCode === 0) {
-    return { observation: "green", exitCode, excerpt: firstMeaningfulLine(output, run.error?.message) };
+    return { observation: "green", exitCode, excerpt: firstMeaningfulLine(output, spawnError) };
   }
   // The file is there but the runner still collected nothing from it — an empty
   // spec, or one whose cases are all skipped. Non-zero, and still not a measurement.
@@ -236,7 +247,7 @@ export function runInstrument(instrument: ParsedInstrument, repoDir: string): In
       excerpt: `${instrument.target} collected no test cases — nothing in it can fail, so nothing was measured`,
     };
   }
-  return { observation: "red", exitCode, excerpt: firstMeaningfulLine(output, run.error?.message) };
+  return { observation: "red", exitCode, excerpt: firstMeaningfulLine(output, spawnError) };
 }
 
 /**

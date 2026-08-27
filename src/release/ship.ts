@@ -38,7 +38,7 @@
  * requests, so the clean-install check survives as an after-the-fact signal. It
  * is simply no longer something a merge waits on.
  */
-import { spawnSync } from "node:child_process";
+import { nonInteractiveResult, runNonInteractive } from "../runner/non-interactive.js";
 
 /** A command whose exit code decides whether the branch may merge. */
 export interface Gate {
@@ -171,13 +171,17 @@ export function tail(output: string, lines = 20): string {
 export type Runner = (argv: readonly string[], cwd: string) => { status: number | null; output: string };
 
 export const spawnRunner: Runner = (argv, cwd) => {
-  const [command, ...args] = argv;
   // shell:false is the default and is the point — see the module note on laundering.
-  const run = spawnSync(command!, args, { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
-  const output = `${run.stdout ?? ""}${run.stderr ?? ""}`;
-  // A spawn that never started (ENOENT) has a null status. That is a red gate,
-  // not a passed one: the command that was supposed to prove something did not run.
-  return { status: run.error ? null : run.status, output: run.error ? `${output}${run.error.message}` : output };
+  //
+  // Unattended by declaration ({@link ../runner/non-interactive.ts}): stdin is
+  // closed, no editor, no askpass, no pager, and a gate still running after the
+  // timeout is killed and reported rather than waited on. A shipping run has
+  // nobody at a keyboard by construction, and the one outcome worse than a red
+  // gate is a gate that produced no exit code because it was asking a question.
+  //
+  // A spawn that never started (ENOENT) keeps its null status. That is a red
+  // gate, not a passed one: the command meant to prove something did not run.
+  return nonInteractiveResult(runNonInteractive(argv, { cwd }));
 };
 
 /**

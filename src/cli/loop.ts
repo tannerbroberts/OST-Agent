@@ -35,6 +35,7 @@ import { degradedReport, observeDegradation } from "../loop/degraded.js";
 import { fallbackBanner, fallbackRefusalReport, runFallback } from "../loop/fallback.js";
 import { appendStep, readOpenRun, readRuns, sealRun, startRun, sweepCrashed } from "../loop/health.js";
 import { observeToolSurface } from "../loop/tool-surface-record.js";
+import { NON_INTERACTIVE_STDIN, nonInteractiveEnv } from "../runner/non-interactive.js";
 import {
   closeGoalContract,
   goalContractReport,
@@ -811,7 +812,17 @@ export function registerLoopCommands(program: Command): void {
       // was this?" to be reproducible, and reading cwd afterwards would report
       // wherever the process ended up rather than where the command was given.
       const cwd = process.cwd();
-      const child = spawnSync(command[0], command.slice(1), { stdio: "inherit" });
+      // THE ONE CALL SITE IN THIS REPOSITORY THAT HANDED A CHILD AN INHERITABLE
+      // STDIN. `loop step` is the unattended loop's phase runner by definition,
+      // so a phase command that asked a question here got a terminal nobody was
+      // sitting at and waited forever — the stall "My unattended run stops at a
+      // prompt that assumes a person is sitting there" is about, and the only
+      // one of its shape left. stdout and stderr stay inherited: the phase's
+      // output is meant to stream, and only stdin is what makes a question wait.
+      const child = spawnSync(command[0], command.slice(1), {
+        stdio: [NON_INTERACTIVE_STDIN, "inherit", "inherit"],
+        env: nonInteractiveEnv(),
+      });
       // `status` is null when the child never ran at all (binary not found) or
       // died on a signal. Either way the phase did not succeed, and recording a
       // 0 there would let a command that was never found seal the run healthy.
