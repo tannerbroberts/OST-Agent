@@ -19,7 +19,7 @@
  * The merge is aborted, the branch is left exactly as it was, and the conflict
  * is reported as work for the next pass.
  */
-import { spawnSync } from "node:child_process";
+import { nonInteractiveResult, runNonInteractive } from "../runner/non-interactive.js";
 import {
   gatesFor,
   GENERATED_ARTIFACT,
@@ -34,13 +34,14 @@ import {
   type ShipOutcome,
 } from "./ship.js";
 
-/** Run a command as argv and capture it. No shell, for the reason in ship.ts. */
-export const realRunner: Runner = (argv, cwd) => {
-  const [command, ...args] = argv;
-  const run = spawnSync(command!, args, { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
-  const output = `${run.stdout ?? ""}${run.stderr ?? ""}`;
-  return { status: run.error ? null : run.status, output: run.error ? `${output}${run.error.message}` : output };
-};
+/**
+ * Run a command as argv and capture it. No shell, for the reason in ship.ts,
+ * and unattended by declaration for the reason in
+ * {@link ../runner/non-interactive.ts} — every git and `gh` invocation here runs
+ * with nobody at a keyboard, and this is the half of shipping where one of them
+ * asking for a credential would stall the merge with no exit code to show for it.
+ */
+export const realRunner: Runner = (argv, cwd) => nonInteractiveResult(runNonInteractive(argv, { cwd }));
 
 /** How many times the merge is attempted while GitHub's mergeability field settles. */
 export const MERGE_ATTEMPTS = 5;

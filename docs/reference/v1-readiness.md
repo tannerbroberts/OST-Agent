@@ -3127,9 +3127,32 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,879 tests across 307 files, verified 2026-08-23 (`npx vitest run`
-> reports 3,871 of them, all passing; the other 8 are the contended calibration file
-> described below.
+> *Today:* **met** — 3,896 tests across 308 files, verified 2026-08-27 (`npx vitest run`
+> reports 3,888 of them; the other 8 are the contended calibration file described below.
+> After "Non-interactive is the default, and any tool that would prompt is made to fail
+> loudly instead" was given its definition of done: `src/runner/non-interactive.ts`
+> declares the run unattended to every process it starts and turns a command that stopped
+> on a question into a named failure, and `ship.ts`, `ship-repo.ts`, `ost/instrument.ts`
+> and `loop step` now reach a subprocess through it
+> (`test/runner/non-interactive-honoured.test.ts`, 17 tests, one new file).
+> **Both of the node's own premises were wrong, and the test records the measurements
+> rather than the claims.** `git pull` on divergent branches — the first harvested stall —
+> never prompts and never hangs: it exits 128 in under a second on git 2.50.1 (macOS) and
+> 2.43.0 (Ubuntu 24.04, in a container), with or without `GIT_TERMINAL_PROMPT=0`. It was
+> already the loud failure the solution proposed to create. The second, `overwrite
+> src/web/budget.ts? (y/n [n])`, is `cp -i`, and in the harvested session the `-i` came
+> from the operator's own shell alias — `/bin/cp` on the argv path overwrites without
+> asking. So no environment variable reaches either recorded stall. **What separates hang
+> from failure for both is stdin**: `cp -i` with stdin closed gives up in milliseconds and
+> with an open pipe was still waiting after three seconds, which is why stdin is a
+> constant here and not a parameter. The one call site in this repository that handed a
+> child an inheritable stdin was `loop step`, the unattended loop's own phase runner.
+> What a green does NOT settle is the node's own stated limit: two commands are not a tool
+> chain, and `cp -i` under a closed stdin still exits a bare **1** — which is why the
+> module reads the output back for the recorded prompt shapes and re-labels such an exit,
+> rather than trusting "fails promptly" to mean "fails legibly".
+> Previously 3,879 tests across 307 files, verified 2026-08-23 (`npx vitest run` reports
+> 3,871 of them, all passing.
 > After "Mark what the machine chose differently from what a human wrote" was given its
 > definition of done: a node now carries `authorship` — `machine`, `human`, or `mixed` —
 > and it is the first marker in this vault that says who wrote the PROSE rather than what
