@@ -31972,6 +31972,10 @@ function resolveAttribution(source) {
     ...stamp2(effective.unknown) ? { unknown: stamp2(effective.unknown) } : {}
   };
 }
+function touchedFiles(writes) {
+  const touched = [...new Set(writes.map((w) => w.file))];
+  return touched.length > 0 ? { touched } : {};
+}
 function fieldCensus(input, writes) {
   if (writes.length === 0) return {};
   const lost = [...new Set(writes.flatMap((w) => w.lost))].sort();
@@ -32000,6 +32004,7 @@ function withUsageTracing(tools, vaultDir, surface, attribution) {
       try {
         const result = await tool2.run(input);
         const wrote = drainCreatedNodeFiles();
+        const writes = drainNodeWrites();
         recordUsageEvent(vaultDir, {
           ts: new Date(started).toISOString(),
           tool: tool2.name,
@@ -32010,16 +32015,18 @@ function withUsageTracing(tools, vaultDir, surface, attribution) {
           ...session ? { session } : {},
           ...unknown2 ? { unknown: unknown2 } : {},
           ...wrote.length > 0 ? { wrote } : {},
+          ...touchedFiles(writes),
           // The success path is the one that matters here: a call that threw is
           // already visible as a failure, and the defects this census exists for
           // are the ones that come back green.
-          ...fieldCensus(input, drainNodeWrites())
+          ...fieldCensus(input, writes)
         });
         return result;
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
         const denied = e instanceof PermissionDeniedError;
         const wrote = drainCreatedNodeFiles();
+        const writes = drainNodeWrites();
         recordUsageEvent(vaultDir, {
           ts: new Date(started).toISOString(),
           tool: tool2.name,
@@ -32032,10 +32039,14 @@ function withUsageTracing(tools, vaultDir, surface, attribution) {
           ...session ? { session } : {},
           ...unknown2 ? { unknown: unknown2 } : {},
           ...wrote.length > 0 ? { wrote } : {},
+          // On this path especially: a call that edited three nodes and threw on
+          // the fourth touched three nodes, and the summary that names where a
+          // firing died is exactly the reader that must not be told otherwise.
+          ...touchedFiles(writes),
           // Drained on this path for the reason `wrote` is: a write that happened
           // before the throw happened, and leaving its record in the array would
           // stamp this call's field loss onto whatever call came next.
-          ...fieldCensus(input, drainNodeWrites())
+          ...fieldCensus(input, writes)
         });
         throw e;
       }
@@ -61457,6 +61468,59 @@ function readRuns(dir) {
   return runs.sort((a, b2) => Date.parse(b2.startedAt) - Date.parse(a.startedAt));
 }
 
+// src/loop/failure-summary.ts
+var FAILED_VERDICTS = /* @__PURE__ */ new Set(["unhealthy", "crashed"]);
+function whereItDied(run) {
+  const failed = run.steps.filter(stepFailed);
+  if (failed.length > 0) {
+    const first2 = failed[0];
+    const rest = failed.length > 1 ? ` (and ${failed.length - 1} later phase(s) also failed)` : "";
+    return [
+      `  died in phase \`${first2.phase}\` \u2014 exit ${first2.exit}${rest}`,
+      `    ${first2.command}${first2.cwd ? ` (in ${first2.cwd})` : ""}`
+    ];
+  }
+  const ran = new Set(run.steps.map((s) => s.phase));
+  const missing = REQUIRED_PHASES.filter((p2) => !ran.has(p2));
+  if (missing.length > 0) {
+    return [
+      `  no phase failed \u2014 required phase(s) never ran: ${missing.map((p2) => `\`${p2}\``).join(", ")}`,
+      `    A phase that was skipped leaves no red line to find, which is why this one is spelled out.`
+    ];
+  }
+  return [`  the verdict is \`${run.verdict}\` and no step or missing phase explains it \u2014 read the record.`];
+}
+function whatItTouched(touch) {
+  if (!touch) {
+    return "  last node touched: none \u2014 no traced tool call changed a node file in this run";
+  }
+  return `  last node touched: ${touch.file} \u2014 ${touch.tool} at ${touch.at}`;
+}
+function failureSummary(run, touch) {
+  if (!run.verdict || !FAILED_VERDICTS.has(run.verdict)) return [];
+  return [
+    `\u2717 FAILED: run ${run.runId} sealed ${run.verdict}.`,
+    ...whereItDied(run),
+    whatItTouched(touch),
+    `  A failed firing proves nothing about the tree \u2014 not that it is fine, and not that it is broken.`
+  ];
+}
+
+// src/telemetry/node-touch.ts
+function lastNodeTouchedSince(vaultDir, startedAt) {
+  const from = Date.parse(startedAt);
+  if (!Number.isFinite(from)) return void 0;
+  let last2;
+  for (const e of readUsageEvents(vaultDir)) {
+    const at = Date.parse(e.ts);
+    if (!Number.isFinite(at) || at < from) continue;
+    const files = e.touched ?? e.wrote ?? [];
+    const file = files[files.length - 1];
+    if (typeof file === "string" && file.length > 0) last2 = { file, tool: e.tool, at: e.ts };
+  }
+  return last2;
+}
+
 // src/loop/fallback.ts
 var FALLBACK_VERBS = {
   ingest: "ost_ingest_inbox",
@@ -63201,6 +63265,9 @@ function registerLoopCommands(program3) {
     for (const line of goalContractReport(goal)) {
       if (goalDriftIsLoud(goal)) console.error(line);
       else console.log(line);
+    }
+    for (const line of failureSummary(sealed, lastNodeTouchedSince(opts.vault, sealed.startedAt))) {
+      console.error(line);
     }
     for (const line of degradedReport(degradations)) console.error(line);
     if (!released) {

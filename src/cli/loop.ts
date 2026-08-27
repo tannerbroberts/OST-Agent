@@ -32,6 +32,8 @@ import type { LoopConfig } from "../config/schema.js";
 import { evaluateCadence, parseCadence } from "../loop/cadence.js";
 import { detectLaunderedExit, launderedExitMessage } from "../loop/exitLaundering.js";
 import { degradedReport, observeDegradation } from "../loop/degraded.js";
+import { failureSummary } from "../loop/failure-summary.js";
+import { lastNodeTouchedSince } from "../telemetry/node-touch.js";
 import { fallbackBanner, fallbackRefusalReport, runFallback } from "../loop/fallback.js";
 import { appendStep, readOpenRun, readRuns, sealRun, startRun, sweepCrashed } from "../loop/health.js";
 import { observeToolSurface } from "../loop/tool-surface-record.js";
@@ -1031,6 +1033,17 @@ export function registerLoopCommands(program: Command): void {
       for (const line of goalContractReport(goal)) {
         if (goalDriftIsLoud(goal)) console.error(line);
         else console.log(line);
+      }
+      // FIRST on stderr, above the degraded banner, because a firing that failed
+      // and a firing that was degraded are different facts and only one of them
+      // means "do not trust this run". The banner below used to be the ONLY thing
+      // an unhealthy firing said on stderr, so a cron mail for a pass that died on
+      // an auth error read `⚠ degraded` and nothing else — the exact substitution
+      // this loop exists to prevent, made by the report rather than by the code.
+      // The checklist on stdout stays where it is: it is the whole ledger, and this
+      // is the one line of it a reader who reads nothing else must get.
+      for (const line of failureSummary(sealed, lastNodeTouchedSince(opts.vault, sealed.startedAt))) {
+        console.error(line);
       }
       // On stderr, beside the stall escalation, because a cron mails stderr and
       // this is the line that must not be scrolled past. Printed whenever a

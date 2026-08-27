@@ -3127,9 +3127,38 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,879 tests across 307 files, verified 2026-08-23 (`npx vitest run`
-> reports 3,871 of them, all passing; the other 8 are the contended calibration file
-> described below.
+> *Today:* **met** — 3,886 tests across 308 files, verified 2026-08-27 (`npx vitest run`
+> reports 3,878 of them, all passing; the other 8 are the contended calibration file
+> described below).
+> After "Nonzero exit code and failure summary when a pass errors" was given its definition
+> of done: a firing that seals `unhealthy` or `crashed` prints a failure summary on
+> **stderr** — the channel this loop already reserves for what a cron must not scroll past
+> — naming the phase it died in, that phase's exit code and command, and the last node file
+> its own tool calls changed. **The exit-code half already held; the report did not.** An
+> unhealthy firing's only stderr line was the `⚠ degraded` banner, so a cron mail for a
+> pass that died on an auth error read "degraded" and never read "failed"; the per-step
+> checklist that did name the red phase was on stdout, above twenty lines of sense census.
+> The last-node half needed a new trace field, because `wrote` names only files a call
+> CREATED and a pass that spent its night annotating and editing answered "no node
+> touched" — `UsageEvent.touched` now records every node file a call changed, reported by
+> the single writer (`Vault`) at the instant the bytes land, so a firing cannot author one
+> by claiming to have been busy. Read by `src/telemetry/node-touch.ts` and folded by
+> `src/loop/failure-summary.ts`, which is filed PURE in Gate F's enumeration and stays
+> that way deliberately: the trace is the one decider input the unattended surface can
+> move, and a firing that could name its own last node INTO a verdict would be grading
+> itself. `test/runner/pass-exit-code.test.ts`, 7 tests, one new file, driving the real CLI
+> in a child process so the exit codes it asserts are real ones.
+> **The negative controls are half of that spec.** A summary printed on every seal would
+> satisfy every positive assertion and mean nothing, so a completed run and a merely
+> `degraded` run are both asserted to leave no failure summary behind — `degraded` has its
+> own exit code precisely so a wrapper can tell "the tree came back red" from "the pass
+> never reached the tree", and a FAILED banner over both would undo it.
+> What a green does NOT settle is the assumption test's own question — whether a real cron
+> NOTICES within a cycle. That needs a scheduled run broken on purpose and a person
+> watching the clock, and no test in this repository can stand in for it.
+> Previously 3,879 tests across 307 files, verified 2026-08-23 (`npx vitest run` reports
+> 3,871 of them, all passing; the other 8 are the contended calibration file described
+> below).
 > After "Mark what the machine chose differently from what a human wrote" was given its
 > definition of done: a node now carries `authorship` — `machine`, `human`, or `mixed` —
 > and it is the first marker in this vault that says who wrote the PROSE rather than what
