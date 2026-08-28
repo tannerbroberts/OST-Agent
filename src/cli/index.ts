@@ -44,6 +44,7 @@
  *   ost-agent claim "<work>" --briefing F     take the work before building it, so a second pass sees it is taken
  *   ost-agent next-build [--rewrite F]        the standing Next Build reading at its one address: read it, or supersede it keeping every prior reading
  *   ost-agent ledger [--publish F]            the whole-tree ranked ledger: every rankable node in one order, each row carrying the reason it sits there — a reason that cites nothing is refused a rank
+ *   ost-agent routes "<branch>"               three routes through one branch at three risk levels, each saying what it forecloses — refuses rather than pad when the branch cannot support three
  *   ost-agent briefing [--vault DIR]          the standing tree briefing, regenerated in full from the tree — teaches the tree back to a cold reader
  *   ost-agent bank-question "<q>" ...         bank a fork instead of stopping at it, costed by the work it holds up
  *   ost-agent authority                       the standing contract: which classes of decision compute may take alone
@@ -88,6 +89,7 @@ import { BUILD_CHECK_EXIT, formatBuildCheck, inheritedTreeBuildCheck } from "../
 import { renderRollup, rollupTree } from "../eval/rollup.js";
 import { evidenceActors } from "../knowledge/actor-trust.js";
 import { legacyFallbackCensus, renderLegacyFallbackCensus } from "../ost/legacy-fallback.js";
+import { renderRoutes, routesFor } from "../ost/routes.js";
 import { DEFAULT_FRACTION, drawReviewSample, formatReviewSample } from "../eval/review-sample.js";
 import { lineageOf, renderLineage } from "../eval/lineage.js";
 import { reflectionBinding, renderReflectionGauge } from "../loop/reflection.js";
@@ -2091,6 +2093,29 @@ program
     // own transcripts as thirty voices; this surface has a vault directory, so it
     // has no excuse to leave the actors unestablished.
     console.log(renderRollup(rollupTree(ctx.vault.readTree(), evidenceActors(ctx.dir))));
+  });
+
+program
+  .command("routes")
+  .description(
+    "three routes through one branch at three risk levels, each saying what taking it forecloses — or the reason " +
+      "the branch cannot support three (exits non-zero when it cannot)",
+  )
+  .argument("<branch>", "title of the Opportunity node the routes are planned over")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((branch: string, opts: { vault: string }) => {
+    const ctx = buildPassContext(opts.vault);
+    const result = routesFor(ctx.vault.readTree(), branch);
+    // A refusal goes to stderr and exits non-zero for the same reason
+    // `buildable`'s does: this output is read by something deciding what to do
+    // next, and "there are no three routes here" must not arrive looking like
+    // three routes. Padding two into three is the failure the node itself named.
+    if (result.kind === "too-thin") {
+      console.error(renderRoutes(result));
+      process.exitCode = 1;
+      return;
+    }
+    console.log(renderRoutes(result));
   });
 
 program
