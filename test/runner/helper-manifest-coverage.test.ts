@@ -111,7 +111,7 @@ const MACOS = statedMachine({
     git: "/usr/bin/git", node: "/usr/local/bin/node", claude: "/usr/local/bin/claude",
     mktemp: "/usr/bin/mktemp", mkdir: "/bin/mkdir", rm: "/bin/rm", mv: "/bin/mv", cat: "/bin/cat",
     date: "/bin/date", grep: "/usr/bin/grep", find: "/usr/bin/find", comm: "/usr/bin/comm",
-    dirname: "/usr/bin/dirname",
+    dirname: "/usr/bin/dirname", chmod: "/bin/chmod",
   },
 });
 

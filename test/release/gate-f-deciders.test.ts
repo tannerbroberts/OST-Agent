@@ -195,6 +195,15 @@ const PURE_MODULES = [
   // against is read by `Vault.readTree` in `cli/index.ts`, never here, and it
   // decides nothing about whether a firing may run.
   "reflection.ts",
+  // Prices the blocked and permitted spellings of a wait against each other, and
+  // renders two strings: the `await` shim and the affordance line the corrections
+  // briefing carries. Everything is string work over constants declared in the
+  // file — the corpus its `blocked` commands are pinned against in
+  // `test/loop/wait-primitive-affordance.test.ts` is read by the test, and the
+  // shim it renders is executed by nothing in `src/` at all: the wrapper installs
+  // it on PATH and a session runs it, so no caller-supplied command ever reaches a
+  // spawn inside this repository (`test/runner/suite-result-consumer-census.ts`).
+  "wait.ts",
 ];
 
 /**

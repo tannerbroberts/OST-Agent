@@ -210,6 +210,7 @@ import { detectAuthentication, renderAuthDetectionReport } from "../security/aut
 import {
   DEFAULT_QUIET_MINUTES, emptyCorrectionsLedger, readLedger, recordCorrections, renderCorrections,
 } from "../loop/corrections.js";
+import { SHIM_NAME, renderWaitShim } from "../loop/wait.js";
 import {
   CLAIM_EXIT, DEFAULT_CLAIM_TTL_HOURS, claimWork, liveClaims, readBriefingFile, releaseClaim,
   renderClaim, renderClaims, resolveWorkItem,
@@ -2211,6 +2212,32 @@ program
     }
 
     console.log(renderCorrections(readLedger(state)));
+  });
+
+program
+  .command("wait-shim")
+  .description(
+    `print the ${SHIM_NAME} shim — a POSIX sh script that waits for a condition instead of guessing at a ` +
+      "sleep, for a wrapper to install on an unattended session's PATH",
+  )
+  .action(() => {
+    /*
+     * This prints; it never installs and it never waits.
+     *
+     * Printing rather than installing is the same rule the rest of this CLI keeps:
+     * a tool that dropped an executable somewhere of its own choosing would be a
+     * capability this product does not hold, and the wrapper redirecting the
+     * output is the one making that decision. It is also the only party that knows
+     * what PATH the session will see (`examples/automation/build-pass.sh`).
+     *
+     * The shim is self-contained `sh` with no `node` in it, so nothing in `src/`
+     * ever runs the caller's condition. That keeps the subprocess-door census
+     * (`test/runner/suite-result-consumer-census.test.ts`) true: waiting on
+     * `npx vitest run` is a thing a composer may legitimately want, and it must
+     * not open a path from a caller-supplied command to a verdict inside this
+     * codebase.
+     */
+    console.log(renderWaitShim());
   });
 
 program
