@@ -47460,6 +47460,219 @@ function renderRollup(rollup) {
   return lines.join("\n");
 }
 
+// src/ost/routes.ts
+function riskOf(steps, unrunTests) {
+  const firstBuild = steps.findIndex((s) => s.act === "build");
+  if (firstBuild === 0) return "high";
+  const measuredFirst = firstBuild === -1 ? steps.filter((s) => s.act === "test").length : firstBuild;
+  return measuredFirst >= unrunTests ? "low" : "medium";
+}
+function foreclosureProblem(routes) {
+  const keys = routes.map((r2) => new Set(r2.forecloses.map((f) => `${f.kind}:${f.target}`)));
+  for (let i2 = 0; i2 < routes.length; i2++) {
+    if (keys[i2].size === 0) return `route "${routes[i2].id}" forecloses nothing \u2014 a route with no cost is not a choice`;
+  }
+  for (let i2 = 0; i2 < routes.length; i2++) {
+    for (let j2 = i2 + 1; j2 < routes.length; j2++) {
+      if (keys[i2].size === keys[j2].size && [...keys[i2]].every((k2) => keys[j2].has(k2))) {
+        return `routes "${routes[i2].id}" and "${routes[j2].id}" foreclose exactly the same things \u2014 that is one route written twice`;
+      }
+    }
+  }
+  for (let i2 = 0; i2 < routes.length; i2++) {
+    const others = keys.filter((_2, j2) => j2 !== i2);
+    const own = [...keys[i2]].filter((k2) => !others.some((o2) => o2.has(k2)));
+    if (own.length === 0) {
+      return `route "${routes[i2].id}" forecloses nothing its siblings do not \u2014 it is dominated, so an operator comparing costs would never have reason to pick it`;
+    }
+  }
+  return null;
+}
+function subtree2(index, title) {
+  const out = [];
+  const seen = /* @__PURE__ */ new Set();
+  const walk = (t2) => {
+    if (seen.has(t2)) return;
+    seen.add(t2);
+    const node = index.get(t2);
+    if (!node) return;
+    out.push(node);
+    for (const link of node.links) walk(link);
+  };
+  walk(title);
+  return out;
+}
+function riskiestAssumption(assumptions, dependents2, unrun) {
+  const scored = assumptions.map((a) => ({
+    a,
+    solutions: dependents2.get(a.title) ?? 0,
+    tests: a.links.filter((l) => unrun.has(l)).length
+  }));
+  scored.sort((x2, y2) => y2.solutions - x2.solutions || y2.tests - x2.tests || x2.a.title.localeCompare(y2.a.title));
+  const top = scored[0];
+  if (!top) return void 0;
+  const runnerUp = scored[1];
+  const basis = runnerUp !== void 0 && top.solutions > runnerUp.solutions ? "blast-radius" : "tie-break";
+  return { assumption: top.a, dependents: top.solutions, basis };
+}
+function routesFor(tree, branch) {
+  const index = new Map(tree.map((n) => [n.title, n]));
+  const root = index.get(branch);
+  if (!root || root.layer !== "Opportunity") {
+    throw new Error(`no Opportunity node titled "${branch}" \u2014 routes are planned over one branch of the tree`);
+  }
+  const nodes = subtree2(index, branch);
+  const solutions = nodes.filter((n) => n.layer === "Solution");
+  const assumptions = nodes.filter((n) => n.layer === "Assumption");
+  const unrunTests = new Set(
+    nodes.filter((n) => n.layer === "AssumptionTest" && !hasRecordedResult(n)).map((n) => n.title)
+  );
+  const thin = (why, whatWouldHelp) => ({ kind: "too-thin", branch, why, whatWouldHelp });
+  if (unrunTests.size === 0) {
+    return thin(
+      `nothing beneath "${branch}" is still unmeasured \u2014 every assumption test in it already carries a result`,
+      "there is no learn-first route without a belief left to measure; write the test for a belief this branch has not risked yet"
+    );
+  }
+  const buildable = solutions.filter((s) => buildPermit(tree, s.title).cleared);
+  if (buildable.length === 0) {
+    return thin(
+      `no solution beneath "${branch}" holds a live build permit \u2014 ${solutions.length} solution(s), none of them cleared to build`,
+      "there is no commit-early route with nothing to commit to; `ost-agent buildable` names what each solution is missing"
+    );
+  }
+  const withUnrunTest = assumptions.filter((a) => a.links.some((l) => unrunTests.has(l)));
+  if (withUnrunTest.length < 2) {
+    return thin(
+      `"${branch}" rests on ${withUnrunTest.length} belief(s) with an unmeasured test \u2014 with fewer than two, "test the riskiest belief first" names the same work as "test everything first"`,
+      "a branch needs at least two live beliefs before choosing between them is a decision; separate the beliefs this branch conflates, or measure one of them"
+    );
+  }
+  const dependents2 = /* @__PURE__ */ new Map();
+  for (const s of solutions) {
+    for (const link of s.links) {
+      if (index.get(link)?.layer === "Assumption") dependents2.set(link, (dependents2.get(link) ?? 0) + 1);
+    }
+  }
+  const chosen = riskiestAssumption(withUnrunTest, dependents2, unrunTests);
+  const riskiest = chosen.assumption;
+  const riskiestTests = riskiest.links.filter((l) => unrunTests.has(l));
+  const everyTest = [...unrunTests];
+  const otherTests = everyTest.filter((t2) => !riskiestTests.includes(t2));
+  const committed = buildable[0];
+  const committedTests = resolveTestsUnderSolution(committed, index).map((r2) => r2.test.title).filter((t2) => unrunTests.has(t2));
+  const learnFirstSteps = [
+    ...everyTest.map((t2) => ({ act: "test", node: t2 })),
+    ...buildable.map((s) => ({ act: "build", node: s.title }))
+  ];
+  const riskiestSteps = [
+    ...riskiestTests.map((t2) => ({ act: "test", node: t2 })),
+    ...buildable.map((s) => ({ act: "build", node: s.title }))
+  ];
+  const commitSteps = [
+    { act: "build", node: committed.title },
+    ...everyTest.map((t2) => ({ act: "test", node: t2 }))
+  ];
+  const routes = [
+    {
+      id: "learn-first",
+      risk: riskOf(learnFirstSteps, unrunTests.size),
+      summary: `measure all ${unrunTests.size} unmeasured belief(s) beneath "${branch}", then build what survives`,
+      steps: learnFirstSteps,
+      forecloses: [
+        ...buildable.map((s) => ({
+          kind: "unspent-permit",
+          target: s.title,
+          what: `"${s.title}" holds a live build permit that goes unspent while the measuring runs \u2014 a red instrument another pass can pick up, or that something else turns green in the meantime`
+        })),
+        ...otherTests.map((t2) => ({
+          kind: "moot-measurement",
+          target: t2,
+          what: `"${t2}" is measured before anyone knows whether "${riskiest.title}" holds \u2014 if that belief fails, this reading was bought for a branch that no longer exists`
+        }))
+      ]
+    },
+    {
+      id: "riskiest-belief-first",
+      risk: riskOf(riskiestSteps, unrunTests.size),
+      summary: chosen.basis === "blast-radius" ? `measure "${riskiest.title}" \u2014 the belief ${chosen.dependents} solution(s) rest on, more than any other here \u2014 and decide after` : `measure "${riskiest.title}" first \u2014 and note that the tree did not choose it: every belief in this branch carries the same ${chosen.dependents} dependent solution(s), so a tie-break picked this one and the order is not a risk ranking`,
+      basis: chosen.basis,
+      steps: riskiestSteps,
+      forecloses: [
+        ...buildable.map((s) => ({
+          kind: "unspent-permit",
+          target: s.title,
+          what: `"${s.title}" holds a live build permit that goes unspent while the one test runs`
+        })),
+        ...withUnrunTest.filter((a) => a.title !== riskiest.title).map((a) => ({
+          kind: "deferred-belief",
+          target: a.title,
+          what: `"${a.title}" stays unmeasured behind the one test this route chose \u2014 if it is what actually breaks, this route found out last`
+        }))
+      ]
+    },
+    {
+      id: "commit-early",
+      risk: riskOf(commitSteps, unrunTests.size),
+      summary: `build "${committed.title}" now and let the measurements come in against a thing that already exists`,
+      steps: commitSteps,
+      forecloses: [
+        ...committedTests.map((t2) => ({
+          kind: "clean-read",
+          target: t2,
+          what: `"${t2}" can no longer produce a clean reading \u2014 it is taken on a thing already built and already paid for, which is not the reading the test was designed to give`
+        })),
+        ...buildable.slice(1).map((s) => ({
+          kind: "unbuilt-comparison",
+          target: s.title,
+          what: `"${s.title}" is never compared against "${committed.title}" \u2014 committing early spends the comparison`
+        }))
+      ]
+    }
+  ];
+  const problem = foreclosureProblem(routes);
+  if (problem) {
+    return thin(
+      problem,
+      "these three routes collapse into fewer on this branch; give the branch a second buildable solution or a test beneath the one it would build first"
+    );
+  }
+  return { kind: "routes", branch, routes };
+}
+function renderRoutes(result) {
+  if (result.kind === "too-thin") {
+    return [
+      `No three routes through "${result.branch}".`,
+      "",
+      `Why: ${result.why}.`,
+      `What would help: ${result.whatWouldHelp}.`,
+      "",
+      "Two routes padded to three is a recommendation wearing a costume, so this refuses instead."
+    ].join("\n");
+  }
+  const out = [`THREE ROUTES \u2014 ${result.branch}`, ""];
+  for (const r2 of result.routes) {
+    out.push(`## ${r2.id} (risk: ${r2.risk})`, "", r2.summary, "", "Steps:");
+    for (const [i2, s] of r2.steps.entries()) out.push(`  ${i2 + 1}. ${s.act} "${s.node}"`);
+    out.push("", `Forecloses (${r2.forecloses.length}):`);
+    for (const f of r2.forecloses) out.push(`  - [${f.kind}] ${f.what}`);
+    out.push("");
+  }
+  out.push(
+    "The risk levels above are read off each route's own steps \u2014 how much it commits before it learns anything \u2014",
+    "not assigned. Which route is right is still yours; this says what each one costs."
+  );
+  if (result.routes.some((r2) => r2.basis === "tie-break")) {
+    out.push(
+      "",
+      "Caveat, stated because it changes what this page is worth: no belief in this branch is depended on by more",
+      "solutions than any other, so riskiest-belief-first was chosen by a tie-break rather than by blast radius.",
+      "It is a route you can take. It is not evidence about which belief is riskiest."
+    );
+  }
+  return out.join("\n");
+}
+
 // src/eval/review-sample.ts
 var NO_BUCKET = "(in no bucket)";
 var DEFAULT_FRACTION = 0.1;
@@ -64393,6 +64606,18 @@ program2.command("reflection").argument("<solution>", "the Solution a pass was c
 program2.command("rollup").description("the top-level view: what sits under each bucket, computed from the tree (no model needed)").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
   const ctx = buildPassContext(opts.vault);
   console.log(renderRollup(rollupTree(ctx.vault.readTree(), evidenceActors(ctx.dir))));
+});
+program2.command("routes").description(
+  "three routes through one branch at three risk levels, each saying what taking it forecloses \u2014 or the reason the branch cannot support three (exits non-zero when it cannot)"
+).argument("<branch>", "title of the Opportunity node the routes are planned over").option("--vault <dir>", VAULT_OPTION_HELP).action((branch, opts) => {
+  const ctx = buildPassContext(opts.vault);
+  const result = routesFor(ctx.vault.readTree(), branch);
+  if (result.kind === "too-thin") {
+    console.error(renderRoutes(result));
+    process.exitCode = 1;
+    return;
+  }
+  console.log(renderRoutes(result));
 });
 program2.command("legacy-fallback").description(
   "what the pre-Assumption compatibility read is still carrying in this vault, and when it goes inert \u2014 the number that decides whether dropping it is safe"
