@@ -1,0 +1,85 @@
+# The three surfaces this repository actually runs a pass on, each pinning the
+# tool set it is MEANT to have. This is the operator-authored half of the claim
+# "the difference between surfaces is a tool list" — `test/config/surface-profile.test.ts`
+# holds every entry below against the surface that really declares it, so this
+# copy cannot drift from the three wrappers without a red gate.
+outcome: "Keep an OST honest across every surface a pass runs on"
+
+surfaces:
+  unattended:
+    tools:
+      - mcp__ost-agent__ost_annotate
+      - mcp__ost-agent__ost_append_to_node
+      - mcp__ost-agent__ost_create_node
+      - mcp__ost-agent__ost_detach_nodes
+      - mcp__ost-agent__ost_edit_node
+      - mcp__ost-agent__ost_ingest_inbox
+      - mcp__ost-agent__ost_link_nodes
+      - mcp__ost-agent__ost_merge_nodes
+      - mcp__ost-agent__ost_next_work
+      - mcp__ost-agent__ost_read_repo
+      - mcp__ost-agent__ost_read_tree
+      - mcp__ost-agent__ost_read_web
+      - mcp__ost-agent__ost_search_web
+      - mcp__ost-agent__ost_set_evidence
+      - mcp__ost-agent__ost_set_instrument
+      - mcp__ost-agent__ost_set_status
+    denied:
+      - Bash
+      - BashOutput
+      - Edit
+      - KillShell
+      - NotebookEdit
+      - Skill
+      - Task
+      - WebFetch
+      - WebSearch
+      - Write
+  attended:
+    tools:
+      - mcp__plugin_ost-agent_ost-agent__ost_annotate
+      - mcp__plugin_ost-agent_ost-agent__ost_append_to_node
+      - mcp__plugin_ost-agent_ost-agent__ost_create_node
+      - mcp__plugin_ost-agent_ost-agent__ost_detach_nodes
+      - mcp__plugin_ost-agent_ost-agent__ost_edit_node
+      - mcp__plugin_ost-agent_ost-agent__ost_ingest_inbox
+      - mcp__plugin_ost-agent_ost-agent__ost_link_nodes
+      - mcp__plugin_ost-agent_ost-agent__ost_merge_nodes
+      - mcp__plugin_ost-agent_ost-agent__ost_next_work
+      - mcp__plugin_ost-agent_ost-agent__ost_read_repo
+      - mcp__plugin_ost-agent_ost-agent__ost_read_tree
+      - mcp__plugin_ost-agent_ost-agent__ost_read_web
+      - mcp__plugin_ost-agent_ost-agent__ost_search_web
+      - mcp__plugin_ost-agent_ost-agent__ost_set_evidence
+      - mcp__plugin_ost-agent_ost-agent__ost_set_instrument
+      - mcp__plugin_ost-agent_ost-agent__ost_set_status
+    denied: []
+  ci:
+    tools:
+      - mcp__ost-agent__ost_annotate
+      - mcp__ost-agent__ost_append_to_node
+      - mcp__ost-agent__ost_create_node
+      - mcp__ost-agent__ost_detach_nodes
+      - mcp__ost-agent__ost_edit_node
+      - mcp__ost-agent__ost_ingest_inbox
+      - mcp__ost-agent__ost_link_nodes
+      - mcp__ost-agent__ost_merge_nodes
+      - mcp__ost-agent__ost_next_work
+      - mcp__ost-agent__ost_read_repo
+      - mcp__ost-agent__ost_read_tree
+      - mcp__ost-agent__ost_read_web
+      - mcp__ost-agent__ost_search_web
+      - mcp__ost-agent__ost_set_evidence
+      - mcp__ost-agent__ost_set_instrument
+      - mcp__ost-agent__ost_set_status
+    denied:
+      - Bash
+      - BashOutput
+      - Edit
+      - KillShell
+      - NotebookEdit
+      - Skill
+      - Task
+      - WebFetch
+      - WebSearch
+      - Write

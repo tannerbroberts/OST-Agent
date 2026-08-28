@@ -359,6 +359,38 @@ const EvidenceSchema = z
   })
   .nullish();
 
+/**
+ * One named surface and the tool set it is *meant* to have.
+ *
+ * `tools` is the grant and `denied` is the ceiling, in the same two-list shape
+ * Claude Code itself takes (`--allowedTools` / `--disallowedTools`), because a
+ * profile that recorded only the grant would describe the half of the surface
+ * that cannot be enforced against: deny beats allow, so a tool on both lists is
+ * absent however loudly the grant names it.
+ *
+ * Both are plain `string[]` and both are written in the permission-rule syntax
+ * (`Glob(/repo/**)`), so one parser reads a profile and a settings file alike —
+ * see `src/config/surface-profile.ts`, which is also where an entry the host
+ * cannot enforce is refused rather than resolved.
+ */
+const SurfaceProfileSchema = z.object({
+  tools: z.array(z.string()).default([]),
+  denied: z.array(z.string()).default([]),
+});
+
+/**
+ * The surfaces this vault's passes run on, each pinning what it is meant to
+ * grant. Absent ⇒ no profile is pinned and nothing checks a surface against one,
+ * which is today's behaviour: the tool list lives in whichever wrapper launched
+ * the run and nowhere a reader can compare it against.
+ *
+ * A record rather than three fixed keys. `unattended`/`attended`/`ci` are the
+ * three this repository actually runs, but they are the operator's names for
+ * their own surfaces, and a schema that hardcoded them would refuse the fourth
+ * one the moment somebody added a build loop — which this repository did.
+ */
+const SurfacesSchema = z.record(z.string(), SurfaceProfileSchema).default({});
+
 const LoopSchema = z
   .object({
     /** How often this vault may fire: `"30m"`, `"6h"`, `"1d"`. Absent ⇒ never. */
@@ -390,6 +422,7 @@ export const ConfigSchema = z.object({
     })
     .default({}),
   processes: z.record(z.string(), ProcessSchema).default({}),
+  surfaces: SurfacesSchema,
   web: WebSchema,
   product: ProductSchema,
   discovery: DiscoverySchema,
@@ -400,6 +433,7 @@ export const ConfigSchema = z.object({
 export type Config = z.infer<typeof ConfigSchema>;
 export type LoopConfig = NonNullable<Config["loop"]>;
 export type ProcessConfig = Config["processes"][string];
+export type SurfaceProfile = Config["surfaces"][string];
 
 export interface DefaultConfigOptions {
   /**
@@ -488,6 +522,22 @@ product:
 processes:
   P3_ideate:
     minSolutionsPerOpportunity: ${DEFAULT_MIN_SOLUTIONS_PER_OPPORTUNITY}   # how many candidate solutions an opportunity needs before \`ost_next_work\` stops calling it under-served
+
+# surfaces:                # what each surface a pass runs on is MEANT to grant, pinned here rather than
+                            # inherited from whichever wrapper launched the run. \`ost-agent surface-profile
+                            # --surface <name>\` resolves one; \`ost-agent required-tools --surface <name>\`
+                            # checks a pass's declared-required tools against it instead of repeating the list.
+#   unattended:
+#     tools: [mcp__ost-agent__ost_next_work, mcp__ost-agent__ost_create_node]
+#     denied: [Bash, Edit, Write]      # deny beats allow, so this is the ceiling, not a comment
+#   attended:
+#     tools: [mcp__plugin_ost-agent_ost-agent__ost_next_work]
+                            # An argument on a BUILT-IN is a real narrowing — \`Glob(/repo/**)\` is a rule
+                            # Claude Code enforces. An argument on an MCP tool is NOT: a host matches those
+                            # on the tool name alone, so \`ost_append_to_node(## Results)\` would be a rule
+                            # matching nothing beside a tool handed over whole. That entry is refused rather
+                            # than resolved — a profile claiming a narrowing it cannot keep is worse than no
+                            # profile. (Reserved headings are already refused at the tool layer regardless.)
 
 # discovery:
 #   target: "Some opportunity title"   # focus the discovery pass on ONE opportunity's branch (Torres's
