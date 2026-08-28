@@ -60551,7 +60551,8 @@ import path57 from "node:path";
 // src/loop/wait.ts
 var SHIM_NAME = "await";
 var DEFAULT_EVERY_SECONDS = 5;
-var DEFAULT_FOR_SECONDS = 300;
+var HARNESS_BASH_TIMEOUT_SECONDS = 120;
+var DEFAULT_FOR_SECONDS = HARNESS_BASH_TIMEOUT_SECONDS - 2 * DEFAULT_EVERY_SECONDS;
 var DEFAULT_LINES = 20;
 var WAITING_CASES = [
   {
@@ -60603,15 +60604,17 @@ function renderWaitShim() {
     "cond=$1",
     "every=${2:-" + String(DEFAULT_EVERY_SECONDS) + "}",
     "limit=${3:-" + String(DEFAULT_FOR_SECONDS) + "}",
+    "start=$(date +%s)",
     "waited=0",
     "while :; do",
     '  out=$(eval "$cond" 2>&1)',
     "  rc=$?",
     '  [ "$rc" -eq 0 ] && break',
+    "  waited=$(($(date +%s) - start))",
     '  [ "$((waited + every))" -gt "$limit" ] && break',
     '  sleep "$every"',
-    "  waited=$((waited + every))",
     "done",
+    "waited=$(($(date +%s) - start))",
     `if [ -n "$out" ]; then printf '%s\\n' "$out" | tail -` + String(DEFAULT_LINES) + "; fi",
     'if [ "$rc" -ne 0 ]; then',
     '  echo "' + SHIM_NAME + ': gave up after ${waited}s; the condition still exits $rc." >&2',

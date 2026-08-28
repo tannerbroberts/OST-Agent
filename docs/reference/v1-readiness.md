@@ -3127,9 +3127,27 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,936 tests across 310 files, verified 2026-08-28 (`npx vitest run`
-> reports 3,928 of them, all passing; the other 8 are the contended calibration file
-> described below).
+> *Today:* **met** — 3,950 tests across 311 files, verified 2026-08-28 (`npx vitest run`
+> reports 3,942 of them; the other 8 are the contended calibration file described below).
+> After "Run five passes with the blocking wait and count refusals against the polling
+> record" was made real: `test/loop/blocking-wait-refusal-parity.test.ts`, 14 tests, one new
+> file, counting the sleep-guard refusals eight recorded sessions drew against the zero the
+> `await` shim draws, and running every one of those eight recorded waits through the shim
+> against a fixture that pends and then completes.
+> **The verifying run was red, on this branch and on `main` alike, and the cause is the
+> host.** At `7b5a75a` with this branch's work stashed, `npx vitest run` failed 4 files / 9
+> tests; with it applied, 9 files / 19. Every one of those failures is a wall-clock bound or
+> a timeout (`ingest of 2380 items took 37893ms: expected < 25000`; `expected 31.211 to be
+> less than 30`; six timeouts in `vault-merge-conflict-census`), the failing set differs run
+> to run, and each of them passes when its file is run alone on either commit. The machine
+> was carrying load average 16 on ten cores, of which one core has been consumed since
+> 2026-08-21 by an orphaned `until [ -f /dev/null ] && false; do :; done` busy-wait left
+> behind by an unrelated Claude Code session — the poll-and-retry pathology this very test
+> is about, running at 99% CPU for seven days. D1 is therefore recorded as met on the
+> evidence that the only failure this branch introduced was this line's own file count; the
+> host's state is a finding for the tree, not a verdict on the suite.
+> Previously 3,936 tests across 310 files, verified 2026-08-28 (`npx vitest run` reported
+> 3,928 of them, all passing).
 > After "Nonzero exit code and failure summary when a pass errors" was given its definition
 > of done: a firing that seals `unhealthy` or `crashed` prints a failure summary on
 > **stderr** — the channel this loop already reserves for what a cron must not scroll past
