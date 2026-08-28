@@ -3127,8 +3127,8 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,886 tests across 308 files, verified 2026-08-27 (`npx vitest run`
-> reports 3,878 of them, all passing; the other 8 are the contended calibration file
+> *Today:* **met** — 3,912 tests across 309 files, verified 2026-08-28 (`npx vitest run`
+> reports 3,904 of them, all passing; the other 8 are the contended calibration file
 > described below).
 > After "Nonzero exit code and failure summary when a pass errors" was given its definition
 > of done: a firing that seals `unhealthy` or `crashed` prints a failure summary on

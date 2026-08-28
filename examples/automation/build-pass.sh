@@ -68,6 +68,7 @@
 # ost-requires: command date — the cadence stamp and the inbox note's timestamp
 # ost-requires: command mktemp — the MCP config and the prompt file
 # ost-requires: command mkdir — the state directory and the atomic overlap lock
+# ost-requires: command chmod — makes the `await` shim executable before it is on PATH
 # ost-requires: command rm — releases the lock and clears the temp files
 # ost-requires: command mv — swaps the rewritten stuck-target table into place
 # ost-requires: command cat — reads the report, the stamp and the prompt back
@@ -95,6 +96,36 @@ REPORT="${OST_BUILD_REPORT:-$STATE/last-report.txt}"
 
 mkdir -p "$STATE"
 VAULT_DIR="$(cd "$VAULT_DIR" && pwd)"
+
+# ---------------------------------------------------------------------------
+# The waiting affordance, put on PATH before anything else this pass does.
+#
+# Eight times across seven sessions this loop wrote `sleep 45; gh pr checks 17`
+# and was refused, and was told what to write instead every single time. The
+# corrections ledger below now carries that message forward, but a remembered
+# remedy still loses to a shorter one: the guard's own until-loop costs ~1.5-2x
+# the call it replaces once it has to show the output too (measured in
+# `test/loop/wait-primitive-affordance.test.ts`).
+#
+# So the remedy is installed rather than only described. `await '<condition>'`
+# is five characters plus quoting — shorter than `sleep 45; ` on all three of
+# the shapes this loop has actually been refused for — and it is a plain `sh`
+# script, so it costs nothing to start and cannot go stale against a bundle
+# path. Rendered fresh each firing so it tracks the CLI it shipped with.
+#
+# A failure here is not fatal: the session simply gets the prose remedy it
+# already had, which is the state every previous firing ran in.
+# ---------------------------------------------------------------------------
+SHIM_DIR="$STATE/bin"
+mkdir -p "$SHIM_DIR"
+if node "$CLI" wait-shim >"$SHIM_DIR/await.tmp" 2>/dev/null && [ -s "$SHIM_DIR/await.tmp" ]; then
+  chmod +x "$SHIM_DIR/await.tmp" && mv "$SHIM_DIR/await.tmp" "$SHIM_DIR/await"
+else
+  rm -f "$SHIM_DIR/await.tmp"
+  echo "build-pass: could not render the await shim; this pass falls back to the prose remedy" >&2
+fi
+PATH="$SHIM_DIR:$PATH"
+export PATH
 
 # The report file is the pass's only channel to the operator. Write it on every exit path
 # — a firing that decided not to fire is still something the operator asked to hear about,

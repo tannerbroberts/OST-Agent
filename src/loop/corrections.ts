@@ -56,6 +56,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { redactSecrets } from "../adapters/transcript.js";
+import { isWaitingCorrection, renderWaitAffordance } from "./wait.js";
 
 /** Filename of the ledger inside the state directory. */
 const LEDGER_FILE = "corrections.json";
@@ -510,6 +511,11 @@ export function renderCorrections(ledger: CorrectionsLedger): string {
         : `${c.occurrences} time(s)`;
     lines.push(`- ${c.permitted}`);
     lines.push(`    refused ${cost}${c.tools.length > 0 ? ` (${c.tools.join(", ")})` : ""}: ${c.attempted}`);
+    // A remedy stated as prose still leaves the composer to work out the loop, the
+    // interval, the bound and the output trimming — four places to decide the fixed
+    // sleep was easier. Where the correction is about waiting, the line itself goes
+    // here, at the moment of reach. See `wait.ts` for why prose alone is not enough.
+    if (isWaitingCorrection(c.permitted)) lines.push(renderWaitAffordance());
   }
   if (ledger.dropped > 0) {
     lines.push("");
