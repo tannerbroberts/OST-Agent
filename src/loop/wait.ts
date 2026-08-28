@@ -88,6 +88,22 @@ export const SHIM_NAME = "await";
 export const DEFAULT_EVERY_SECONDS = 5;
 
 /**
+ * The wall clock a `Bash` call gets before the harness kills it.
+ *
+ * Read off the corpus rather than assumed: `test/fixtures/corrections/97546e2f…`
+ * holds a result reading `Exit code 143 / Command timed out after 2m 0s`, and
+ * the session this whole opportunity was distilled from is described the same
+ * way — "a command that timed out after two minutes, having reported `still
+ * pending` five times".
+ *
+ * It bounds both shapes, which is why it lives here rather than in the
+ * measurement. It is the poller's real give-up point, and it is the ceiling the
+ * shim's own bound has to fit inside if the shim is ever to report its own
+ * verdict instead of being killed mid-wait.
+ */
+export const HARNESS_BASH_TIMEOUT_SECONDS = 120;
+
+/**
  * Seconds before the wait gives up when the caller names none.
  *
  * Bounded rather than open-ended on purpose: this exists to be written *instead
@@ -95,8 +111,18 @@ export const DEFAULT_EVERY_SECONDS = 5;
  * would trade eight refusals for one wedged firing. Timing out is a reported
  * outcome — the condition's own nonzero status, and a line on stderr — never a
  * silent one.
+ *
+ * **The number is derived, not chosen.** A `Bash` call gets
+ * {@link HARNESS_BASH_TIMEOUT_SECONDS} before the harness kills it, and the
+ * cheapest permitted form — the one the affordance advertises — carries no
+ * `timeout` field, so it gets exactly that. A bound larger than the ceiling is
+ * not a bound: the shim never reaches its own give-up branch, prints nothing,
+ * and comes back as `Exit code 143 / Command timed out after 2m 0s`. That is
+ * *worse* than the reflex it replaced, which at least printed `still pending` on
+ * the way down. So the bound sits one whole interval inside the ceiling, leaving
+ * room for the final attempt to finish and for the shim to say what it saw.
  */
-export const DEFAULT_FOR_SECONDS = 300;
+export const DEFAULT_FOR_SECONDS = HARNESS_BASH_TIMEOUT_SECONDS - 2 * DEFAULT_EVERY_SECONDS;
 
 /** Lines of the final attempt's output the shim prints. */
 export const DEFAULT_LINES = 20;
@@ -304,6 +330,15 @@ export function permittedWait(probe: string): string {
  *     `2>&1 | head -20` is not retyped.
  *   - The bound is checked *before* sleeping, so a wait never overshoots what the
  *     caller asked for by a whole interval.
+ *   - **The bound is elapsed time, not the sum of the sleeps.** This is the
+ *     difference between a bound and a hope. Counting only the sleeps prices the
+ *     condition at zero, and the conditions this exists for do not cost zero: at
+ *     the default interval a `gh pr checks` taking three seconds an attempt runs
+ *     twenty-three attempts, so a wait that believes it is bounded at
+ *     {@link DEFAULT_FOR_SECONDS} actually runs past
+ *     {@link HARNESS_BASH_TIMEOUT_SECONDS} and is killed — no output, no verdict,
+ *     exit 143. A deadline read off the clock cannot drift that way whatever the
+ *     condition costs.
  *   - The exit status is the condition's own, and giving up says so on stderr
  *     rather than looking like success.
  */
@@ -320,15 +355,17 @@ export function renderWaitShim(): string {
     'cond=$1',
     "every=${2:-" + String(DEFAULT_EVERY_SECONDS) + "}",
     "limit=${3:-" + String(DEFAULT_FOR_SECONDS) + "}",
+    "start=$(date +%s)",
     "waited=0",
     "while :; do",
     '  out=$(eval "$cond" 2>&1)',
     "  rc=$?",
     '  [ "$rc" -eq 0 ] && break',
+    '  waited=$(($(date +%s) - start))',
     '  [ "$((waited + every))" -gt "$limit" ] && break',
     '  sleep "$every"',
-    "  waited=$((waited + every))",
     "done",
+    'waited=$(($(date +%s) - start))',
     'if [ -n "$out" ]; then printf \'%s\\n\' "$out" | tail -' + String(DEFAULT_LINES) + "; fi",
     'if [ "$rc" -ne 0 ]; then',
     "  echo \"" + SHIM_NAME + ': gave up after ${waited}s; the condition still exits $rc." >&2',
@@ -374,3 +411,156 @@ export function renderWaitAffordance(): string {
   }
   return lines.join("\n");
 }
+
+/*
+ * ---------------------------------------------------------------------------
+ * The parity measurement: did the cost go away, or did it move?
+ * ---------------------------------------------------------------------------
+ *
+ * Everything above is the affordance and the question it was built to answer —
+ * is the permitted form cheaper to *write* than the blocked one. What follows is
+ * the second question, and it is the one the solution node "One cheap blocking
+ * wait replaces the poll-and-retry loop" stands or falls on:
+ *
+ *   > The affordance already exists and the loop simply is not reaching for it.
+ *   > Adopting it is only strictly better if waiting once is no slower than
+ *   > polling — otherwise the refusals were buying something.
+ *
+ * Two numbers settle that, and they are the two halves of the threshold its
+ * assumption test states: the count of `Blocked:` refusals across the passes,
+ * and the wall clock those passes spend against what the polling record spent.
+ * `test/loop/blocking-wait-refusal-parity.test.ts` is where they are counted.
+ *
+ * **The refusal half is a classifier, not an assertion.** {@link sleepGuardRefusal}
+ * reconstructs the guard's whole message rather than returning a boolean, so the
+ * eight refusals recorded verbatim in `test/fixtures/corrections/` can disagree
+ * with it byte for byte. A predicate that only said yes/no could be wrong in the
+ * direction that flatters the permitted form and no reader could tell.
+ *
+ * **The wall-clock half cannot be read off the record, and that is a finding.**
+ * The node says the baseline is "thirteen-plus real sessions with counted
+ * refusals, not a construction". For refusals that is exactly right. For wall
+ * clock it is not, and the corpus says why in one number: every recorded
+ * sighting was answered in 0.00–0.01 seconds, because the guard refused it
+ * before the `sleep` ever ran. Nobody paid those forty-five seconds. So there is
+ * no recorded poll-and-retry elapsed time to compare against, and the comparison
+ * is built out of the three quantities the record does hold: the seconds each
+ * refused call *committed to* before it could look once, the one compliant wait
+ * that did run (`516fdfb8`, 26.42s, and it still came back nonzero), and the
+ * ceiling everything runs under ({@link HARNESS_BASH_TIMEOUT_SECONDS}).
+ */
+
+/**
+ * The guard's closing advice, verbatim.
+ *
+ * Held as one string because the instrument reproduces whole recorded messages
+ * with it; a paraphrase here would make every comparison against the corpus a
+ * comparison against this file instead.
+ */
+export const SLEEP_GUARD_REMEDY =
+  "To wait for a condition, use Monitor with an until-loop (e.g. `until <check>; do sleep 2; done`). " +
+  "To wait for a command you started, use run_in_background: true. " +
+  "Do not chain shorter sleeps to work around this block.";
+
+/** The leading fixed sleep the guard refuses, and the command it precedes. */
+const FIXED_SLEEP_PROLOGUE = /^\s*sleep\s+(\d+)\s*(?:;|&&|\|\|)?\s*([\s\S]+)$/;
+
+/** Shell operators the refusal message drops when it quotes what followed. */
+const SEPARATORS = /&&|\|\||[;|]/g;
+
+/** Redirections the refusal message drops for the same reason. */
+const REDIRECTIONS = /2>&1|2>\/dev\/null|>\/dev\/null/g;
+
+/**
+ * How the guard quotes the command that followed the sleep: operators and
+ * redirections dropped, whitespace collapsed.
+ *
+ * Derived by reading the eight recorded messages against the eight recorded
+ * commands, not by guessing at an implementation nobody here owns — and the
+ * instrument re-derives it every run by requiring all eight to come back
+ * byte-identical.
+ */
+function quotedTail(rest: string): string {
+  return rest.replace(REDIRECTIONS, " ").replace(SEPARATORS, " ").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * The refusal this command would draw from the sleep guard, or `null` if it
+ * draws none.
+ *
+ * Only the shape the record actually contains is claimed: a fixed `sleep N`
+ * followed by something else. A bare `sleep 30` with nothing after it returns
+ * `null` here, because no session wrote one and the corpus cannot say what the
+ * guard would do with it — a classifier that guessed would be inventing evidence
+ * in the direction that makes the count look better.
+ */
+export function sleepGuardRefusal(command: string): string | null {
+  const match = FIXED_SLEEP_PROLOGUE.exec(command);
+  if (!match) return null;
+  const tail = quotedTail(match[2]);
+  if (tail === "") return null;
+  return `Blocked: sleep ${match[1]} followed by: ${tail}. ${SLEEP_GUARD_REMEDY}`;
+}
+
+/** The seconds a refused call committed to before it could look even once. */
+export function committedSleepSeconds(command: string): number | null {
+  const match = FIXED_SLEEP_PROLOGUE.exec(command);
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * When a fixed-sleep-then-look poller first *sees* a subject that becomes ready
+ * `readyAtSeconds` after the wait begins.
+ *
+ * The shape sleeps first and looks second, so it cannot observe anything before
+ * `sleepSeconds` however quickly the subject settles — that is the `max(1, …)`,
+ * and it is the entire economic difference this candidate claims. Observation
+ * only ever lands on a multiple of the interval because every look is preceded
+ * by another full sleep.
+ */
+export function pollingObservationSeconds(readyAtSeconds: number, sleepSeconds: number): number {
+  return Math.max(1, Math.ceil(readyAtSeconds / sleepSeconds)) * sleepSeconds;
+}
+
+/**
+ * When the blocking wait first sees the same subject.
+ *
+ * Same arithmetic minus the prologue: the first attempt happens at zero, so a
+ * subject that is already ready is observed at zero rather than at one interval.
+ */
+export function blockingObservationSeconds(readyAtSeconds: number, everySeconds: number): number {
+  return Math.ceil(readyAtSeconds / everySeconds) * everySeconds;
+}
+
+/**
+ * Does the blocking wait observe no later than the poller, for every readiness
+ * time up to `horizonSeconds`?
+ *
+ * Swept rather than sampled on purpose. The comparison is riggable by choosing a
+ * readiness time — pick one just under a sleep interval and the blocking wait
+ * wins by 44 seconds; pick a multiple of it and the two tie — so the instrument
+ * asks the question over the whole domain and reports the readiness time where
+ * the claim first fails, if it fails anywhere.
+ */
+export function firstReadinessWhereBlockingLoses(
+  sleepSeconds: number,
+  everySeconds = DEFAULT_EVERY_SECONDS,
+  horizonSeconds = 300,
+): number | null {
+  for (let readyAt = 0; readyAt <= horizonSeconds; readyAt++) {
+    if (blockingObservationSeconds(readyAt, everySeconds) > pollingObservationSeconds(readyAt, sleepSeconds)) {
+      return readyAt;
+    }
+  }
+  return null;
+}
+
+/**
+ * Passes the threshold asks for: "five passes that would normally poll a pending
+ * check, using the blocking wait instead".
+ *
+ * A floor rather than a target. The corpus holds eight sightings and the
+ * instrument runs all of them, because choosing which five to run is the one
+ * degree of freedom that could hide a case the wait handles badly.
+ */
+export const REQUIRED_PASSES = 5;
