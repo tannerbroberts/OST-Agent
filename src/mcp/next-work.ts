@@ -9,6 +9,7 @@
  * Purely a reader — it reads the tree + the `.ost-agent/` sidecar and reports.
  * It never mutates, so it carries no commit.
  */
+import { createHash } from "node:crypto";
 import {
   byTitle,
   childrenOfLayer,
@@ -50,6 +51,13 @@ import { readAskLedger } from "../knowledge/asks.js";
 import { pendingAskQueue } from "../ost/pending-asks.js";
 import { omitDisposed, readDispositionLedger, type Withheld } from "../knowledge/dispositions.js";
 import { omitSuppressed, readSuppressionLedger, type SuppressedItem } from "../knowledge/suppressions.js";
+import {
+  sweepContentDigest,
+  sweepDelta,
+  sweepVersion,
+  type SweepCounts,
+  type SweepDelta,
+} from "../ost/sweep-version.js";
 
 export interface UnmappedEvidence {
   id: string;
@@ -369,6 +377,28 @@ export interface NextWork {
   done: boolean;
   summary: string;
   /**
+   * What this sweep found, in one comparable token — hold it, and present it as
+   * `since` on the next call to be told what moved (`src/ost/sweep-version.ts`).
+   *
+   * Derived from the FULL sets and from `scope`, never from the capped lists, so
+   * two equal versions mean two equal outstanding pictures. Equal by `===` and by
+   * nothing else: it is opaque, and a caller that takes it apart is reading a wire
+   * format rather than an answer.
+   */
+  version: string;
+  /**
+   * The comparison against the `since` a caller presented, or the reason there
+   * was none. Present on every response, including when nothing was presented —
+   * a field that appears only when a comparison happened is one a caller has to
+   * remember to miss.
+   *
+   * `delta.state === "unchanged"` is the sentence this whole surface was missing:
+   * a caller that re-reads because it cannot be told the answer is the same is
+   * being careful, not wasteful, and the discipline of reading the sweep once per
+   * pass only becomes reasonable once the sweep can say this.
+   */
+  delta: SweepDelta;
+  /**
    * P2 — evidence captured but not yet distilled into opportunities.
    * May be capped; see {@link NextWork.truncated}.
    *
@@ -638,7 +668,7 @@ function detectHygiene(
    * has to be counted without materializing a list the cap exists to bound.
    */
   inScope: (title: string) => boolean = () => true,
-): { issues: HygieneIssue[]; total: number; excluded: number } {
+): { issues: HygieneIssue[]; total: number; excluded: number; digest: string } {
   const index = byTitle(tree);
 
   // Parsed once per node rather than once per issue. On a duplicated tree one
@@ -660,6 +690,18 @@ function detectHygiene(
   let total = 0;
   let excluded = 0;
   /*
+   * The identity of every counted issue, folded in as it is counted rather than
+   * collected.
+   *
+   * The sweep's `version` has to be exact over the FULL set or `unchanged` is a
+   * lie (see `src/ost/sweep-version.ts`), and this is the one bucket whose full
+   * set is never in memory — on a duplicated tree it is 125,750 issues. Hashing
+   * incrementally keeps the "count everything, materialize a bounded prefix" rule
+   * intact: swapping a hidden issue for a different hidden one moves the digest
+   * without either of them ever being held.
+   */
+  const running = createHash("sha256");
+  /*
    * Count everything, materialize a bounded prefix.
    *
    * `total` is what `done` reads, so suppression has to happen HERE and not
@@ -676,6 +718,7 @@ function detectHygiene(
       return;
     }
     total++;
+    running.update(`${issue.rule} ${issue.title} ${issue.issue}\n`);
     if (issues.length < limit) issues.push(issue);
   };
 
@@ -764,7 +807,7 @@ function detectHygiene(
   // wording scan — the two are the two halves of duplicate detection, and
   // retiring a node clears both for the same reason.
   for (const d of scanExtentOverlap(live)) take(d);
-  return { issues, total, excluded };
+  return { issues, total, excluded, digest: running.digest("hex") };
 }
 
 /**
@@ -1009,6 +1052,13 @@ function capList<T>(list: T[], name: string, into: Truncation[], limit = MAX_ITE
  * the visible window and read as "somebody dealt with it". What the cap governs
  * is display and only display — `done` and every count are taken over the full
  * sets at any limit — so raising it changes what is shown and nothing else.
+ *
+ * `since` is a `version` from an earlier response of this same function, held by
+ * the caller and presented back. It changes nothing about what is computed — the
+ * whole sweep is produced either way — and only adds {@link NextWork.delta},
+ * which says whether the picture moved and which buckets did. It is the caller's
+ * string and is never trusted as more than one: a token this build did not issue
+ * comes back `state: "unreadable"` rather than being interpreted.
  */
 export function computeNextWork(
   vault: Vault,
@@ -1019,6 +1069,7 @@ export function computeNextWork(
   ageOutDays?: number | null,
   listLimit: number = MAX_ITEMS_PER_LIST,
   staleAfterDays?: number | null,
+  since?: string | null,
 ): NextWork {
   // ONE parse. The census is read rather than `readTree()` so the retired
   // accounting Z4 needs comes from the same walk that produced the nodes —
@@ -1429,6 +1480,77 @@ export function computeNextWork(
     allSolutionsMissingInstruments.length === 0 &&
     hygiene.total === 0;
 
+  /*
+   * The version, and the comparison against the one the caller is holding.
+   *
+   * Built from the FULL sets — the same `scoped*`/`all*` values `done` and every
+   * count above were taken over — and never from the capped lists, so raising or
+   * lowering `listLimit` cannot move it. The counts are what make a delta
+   * computable with nothing stored server-side; the digest is what makes
+   * `unchanged` mean an equal picture rather than an equal-sized one.
+   *
+   * `scope` and `min` are in the material because they change what "outstanding"
+   * means: a sweep narrowed to one branch is a different answer to a different
+   * question, and reporting it as unchanged from the whole-tree sweep the caller
+   * holds would be the coarseness this token exists to refuse.
+   */
+  const scopedAgedOutRecords = membership === null ? agedOutRecords : [];
+  const versionCounts: SweepCounts = {
+    unmappedEvidence: scopedUnmappedEvidence.length,
+    agedOutEvidence: agedOutEvidence.count,
+    underservedOpportunities: scopedUnderserved.length,
+    solutionsMissingAssumptions: scopedMissingAssumptions.length,
+    solutionsMissingInstruments: allSolutionsMissingInstruments.length,
+    solutionsAwaitingObservation: allSolutionsAwaitingObservation.length,
+    "assumptionWork.runnable": scopedAssumptionWork.runnable.length,
+    "assumptionWork.awaitingOneCommand": scopedAssumptionWork.awaitingOneCommand.length,
+    "assumptionWork.blockedOnPermission": scopedAssumptionWork.blockedOnPermission.length,
+    "assumptionWork.needsHumans": scopedAssumptionWork.needsHumans.length,
+    outstandingAsks: allOutstandingAsks.length,
+    hygieneIssues: hygiene.total,
+    openUnknowns: scopedOpenUnknowns.length,
+    retiredFromDuplicateScan: allRetired.length,
+    withheldByDisposition: withheld.length,
+    suppressedByCondition: suppressed.length,
+  };
+  /*
+   * A generator, not an array. On the 10,000-node stress fixture these buckets
+   * hold about 10,000 entries between them (4,000 bare solutions, 3,999
+   * uninstrumented tests, 2,000 under-served opportunities), and materializing
+   * that as one array of freshly built strings costs more than the sha256 over
+   * it does. Each item is yielded as a bucket tag and then its own already-built
+   * strings, so nothing here concatenates: the NUL separator between yields is
+   * what keeps `mi:` + a title distinguishable from any other split.
+   */
+  function* versionMaterial(): Generator<string> {
+    yield "scope";
+    yield membership === null ? "" : (target ?? "");
+    yield "min";
+    yield String(min);
+    for (const e of scopedUnmappedEvidence) (yield "ue"), (yield e.id);
+    for (const e of scopedAgedOutRecords) (yield "ao"), (yield e.id);
+    for (const o of scopedUnderserved) (yield "uo"), (yield o.title), (yield String(o.solutions));
+    for (const s of scopedMissingAssumptions) (yield "ma"), (yield s.title);
+    for (const t of allSolutionsMissingInstruments) (yield "mi"), (yield t);
+    for (const t of allSolutionsAwaitingObservation) (yield "sao"), (yield t);
+    for (const t of scopedAssumptionWork.runnable) (yield "aw1"), (yield t);
+    for (const t of scopedAssumptionWork.awaitingOneCommand) (yield "aw2"), (yield t);
+    for (const t of scopedAssumptionWork.blockedOnPermission) (yield "aw3"), (yield t);
+    for (const t of scopedAssumptionWork.needsHumans) (yield "aw4"), (yield t);
+    for (const a of allOutstandingAsks) (yield "ask"), (yield a.test), (yield a.askedAt ?? "");
+    // The one bucket never fully materialized — folded in as it was counted,
+    // inside `detectHygiene`, so a hidden issue swapped for a different hidden
+    // one still moves this digest without either of them being held.
+    yield "hy";
+    yield hygiene.digest;
+    for (const u of scopedOpenUnknowns) (yield "ou"), (yield u.title), (yield u.klass);
+    for (const r of allRetired) (yield "rt"), (yield r.node);
+    for (const w of withheld) (yield "wd"), (yield w.list), (yield w.subject);
+    for (const s of suppressed) (yield "sc"), (yield s.list), (yield s.subject);
+  }
+  const version = sweepVersion(versionCounts, sweepContentDigest(versionMaterial()));
+  const delta = sweepDelta(since, version);
+
   const parts: string[] = [];
   if (scopedUnmappedEvidence.length) parts.push(`${scopedUnmappedEvidence.length} unmapped evidence item(s) → map into #Opportunity nodes`);
   if (scopedUnderserved.length)
@@ -1574,6 +1696,12 @@ export function computeNextWork(
         : ""
       : ` Configured discovery.target ${JSON.stringify(scope.target)} names no Opportunity in this tree, so this sweep ran UNSCOPED over the whole tree — fix or clear discovery.target in ost.config.yaml.`
     : "";
+  // What moved since the caller last looked, in the line a human reads. Only
+  // when a version was actually presented: a sentence about a comparison nobody
+  // asked for on every single response is noise, and noise is how the notes that
+  // do matter above stop being read. `version` itself is a field, not prose —
+  // it is for a machine to hold, not for anyone to read out.
+  const deltaNote = delta.state === "not-asked" ? "" : ` ${delta.note}`;
   const doneLead =
     scope?.resolved === true
       ? `Branch ${JSON.stringify(scope.target)} is fully maintained (${scope.subtreeSize} node(s) in scope) — nothing to do in it.`
@@ -1583,14 +1711,16 @@ export function computeNextWork(
   // can be the only capped lists, and a cap that named nothing would read as amnesty.
   const summary = done
     ? scopedOpenUnknowns.length
-      ? `${doneLead} ${scopedOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}`
-      : `${doneLead}${assumptionNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}`
-    : `${outstandingLead} ${parts.join("; ")}.${assumptionNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${excerptNote}${staleNote}${retirementNote}${agedOutNote}`;
+      ? `${doneLead} ${scopedOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}${deltaNote}`
+      : `${doneLead}${assumptionNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}${deltaNote}`
+    : `${outstandingLead} ${parts.join("; ")}.${assumptionNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${excerptNote}${staleNote}${retirementNote}${agedOutNote}${deltaNote}`;
 
   return {
     framing: DATA_FRAME,
     done,
     summary,
+    version,
+    delta,
     scope,
     unmappedEvidence,
     agedOutEvidence,
