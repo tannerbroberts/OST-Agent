@@ -167,7 +167,15 @@ describe("the selection is structurally human", () => {
     const nextWork = tools.find((t) => (t as unknown as { name: string }).name === "ost_next_work") as unknown as {
       input_schema: { properties: Record<string, unknown>; additionalProperties: boolean };
     };
-    expect(Object.keys(nextWork.input_schema.properties)).toEqual(["evidence"]);
+    // The exact key list rather than a "does not contain `target`" check: a
+    // parameter that narrowed the sweep could be called anything, so the guard
+    // is that every key present has been argued for. `evidence` retrieves ONE
+    // record's body (W7). `since` is a version token this same tool issued; it
+    // changes what the response SAYS ABOUT the sweep and nothing about what the
+    // sweep covers — every list and `done` are computed identically with it and
+    // without it. A parameter that does select a branch has to fail this line
+    // before it can ship.
+    expect(Object.keys(nextWork.input_schema.properties)).toEqual(["evidence", "since"]);
     expect(nextWork.input_schema.additionalProperties).toBe(false);
   });
 });

@@ -3127,9 +3127,45 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,966 tests across 311 files, verified 2026-08-28 (`npx vitest run`
-> reports 3,958 of them, all passing; the other 8 are the contended calibration file
-> described below).
+> *Today:* **met** — 3,977 tests across 312 files, verified 2026-08-28 (`npx vitest run`
+> reports 3,969 of them; the other 8 are the contended calibration file described below).
+> **Eleven of the 3,969 read red on the verifying run, every one of them a wall clock and
+> not an assertion, and the control says so rather than the excuse does.** The same
+> `npx vitest run` at the parent commit `2546bbb`, in a detached worktree on the same
+> machine, fails the SAME eleven — `test/ost/vault-merge-conflict-census.test.ts` (6, all
+> "timed out in 20000ms"), `test/adapters/ingest-backpressure-provenance.test.ts`,
+> `test/cli/channels.test.ts`, `test/cli/claim.test.ts`,
+> `test/loop/inherited-tree-build-check.test.ts` (41.7 s against a 30 s bound) and
+> `test/mcp/wall-clock-budget.test.ts`. The last one is the sharpest control available:
+> it reads **2489 ms at the parent commit and 2047 ms with this branch's change applied**,
+> against a 2000 ms bound — the branch is on the fast side of a gate it is accused of
+> breaking. Named alone on a quiet machine all eleven pass. The mechanism is the one this
+> document already records two criteria down: vitest forks one worker per logical CPU, this
+> box is a 4P+6E Apple M4, and the identical `computeNextWork` call reads 249–267 ms with
+> the performance cores free and ~1,400 ms with them held. **What this means for the merge
+> gate is worse than it looks:** `ost-agent ship` runs `npx vitest run` verbatim
+> (`CORE_GATES`, `src/release/ship.ts`), so on this machine the ship gate is red on `main`
+> ITSELF and refuses every branch regardless of what the branch contains. That is a
+> standing blocker for the unattended build loop, not a property of any one change, and it
+> belongs to "A test that failed because the machine was busy looks exactly like one that
+> failed because I broke something".
+> After "One sweep per pass by contract, and a pass that re-reads must say what changed" was
+> given its definition of done: `ost_next_work` now returns a `version` — a token derived
+> from the FULL sets behind every bucket, never from the capped lists — and accepts an
+> optional `since`, so a caller holding an earlier version is told `delta.state:
+> "unchanged"`, or `changed` with `moved` naming each bucket and by how much, instead of
+> having to re-read the whole answer to find out. `test/mcp/sweep-version-and-delta.test.ts`,
+> 11 tests, one new file, taken through the real MCP tool. **The exactness is the whole
+> claim and the counts alone could not carry it:** a version built from bucket sizes reports
+> "unchanged" over a picture that has entirely turned over, so the token also carries a
+> digest over every item's identity — including `hygieneIssues`, the one bucket never fully
+> materialized, folded in incrementally as `detectHygiene` counts it so swapping one hidden
+> issue for another still moves the version. The measured cost of that on the 10,000-node
+> stress fixture is 32 ms (14 ms for the ~10,000-entry material, 18 ms for 17,998 hygiene
+> updates) against a ~1,500 ms call. What a green does NOT settle is the test's own
+> question — whether the 82 re-reads on the day this was measured caught anything the caller
+> did not already know. That is a person's read of a historical trace, and it is also not
+> settled that a caller GIVEN `since` will use it.
 > After "Nonzero exit code and failure summary when a pass errors" was given its definition
 > of done: a firing that seals `unhealthy` or `crashed` prints a failure summary on
 > **stderr** — the channel this loop already reserves for what a cron must not scroll past
