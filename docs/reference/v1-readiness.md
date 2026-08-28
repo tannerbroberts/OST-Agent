@@ -3129,26 +3129,35 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
 > *Today:* **met** — 3,977 tests across 312 files, verified 2026-08-28 (`npx vitest run`
 > reports 3,969 of them; the other 8 are the contended calibration file described below).
-> **Eleven of the 3,969 read red on the verifying run, every one of them a wall clock and
-> not an assertion, and the control says so rather than the excuse does.** The same
+> **Ten of the 3,969 read red on the verifying run, every one of them a wall clock and not
+> an assertion, and a control run says so rather than the excuse does.** The same
 > `npx vitest run` at the parent commit `2546bbb`, in a detached worktree on the same
-> machine, fails the SAME eleven — `test/ost/vault-merge-conflict-census.test.ts` (6, all
+> machine, fails ELEVEN — a superset: `test/ost/vault-merge-conflict-census.test.ts` (6, all
 > "timed out in 20000ms"), `test/adapters/ingest-backpressure-provenance.test.ts`,
-> `test/cli/channels.test.ts`, `test/cli/claim.test.ts`,
-> `test/loop/inherited-tree-build-check.test.ts` (41.7 s against a 30 s bound) and
-> `test/mcp/wall-clock-budget.test.ts`. The last one is the sharpest control available:
-> it reads **2489 ms at the parent commit and 2047 ms with this branch's change applied**,
-> against a 2000 ms bound — the branch is on the fast side of a gate it is accused of
-> breaking. Named alone on a quiet machine all eleven pass. The mechanism is the one this
-> document already records two criteria down: vitest forks one worker per logical CPU, this
-> box is a 4P+6E Apple M4, and the identical `computeNextWork` call reads 249–267 ms with
-> the performance cores free and ~1,400 ms with them held. **What this means for the merge
-> gate is worse than it looks:** `ost-agent ship` runs `npx vitest run` verbatim
-> (`CORE_GATES`, `src/release/ship.ts`), so on this machine the ship gate is red on `main`
-> ITSELF and refuses every branch regardless of what the branch contains. That is a
-> standing blocker for the unattended build loop, not a property of any one change, and it
-> belongs to "A test that failed because the machine was busy looks exactly like one that
-> failed because I broke something".
+> `test/cli/claim.test.ts`, `test/loop/inherited-tree-build-check.test.ts` (41.7 s against a
+> 30 s bound), `test/mcp/wall-clock-budget.test.ts`, and `test/cli/channels.test.ts`, which
+> is red at the parent and green here. Named alone on a quiet machine all of them pass.
+> **The margin is smaller than the run-to-run spread, and that is the finding.**
+> `test/mcp/wall-clock-budget.test.ts` asserts `ost_next_work` under 2000 ms and reads
+> **2489 ms at the parent commit; 2181, 2047 and 2375 ms across three full-suite runs of
+> THIS branch** — three readings of one unchanged binary spanning 328 ms, against a bound
+> the fastest of them misses by 47 ms. A gate whose noise exceeds its margin cannot
+> attribute, which is the whole complaint. The mechanism is the one this document already
+> records two criteria down: vitest forks one worker per logical CPU, this box is a 4P+6E
+> Apple M4, and the identical `computeNextWork` call reads 249–267 ms with the performance
+> cores free and ~1,400 ms with them held. The branch's own contribution was measured
+> directly rather than inferred from these numbers — 32 ms, below — which is a tenth of the
+> spread. **What this means for the merge gate is worse than it looks:** `ost-agent ship`
+> runs `npx vitest run` verbatim (`CORE_GATES`, `src/release/ship.ts`), so on this machine
+> the ship gate is red on `main` ITSELF and refuses every branch regardless of what the
+> branch contains. That is a standing blocker for the unattended build loop, not a property
+> of any one change, and it belongs to "A test that failed because the machine was busy
+> looks exactly like one that failed because I broke something". `vitest.config.ts` already
+> holds the repair this repository chose for exactly this class — `CONTENDED`, a file that
+> runs only when named, argued from "Run the timed check under isolation, or do not let it
+> fail the build at all" — and applying it to these six files is a decision about the shape
+> of the suite that has not been made here, deliberately: it is not this criterion's, and
+> it would ride on an unrelated change.
 > After "One sweep per pass by contract, and a pass that re-reads must say what changed" was
 > given its definition of done: `ost_next_work` now returns a `version` — a token derived
 > from the FULL sets behind every bucket, never from the capped lists — and accepts an
