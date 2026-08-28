@@ -271,6 +271,18 @@ async function runCensus(local: FixtureNode[], peer: FixtureNode[], extra?: Reco
  * at 20s beside 294 other files — twice on 2026-08-22, and a sibling in this same
  * file on the run before). Sharing the result is the repair that costs no
  * assertion; nothing here mutates what it returns.
+ *
+ * **Three callers now, because fixing two of them left the third holding the
+ * problem.** "which side ran the exchange…" ran two private exchanges and became
+ * the heaviest test in turn — 6.3s idle, timing out at 20s in a full run on
+ * `main` on 2026-08-28. Its forward direction is this exchange, so it takes it
+ * from here and pays only for the reversed one. The general lesson, since this is
+ * twice: an exchange written privately in a test in THIS file is a 3s bill and a
+ * share of the cap, and the default should be to reach for this function.
+ *
+ * A caller must not sort what it returns in place. `Array.sort` mutates, the
+ * object is shared, and a reordered field is the one way this optimisation could
+ * change another test's meaning.
  */
 let plainExchange: Promise<MergeCensus> | undefined;
 function baselineCensus(): Promise<MergeCensus> {
@@ -338,10 +350,22 @@ describe("peer exchange — counting the conflicts a person has to settle", () =
 
   test("which side ran the exchange does not change the partition", async () => {
     const { local, peer } = diverge(seedTree());
-    const ours = await runCensus(local, peer);
+    // The forward direction IS the plain exchange, so it is the shared one — the
+    // same repair `baselineCensus` above was written for, applied to the test that
+    // inherited the problem when its sibling gave it up. This ran two full
+    // exchanges (four `git init`s over sixty files, two scratch merges over fifty
+    // conflicts) and was the file's most expensive test at 6.3s idle; beside 308
+    // other files it crossed the 20s cap and timed out, on `main` as well as on
+    // the branch that found it. Only the REVERSED direction is unique to this
+    // test, and only it is still paid for. No assertion changes: `censusPeerMerge`
+    // writes to neither vault and the fixture is deterministic, so the shared
+    // result is the same object the private call built.
+    const ours = await baselineCensus();
     const theirs = await runCensus(peer, local);
 
-    expect(theirs.conflicted.sort()).toEqual(ours.conflicted.sort());
+    // Copied before sorting, because `ours` is now shared and `Array.sort` is in
+    // place: sorting it here would reorder a field another test reads.
+    expect([...theirs.conflicted].sort()).toEqual([...ours.conflicted].sort());
     expect(theirs.judgement.map((j) => j.file).sort()).toEqual(ours.judgement.map((j) => j.file).sort());
     expect(theirs.settled.map((s) => s.file).sort()).toEqual(ours.settled.map((s) => s.file).sort());
   });

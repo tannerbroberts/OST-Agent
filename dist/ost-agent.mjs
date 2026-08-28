@@ -31308,6 +31308,11 @@ var EvidenceSchema = external_exports.object({
   ageOutDays: external_exports.number().int().positive().nullish(),
   staleAfterDays: external_exports.number().int().positive().nullish()
 }).nullish();
+var SurfaceProfileSchema = external_exports.object({
+  tools: external_exports.array(external_exports.string()).default([]),
+  denied: external_exports.array(external_exports.string()).default([])
+});
+var SurfacesSchema = external_exports.record(external_exports.string(), SurfaceProfileSchema).default({});
 var LoopSchema = external_exports.object({
   /** How often this vault may fire: `"30m"`, `"6h"`, `"1d"`. Absent ⇒ never. */
   cadence: external_exports.string().nullish(),
@@ -31334,6 +31339,7 @@ var ConfigSchema = external_exports.object({
     actions: ActionsSchema
   }).default({}),
   processes: external_exports.record(external_exports.string(), ProcessSchema).default({}),
+  surfaces: SurfacesSchema,
   web: WebSchema,
   product: ProductSchema,
   discovery: DiscoverySchema,
@@ -31406,6 +31412,22 @@ product:
 processes:
   P3_ideate:
     minSolutionsPerOpportunity: ${DEFAULT_MIN_SOLUTIONS_PER_OPPORTUNITY}   # how many candidate solutions an opportunity needs before \`ost_next_work\` stops calling it under-served
+
+# surfaces:                # what each surface a pass runs on is MEANT to grant, pinned here rather than
+                            # inherited from whichever wrapper launched the run. \`ost-agent surface-profile
+                            # --surface <name>\` resolves one; \`ost-agent required-tools --surface <name>\`
+                            # checks a pass's declared-required tools against it instead of repeating the list.
+#   unattended:
+#     tools: [mcp__ost-agent__ost_next_work, mcp__ost-agent__ost_create_node]
+#     denied: [Bash, Edit, Write]      # deny beats allow, so this is the ceiling, not a comment
+#   attended:
+#     tools: [mcp__plugin_ost-agent_ost-agent__ost_next_work]
+                            # An argument on a BUILT-IN is a real narrowing \u2014 \`Glob(/repo/**)\` is a rule
+                            # Claude Code enforces. An argument on an MCP tool is NOT: a host matches those
+                            # on the tool name alone, so \`ost_append_to_node(## Results)\` would be a rule
+                            # matching nothing beside a tool handed over whole. That entry is refused rather
+                            # than resolved \u2014 a profile claiming a narrowing it cannot keep is worse than no
+                            # profile. (Reserved headings are already refused at the tool layer regardless.)
 
 # discovery:
 #   target: "Some opportunity title"   # focus the discovery pass on ONE opportunity's branch (Torres's
@@ -59375,6 +59397,106 @@ function checkRequiredTools(opts) {
   };
 }
 
+// src/config/surface-profile.ts
+function isSurfaceProfileProblem(r2) {
+  return "problem" in r2;
+}
+function isMcpTool(tool2) {
+  return tool2.startsWith("mcp__");
+}
+function unsupportedRestriction(rule) {
+  if (rule.argument === null || !isMcpTool(rule.tool)) return null;
+  const heading = RESERVED_HEADINGS.find((h2) => rule.argument.includes(h2) || h2.includes(rule.argument.trim()));
+  return {
+    entry: rule.entry,
+    tool: rule.tool,
+    argument: rule.argument,
+    reason: `an MCP permission rule matches on the tool name only \u2014 there is no argument specifier a host honours, so "${rule.entry}" is not a narrower grant of ${rule.tool}. It is a rule that matches nothing, beside a tool the surface hands over whole.`,
+    enforcedBy: heading === void 0 ? null : `src/ost/headings.ts \u2014 "${heading}" is a RESERVED_HEADING, refused at the tool layer on a parameter no tool call can reach, so this restriction already holds on every surface and needs no grant to carry it`
+  };
+}
+function resolveSurfaceProfile(config2, name) {
+  const profile = config2.surfaces[name];
+  if (profile === void 0) {
+    const declared = Object.keys(config2.surfaces).sort();
+    return {
+      problem: declared.length === 0 ? `no surface profiles are declared in ost.config.yaml, so "${name}" names nothing. Add a \`surfaces:\` block pinning what each surface is meant to grant \u2014 resolving an undeclared profile to an empty tool set would clear a run against a surface nobody described.` : `no surface profile named "${name}" \u2014 ost.config.yaml declares ${declared.join(", ")}.`
+    };
+  }
+  const tools = profile.tools.map(parseRule);
+  const denied = profile.denied.map(parseRule);
+  const unsupported = tools.concat(denied).map(unsupportedRestriction).filter((u) => u !== null);
+  const cancelled = tools.filter((t2) => denied.some((d) => ruleCovers(d, t2)));
+  return { name, tools, denied, cancelled, unsupported, usable: unsupported.length === 0 };
+}
+var SURFACE_PROFILE_EXIT = {
+  cleared: 0,
+  /** The profile declares a restriction no permission rule can carry. */
+  unsupportedRestriction: 40,
+  /** No profile by that name. */
+  unknownProfile: 41
+};
+var PROFILE_CAVEAT = "NOT checked: whether the host actually grants this. A profile is what a surface is MEANT to have \u2014 if it says a surface has a tool the host withholds, the config is now confidently wrong rather than silently wrong, which is an improvement and not a reconciliation.";
+function renderSurfaceProfile(resolution) {
+  const cancelled = resolution.cancelled.length === 0 ? [] : [
+    "",
+    `Granted and denied by the same profile (${resolution.cancelled.length}) \u2014 deny beats allow, so these are not grants:`,
+    ...resolution.cancelled.map((r2) => `  ${r2.entry}`)
+  ];
+  if (resolution.usable) {
+    return [
+      `surface "${resolution.name}": ${resolution.tools.length} tool(s) granted, ${resolution.denied.length} denied.`,
+      ...cancelled,
+      "",
+      PROFILE_CAVEAT
+    ].join("\n");
+  }
+  const lines = [
+    `surface "${resolution.name}" IS NOT USABLE: ${resolution.unsupported.length} declared restriction(s) cannot be carried by a permission rule.`,
+    ""
+  ];
+  for (const u of resolution.unsupported) {
+    lines.push(`  ${u.entry}`);
+    lines.push(`    ${u.reason}`);
+    lines.push(
+      u.enforcedBy === null ? `    Nothing enforces this restriction. Drop the argument and grant ${u.tool} outright, or withhold it.` : `    Already enforced, elsewhere: ${u.enforcedBy}. Drop the argument \u2014 the grant is not where this lives.`
+    );
+    lines.push("");
+  }
+  lines.push(
+    "Resolving this profile anyway would report a narrowed surface and hand over an unnarrowed one, which is the",
+    "false assurance a pinned profile exists to remove. Nothing was granted, denied or written.",
+    ...cancelled,
+    "",
+    PROFILE_CAVEAT
+  );
+  return lines.join("\n");
+}
+function checkSurfaceProfile(config2, name) {
+  const resolved2 = resolveSurfaceProfile(config2, name);
+  if (isSurfaceProfileProblem(resolved2)) {
+    return {
+      exitCode: SURFACE_PROFILE_EXIT.unknownProfile,
+      report: `surface profile COULD NOT RESOLVE: ${resolved2.problem} That is not a cleared run.`,
+      resolution: null
+    };
+  }
+  return {
+    exitCode: resolved2.usable ? SURFACE_PROFILE_EXIT.cleared : SURFACE_PROFILE_EXIT.unsupportedRestriction,
+    report: renderSurfaceProfile(resolved2),
+    resolution: resolved2
+  };
+}
+function profileGrants(resolution) {
+  if (!resolution.usable) {
+    throw new Error(
+      `surface profile "${resolution.name}" declares a restriction no permission rule can carry, so it has no flat grant list \u2014 flattening it would drop the restriction silently.`
+    );
+  }
+  const cancelled = new Set(resolution.cancelled.map((r2) => r2.entry));
+  return resolution.tools.filter((t2) => !cancelled.has(t2.entry)).map((t2) => t2.entry);
+}
+
 // src/runner/tool-surface-preflight.ts
 import fs54 from "node:fs";
 
@@ -64981,15 +65103,44 @@ program2.command("grants").description("name every tool a run's instructions dec
 program2.command("required-tools").description("refuse to begin a pass whose declared-required tools are not on the surface it would fire with").requiredOption(
   "--pass <file>",
   "the SKILL.md (or command file) declaring `allowed-tools` and the `required-tools` subset it cannot start without"
-).requiredOption(
+).option(
   "--available <csv>",
   "the tools the run will actually be able to call \u2014 the same string handed to `--allowedTools`"
-).action((opts) => {
-  const check2 = checkRequiredTools({
-    passFile: path75.resolve(opts.pass),
-    available: opts.available.split(",").map((t2) => t2.trim()).filter(Boolean)
-  });
+).option(
+  "--surface <name>",
+  "read the tools from the named profile in the vault's `surfaces:` block instead of repeating them here"
+).option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
+  if (opts.available === void 0 === (opts.surface === void 0)) {
+    console.error(
+      "required-tools COULD NOT RUN: give exactly one of --available (the tools verbatim) or --surface (a profile name from the vault's `surfaces:` block). That is not a cleared run."
+    );
+    process.exitCode = REQUIRED_TOOLS_EXIT.undeclared;
+    return;
+  }
+  let available;
+  if (opts.surface !== void 0) {
+    const profile = checkSurfaceProfile(loadConfig(opts.vault), opts.surface);
+    if (profile.exitCode !== SURFACE_PROFILE_EXIT.cleared || profile.resolution === null) {
+      console.error(profile.report);
+      process.exitCode = profile.exitCode;
+      return;
+    }
+    available = profileGrants(profile.resolution);
+  } else {
+    available = opts.available.split(",").map((t2) => t2.trim()).filter(Boolean);
+  }
+  const check2 = checkRequiredTools({ passFile: path75.resolve(opts.pass), available });
   if (check2.exitCode === REQUIRED_TOOLS_EXIT.cleared) console.log(check2.report);
+  else {
+    console.error(check2.report);
+    process.exitCode = check2.exitCode;
+  }
+});
+program2.command("surface-profile").description(
+  "resolve one named surface from the vault's `surfaces:` block \u2014 what it is MEANT to grant, and every restriction it declared that no permission rule can carry"
+).requiredOption("--surface <name>", "the profile name, as written under `surfaces:` in ost.config.yaml").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
+  const check2 = checkSurfaceProfile(loadConfig(opts.vault), opts.surface);
+  if (check2.exitCode === SURFACE_PROFILE_EXIT.cleared) console.log(check2.report);
   else {
     console.error(check2.report);
     process.exitCode = check2.exitCode;

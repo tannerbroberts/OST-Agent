@@ -68,7 +68,7 @@ import { spawnSync } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import { Command } from "commander";
 import { buildPassContext } from "../runner/context.js";
-import { readConfig } from "../config/load.js";
+import { loadConfig, readConfig } from "../config/load.js";
 import { diagnoseSetup, formatSetupDiagnosis } from "../config/setup-check.js";
 import { ailingChannels, allChannels, channelHealth, FRICTION_CHANNEL_PATH, renderChannels } from "../adapters/channels.js";
 import { initVault } from "../runner/init.js";
@@ -186,6 +186,7 @@ import { gitCommit } from "../git/safe-git.js";
 import { runAllowlistGenerator } from "../security/allowlist-generator.js";
 import { runGrantPreflight } from "../runner/grant-preflight.js";
 import { REQUIRED_TOOLS_EXIT, checkRequiredTools } from "../mcp/required-tools.js";
+import { SURFACE_PROFILE_EXIT, checkSurfaceProfile, profileGrants } from "../config/surface-profile.js";
 import { TOOL_SURFACE_PREFLIGHT_EXIT, checkToolSurfaces } from "../runner/tool-surface-preflight.js";
 import { discoverShippedHelpers, generatedHelper, shebangInterpreter, type Helper } from "../runner/bash-compat-lint.js";
 import { PRE_COMMIT_HOOK } from "../git/conflict-guard.js";
@@ -2721,20 +2722,68 @@ program
     "--pass <file>",
     "the SKILL.md (or command file) declaring `allowed-tools` and the `required-tools` subset it cannot start without",
   )
-  .requiredOption(
+  .option(
     "--available <csv>",
     "the tools the run will actually be able to call — the same string handed to `--allowedTools`",
   )
-  .action((opts: { pass: string; available: string }) => {
-    const check = checkRequiredTools({
-      passFile: path.resolve(opts.pass),
-      available: opts.available.split(",").map((t) => t.trim()).filter(Boolean),
-    });
+  .option(
+    "--surface <name>",
+    "read the tools from the named profile in the vault's `surfaces:` block instead of repeating them here",
+  )
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((opts: { pass: string; available?: string; surface?: string; vault: string }) => {
+    // Exactly one source for the surface, and no default between them. Both
+    // given is an operator who thinks one of the two is being used and cannot
+    // tell which; neither given is a check with nothing to check against, and
+    // reading that as an empty surface would refuse every run rather than the
+    // ones this command exists to refuse.
+    if ((opts.available === undefined) === (opts.surface === undefined)) {
+      console.error(
+        "required-tools COULD NOT RUN: give exactly one of --available (the tools verbatim) or --surface (a profile " +
+          "name from the vault's `surfaces:` block). That is not a cleared run.",
+      );
+      process.exitCode = REQUIRED_TOOLS_EXIT.undeclared;
+      return;
+    }
+    let available: string[];
+    if (opts.surface !== undefined) {
+      const profile = checkSurfaceProfile(loadConfig(opts.vault), opts.surface);
+      if (profile.exitCode !== SURFACE_PROFILE_EXIT.cleared || profile.resolution === null) {
+        console.error(profile.report);
+        process.exitCode = profile.exitCode;
+        return;
+      }
+      available = profileGrants(profile.resolution);
+    } else {
+      available = opts.available!.split(",").map((t) => t.trim()).filter(Boolean);
+    }
+    const check = checkRequiredTools({ passFile: path.resolve(opts.pass), available });
     // Two non-zero codes, and neither means "go ahead": `missingRequired` is a run
     // that must not start, `undeclared` is a check that could not be made — which
     // is also not a cleared run, and a wrapper collapsing the two into one would
     // lose exactly the distinction this command exists to draw.
     if (check.exitCode === REQUIRED_TOOLS_EXIT.cleared) console.log(check.report);
+    else {
+      console.error(check.report);
+      process.exitCode = check.exitCode;
+    }
+  });
+
+program
+  .command("surface-profile")
+  .description(
+    "resolve one named surface from the vault's `surfaces:` block — what it is MEANT to grant, and every " +
+      "restriction it declared that no permission rule can carry",
+  )
+  .requiredOption("--surface <name>", "the profile name, as written under `surfaces:` in ost.config.yaml")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((opts: { surface: string; vault: string }) => {
+    const check = checkSurfaceProfile(loadConfig(opts.vault), opts.surface);
+    // Two non-zero codes, and neither means "this surface is fine": 40 is a
+    // profile that claims a narrowing it cannot enforce, 41 is a name that
+    // resolves to nothing. A wrapper that read either as a grant would act on a
+    // surface nobody described.
+    if (check.exitCode === SURFACE_PROFILE_EXIT.cleared) console.log(check.report);
     else {
       console.error(check.report);
       process.exitCode = check.exitCode;
