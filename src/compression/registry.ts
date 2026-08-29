@@ -390,6 +390,19 @@ export const COMPRESSION_SURFACES = [
     proof: "behavioral",
   },
   {
+    name: "friction-surface report id lists",
+    module: "src/telemetry/friction-surface.ts",
+    caps: ["MAX_IDS_SHOWN"],
+    kind: "bounded-output",
+    decision: "which harvested friction records the surface rule filed and which it only counted",
+    reads: [
+      "every count in the report is taken over the full set, never over the ids the line happens to show",
+      "a clipped list says how many more there are, so a reader can tell a short list from a squeezed one",
+    ],
+    drops: "dropped-count",
+    proof: "behavioral",
+  },
+  {
     name: "hand-exclusion command clip",
     module: "src/telemetry/hand-exclusion.ts",
     caps: ["MAX_COMMAND_CHARS"],

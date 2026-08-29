@@ -147,6 +147,9 @@ import {
   readKnownFriction, windowEndingOn,
 } from "../telemetry/log-only-friction.js";
 import {
+  formatFrictionSurfaceReplay, frictionSurfaceReplay, readFrictionRecords, type JudgedRecord,
+} from "../telemetry/friction-surface.js";
+import {
   formatRefusalCoverageCensus, refusalCoverageCensus,
 } from "../telemetry/refusal-coverage.js";
 import {
@@ -1904,6 +1907,43 @@ program
     // subject, and an automation has to learn that through the exit code rather than
     // off a report whose recall line reads 0/0.
     if (census.derivation.events === 0 || census.recall === null) process.exitCode = 1;
+  });
+
+program
+  .command("friction-surface")
+  .description(
+    "which harvested friction records touch this product's own surface and which are only counted — " +
+      "the census behind filtering the friction channel by what the failing call was against",
+  )
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option(
+    "--judgement <file>",
+    "a JSON file of `{id, need, note}` rows saying which records a human read as carrying a product need. " +
+      "Without one the rule reports what it would file and count; with one it is scored against a reading " +
+      "nobody derived from the records.",
+  )
+  .action((opts: { vault: string; judgement?: string }) => {
+    // Not `buildPassContext`, on `exclusions`' precedent: this reads a folder and
+    // answers a question about it, and a Vault handle would create the directory a
+    // mistyped path names.
+    const vault = path.resolve(opts.vault);
+    const records = readFrictionRecords(evidenceDirOf(vault));
+
+    let judgement: JudgedRecord[] = [];
+    if (opts.judgement) {
+      const parsed: unknown = JSON.parse(fs.readFileSync(path.resolve(opts.judgement), "utf8"));
+      judgement = Array.isArray(parsed) ? (parsed as JudgedRecord[]) : ((parsed as { records?: JudgedRecord[] }).records ?? []);
+    }
+
+    const replay = frictionSurfaceReplay(records, judgement);
+    console.log(formatFrictionSurfaceReplay(replay));
+    // Reading no harvested record is not "the channel is clean" — it is a sweep
+    // that could not read its subject, and an automation has to learn that
+    // through the exit code rather than off a report saying 0 filed, 0 counted.
+    // A judgement that matched no record is the same failure one step later.
+    if (records.length === 0 || (judgement.length > 0 && !replay.keeps.scored && !replay.drops.scored)) {
+      process.exitCode = 1;
+    }
   });
 
 program

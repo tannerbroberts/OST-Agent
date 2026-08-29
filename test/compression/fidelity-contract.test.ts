@@ -58,6 +58,11 @@ import { fileFriction } from "../../src/adapters/friction.js";
 import { UNKNOWN_ACTOR } from "../../src/adapters/source.js";
 import { DATA_FRAME } from "../../src/security/framing.js";
 import { buildLargeTree } from "../ost/fixture-vault.js";
+import {
+  formatFrictionSurfaceReplay,
+  frictionSurfaceReplay,
+  MAX_IDS_SHOWN,
+} from "../../src/telemetry/friction-surface.js";
 
 /**
  * The three fields `fileFriction` now demands. Spread into filings whose subject is
@@ -239,6 +244,7 @@ const DRIVEN_SURFACES = [
   "computed rollup",
   "evidence body channel",
   "failed-match site excerpt",
+  "friction-surface report id lists",
   "next-work sweep",
   "ruleset proposal bound",
   "tree read",
@@ -495,5 +501,35 @@ describe("fidelity — the behavioral surfaces preserve their declared reads", (
     expect(file, "a clipped excerpt is still verbatim — it is the retry's quote").toContain(big.site.text);
     const rendered = renderIntendedSite(big, "f.ts");
     expect(rendered).toContain(`first ${MAX_SITE_LINES} of ${big.site.linesQuoted} lines`);
+  });
+
+  test("friction-surface report: every count is over the full set, and a clipped list says how many more", () => {
+    // The decision this bound serves is "which of my friction records got
+    // filed", so the contract is that the *counts* never move with the cap — a
+    // reader who acts on "197 filed" must not be reading the length of a list
+    // that was squeezed to fit a line.
+    const filed = (n: number) => ({
+      id: `USAGE:${String(n).padStart(3, "0")}`,
+      file: `USAGE_${n}.md`,
+      kind: "usage" as const,
+      truncated: false,
+      events: [{ kind: "tool_error", tool: "ost_annotate", detail: "no such node", command: "" }],
+    });
+
+    // Control, small: a list inside the cap is printed whole and reports no
+    // remainder, so the machinery cannot claim a squeeze that never happened.
+    const few = Array.from({ length: 3 }, (_, i) => filed(i));
+    const smallReport = formatFrictionSurfaceReplay(frictionSurfaceReplay(few, []));
+    expect(smallReport).toContain("3 record(s) — 3 filed, 0 counted, 0 discarded");
+    expect(smallReport).not.toContain("more");
+
+    // Control, large: past the cap the line IS squeezed, and both numbers
+    // survive — the headline count over the full set, and the remainder.
+    const many = Array.from({ length: MAX_IDS_SHOWN + 12 }, (_, i) => filed(i));
+    const bigReport = formatFrictionSurfaceReplay(frictionSurfaceReplay(many, []));
+    expect(bigReport).toContain(`${many.length} record(s) — ${many.length} filed`);
+    expect(bigReport).toContain("… and 12 more");
+    // The shown ids are the leading ones, verbatim — not a re-ordered sample.
+    expect(bigReport).toContain(many.slice(0, MAX_IDS_SHOWN).map((r) => r.id).join(", "));
   });
 });

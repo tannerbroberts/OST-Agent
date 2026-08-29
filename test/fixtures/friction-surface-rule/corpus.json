@@ -1,0 +1,9 @@
+{
+  "vault": "/Users/tanner/ost-agent-meta",
+  "rev": "32a44d7482d69136664d5310cbb7982d83e61a36",
+  "revCommittedAt": "2026-08-02T12:58:52-05:00",
+  "evidenceDir": ".ost-agent/evidence",
+  "records": 29,
+  "transcripts": 26,
+  "usage": 3
+}
