@@ -31258,14 +31258,18 @@ var FederatedSchema = external_exports.object({
   enabled: external_exports.boolean().default(false),
   discourseHosts: external_exports.array(external_exports.string()).max(5).default([])
 }).default({ enabled: false, discourseHosts: [] });
+var BraveSchema = external_exports.object({
+  enabled: external_exports.boolean().default(false)
+}).default({ enabled: false });
+var SearchSchema = external_exports.object({ federated: FederatedSchema, brave: BraveSchema }).default({ federated: { enabled: false, discourseHosts: [] }, brave: { enabled: false } });
 var WebSchema = external_exports.object({
   lookupBudget: external_exports.number().int().positive().default(10),
   lookupRefillPerHour: external_exports.number().int().nonnegative().default(10),
-  search: external_exports.object({ federated: FederatedSchema }).default({ federated: { enabled: false, discourseHosts: [] } })
+  search: SearchSchema
 }).default({
   lookupBudget: 10,
   lookupRefillPerHour: 10,
-  search: { federated: { enabled: false, discourseHosts: [] } }
+  search: { federated: { enabled: false, discourseHosts: [] }, brave: { enabled: false } }
 });
 var ProductSchema = external_exports.object({
   repos: external_exports.array(external_exports.string()).default([])
@@ -31425,6 +31429,13 @@ web:
                             # Leave off if your host has search \u2014 ost_search_web will tell
                             # the agent to use it, which is better than these sources.
       discourseHosts: []    # e.g. [forum.obsidian.md]
+    brave:
+      enabled: false        # bring-your-own-key search, and OFF until you say otherwise.
+                            # Holding BRAVE_SEARCH_API_KEY is not the same as asking this
+                            # vault to spend it: a key another tool exported would otherwise
+                            # make a keyless run call out to api.search.brave.com. Turn this
+                            # on and the key is used; leave it off and ost_search_web says so
+                            # and delegates to your host's own search.
 
 product:
   repos: []                 # local repo paths the agent may READ (read-only) to ground ideas in what the product is
@@ -41079,8 +41090,9 @@ function braveProvider(apiKey, transport) {
     })
   };
 }
-function searchDelegationMessage(query) {
-  return `Use your own web search tool to find candidate URLs for "${query}", then call ost_read_web on each one \u2014 that is what fetches the page and records provenance as WEB:<host>, so traceability is identical either way. (This server has no search provider of its own, which is the normal setup \u2014 nothing is broken and nothing needs installing.)`;
+function searchDelegationMessage(query, credentialHeldButOff = false) {
+  const why = credentialHeldButOff ? "(A Brave search credential IS held, but `web.search.brave.enabled` is false in ost.config.yaml, so nothing here will spend it \u2014 bring-your-own-key stays off until you turn it on. Set that to true if you want this vault searching on your key.)" : "(This server has no search provider of its own, which is the normal setup \u2014 nothing is broken and nothing needs installing.)";
+  return `Use your own web search tool to find candidate URLs for "${query}", then call ost_read_web on each one \u2014 that is what fetches the page and records provenance as WEB:<host>, so traceability is identical either way. ${why}`;
 }
 
 // src/web/guard.ts
@@ -41915,7 +41927,7 @@ function transcriptDirs(vaultDir, config2) {
   return dirs;
 }
 function resolveSearchProvider(config2, credentials) {
-  if (credentials.broker.holds(CREDENTIAL_SEARCH)) {
+  if (config2.web.search.brave.enabled && credentials.broker.holds(CREDENTIAL_SEARCH)) {
     return braveProvider(
       credentials.broker.handle(CREDENTIAL_SEARCH),
       brokeredFetch(credentials.broker, ASKER_SEARCH)
@@ -42089,7 +42101,17 @@ function buildPassContext(vaultDir, opts = {}) {
     // remaining job (does search have a credential at all?) and is worth nothing
     // to anyone who reads it.
     web: {
-      searchApiKey: credentials.broker.holds(CREDENTIAL_SEARCH) ? credentials.broker.handle(CREDENTIAL_SEARCH) : void 0,
+      // Gated on the same opt-in as the provider, and it has to be: `ost_search_web`
+      // falls back to building a Brave provider straight off this field when
+      // `provider` is absent, so a handle exposed here while `brave.enabled` is
+      // false would route around the flag and spend the key anyway.
+      searchApiKey: config2.web.search.brave.enabled && credentials.broker.holds(CREDENTIAL_SEARCH) ? credentials.broker.handle(CREDENTIAL_SEARCH) : void 0,
+      // A key that is held but switched off is the one state worth narrating.
+      // Saying only "no search provider" to an operator who IS holding a Brave
+      // key is the friction `security/auth-detection-report.ts` exists to end —
+      // being asked for a credential while already having one, with no account of
+      // why the one you have will not do.
+      ...!config2.web.search.brave.enabled && credentials.broker.holds(CREDENTIAL_SEARCH) ? { searchCredentialHeldButOff: true } : {},
       provider: resolveSearchProvider(config2, credentials),
       // The operator's number governs unless the genome explicitly overrides
       // it — one budget, never two that can disagree. The refill rate stays
@@ -53245,7 +53267,7 @@ ${instruction}`;
       },
       run: async (input) => {
         const provider = ctx.web?.provider ?? (ctx.web?.searchApiKey ? braveProvider(ctx.web.searchApiKey) : void 0);
-        if (!provider) return searchDelegationMessage(input.query);
+        if (!provider) return searchDelegationMessage(input.query, ctx.web?.searchCredentialHeldButOff ?? false);
         if (!lookupBudget.take())
           return budgetSpentMessage(lookupBudget.limit, lookupBudget.msUntilNext());
         const count2 = Math.min(Math.max(1, input.count ?? DEFAULT_SEARCH_RESULTS), MAX_SEARCH_RESULTS);
@@ -63347,13 +63369,14 @@ function assembleCensus(o2) {
   }
   const searchCalls = reach(SENSE_TOOLS["web-search"]);
   const readCalls = reach(SENSE_TOOLS["web-read"]);
-  const lookupsSpent = (o2.search === "none" ? 0 : searchCalls) + readCalls;
+  const delegating = o2.search === "none" || o2.search === "credential-off";
+  const lookupsSpent = (delegating ? 0 : searchCalls) + readCalls;
   const exhausted = lookupsSpent >= o2.webLookupBudget;
   const budgetNote = `${lookupsSpent} of web.lookupBudget's ${o2.webLookupBudget} lookup(s) traced this firing`;
   senses.push({
     name: "web-search",
-    state: o2.search === "none" ? "delegated" : exhausted ? "exhausted" : "live",
-    detail: o2.search === "none" ? `no search credential and web.search.federated is off \u2014 ost_search_web answers by telling the agent to use its host's own search, which this vault cannot see the grant for` : o2.search === "credential" ? `a search credential is held; ${budgetNote}` : `federated keyless search is on; ${budgetNote}`,
+    state: delegating ? "delegated" : exhausted ? "exhausted" : "live",
+    detail: o2.search === "none" ? `no search credential and web.search.federated is off \u2014 ost_search_web answers by telling the agent to use its host's own search, which this vault cannot see the grant for` : o2.search === "credential-off" ? `a search credential is held but web.search.brave.enabled is false, so nothing spends it \u2014 ost_search_web delegates to the host's own search until an operator turns it on` : o2.search === "credential" ? `a search credential is held; ${budgetNote}` : `federated keyless search is on; ${budgetNote}`,
     reached: searchCalls,
     observable: true
   });
@@ -63426,7 +63449,7 @@ function observeSenses(vaultDir, run) {
       tree: readiness.ready ? { readable: true, detail: `the vault's own tree at ${ctx.dir}` } : { readable: false, detail: oneLine7(readiness.message) },
       productRepos: repos,
       unreadableRepos,
-      search: ctx.web?.searchApiKey ? "credential" : ctx.web?.provider ? "federated" : "none",
+      search: ctx.web?.searchApiKey ? "credential" : ctx.web?.provider ? "federated" : ctx.web?.searchCredentialHeldButOff ? "credential-off" : "none",
       webLookupBudget: ctx.config.web.lookupBudget,
       channels: [
         ...ctx.sources.map((s) => ({ name: s.name, kind: "live" })),

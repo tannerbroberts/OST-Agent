@@ -240,27 +240,61 @@ describe("buildPassContext budget wiring — the operator's number, and only the
 });
 
 /**
- * Brave, else the keyless federated sources if they are turned on, else
- * nothing — in which case ost_search_web tells the agent to use its host's own
- * search, which is the normal path in Claude Code.
+ * Brave if a key is held AND `web.search.brave.enabled` is on, else the keyless
+ * federated sources if they are turned on, else nothing — in which case
+ * ost_search_web tells the agent to use its host's own search, which is the
+ * normal path in Claude Code.
+ *
+ * The `enabled` conjunct is the whole point of the first two tests below.
+ * Resolution used to key on the credential alone, which made an environment
+ * variable the entire opt-in: a key another tool exported turned a keyless vault
+ * into one calling api.search.brave.com. Precedence (Brave over federated) and
+ * activation (may Brave run at all) are separate questions and are asked
+ * separately here.
  */
 describe("search provider resolution", () => {
-  function enableFederated(hosts: string[] = []) {
+  function writeConfig(federated: boolean, brave: boolean, hosts: string[] = []) {
     fs.writeFileSync(
       configPath(dir),
-      `outcome: "Reach 10,000 daily active users"\nweb:\n  search:\n    federated:\n      enabled: true\n      discourseHosts: [${hosts.join(", ")}]\n`,
+      `outcome: "Reach 10,000 daily active users"\nweb:\n  search:\n    federated:\n      enabled: ${federated}\n      discourseHosts: [${hosts.join(", ")}]\n    brave:\n      enabled: ${brave}\n`,
       "utf8",
     );
   }
+  const enableFederated = (hosts: string[] = []) => writeConfig(true, false, hosts);
 
   test("no key and federated off resolves no provider — the delegation default", () => {
     expect(buildPassContext(dir).web?.provider).toBeUndefined();
   });
 
-  test("a Brave key wins over the keyless fallback", () => {
+  test("a Brave key alone resolves nothing — presence of a key is not an opt-in", () => {
     process.env.BRAVE_SEARCH_API_KEY = "brave-key-fixture";
-    enableFederated();
-    expect(buildPassContext(dir).web?.provider?.name).toBe("brave");
+    const ctx = buildPassContext(dir);
+    expect(ctx.web?.provider).toBeUndefined();
+    // and the handle is withheld too, so ost_search_web's own
+    // `searchApiKey ? braveProvider(...)` fallback cannot route around the flag
+    expect(ctx.web?.searchApiKey).toBeUndefined();
+    // the state is reported rather than silently indistinguishable from no key
+    expect(ctx.web?.searchCredentialHeldButOff).toBe(true);
+  });
+
+  test("a held key with brave off leaves the keyless fallback in charge", () => {
+    process.env.BRAVE_SEARCH_API_KEY = "brave-key-fixture";
+    writeConfig(true, false);
+    expect(buildPassContext(dir).web?.provider?.name).toBe("federated");
+  });
+
+  test("a Brave key wins over the keyless fallback once brave is turned on", () => {
+    process.env.BRAVE_SEARCH_API_KEY = "brave-key-fixture";
+    writeConfig(true, true);
+    const ctx = buildPassContext(dir);
+    expect(ctx.web?.provider?.name).toBe("brave");
+    expect(ctx.web?.searchApiKey).toBeDefined();
+    expect(ctx.web?.searchCredentialHeldButOff).toBeUndefined();
+  });
+
+  test("brave on with no key falls through rather than resolving a keyless Brave", () => {
+    writeConfig(true, true);
+    expect(buildPassContext(dir).web?.provider?.name).toBe("federated");
   });
 
   test("federated enabled resolves the keyless sources, including configured Discourse hosts", async () => {

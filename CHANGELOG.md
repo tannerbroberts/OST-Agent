@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+- **Bring-your-own-key search is off until you say so, instead of switching itself on when
+  it finds a key.** Provider resolution keyed on `holds(CREDENTIAL_SEARCH)` alone, which
+  made the presence of an environment variable the entire opt-in: an operator carrying
+  `BRAVE_SEARCH_API_KEY` for some unrelated tool got a vault that called out to
+  api.search.brave.com on the first `ost_search_web`, with nothing in `ost.config.yaml`
+  asking for it. Observed rather than argued — a keyless first run with a stray key in the
+  environment came back with a live HTTP 422 from Brave's own server. Every other
+  credentialed channel here (slack, atlassian, actions, transcript) is gated by an
+  `enabled` a person wrote, and even the *keyless* federated fallback is opt-in; paid
+  search was the one exception, and the ordering was backwards. **`web.search.brave.enabled`
+  (default `false`) is now that gate**, and it gates the handle on `ctx.web.searchApiKey`
+  too — `ost_search_web` falls back to building a Brave provider straight off that field,
+  so leaving it populated would have routed around the flag. A key that is held but
+  switched off is *narrated* rather than hidden: `ost_search_web`'s delegation message
+  names the flag that would spend it, and the sense census reports `credential-off` rather
+  than rounding it to "no credential" — being asked for a credential you are already
+  holding, with no account of why yours will not do, is the friction
+  `src/security/auth-detection-report.ts` exists to end.
+  Pinned by `test/cli/first-run-without-key.test.ts`, which also drives a whole first run
+  — init, set-outcome, ingest, and the maintenance passes — in an allowlisted environment
+  holding no credential at all, and asserts no model SDK is a dependency, the assertion
+  that actually catches a future change putting a key back on the first-run path.
+
 - **A stale firing lock now recovers in minutes, and a live one survives a laptop lid.**
   The overlap lock had exactly one recovery rule that worked without a named holder pid:
   a sixty-minute TTL. That is four times the fifteen-minute bar the node fixed for how

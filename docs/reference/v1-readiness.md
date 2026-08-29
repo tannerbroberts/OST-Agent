@@ -3159,12 +3159,14 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,084 tests across 316 files, verified 2026-08-29 (`npx vitest run`
-> reports 4,076 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,092 tests across 317 files, verified 2026-08-29 (`npx vitest run`
+> reports 4,084 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-29 finished at 4,076 across
-> the 315 files it collects, in 260 s, green.
+> time rather than derived: a full `npx vitest run` on 2026-08-29 finished at 4,084 across
+> the 316 files it collects, in 263 s, green. The file added since the previous line is
+> `test/cli/first-run-without-key.test.ts` — the keyless-first-run and bring-your-own-key-off
+> instrument, which also pinned the Brave auto-activation fix in `src/runner/context.ts`.
 >
 > What a gate COVERS is now declared apart from the machinery that runs it
 > (`src/release/gates.declared.ts`), and a reduction in that coverage is refused at `ship`

@@ -223,16 +223,35 @@ const FederatedSchema = z
   })
   .default({ enabled: false, discourseHosts: [] });
 
+// Brave is OFF by default for a different reason than federated, and the two
+// must not be collapsed: federated is off so the better host search still wins,
+// but Brave is off because turning it on SPENDS SOMEBODY'S KEY. Every other
+// credentialed channel here — slack, atlassian, actions, transcript — is gated
+// by an `enabled` an operator wrote, and search was the one exception: holding
+// `BRAVE_SEARCH_API_KEY` in the environment was itself the opt-in, so a key
+// another tool exported turned a keyless run into one that called out to
+// api.search.brave.com with nothing in the vault saying it should. Presence of a
+// variable is not consent; this flag is where consent is written down.
+const BraveSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+  })
+  .default({ enabled: false });
+
+const SearchSchema = z
+  .object({ federated: FederatedSchema, brave: BraveSchema })
+  .default({ federated: { enabled: false, discourseHosts: [] }, brave: { enabled: false } });
+
 const WebSchema = z
   .object({
     lookupBudget: z.number().int().positive().default(10),
     lookupRefillPerHour: z.number().int().nonnegative().default(10),
-    search: z.object({ federated: FederatedSchema }).default({ federated: { enabled: false, discourseHosts: [] } }),
+    search: SearchSchema,
   })
   .default({
     lookupBudget: 10,
     lookupRefillPerHour: 10,
-    search: { federated: { enabled: false, discourseHosts: [] } },
+    search: { federated: { enabled: false, discourseHosts: [] }, brave: { enabled: false } },
   });
 
 // The product the tree is FOR: local repo roots the agent may read (read-only,
@@ -535,6 +554,13 @@ web:
                             # Leave off if your host has search — ost_search_web will tell
                             # the agent to use it, which is better than these sources.
       discourseHosts: []    # e.g. [forum.obsidian.md]
+    brave:
+      enabled: false        # bring-your-own-key search, and OFF until you say otherwise.
+                            # Holding BRAVE_SEARCH_API_KEY is not the same as asking this
+                            # vault to spend it: a key another tool exported would otherwise
+                            # make a keyless run call out to api.search.brave.com. Turn this
+                            # on and the key is used; leave it off and ost_search_web says so
+                            # and delegates to your host's own search.
 
 product:
   repos: []                 # local repo paths the agent may READ (read-only) to ground ideas in what the product is
