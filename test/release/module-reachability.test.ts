@@ -116,6 +116,32 @@ const KNOWN_UNREACHABLE: Record<string, string> = {
   "src/loop/early-push.ts":
     "built and tested; parked pending the operator's call on pushing WIP to a shared branch on a cadence",
   /*
+   * The start-of-build prior-art scan and the git read behind it: resolve the
+   * intent a pass is about to build and every recent commit, branch and PR
+   * against the shared briefing, and call it prior art when two namings land on
+   * one briefing item (`test/loop/prior-art-scan-catches-recorded-collision.test.ts`).
+   *
+   * These two are parked for a stronger reason than the rest of this register:
+   * **the instrument that cleared them measured the candidate failing.** Run at
+   * start-of-build on the recorded 2026-07-26 timeline, as the vault's assumption
+   * test fixes it, the scan reports nothing — the colliding commit does not exist
+   * for another 129 minutes. The same replay shows the detector working one
+   * minute after the commit lands, so what the measurement licenses is a
+   * *re-specification* (a scan on a cadence, which the vault must decide), not
+   * this candidate as worded. Wiring a start-of-build scan into target selection
+   * on the strength of a spec that recorded it missing would be exactly the
+   * "answering a question with a commit" this register exists to refuse.
+   *
+   * They come off together when the vault re-specifies the cadence and the loop
+   * adopts `scanForPriorArt`, or go when the node is deferred. The scan is split
+   * across two files because the git spawn may not live under `src/loop` — see
+   * the module headers and `test/release/gate-f-deciders.test.ts`.
+   */
+  "src/git/prior-art-sight.ts":
+    "built and tested; parked with src/loop/prior-art-scan.ts, whose instrument measured the start-of-build schedule missing the one recorded collision",
+  "src/loop/prior-art-scan.ts":
+    "built and tested; parked because its own instrument recorded the candidate missing at start-of-build — the vault has to re-specify it as a cadence before anything wires it",
+  /*
    * Classifies a failed string replacement as stale-file, bad-quote, or
    * cannot-say against a run's own record of what it has read. Built and
    * tested to the assumption test's three-arm bar (`test/runner/failed-match-attribution.test.ts`),
