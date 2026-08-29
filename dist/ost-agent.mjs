@@ -48359,8 +48359,8 @@ function plain(text2) {
 }
 var tokenize = (text2) => plain(text2).toLowerCase().match(/[a-z][a-z-]*/g) ?? [];
 function candidateAssumptions(prose) {
-  const sentences4 = plain(prose).replace(/\s+/g, " ").split(/(?<=[.?!])\s+(?=[A-Z"“(])/).map((s) => s.trim()).filter((s) => tokenize(s).length >= 6).filter((s) => !prose.includes(`**${s}**`));
-  return sentences4.map((text2, index) => ({ index, text: text2 }));
+  const sentences5 = plain(prose).replace(/\s+/g, " ").split(/(?<=[.?!])\s+(?=[A-Z"“(])/).map((s) => s.trim()).filter((s) => tokenize(s).length >= 6).filter((s) => !prose.includes(`**${s}**`));
+  return sentences5.map((text2, index) => ({ index, text: text2 }));
 }
 var weighted = (markers) => (candidate) => tokenize(candidate.text).reduce((sum2, t2) => sum2 + (markers.get(t2) ?? 0), 0);
 var marks = (weight, words) => words.map((w) => [w, weight]);
@@ -59254,6 +59254,180 @@ function formatRefusalCoverageCensus(census) {
   return lines.join("\n");
 }
 
+// src/web/public-movable.ts
+var SETTLED = /* @__PURE__ */ new Set(["validated", "shipped", "deferred"]);
+function openAssumptionsFrom(nodes) {
+  const byTitle2 = new Map(nodes.map((n) => [n.title, n]));
+  return nodes.filter(
+    (n) => n.layer === "Assumption" && !SETTLED.has(n.status ?? "") && // A `## Results` block is a recorded finding against the belief. The
+    // question is what is still open, so a settled one is not asked again.
+    !/^## Results/m.test(n.body)
+  ).map((n) => ({
+    title: n.title,
+    // `## Results` and the rest of the reserved blocks are measurements, not
+    // the belief. The belief is what a lookup would bear on.
+    prose: n.body.split(/\n## /)[0].trim(),
+    tests: n.links.map((t2) => byTitle2.get(t2)).filter((t2) => t2?.layer === "AssumptionTest").map((t2) => ({ title: t2.title, instrument: t2.instrument ?? "" }))
+  })).sort((a, b2) => a.title < b2.title ? -1 : a.title > b2.title ? 1 : 0);
+}
+var REFERENTS = [
+  // Version control, and the parts of it this tree makes claims about.
+  { id: "git", match: /\bgit (merge driver|worktrees?|attributes|hooks?)\b|\bgitattributes\b|\bmerge driver\b/i, query: "git", where: "git-scm.com/docs", kind: "third-party-behaviour" },
+  { id: "github-actions", match: /\bGitHub Actions\b|\bactions runner\b|\bhosted runner\b/i, query: "GitHub Actions", where: "docs.github.com/actions", kind: "third-party-behaviour" },
+  // Package managers and the JavaScript toolchain.
+  { id: "npm", match: /\bnpm\b|\bpnpm\b|\byarn\b|\bpostinstall\b|\bpackage managers?\b/i, query: "npm postinstall", where: "docs.npmjs.com", kind: "third-party-behaviour" },
+  { id: "vitest", match: /\bvitest\b/i, query: "vitest", where: "vitest.dev/config", kind: "third-party-behaviour" },
+  { id: "tsx", match: /\btsx\b|\besbuild\b/i, query: "tsx esbuild", where: "tsx.is", kind: "third-party-behaviour" },
+  { id: "typescript", match: /\bTypeScript\b/i, query: "TypeScript", where: "typescriptlang.org/docs", kind: "third-party-behaviour" },
+  { id: "node", match: /\bNode\.js\b|\bnode ≥|\bnode 2\d\b/i, query: "Node.js", where: "nodejs.org/api", kind: "third-party-behaviour" },
+  // The operating system the loop runs on.
+  { id: "posix", match: /\bPOSIX\b|\bmacOS\b|\bcoreutils\b|\bHomebrew\b|\btimeout\(1\)\b|\bgtimeout\b|\bbash\b|\bzsh\b/i, query: "macOS POSIX shell", where: "", kind: "third-party-behaviour" },
+  // The harness the unattended loop runs inside, and its protocol.
+  { id: "harness", match: /\bharness\b|\bClaude Code\b|\bMonitor\b|\bGlob\b|\bAskUserQuestion\b|\bbuilt-ins?\b|\bsandbox\b|\bthe platform's\b/i, query: "Claude Code tool", where: "docs.claude.com/claude-code", kind: "third-party-behaviour" },
+  { id: "mcp", match: /\bMCP\b|\bModel Context Protocol\b/i, query: "Model Context Protocol", where: "modelcontextprotocol.io/specification", kind: "third-party-behaviour" },
+  { id: "model-vendor", match: /\bAnthropic\b|\bOpenAI\b|\btoken pric|\bcontext window\b|\bmodel provider\b/i, query: "Anthropic model", where: "docs.claude.com", kind: "third-party-behaviour" },
+  // Editors and other people's clients over the same files.
+  { id: "obsidian", match: /\bObsidian\b/i, query: "Obsidian", where: "help.obsidian.md", kind: "third-party-behaviour" },
+  { id: "editor", match: /\bEditor tooling\b|\bIDE\b|\bLSP\b|\blanguage server\b/i, query: "editor tooling", where: "", kind: "third-party-behaviour" },
+  // Published bodies of work.
+  { id: "torres", match: /\bTorres\b|\bcontinuous discovery\b|\bopportunity solution tree\b/i, query: "Teresa Torres continuous discovery", where: "", kind: "published-method" },
+  { id: "injection-literature", match: /\binjection attacks?\b|\bprompt injection\b|\bknown attacks\b/i, query: "prompt injection", where: "", kind: "published-method" },
+  { id: "regulation", match: /\bEU AI Act\b|\bGDPR\b|\bSOC ?2\b|\bregulat(ion|ors?|ory)\b|\bcompliance regime\b/i, query: "AI regulation", where: "", kind: "published-method" }
+];
+var PRIOR_ART_SIGNAL = /\boff[- ]the[- ]shelf\b|\bnobody else\b|\bno one else\b|\bexisting tools?\b|\bthe funded tools?\b|\bcompetitors?\b|\bon the market\b|\banother tool already\b/i;
+var PROPERTY_SIGNAL = /\b(can|cannot|can't|could|may|might|will not|won't|must|supports?|exposes?|allows?|accepts?|refuses?|rejects?|ships?|provides?|requires?|documents?|guarantees?|suppress(es)?|skips?|enumerable|available|present|absent|implemented|scoped|reliably tells?|tracks?)\b/i;
+var AVAILABILITY_SIGNAL = /\b(not present on|is not available|does not ship|ships only|exists on|stock (macOS|setup|install))\b/i;
+var MIN_SALIENT_TERMS = 3;
+var HOUSE_VOCABULARY = new Set(
+  "assumption belief tree node nodes vault loop pass passes agent operator solution opportunity outcome test tests instrument evidence rung record records ledger claim claims candidate spec builder discovery ost run runs reader human founder product repository repo session sessions tool tools call calls write writes read reads false true stated risk category feasibility desirability viability kind whether would could should".split(
+    " "
+  )
+);
+var STOPWORDS3 = new Set(
+  "a an the and or but if then that this these those it its of to in on at by for with from as is are was were be been being not no nor so than what which who whom when where why how all any both each few more most other some such only own same too very can will just do does did doing have has had having own about into over under again further once here there because while against between out up down off".split(" ")
+);
+function sentences3(text2) {
+  return text2.replace(/\*\*/g, "").split(/(?<=[.!?])\s+|\n+/).map((s) => s.trim()).filter(Boolean);
+}
+function salientTerms(title) {
+  const seen = /* @__PURE__ */ new Set();
+  const out = [];
+  for (const raw of title.toLowerCase().match(/[a-z][a-z0-9_.'-]*/g) ?? []) {
+    const w = raw.replace(/^'+|'+$/g, "");
+    if (w.length < 3 || STOPWORDS3.has(w) || HOUSE_VOCABULARY.has(w) || seen.has(w)) continue;
+    seen.add(w);
+    out.push(w);
+  }
+  return out;
+}
+function statesPropertyOf(sentence, ref) {
+  const m = ref.match.exec(sentence);
+  if (!m) return false;
+  if (AVAILABILITY_SIGNAL.test(sentence)) return true;
+  const after = sentence.slice(m.index + m[0].length);
+  if (/^'s\b|^s'\b/.test(after)) return true;
+  const window2 = after.split(/\s+/).slice(0, 8).join(" ");
+  return PROPERTY_SIGNAL.test(window2);
+}
+function composeLookup(assumption, ref) {
+  const named = new Set(ref.query.toLowerCase().split(/\s+/));
+  const terms = salientTerms(assumption.title).filter((t2) => !named.has(t2) && !ref.match.test(t2));
+  if (terms.length < MIN_SALIENT_TERMS) return void 0;
+  const cost = ref.kind === "prior-art" ? 3 : ref.where ? 1 : 2;
+  return {
+    assumption: assumption.title,
+    referent: ref.id,
+    publicClass: ref.kind,
+    where: ref.where || "open web",
+    query: `${ref.query} ${terms.slice(0, 8).join(" ")}`,
+    cost
+  };
+}
+var PRIOR_ART_REFERENT = {
+  id: "prior-art",
+  match: /\bprior art\b/i,
+  query: "existing tool that",
+  where: "",
+  kind: "prior-art"
+};
+function namedInProposition(assumption, ref) {
+  if (ref.match.test(assumption.title)) return true;
+  return assumption.tests.some((t2) => ref.match.test(t2.title));
+}
+function classify(assumption) {
+  const text2 = [assumption.title, assumption.prose, ...assumption.tests.map((t2) => t2.title)].join("\n");
+  const lines = sentences3(text2);
+  const hits = [];
+  for (const ref of REFERENTS) {
+    const stating = lines.filter((s) => statesPropertyOf(s, ref));
+    if (stating.length === 0) continue;
+    const carriesOwnSubject = stating.some((s) => AVAILABILITY_SIGNAL.test(s));
+    if (!carriesOwnSubject && !namedInProposition(assumption, ref)) continue;
+    const lookup = composeLookup(assumption, ref);
+    if (lookup) hits.push(lookup);
+  }
+  const proposition = [assumption.title, ...assumption.tests.map((t2) => t2.title)].join("\n");
+  if (PRIOR_ART_SIGNAL.test(proposition)) {
+    const lookup = composeLookup(assumption, PRIOR_ART_REFERENT);
+    if (lookup) hits.push(lookup);
+  }
+  if (hits.length === 0) {
+    const mentioned = REFERENTS.some((r2) => r2.match.test(text2));
+    return {
+      title: assumption.title,
+      verdict: "private-only",
+      why: mentioned ? "mentions something outside this product without stating a property of it in the proposition \u2014 the belief is about this tree's own code, data or operator" : "no external referent: nothing outside this vault has seen the subject of this belief"
+    };
+  }
+  const inTitle = (l) => REFERENTS.some((r2) => r2.id === l.referent && r2.match.test(assumption.title)) ? 0 : 1;
+  hits.sort((a, b2) => inTitle(a) - inTitle(b2) || a.cost - b2.cost || (a.referent < b2.referent ? -1 : 1));
+  return {
+    title: assumption.title,
+    verdict: "public-movable",
+    lookup: hits[0],
+    why: `${hits[0].publicClass}: the belief states a property of ${hits[0].referent}, which publishes`
+  };
+}
+function surveyPublicMovability(assumptions) {
+  const labelled = assumptions.map(classify);
+  const movable = labelled.filter((m) => m.verdict === "public-movable");
+  return {
+    total: assumptions.length,
+    movable,
+    private: labelled.filter((m) => m.verdict === "private-only"),
+    queue: movable.map((m) => m.lookup).sort((a, b2) => a.cost - b2.cost || (a.assumption < b2.assumption ? -1 : 1))
+  };
+}
+function renderDemandQueue(survey) {
+  const lines = [];
+  const pct9 = survey.total === 0 ? 0 : Math.round(survey.movable.length / survey.total * 1e3) / 10;
+  lines.push(
+    `${survey.movable.length} of ${survey.total} open assumption(s) could be moved by something public \u2014 ${pct9}%.`
+  );
+  if (survey.queue.length === 0) {
+    lines.push("");
+    lines.push("Nothing to look up. Every open belief here turns on this tree's own code, data or operator.");
+    return lines.join("\n");
+  }
+  lines.push("");
+  lines.push("Cheapest question first. A finding attaches to the assumption that asked for it.");
+  let cost = 0;
+  for (const lookup of survey.queue) {
+    if (lookup.cost !== cost) {
+      cost = lookup.cost;
+      lines.push("");
+      lines.push(cost === 1 ? "  one read of a known page:" : cost === 2 ? "  a search:" : "  an open survey:");
+    }
+    lines.push(`    ${lookup.where}  ${lookup.query}`);
+    lines.push(`      demanded by: ${lookup.assumption}`);
+  }
+  lines.push("");
+  lines.push(
+    'This is a floor. A belief that names its external subject by role rather than by name ("the prompting tool", "independent judges") is not counted, and a composed question says where to look \u2014 never that an answer is there.'
+  );
+  return lines.join("\n");
+}
+
 // src/ost/migrate.ts
 import fs50 from "node:fs";
 import path54 from "node:path";
@@ -61160,7 +61334,7 @@ var QUESTION_DEPENDENCE_RULE = {
   brokenStateMarkers: /\b(conflict|conflicts|compile|compiles|broken|unbuildable)\b/i,
   toolchainMarkers: /\b(build|builds|rebuild|bundle|compile|tsc|typecheck|vitest|release|ship)\b/i
 };
-var STOPWORDS3 = new Set(
+var STOPWORDS4 = new Set(
   "a an and are as at be been but by can could did do does doing done for from had has have how i if in into is it its just may me mean means might more most much must my next no nor not now of off on once one only or other our out over own same set should so some such than that the their them then there these they this those to too under until up upon us was we were what when where which while who whose why will with would you your yet also both each ever every still since about after again against before below between during through very don doesn isn wasn won work works working run runs running make makes made making thing things way ways use used using new real right first get gets getting go goes going keep keeps let lets need needs want wants".split(/\s+/)
 );
 function subjectTokens(text2) {
@@ -61169,7 +61343,7 @@ function subjectTokens(text2) {
   for (const match of fused.matchAll(/[a-z0-9_]+(?:[./-][a-z0-9_]+)*/g)) {
     const token = match[0].replace(/^[./-]+|[./-]+$/g, "");
     if (token.length < 3) continue;
-    if (STOPWORDS3.has(token)) continue;
+    if (STOPWORDS4.has(token)) continue;
     if (/^\d+$/.test(token)) continue;
     tokens.add(token);
   }
@@ -61570,7 +61744,7 @@ var MAX_PERMITTED_CHARS = 400;
 var MAX_ATTEMPTED_CHARS = 200;
 var REMEDY_CUES = [/\buse\b/i, /\bmust\b/i, /\binstead\b/i, /\btry\b/i];
 var GUARD_MARKER = /<tool_use_error>/;
-function sentences3(text2) {
+function sentences4(text2) {
   const out = [];
   let start = 0;
   const re = /(?:\.\s+|\n+)/g;
@@ -61588,7 +61762,7 @@ function flatten(text2, max) {
 }
 function splitRefusal(message) {
   const body = message.replace(/<\/?tool_use_error>/g, "");
-  for (const s of sentences3(body)) {
+  for (const s of sentences4(body)) {
     if (body.length - s.start > MAX_PERMITTED_CHARS) continue;
     if (!REMEDY_CUES.some((re) => re.test(s.text))) continue;
     const permitted = flatten(body.slice(s.start), MAX_PERMITTED_CHARS);
@@ -61796,7 +61970,7 @@ import fs60 from "node:fs";
 import path61 from "node:path";
 var CLAIMS_FILENAME = "work-claims.jsonl";
 var DEFAULT_CLAIM_TTL_HOURS = 8;
-var STOPWORDS4 = /* @__PURE__ */ new Set([
+var STOPWORDS5 = /* @__PURE__ */ new Set([
   "a",
   "an",
   "the",
@@ -61862,7 +62036,7 @@ function fold(term) {
   return term.slice(0, -1);
 }
 function termsOf(text2) {
-  return text2.replace(new RegExp("([\\p{Ll}\\p{N}])(\\p{Lu})", "gu"), "$1 $2").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").split(/\s+/).filter((t2) => t2.length > 1 && !STOPWORDS4.has(t2)).map(fold).filter((t2) => !STOPWORDS4.has(t2));
+  return text2.replace(new RegExp("([\\p{Ll}\\p{N}])(\\p{Lu})", "gu"), "$1 $2").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").split(/\s+/).filter((t2) => t2.length > 1 && !STOPWORDS5.has(t2)).map(fold).filter((t2) => !STOPWORDS5.has(t2));
 }
 function briefingItems(briefing) {
   const blocks = [];
@@ -65458,6 +65632,16 @@ program2.command("manifest").description("every precondition this tool surface c
   const dir = path77.resolve(opts.vault);
   const tools = buildOstTools({ vault: new Vault(dir, { create: false }), dir, remote: { enabled: false } });
   console.log(renderPreflightManifest(generatePreflightManifest(tools)));
+});
+program2.command("lookups").description("the open assumptions something public could move, and the question each one would spend a lookup on \u2014 cheapest first").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
+  const dir = path77.resolve(opts.vault);
+  const census = new Vault(dir, { create: false }).readTreeCensus();
+  if (census.unreadable.length > 0) {
+    console.error(
+      `ost-agent: ${census.unreadable.length} file(s) could not be read and are not in the denominator below: ` + census.unreadable.map((d) => d.file).join(", ")
+    );
+  }
+  console.log(renderDemandQueue(surveyPublicMovability(openAssumptionsFrom(census.nodes))));
 });
 program2.command("refusals").description("how many of the refusal classes a pass actually hit a schema-derived manifest could have named \u2014 the census behind the preflight manifest").option("--vault <dir>", VAULT_OPTION_HELP).option(
   "--transcripts <dir>",

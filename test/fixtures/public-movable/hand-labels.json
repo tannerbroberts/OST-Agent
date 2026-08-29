@@ -1,0 +1,117 @@
+{
+  "readMe": "Authored answer key. See PROVENANCE.md. `movable` is a human reading of the assumption, not a rerun of src/web/public-movable.ts.",
+  "labelledOn": "2026-08-29",
+  "positives": [
+    {
+      "title": "A background task can declare its own output path and have Monitor's read scope extended to exactly that path",
+      "movable": true,
+      "why": "Whether Monitor's read restriction is a session-wide allowlist or a per-task grant is a property of the harness, and the harness documents its tools."
+    },
+    {
+      "title": "A git merge driver can deterministically rebuild dist from source instead of needing a content-level diff merge",
+      "movable": true,
+      "why": "Whether git invokes a merge driver with a usable toolchain, and what it guarantees about it, is in git's own manual."
+    },
+    {
+      "title": "A narrow wait-for-condition primitive covers the polling shapes Monitor currently refuses",
+      "movable": true,
+      "why": "Monitor's accepted grammar and its refusal conditions are published in its tool description."
+    },
+    {
+      "title": "A postinstall step gets to run and speak on a stock setup",
+      "movable": true,
+      "why": "Whether npm, pnpm and yarn run lifecycle scripts by default is documented and has changed in published release notes. The cleanest lookup in the tree."
+    },
+    {
+      "title": "A probe spec can be kept out of the default vitest run and still run when named, using the argv check the config already applies to contended files",
+      "movable": true,
+      "why": "Whether an `exclude` entry can be conditioned on argv is vitest's documented config behaviour."
+    },
+    {
+      "title": "Editor tooling can auto-read a file transparently before a first Write Edit without weakening the guard's protection against blind overwrites",
+      "movable": true,
+      "why": "Whether any editor integration already performs a transparent pre-read is a property of published editor plugins."
+    },
+    {
+      "title": "Extent flags mostly point at real duplicates, not at distinct needs sharing a source",
+      "movable": false,
+      "why": "FALSE POSITIVE. Matched Torres via a child test that re-judges flags 'against Torres's test'. The published method could settle the criterion, but the belief is about what this tree's own arithmetic emitted, which no outside document has seen."
+    },
+    {
+      "title": "Inline code handed to tsx from the repo root resolves bare packages and . src paths the same way a checked-in file does",
+      "movable": true,
+      "why": "Module resolution for `tsx -e` is tsx's documented behaviour."
+    },
+    {
+      "title": "Most of what this loop waits on is work the harness tracks, not shell-backgrounded jobs it started itself",
+      "movable": false,
+      "why": "FALSE POSITIVE. What the harness can track is public; what THIS loop mostly waits on is a distribution over this repository's own transcripts. The proposition is the distribution."
+    },
+    {
+      "title": "Publishing Monitor's accepted grammar up front would cut the refusal-then-retry cost these transcripts show",
+      "movable": true,
+      "why": "Whether the tool description already states those constraints is checkable against the published surface, and a yes would retire the candidate outright."
+    },
+    {
+      "title": "The expiry convention can be bought on the machine the loop actually runs on",
+      "movable": true,
+      "why": "Whether stock macOS ships timeout(1) — and what Homebrew's coreutils installs it as — is settled by public man pages and package listings."
+    },
+    {
+      "title": "The harness can reliably tell created by this session apart from pre-existing, this session just wrote to it",
+      "movable": true,
+      "why": "A property of the harness's file-state tracking, described in its published behaviour and its issue tracker."
+    },
+    {
+      "title": "The harness can reliably tell which files this session itself created versus pre-existing files it hasn't read",
+      "movable": true,
+      "why": "Same referent and same public source as the assumption above; the tree carries the belief twice."
+    },
+    {
+      "title": "The harness exposes a hook at the moment a session is backgrounded or interrupted, in time to write one line before control is lost",
+      "movable": true,
+      "why": "The set of lifecycle hooks a session exposes is documented; this is a lookup, not an experiment."
+    },
+    {
+      "title": "The platform's own waiting forms are actually accepted on the unattended surface, where the bespoke helper was written to get around them",
+      "movable": true,
+      "why": "Which waiting forms the surface accepts or refuses is stated by the surface itself, publicly."
+    },
+    {
+      "title": "The scheduling harness can afford a fresh git worktree per firing without materially slowing the build loop or exhausting disk",
+      "movable": false,
+      "why": "FALSE POSITIVE. Worktree cost in general is public; whether it is affordable turns on this loop's firing cadence and this machine's disk, which are ours."
+    },
+    {
+      "title": "The set of built-ins a host can hand a pass is enumerable and stable enough to commit",
+      "movable": true,
+      "why": "The built-in tool list and its churn are published; enumerability and stability are both readable off the vendor's own documentation and changelog."
+    }
+  ],
+  "negativeSample": [
+    { "title": "A PM defending a roadmap would show an honestly weak rung rather than hide it", "movable": false, "why": "A claim about what a buyer would do. Interviews move it; no document does." },
+    { "title": "A closed solution-kind disposition takes a solution off the instrument bucket and is disclosed on the response that withheld it", "movable": false, "why": "About this repository's own call sites." },
+    { "title": "A full discovery pass can be completed with no delete and no edit tool", "movable": false, "why": "About this product's own capability envelope." },
+    { "title": "A mechanical signature groups the redundant records without burying the singleton", "movable": false, "why": "About this vault's own friction corpus." },
+    { "title": "A per-visit diff of the tree can be computed from the vault alone", "movable": false, "why": "About this vault's own contents." },
+    { "title": "A refusal written down once will actually be read before the next call that would repeat it", "movable": false, "why": "About this agent's own behaviour." },
+    { "title": "A single fixed per-run friction-count threshold separates sessions worth the operator's attention from ordinary recoverable noise", "movable": false, "why": "About this operator's attention." },
+    { "title": "A trace of calls, outcomes and durations carries the defects a session actually had", "movable": false, "why": "About this repository's own recorded traces." },
+    { "title": "An agent already in the operator's session can run a pass as well as a dedicated API driver", "movable": false, "why": "A quality comparison nobody has published for this workload." },
+    { "title": "An operator who must move the window by hand will actually move it more than once", "movable": false, "why": "About this operator." },
+    { "title": "Buyers treat refusals as trustworthiness rather than as the product being worse", "movable": false, "why": "A claim about prospects; a pitch moves it, not a page." },
+    { "title": "Enough failed calls are shape errors that schema validation catches a real share of them", "movable": false, "why": "About the distribution of this product's own failed calls." },
+    { "title": "Every source of new work in this vault can be watched as an event", "movable": false, "why": "About this vault's own sources." },
+    { "title": "Independent judges converge on the same riskiest assumption, so agreement means something", "movable": true, "why": "MISS. Inter-judge agreement between independent model judges is a published, measured question; the literature would raise or lower this belief before any local run does." },
+    { "title": "Nearly every search a pass issues is a literal lookup wearing a pattern language", "movable": false, "why": "About this product's own recorded searches." },
+    { "title": "Operators will let a channel change an agent that is running while nobody is watching", "movable": false, "why": "About operator consent." },
+    { "title": "Refusing on unknown context deletes almost no signal anyone would have used", "movable": false, "why": "About this vault's own records." },
+    { "title": "Someone outside the project will run the hand arm, so the comparison is not built by its own author", "movable": false, "why": "About whether a specific person will volunteer." },
+    { "title": "The calibration workload and the measured one respond to contention the same way", "movable": false, "why": "About two workloads that exist only here." },
+    { "title": "The fallback can be bounded so it does not become permanent", "movable": false, "why": "About this product's own release plan." },
+    { "title": "The operator will accept an unattended pass moving work toward people on its own authority", "movable": false, "why": "About this operator." },
+    { "title": "The stored measurements came from comparable enough conditions to be a distribution", "movable": false, "why": "About the provenance of measurements stored here." },
+    { "title": "Two practitioners place the same opportunity under the same sub-outcome", "movable": false, "why": "Needs two practitioners, not a document." },
+    { "title": "Without a controlling terminal the prompting tool fails loudly instead of silently taking its default", "movable": true, "why": "MISS. How a prompting CLI behaves with stdin closed and no controlling terminal is that tool's documented (or source-readable) behaviour. The classifier missed it because the belief names no vendor — 'the prompting tool' is a role, and a role has no documentation home." }
+  ]
+}

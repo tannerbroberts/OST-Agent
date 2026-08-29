@@ -158,6 +158,9 @@ import {
   generatePreflightManifest, renderPreflightManifest, type ToolSchemaLike,
 } from "../security/preflight-manifest.js";
 import { buildOstTools } from "../security/tools.js";
+import {
+  openAssumptionsFrom, renderDemandQueue, surveyPublicMovability,
+} from "../web/public-movable.js";
 import { Vault } from "../ost/vault.js";
 import { defaultTranscriptDir } from "../adapters/transcript.js";
 import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
@@ -2082,6 +2085,28 @@ program
     const dir = path.resolve(opts.vault);
     const tools = buildOstTools({ vault: new Vault(dir, { create: false }), dir, remote: { enabled: false } });
     console.log(renderPreflightManifest(generatePreflightManifest(tools as unknown as ToolSchemaLike[])));
+  });
+
+program
+  .command("lookups")
+  .description("the open assumptions something public could move, and the question each one would spend a lookup on — cheapest first")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((opts: { vault: string }) => {
+    // Deliberately NOT `buildPassContext`, for the same reason `manifest` gives:
+    // this only reads, and a writable Vault handle would create the directory a
+    // mistyped `--vault` names.
+    const dir = path.resolve(opts.vault);
+    const census = new Vault(dir, { create: false }).readTreeCensus();
+    // The unreadable files are said out loud rather than left out of the
+    // denominator. A survey that cannot read part of its subject and reports a
+    // percentage over what it could read has reported a clean result.
+    if (census.unreadable.length > 0) {
+      console.error(
+        `ost-agent: ${census.unreadable.length} file(s) could not be read and are not in the denominator below: ` +
+          census.unreadable.map((d) => d.file).join(", "),
+      );
+    }
+    console.log(renderDemandQueue(surveyPublicMovability(openAssumptionsFrom(census.nodes))));
   });
 
 program

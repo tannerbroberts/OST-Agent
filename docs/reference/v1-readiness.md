@@ -3159,12 +3159,16 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,108 tests across 318 files, verified 2026-08-29 (`npx vitest run`
-> reports 4,100 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,120 tests across 319 files, verified 2026-08-29 (`npx vitest run`
+> reports 4,112 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-29 finished at 4,100 across
-> the 317 files it collects, in 319 s, green. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-29 finished at 4,112 across
+> the 318 files it collects, in 313 s, green. The file added since the previous line is
+> `test/web/public-movable-assumptions.test.ts` — the count of open assumptions anything
+> public could move (17 of 483, hand-scored against `test/fixtures/public-movable/`), whose
+> finding is that ten of the seventeen questions are about one vendor's documentation
+> (`src/web/public-movable.ts`, reachable as `ost-agent lookups`). The line before it was
 > `test/loop/prior-art-scan-catches-recorded-collision.test.ts` — the replay of the recorded
 > 2026-07-26 collision against a start-of-build prior-art scan, whose headline measurement is
 > that the scan misses it (`src/loop/prior-art-scan.ts` and `src/git/prior-art-sight.ts`, both
