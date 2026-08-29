@@ -32,7 +32,9 @@
 #
 #       loop:
 #         cadence: "6h"          # 30m / 6h / 1d. Absent ⇒ this vault never fires.
-#         lockTtlMinutes: 60     # a firing still holding the lock after this is dead
+#         lockTtlMinutes: 60       # backstop for a holder nobody can watch
+#         lockWaitMinutes: 15      # a second firing waits this long rather than skipping its slot
+#         lockHeartbeatMinutes: 4  # silent for three of these ⇒ treated as hung, lock recovered
 #         spend:
 #           ceilingWeightedTokens: 4000000   # weighted tokens; ratios, not currency
 #           windowHours: 24                  # rolling, so exhaustion clears itself
@@ -41,6 +43,14 @@
 #
 #     Run this script as often as you like — every 5 minutes from cron is fine. The
 #     cadence gate is what decides whether a firing actually happens.
+#
+#     One interaction worth knowing before you pick both numbers: `lockWaitMinutes`
+#     is time this script SPENDS rather than time it skips. If a firing overruns
+#     and your cron interval is shorter than the wait, several invocations sit
+#     waiting on the same lock at once. They are cheap — each is polling one file —
+#     and each gives up with exit 15 at the end of its own wait, so nothing piles
+#     up unboundedly. But if you would rather skip the slot than hold it, set
+#     `lockWaitMinutes: 0` and the old refuse-on-sight behaviour comes back.
 #
 # What this helper needs from the machine it runs on. `ost-agent helper-preflight`
 # checks these before you install it, so a machine that cannot run this says so

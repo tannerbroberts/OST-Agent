@@ -20,7 +20,9 @@
  * is reported as work for the next pass.
  */
 import { spawnSync } from "node:child_process";
+import { branchCoverageRefusals } from "./gate-coverage.js";
 import {
+  allGates,
   gatesFor,
   GENERATED_ARTIFACT,
   redGate,
@@ -184,11 +186,29 @@ export function ship(opts: ShipOptions): ShipOutcome {
     return { shipped: false, refusals: [conflict], gateRuns: [], summary: summarize(state.branch, [conflict], []) };
   }
 
+  // Before any gate runs, check that this branch has not changed what the gates
+  // COVER. A branch that narrowed a gate and then passed it has proved nothing,
+  // and running the narrowed gate first would put that meaningless green in the
+  // report ahead of the refusal.
+  const coverage = branchCoverageRefusals(repo, defaultBranch, run);
+  if (coverage.length > 0) {
+    return { shipped: false, refusals: coverage, gateRuns: [], summary: summarize(state.branch, coverage, []) };
+  }
+
   // Which gates apply is decided by what the branch actually touched, read
-  // against the merge target rather than against a guess.
+  // against the merge target rather than against a guess. A diff that will not
+  // read is NOT an empty change set — see `allGates`.
   const diff = run(["git", "diff", "--name-only", `origin/${defaultBranch}...HEAD`], repo);
-  const changed = diff.status === 0 ? diff.output.split("\n").map((l) => l.trim()).filter(Boolean) : [];
-  const gates = gatesFor(changed);
+  let gates: ReturnType<typeof gatesFor>;
+  if (diff.status === 0) {
+    gates = gatesFor(diff.output.split("\n").map((l) => l.trim()).filter(Boolean));
+  } else {
+    log(
+      `ship: could not read what this branch changed (git diff exited ${diff.status ?? "without running"}) — ` +
+        "running every gate rather than the ones an empty change set would select.",
+    );
+    gates = allGates();
+  }
   log(`ship: ${gates.length} gate(s) to run — ${gates.map((g) => g.name).join(", ")}`);
 
   const gateRuns: GateRun[] = [];

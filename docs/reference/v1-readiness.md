@@ -2090,10 +2090,42 @@ the vault declares, and a vault declaring none never fires.**
 > Recorded rather than implied, because a test named for a property it does not
 > decide is the vacuity W4 is about.
 >
-> *Way out:* stale locks break automatically on a TTL (`loop.lockTtlMinutes`,
-> default 60). PID-liveness alone is not enough — a recycled pid landing on a
-> long-lived daemon never clears, which would be a hand-cleared wedge on the exact
-> surface this exists to protect.
+> *Way out:* stale locks break automatically, and since 2026-08-28 the second
+> half of the *Check* above — "kill a holder uncleanly and assert the next firing
+> acquires without human help" — is measured rather than argued.
+> `test/git/stale-lock-recovery.test.ts` drives a real holder process through four
+> kill shapes (clean exit, SIGKILL, SIGSTOP-while-holding, and a modelled machine
+> sleep) and asserts two bars fixed before it was written: the vault is usable
+> again inside **fifteen minutes** in every shape, and recovery never once
+> releases a lock that is still genuinely held.
+>
+> *What the TTL alone could not do, and it is both directions at once.* Sixty
+> minutes is four times the bar in the crash cases, and it was simultaneously too
+> **eager**: wall-clock age is a proxy for "nobody is home", and a laptop that
+> sleeps through it wakes with a healthy firing's lock breakable by the next
+> arrival — the recovery policy manufacturing the concurrent write the lock
+> exists to prevent. So a live named holder on this host now suppresses the TTL,
+> and what catches a hang instead is a heartbeat the holder *promises*
+> (`loop.lockHeartbeatMinutes`, default 4) and every commit stamps
+> (`src/mcp/commit.ts`). PID-liveness is still not enough on its own — a recycled
+> pid on a long-lived daemon never clears — which is why the TTL stays as the
+> backstop for holders nobody can watch.
+>
+> *And the second agent now waits* (`loop.lockWaitMinutes`, default 15) rather
+> than exiting 15 on sight. That is not politeness: a heartbeat that has fallen
+> behind is produced identically by a hung holder and by a suspended machine, and
+> only an observer watching across time can tell them apart — it discards its
+> whole observation window when its **own** clock jumps, because a jump means it
+> was not running either. An arrival that never waits cannot make that
+> distinction at all, so its only available rule is a timeout long enough to be
+> useless. Exit 15 is still there for giving up; `lockWaitMinutes: 0` restores the
+> old fail-fast behaviour exactly.
+>
+> *What is still nobody's to settle.* A hung holder and a crashed one are the same
+> process from outside, and no policy resolves that — the heartbeat cadence only
+> decides which way the ambiguity is resolved and what it costs. Picking it is a
+> human's call. The test measures the cost in each direction; it does not find a
+> choice with no cost.
 
 **⛔ F3 — A firing that has not been granted a spend ceiling does not happen.**
 > *Check:* with no ceiling declared, the firing refuses and exits non-zero before
@@ -3127,9 +3159,102 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,966 tests across 311 files, verified 2026-08-28 (`npx vitest run`
-> reports 3,958 of them, all passing; the other 8 are the contended calibration file
-> described below).
+> *Today:* **met** — 4,035 tests across 314 files, verified 2026-08-29 (`npx vitest run`
+> reports 4,027 of them; the other 8 are the contended calibration file described below).
+> The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
+> directory and fails this document if the two disagree. The **test** count is measured this
+> time rather than derived: a full `npx vitest run` on 2026-08-29 finished at 4,027 across
+> the 313 files it collects, in 316 s, green.
+>
+> What a gate COVERS is now declared apart from the machinery that runs it
+> (`src/release/gates.declared.ts`), and a reduction in that coverage is refused at `ship`
+> unless it is a human's and lands as its own commit touching only the gate definition
+> (`src/release/gate-coverage.ts`, `test/security/gate-coverage-human-only.test.ts`). The
+> same change closed a fail-open in gate selection: a `git diff --name-only` that failed was
+> read as "nothing changed", which silently dropped both conditional gates, so an unreadable
+> diff now runs every gate instead of the two an empty change set selects.
+>
+> **Read that "met" with the box it was measured on.** A full run the same day left 11
+> failures across 6 files, and ten of the eleven are a timeout or a wall-clock bound and
+> nothing else — the Z3 gate at 2,574 ms against 2,000, `inherited-tree-build-check` at
+> 37.1 s against 30, six timeouts in `vault-merge-conflict-census`, one in
+> `ingest-backpressure-provenance`, one in `cli/claim`. Same signature as 2026-08-06, and
+> read the same way: by measuring, not by calling it flaky.
+>
+> **Run at the commit before, the failures are still there — so they are not a change, they
+> are the harness.** Measured later the same day, in a worktree at the unmodified parent
+> commit: 4 files / 9 tests red, three of them (`vault-merge-conflict-census`,
+> `inherited-tree-build-check`, `ingest-backpressure-provenance`) the same files the branch
+> run reddened. The *sets are not equal* — `cli/channels` failed only at the parent,
+> `cli/claim` and the Z3 gate only on the branch — and that inequality is the finding: a set
+> that moves between two runs of code that differs by one feature is reporting on the
+> machine. In isolation the same tests are not close to their bounds. The six
+> `vault-merge-conflict-census` tests that hit the 20-second timeout take **3.0–3.4 s each**
+> when the file runs alone; `inherited-tree-build-check` reads **9.6 s** against its 30-second
+> bound. That is a 6–7× inflation, which is the same figure the run reports about itself:
+> 6,913 seconds of test time compressed into 901 seconds of wall.
+>
+> **Two contributors to that load are nameable and neither is the product.** The suite forks
+> three CPU spinners of its own inside an ordinary `npx vitest run`
+> (`test/telemetry/same-run-baseline-ratio.test.ts:285`) — the same hazard the CONTENDED list
+> in `vitest.config.ts` exists to keep out, admitted deliberately at three instead of
+> `os.cpus().length` but not removed. And the box this was measured on was carrying an
+> orphaned busy-loop from an unrelated project's session (`until [ -f /dev/null ] && false;
+> do :; done`, pid 21242, PPID 1, seven days old) pinning a full core for every measurement
+> above and, being seven days old, for the 08-06 readings too.
+>
+> **One fix was tried and is recorded here because it failed.** Capping the worker pool to
+> half the cores (`poolOptions.forks.maxForks`) treats the oversubscription at its cause and
+> loosens no bound — and it did not clear the failures, while inflating wall time enough to
+> be its own problem. Reverted. What the evidence now points at is not pool size but that
+> the suite carries wall-clock bars and a CPU-spinner fixture in the same run, which is a
+> harness change somebody has to design rather than a number somebody has to pick.
+>
+> The measurement does **not** say what the 08-06 entry concluded, and the difference is the
+> reason this paragraph exists. Driven straight through `tsx`, outside vitest entirely and
+> with nothing else running, `ost_next_work` answers the 10,000-node vault in **1,769 ms**
+> and `ost_check` in **1,529 ms** — against the 317 ms and 277 ms that entry recorded for the
+> same procedure. That is **5.6×**, outside the harness, so it is neither vitest overhead nor
+> a second concurrent suite. The Z3 gate sits at 88% of its budget before any load is
+> applied: it does not fail because the box is busy, it fails because it has no headroom
+> left, and the box being busy is only what spends the last 12%.
+>
+> A CPU profile of that call names where the time goes: **35% in `readFileUtf8`**, plus ~10%
+> in `gray-matter` and ~9% in `js-yaml` — over half the call spent reading and parsing node
+> files, against 8% in `computeNextWork` and 3% in `dedupe`'s `scanLayer`. This is therefore
+> **not** the returned quadratic the 08-06 entry was about; the algorithmic half Z3 optimised
+> is now a minority of the cost. Instrumenting `fs.readFileSync` shows the call makes exactly
+> **10,000 reads for 10,000 nodes — 1.00 full-tree read, 1.3 MB, no redundancy**. The product
+> is doing the minimum; the per-read cost is what moved. The same 10,000 files read by bare
+> `readFileSync` in the same tmpdir take **120 ms** (12 µs/file) against the 698 ms
+> (70 µs/file) the profile attributes inside the call, and `fseventsd` was pinned at 98% CPU
+> with `mds`/`mds_stores` adding 25% while the suite churned tmp vaults.
+>
+> So the daemon is the variable and the suite's own tmp-vault churn is what saturates it —
+> but the product has no cache to absorb it, and one full-tree read per tool call is
+> O(nodes) file opens at whatever the filesystem charges that minute. **The gate is behaving
+> correctly and its budget is real.** What is missing is either headroom inside the call or
+> isolation for the timed checks, and neither exists yet.
+>
+> **The cost of running them together, measured per file rather than asserted.** Every one of
+> the timed checks that failed in the full run **passes on its own**, and the ratio between
+> the two is the number worth having:
+>
+> | File | Alone | In the full suite | Its bound |
+> | --- | --- | --- | --- |
+> | `ost/vault-merge-conflict-census` | 63.2 s, 19/19 pass | 126.2 s, 6 tests over | 20 s per test |
+> | `loop/inherited-tree-build-check` | 12.8 s, 10/10 pass | 35.9 s | 30 s |
+> | `cli/claim` | 28.7 s, 9/9 pass | one test over | 20 s per test |
+> | `adapters/ingest-backpressure-provenance` | 24.8 s, 1/1 pass | over 45 s | 25 s |
+>
+> A **2.0×–2.8× slowdown** imposed by co-scheduling, against bounds that hold less margin
+> than that. `ingest-backpressure-provenance` is the sharpest case and does not need any
+> co-scheduling to be in trouble: 24.8 s against a 25.0 s bound **alone** is 1% of margin,
+> and an earlier isolated run on `main` measured it at 28.2 s — already over. This is a
+> second reading, with numbers, for the tree's "Run the timed check under isolation, or do
+> not let it fail the build at all". It is recorded here rather than acted on because the fix
+> is a change to how the whole suite is scheduled, and **the one thing it must not be is a
+> loosened bound** — every one of these bounds is a criterion somebody committed to.
 > After "Nonzero exit code and failure summary when a pass errors" was given its definition
 > of done: a firing that seals `unhealthy` or `crashed` prints a failure summary on
 > **stderr** — the channel this loop already reserves for what a cron must not scroll past

@@ -397,6 +397,26 @@ const LoopSchema = z
     cadence: z.string().nullish(),
     /** How long a firing lock may be held before it is assumed dead and broken. */
     lockTtlMinutes: z.number().int().positive().default(60),
+    /**
+     * How long a second firing waits for the lock before reporting the vault busy.
+     *
+     * Waiting rather than exiting is what makes the lock a lock: a firing that
+     * gives up immediately has to be re-scheduled by something, and until it is,
+     * the work simply did not happen. It is also the only posture from which a
+     * hung holder can be detected at all — see `src/loop/lock.ts`.
+     */
+    lockWaitMinutes: z.number().nonnegative().default(15),
+    /**
+     * How often a firing promises to prove it is still working.
+     *
+     * **This is the call the recovery policy cannot make for you.** A holder that
+     * goes silent for three of these is treated as hung and its lock is broken.
+     * Lower it and a slow-but-healthy firing risks being interrupted; raise it and
+     * a genuine crash keeps the vault waiting longer. Zero disables the promise
+     * entirely, leaving pid liveness and `lockTtlMinutes` as the only rules — the
+     * pre-heartbeat behaviour, and the safe-but-patient end of the trade.
+     */
+    lockHeartbeatMinutes: z.number().nonnegative().default(4),
     spend: LoopSpendSchema.nullish(),
     questions: LoopQuestionsSchema.nullish(),
     updates: LoopUpdatesSchema.nullish(),

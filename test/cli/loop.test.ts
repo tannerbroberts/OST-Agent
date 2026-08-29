@@ -109,6 +109,14 @@ function spend(outputTokens: number): void {
 const FULL_LOOP = [
   "loop:",
   '  cadence: "6h"',
+  // The shipped default is fifteen MINUTES: a second firing waits for the
+  // holder rather than skipping its slot, and waiting is also the only posture
+  // from which a hung holder can be told apart from a working one
+  // (`src/loop/lock.ts`). Every test in this file that contends for the lock
+  // would therefore spend that quarter of an hour in real time, so the fixture
+  // buys the same behaviour for three seconds. The wait itself is measured
+  // against a simulated clock in `test/git/stale-lock-recovery.test.ts`.
+  "  lockWaitMinutes: 0.05",
   "  spend:",
   "    ceilingWeightedTokens: 1000",
   "    windowHours: 24",
@@ -250,7 +258,25 @@ describe("the firing bracket", () => {
     expect(loop("start").code).toBe(0);
     const second = loop("start");
     expect(second.code).toBe(15);
+    // Still the operator's question — *who has it* — even though the answer now
+    // arrives after a wait rather than instead of one.
     expect(second.out).toMatch(/another firing holds the lock/);
+    expect(second.out).toMatch(/gave up after \d+s of waiting/);
+  });
+
+  test("wait: 0 restores the fail-fast refusal, with no wait reported", () => {
+    // The knob really is a knob. An operator whose cadence is shorter than the
+    // wait wants the old behaviour back, and gets it — same exit code, same
+    // sentence, and nothing claiming a wait that did not happen.
+    config(FULL_LOOP.replace("lockWaitMinutes: 0.05", "lockWaitMinutes: 0"));
+    git("add", "-A");
+    git("commit", "--quiet", "-m", "no wait");
+    spend(1);
+    expect(loop("start").code).toBe(0);
+    const second = loop("start");
+    expect(second.code).toBe(15);
+    expect(second.out).toMatch(/another firing holds the lock/);
+    expect(second.out).not.toMatch(/gave up after/);
   });
 
   test("a live holder pid keeps the lock held, so it is not simply refusing everything", () => {

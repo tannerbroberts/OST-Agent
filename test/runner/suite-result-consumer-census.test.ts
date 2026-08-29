@@ -97,11 +97,21 @@ const CENSUS: readonly Consumer[] = [
     name: "the ship gate",
     anchors: [
       { file: "src/release/ship.ts", reads: /const passed = status === 0;/ },
-      { file: "src/release/ship.ts", reads: /argv: \["npx", "vitest", "run"\]/ },
+      // The argv moved to `gates.declared.ts` when what a gate COVERS was split
+      // out of the machinery that runs it, so a change to a gate's scope is a
+      // commit touching one file (`src/release/gate-coverage.ts`). It is the
+      // same read; the anchor follows it, exactly as the failure message above
+      // instructs.
+      { file: "src/release/gates.declared.ts", reads: /argv: \["npx", "vitest", "run"\]/ },
     ],
     // `runGates` converts, `shipRepo` acts on it, the CLI reads `.shipped` and
-    // prints the summary. All three are asserted closed below.
-    migration: ["src/release/ship.ts", "src/release/ship-repo.ts", "src/cli/index.ts"],
+    // prints the summary. All of them are asserted closed below.
+    migration: [
+      "src/release/gates.declared.ts",
+      "src/release/ship.ts",
+      "src/release/ship-repo.ts",
+      "src/cli/index.ts",
+    ],
     lockstepWith: [],
   },
   {
@@ -307,7 +317,21 @@ describe("each channel's verdict shape has a closed reader set — the single-ch
     // nothing else touches the type or the runner, so teaching the gate to
     // carry an exclusion set is a change to two files plus the CLI that prints
     // the outcome.
+    //
+    // Two more files name `CORE_GATES` now, and neither reads a verdict:
+    // `gates.declared.ts` DECLARES the gate set (what it covers, split out so a
+    // scope change is one commit) and `gate-coverage.ts` compares two such
+    // declarations. The boundary this test guards is unchanged — the verdict is
+    // still minted and consumed in the same two files — so the list grows by the
+    // declaration and its reader rather than by a new consumer.
     expect(filesMatching(/\b(GateRun|runGates|CORE_GATES)\b/)).toEqual([
+      path.join("release", "gate-coverage.ts"),
+      path.join("release", "gates.declared.ts"),
+      path.join("release", "ship-repo.ts"),
+      path.join("release", "ship.ts"),
+    ]);
+    // The verdict type itself stays where it was: neither new file reads one.
+    expect(filesMatching(/\bGateRun\b/)).toEqual([
       path.join("release", "ship-repo.ts"),
       path.join("release", "ship.ts"),
     ]);
