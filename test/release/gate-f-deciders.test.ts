@@ -169,6 +169,17 @@ const PURE_MODULES = [
   "stall.ts",
   "authority-contract.ts",
   "early-push.ts",
+  // Scores a pass's stated intent and a list of history entries against the
+  // shared briefing and renders the verdict — pure over whatever
+  // `PriorArtEntry[]` the caller hands in. The git that produces those entries
+  // is deliberately in `src/git/prior-art-sight.ts` and not here: its input is
+  // the target repository's own history, which the agent writes to by building
+  // and which no ledger-under-`.git/ost-agent/` argument covers, so none of the
+  // five classes in this file would have described it honestly. Keeping the
+  // spawn out of `src/loop` is what makes "pure" true of this module rather than
+  // merely true of `FS_READ` — see the non-vacuity assertion below, which now
+  // fails a pure module that reaches for `simple-git`.
+  "prior-art-scan.ts",
   "block-announcement.ts",
   // Derives a consequence set's dependency links and classifies an encountered
   // question against one, all in memory — the CLI command that persists a
@@ -422,6 +433,17 @@ describe("1 — the enumeration covers every module that can become a decider in
     for (const m of PURE_MODULES) {
       const src = fs.readFileSync(path.join(loopDir, m), "utf8");
       expect(FS_READ.test(src), `src/loop/${m} is declared pure but touches the filesystem`).toBe(false);
+      // `FS_READ` looks for synchronous calls, and a module that reads a
+      // repository through `simple-git` makes none of them — it spawns git
+      // asynchronously. That hole went unexercised until the first loop module
+      // wanted to read git history, and a "pure" module that shells out to read
+      // the repository is a decider input nobody enumerated by exactly the
+      // argument the rest of this file makes. So it is closed here rather than
+      // left for the next one: git reads belong in `src/git/`.
+      expect(
+        /simple-git/.test(src),
+        `src/loop/${m} is declared pure but spawns git through simple-git — move the read into src/git/`,
+      ).toBe(false);
     }
   });
 

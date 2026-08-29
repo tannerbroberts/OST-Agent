@@ -3159,12 +3159,25 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,092 tests across 317 files, verified 2026-08-29 (`npx vitest run`
-> reports 4,084 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,108 tests across 318 files, verified 2026-08-29 (`npx vitest run`
+> reports 4,100 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-29 finished at 4,084 across
-> the 316 files it collects, in 263 s, green. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-29 finished at 4,100 across
+> the 317 files it collects, in 319 s, green. The file added since the previous line is
+> `test/loop/prior-art-scan-catches-recorded-collision.test.ts` — the replay of the recorded
+> 2026-07-26 collision against a start-of-build prior-art scan, whose headline measurement is
+> that the scan misses it (`src/loop/prior-art-scan.ts` and `src/git/prior-art-sight.ts`, both
+> on the unreachable-module debt register for exactly that reason).
+> **A wall-clock note worth more than the counts.** Two full runs on 2026-08-29, from one
+> unchanged working tree, disagreed: the first reported 8 files and 13 tests failing in 935 s,
+> the second 3 files and 3 tests failing in 324 s, and the second run's three were a strict
+> subset — the ones a new source file genuinely breaks. The five extra files were machine
+> load, not code, and the run that saw them took nearly three times as long. A suite this long
+> reports on the machine as much as on the code, which is the same confusion the wall-clock
+> gate cost a week over (Z3, 2026-08-06).
+> Previously 4,092 tests across 317 files, verified 2026-08-29 (`npx vitest run` reports 4,084
+> of them; the other 8 are the contended calibration file described below), after
 > `test/cli/first-run-without-key.test.ts` — the keyless-first-run and bring-your-own-key-off
 > instrument, which also pinned the Brave auto-activation fix in `src/runner/context.ts`.
 >
