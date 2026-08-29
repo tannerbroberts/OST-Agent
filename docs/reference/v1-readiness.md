@@ -3159,14 +3159,15 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,092 tests across 317 files, verified 2026-08-29 (`npx vitest run`
-> reports 4,084 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,111 tests across 318 files, verified 2026-08-29 (`npx vitest run`
+> reports 4,103 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-29 finished at 4,084 across
-> the 316 files it collects, in 263 s, green. The file added since the previous line is
-> `test/cli/first-run-without-key.test.ts` — the keyless-first-run and bring-your-own-key-off
-> instrument, which also pinned the Brave auto-activation fix in `src/runner/context.ts`.
+> time rather than derived: a full `npx vitest run` on 2026-08-29 collected 4,103 across
+> the 317 files it collects, in 1,066 s on a loaded box, with the contended wall-clock
+> failures described below and nothing else. The file added since the previous line is
+> `test/ost/frontier-unblocking-order.test.ts` — the unblocking-order instrument, which
+> also moved the frontier's leading ranking term in `src/product/planner.ts`.
 >
 > What a gate COVERS is now declared apart from the machinery that runs it
 > (`src/release/gates.declared.ts`), and a reduction in that coverage is refused at `ship`
@@ -3257,6 +3258,35 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > not let it fail the build at all". It is recorded here rather than acted on because the fix
 > is a change to how the whole suite is scheduled, and **the one thing it must not be is a
 > loosened bound** — every one of these bounds is a criterion somebody committed to.
+> After "Order the frontier by what each step unblocks, not by what it costs" was given its
+> definition of done: `ost-agent buildable` no longer prints its frontier in the order the
+> files happened to be walked in. `src/ost/frontier.ts` computes, for each candidate, how
+> many other outstanding nodes are waiting behind it — its own subtree, plus every ancestor
+> branch it is the ONLY buildable route through — and `rankBuildableWork` sorts on that
+> count ahead of affordability, so a cheap candidate that unblocks nothing sorts below an
+> expensive one that unblocks nine. It is a graph walk over the parent/child edges already
+> on disk: nothing is asked of the operator and no model is called.
+> **The measurement that justifies the shape is in the module's history rather than its
+> prose, and it is the finding.** The obvious reading — count what sits beneath a solution
+> — is FLAT on this product's own vault: 77 of 80 buildable candidates have exactly two
+> descendants, one assumption and one test, so ordering by it orders nothing. The
+> sole-route term is what makes the column separate at all, and against the live vault it
+> spreads 80 candidates across thirteen values from 2 to 56, with the top candidate the one
+> live route through two whole top-level opportunities. That corroborates, from a second
+> tree, the belief the neighbouring node "Rank every node by how many blocked tests one
+> build would unblock" is still waiting on — *unblock counts are near-uniform, so ranking by
+> them orders nothing* — for the naïve metric, and refutes it for this one.
+> `test/ost/frontier-unblocking-order.test.ts` pins all three clauses of the instrument
+> against the real frontier query, on a fixture where title order, tree order and cost order
+> each name a different winner, so a fallback to any of them fails: nineteen tests, one new
+> file. Two limits are pinned rather than described — a frontier whose candidates all sit
+> beside a buildable sibling is flat and the order falls back to the terms below, and the
+> better-mapped of two identical branches wins on density alone. What a green does NOT
+> settle is the assumption test's own question: whether a builder shown this order prefers
+> it to the one they were making. That is five picks written down before the order is
+> revealed, and reading them against it is a person's job.
+> Previously 4,092 tests across 317 files, verified 2026-08-29 (`npx vitest run` reports
+> 4,084 of them; the other 8 are the contended calibration file described below).
 > After "Nonzero exit code and failure summary when a pass errors" was given its definition
 > of done: a firing that seals `unhealthy` or `crashed` prints a failure summary on
 > **stderr** — the channel this loop already reserves for what a cron must not scroll past

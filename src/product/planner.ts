@@ -22,23 +22,40 @@
  *
  * ## How the order is computed
  *
- * Two terms, in this precedence, with tree order as the stable tiebreak:
+ * Three terms, in this precedence, with tree order as the stable tiebreak:
  *
- *   1. **Affordability** — how many of the candidate's demands the manifest says
+ *   1. **Leverage** — how many other outstanding nodes are waiting behind this
+ *      candidate ({@link ../ost/frontier.ts}), most first. This term leads, and
+ *      the precedence is the point rather than a detail: efficiency in a
+ *      dependency graph is not a property of individual steps, so a cheap step
+ *      that unblocks nothing sorts BELOW an expensive one that unblocks nine.
+ *      It is computed over the parent/child edges the tree already has and asks
+ *      nothing of the operator.
+ *   2. **Affordability** — how many of the candidate's demands the manifest says
  *      the operator cannot pay for. Work whose declared resources are all present
  *      comes first; work with one unmet demand next; and so on. This is a
  *      partition, not a weight, because a weight would mean inventing exchange
  *      rates between an hour and a credential, and nobody has measured those.
- *   2. **Merit** — the believability rung the solution rests on, strongest first.
+ *   3. **Merit** — the believability rung the solution rests on, strongest first.
  *      Resource-independent: it is a property of the evidence, not of the
  *      operator.
  *
- * Term 1 is the only one the manifest touches. **With every resource blank,
- * nothing has an unmet demand and the order collapses to merit-then-tree-order**
- * — which on a tree whose solutions all rest on the same rung is exactly the
- * order `buildable` prints today. That equality is deliberate and is asserted by
- * the spec: the baseline this is compared against has to be the order the product
- * actually emits, or the comparison is between two rankings this file invented.
+ * Term 2 is the only one the manifest touches. **With every resource blank,
+ * nothing has an unmet demand and the order collapses to
+ * leverage-then-merit-then-tree-order** — and on a tree whose candidates all
+ * carry the same leverage and rest on the same rung, that is exactly the order
+ * `buildable` printed before this term existed. That equality is deliberate and
+ * is asserted by the spec: the baseline the manifest shift is measured against
+ * has to be an order the product actually emits, or the comparison is between
+ * two rankings this file invented.
+ *
+ * **Leverage does not say the work is worth doing, and it can be flat.** It
+ * rewards whatever the tree has recorded most densely, and on a tree where every
+ * candidate sits beside a buildable sibling it separates nothing at all and the
+ * order falls back to the two terms below it. Both limits are the frontier
+ * module's to explain and its header does; what belongs here is that neither is
+ * hidden — the count rides on every row, so a flat column is legible as a flat
+ * column rather than as agreement.
  *
  * ## What a demand is, and what it is not
  *
@@ -58,6 +75,7 @@
  * accepts and prints, rather than a false positive it hides.
  */
 import { buildableSolutions } from "../eval/buildable.js";
+import { NOTHING_WAITING, unblockingWeights } from "../ost/frontier.js";
 import { computeMayRun } from "../knowledge/lanes.js";
 import { rungRank, FLOOR_RUNG } from "../knowledge/believability.js";
 import { suggestCaution } from "../ost/lanes.js";
@@ -90,6 +108,20 @@ export interface RankedCandidate {
   instrument: string;
   /** The rung the solution rests on; the merit term, and resource-independent. */
   evidence: string;
+  /**
+   * How many other outstanding nodes are waiting behind this candidate — the
+   * leading ranking term, and reported on every row including the zeroes. A
+   * count that appeared only when it was large would make a flat column read as
+   * agreement rather than as a term that separated nothing.
+   */
+  unblocks: number;
+  /**
+   * The ancestors this candidate is the only live route through, nearest first
+   * — where the count above came from beyond the candidate's own subtree. Empty
+   * is the ordinary case, and it is what lets a reader check the number by
+   * opening the branch instead of taking it on trust.
+   */
+  soleRouteFor: string[];
   /** Empty when everything this candidate needs is declared available. */
   unmet: UnmetDemand[];
 }
@@ -296,6 +328,11 @@ function testsUnder(index: Map<string, OstNode>, solution: OstNode): OstNode[] {
 export function rankBuildableWork(tree: readonly OstNode[], m: ResourceManifest, problem?: string): PriorityOrder {
   const index = indexByTitle(tree);
   const candidates = buildableSolutions(tree);
+  // One graph pass for the whole frontier, not one per candidate: the weight of
+  // an item depends on how many OTHER candidates share its branch, so the set
+  // has to be weighed together or the leading term is computed against a
+  // different frontier than the one being ordered.
+  const weights = unblockingWeights(tree, candidates.map((c) => c.solution));
 
   const scored = candidates.map((c, treeOrder) => {
     const solution = index.get(c.solution)!;
@@ -304,16 +341,26 @@ export function rankBuildableWork(tree: readonly OstNode[], m: ResourceManifest,
       treeOrder,
       candidate: c,
       solution,
+      weight: weights.get(c.solution) ?? NOTHING_WAITING,
       unmet: unmetDemands(solution, tests, m),
       merit: rungRank(solution.evidence ?? FLOOR_RUNG),
     };
   });
 
-  // Affordability, then merit, then the order the tree walk produced. The last
-  // term is what makes this deterministic on a tree where the first two tie —
-  // which, on a vault whose solutions all rest on the same rung and whose tests
-  // are unlabelled, is most of them.
-  scored.sort((a, b) => a.unmet.length - b.unmet.length || a.merit - b.merit || a.treeOrder - b.treeOrder);
+  // Leverage, then affordability, then merit, then the order the tree walk
+  // produced. Leverage leads because ordering by cost is what this term was
+  // added to stop: an item that unblocks nothing sorts last however cheap it
+  // is. The final term is what makes this deterministic on a tree where the
+  // first three tie — which, on a vault whose candidates all sit beside a
+  // buildable sibling, rest on the same rung and carry unlabelled tests, is
+  // most of them.
+  scored.sort(
+    (a, b) =>
+      b.weight.unblocks - a.weight.unblocks ||
+      a.unmet.length - b.unmet.length ||
+      a.merit - b.merit ||
+      a.treeOrder - b.treeOrder,
+  );
 
   const ranked: RankedCandidate[] = scored.map((s, i) => ({
     rank: i + 1,
@@ -321,6 +368,8 @@ export function rankBuildableWork(tree: readonly OstNode[], m: ResourceManifest,
     test: s.candidate.test,
     instrument: s.candidate.instrument,
     evidence: s.solution.evidence ?? FLOOR_RUNG,
+    unblocks: s.weight.unblocks,
+    soleRouteFor: s.weight.soleRouteFor,
     unmet: s.unmet,
   }));
 
@@ -376,13 +425,19 @@ export function formatPriorityOrder(order: PriorityOrder): string {
   for (const r of order.ranked) {
     lines.push(`${r.rank}. ${r.solution}`);
     lines.push(`     ${r.instrument}  (${r.test})`);
+    // On every row, including the zeroes: a count that showed up only when it
+    // was large would leave a flat column looking like agreement.
+    const via = r.soleRouteFor.length ? ` — only live route through ${r.soleRouteFor.join(", ")}` : "";
+    lines.push(`     unblocks ${r.unblocks} outstanding node(s)${via}`);
     for (const u of r.unmet) lines.push(`     deferred — ${u.resource}: ${u.demand}; declared ${u.declared}`);
   }
   if (!order.ranked.length) lines.push("(nothing is buildable — no solution carries an instrument observed red)");
   lines.push("");
   lines.push(
-    "This order says which work the declared resources can pay for. It does not say the work is worth doing " +
-      "(that is `ost-agent gate`), and it cannot tell whether the manifest is still true — nothing here checks.",
+    "Ordered by what each step unblocks, then by what the declared resources can pay for. It does not say the " +
+      "work is worth doing (that is `ost-agent gate`), it cannot tell whether the manifest is still true — " +
+      "nothing here checks — and the unblocking count rewards a densely-mapped branch over a sparse one that " +
+      "may matter more.",
   );
   return lines.join("\n");
 }

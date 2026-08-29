@@ -56055,6 +56055,73 @@ function formatRecoverability(report) {
   return lines.join("\n");
 }
 
+// src/ost/frontier.ts
+var NOTHING_WAITING = { unblocks: 0, soleRouteFor: [] };
+function stillOutstanding(node) {
+  if (node.status === "shipped" || node.status === "deferred") return false;
+  return !hasRecordedResult(node);
+}
+function firstParents(tree, index) {
+  const parent = /* @__PURE__ */ new Map();
+  for (const p2 of tree) {
+    for (const link of p2.links) {
+      if (index.has(link) && !parent.has(link)) parent.set(link, p2.title);
+    }
+  }
+  return parent;
+}
+function subtree3(root, index) {
+  const seen = /* @__PURE__ */ new Set([root]);
+  const queue = [root];
+  for (let head = 0; head < queue.length; head++) {
+    const node = index.get(queue[head]);
+    if (!node) continue;
+    for (const link of node.links) {
+      if (seen.has(link) || !index.has(link)) continue;
+      seen.add(link);
+      queue.push(link);
+    }
+  }
+  return seen;
+}
+function unblockingWeights(tree, frontier) {
+  const index = /* @__PURE__ */ new Map();
+  for (const n of tree) index.set(n.title, n);
+  const parent = firstParents(tree, index);
+  const live = frontier.filter((t2) => index.has(t2));
+  const liveRoutes = /* @__PURE__ */ new Map();
+  for (const title of live) {
+    const guard = /* @__PURE__ */ new Set([title]);
+    for (let up = parent.get(title); up !== void 0 && !guard.has(up); up = parent.get(up)) {
+      guard.add(up);
+      liveRoutes.set(up, (liveRoutes.get(up) ?? 0) + 1);
+    }
+  }
+  const weights2 = /* @__PURE__ */ new Map();
+  for (const title of frontier) {
+    if (!index.has(title)) {
+      weights2.set(title, NOTHING_WAITING);
+      continue;
+    }
+    const soleRouteFor = [];
+    let top = title;
+    const guard = /* @__PURE__ */ new Set([title]);
+    for (let up = parent.get(title); up !== void 0 && !guard.has(up); up = parent.get(up)) {
+      if (liveRoutes.get(up) !== 1) break;
+      guard.add(up);
+      soleRouteFor.push(up);
+      top = up;
+    }
+    let unblocks = 0;
+    for (const behind of subtree3(top, index)) {
+      if (behind === title) continue;
+      if (stillOutstanding(index.get(behind))) unblocks++;
+    }
+    weights2.set(title, { unblocks, soleRouteFor });
+  }
+  return weights2;
+}
+
 // src/product/planner.ts
 var MONEY_NAMED = /(?:[$£€]\s?\d[\d,]*(?:\.\d+)?)|(?:\b\d[\d,]*(?:\.\d+)?\s?(?:dollars?|usd|eur|gbp|pounds?|euros?)\b)/i;
 function literal2(name) {
@@ -56126,6 +56193,7 @@ function testsUnder2(index, solution) {
 function rankBuildableWork(tree, m, problem) {
   const index = indexByTitle2(tree);
   const candidates = buildableSolutions(tree);
+  const weights2 = unblockingWeights(tree, candidates.map((c3) => c3.solution));
   const scored = candidates.map((c3, treeOrder) => {
     const solution = index.get(c3.solution);
     const tests = testsUnder2(index, solution);
@@ -56133,17 +56201,22 @@ function rankBuildableWork(tree, m, problem) {
       treeOrder,
       candidate: c3,
       solution,
+      weight: weights2.get(c3.solution) ?? NOTHING_WAITING,
       unmet: unmetDemands(solution, tests, m),
       merit: rungRank(solution.evidence ?? FLOOR_RUNG)
     };
   });
-  scored.sort((a, b2) => a.unmet.length - b2.unmet.length || a.merit - b2.merit || a.treeOrder - b2.treeOrder);
+  scored.sort(
+    (a, b2) => b2.weight.unblocks - a.weight.unblocks || a.unmet.length - b2.unmet.length || a.merit - b2.merit || a.treeOrder - b2.treeOrder
+  );
   const ranked = scored.map((s, i2) => ({
     rank: i2 + 1,
     solution: s.candidate.solution,
     test: s.candidate.test,
     instrument: s.candidate.instrument,
     evidence: s.solution.evidence ?? FLOOR_RUNG,
+    unblocks: s.weight.unblocks,
+    soleRouteFor: s.weight.soleRouteFor,
     unmet: s.unmet
   }));
   const conditioned = /* @__PURE__ */ new Map();
@@ -56188,12 +56261,14 @@ function formatPriorityOrder(order) {
   for (const r2 of order.ranked) {
     lines.push(`${r2.rank}. ${r2.solution}`);
     lines.push(`     ${r2.instrument}  (${r2.test})`);
+    const via = r2.soleRouteFor.length ? ` \u2014 only live route through ${r2.soleRouteFor.join(", ")}` : "";
+    lines.push(`     unblocks ${r2.unblocks} outstanding node(s)${via}`);
     for (const u of r2.unmet) lines.push(`     deferred \u2014 ${u.resource}: ${u.demand}; declared ${u.declared}`);
   }
   if (!order.ranked.length) lines.push("(nothing is buildable \u2014 no solution carries an instrument observed red)");
   lines.push("");
   lines.push(
-    "This order says which work the declared resources can pay for. It does not say the work is worth doing (that is `ost-agent gate`), and it cannot tell whether the manifest is still true \u2014 nothing here checks."
+    "Ordered by what each step unblocks, then by what the declared resources can pay for. It does not say the work is worth doing (that is `ost-agent gate`), it cannot tell whether the manifest is still true \u2014 nothing here checks \u2014 and the unblocking count rewards a densely-mapped branch over a sparse one that may matter more."
   );
   return lines.join("\n");
 }
