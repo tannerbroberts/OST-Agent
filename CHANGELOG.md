@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+- **`ost-agent buildable` orders its frontier by what each step unblocks, not by what it
+  costs.** The order used to be affordability, then the believability rung, then the order
+  the files happened to be walked in — and on a vault whose candidates all rest on the same
+  rung it came back alphabetical, which is not a ranking, while the only term that ever
+  separated anything ranked by what a step *cost*. `src/ost/frontier.ts` computes, for each
+  candidate, how many other outstanding nodes are waiting behind it: everything still open
+  in its own subtree, plus every ancestor branch it is the **only** buildable route through.
+  That count now leads the sort, so a cheap candidate that unblocks nothing sorts below an
+  expensive one that unblocks nine. It is a graph walk over the parent/child edges already
+  on disk — nothing is asked of the operator and no model is called — and every row carries
+  its count and names the ancestors it claims to be the sole route for, including the
+  zeroes, so a flat column reads as a flat column rather than as agreement.
+  The sole-route term is what makes the column separate at all, and the measurement is why
+  it is there: counting only what sits *beneath* a candidate is flat on this product's own
+  vault — 77 of 80 have exactly two descendants — while the shipped metric spreads the same
+  80 across thirteen values from 2 to 56. Two limits ride on the output rather than in a
+  comment: a frontier whose candidates all sit beside a buildable sibling is flat and falls
+  back to the terms below, and the better-mapped of two identical branches wins on density
+  alone. Pinned by `test/ost/frontier-unblocking-order.test.ts` against the real frontier
+  query, on a fixture where title order, tree order and cost order each name a different
+  winner. Whether a builder shown the order *prefers* it is still an assumption test a
+  person has to run.
+
 - **Bring-your-own-key search is off until you say so, instead of switching itself on when
   it finds a key.** Provider resolution keyed on `holds(CREDENTIAL_SEARCH)` alone, which
   made the presence of an environment variable the entire opt-in: an operator carrying
