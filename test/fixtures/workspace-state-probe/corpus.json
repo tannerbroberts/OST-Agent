@@ -1,0 +1,13 @@
+{
+ "upstreamFailures": 719,
+ "environmentFailures": 78,
+ "stateShaped": 33,
+ "pathShaped": 45,
+ "excluded": {
+  "literal-match": 13,
+  "tool-not-granted": 132,
+  "timed-out": 20,
+  "worktree-refusal": 1
+ },
+ "notEnvironment": 475
+}

@@ -1,0 +1,626 @@
+[
+ {
+  "session": "1656656c-a695-4be5-87b4-ed6d6807c4fd",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 wc: /Users/tanner/.claude/jobs/f10ce78f/tmp/synth.md: open: No such file or directory"
+ },
+ {
+  "session": "agent-a3326affe982d94cf",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 3:## 0.22.0 40:## 0.21.0 65:## 0.20.0 100:## 0.19.0 135:## 0.18.0 181:## 0.17.0 223:## 0.16.0 264:## 0.15.0 315:## 0.14.0 369:## 0.13.0 408:## 0.12.0 443:## 0.11.0 ---unreleased--- --- version.ts --- cat: src/version.ts: No such file or directory"
+ },
+ {
+  "session": "agent-ac85ef4d391e9b06f",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 2 ugrep: warning: src/genome/schema.ts: No such file or directory"
+ },
+ {
+  "session": "agent-ad38dfbbc0616cda0",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 ls: -d: No such file or directory src/index.ts src: adapters cli config eval git index.ts knowledge loop mcp ost processes product runner security telemetry web src/adapters: atlassian.ts friction.ts inbox.ts slack.ts source.ts tokens.ts transcript.ts usage.ts src/cli: index.ts src/config: load.ts schema.ts src/eval: attention.ts coverage.ts evidence-debt.ts invariants.ts render.ts src … aundering.ts src/mcp: bootstrap.ts commit.ts next-work.ts server.ts setup.ts src/ost: census.ts dedupe.ts lanes.ts node.ts results.ts sanitize.ts vault.ts src/processes: tree.ts types.ts src/product: repo.ts src/runner: context.ts init.ts set-outcome.ts src/security: policy.ts tool.ts tools.ts validateToolInput.ts src/telemetry: attention.ts usage.ts src/web: budget.ts guard.ts reader.ts search.ts"
+ },
+ {
+  "session": "agent-aa27f7353ee9acf41",
+  "signature": "bare-package-unresolvable",
+  "question": "has-lockfile",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 1 node:internal/modules/package_json_reader:301 throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null); ^ Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'yaml' imported from /private/tmp/rt.mts \u001b[90m at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)\u001b[39m \u001b[90m at packageResolve (node:internal/modules/esm/resolve:768:81)\u001b[39m \u001b[90m at moduleR … ile:///Users/tanner/dev/OST-Agent/.claude/worktrees/epistemic-uncertainty-spec/\u001b[39mnode_modules/\u001b[4mtsx\u001b[24m/dist/register-zZ7SWseA.mjs:2:10315\u001b[90m)\u001b[39m at resolveTsPathsSync \u001b[90m(file:///Users/tanner/dev/OST-Agent/.claude/worktrees/epistemic-uncertainty-spec/\u001b[39mnode_modules/\u001b[4mtsx\u001b[24m/dist/register-zZ7SWseA.mjs:2:11547\u001b[90m)\u001b[39m { code: \u001b[32m'ERR_MODULE_NOT_FOUND'\u001b[39m } Node.js v24.18.0"
+ },
+ {
+  "session": "agent-a01a968fb2412c781",
+  "signature": "bare-package-unresolvable",
+  "question": "has-lockfile",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 1 node:internal/modules/cjs/loader:1517 const err = new Error(message); ^ Error: Cannot find module 'yaml' Require stack: - /private/tmp/rt.ts \u001b[90m at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)\u001b[39m at nextResolveSimple \u001b[90m(/Users/tanner/dev/OST-Agent/.claude/worktrees/epistemic-uncertainty-spec/\u001b[39mnode_modules/\u001b[4mtsx\u001b[24m/dist/register-BoI6-WNn.cjs:10:1017\u001b … 4mtsx\u001b[24m/dist/register-zZ7SWseA.mjs:2:15301\u001b[90m)\u001b[39m \u001b[90m at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)\u001b[39m \u001b[90m at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)\u001b[39m \u001b[90m at defaultResolve (node:internal/modules/cjs/loader:1152:20)\u001b[39m { code: \u001b[32m'MODULE_NOT_FOUND'\u001b[39m, requireStack: [ \u001b[32m'/private/tmp/rt.ts'\u001b[39m ] } Node.js v24.18.0"
+ },
+ {
+  "session": "agent-ada08da432c1c6966",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 ls: /Users/tanner/dev/OST-Agent/.claude/worktrees/epistemic-uncertainty-spec/scratch-attention-probe.mjs: No such file or directory"
+ },
+ {
+  "session": "agent-afbb9d541d4dbc516",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "File does not exist. Note: your current working directory is /Users/tanner/dev/OST-Agent/.claude/worktrees/epistemic-uncertainty-spec."
+ },
+ {
+  "session": "06eba571-9780-458a-b384-da5abe101e6f",
+  "signature": "tree-dirty-or-diverged",
+  "question": "tree-clean-and-in-sync",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 128 From https://github.com/tannerbroberts/OST-Agent * branch main -> FETCH_HEAD hint: You have divergent branches and need to specify how to reconcile them. hint: You can do so by running one of the following commands sometime before hint: your next pull: hint: hint: git config pull.rebase false # merge hint: git config pull.rebase true # rebase hint: git config pull.ff only # fast-forward only hint: hint: You can replace \"git config\" with \"git config --global\" to set a default hint: preference for all repositories. You can also pass --rebase, --no-rebase, hint: or --ff-only on the command line to override the configured default per hint: invocation. fatal: Need to specify how to reconcile divergent branches."
+ },
+ {
+  "session": "081b644b-e90a-472e-9b3d-15562a030a94",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 total 64 drwxr-xr-x@ 5 tanner wheel 160 Aug 5 14:40 . drwx------@ 3 tanner wheel 96 Aug 5 14:40 .. -rw-r--r--@ 1 tanner staff 2663 Aug 4 21:42 mcp-prefix.ts -rw-r--r--@ 1 tanner staff 11852 Aug 5 10:51 transcript-model-reader.test.ts -rw-r--r--@ 1 tanner staff 15068 Aug 5 10:50 transcript-model-reader.ts --- still in repo? --- ls: scripts/mcp-prefix.ts: No such file or directory ls: src/adapters/transcript-model-reader.ts: No such file or directory ls: test/adapters/transcript-model-reader.test.ts: No such file or directory -rw-r--r--@ 1 tanner staff 1946 Aug 4 21:42 test/mcp-prefix.ts"
+ },
+ {
+  "session": "081b644b-e90a-472e-9b3d-15562a030a94",
+  "signature": "path-not-in-index",
+  "question": "path-tracked",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 128 ok > ost-agent@0.23.0 gen:skill > tsx scripts/gen-skill.ts wrote .claude/skills/opportunity-solution-tree/SKILL.md (28144 bytes) wrote .claude/commands/ost-setup.md (4586 bytes) fatal: ambiguous argument 'SKILL.md': unknown revision or path not in the working tree. Use '--' to separate paths from revisions, like this: 'git <command> [<revision>...] -- [<file>...]'"
+ },
+ {
+  "session": "0d27cebf-9b5d-4cff-906c-0134512573bc",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 total 24 drwxr-xr-x 13 tanner staff 416 Aug 2 08:11 . drwxr-x---+ 48 tanner staff 1536 Aug 2 08:13 .. -rw-r--r--@ 1 tanner staff 8196 Apr 11 19:18 .DS_Store drwxr-xr-x@ 18 tanner staff 576 Apr 11 20:42 chaotic-nature drwxr-xr-x@ 12 tanner staff 384 Dec 22 2025 CLI_atomizer drwxr-xr-x@ 15 tanner staff 480 Apr 11 13:49 godot-mcp drwxr-xr-x@ 26 tanner staff 832 Jul 30 20:57 OST-Agent drwx … 2 Dec 27 2025 React_about-time drwxr-xr-x@ 28 tanner staff 896 Jan 19 2026 React_tetrix-game.github.io drwxr-xr-x 9 tanner staff 288 Jan 24 2026 RecursiveStrategicDecomposition drwxr-xr-x@ 42 tanner staff 1344 Jul 28 19:35 tetrix-game-monorepo drwxr-xr-x@ 7 tanner staff 224 Apr 11 10:40 Web-Game-Bot-Scripts --- benchmarks bin --- ls: /Users/tanner/dev/ost-benchmarks/bin/: No such file or directory"
+ },
+ {
+  "session": "0d27cebf-9b5d-4cff-906c-0134512573bc",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 M .obsidian/graph.json M .obsidian/workspace.json ?? .ost-agent/inbox/2026-07-26-builder-lazy-mcp-server-shipped.md === diffstat === .obsidian/graph.json | 2 +- .obsidian/workspace.json | 51 ++++++++++++------------------------------------ 2 files changed, 14 insertions(+), 39 deletions(-) === gitignore === cat: .gitignore: No such file or directory"
+ },
+ {
+  "session": "0d27cebf-9b5d-4cff-906c-0134512573bc",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 duplicate clone removed ls: /Users/tanner/dev/ost-agent-meta: No such file or directory"
+ },
+ {
+  "session": "0d27cebf-9b5d-4cff-906c-0134512573bc",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 13:30:33Z === wrapper log === === 2026-08-02T13:20:25Z tick === last record: none — this vault has never fired due: no firing on record spent 0 of 12,000,000 weighted tokens in the last 24h loop run 2026-08-02T13-20-25.528Z-loop open Permission deny rule \"MultiEdit\" matches no known tool — check for typos. Permission deny rule \"SlashCommand\" matches no known tool — check for typos. Unknown command: /ost-pass invariants: PASS (0 violations over 241 node(s)) To https://github.com/tannerbroberts/ost-agent-meta.git 8ba066a..75efe6b main -> main loop run 2026-08-02T13-20-25.528Z-loop sealed: no-op ✓ pass (exit 0) ✓ check (exit 0) === exit 0 === === launchd log === tail: /Users/tanner/Library/Logs/ost-meta-loop.launchd.log: No such file or directory"
+ },
+ {
+  "session": "agent-ac2a089ccdafc8888",
+  "signature": "path-not-in-index",
+  "question": "path-tracked",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 128 fatal: pathspec '.github/workflows/npm-publish.yml' did not match any files"
+ },
+ {
+  "session": "agent-af3e05fcba9df4e6f",
+  "signature": "program-not-on-path",
+  "question": "binaries-on-path",
+  "pathShaped": false,
+  "probedItself": true,
+  "error": "Exit code 1 gtimeout not found timeout not found"
+ },
+ {
+  "session": "35566d8b-a635-49b1-acc8-6bfbeeb134e7",
+  "signature": "not-a-repo",
+  "question": "is-git-repo",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 128 total 64 drwxr-xr-x@ 5 tanner staff 160 Aug 4 13:54 . drwxr-xr-x 14 tanner staff 448 Aug 4 13:08 .. -rwxr-xr-x@ 1 tanner staff 17769 Aug 4 13:54 index.mjs -rw-r--r--@ 1 tanner staff 316 Aug 4 13:10 package.json -rw-r--r--@ 1 tanner staff 4863 Aug 4 13:30 README.md --- git --- fatal: not a git repository (or any of the parent directories): .git fatal: not a git repository (or any of the parent directories): .git"
+ },
+ {
+  "session": "3d729ebc-348f-4d45-8f3c-25df1de8fbc9",
+  "signature": "shell-builtin-missing",
+  "question": "shell-version-floor",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 1 archived: 3 === viewer === /Users/tanner/.local/bin/ost-reports: line 21: mapfile: command not found /Users/tanner/.local/bin/ost-reports: line 22: FILES: unbound variable /Users/tanner/.local/bin/ost-reports: line 23: COUNT: unbound variable"
+ },
+ {
+  "session": "42dcb7b4-f01b-40bc-a211-ed4a44a74fd3",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 === Acceptance rate of five self-drafted ruleset changes.md Add the pointer file and count how many tools actually look for it unprompted.md Ask ten buyers to split a test's price between designing it and running it.md cat: Acceptance rate of five self-drafted ruleset changes.md Add the pointer file and count how many tools actually look for it unprompted.md Ask ten buyers to split a test's price between designing it and running it.md: No such file or directory"
+ },
+ {
+  "session": "42dcb7b4-f01b-40bc-a211-ed4a44a74fd3",
+  "signature": "program-not-on-path",
+  "question": "binaries-on-path",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 1 (eval):4: command not found: timeout === REPORT (prose-only tree): cat: report2.txt: No such file or directory"
+ },
+ {
+  "session": "agent-a805835fec6fefe1c",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "File does not exist. Note: your current working directory is /Users/tanner/dev/OST-Agent."
+ },
+ {
+  "session": "agent-a0ae25d1e8b6f7d9b",
+  "signature": "ref-already-exists",
+  "question": "ref-name-free",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 1 Preparing worktree (detached HEAD dd80c4e) fatal: '/private/tmp/claude-501/-Users-tanner-dev-OST-Agent/516fdfb8-bab1-41a4-b1e5-92fde97bd90d/scratchpad/wt' already exists ln: /private/tmp/claude-501/-Users-tanner-dev-OST-Agent/516fdfb8-bab1-41a4-b1e5-92fde97bd90d/scratchpad/wt/node_modules/node_modules: File exists"
+ },
+ {
+  "session": "agent-a36aaf7fa8474d0fe",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 /private/tmp/claude-501/-Users-tanner-dev-OST-Agent/516fdfb8-bab1-41a4-b1e5-92fde97bd90d/scratchpad/wt/node_modules 148 ls: /private/tmp/claude-501/-Users-tanner-dev-OST-Agent/516fdfb8-bab1-41a4-b1e5-92fde97bd90d/scratchpad/wt2: No such file or directory"
+ },
+ {
+  "session": "agent-a7c73c994a131f41a",
+  "signature": "bare-package-unresolvable",
+  "question": "has-lockfile",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 1 node:internal/modules/package_json_reader:301 throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null); ^ Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@modelcontextprotocol/sdk' imported from /private/tmp/claude-501/-Users-tanner-dev-OST-Agent/516fdfb8-bab1-41a4-b1e5-92fde97bd90d/scratchpad/probe3.mts at Object.getPackageJSONURL (node:internal/modules/package_json_r … (file:///Users/tanner/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/register-zZ7SWseA.mjs:2:9102) at resolveDirectorySync (file:///Users/tanner/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/register-zZ7SWseA.mjs:2:10315) at resolveTsPathsSync (file:///Users/tanner/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/register-zZ7SWseA.mjs:2:11547) { code: 'ERR_MODULE_NOT_FOUND' } Node.js v24.18.0"
+ },
+ {
+  "session": "agent-ae42a0285b061c89d",
+  "signature": "ref-already-exists",
+  "question": "ref-name-free",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 1 Preparing worktree (detached HEAD dd80c4e) fatal: '/private/tmp/claude-501/-Users-tanner-dev-OST-Agent/516fdfb8-bab1-41a4-b1e5-92fde97bd90d/scratchpad/wt' already exists ln: /private/tmp/claude-501/-Users-tanner-dev-OST-Agent/516fdfb8-bab1-41a4-b1e5-92fde97bd90d/scratchpad/wt/node_modules/node_modules: File exists"
+ },
+ {
+  "session": "agent-a69dddf982530c059",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 \u001b[90m at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:632:32)\u001b[39m { code: \u001b[32m'ERR_MODULE_NOT_FOUND'\u001b[39m } Node.js v24.18.0 EXIT=0 ls: /tmp/w6probe/v: No such file or directory"
+ },
+ {
+  "session": "748498c4-31fb-4110-9012-464c441a463f",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 origin https://github.com/tannerbroberts/ost-agent-meta.git (fetch) origin https://github.com/tannerbroberts/ost-agent-meta.git (push) === exit code handling === ugrep: warning: src/cli/index.ts: No such file or directory === check cmd === sed: src/cli/index.ts: No such file or directory"
+ },
+ {
+  "session": "748498c4-31fb-4110-9012-464c441a463f",
+  "signature": "not-a-repo",
+  "question": "is-git-repo",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 128 total 0 drwxr-xr-x@ 4 tanner staff 128 Jul 28 15:32 . drwxr-xr-x 15 tanner staff 480 Jul 28 15:32 .. drwxr-xr-x@ 3 tanner staff 96 Jul 28 15:32 bin drwxr-xr-x@ 5 tanner staff 160 Jul 28 15:32 vaults fatal: not a git repository (or any of the parent directories): .git"
+ },
+ {
+  "session": "agent-a022e255367d9bdf0",
+  "signature": "not-a-repo",
+  "question": "is-git-repo",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 128 -rw-r--r--@ 1 tanner wheel 179458 Jul 27 12:33 ost-agent-0.20.0.tgz -rw-r--r--@ 1 tanner wheel 183957 Jul 27 12:33 ost-agent-0.21.0.tgz -rw-r--r--@ 1 tanner wheel 188959 Jul 27 12:33 ost-agent-0.22.0.tgz --- fatal: not a git repository (or any of the parent directories): .git"
+ },
+ {
+  "session": "agent-a40829ff0e611860f",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 OK src/eval: coverage.ts evidence-debt.ts invariants.ts render.ts src/processes: tree.ts types.ts src/runner: context.ts init.ts set-outcome.ts ls: src/loop: No such file or directory"
+ },
+ {
+  "session": "agent-affda895db2064d01",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 (eval):cd:1: no such file or directory: /Users/tanner/dev/ost-benchmarks/vault-11-market/"
+ },
+ {
+  "session": "9a406570-323c-453a-b4ca-a29b4aa01f18",
+  "signature": "not-a-repo",
+  "question": "is-git-repo",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 128 total 64 drwxr-xr-x@ 5 tanner staff 160 Aug 4 13:54 . drwxr-xr-x 14 tanner staff 448 Aug 4 13:08 .. -rwxr-xr-x@ 1 tanner staff 17769 Aug 4 13:54 index.mjs -rw-r--r--@ 1 tanner staff 316 Aug 4 13:10 package.json -rw-r--r--@ 1 tanner staff 4863 Aug 4 13:30 README.md --- git --- fatal: not a git repository (or any of the parent directories): .git fatal: not a git repository (or any of the parent directories): .git"
+ },
+ {
+  "session": "9b7615cf-6d1c-43d4-a2ee-c2bbcf281233",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 (eval):1: no matches found: --include=*.md === === cat: : No such file or directory"
+ },
+ {
+  "session": "a0eb3fd4-5a36-44c1-93fc-ac8b48258cff",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 (eval):cd:1: no such file or directory: docs/reference"
+ },
+ {
+  "session": "ac007b7b-ac18-4a19-94f1-cb5f3c93ca42",
+  "signature": "not-a-repo",
+  "question": "is-git-repo",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 128 total 40 drwxr-xr-x@ 5 tanner staff 160 Aug 4 13:11 . drwxr-xr-x 14 tanner staff 448 Aug 4 13:08 .. -rwxr-xr-x@ 1 tanner staff 8374 Aug 4 13:10 index.mjs -rw-r--r--@ 1 tanner staff 316 Aug 4 13:10 package.json -rw-r--r--@ 1 tanner staff 2848 Aug 4 13:11 README.md --- git --- fatal: not a git repository (or any of the parent directories): .git fatal: not a git repository (or any of the parent directories): .git"
+ },
+ {
+  "session": "ac007b7b-ac18-4a19-94f1-cb5f3c93ca42",
+  "signature": "program-not-on-path",
+  "question": "binaries-on-path",
+  "pathShaped": false,
+  "probedItself": true,
+  "error": "Exit code 127 tmux not found /usr/bin/script ---"
+ },
+ {
+  "session": "49f8a692-c25b-4fb0-94f4-eda0dd3a9259",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 node:fs:441 return binding.readFileUtf8(path, stringToFlags(options.flag)); ^ Error: ENOENT: no such file or directory, open '/private/Users/tanner/dev/apple-epoch-primes/index.mjs' at readFileSync (node:fs:441:20) at file:///private/tmp/claude-501/-Users-tanner-dev-apple-epoch-primes/49f8a692-c25b-4fb0-94f4-eda0dd3a9259/scratchpad/scores.test.mjs:6:13 at ModuleJob.run (node:internal/modules/esm/module_job:439:25) at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:643:26) at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) { errno: -2, code: 'ENOENT', syscall: 'open', path: '/private/Users/tanner/dev/apple-epoch-primes/index.mjs' } Node.js v24.18.0"
+ },
+ {
+  "session": "8dfa4bad-b106-4678-8004-9453c80ee99a",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 cat: /private/tmp/claude-501/-Users-tanner-dev-apple-epoch-primes/8dfa4bad-b106-4678-8004-9453c80ee99a/scratchpad/cfg/apple-epoch-primes/scores.json: No such file or directory"
+ },
+ {
+  "session": "16c1de4b-103c-4dcc-85e8-23eb1f346533",
+  "signature": "program-not-on-path",
+  "question": "binaries-on-path",
+  "pathShaped": false,
+  "probedItself": true,
+  "error": "Exit code 1 psql not found"
+ },
+ {
+  "session": "3a05875c-cb0c-4703-80a3-69bf1f93eba3",
+  "signature": "bare-package-unresolvable",
+  "question": "has-lockfile",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 2 $ tsc src/index.ts(8,26): error TS2307: Cannot find module '@tetrix/validation' or its corresponding type declarations. src/index.ts(57,8): error TS2307: Cannot find module '@tetrix/validation' or its corresponding type declarations. src/index.ts(63,8): error TS2307: Cannot find module '@tetrix/validation' or its corresponding type declarations. src/protocol.ts(33,29): error TS2307: Cannot find module '@tetrix/validation' or its corresponding type declarations. /Users/tanner/dev/tetrix-game-monorepo/.claude/worktrees/juicy-buttons/packages/shared-types: [ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @tetrix/shared-types@1.0.0 build: `tsc` Exit status 2"
+ },
+ {
+  "session": "agent-a317e4e2b8c6042f6",
+  "signature": "bare-package-unresolvable",
+  "question": "has-lockfile",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 1 node:internal/modules/package_json_reader:301 throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null); ^ Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@modelcontextprotocol/sdk' imported from /private/tmp/claude-501/-Users-tanner-dev-tetrix-game-monorepo/893de436-02b1-45c7-91c4-3f1095d7a763/scratchpad/repro.mts at Object.getPackageJSONURL (node:internal/modules/pack … ation_hooks:189:26) at resolveBaseSync (file:///Users/tanner/dev/OST-Agent/node_modules/tsx/dist/register-zZ7SWseA.mjs:2:9102) at resolveDirectorySync (file:///Users/tanner/dev/OST-Agent/node_modules/tsx/dist/register-zZ7SWseA.mjs:2:10315) at resolveTsPathsSync (file:///Users/tanner/dev/OST-Agent/node_modules/tsx/dist/register-zZ7SWseA.mjs:2:11547) { code: 'ERR_MODULE_NOT_FOUND' } Node.js v24.18.0"
+ },
+ {
+  "session": "ae4feac4-bcd7-4932-aa69-ceaa802aa38a",
+  "signature": "bare-package-unresolvable",
+  "question": "has-lockfile",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 1 node:internal/modules/package_json_reader:301 throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null); ^ Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@playwright/test' imported from /private/tmp/claude-501/-Users-tanner-dev-tetrix-game-monorepo/ae4feac4-bcd7-4932-aa69-ceaa802aa38a/scratchpad/hub-shot.mjs at Object.getPackageJSONURL (node:internal/modules/package_js … t #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38) at ModuleLoader.resolveSync (node:internal/modules/esm/loader:759:56) at #resolve (node:internal/modules/esm/loader:683:17) at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:603:35) at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33) { code: 'ERR_MODULE_NOT_FOUND' } Node.js v24.18.0"
+ },
+ {
+  "session": "c595abc2-e970-4b7f-8370-7135f01b2f76",
+  "signature": "program-not-on-path",
+  "question": "binaries-on-path",
+  "pathShaped": false,
+  "probedItself": true,
+  "error": "Exit code 1 psql not found"
+ },
+ {
+  "session": "agent-a079a265d015d0c92",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 2 ugrep: warning: /Users/tanner/dev/tetrix-ost/apps/frontend/src: No such file or directory"
+ },
+ {
+  "session": "agent-a079a265d015d0c92",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 2 ugrep: warning: /Users/tanner/dev/tetrix-ost/apps/frontend/src: No such file or directory"
+ },
+ {
+  "session": "agent-a4eb1a22d595b68e8",
+  "signature": "program-not-on-path",
+  "question": "binaries-on-path",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 127 (eval):1: command not found: pnpm"
+ },
+ {
+  "session": "agent-ab8dfef88c076876a",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 sed: /Users/tanner/dev/tetrix-game-monorepo/apps/frontend/src/main/App/GamePage/Shared/Shared_Tetrix/PlayArea/useBombCollect/index.ts: No such file or directory"
+ },
+ {
+  "session": "agent-aaf1ba633a6ec798f",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "File does not exist. Note: your current working directory is /Users/tanner/dev/tetrix-ost."
+ },
+ {
+  "session": "a3c79cbc-4392-4bfc-a16c-17e990953f3c",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 === git status === D .claude/agents/ost-steward.md D .mcp.json === files gone? === ls: .claude/agents/ost-steward.md: No such file or directory ls: .mcp.json: No such file or directory"
+ },
+ {
+  "session": "022e473f-670e-4455-ac06-6a7cfc60ba60",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 ls: -d: No such file or directory src/index.ts src: adapters cli config eval fs git index.ts knowledge loop mcp ost processes product runner security telemetry web src/adapters: atlassian.ts channels.ts friction.ts inbox.ts slack.ts source.ts tokens.ts transcript.ts usage.ts src/cli: index.ts loop.ts vault-option.ts src/config: load.ts pointer.ts schema.ts src/eval: attention.ts builda … ult.ts src/processes: tree.ts types.ts src/product: capability.ts manifest.ts planner.ts repo.ts src/runner: context.ts credentials.ts init.ts set-outcome.ts src/security: broker.ts brokered-fetch.ts credential-audit.ts framing.ts policy.ts tool.ts tools.ts validateToolInput.ts src/telemetry: attention.ts preflight.ts usage.ts src/web: budget.ts federated.ts guard.ts reader.ts search.ts sources.ts"
+ },
+ {
+  "session": "0f940e60-26f9-459a-ace4-5af5ce438e2b",
+  "signature": "ref-already-exists",
+  "question": "ref-name-free",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 1 Preparing worktree (checking out 'main') fatal: '/tmp/ost-main' already exists ln: /tmp/ost-main/node_modules: File exists"
+ },
+ {
+  "session": "0f940e60-26f9-459a-ace4-5af5ce438e2b",
+  "signature": "not-a-repo",
+  "question": "is-git-repo",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 128 fatal: not a git repository (or any of the parent directories): .git"
+ },
+ {
+  "session": "agent-a2cdc6c90234d6b38",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 EXIT:0 ls: node_modules: No such file or directory"
+ },
+ {
+  "session": "31a2e8bb-4879-4115-9947-45aad0d499be",
+  "signature": "bare-package-unresolvable",
+  "question": "has-lockfile",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 1 node:internal/modules/cjs/loader:1517 const err = new Error(message); ^ Error: Cannot find module 'yaml' Require stack: - /private/tmp/probe.ts at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15) at nextResolveSimple (/Users/tanner/dev/OST-Agent/node_modules/tsx/dist/register-BoI6-WNn.cjs:10:1017) at /Users/tanner/dev/OST-Agent/node_modules/tsx/dist/register-BoI6-WNn. … ._resolveFilename (file:///Users/tanner/dev/OST-Agent/node_modules/tsx/dist/register-zZ7SWseA.mjs:2:15301) at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27) at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10) at defaultResolve (node:internal/modules/cjs/loader:1152:20) { code: 'MODULE_NOT_FOUND', requireStack: [ '/private/tmp/probe.ts' ] } Node.js v24.18.0"
+ },
+ {
+  "session": "32382f64-f442-44c4-901f-3548a6392b74",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 cadence.test.ts clean-tree.test.ts config.test.ts corrections-ledger.test.ts degraded-pass-reporting.test.ts exit-laundering.test.ts firing-residue.test.ts health-report.test.ts health.test.ts lock.test.ts question-budget-ordering.test.ts question-budget.test.ts spend.test.ts stall.test.ts work-claim-vocabulary-match.test.ts ---EXISTS?--- ls: test/loop/sense-census-report.test.ts: No such file or directory"
+ },
+ {
+  "session": "32382f64-f442-44c4-901f-3548a6392b74",
+  "signature": "ref-already-exists",
+  "question": "ref-name-free",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 128 fatal: a branch named 'sense-census-report' already exists"
+ },
+ {
+  "session": "3a54bb43-2b44-46b3-8266-faca5115e2b0",
+  "signature": "tree-dirty-or-diverged",
+  "question": "tree-clean-and-in-sync",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 128 error: cannot pull with rebase: You have unstaged changes. error: Please commit or stash them. ! warning: not possible to fast-forward to: \"main\" error: cannot pull with rebase: You have unstaged changes. error: Please commit or stash them."
+ },
+ {
+  "session": "48c870d7-8192-478a-bdc1-f4aef040cce3",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 analysis-tools.test.ts attribution.test.ts b12-ingest-to-rank.test.ts bootstrap-one-question.test.ts bootstrap.test.ts broken-config.test.ts channel-degradation.test.ts commit.test.ts inbox-durability.test.ts ingest-inbox.test.ts lane-consumer.test.ts large-tree.test.ts next-work.test.ts response-size.test.ts rule-parity.test.ts s1-self-feeding.test.ts server.test.ts setup-mode.test.ts stdio.test.ts suspect-source-work.test.ts tool-input-validation.test.ts unexplained-node.test.ts w12-citation-resolution.test.ts w7-evidence-channel.test.ts wall-clock-budget.test.ts --- ls: /Users/tanner/dev/OST-Agent/test/mcp/preflight-required-tools.test.ts: No such file or directory"
+ },
+ {
+  "session": "4dd79aa6-096f-44fe-910e-30979d1a957e",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 cadence.test.ts clean-tree.test.ts config.test.ts corrections-ledger.test.ts degraded-pass-reporting.test.ts exit-laundering.test.ts firing-residue.test.ts health-report.test.ts health.test.ts lock.test.ts question-budget-ordering.test.ts question-budget.test.ts spend.test.ts stall.test.ts --- instrument file: ls: test/loop/work-claim-vocabulary-match.test.ts: No such file or directory"
+ },
+ {
+  "session": "4e9876a3-04c3-4678-ac4a-e24c792cc1ac",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "File does not exist. Note: your current working directory is /Users/tanner/ost-agent-meta."
+ },
+ {
+  "session": "65d1f5ac-bb72-4059-b79f-bc52d2bbadd6",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 cat: test/ost/unread-subject-propagation.test.ts: No such file or directory"
+ },
+ {
+  "session": "65d1f5ac-bb72-4059-b79f-bc52d2bbadd6",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 ls: -d: No such file or directory src/index.ts src: adapters cli config eval fs git index.ts knowledge loop mcp ost processes product runner security telemetry web src/adapters: atlassian.ts channels.ts friction.ts inbox.ts slack.ts source.ts tokens.ts transcript-model-reader.ts transcript.ts usage.ts src/cli: index.ts loop.ts vault-option.ts src/config: load.ts pointer.ts schema.ts sr … ree.ts types.ts src/product: capability.ts manifest.ts planner.ts repo.ts src/runner: context.ts credentials.ts init.ts set-outcome.ts src/security: allowlist-generator.ts broker.ts brokered-fetch.ts credential-audit.ts framing.ts policy.ts tool.ts tools.ts validateToolInput.ts src/telemetry: attention.ts preflight.ts usage.ts src/web: budget.ts federated.ts guard.ts reader.ts search.ts sources.ts"
+ },
+ {
+  "session": "6efbe29b-8303-4fdb-8e0c-a56959d80ecd",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 channels.test.ts debt.test.ts first-run.test.ts friction-residue.test.ts friction.test.ts lanes.test.ts loop.test.ts path-near-miss.test.ts result.test.ts sed: test/cli/lane.test.ts: No such file or directory"
+ },
+ {
+  "session": "768f36cf-a860-4353-b789-9643cd30397a",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 ls: -d: No such file or directory src/index.ts src: adapters cli config eval fs git index.ts knowledge loop mcp ost processes product runner security telemetry web src/adapters: atlassian.ts channels.ts friction.ts inbox.ts slack.ts source.ts tokens.ts transcript-model-reader.ts transcript.ts usage.ts src/cli: index.ts loop.ts vault-option.ts src/config: load.ts pointer.ts schema.ts sr … roduct: capability.ts manifest.ts planner.ts repo.ts src/runner: context.ts credentials.ts init.ts set-outcome.ts src/security: allowlist-generator.ts broker.ts brokered-fetch.ts credential-audit.ts framing.ts policy.ts tool.ts tools.ts validateToolInput.ts src/telemetry: attention.ts preflight.ts search-literality.ts usage.ts src/web: budget.ts federated.ts guard.ts reader.ts search.ts sources.ts"
+ },
+ {
+  "session": "79032a63-70dc-460c-bc63-fece67b7ecd1",
+  "signature": "bare-package-unresolvable",
+  "question": "has-lockfile",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 1 node:internal/modules/package_json_reader:301 throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null); ^ Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'gray-matter' imported from /private/tmp/mt.mjs at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9) at packageResolve (node:internal/modules/esm/resolve:768:81) at moduleResolve (node:internal … t #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38) at ModuleLoader.resolveSync (node:internal/modules/esm/loader:759:56) at #resolve (node:internal/modules/esm/loader:683:17) at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:603:35) at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33) { code: 'ERR_MODULE_NOT_FOUND' } Node.js v24.18.0"
+ },
+ {
+  "session": "971dbc8e-e646-4860-8cc5-fff8165fe0cb",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 census.test.ts dedupe-scale.test.ts dedupe.test.ts fixture-vault.ts flag-humans-required.test.ts instrument.test.ts lanes.test.ts mutate.test.ts node.test.ts reserved-headings.test.ts results.test.ts retired-nodes.test.ts retraction-consumers.test.ts sanitize.test.ts serialize-single-writer.test.ts vault-write-guard.test.ts vault.test.ts --- ls: test/ost/stranded-evidence-census.test.ts: No such file or directory"
+ },
+ {
+  "session": "9aa6b7c9-a6a9-41f9-892b-4a330a99cc36",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "<tool_use_error>Path does not exist: /Users/tanner/ost-agent-meta/src. Note: your current working directory is /Users/tanner/ost-agent-meta.</tool_use_error>"
+ },
+ {
+  "session": "9aa6b7c9-a6a9-41f9-892b-4a330a99cc36",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "<tool_use_error>Path does not exist: /Users/tanner/ost-agent-meta/.ost-agent/nodes. Note: your current working directory is /Users/tanner/ost-agent-meta.</tool_use_error>"
+ },
+ {
+  "session": "a89c8b89-5da8-47c6-b9cf-b864691994da",
+  "signature": "bare-package-unresolvable",
+  "question": "has-lockfile",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 1 node:internal/modules/package_json_reader:301 throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null); ^ Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'commander' imported from /private/tmp/claude-501/-Users-tanner-ost-agent-meta/a89c8b89-5da8-47c6-b9cf-b864691994da/scratchpad/package/dist/cli/index.js at Object.getPackageJSONURL (node:internal/modules/package_json_r … t #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38) at ModuleLoader.resolveSync (node:internal/modules/esm/loader:759:56) at #resolve (node:internal/modules/esm/loader:683:17) at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:603:35) at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33) { code: 'ERR_MODULE_NOT_FOUND' } Node.js v24.18.0"
+ },
+ {
+  "session": "d9f2db32-c2f1-4dbe-9aaa-408167f5ee60",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 adapters cli config eval fs git index.ts knowledge loop mcp ost processes product runner security telemetry web --- ls: -d: No such file or directory src/index.ts src/adapters: atlassian.ts channels.ts friction.ts inbox.ts slack.ts source.ts tokens.ts transcript.ts usage.ts src/cli: index.ts loop.ts vault-option.ts src/config: load.ts pointer.ts schema.ts src/eval: attention.ts buildab … es.ts node.ts results.ts sanitize.ts sections.ts stranded.ts vault.ts src/processes: tree.ts types.ts src/product: capability.ts manifest.ts planner.ts repo.ts src/runner: context.ts init.ts set-outcome.ts src/security: framing.ts policy.ts tool.ts tools.ts validateToolInput.ts src/telemetry: attention.ts preflight.ts usage.ts src/web: budget.ts federated.ts guard.ts reader.ts search.ts sources.ts"
+ },
+ {
+  "session": "d9f2db32-c2f1-4dbe-9aaa-408167f5ee60",
+  "signature": "ref-already-exists",
+  "question": "ref-name-free",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 128 ?? scripts/mcp-prefix.ts ?? test/mcp-prefix.ts fatal: a branch named 'credential-broker' already exists"
+ },
+ {
+  "session": "fe05964f-a644-4aeb-af57-3a37bde1f137",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "File does not exist. Note: your current working directory is /Users/tanner/ost-agent-meta."
+ },
+ {
+  "session": "35cfed25-eda7-4216-b295-c6b03d5ed7ba",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 (eval):cd:1: no such file or directory: /private/tmp/claude-501/-Users-tanner/448e2a10-6e22-4914-958e-79fc201f523c/scratchpad"
+ },
+ {
+  "session": "448e2a10-6e22-4914-958e-79fc201f523c",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 (eval):cd:1: no such file or directory: /private/tmp/claude-501/-Users-tanner/448e2a10-6e22-4914-958e-79fc201f523c/scratchpad"
+ },
+ {
+  "session": "80854e8c-b7e7-499c-b843-878e6c2a8ea1",
+  "signature": "tree-dirty-or-diverged",
+  "question": "tree-clean-and-in-sync",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 128 From https://github.com/tannerbroberts/tetrix-ost f086772..85ac7d2 main -> origin/main hint: You have divergent branches and need to specify how to reconcile them. hint: You can do so by running one of the following commands sometime before hint: your next pull: hint: hint: git config pull.rebase false # merge hint: git config pull.rebase true # rebase hint: git config pull.ff only # fast-forward only hint: hint: You can replace \"git config\" with \"git config --global\" to set a default hint: preference for all repositories. You can also pass --rebase, --no-rebase, hint: or --ff-only on the command line to override the configured default per hint: invocation. fatal: Need to specify how to reconcile divergent branches."
+ },
+ {
+  "session": "d0008f2c-86ea-4db8-90cf-364ce6047c99",
+  "signature": "missing-path",
+  "question": "what-is-at-this-path",
+  "pathShaped": true,
+  "probedItself": false,
+  "error": "Exit code 1 27 INBOX:2026-07-22-adapter-reality.md INBOX:2026-07-22-agent-as-driver.md INBOX:2026-07-22-design-goals.md INBOX:2026-07-22-dogfooding-idea.md INBOX:2026-07-22-efficacy-critique.md INBOX:2026-07-22-runtime-decision.md INBOX:2026-07-22-safety-requirement.md INBOX:2026-07-24-builder-evidence-debt-gate-verdict.md INBOX:2026-07-24-builder-loop-stopping-blocked-on-one-human-test.md INBOX:2 … ited by nodes? Append-only audit trail the operator can replay.md Guided dry-run mode before unattended operation.md Test do operators actually replay the audit trail to regain trust.md --- mapped state: inbox.json transcript.json usage.json Traceback (most recent call last): File \"<string>\", line 1, in <module> FileNotFoundError: [Errno 2] No such file or directory: '.ost-agent/state/mapped.json'"
+ },
+ {
+  "session": "d0008f2c-86ea-4db8-90cf-364ce6047c99",
+  "signature": "no-upstream",
+  "question": "has-remote",
+  "pathShaped": false,
+  "probedItself": false,
+  "error": "Exit code 128 fatal: The current branch feat/transcript-harvester has no upstream branch. To push the current branch and set the remote as upstream, use git push --set-upstream origin feat/transcript-harvester To have this happen automatically for branches without a tracking upstream, see 'push.autoSetupRemote' in 'git help config'."
+ }
+]

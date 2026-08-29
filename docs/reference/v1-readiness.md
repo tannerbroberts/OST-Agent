@@ -3127,9 +3127,61 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 3,966 tests across 311 files, verified 2026-08-28 (`npx vitest run`
-> reports 3,958 of them, all passing; the other 8 are the contended calibration file
-> described below).
+> *Today:* **met** — 3,996 tests across 312 files, verified 2026-08-28 (`npx vitest run`
+> reports 3,988 of them; the other 8 are the contended calibration file described below).
+>
+> **Read that "met" with the box it was measured on.** A full run the same day left 11
+> failures across 6 files, and ten of the eleven are a timeout or a wall-clock bound and
+> nothing else — the Z3 gate at 2,574 ms against 2,000, `inherited-tree-build-check` at
+> 37.1 s against 30, six timeouts in `vault-merge-conflict-census`, one in
+> `ingest-backpressure-provenance`, one in `cli/claim`. Same signature as 2026-08-06, and
+> read the same way: by measuring, not by calling it flaky.
+>
+> The measurement does **not** say what the 08-06 entry concluded, and the difference is the
+> reason this paragraph exists. Driven straight through `tsx`, outside vitest entirely and
+> with nothing else running, `ost_next_work` answers the 10,000-node vault in **1,769 ms**
+> and `ost_check` in **1,529 ms** — against the 317 ms and 277 ms that entry recorded for the
+> same procedure. That is **5.6×**, outside the harness, so it is neither vitest overhead nor
+> a second concurrent suite. The Z3 gate sits at 88% of its budget before any load is
+> applied: it does not fail because the box is busy, it fails because it has no headroom
+> left, and the box being busy is only what spends the last 12%.
+>
+> A CPU profile of that call names where the time goes: **35% in `readFileUtf8`**, plus ~10%
+> in `gray-matter` and ~9% in `js-yaml` — over half the call spent reading and parsing node
+> files, against 8% in `computeNextWork` and 3% in `dedupe`'s `scanLayer`. This is therefore
+> **not** the returned quadratic the 08-06 entry was about; the algorithmic half Z3 optimised
+> is now a minority of the cost. Instrumenting `fs.readFileSync` shows the call makes exactly
+> **10,000 reads for 10,000 nodes — 1.00 full-tree read, 1.3 MB, no redundancy**. The product
+> is doing the minimum; the per-read cost is what moved. The same 10,000 files read by bare
+> `readFileSync` in the same tmpdir take **120 ms** (12 µs/file) against the 698 ms
+> (70 µs/file) the profile attributes inside the call, and `fseventsd` was pinned at 98% CPU
+> with `mds`/`mds_stores` adding 25% while the suite churned tmp vaults.
+>
+> So the daemon is the variable and the suite's own tmp-vault churn is what saturates it —
+> but the product has no cache to absorb it, and one full-tree read per tool call is
+> O(nodes) file opens at whatever the filesystem charges that minute. **The gate is behaving
+> correctly and its budget is real.** What is missing is either headroom inside the call or
+> isolation for the timed checks, and neither exists yet.
+>
+> **The cost of running them together, measured per file rather than asserted.** Every one of
+> the timed checks that failed in the full run **passes on its own**, and the ratio between
+> the two is the number worth having:
+>
+> | File | Alone | In the full suite | Its bound |
+> | --- | --- | --- | --- |
+> | `ost/vault-merge-conflict-census` | 63.2 s, 19/19 pass | 126.2 s, 6 tests over | 20 s per test |
+> | `loop/inherited-tree-build-check` | 12.8 s, 10/10 pass | 35.9 s | 30 s |
+> | `cli/claim` | 28.7 s, 9/9 pass | one test over | 20 s per test |
+> | `adapters/ingest-backpressure-provenance` | 24.8 s, 1/1 pass | over 45 s | 25 s |
+>
+> A **2.0×–2.8× slowdown** imposed by co-scheduling, against bounds that hold less margin
+> than that. `ingest-backpressure-provenance` is the sharpest case and does not need any
+> co-scheduling to be in trouble: 24.8 s against a 25.0 s bound **alone** is 1% of margin,
+> and an earlier isolated run on `main` measured it at 28.2 s — already over. This is a
+> second reading, with numbers, for the tree's "Run the timed check under isolation, or do
+> not let it fail the build at all". It is recorded here rather than acted on because the fix
+> is a change to how the whole suite is scheduled, and **the one thing it must not be is a
+> loosened bound** — every one of these bounds is a criterion somebody committed to.
 > After "Nonzero exit code and failure summary when a pass errors" was given its definition
 > of done: a firing that seals `unhealthy` or `crashed` prints a failure summary on
 > **stderr** — the channel this loop already reserves for what a cron must not scroll past
