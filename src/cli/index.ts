@@ -21,6 +21,8 @@
  *   ost-agent dispositions [--vault DIR]     every item currently settled, dated and attributed
  *   ost-agent suppress "<subject>" ...       decline one item until a machine-checkable fact flips (it revives by itself)
  *   ost-agent suppressions [--vault DIR]     every suppression, with whether its condition still holds right now
+ *   ost-agent usage-consent [grant|revoke]   what may leave this vault, as a dated record the operator signs (human-only)
+ *   ost-agent usage-export [--to FILE]       the raw usage log, refused unless the ledger says it may leave
  *   ost-agent gate "<solution>" [--vault DIR] block building against untested assumptions
  *   ost-agent verify "<test>" --repo DIR      run a test's instrument; record red/green as an observed fact
  *   ost-agent buildable ["<solution>"]        is it defined well enough to build, and against what command?
@@ -177,6 +179,10 @@ import {
 import {
   appendSuppression, formatSuppressions, readSuppressionLedger, renderCondition, SUPPRESSION_CONDITION_KINDS,
 } from "../knowledge/suppressions.js";
+import {
+  appendConsent, CONSENT_SCOPES, consentLedgerPath, exportRawUsage, formatConsent, readConsentLedger,
+  type ConsentScope,
+} from "../telemetry/consent.js";
 import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapters/friction.js";
 import { fileRetrospective } from "../adapters/retrospective.js";
 import {
@@ -1373,6 +1379,98 @@ program
     const tree = buildPassContext(opts.vault).vault.readTree();
     const index = new Map(tree.map((n) => [n.title, n]));
     console.log(formatSuppressions(readSuppressionLedger(opts.vault), index));
+  });
+
+/**
+ * `usage-consent` and `usage-export` — the only door the vault's raw trace has,
+ * and the record that decides whether it opens (`src/telemetry/consent.ts`).
+ *
+ * The grant lives here rather than on the agent surface for the reason `dispose`
+ * and `promote` do: a pass that could consent on the operator's behalf has
+ * granted itself permission to ship their data, and every property the export
+ * gate holds would then be true of a system that ships everything anyway.
+ *
+ * Neither command sends anything. `usage-export` prints the bundle, or writes it
+ * to a file the operator names; where those bytes go next is the operator's own
+ * decision, made with their own hands.
+ */
+program
+  .command("usage-consent")
+  .description(
+    "what may leave this vault, as a dated record the operator signs: `grant`, `revoke`, or no verb to read the standing " +
+      "answer. Humans only — the agent has no tool that can write one, because a pass that consents for you has granted its own permit",
+  )
+  .argument("[verb]", "grant, revoke, or omitted to read what stands today")
+  .option("-b, --by <who>", "who is consenting — nobody can consent on someone else's behalf, so this is required to write one")
+  .option("-n, --note <text>", "your own words about what you agreed to, kept for you to re-read; the gate never consults it")
+  .option("--scope <scope>", `what it covers, from the closed vocabulary: ${CONSENT_SCOPES.join(", ")}`, "raw-usage")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((verb: string | undefined, opts: { by?: string; note?: string; scope: string; vault: string }) => {
+    const dir = path.resolve(opts.vault);
+    if (!verb) {
+      console.log(formatConsent(readConsentLedger(dir), opts.scope as ConsentScope));
+      return;
+    }
+    if (verb !== "grant" && verb !== "revoke") {
+      console.error(`ost-agent usage-consent: the verb is grant or revoke — got "${verb}"`);
+      process.exitCode = 1;
+      return;
+    }
+    let rec;
+    try {
+      rec = appendConsent(dir, {
+        decision: verb === "grant" ? "granted" : "revoked",
+        scope: opts.scope,
+        by: opts.by ?? "",
+        note: opts.note,
+      });
+    } catch (e) {
+      console.error(`ost-agent usage-consent: ${e instanceof Error ? e.message : String(e)}`);
+      process.exitCode = 1;
+      return;
+    }
+    console.log(`${rec.decision} "${rec.scope}" ${rec.ts} by ${rec.by} — appended to ${consentLedgerPath(dir)}`);
+    console.log(
+      rec.decision === "granted"
+        ? "  `ost-agent usage-export` will now produce the raw log. Revoke it any time; nothing is sent until you run that command."
+        : "  Nothing further leaves this vault. Everything already collected is still yours — a revocation stops export, it deletes nothing.",
+    );
+  });
+
+program
+  .command("usage-export")
+  .description(
+    "the raw usage log as one consented bundle, refused unless the vault holds a dated grant — prints it, or writes it to " +
+      "--to FILE. Sends nothing anywhere: where the bytes go is your decision",
+  )
+  .option("--to <file>", "write the bundle here instead of printing it")
+  .option("--scope <scope>", `which grant licenses it: ${CONSENT_SCOPES.join(", ")}`, "raw-usage")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((opts: { to?: string; scope: string; vault: string }) => {
+    const dir = path.resolve(opts.vault);
+    let bundle;
+    try {
+      bundle = exportRawUsage(dir, { scope: opts.scope as ConsentScope });
+    } catch (e) {
+      console.error(`ost-agent usage-export: ${e instanceof Error ? e.message : String(e)}`);
+      // Non-zero on a refusal as much as on a failure: a caller redirecting this
+      // into a file must not receive an empty success it would ship as an export.
+      process.exitCode = 1;
+      return;
+    }
+    const json = JSON.stringify(bundle, null, 2);
+    if (opts.to) {
+      fs.writeFileSync(path.resolve(opts.to), json + "\n", "utf8");
+      console.log(
+        `wrote ${bundle.events.length} event(s) to ${path.resolve(opts.to)}, licensed by ${bundle.consent.by}'s ` +
+          `grant of ${bundle.consent.ts}.`,
+      );
+      if (bundle.unreadableLines > 0) {
+        console.log(`  ${bundle.unreadableLines} log line(s) could not be parsed and are not in the bundle.`);
+      }
+      return;
+    }
+    console.log(json);
   });
 
 program
