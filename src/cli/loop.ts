@@ -59,7 +59,7 @@ import { announceUpdate, applyAtCheckpoint, subscriptionOf, updateStatusLine } f
 import { observeSenses, senseCensusReport } from "../loop/senses.js";
 import { computeShortfall, declareScope, shortfallReport } from "../loop/scope.js";
 import { assessStall } from "../loop/stall.js";
-import { acquireFiringLock, releaseFiringLock, stampFiringLock } from "../loop/lock.js";
+import { releaseFiringLock, stampFiringLock, waitForFiringLock } from "../loop/lock.js";
 import { checkCeiling, measureFiring, type SpendCeiling } from "../loop/spend.js";
 import { formatQuestionBudget, measureInterruptions, type QuestionBudget } from "../loop/questions.js";
 import { gitHead, workingTreeStatus, type VaultTreeStatus } from "../loop/state.js";
@@ -631,15 +631,34 @@ export function registerLoopCommands(program: Command): void {
       // launcher that forks, the parent is a shim that exits immediately, and
       // the lock would be breakable from the moment it was taken.
       const holderPid = opts.holderPid === undefined ? NaN : Number(opts.holderPid);
-      const lock = acquireFiringLock(opts.vault, {
+      // Wait for the holder rather than walking away from it. A firing that
+      // exits `locked` has to be re-scheduled by something before the work
+      // happens at all, and — the part that is easy to miss — an arrival that
+      // never watches cannot tell a hung holder from a working one, so the only
+      // recovery rule left to it is a timeout long enough to be useless. The
+      // wait IS the measurement; see `../loop/lock.ts`.
+      const heartbeatEveryMs = (config.loop?.lockHeartbeatMinutes ?? 4) * 60_000;
+      const lock = waitForFiringLock(opts.vault, {
         ttlMs,
+        waitMs: (config.loop?.lockWaitMinutes ?? 15) * 60_000,
         ...(Number.isInteger(holderPid) && holderPid > 0 ? { holderPid } : {}),
+        ...(heartbeatEveryMs > 0 ? { heartbeatEveryMs } : {}),
+        // Said out loud as it happens, because a firing that appears to hang for
+        // a quarter of an hour and explains itself only afterwards is
+        // indistinguishable, to the operator watching, from the hang it is
+        // recovering from.
+        onObservation: (o) => {
+          if (o.verdict === "suspect" || o.verdict === "broke" || o.verdict === "clock-jumped") {
+            console.error(`waiting for the firing lock: ${o.verdict} — ${o.why}`);
+          }
+        },
       });
       if (!lock.ok) {
         console.error(`not firing: ${lock.reason}`);
         process.exitCode = LOOP_EXIT.locked;
         return;
       }
+      if (lock.waitedMs > 0) console.error(`waited ${Math.round(lock.waitedMs / 1000)}s for the firing lock`);
       if (lock.broke) console.error(`broke a stale firing lock — ${lock.broke.why}`);
 
       // THE CHECKPOINT. This is the one instant in the whole loop that is

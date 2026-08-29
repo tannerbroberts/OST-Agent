@@ -31318,6 +31318,26 @@ var LoopSchema = external_exports.object({
   cadence: external_exports.string().nullish(),
   /** How long a firing lock may be held before it is assumed dead and broken. */
   lockTtlMinutes: external_exports.number().int().positive().default(60),
+  /**
+   * How long a second firing waits for the lock before reporting the vault busy.
+   *
+   * Waiting rather than exiting is what makes the lock a lock: a firing that
+   * gives up immediately has to be re-scheduled by something, and until it is,
+   * the work simply did not happen. It is also the only posture from which a
+   * hung holder can be detected at all — see `src/loop/lock.ts`.
+   */
+  lockWaitMinutes: external_exports.number().nonnegative().default(15),
+  /**
+   * How often a firing promises to prove it is still working.
+   *
+   * **This is the call the recovery policy cannot make for you.** A holder that
+   * goes silent for three of these is treated as hung and its lock is broken.
+   * Lower it and a slow-but-healthy firing risks being interrupted; raise it and
+   * a genuine crash keeps the vault waiting longer. Zero disables the promise
+   * entirely, leaving pid liveness and `lockTtlMinutes` as the only rules — the
+   * pre-heartbeat behaviour, and the safe-but-patient end of the trade.
+   */
+  lockHeartbeatMinutes: external_exports.number().nonnegative().default(4),
   spend: LoopSpendSchema.nullish(),
   questions: LoopQuestionsSchema.nullish(),
   updates: LoopUpdatesSchema.nullish()
@@ -48718,7 +48738,7 @@ function renderFaithfulness(report) {
 }
 
 // src/mcp/server.ts
-import path37 from "node:path";
+import path39 from "node:path";
 import { randomUUID } from "node:crypto";
 
 // node_modules/zod/v4/mini/parse.js
@@ -53575,17 +53595,331 @@ function describe2(value) {
   return `${typeof value} (${JSON.stringify(value)})`;
 }
 
+// src/loop/lock.ts
+import fs36 from "node:fs";
+import os4 from "node:os";
+import path37 from "node:path";
+
+// src/loop/state.ts
+import { spawnSync as spawnSync5 } from "node:child_process";
+import fs35 from "node:fs";
+import path36 from "node:path";
+var STATE_DIRNAME = "ost-agent";
+function gitDir(vaultDir) {
+  const abs = path36.resolve(vaultDir);
+  const dotGit = path36.join(abs, ".git");
+  let stat;
+  try {
+    stat = fs35.statSync(dotGit);
+  } catch {
+    return null;
+  }
+  if (stat.isDirectory()) return dotGit;
+  if (!stat.isFile()) return null;
+  const pointer = fs35.readFileSync(dotGit, "utf8").trim();
+  const match = pointer.match(/^gitdir:\s*(.+)$/);
+  if (!match) return null;
+  return path36.resolve(abs, match[1].trim());
+}
+function loopStateDir(vaultDir) {
+  const git5 = gitDir(vaultDir);
+  return git5 === null ? null : path36.join(git5, STATE_DIRNAME);
+}
+function requireLoopStateDir(vaultDir) {
+  const dir = loopStateDir(vaultDir);
+  if (dir === null) {
+    throw new Error(
+      `${path36.resolve(vaultDir)} is not a git checkout \u2014 the loop records every firing under .git/ost-agent/ and refuses to fire where it cannot record. Run \`ost-agent init\` or \`git init\` there first.`
+    );
+  }
+  fs35.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+function gitHead(vaultDir) {
+  const r2 = spawnSync5("git", ["rev-parse", "HEAD"], {
+    cwd: path36.resolve(vaultDir),
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"]
+  });
+  const sha = r2.status === 0 ? (r2.stdout ?? "").trim() : "";
+  return sha.length > 0 ? sha : void 0;
+}
+function workingTreeStatus(vaultDir) {
+  const r2 = spawnSync5("git", ["status", "--porcelain"], {
+    cwd: path36.resolve(vaultDir),
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  if (r2.error) {
+    return { kind: "unknown", reason: `git could not be run (${r2.error.code ?? r2.error.message})` };
+  }
+  if (r2.status !== 0) {
+    const firstLine2 = (r2.stderr ?? "").trim().split("\n")[0] ?? "";
+    const how = r2.status === null ? "was killed by a signal" : `exited ${r2.status}`;
+    return { kind: "unknown", reason: `\`git status\` ${how}${firstLine2 ? ` \u2014 ${firstLine2}` : ""}` };
+  }
+  const entries = (r2.stdout ?? "").split("\n").map((line) => line.replace(/\s+$/, "")).filter((line) => line.length > 0);
+  return entries.length === 0 ? { kind: "clean" } : { kind: "dirty", entries };
+}
+
+// src/loop/lock.ts
+function firingLockPath(vaultDir) {
+  const state = loopStateDir(vaultDir);
+  return state === null ? null : path37.join(state, "firing.lock");
+}
+function readFiringLock(vaultDir) {
+  const p2 = firingLockPath(vaultDir);
+  if (p2 === null || !fs36.existsSync(p2)) return null;
+  try {
+    const parsed = JSON.parse(fs36.readFileSync(p2, "utf8"));
+    return typeof parsed?.pid === "number" && typeof parsed?.acquiredAt === "string" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+function pidAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return e.code === "EPERM";
+  }
+}
+function lastAliveAt(held) {
+  const beat = held.heartbeatAt === void 0 ? NaN : Date.parse(held.heartbeatAt);
+  if (Number.isFinite(beat)) return { at: beat, from: "heartbeat" };
+  return { at: Date.parse(held.acquiredAt), from: "acquisition" };
+}
+function staleness(held, opts) {
+  if (held === null) return { stale: true, suspect: false, why: "the lock record is unreadable" };
+  const acquired = Date.parse(held.acquiredAt);
+  if (!Number.isFinite(acquired)) {
+    return { stale: true, suspect: false, why: `the lock record's acquiredAt (${held.acquiredAt}) is not a timestamp` };
+  }
+  const namedHolderOnThisHost = held.holderPid !== void 0 && held.host === opts.host;
+  if (namedHolderOnThisHost && !pidAlive(held.holderPid)) {
+    return { stale: true, suspect: false, why: `holder pid ${held.holderPid} on this host is gone` };
+  }
+  const holderIsLive = namedHolderOnThisHost;
+  const ageMs = opts.now - acquired;
+  if (ageMs >= opts.ttlMs && !holderIsLive) {
+    return {
+      stale: true,
+      suspect: false,
+      why: `held ${Math.round(ageMs / 6e4)}m, past the ${Math.round(opts.ttlMs / 6e4)}m TTL`
+    };
+  }
+  if (held.heartbeatEveryMs !== void 0 && held.heartbeatEveryMs > 0) {
+    const { at, from } = lastAliveAt(held);
+    const silentMs = opts.now - at;
+    const staleAfterMs = staleAfterFor(held.heartbeatEveryMs);
+    if (Number.isFinite(at) && silentMs >= staleAfterMs) {
+      return {
+        stale: false,
+        suspect: true,
+        why: `silent ${Math.round(silentMs / 6e4)}m since its last ${from}, past the ${Math.round(staleAfterMs / 6e4)}m it promised to speak within`
+      };
+    }
+  }
+  return { stale: false, suspect: false, why: `held by pid ${held.pid} on ${held.host} since ${held.acquiredAt}` };
+}
+function staleAfterFor(heartbeatEveryMs) {
+  return heartbeatEveryMs * 3;
+}
+var tmpCounter = 0;
+function linkInPlace(stateDir2, lockFile, record2) {
+  const tmp = path37.join(stateDir2, `.firing.lock.${record2.pid}.${tmpCounter++}`);
+  fs36.writeFileSync(tmp, JSON.stringify(record2) + "\n");
+  try {
+    fs36.linkSync(tmp, lockFile);
+    return true;
+  } catch (e) {
+    if (e.code !== "EEXIST") throw e;
+    return false;
+  } finally {
+    fs36.rmSync(tmp, { force: true });
+  }
+}
+function acquireFiringLock(vaultDir, opts) {
+  const stateDir2 = requireLoopStateDir(vaultDir);
+  const lockFile = path37.join(stateDir2, "firing.lock");
+  const now = opts.now ?? Date.now();
+  const record2 = {
+    pid: opts.pid ?? process.pid,
+    ...opts.holderPid !== void 0 ? { holderPid: opts.holderPid } : {},
+    host: opts.host ?? os4.hostname(),
+    acquiredAt: new Date(now).toISOString(),
+    ...opts.heartbeatEveryMs !== void 0 ? { heartbeatEveryMs: opts.heartbeatEveryMs, heartbeatAt: new Date(now).toISOString() } : {},
+    ...opts.runId ? { runId: opts.runId } : {}
+  };
+  if (linkInPlace(stateDir2, lockFile, record2)) return { ok: true, record: record2, broke: null };
+  const held = readFiringLock(vaultDir);
+  const { stale, suspect, why } = staleness(held, { now, ttlMs: opts.ttlMs, host: record2.host });
+  if (!stale) {
+    return {
+      ok: false,
+      held,
+      reason: suspect ? `another firing holds the lock and may be hung \u2014 ${why} (waiting is what settles it)` : `another firing holds the lock \u2014 ${why}`
+    };
+  }
+  if (!breakLock(lockFile, now, record2.pid)) {
+    return { ok: false, held: readFiringLock(vaultDir), reason: "another firing took the lock while this one was breaking a stale copy" };
+  }
+  if (linkInPlace(stateDir2, lockFile, record2)) return { ok: true, record: record2, broke: { held, why } };
+  return { ok: false, held: readFiringLock(vaultDir), reason: "another firing took the lock while this one was breaking a stale copy" };
+}
+function breakLock(lockFile, now, pid) {
+  try {
+    const sidelined = `${lockFile}.stale-${now}-${pid}`;
+    fs36.renameSync(lockFile, sidelined);
+    fs36.rmSync(sidelined, { force: true });
+  } catch (e) {
+    if (e.code !== "ENOENT") throw e;
+  }
+  return true;
+}
+function breakFiringLockIfUnchanged(vaultDir, judged, now) {
+  const lockFile = firingLockPath(vaultDir);
+  if (lockFile === null) return false;
+  const current = readFiringLock(vaultDir);
+  if (current === null) return false;
+  if (current.pid !== judged.pid || current.acquiredAt !== judged.acquiredAt || current.heartbeatAt !== judged.heartbeatAt || current.runId !== judged.runId) {
+    return false;
+  }
+  return breakLock(lockFile, now, process.pid);
+}
+function touchFiringLock(vaultDir, now = Date.now()) {
+  const dir = loopStateDir(vaultDir);
+  if (dir === null) return false;
+  const lockFile = path37.join(dir, "firing.lock");
+  const held = readFiringLock(vaultDir);
+  if (held === null) return false;
+  const next = { ...held, heartbeatAt: new Date(now).toISOString() };
+  const tmp = path37.join(dir, `.firing.lock.${process.pid}.${tmpCounter++}`);
+  try {
+    fs36.writeFileSync(tmp, JSON.stringify(next) + "\n");
+    fs36.renameSync(tmp, lockFile);
+    return true;
+  } catch {
+    fs36.rmSync(tmp, { force: true });
+    return false;
+  }
+}
+function stampFiringLock(vaultDir, record2, runId) {
+  const stateDir2 = requireLoopStateDir(vaultDir);
+  const lockFile = path37.join(stateDir2, "firing.lock");
+  const onDisk = readFiringLock(vaultDir);
+  const base = onDisk !== null && onDisk.acquiredAt === record2.acquiredAt && onDisk.pid === record2.pid ? onDisk : record2;
+  const next = { ...base, runId };
+  const tmp = path37.join(stateDir2, `.firing.lock.${record2.pid}.${tmpCounter++}`);
+  fs36.writeFileSync(tmp, JSON.stringify(next) + "\n");
+  fs36.renameSync(tmp, lockFile);
+  return next;
+}
+function releaseFiringLock(vaultDir, match) {
+  const p2 = firingLockPath(vaultDir);
+  if (p2 === null) return false;
+  const held = readFiringLock(vaultDir);
+  if (!held) return false;
+  if (match.pid !== void 0 && held.pid !== match.pid) return false;
+  if (match.acquiredAt !== void 0 && held.acquiredAt !== match.acquiredAt) return false;
+  if (match.runId !== void 0 && held.runId !== match.runId) return false;
+  fs36.rmSync(p2, { force: true });
+  return true;
+}
+var REAL_WAIT_CLOCK = {
+  now: () => Date.now(),
+  sleep: (ms) => {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+  }
+};
+var DEFAULT_POLL_MS = 2e3;
+var DEFAULT_CONFIRM_MS = 6e4;
+function waitForFiringLock(vaultDir, opts) {
+  const clock = opts.clock ?? REAL_WAIT_CLOCK;
+  const pollMs = opts.pollMs ?? DEFAULT_POLL_MS;
+  const confirmMs = opts.confirmMs ?? DEFAULT_CONFIRM_MS;
+  const host = opts.host ?? os4.hostname();
+  const started = clock.now();
+  const observe = opts.onObservation ?? (() => {
+  });
+  let watching = null;
+  let watchingSince = started;
+  let lastPoll = started;
+  let brokeHere = null;
+  for (; ; ) {
+    const now = clock.now();
+    const attempt = acquireFiringLock(vaultDir, { ...opts, now });
+    if (attempt.ok) {
+      const broke = attempt.broke ?? brokeHere;
+      observe({ at: now, held: null, verdict: "acquired", why: broke?.why ?? "the lock was free" });
+      return { ok: true, record: attempt.record, broke, waitedMs: now - started };
+    }
+    const gapMs = now - lastPoll;
+    lastPoll = now;
+    if (gapMs > pollMs * 2 + 1e3) {
+      watching = null;
+      observe({
+        at: now,
+        held: attempt.held,
+        verdict: "clock-jumped",
+        why: `${Math.round(gapMs / 1e3)}s passed between two readings ${Math.round(pollMs / 1e3)}s apart \u2014 this process was not running, so nothing it saw about the holder counts`
+      });
+    } else {
+      const held = attempt.held;
+      const verdict = staleness(held, { now, ttlMs: opts.ttlMs, host });
+      if (held !== null && verdict.suspect) {
+        if (watching === null || watching.heartbeatAt !== held.heartbeatAt || watching.acquiredAt !== held.acquiredAt) {
+          watching = held;
+          watchingSince = now;
+          observe({ at: now, held, verdict: "suspect", why: verdict.why });
+        } else if (now - watchingSince >= confirmMs) {
+          if (breakFiringLockIfUnchanged(vaultDir, held, now)) {
+            observe({ at: now, held, verdict: "broke", why: verdict.why });
+            brokeHere = { held, why: verdict.why };
+            watching = null;
+            continue;
+          }
+          watching = null;
+          observe({ at: now, held, verdict: "live", why: "the record changed as the break was attempted \u2014 the holder is alive" });
+        }
+      } else {
+        watching = null;
+        observe({ at: now, held, verdict: "live", why: verdict.why });
+      }
+    }
+    if (now - started >= opts.waitMs) {
+      const waitedMs = now - started;
+      return {
+        ok: false,
+        held: readFiringLock(vaultDir),
+        // The acquire's own sentence first, then how long this call spent on it.
+        // Giving up is still a refusal to run and the operator's question is the
+        // same one it always was — *who has it* — so the wait is reported as a
+        // suffix on that answer rather than as a replacement for it.
+        reason: waitedMs === 0 ? attempt.reason : `${attempt.reason}; gave up after ${Math.round(waitedMs / 1e3)}s of waiting`,
+        waitedMs
+      };
+    }
+    clock.sleep(pollMs);
+  }
+}
+
 // src/mcp/commit.ts
 var chain = Promise.resolve();
 function enqueueCommit(dir, message) {
-  const next = chain.then(() => gitCommit(dir, message));
+  const next = chain.then(async () => {
+    const result = await gitCommit(dir, message);
+    touchFiringLock(dir);
+    return result;
+  });
   chain = next.catch(() => void 0);
   return next;
 }
 
 // src/mcp/bootstrap.ts
-import fs35 from "node:fs";
-import path36 from "node:path";
+import fs37 from "node:fs";
+import path38 from "node:path";
 
 // src/mcp/setup.ts
 var ASK_HUMAN_RULE = "Ask the human what outcome this tree should steer toward \u2014 a product outcome, in their words. NEVER invent or assume the outcome yourself: the outcome is human-set, always.";
@@ -53615,7 +53949,7 @@ function configProblemGuidance(dir, cause) {
 // src/mcp/bootstrap.ts
 function vaultReadiness(ctx) {
   const vault = ctx.dir;
-  if (!fs35.existsSync(path36.join(vault, ".git")) || !fs35.existsSync(configPath(vault))) {
+  if (!fs37.existsSync(path38.join(vault, ".git")) || !fs37.existsSync(configPath(vault))) {
     const nextStep = initCommand(vault);
     return {
       ready: false,
@@ -53800,7 +54134,7 @@ function newServer() {
   return new Server({ name: "ost-agent", version: VERSION }, { capabilities: { tools: {} } });
 }
 function createLazyOstMcpServer(vaultDir) {
-  const dir = path37.resolve(vaultDir);
+  const dir = path39.resolve(vaultDir);
   const session = mintSessionId();
   let live;
   let listingDefs;
@@ -53958,72 +54292,8 @@ function renderCanary(result) {
 }
 
 // src/ost/sweep.ts
-import fs37 from "node:fs";
-import path39 from "node:path";
-
-// src/loop/state.ts
-import { spawnSync as spawnSync5 } from "node:child_process";
-import fs36 from "node:fs";
-import path38 from "node:path";
-var STATE_DIRNAME = "ost-agent";
-function gitDir(vaultDir) {
-  const abs = path38.resolve(vaultDir);
-  const dotGit = path38.join(abs, ".git");
-  let stat;
-  try {
-    stat = fs36.statSync(dotGit);
-  } catch {
-    return null;
-  }
-  if (stat.isDirectory()) return dotGit;
-  if (!stat.isFile()) return null;
-  const pointer = fs36.readFileSync(dotGit, "utf8").trim();
-  const match = pointer.match(/^gitdir:\s*(.+)$/);
-  if (!match) return null;
-  return path38.resolve(abs, match[1].trim());
-}
-function loopStateDir(vaultDir) {
-  const git5 = gitDir(vaultDir);
-  return git5 === null ? null : path38.join(git5, STATE_DIRNAME);
-}
-function requireLoopStateDir(vaultDir) {
-  const dir = loopStateDir(vaultDir);
-  if (dir === null) {
-    throw new Error(
-      `${path38.resolve(vaultDir)} is not a git checkout \u2014 the loop records every firing under .git/ost-agent/ and refuses to fire where it cannot record. Run \`ost-agent init\` or \`git init\` there first.`
-    );
-  }
-  fs36.mkdirSync(dir, { recursive: true });
-  return dir;
-}
-function gitHead(vaultDir) {
-  const r2 = spawnSync5("git", ["rev-parse", "HEAD"], {
-    cwd: path38.resolve(vaultDir),
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "ignore"]
-  });
-  const sha = r2.status === 0 ? (r2.stdout ?? "").trim() : "";
-  return sha.length > 0 ? sha : void 0;
-}
-function workingTreeStatus(vaultDir) {
-  const r2 = spawnSync5("git", ["status", "--porcelain"], {
-    cwd: path38.resolve(vaultDir),
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"]
-  });
-  if (r2.error) {
-    return { kind: "unknown", reason: `git could not be run (${r2.error.code ?? r2.error.message})` };
-  }
-  if (r2.status !== 0) {
-    const firstLine2 = (r2.stderr ?? "").trim().split("\n")[0] ?? "";
-    const how = r2.status === null ? "was killed by a signal" : `exited ${r2.status}`;
-    return { kind: "unknown", reason: `\`git status\` ${how}${firstLine2 ? ` \u2014 ${firstLine2}` : ""}` };
-  }
-  const entries = (r2.stdout ?? "").split("\n").map((line) => line.replace(/\s+$/, "")).filter((line) => line.length > 0);
-  return entries.length === 0 ? { kind: "clean" } : { kind: "dirty", entries };
-}
-
-// src/ost/sweep.ts
+import fs38 from "node:fs";
+import path40 from "node:path";
 function classifySubject(subject) {
   const { offered, read } = subject;
   if (read > offered) {
@@ -54096,16 +54366,16 @@ function formatBlindnessCensus(census) {
 var SWEEP_LEDGER = "sweeps.jsonl";
 function sweepLedgerPath(vaultDir) {
   const dir = loopStateDir(vaultDir);
-  return dir === null ? null : path39.join(dir, SWEEP_LEDGER);
+  return dir === null ? null : path40.join(dir, SWEEP_LEDGER);
 }
 function recordSweepRun(vaultDir, run) {
   const dir = requireLoopStateDir(vaultDir);
-  fs37.appendFileSync(path39.join(dir, SWEEP_LEDGER), JSON.stringify(run) + "\n");
+  fs38.appendFileSync(path40.join(dir, SWEEP_LEDGER), JSON.stringify(run) + "\n");
 }
 function readSweepRuns(vaultDir) {
   const file = sweepLedgerPath(vaultDir);
-  if (file === null || !fs37.existsSync(file)) return [];
-  return fs37.readFileSync(file, "utf8").split("\n").filter((line) => line.trim().length > 0).map((line) => {
+  if (file === null || !fs38.existsSync(file)) return [];
+  return fs38.readFileSync(file, "utf8").split("\n").filter((line) => line.trim().length > 0).map((line) => {
     try {
       const parsed = JSON.parse(line);
       if (parsed && typeof parsed.sweep === "string") return parsed;
@@ -54220,8 +54490,8 @@ function formatStrandedCensus(census) {
 
 // src/ost/vault-merge.ts
 var import_gray_matter4 = __toESM(require_gray_matter(), 1);
-import fs38 from "node:fs";
-import path40 from "node:path";
+import fs39 from "node:fs";
+import path41 from "node:path";
 var DETAIL_WIDTH = 80;
 function brief(value) {
   if (value === void 0) return "(absent)";
@@ -54488,7 +54758,7 @@ var DEFAULT_NOT_EXCHANGED = Object.freeze([
   ".claude/"
 ]);
 function git3(dir) {
-  return simpleGit(path40.resolve(dir));
+  return simpleGit(path41.resolve(dir));
 }
 async function stage(g, n, file) {
   try {
@@ -54498,16 +54768,16 @@ async function stage(g, n, file) {
   }
 }
 async function censusPeerMerge(opts) {
-  const scratchDir = path40.resolve(opts.scratchDir);
-  fs38.mkdirSync(scratchDir, { recursive: true });
+  const scratchDir = path41.resolve(opts.scratchDir);
+  fs39.mkdirSync(scratchDir, { recursive: true });
   const g = git3(scratchDir);
   await g.init();
   await g.addConfig("user.email", "ost-agent@localhost");
   await g.addConfig("user.name", "OST-Agent");
-  await g.raw(["fetch", "--no-tags", path40.resolve(opts.localDir), opts.localRef ?? "HEAD"]);
+  await g.raw(["fetch", "--no-tags", path41.resolve(opts.localDir), opts.localRef ?? "HEAD"]);
   const localSha = (await g.revparse(["FETCH_HEAD"])).trim();
   await g.raw(["checkout", "-B", "local", localSha]);
-  await g.raw(["fetch", "--no-tags", path40.resolve(opts.peerDir), opts.peerRef ?? "HEAD"]);
+  await g.raw(["fetch", "--no-tags", path41.resolve(opts.peerDir), opts.peerRef ?? "HEAD"]);
   const peerSha = (await g.revparse(["FETCH_HEAD"])).trim();
   await g.raw(["merge", "--allow-unrelated-histories", "--no-commit", "--no-ff", peerSha]).catch(() => "");
   const unmerged = (await g.raw(["diff", "--name-only", "--diff-filter=U", "-z"])).split("\0").filter((f) => f.length > 0);
@@ -54544,7 +54814,7 @@ async function censusPeerMerge(opts) {
       });
       continue;
     }
-    const title = path40.basename(file, ".md");
+    const title = path41.basename(file, ".md");
     const verdict = settleNodeCollision(title, ours, theirs, { at: opts.at, peerLabel: opts.peerLabel });
     if (verdict.settleable)
       census.settled.push({
@@ -54724,9 +54994,9 @@ function formatAgeingReplay(replay, queue) {
 }
 
 // src/eval/ageing-replay.ts
-import fs39 from "node:fs";
-import os4 from "node:os";
-import path41 from "node:path";
+import fs40 from "node:fs";
+import os5 from "node:os";
+import path42 from "node:path";
 var FIRING_LEDGER = ".ost-agent/census-history/firings.jsonl";
 var REPLAYABLE_QUEUES = [
   "unmappedEvidence",
@@ -54763,8 +55033,8 @@ function sampleCommits(all, wanted) {
   return picked.reverse();
 }
 async function replayPastSweeps(vaultDir, opts) {
-  const source = path41.resolve(vaultDir);
-  const scratch = opts.scratchDir ?? fs39.mkdtempSync(path41.join(os4.tmpdir(), "ost-ageing-replay-"));
+  const source = path42.resolve(vaultDir);
+  const scratch = opts.scratchDir ?? fs40.mkdtempSync(path42.join(os5.tmpdir(), "ost-ageing-replay-"));
   const ownsScratch = opts.scratchDir === void 0;
   await simpleGit().clone(source, scratch, ["--local", "--no-checkout"]);
   const git5 = simpleGit(scratch);
@@ -54799,12 +55069,12 @@ async function replayPastSweeps(vaultDir, opts) {
     }
     return { basis, commits: all.length, observations };
   } finally {
-    if (ownsScratch) fs39.rmSync(scratch, { recursive: true, force: true });
+    if (ownsScratch) fs40.rmSync(scratch, { recursive: true, force: true });
   }
 }
 
 // src/ost/search.ts
-import fs40 from "node:fs";
+import fs41 from "node:fs";
 function examined(subject, hits) {
   return { read: true, subject, hits };
 }
@@ -54920,7 +55190,7 @@ function compileGlob(pattern) {
     return { ok: false, error: `error parsing glob '${pattern}': ${err.message}` };
   }
 }
-var defaultRead = (file) => fs40.readFileSync(file, "utf8");
+var defaultRead = (file) => fs41.readFileSync(file, "utf8");
 function causeOfReadFailure(err) {
   const code = err?.code;
   return code === "EACCES" || code === "EPERM" || code === "EISDIR" ? "denied" : "unreadable";
@@ -55080,7 +55350,7 @@ var TreeText = class _TreeText {
 };
 
 // src/product/capability.ts
-import path42 from "node:path";
+import path43 from "node:path";
 var CLEAR_COMMIT_SHARE = 0.7;
 var CLEAR_PR_SHARE = 20 / 30;
 var KILL_COMMIT_SHARE = 0.5;
@@ -55264,7 +55534,7 @@ function parseLog(raw) {
 }
 async function readCommittedRecord(repoRoot, window2 = {}) {
   const w = { ...DEFAULT_WINDOW, ...window2 };
-  const repo = path42.resolve(repoRoot);
+  const repo = path43.resolve(repoRoot);
   const git5 = simpleGit(repo);
   if (!await git5.checkIsRepo()) {
     throw new Error(`${repo} is not a git repository \u2014 there is no committed record to read`);
@@ -55312,7 +55582,7 @@ function formatCapabilityProfile(report) {
 }
 
 // src/product/routing-record.ts
-import path43 from "node:path";
+import path44 from "node:path";
 var WORK_CLASSES = ["build", "review", "discovery pass", "release", "decision"];
 var BUILD_TYPE = /^(feat|fix|perf|refactor)(\([^)]+\))?!?:\s*\S/;
 var RELEASE = /^release:\s*v?\d+\.\d+\.\d+/i;
@@ -55361,7 +55631,7 @@ function replayRoutingRecord(records) {
   return { classes, examined: examined2, comparable, share, verdict: verdictFor2(share) };
 }
 async function readWholeCommittedRecord(repoRoot) {
-  const repo = path43.resolve(repoRoot);
+  const repo = path44.resolve(repoRoot);
   const git5 = simpleGit(repo);
   if (!await git5.checkIsRepo()) {
     throw new Error(`${repo} is not a git repository \u2014 there is no routing record to read`);
@@ -55392,11 +55662,11 @@ function formatRoutingCensus(census) {
 
 // src/product/manifest.ts
 var import_yaml2 = __toESM(require_dist(), 1);
-import fs41 from "node:fs";
-import path44 from "node:path";
+import fs42 from "node:fs";
+import path45 from "node:path";
 var MANIFEST_FILENAME = "ost.resources.yaml";
 function manifestPath(vaultDir) {
-  return path44.join(path44.resolve(vaultDir), MANIFEST_FILENAME);
+  return path45.join(path45.resolve(vaultDir), MANIFEST_FILENAME);
 }
 var RESOURCES = [
   {
@@ -55529,10 +55799,10 @@ function summarizeDeclared(m, id) {
 }
 function readResourceManifest(vaultDir) {
   const p2 = manifestPath(vaultDir);
-  if (!fs41.existsSync(p2)) return { manifest: EMPTY_MANIFEST };
+  if (!fs42.existsSync(p2)) return { manifest: EMPTY_MANIFEST };
   let raw;
   try {
-    raw = (0, import_yaml2.parse)(fs41.readFileSync(p2, "utf8")) ?? {};
+    raw = (0, import_yaml2.parse)(fs42.readFileSync(p2, "utf8")) ?? {};
   } catch (e) {
     return {
       manifest: EMPTY_MANIFEST,
@@ -55549,7 +55819,7 @@ ${issues}` };
 }
 
 // src/product/recoverability.ts
-import fs42 from "node:fs";
+import fs43 from "node:fs";
 
 // src/security/auth-detection-report.ts
 function registry2(env) {
@@ -55616,7 +55886,7 @@ function labelResourceQuestions(vaultDir, opts = {}) {
   if (manifestLoad.problem) problems.push(manifestLoad.problem);
   const manifest = manifestLoad.manifest;
   let config2;
-  if (fs42.existsSync(configPath(vaultDir))) {
+  if (fs43.existsSync(configPath(vaultDir))) {
     const load = readConfig(vaultDir);
     if (load.problem) problems.push(load.problem);
     else config2 = load.config;
@@ -55818,8 +56088,8 @@ function formatPriorityOrder(order) {
 }
 
 // src/telemetry/preflight.ts
-import fs43 from "node:fs";
-import path45 from "node:path";
+import fs44 from "node:fs";
+import path46 from "node:path";
 var UNCERTAINTY_RULE = {
   /**
    * How many transcript entries before the failing call are in scope, plus the
@@ -56092,7 +56362,7 @@ function preflightUncertaintyCensus(events, sessions) {
 function readUsageEvents(vaultDir) {
   let text2;
   try {
-    text2 = fs43.readFileSync(usageLogPath(vaultDir), "utf8");
+    text2 = fs44.readFileSync(usageLogPath(vaultDir), "utf8");
   } catch {
     return [];
   }
@@ -56111,12 +56381,12 @@ function readTranscriptSessions(dir) {
   const walk = (at) => {
     let entries;
     try {
-      entries = fs43.readdirSync(at, { withFileTypes: true });
+      entries = fs44.readdirSync(at, { withFileTypes: true });
     } catch {
       return;
     }
     for (const entry of entries.sort((a, b2) => a.name < b2.name ? -1 : 1)) {
-      const full = path45.join(at, entry.name);
+      const full = path46.join(at, entry.name);
       if (entry.isDirectory()) walk(full);
       else if (entry.name.endsWith(".jsonl")) files.push(full);
     }
@@ -56125,7 +56395,7 @@ function readTranscriptSessions(dir) {
   const sessions = [];
   for (const file of files) {
     try {
-      sessions.push({ id: path45.basename(file).replace(/\.jsonl$/, ""), jsonl: fs43.readFileSync(file, "utf8") });
+      sessions.push({ id: path46.basename(file).replace(/\.jsonl$/, ""), jsonl: fs44.readFileSync(file, "utf8") });
     } catch {
     }
   }
@@ -56189,8 +56459,8 @@ function formatPreflightCensus(census) {
 }
 
 // src/telemetry/search-literality.ts
-import fs44 from "node:fs";
-import path46 from "node:path";
+import fs45 from "node:fs";
+import path47 from "node:path";
 
 // src/telemetry/shell.ts
 var SHELL_OPERATORS = ["||", "&&", "|", ";", "&", "\n", ">>", ">", "<"];
@@ -56601,7 +56871,7 @@ function shellSearches(command, cwd) {
     if (segmentStart && word === "cd") {
       const target = parsed.words[i2 + 1];
       if (target && !SHELL_OPERATORS.includes(target) && target !== "-") {
-        here = path46.isAbsolute(target) ? target : path46.resolve(here, target);
+        here = path47.isAbsolute(target) ? target : path47.resolve(here, target);
         i2++;
       }
       segmentStart = false;
@@ -56681,11 +56951,11 @@ function shellArguments(search) {
 function subjectOf(input, cwd) {
   const target = typeof input.path === "string" ? input.path : "";
   if (!target) return cwd;
-  return path46.isAbsolute(target) ? target : path46.resolve(cwd, target);
+  return path47.isAbsolute(target) ? target : path47.resolve(cwd, target);
 }
 function isNodeText(subject, vaultDir) {
-  const vault = path46.resolve(vaultDir);
-  if (subject === vault || subject.startsWith(`${vault}${path46.sep}`)) return true;
+  const vault = path47.resolve(vaultDir);
+  if (subject === vault || subject.startsWith(`${vault}${path47.sep}`)) return true;
   return /tool-results\/.*ost[-_]/.test(subject);
 }
 function readSearchArguments(sessions, options2) {
@@ -56714,7 +56984,7 @@ function readSearchArguments(sessions, options2) {
         const input = block.input ?? {};
         const base = { session: session.id, entry: entryIndex, ts, tool: tool2 };
         if (tool2 === "Grep" || tool2 === "Glob") {
-          const subject = tool2 === "Glob" && typeof input.pattern === "string" && path46.isAbsolute(input.pattern) ? path46.dirname(input.pattern) : subjectOf(input, cwd);
+          const subject = tool2 === "Glob" && typeof input.pattern === "string" && path47.isAbsolute(input.pattern) ? path47.dirname(input.pattern) : subjectOf(input, cwd);
           if (!isNodeText(subject, options2.vaultDir)) continue;
           calls++;
           const fields = LITERALITY_RULE.searchTools[tool2];
@@ -56732,7 +57002,7 @@ function readSearchArguments(sessions, options2) {
         const command = typeof input.command === "string" ? input.command : "";
         if (!command) continue;
         if (!LITERALITY_RULE.searchCommands.some((c3) => new RegExp(`(^|[|&;( ])${c3}\\b`).test(command))) continue;
-        if (!isNodeText(cwd, options2.vaultDir) && !command.includes(path46.resolve(options2.vaultDir))) continue;
+        if (!isNodeText(cwd, options2.vaultDir) && !command.includes(path47.resolve(options2.vaultDir))) continue;
         const searches = shellSearches(command, cwd);
         if (searches === null) {
           calls++;
@@ -56747,7 +57017,7 @@ function readSearchArguments(sessions, options2) {
             continue;
           }
           if (!lifted.args.length) continue;
-          const subjects = lifted.operands.length ? lifted.operands.map((o2) => path46.isAbsolute(o2) ? o2 : path46.resolve(search.cwd, o2)) : [search.cwd];
+          const subjects = lifted.operands.length ? lifted.operands.map((o2) => path47.isAbsolute(o2) ? o2 : path47.resolve(search.cwd, o2)) : [search.cwd];
           if (!subjects.some((s) => isNodeText(s, options2.vaultDir))) continue;
           calls++;
           for (const arg of lifted.args) {
@@ -56843,7 +57113,7 @@ function searchLiteralityCensus(args, treeText, extra) {
 function readTreeTitles(vaultDir) {
   let names;
   try {
-    names = fs44.readdirSync(vaultDir);
+    names = fs45.readdirSync(vaultDir);
   } catch {
     return [];
   }
@@ -56911,7 +57181,7 @@ function formatSearchLiteralityCensus(census) {
 }
 
 // src/telemetry/path-failure-attribution.ts
-import path47 from "node:path";
+import path48 from "node:path";
 var ATTRIBUTION_RULE = {
   /**
    * The pre-committed bar: at least this share of path-shaped failures must arrive
@@ -57045,7 +57315,7 @@ function invokesProductCli(segment) {
       i2++;
       continue;
     }
-    const base = path47.basename(word);
+    const base = path48.basename(word);
     if (ATTRIBUTION_RULE.cliPrograms.includes(base)) return true;
     if (ATTRIBUTION_RULE.cliEntrySource.test(word)) return true;
     if (ATTRIBUTION_RULE.cliLaunchers.includes(base) && launchers < 3) {
@@ -57244,7 +57514,7 @@ function formatPathFailureCensus(census) {
 }
 
 // src/telemetry/hand-exclusion.ts
-import path48 from "node:path";
+import path49 from "node:path";
 var HAND_EXCLUSION_RULE = {
   /**
    * Distinct test files below which a committed list loses to fixing the flake.
@@ -57321,7 +57591,7 @@ function runnerInvocations(command, cwd) {
     if (segmentStart && word === "cd") {
       const target = parsed.words[i2 + 1];
       if (target && !SHELL_OPERATORS.includes(target) && target !== "-") {
-        here = path48.isAbsolute(target) ? target : path48.resolve(here, target);
+        here = path49.isAbsolute(target) ? target : path49.resolve(here, target);
         i2++;
       }
       segmentStart = false;
@@ -57528,12 +57798,12 @@ function formatHandExclusionCensus(census) {
 }
 
 // src/telemetry/self-filed-friction.ts
-import fs46 from "node:fs";
-import path50 from "node:path";
+import fs47 from "node:fs";
+import path51 from "node:path";
 
 // src/adapters/friction.ts
-import fs45 from "node:fs";
-import path49 from "node:path";
+import fs46 from "node:fs";
+import path50 from "node:path";
 var FRICTION_KINDS = ["blocked", "guessed", "unclear-rule", "missing-affordance", "slow"];
 var MAX_NOTE_CHARS = 500;
 var MAX_CONTEXT_CHARS = 1e3;
@@ -57546,9 +57816,9 @@ function slug3(note) {
   return note.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "friction";
 }
 function uniquePath3(dir, base) {
-  let candidate = path49.join(dir, `${base}.md`);
-  for (let n = 2; fs45.existsSync(candidate); n++) {
-    candidate = path49.join(dir, `${base}-${n}.md`);
+  let candidate = path50.join(dir, `${base}.md`);
+  for (let n = 2; fs46.existsSync(candidate); n++) {
+    candidate = path50.join(dir, `${base}-${n}.md`);
   }
   return candidate;
 }
@@ -57581,9 +57851,9 @@ function fileFriction(vaultDir, filing) {
       `a friction filing needs ${missing.join(", ")} \u2014 bare prose is not actionable later. Say the tool that fought back, the input it failed on, and what you expected instead.`
     );
   }
-  const dir = path49.resolve(vaultDir);
+  const dir = path50.resolve(vaultDir);
   const inboxDir = frictionDir(dir);
-  fs45.mkdirSync(inboxDir, { recursive: true });
+  fs46.mkdirSync(inboxDir, { recursive: true });
   const at = filing.at ?? (/* @__PURE__ */ new Date()).toISOString();
   const day = at.slice(0, 10);
   const context = filing.context ? clean(filing.context, MAX_CONTEXT_CHARS) : "";
@@ -57608,7 +57878,7 @@ function fileFriction(vaultDir, filing) {
     ""
   ].join("\n");
   const target = uniquePath3(inboxDir, `${day}-friction-${slug3(note)}`);
-  fs45.writeFileSync(target, body, "utf8");
+  fs46.writeFileSync(target, body, "utf8");
   return target;
 }
 
@@ -57661,7 +57931,7 @@ function readSelfFiledEvent(file, body) {
     else missing.push(MISSING_REASON[key2]);
   }
   return {
-    file: path50.basename(file),
+    file: path51.basename(file),
     kind: FRICTION_KINDS.includes(kindText) ? kindText : "unknown",
     note: heading?.[1]?.trim() ?? "",
     at: filed,
@@ -57674,7 +57944,7 @@ function readSelfFiledEvent(file, body) {
 function readSelfFiledFriction(frictionDir2) {
   let names;
   try {
-    names = fs46.readdirSync(frictionDir2);
+    names = fs47.readdirSync(frictionDir2);
   } catch {
     return [];
   }
@@ -57683,7 +57953,7 @@ function readSelfFiledFriction(frictionDir2) {
     if (!name.endsWith(".md")) continue;
     let body;
     try {
-      body = fs46.readFileSync(path50.join(frictionDir2, name), "utf8");
+      body = fs47.readFileSync(path51.join(frictionDir2, name), "utf8");
     } catch {
       continue;
     }
@@ -57770,8 +58040,8 @@ function formatSelfFiledFrictionCensus(census) {
 }
 
 // src/telemetry/log-only-friction.ts
-import fs47 from "node:fs";
-import path51 from "node:path";
+import fs48 from "node:fs";
+import path52 from "node:path";
 var LOG_ONLY_FRICTION_RULE = {
   /** The sample the assumption test named: "the last thirty days of existing logs". */
   windowDays: 30,
@@ -57878,12 +58148,12 @@ function declaredFrictionCount(body) {
   return m ? Number(m[1]) : null;
 }
 function evidenceDirOf(vaultDir) {
-  return path51.join(path51.resolve(vaultDir), ".ost-agent", "evidence");
+  return path52.join(path52.resolve(vaultDir), ".ost-agent", "evidence");
 }
 function readKnownFriction(evidenceDir2) {
   let names;
   try {
-    names = fs47.readdirSync(evidenceDir2);
+    names = fs48.readdirSync(evidenceDir2);
   } catch {
     return { events: [], coverage: { items: 0, events: 0, declared: 0 } };
   }
@@ -57893,7 +58163,7 @@ function readKnownFriction(evidenceDir2) {
     if (!name.startsWith("TRANSCRIPT_") || !name.endsWith(".md")) continue;
     let body;
     try {
-      body = fs47.readFileSync(path51.join(evidenceDir2, name), "utf8");
+      body = fs48.readFileSync(path52.join(evidenceDir2, name), "utf8");
     } catch {
       continue;
     }
@@ -58593,8 +58863,8 @@ function formatRefusalCoverageCensus(census) {
 }
 
 // src/ost/migrate.ts
-import fs48 from "node:fs";
-import path52 from "node:path";
+import fs49 from "node:fs";
+import path53 from "node:path";
 var EVIDENCE_TAG2 = /#evidence\/(\S+)/;
 function withFloorEvidenceLine(raw) {
   const lines = raw.split("\n");
@@ -58616,10 +58886,10 @@ function migrateEvidenceClass(dir, opts = {}) {
     outOfScope: 0,
     dryRun: !opts.write
   };
-  const files = fs48.readdirSync(dir, { withFileTypes: true }).filter((e) => e.isFile() && e.name.endsWith(".md")).map((e) => e.name).sort();
+  const files = fs49.readdirSync(dir, { withFileTypes: true }).filter((e) => e.isFile() && e.name.endsWith(".md")).map((e) => e.name).sort();
   for (const file of files) {
-    const full = path52.join(dir, file);
-    const raw = fs48.readFileSync(full, "utf8");
+    const full = path53.join(dir, file);
+    const raw = fs49.readFileSync(full, "utf8");
     let data;
     let content;
     try {
@@ -58669,7 +58939,7 @@ function migrateEvidenceClass(dir, opts = {}) {
       });
       continue;
     }
-    if (opts.write) fs48.writeFileSync(full, migrated);
+    if (opts.write) fs49.writeFileSync(full, migrated);
     report.touched.push({
       file,
       change: `evidence: ${FLOOR_RUNG} added to frontmatter \u2014 the floor rung, the weight an unlabelled node already carried`
@@ -58689,8 +58959,8 @@ function formatMigrationReport(r2) {
 }
 
 // src/ost/accounting-reconstruction.ts
-import fs49 from "node:fs";
-import path53 from "node:path";
+import fs50 from "node:fs";
+import path54 from "node:path";
 var OLD_ACCOUNTING = {
   build: "ost-agent@0.1.3",
   /**
@@ -58731,16 +59001,16 @@ function reconstructOldAccounting(dir, tree) {
     withheld
   };
 }
-var MIGRATION_LEDGER = path53.join(".ost-agent", "state", "accounting-migration.jsonl");
+var MIGRATION_LEDGER = path54.join(".ost-agent", "state", "accounting-migration.jsonl");
 function accountingMigrationPath(dir) {
-  return path53.join(dir, MIGRATION_LEDGER);
+  return path54.join(dir, MIGRATION_LEDGER);
 }
 function readAccountingMigrations(dir) {
   const file = accountingMigrationPath(dir);
-  if (!fs49.existsSync(file)) return { records: [], unreadableLines: 0 };
+  if (!fs50.existsSync(file)) return { records: [], unreadableLines: 0 };
   const records = [];
   let unreadableLines = 0;
-  for (const line of fs49.readFileSync(file, "utf8").split("\n")) {
+  for (const line of fs50.readFileSync(file, "utf8").split("\n")) {
     if (line.trim().length === 0) continue;
     try {
       const parsed = JSON.parse(line);
@@ -58769,8 +59039,8 @@ function migrateAccounting(dir, tree, opts) {
     withheld: reconstruction.withheld
   };
   const file = accountingMigrationPath(dir);
-  fs49.mkdirSync(path53.dirname(file), { recursive: true });
-  fs49.appendFileSync(file, JSON.stringify(record2) + "\n", "utf8");
+  fs50.mkdirSync(path54.dirname(file), { recursive: true });
+  fs50.appendFileSync(file, JSON.stringify(record2) + "\n", "utf8");
   return { firstRun: true, reconstruction, dryRun: false, recorded: record2 };
 }
 function accountingDrift(dir, tree) {
@@ -58836,9 +59106,9 @@ function formatAccountingDrift(drift) {
 }
 
 // src/git/rename-topology.ts
-import path54 from "node:path";
+import path55 from "node:path";
 function git4(dir) {
-  return simpleGit(path54.resolve(dir));
+  return simpleGit(path55.resolve(dir));
 }
 async function commitsOldestFirst(g) {
   let raw;
@@ -58927,8 +59197,8 @@ function liveRenameRepairs(tree, breaks) {
 }
 
 // src/adapters/retrospective.ts
-import fs50 from "node:fs";
-import path55 from "node:path";
+import fs51 from "node:fs";
+import path56 from "node:path";
 var MAX_FIELD_CHARS2 = 1e3;
 function clean2(text2, max) {
   const flat = redactSecrets(text2).replace(/\s+/g, " ").trim();
@@ -58938,9 +59208,9 @@ function slug4(text2) {
   return text2.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "retrospective";
 }
 function uniquePath4(dir, base) {
-  let candidate = path55.join(dir, `${base}.md`);
-  for (let n = 2; fs50.existsSync(candidate); n++) {
-    candidate = path55.join(dir, `${base}-${n}.md`);
+  let candidate = path56.join(dir, `${base}.md`);
+  for (let n = 2; fs51.existsSync(candidate); n++) {
+    candidate = path56.join(dir, `${base}-${n}.md`);
   }
   return candidate;
 }
@@ -58963,9 +59233,9 @@ function fileRetrospective(vaultDir, filing) {
   if (!session) {
     throw new Error("a retrospective needs a session id \u2014 it is the provenance a reader checks the confession against");
   }
-  const dir = path55.resolve(vaultDir);
+  const dir = path56.resolve(vaultDir);
   const retroDir = retrospectiveDir(dir);
-  fs50.mkdirSync(retroDir, { recursive: true });
+  fs51.mkdirSync(retroDir, { recursive: true });
   const at = filing.at ?? (/* @__PURE__ */ new Date()).toISOString();
   const day = at.slice(0, 10);
   const cost = filing.cost ? clean2(filing.cost, MAX_FIELD_CHARS2) : "";
@@ -58987,12 +59257,12 @@ function fileRetrospective(vaultDir, filing) {
     ""
   ].join("\n");
   const target = uniquePath4(retroDir, `${day}-retrospective-${slug4(wrongTurn)}`);
-  fs50.writeFileSync(target, body, "utf8");
+  fs51.writeFileSync(target, body, "utf8");
   return target;
 }
 
 // src/security/allowlist-generator.ts
-import fs51 from "node:fs";
+import fs52 from "node:fs";
 var AGENT_SESSION_MARKERS = [
   "CLAUDECODE",
   "CLAUDE_CODE_ENTRYPOINT",
@@ -59090,7 +59360,7 @@ function runAllowlistGenerator(opts) {
   const env = opts.env ?? process.env;
   let skill = "";
   if (agentSessionMarker(env) === null) {
-    if (!fs51.existsSync(opts.skillPath)) {
+    if (!fs52.existsSync(opts.skillPath)) {
       return {
         exitCode: 1,
         report: `REFUSED: no skill file at ${opts.skillPath}. Nothing was written.`,
@@ -59101,11 +59371,11 @@ function runAllowlistGenerator(opts) {
         }
       };
     }
-    skill = fs51.readFileSync(opts.skillPath, "utf8");
+    skill = fs52.readFileSync(opts.skillPath, "utf8");
   }
   let settings = null;
-  if (fs51.existsSync(opts.settingsPath)) {
-    const raw = fs51.readFileSync(opts.settingsPath, "utf8");
+  if (fs52.existsSync(opts.settingsPath)) {
+    const raw = fs52.readFileSync(opts.settingsPath, "utf8");
     try {
       settings = JSON.parse(raw);
     } catch (e) {
@@ -59126,13 +59396,13 @@ function runAllowlistGenerator(opts) {
   }
   const next = { ...settings ?? {} };
   next.permissions = { ...settings?.permissions ?? {}, allow: decision.allow };
-  fs51.writeFileSync(opts.settingsPath, `${JSON.stringify(next, null, 2)}
+  fs52.writeFileSync(opts.settingsPath, `${JSON.stringify(next, null, 2)}
 `, "utf8");
   return { exitCode: 0, report: decision.message, decision };
 }
 
 // src/runner/grant-preflight.ts
-import fs52 from "node:fs";
+import fs53 from "node:fs";
 function parseRule(entry) {
   const trimmed2 = entry.trim();
   const match = trimmed2.match(/^([^(]+)\((.*)\)$/s);
@@ -59235,14 +59505,14 @@ var PREFLIGHT_EXIT = {
 };
 function runGrantPreflight(opts) {
   const paths = { skillPath: opts.skillPath, settingsPath: opts.settingsPath };
-  if (!fs52.existsSync(opts.skillPath)) {
+  if (!fs53.existsSync(opts.skillPath)) {
     return {
       exitCode: PREFLIGHT_EXIT.unreadable,
       report: `preflight COULD NOT RUN: no declaration file at ${opts.skillPath}. That is not a cleared run.`,
       result: null
     };
   }
-  const declared = declaredTools(fs52.readFileSync(opts.skillPath, "utf8")) ?? [];
+  const declared = declaredTools(fs53.readFileSync(opts.skillPath, "utf8")) ?? [];
   const demands = [...declared, ...opts.extraDemands ?? []];
   if (demands.length === 0) {
     return {
@@ -59251,13 +59521,13 @@ function runGrantPreflight(opts) {
       result: null
     };
   }
-  if (!fs52.existsSync(opts.settingsPath)) {
+  if (!fs53.existsSync(opts.settingsPath)) {
     const result2 = resolveGrants({ demands, grants: [] });
     return { exitCode: PREFLIGHT_EXIT.gaps, report: renderPreflight(result2, paths), result: result2 };
   }
   let settings;
   try {
-    settings = JSON.parse(fs52.readFileSync(opts.settingsPath, "utf8"));
+    settings = JSON.parse(fs53.readFileSync(opts.settingsPath, "utf8"));
   } catch (e) {
     return {
       exitCode: PREFLIGHT_EXIT.unreadable,
@@ -59274,7 +59544,7 @@ function runGrantPreflight(opts) {
 }
 
 // src/mcp/required-tools.ts
-import fs53 from "node:fs";
+import fs54 from "node:fs";
 function unnamespacedTool(tool2) {
   if (!tool2.startsWith("mcp__")) return tool2;
   const last2 = tool2.lastIndexOf("__");
@@ -59373,7 +59643,7 @@ function renderRequiredTools(resolution) {
 function checkRequiredTools(opts) {
   let markdown;
   try {
-    markdown = fs53.readFileSync(opts.passFile, "utf8");
+    markdown = fs54.readFileSync(opts.passFile, "utf8");
   } catch (e) {
     return {
       exitCode: REQUIRED_TOOLS_EXIT.undeclared,
@@ -59498,7 +59768,7 @@ function profileGrants(resolution) {
 }
 
 // src/runner/tool-surface-preflight.ts
-import fs54 from "node:fs";
+import fs55 from "node:fs";
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/client/index.js
 init_types();
@@ -60254,7 +60524,7 @@ var LIVE_LISTING_CAVEAT = "WHAT THIS DOES NOT SETTLE: a tool that lists here and
 async function checkToolSurfaces(opts) {
   let markdown;
   try {
-    markdown = fs54.readFileSync(opts.passFile, "utf8");
+    markdown = fs55.readFileSync(opts.passFile, "utf8");
   } catch (e) {
     return {
       exitCode: TOOL_SURFACE_PREFLIGHT_EXIT.undeclared,
@@ -60317,8 +60587,8 @@ function renderToolSurfacePreflight(result, exitCode) {
 }
 
 // src/loop/question-bank.ts
-import fs55 from "node:fs";
-import path56 from "node:path";
+import fs56 from "node:fs";
+import path57 from "node:path";
 var QUESTION_DEPENDENCE_RULE = {
   /**
    * Subject overlap: an item that shares a content term with the question text
@@ -60432,15 +60702,15 @@ function bankQuestion(stateDir2, input) {
     partition,
     cost: partition.turnsOnAnswer.length
   };
-  fs55.mkdirSync(stateDir2, { recursive: true });
-  fs55.appendFileSync(path56.join(stateDir2, QUESTION_BANK_FILENAME), `${JSON.stringify(record2)}
+  fs56.mkdirSync(stateDir2, { recursive: true });
+  fs56.appendFileSync(path57.join(stateDir2, QUESTION_BANK_FILENAME), `${JSON.stringify(record2)}
 `);
   return record2;
 }
 function readQuestionBank(stateDir2) {
   let text2;
   try {
-    text2 = fs55.readFileSync(path56.join(stateDir2, QUESTION_BANK_FILENAME), "utf8");
+    text2 = fs56.readFileSync(path57.join(stateDir2, QUESTION_BANK_FILENAME), "utf8");
   } catch {
     return [];
   }
@@ -60667,8 +60937,8 @@ function renderHostSurfaces() {
 }
 
 // src/loop/corrections.ts
-import fs56 from "node:fs";
-import path57 from "node:path";
+import fs57 from "node:fs";
+import path58 from "node:path";
 
 // src/loop/wait.ts
 var SHIM_NAME = "await";
@@ -60836,16 +61106,16 @@ function extractRefusals(jsonl, session) {
   return sightings;
 }
 function ledgerPath(stateDir2) {
-  return path57.join(path57.resolve(stateDir2), LEDGER_FILE);
+  return path58.join(path58.resolve(stateDir2), LEDGER_FILE);
 }
 function emptyCorrectionsLedger() {
   return { version: LEDGER_VERSION, harvested: [], corrections: [], dropped: 0 };
 }
 function readLedger(stateDir2) {
   const p2 = ledgerPath(stateDir2);
-  if (!fs56.existsSync(p2)) return emptyCorrectionsLedger();
+  if (!fs57.existsSync(p2)) return emptyCorrectionsLedger();
   try {
-    const parsed = JSON.parse(fs56.readFileSync(p2, "utf8"));
+    const parsed = JSON.parse(fs57.readFileSync(p2, "utf8"));
     if (parsed.version !== LEDGER_VERSION) return emptyCorrectionsLedger();
     return {
       version: LEDGER_VERSION,
@@ -60858,9 +61128,9 @@ function readLedger(stateDir2) {
   }
 }
 function writeLedger(stateDir2, ledger) {
-  const dir = path57.resolve(stateDir2);
-  fs56.mkdirSync(dir, { recursive: true });
-  fs56.writeFileSync(ledgerPath(dir), JSON.stringify(ledger, null, 2));
+  const dir = path58.resolve(stateDir2);
+  fs57.mkdirSync(dir, { recursive: true });
+  fs57.writeFileSync(ledgerPath(dir), JSON.stringify(ledger, null, 2));
 }
 function foldSightings(ledger, sightings) {
   const byPermitted = /* @__PURE__ */ new Map();
@@ -60898,10 +61168,10 @@ function foldSightings(ledger, sightings) {
   };
 }
 function harvestableSessions(sessionsDir, ledger, opts) {
-  const dir = path57.resolve(sessionsDir);
+  const dir = path58.resolve(sessionsDir);
   let names;
   try {
-    names = fs56.readdirSync(dir);
+    names = fs57.readdirSync(dir);
   } catch {
     return [];
   }
@@ -60912,10 +61182,10 @@ function harvestableSessions(sessionsDir, ledger, opts) {
     if (!name.endsWith(".jsonl")) continue;
     const id = name.replace(/\.jsonl$/, "");
     if (seen.has(id)) continue;
-    const file = path57.join(dir, name);
+    const file = path58.join(dir, name);
     let mtimeMs;
     try {
-      mtimeMs = fs56.statSync(file).mtimeMs;
+      mtimeMs = fs57.statSync(file).mtimeMs;
     } catch {
       continue;
     }
@@ -60926,8 +61196,8 @@ function harvestableSessions(sessionsDir, ledger, opts) {
 }
 function recordCorrections(stateDir2, sessionsDir, opts = {}) {
   const ledger = readLedger(stateDir2);
-  const dir = path57.resolve(sessionsDir);
-  if (!fs56.existsSync(dir)) {
+  const dir = path58.resolve(sessionsDir);
+  if (!fs57.existsSync(dir)) {
     return { readable: false, reason: `no session transcripts at ${dir}`, ledger };
   }
   const sessions = harvestableSessions(dir, ledger, {
@@ -60939,7 +61209,7 @@ function recordCorrections(stateDir2, sessionsDir, opts = {}) {
   for (const s of sessions) {
     let text2;
     try {
-      text2 = fs56.readFileSync(s.file, "utf8");
+      text2 = fs57.readFileSync(s.file, "utf8");
     } catch {
       continue;
     }
@@ -60988,8 +61258,8 @@ function renderCorrections(ledger) {
 
 // src/loop/claim.ts
 import { createHash as createHash3 } from "node:crypto";
-import fs57 from "node:fs";
-import path58 from "node:path";
+import fs58 from "node:fs";
+import path59 from "node:path";
 var CLAIMS_FILENAME = "work-claims.jsonl";
 var DEFAULT_CLAIM_TTL_HOURS = 8;
 var STOPWORDS4 = /* @__PURE__ */ new Set([
@@ -61160,20 +61430,20 @@ function resolveWorkItem(naming, briefing, opts = {}) {
   };
 }
 function claimsPath(stateDir2) {
-  return path58.join(stateDir2, CLAIMS_FILENAME);
+  return path59.join(stateDir2, CLAIMS_FILENAME);
 }
 function readBriefingFile(file) {
   try {
-    return fs57.readFileSync(file, "utf8");
+    return fs58.readFileSync(file, "utf8");
   } catch (e) {
-    throw new Error(`cannot read the briefing at ${path58.resolve(file)}: ${e.code ?? String(e)}`);
+    throw new Error(`cannot read the briefing at ${path59.resolve(file)}: ${e.code ?? String(e)}`);
   }
 }
 function readClaims(stateDir2) {
   const p2 = claimsPath(stateDir2);
-  if (!fs57.existsSync(p2)) return [];
+  if (!fs58.existsSync(p2)) return [];
   const byKey = /* @__PURE__ */ new Map();
-  for (const line of fs57.readFileSync(p2, "utf8").split("\n")) {
+  for (const line of fs58.readFileSync(p2, "utf8").split("\n")) {
     if (line.trim().length === 0) continue;
     try {
       const rec = JSON.parse(line);
@@ -61193,8 +61463,8 @@ function isLive(claim, now) {
   return Number.isFinite(expires) && now < expires;
 }
 function append2(stateDir2, record2) {
-  fs57.mkdirSync(stateDir2, { recursive: true });
-  fs57.appendFileSync(claimsPath(stateDir2), `${JSON.stringify(record2)}
+  fs58.mkdirSync(stateDir2, { recursive: true });
+  fs58.appendFileSync(claimsPath(stateDir2), `${JSON.stringify(record2)}
 `);
 }
 function claimWork(stateDir2, opts) {
@@ -61275,11 +61545,11 @@ function releaseClaim(stateDir2, key2, session, now = Date.now()) {
 }
 
 // src/ost/briefing.ts
-import fs58 from "node:fs";
-import path59 from "node:path";
+import fs59 from "node:fs";
+import path60 from "node:path";
 var NEXT_BUILD_FILENAME = "NEXT-BUILD.md";
 function nextBuildPath(vaultDir) {
-  return path59.join(path59.resolve(vaultDir), ".ost-agent", NEXT_BUILD_FILENAME);
+  return path60.join(path60.resolve(vaultDir), ".ost-agent", NEXT_BUILD_FILENAME);
 }
 var HEADER = [
   "# NEXT BUILD",
@@ -61301,8 +61571,8 @@ function assertWritable(name, value) {
 }
 function readBriefing(vaultDir) {
   const p2 = nextBuildPath(vaultDir);
-  if (!fs58.existsSync(p2)) return { current: null, history: [] };
-  return parseBriefing(fs58.readFileSync(p2, "utf8"));
+  if (!fs59.existsSync(p2)) return { current: null, history: [] };
+  return parseBriefing(fs59.readFileSync(p2, "utf8"));
 }
 function parseBriefing(content) {
   const lines = content.split("\n");
@@ -61346,8 +61616,8 @@ function rewriteBriefing(vaultDir, reading) {
     for (const h2 of history) parts.push("", `### ${h2.date}`, "", h2.body);
   }
   const p2 = nextBuildPath(vaultDir);
-  fs58.mkdirSync(path59.dirname(p2), { recursive: true });
-  fs58.writeFileSync(p2, parts.join("\n") + "\n");
+  fs59.mkdirSync(path60.dirname(p2), { recursive: true });
+  fs59.writeFileSync(p2, parts.join("\n") + "\n");
   return p2;
 }
 function renderBriefing(briefing, address, withHistory) {
@@ -61365,12 +61635,12 @@ function renderBriefing(briefing, address, withHistory) {
 }
 
 // src/ost/ranked-ledger.ts
-import fs59 from "node:fs";
-import path60 from "node:path";
+import fs60 from "node:fs";
+import path61 from "node:path";
 var RANKED_LEDGER_FILENAME = "RANKED-LEDGER.md";
 var UNRANKED_HEADING = "## Unranked \u2014 refused a rank";
 function rankedLedgerPath(vaultDir) {
-  return path60.join(path60.resolve(vaultDir), ".ost-agent", RANKED_LEDGER_FILENAME);
+  return path61.join(path61.resolve(vaultDir), ".ost-agent", RANKED_LEDGER_FILENAME);
 }
 var WIKILINK = /\[\[([^\]]+)\]\]/g;
 var EVIDENCE_CLAIM = new RegExp(`\\b(?:${EVIDENCE_ID_PREFIXES.join("|")}):[^\\s\\])},;]+`, "gi");
@@ -61431,8 +61701,8 @@ function ledgerWorld(vaultDir) {
 function publishRankedLedger(vaultDir, rows, date3) {
   const ledger = composeRankedLedger(rows, ledgerWorld(vaultDir), date3);
   const p2 = rankedLedgerPath(vaultDir);
-  fs59.mkdirSync(path60.dirname(p2), { recursive: true });
-  fs59.writeFileSync(p2, renderRankedLedger(ledger));
+  fs60.mkdirSync(path61.dirname(p2), { recursive: true });
+  fs60.writeFileSync(p2, renderRankedLedger(ledger));
   return p2;
 }
 function renderRankedLedger(ledger) {
@@ -61460,15 +61730,15 @@ function renderRankedLedger(ledger) {
 }
 function readRankedLedger(vaultDir) {
   const p2 = rankedLedgerPath(vaultDir);
-  return fs59.existsSync(p2) ? fs59.readFileSync(p2, "utf8") : null;
+  return fs60.existsSync(p2) ? fs60.readFileSync(p2, "utf8") : null;
 }
 
 // src/ost/standing-briefing.ts
-import fs60 from "node:fs";
-import path61 from "node:path";
+import fs61 from "node:fs";
+import path62 from "node:path";
 var STANDING_BRIEFING_FILENAME = "BRIEFING.md";
 function standingBriefingPath(vaultDir) {
-  return path61.join(path61.resolve(vaultDir), ".ost-agent", STANDING_BRIEFING_FILENAME);
+  return path62.join(path62.resolve(vaultDir), ".ost-agent", STANDING_BRIEFING_FILENAME);
 }
 function daysBefore(date3, n) {
   const d = /* @__PURE__ */ new Date(`${date3}T00:00:00Z`);
@@ -61555,8 +61825,8 @@ function liveBranch(tree, buckets) {
 }
 function regenerateStandingBriefing(vaultDir, tree, today) {
   const p2 = standingBriefingPath(vaultDir);
-  fs60.mkdirSync(path61.dirname(p2), { recursive: true });
-  fs60.writeFileSync(p2, composeStandingBriefing(tree, today));
+  fs61.mkdirSync(path62.dirname(p2), { recursive: true });
+  fs61.writeFileSync(p2, composeStandingBriefing(tree, today));
   return p2;
 }
 
@@ -61722,17 +61992,17 @@ function degradedReport(degradations) {
 }
 
 // src/loop/health.ts
-import fs62 from "node:fs";
-import path63 from "node:path";
+import fs63 from "node:fs";
+import path64 from "node:path";
 
 // src/loop/journal.ts
-import fs61 from "node:fs";
-import path62 from "node:path";
+import fs62 from "node:fs";
+import path63 from "node:path";
 function journalPath(dir) {
-  return path62.join(requireLoopStateDir(dir), "journal.jsonl");
+  return path63.join(requireLoopStateDir(dir), "journal.jsonl");
 }
 function appendJournal(dir, entry) {
-  fs61.appendFileSync(journalPath(dir), JSON.stringify(entry) + "\n");
+  fs62.appendFileSync(journalPath(dir), JSON.stringify(entry) + "\n");
 }
 
 // src/loop/health.ts
@@ -61741,28 +62011,28 @@ function healthDir(dir) {
   return requireLoopStateDir(dir);
 }
 function openRunPath(dir) {
-  return path63.join(healthDir(dir), "open-run.json");
+  return path64.join(healthDir(dir), "open-run.json");
 }
 function runsPath(dir) {
-  return path63.join(healthDir(dir), "runs.jsonl");
+  return path64.join(healthDir(dir), "runs.jsonl");
 }
 function appendRun(dir, run) {
-  fs62.appendFileSync(runsPath(dir), JSON.stringify(run) + "\n");
+  fs63.appendFileSync(runsPath(dir), JSON.stringify(run) + "\n");
 }
 function readOpenRun(dir) {
   const state = loopStateDir(dir);
   if (state === null) return null;
-  const p2 = path63.join(state, "open-run.json");
-  if (!fs62.existsSync(p2)) return null;
+  const p2 = path64.join(state, "open-run.json");
+  if (!fs63.existsSync(p2)) return null;
   try {
-    return JSON.parse(fs62.readFileSync(p2, "utf8"));
+    return JSON.parse(fs63.readFileSync(p2, "utf8"));
   } catch {
     return null;
   }
 }
 function sweepCrashed(dir) {
   const p2 = openRunPath(dir);
-  if (!fs62.existsSync(p2)) return null;
+  if (!fs63.existsSync(p2)) return null;
   const open = readOpenRun(dir);
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const crashed = open ? { ...open, endedAt: now, verdict: "crashed" } : {
@@ -61775,7 +62045,7 @@ function sweepCrashed(dir) {
     verdict: "crashed"
   };
   appendRun(dir, crashed);
-  fs62.rmSync(p2, { force: true });
+  fs63.rmSync(p2, { force: true });
   appendJournal(dir, { kind: "crash", runId: crashed.runId, at: now });
   return crashed;
 }
@@ -61801,7 +62071,7 @@ function startRun(dir, meta) {
     ...meta.goal ? { goal: meta.goal } : {},
     steps: []
   };
-  fs62.writeFileSync(openRunPath(dir), JSON.stringify(run, null, 2));
+  fs63.writeFileSync(openRunPath(dir), JSON.stringify(run, null, 2));
   appendJournal(dir, { kind: "open", runId: run.runId, at: startedAt });
   return run;
 }
@@ -61814,7 +62084,7 @@ function appendStep(dir, step) {
   const open = requireOpenRun(dir);
   const at = (/* @__PURE__ */ new Date()).toISOString();
   open.steps.push({ ...step, at });
-  fs62.writeFileSync(openRunPath(dir), JSON.stringify(open, null, 2));
+  fs63.writeFileSync(openRunPath(dir), JSON.stringify(open, null, 2));
   appendJournal(dir, {
     kind: "step",
     runId: open.runId,
@@ -61829,7 +62099,7 @@ function appendStep(dir, step) {
 function stampFallback(dir, fallback) {
   const open = requireOpenRun(dir);
   const stamped = { ...open, fallback };
-  fs62.writeFileSync(openRunPath(dir), JSON.stringify(stamped, null, 2));
+  fs63.writeFileSync(openRunPath(dir), JSON.stringify(stamped, null, 2));
   return stamped;
 }
 function stepFailed(step) {
@@ -61860,7 +62130,7 @@ function sealRun(dir, meta = {}) {
     verdict: computeVerdict(withHead)
   };
   appendRun(dir, sealed);
-  fs62.rmSync(openRunPath(dir), { force: true });
+  fs63.rmSync(openRunPath(dir), { force: true });
   appendJournal(dir, { kind: "seal", runId: sealed.runId, verdict: sealed.verdict, at: sealed.endedAt });
   return sealed;
 }
@@ -61868,10 +62138,10 @@ var VERDICTS2 = /* @__PURE__ */ new Set(["healthy", "unhealthy", "no-op", "crash
 function readRuns(dir) {
   const state = loopStateDir(dir);
   if (state === null) return [];
-  const p2 = path63.join(state, "runs.jsonl");
-  if (!fs62.existsSync(p2)) return [];
+  const p2 = path64.join(state, "runs.jsonl");
+  if (!fs63.existsSync(p2)) return [];
   const runs = [];
-  for (const line of fs62.readFileSync(p2, "utf8").split("\n")) {
+  for (const line of fs63.readFileSync(p2, "utf8").split("\n")) {
     if (!line.trim()) continue;
     try {
       const parsed = JSON.parse(line);
@@ -62052,11 +62322,11 @@ function fallbackBanner(record2, verbs) {
 }
 
 // src/loop/tool-surface-record.ts
-import fs63 from "node:fs";
+import fs64 from "node:fs";
 function observeToolSurface(opts) {
   let markdown;
   try {
-    markdown = fs63.readFileSync(opts.passFile, "utf8");
+    markdown = fs64.readFileSync(opts.passFile, "utf8");
   } catch (e) {
     return { unknown: `${opts.passFile} is unreadable (${e instanceof Error ? e.message : String(e)})` };
   }
@@ -62073,7 +62343,7 @@ function observeToolSurface(opts) {
 
 // src/loop/goal-contract.ts
 import { createHash as createHash4 } from "node:crypto";
-import fs64 from "node:fs";
+import fs65 from "node:fs";
 function isGoalUnreadable(o2) {
   return "unknown" in o2;
 }
@@ -62083,7 +62353,7 @@ function goalDigest(text2) {
 }
 function observeGoal(vaultDir, now = Date.now()) {
   const at = new Date(now).toISOString();
-  if (!fs64.existsSync(configPath(vaultDir))) {
+  if (!fs65.existsSync(configPath(vaultDir))) {
     return { unknown: `${CONFIG_FILENAME} is absent \u2014 this directory states no outcome to run against`, at };
   }
   try {
@@ -62141,32 +62411,32 @@ function goalContractReport(contract) {
 }
 
 // src/loop/environment.ts
-import fs65 from "node:fs";
-import os5 from "node:os";
-import path64 from "node:path";
+import fs66 from "node:fs";
+import os6 from "node:os";
+import path65 from "node:path";
 var DISPATCH_LEDGER = "dispatch.jsonl";
 var PARITY_LEDGER = "environment-parity.jsonl";
 function dispatchLedgerPath(vaultDir) {
   const dir = loopStateDir(vaultDir);
-  return dir === null ? null : path64.join(dir, DISPATCH_LEDGER);
+  return dir === null ? null : path65.join(dir, DISPATCH_LEDGER);
 }
 function parityLedgerPath(vaultDir) {
   const dir = loopStateDir(vaultDir);
-  return dir === null ? null : path64.join(dir, PARITY_LEDGER);
+  return dir === null ? null : path65.join(dir, PARITY_LEDGER);
 }
 function resolved(p2) {
-  const abs = path64.resolve(p2);
+  const abs = path65.resolve(p2);
   try {
-    return fs65.realpathSync(abs);
+    return fs66.realpathSync(abs);
   } catch {
     return abs;
   }
 }
 function reachVault(vaultDir) {
-  const abs = path64.resolve(vaultDir);
+  const abs = path65.resolve(vaultDir);
   let stat = null;
   try {
-    stat = fs65.statSync(abs);
+    stat = fs66.statSync(abs);
   } catch {
     stat = null;
   }
@@ -62180,22 +62450,22 @@ function reachVault(vaultDir) {
       reason: `${abs} is not a git checkout \u2014 the loop records every firing under .git/ost-agent/ and cannot record one here`
     };
   }
-  if (!fs65.existsSync(path64.join(abs, CONFIG_FILENAME))) {
+  if (!fs66.existsSync(path65.join(abs, CONFIG_FILENAME))) {
     return { reachable: false, reason: `${abs} has no ost.config.yaml \u2014 nothing here declares a cadence or a ceiling` };
   }
   try {
-    fs65.accessSync(path64.dirname(state), fs65.constants.W_OK);
+    fs66.accessSync(path65.dirname(state), fs66.constants.W_OK);
   } catch {
     return {
       reachable: false,
-      reason: `${path64.dirname(state)} is not writable by ${currentUser()} \u2014 a firing here could not take its lock or open a record`
+      reason: `${path65.dirname(state)} is not writable by ${currentUser()} \u2014 a firing here could not take its lock or open a record`
     };
   }
   return { reachable: true };
 }
 function currentUser() {
   try {
-    const info = os5.userInfo();
+    const info = os6.userInfo();
     return `${info.username}(${info.uid}:${info.gid})`;
   } catch (e) {
     return `unknown(${e instanceof Error ? e.message : String(e)})`;
@@ -62205,7 +62475,7 @@ function readEnvironment(vaultDir) {
   return {
     cwd: resolved(process.cwd()),
     vaultDir: resolved(vaultDir),
-    searchPath: (process.env.PATH ?? "").split(path64.delimiter).filter(Boolean),
+    searchPath: (process.env.PATH ?? "").split(path65.delimiter).filter(Boolean),
     user: currentUser(),
     vault: reachVault(vaultDir)
   };
@@ -62220,8 +62490,8 @@ function compareEnvironmentReadings(scheduler, run) {
   if (scheduler.searchPath.length !== run.searchPath.length || scheduler.searchPath.some((entry, i2) => entry !== run.searchPath[i2])) {
     out.push({
       axis: "searchPath",
-      scheduler: scheduler.searchPath.join(path64.delimiter),
-      run: run.searchPath.join(path64.delimiter)
+      scheduler: scheduler.searchPath.join(path65.delimiter),
+      run: run.searchPath.join(path65.delimiter)
     });
   }
   scalar("user", scheduler.user, run.user);
@@ -62234,8 +62504,8 @@ function verifyDispatchEnvironment(vaultDir) {
 }
 function appendLine(file, value) {
   try {
-    fs65.mkdirSync(path64.dirname(file), { recursive: true });
-    fs65.appendFileSync(file, JSON.stringify(value) + "\n");
+    fs66.mkdirSync(path65.dirname(file), { recursive: true });
+    fs66.appendFileSync(file, JSON.stringify(value) + "\n");
     return true;
   } catch {
     return false;
@@ -62246,9 +62516,9 @@ function recordDispatch(vaultDir, record2) {
   return file === null ? false : appendLine(file, record2);
 }
 function readLedger2(file, keep) {
-  if (file === null || !fs65.existsSync(file)) return [];
+  if (file === null || !fs66.existsSync(file)) return [];
   const out = [];
-  for (const line of fs65.readFileSync(file, "utf8").split("\n")) {
+  for (const line of fs66.readFileSync(file, "utf8").split("\n")) {
     if (!line.trim()) continue;
     try {
       const parsed = JSON.parse(line);
@@ -62323,107 +62593,6 @@ function parityLine(pair) {
 // src/loop/updates.ts
 import fs67 from "node:fs";
 import path66 from "node:path";
-
-// src/loop/lock.ts
-import fs66 from "node:fs";
-import os6 from "node:os";
-import path65 from "node:path";
-function firingLockPath(vaultDir) {
-  const state = loopStateDir(vaultDir);
-  return state === null ? null : path65.join(state, "firing.lock");
-}
-function readFiringLock(vaultDir) {
-  const p2 = firingLockPath(vaultDir);
-  if (p2 === null || !fs66.existsSync(p2)) return null;
-  try {
-    const parsed = JSON.parse(fs66.readFileSync(p2, "utf8"));
-    return typeof parsed?.pid === "number" && typeof parsed?.acquiredAt === "string" ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-function pidAlive(pid) {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (e) {
-    return e.code === "EPERM";
-  }
-}
-function staleness(held, opts) {
-  if (held === null) return { stale: true, why: "the lock record is unreadable" };
-  const acquired = Date.parse(held.acquiredAt);
-  if (!Number.isFinite(acquired)) return { stale: true, why: `the lock record's acquiredAt (${held.acquiredAt}) is not a timestamp` };
-  const ageMs = opts.now - acquired;
-  if (ageMs >= opts.ttlMs) {
-    return { stale: true, why: `held ${Math.round(ageMs / 6e4)}m, past the ${Math.round(opts.ttlMs / 6e4)}m TTL` };
-  }
-  if (held.holderPid !== void 0 && held.host === opts.host && !pidAlive(held.holderPid)) {
-    return { stale: true, why: `holder pid ${held.holderPid} on this host is gone` };
-  }
-  return { stale: false, why: `held by pid ${held.pid} on ${held.host} since ${held.acquiredAt}` };
-}
-var tmpCounter = 0;
-function linkInPlace(stateDir2, lockFile, record2) {
-  const tmp = path65.join(stateDir2, `.firing.lock.${record2.pid}.${tmpCounter++}`);
-  fs66.writeFileSync(tmp, JSON.stringify(record2) + "\n");
-  try {
-    fs66.linkSync(tmp, lockFile);
-    return true;
-  } catch (e) {
-    if (e.code !== "EEXIST") throw e;
-    return false;
-  } finally {
-    fs66.rmSync(tmp, { force: true });
-  }
-}
-function acquireFiringLock(vaultDir, opts) {
-  const stateDir2 = requireLoopStateDir(vaultDir);
-  const lockFile = path65.join(stateDir2, "firing.lock");
-  const now = opts.now ?? Date.now();
-  const record2 = {
-    pid: opts.pid ?? process.pid,
-    ...opts.holderPid !== void 0 ? { holderPid: opts.holderPid } : {},
-    host: opts.host ?? os6.hostname(),
-    acquiredAt: new Date(now).toISOString(),
-    ...opts.runId ? { runId: opts.runId } : {}
-  };
-  if (linkInPlace(stateDir2, lockFile, record2)) return { ok: true, record: record2, broke: null };
-  const held = readFiringLock(vaultDir);
-  const { stale, why } = staleness(held, { now, ttlMs: opts.ttlMs, host: record2.host });
-  if (!stale) return { ok: false, held, reason: `another firing holds the lock \u2014 ${why}` };
-  try {
-    const sidelined = `${lockFile}.stale-${now}-${record2.pid}`;
-    fs66.renameSync(lockFile, sidelined);
-    fs66.rmSync(sidelined, { force: true });
-  } catch (e) {
-    if (e.code !== "ENOENT") throw e;
-  }
-  if (linkInPlace(stateDir2, lockFile, record2)) return { ok: true, record: record2, broke: { held, why } };
-  return { ok: false, held: readFiringLock(vaultDir), reason: "another firing took the lock while this one was breaking a stale copy" };
-}
-function stampFiringLock(vaultDir, record2, runId) {
-  const stateDir2 = requireLoopStateDir(vaultDir);
-  const lockFile = path65.join(stateDir2, "firing.lock");
-  const next = { ...record2, runId };
-  const tmp = path65.join(stateDir2, `.firing.lock.${record2.pid}.${tmpCounter++}`);
-  fs66.writeFileSync(tmp, JSON.stringify(next) + "\n");
-  fs66.renameSync(tmp, lockFile);
-  return next;
-}
-function releaseFiringLock(vaultDir, match) {
-  const p2 = firingLockPath(vaultDir);
-  if (p2 === null) return false;
-  const held = readFiringLock(vaultDir);
-  if (!held) return false;
-  if (match.pid !== void 0 && held.pid !== match.pid) return false;
-  if (match.acquiredAt !== void 0 && held.acquiredAt !== match.acquiredAt) return false;
-  if (match.runId !== void 0 && held.runId !== match.runId) return false;
-  fs66.rmSync(p2, { force: true });
-  return true;
-}
-
-// src/loop/updates.ts
 function updatesDir(vaultDir) {
   const state = loopStateDir(vaultDir);
   return state === null ? null : path66.join(state, "updates");
@@ -63491,15 +63660,28 @@ function registerLoopCommands(program3) {
     const config2 = loadConfig(opts.vault);
     const ttlMs = (config2.loop?.lockTtlMinutes ?? 60) * 6e4;
     const holderPid = opts.holderPid === void 0 ? NaN : Number(opts.holderPid);
-    const lock = acquireFiringLock(opts.vault, {
+    const heartbeatEveryMs = (config2.loop?.lockHeartbeatMinutes ?? 4) * 6e4;
+    const lock = waitForFiringLock(opts.vault, {
       ttlMs,
-      ...Number.isInteger(holderPid) && holderPid > 0 ? { holderPid } : {}
+      waitMs: (config2.loop?.lockWaitMinutes ?? 15) * 6e4,
+      ...Number.isInteger(holderPid) && holderPid > 0 ? { holderPid } : {},
+      ...heartbeatEveryMs > 0 ? { heartbeatEveryMs } : {},
+      // Said out loud as it happens, because a firing that appears to hang for
+      // a quarter of an hour and explains itself only afterwards is
+      // indistinguishable, to the operator watching, from the hang it is
+      // recovering from.
+      onObservation: (o2) => {
+        if (o2.verdict === "suspect" || o2.verdict === "broke" || o2.verdict === "clock-jumped") {
+          console.error(`waiting for the firing lock: ${o2.verdict} \u2014 ${o2.why}`);
+        }
+      }
     });
     if (!lock.ok) {
       console.error(`not firing: ${lock.reason}`);
       process.exitCode = LOOP_EXIT.locked;
       return;
     }
+    if (lock.waitedMs > 0) console.error(`waited ${Math.round(lock.waitedMs / 1e3)}s for the firing lock`);
     if (lock.broke) console.error(`broke a stale firing lock \u2014 ${lock.broke.why}`);
     const subscription = subscriptionOf(config2.loop?.updates);
     if (subscription !== null) {

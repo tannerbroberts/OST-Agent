@@ -2,6 +2,42 @@
 
 ## Unreleased
 
+- **A stale firing lock now recovers in minutes, and a live one survives a laptop lid.**
+  The overlap lock had exactly one recovery rule that worked without a named holder pid:
+  a sixty-minute TTL. That is four times the fifteen-minute bar the node fixed for how
+  long a vault may sit unusable after a crash — and, less obviously, it was *too eager*
+  in the other direction at the same time. Wall-clock age is a proxy for "nobody is
+  home"; a machine that sleeps through the TTL wakes with a perfectly healthy firing's
+  lock breakable by the next arrival, which is the recovery policy manufacturing the
+  concurrent write the lock exists to prevent. Both directions are closed by splitting
+  the evidence into what a single reading can settle and what it cannot. A named holder
+  pid that is **gone** on this host is conclusive and breaks the lock on the spot; a live
+  one **suppresses** the TTL, because a pid answering `kill -0` is the thing the TTL was
+  only guessing at. What catches a hang instead is a heartbeat the holder promises
+  (`loop.lockHeartbeatMinutes`, default 4) and every commit stamps (`src/mcp/commit.ts`)
+  — a hung process and a working one are the same live pid, but they are not the same
+  commit stream.
+  **The second agent waits now** (`loop.lockWaitMinutes`, default 15) instead of exiting
+  15 on sight, and that is the load-bearing half rather than a courtesy. A heartbeat that
+  has fallen behind is produced identically by a hung holder and by a suspended machine,
+  and nothing that takes one reading can tell them apart: only an observer watching over
+  time can, and it must discard its whole observation window whenever **its own** clock
+  jumps, because a jump means it was not running either and everything it "saw" describes
+  a world on pause. So a single-shot `acquireFiringLock` never acts on a late heartbeat —
+  only `waitForFiringLock` does, and only after the heartbeat fails to advance across an
+  unbroken window, and only if the record is still byte-for-byte the one it judged.
+  Measured rather than argued: `test/git/stale-lock-recovery.test.ts` drives a real
+  holder process through four kill shapes — clean exit, SIGKILL, SIGSTOP-while-holding,
+  and a modelled machine sleep — and asserts the node's own two bars, that the vault is
+  usable again inside fifteen minutes in every shape and that recovery never once
+  releases a lock still genuinely held. Only elapsed wall time is simulated; the
+  processes, the signals, the `kill -0` and the break are real.
+  **What this does not settle, stated because no implementation can:** a hung holder and
+  a crashed one are the same process from outside. The cadence only decides which way
+  that ambiguity resolves and what it costs, and picking it is the operator's call.
+  `lockWaitMinutes: 0` restores the previous refuse-on-sight behaviour exactly, for a
+  cron whose interval is shorter than the wait.
+
 - **The `threshold` field has to be a bar now, or it is not written.** The field shipped on
   2026-08-01 as the readable half of "the threshold is a field, not a sentence buried in
   prose", and it shipped accepting any string. The assumption recorded against it named the
