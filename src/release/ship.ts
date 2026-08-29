@@ -39,16 +39,14 @@
  * is simply no longer something a merge waits on.
  */
 import { spawnSync } from "node:child_process";
+import { CONDITIONAL_GATES, CORE_GATES, type Gate } from "./gates.declared.js";
 
-/** A command whose exit code decides whether the branch may merge. */
-export interface Gate {
-  /** Short name, used in the report line. */
-  readonly name: string;
-  /** The command as argv. Never a shell string — see the module note. */
-  readonly argv: readonly string[];
-  /** Why this gate exists, for the refusal message when it goes red. */
-  readonly why: string;
-}
+// What the gates COVER is declared in `gates.declared.ts` and nothing else lives
+// there, so a change to a gate's scope is a commit touching one file. Re-exported
+// here because this module was the import site for every existing caller, and the
+// point of the split is the commit boundary, not a rename.
+export { CONDITIONAL_GATES, CORE_GATES, GENERATED_ARTIFACT, SUITE_EXCLUSIONS } from "./gates.declared.js";
+export type { Gate } from "./gates.declared.js";
 
 /** What a gate did when it was run. */
 export interface GateRun {
@@ -70,55 +68,6 @@ export interface BranchState {
 }
 
 /**
- * The always-run gates, in the order a human would want them to fail.
- *
- * `tsc` first because a type error makes every test failure downstream of it
- * noise, and a builder reading one line of report should see the cause rather
- * than its consequences.
- */
-export const CORE_GATES: readonly Gate[] = [
-  {
-    name: "tsc",
-    argv: ["npx", "tsc", "--noEmit"],
-    why: "the tree must type-check before anything else is worth reading",
-  },
-  {
-    name: "vitest",
-    argv: ["npx", "vitest", "run"],
-    why: "the suite is the definition of done for everything already shipped",
-  },
-];
-
-/**
- * The conditional gates, which exist because their subject is a COMMITTED
- * ARTIFACT that can drift from the source it is generated out of.
- *
- * Neither is covered by the suite in the way it needs to be: `dist/ost-agent.mjs`
- * is what the plugin actually launches, so if it may drift, what users run is
- * whatever was last remembered to be rebuilt.
- */
-export const CONDITIONAL_GATES: readonly (Gate & { readonly when: (changed: readonly string[]) => boolean })[] = [
-  {
-    name: "bundle-drift",
-    argv: ["npm", "run", "bundle"],
-    why: "the plugin launches the committed bundle, so a stale one ships code nobody reviewed",
-    when: (changed) => changed.some((p) => p.startsWith("src/")),
-  },
-  {
-    name: "skill-drift",
-    argv: ["npm", "run", "gen:skill"],
-    why: "SKILL.md is generated from the ruleset and is what an agent actually reads",
-    when: (changed) => changed.includes("src/knowledge/ruleset.ts"),
-  },
-];
-
-/** The artifact each conditional gate regenerates, checked for drift afterwards. */
-export const GENERATED_ARTIFACT: Readonly<Record<string, string>> = {
-  "bundle-drift": "dist/ost-agent.mjs",
-  "skill-drift": "SKILL.md",
-};
-
-/**
  * Which gates apply to a branch that touched these paths.
  *
  * Pure on purpose: which gates run is the part of this that most wants pinning
@@ -129,6 +78,22 @@ export function gatesFor(changed: readonly string[]): Gate[] {
     ({ name, argv, why }) => ({ name, argv, why }),
   );
   return [...CORE_GATES, ...conditional];
+}
+
+/**
+ * Every gate there is — what runs when nothing is known about what changed.
+ *
+ * The caller that needs this is the one whose `git diff` failed. The obvious
+ * reading of an unreadable diff is "no paths changed", and that reading is a
+ * silent narrowing: `gatesFor([])` returns the two core gates, so a branch that
+ * rewrote `src/` would have shipped with the bundle-drift gate never run and a
+ * green report saying two gates passed. Not knowing what changed is a reason to
+ * measure MORE, never less, which is the same rule the suppression ledger
+ * follows when its own file will not parse — a damaged input surfaces work
+ * rather than removing it.
+ */
+export function allGates(): Gate[] {
+  return [...CORE_GATES, ...CONDITIONAL_GATES.map(({ name, argv, why }) => ({ name, argv, why }))];
 }
 
 /**

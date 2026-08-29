@@ -3159,13 +3159,20 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,005 tests across 313 files, verified 2026-08-29 (`npx vitest run`
-> reports 3,997 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,035 tests across 314 files, verified 2026-08-29 (`npx vitest run`
+> reports 4,027 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
-> directory and fails this document if the two disagree. The **test** count is derived, from
-> the 3,988 the 08-28 run reported plus the nine `test/git/stale-lock-recovery.test.ts` and
-> its two siblings add, because no full run on 08-29 finished in a state worth counting: see
-> the harness paragraphs below, which are why.
+> directory and fails this document if the two disagree. The **test** count is measured this
+> time rather than derived: a full `npx vitest run` on 2026-08-29 finished at 4,027 across
+> the 313 files it collects, in 316 s, green.
+>
+> What a gate COVERS is now declared apart from the machinery that runs it
+> (`src/release/gates.declared.ts`), and a reduction in that coverage is refused at `ship`
+> unless it is a human's and lands as its own commit touching only the gate definition
+> (`src/release/gate-coverage.ts`, `test/security/gate-coverage-human-only.test.ts`). The
+> same change closed a fail-open in gate selection: a `git diff --name-only` that failed was
+> read as "nothing changed", which silently dropped both conditional gates, so an unreadable
+> diff now runs every gate instead of the two an empty change set selects.
 >
 > **Read that "met" with the box it was measured on.** A full run the same day left 11
 > failures across 6 files, and ten of the eleven are a timeout or a wall-clock bound and

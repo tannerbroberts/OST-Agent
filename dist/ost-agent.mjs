@@ -47090,8 +47090,7 @@ function renderStatus(ctx, census) {
 // src/release/ship-repo.ts
 import { spawnSync as spawnSync4 } from "node:child_process";
 
-// src/release/ship.ts
-import { spawnSync as spawnSync3 } from "node:child_process";
+// src/release/gates.declared.ts
 var CORE_GATES = [
   {
     name: "tsc",
@@ -47122,11 +47121,77 @@ var GENERATED_ARTIFACT = {
   "bundle-drift": "dist/ost-agent.mjs",
   "skill-drift": "SKILL.md"
 };
+
+// src/release/gate-coverage.ts
+var GATE_DEFINITION_PATHS = [
+  "src/release/gates.declared.ts",
+  "vitest.config.ts",
+  "tsconfig.json"
+];
+var COVERAGE_REGIME_MARKER = "src/release/gates.declared.ts";
+var ISOLATION_RULE = "a change to what a gate covers lands as its own commit, touching only the gate definition, so narrowings are countable from git instead of reconstructed";
+var AGENT_AUTHOR_MARKERS = ["anthropic.com", "noreply@anthropic.com"];
+var NUL = String.fromCharCode(0);
+function parseLogRecord(record2) {
+  const [sha, date3, author, subject] = record2.split(NUL);
+  if (!sha || !date3) return null;
+  return { sha: sha.trim(), date: date3.trim(), author: author ?? "", subject: subject ?? "" };
+}
+function gateCoverageCommits(repo, run, range = "HEAD") {
+  const log = run(
+    ["git", "log", "--format=%H%x00%aI%x00%an <%ae>%x00%s", "--no-patch", range, "--", ...GATE_DEFINITION_PATHS],
+    repo
+  );
+  if (log.status !== 0) return [];
+  const commits = [];
+  for (const line of log.output.split("\n").map((l) => l.trim()).filter(Boolean)) {
+    const parsed = parseLogRecord(line);
+    if (!parsed) continue;
+    const names = run(["git", "show", "--pretty=format:", "--name-only", parsed.sha], repo);
+    const paths = names.status === 0 ? names.output.split("\n").map((l) => l.trim()).filter(Boolean) : [];
+    const message = run(["git", "log", "-1", "--format=%B", parsed.sha], repo);
+    const body = message.status === 0 ? message.output : "";
+    const haystack = `${parsed.author} ${body}`.toLowerCase();
+    commits.push({
+      ...parsed,
+      paths,
+      isolated: paths.length > 0 && paths.every((p2) => GATE_DEFINITION_PATHS.includes(p2)),
+      agentAuthored: AGENT_AUTHOR_MARKERS.some((m) => haystack.includes(m))
+    });
+  }
+  return commits;
+}
+function branchCoverageRefusals(repo, defaultBranch, run) {
+  const onBase = run(["git", "cat-file", "-e", `origin/${defaultBranch}:${COVERAGE_REGIME_MARKER}`], repo);
+  if (onBase.status !== 0) return [];
+  const reasons = [];
+  for (const commit of gateCoverageCommits(repo, run, `origin/${defaultBranch}..HEAD`)) {
+    const short = commit.sha.slice(0, 8);
+    if (!commit.isolated) {
+      const stray = commit.paths.filter((p2) => !GATE_DEFINITION_PATHS.includes(p2));
+      reasons.push(
+        `refusing to ship: commit ${short} ("${commit.subject}") changes what a gate covers alongside ${stray.length} other path(s) (${stray.slice(0, 3).join(", ")}). ${ISOLATION_RULE}.`
+      );
+    }
+    if (commit.agentAuthored) {
+      reasons.push(
+        `refusing to ship: commit ${short} ("${commit.subject}") changes what a gate covers and declares a model as an author (${commit.author}). Only a human may change what a gate covers; an agent may propose one in its report.`
+      );
+    }
+  }
+  return reasons;
+}
+
+// src/release/ship.ts
+import { spawnSync as spawnSync3 } from "node:child_process";
 function gatesFor(changed) {
   const conditional = CONDITIONAL_GATES.filter((g) => g.when(changed)).map(
     ({ name, argv, why }) => ({ name, argv, why })
   );
   return [...CORE_GATES, ...conditional];
+}
+function allGates() {
+  return [...CORE_GATES, ...CONDITIONAL_GATES.map(({ name, argv, why }) => ({ name, argv, why }))];
 }
 function shipRefusals(state) {
   const reasons = [];
@@ -47261,9 +47326,20 @@ function ship(opts) {
   if (conflict) {
     return { shipped: false, refusals: [conflict], gateRuns: [], summary: summarize(state.branch, [conflict], []) };
   }
+  const coverage = branchCoverageRefusals(repo, defaultBranch, run);
+  if (coverage.length > 0) {
+    return { shipped: false, refusals: coverage, gateRuns: [], summary: summarize(state.branch, coverage, []) };
+  }
   const diff = run(["git", "diff", "--name-only", `origin/${defaultBranch}...HEAD`], repo);
-  const changed = diff.status === 0 ? diff.output.split("\n").map((l) => l.trim()).filter(Boolean) : [];
-  const gates = gatesFor(changed);
+  let gates;
+  if (diff.status === 0) {
+    gates = gatesFor(diff.output.split("\n").map((l) => l.trim()).filter(Boolean));
+  } else {
+    log(
+      `ship: could not read what this branch changed (git diff exited ${diff.status ?? "without running"}) \u2014 running every gate rather than the ones an empty change set would select.`
+    );
+    gates = allGates();
+  }
   log(`ship: ${gates.length} gate(s) to run \u2014 ${gates.map((g) => g.name).join(", ")}`);
   const gateRuns = [];
   for (const gate of gates) {

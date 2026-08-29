@@ -1,8 +1,15 @@
 import path from "node:path";
 import { configDefaults, defineConfig } from "vitest/config";
+import { SUITE_EXCLUSIONS } from "./src/release/gates.declared.js";
 
 /**
  * Tests that deliberately load the machine, and so cannot share it.
+ *
+ * The list itself lives in `src/release/gates.declared.ts`, not here. An
+ * exclusion is a reduction in what the suite gate covers, and this repository
+ * requires such a reduction to land as its own commit touching only the gate
+ * definition (`src/release/gate-coverage.ts`); a name typed into this file
+ * instead would be a narrowing no `git log` could count.
  *
  * `test/eval/calibration-ratio-stability.test.ts` forks dozens of CPU spinners
  * on purpose — its subject is what a perf gate reads on a busy box. Run inside
@@ -25,7 +32,7 @@ import { configDefaults, defineConfig } from "vitest/config";
  * before CLI filters, so an excluded file cannot be reached by naming it. The
  * config is evaluated once, in the process that parsed the command line.
  */
-const CONTENDED = ["test/eval/calibration-ratio-stability.test.ts"];
+const CONTENDED = SUITE_EXCLUSIONS;
 
 function namedOnCommandLine(file: string): boolean {
   const stem = path.basename(file, ".test.ts");
