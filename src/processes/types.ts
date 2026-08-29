@@ -79,7 +79,18 @@ export interface PassContext {
   unavailableSources: UnavailableSource[];
   remote: RemoteConfig;
   /** Outward web sensing: search key, injectable fetch, per-session lookup budget. */
-  web?: { searchApiKey?: string; provider?: SearchProvider; fetchFn?: WebFetchFn; budget?: LookupBudget };
+  web?: {
+    searchApiKey?: string;
+    /**
+     * A search credential IS held, but `web.search.brave.enabled` is false, so
+     * nothing will spend it. Set only in that state, so the delegation message can
+     * account for the key the operator knows they have.
+     */
+    searchCredentialHeldButOff?: boolean;
+    provider?: SearchProvider;
+    fetchFn?: WebFetchFn;
+    budget?: LookupBudget;
+  };
   /** Local product repo roots the agent may read (config `product.repos`). */
   productRepos?: readonly string[];
 }

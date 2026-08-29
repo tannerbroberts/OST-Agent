@@ -172,8 +172,13 @@ export interface SenseObservation {
   /** `product.repos`, and which of them do not resolve to a readable directory. */
   readonly productRepos: readonly string[];
   readonly unreadableRepos: readonly { readonly path: string; readonly reason: string }[];
-  /** How `ost_search_web` would answer: with a credential, federated, or by delegating. */
-  readonly search: "credential" | "federated" | "none";
+  /**
+   * How `ost_search_web` would answer: with a credential, federated, or by
+   * delegating — and `credential-off` when a key IS held but
+   * `web.search.brave.enabled` is false, which delegates like `none` while
+   * meaning something an operator can act on in one line.
+   */
+  readonly search: "credential" | "credential-off" | "federated" | "none";
   /** The operator's `web.lookupBudget` — the burst allowance for this pass. */
   readonly webLookupBudget: number;
   /** Every declared evidence channel, partitioned the way `buildPassContext` partitions it. */
@@ -269,20 +274,27 @@ export function assembleCensus(o: SenseObservation): Sense[] {
   // exhausted on lookups that cost nothing.
   const searchCalls = reach(SENSE_TOOLS["web-search"]);
   const readCalls = reach(SENSE_TOOLS["web-read"]);
-  const lookupsSpent = (o.search === "none" ? 0 : searchCalls) + readCalls;
+  // `credential-off` delegates exactly as `none` does, so it costs no lookups
+  // either — the difference between them is what an operator can do about it,
+  // not what the tool did.
+  const delegating = o.search === "none" || o.search === "credential-off";
+  const lookupsSpent = (delegating ? 0 : searchCalls) + readCalls;
   const exhausted = lookupsSpent >= o.webLookupBudget;
   const budgetNote = `${lookupsSpent} of web.lookupBudget's ${o.webLookupBudget} lookup(s) traced this firing`;
 
   senses.push({
     name: "web-search",
-    state: o.search === "none" ? "delegated" : exhausted ? "exhausted" : "live",
+    state: delegating ? "delegated" : exhausted ? "exhausted" : "live",
     detail:
       o.search === "none"
         ? `no search credential and web.search.federated is off — ost_search_web answers by telling the agent to ` +
           `use its host's own search, which this vault cannot see the grant for`
-        : o.search === "credential"
-          ? `a search credential is held; ${budgetNote}`
-          : `federated keyless search is on; ${budgetNote}`,
+        : o.search === "credential-off"
+          ? `a search credential is held but web.search.brave.enabled is false, so nothing spends it — ` +
+            `ost_search_web delegates to the host's own search until an operator turns it on`
+          : o.search === "credential"
+            ? `a search credential is held; ${budgetNote}`
+            : `federated keyless search is on; ${budgetNote}`,
     reached: searchCalls,
     observable: true,
   });
@@ -392,7 +404,13 @@ export function observeSenses(vaultDir: string, run: LoopRunRecord): Sense[] {
         : { readable: false, detail: oneLine(readiness.message) },
       productRepos: repos,
       unreadableRepos,
-      search: ctx.web?.searchApiKey ? "credential" : ctx.web?.provider ? "federated" : "none",
+      search: ctx.web?.searchApiKey
+        ? "credential"
+        : ctx.web?.provider
+          ? "federated"
+          : ctx.web?.searchCredentialHeldButOff
+            ? "credential-off"
+            : "none",
       webLookupBudget: ctx.config.web.lookupBudget,
       channels: [
         ...ctx.sources.map((s) => ({ name: s.name, kind: "live" as const })),

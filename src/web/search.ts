@@ -111,11 +111,20 @@ export function braveProvider(apiKey: string, transport?: WebFetchFn): SearchPro
  * is. Provenance is unaffected: however a URL is found, ost_read_web is what
  * fetches and records it.
  */
-export function searchDelegationMessage(query: string): string {
+export function searchDelegationMessage(query: string, credentialHeldButOff = false): string {
+  // The parenthetical differs only in the one state where "no provider" would be
+  // a half-truth: an operator holding BRAVE_SEARCH_API_KEY is owed the reason it
+  // is not being spent and the line that would spend it, rather than a message
+  // whose plain reading is that they have no key.
+  const why = credentialHeldButOff
+    ? "(A Brave search credential IS held, but `web.search.brave.enabled` is false in ost.config.yaml, " +
+      "so nothing here will spend it — bring-your-own-key stays off until you turn it on. Set that to " +
+      "true if you want this vault searching on your key.)"
+    : "(This server has no search provider of its own, which is the normal setup — nothing is broken " +
+      "and nothing needs installing.)";
   return (
     `Use your own web search tool to find candidate URLs for "${query}", then call ost_read_web ` +
     "on each one — that is what fetches the page and records provenance as WEB:<host>, so " +
-    "traceability is identical either way. (This server has no search provider of its own, which " +
-    "is the normal setup — nothing is broken and nothing needs installing.)"
+    `traceability is identical either way. ${why}`
   );
 }

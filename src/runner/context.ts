@@ -99,16 +99,27 @@ export function transcriptDirs(vaultDir: string, config: Config): TranscriptDir[
 }
 
 /**
- * Brave if a key is held, else the keyless federated sources if they are turned
- * on, else nothing — in which case ost_search_web tells the agent to use its
- * host's own search, which is the normal path in Claude Code.
+ * Brave if a key is held AND the operator turned it on, else the keyless
+ * federated sources if they are turned on, else nothing — in which case
+ * ost_search_web tells the agent to use its host's own search, which is the
+ * normal path in Claude Code.
+ *
+ * **The `enabled` half is load-bearing and it is new.** This used to resolve on
+ * `holds(CREDENTIAL_SEARCH)` alone, which made the presence of an environment
+ * variable the entire opt-in: an operator carrying `BRAVE_SEARCH_API_KEY` for
+ * some other tool got a vault that called out to api.search.brave.com on the
+ * first `ost_search_web`, with nothing in `ost.config.yaml` asking for it. Every
+ * other credentialed channel in this repository is gated by an `enabled` a
+ * person wrote (see `buildSources` below); search was the exception, and a
+ * bring-your-own-key path that switches itself on when it finds a key is not
+ * off by default in any sense the phrase carries.
  *
  * The provider is built over the broker's HANDLE, never the key: `braveProvider`
  * puts what it is given into `X-Subscription-Token`, and what it is given now
  * names a secret instead of being one.
  */
 function resolveSearchProvider(config: Config, credentials: EnvBroker): SearchProvider | undefined {
-  if (credentials.broker.holds(CREDENTIAL_SEARCH)) {
+  if (config.web.search.brave.enabled && credentials.broker.holds(CREDENTIAL_SEARCH)) {
     // The brokered transport is bound INTO the provider rather than left on
     // `ctx.web.fetchFn`, because that field is also what `ost_read_web` reads
     // pages with: routing every page read through the search credential's grant
@@ -398,9 +409,22 @@ export function buildPassContext(vaultDir: string, opts: BuildPassContextOptions
     // remaining job (does search have a credential at all?) and is worth nothing
     // to anyone who reads it.
     web: {
-      searchApiKey: credentials.broker.holds(CREDENTIAL_SEARCH)
-        ? credentials.broker.handle(CREDENTIAL_SEARCH)
-        : undefined,
+      // Gated on the same opt-in as the provider, and it has to be: `ost_search_web`
+      // falls back to building a Brave provider straight off this field when
+      // `provider` is absent, so a handle exposed here while `brave.enabled` is
+      // false would route around the flag and spend the key anyway.
+      searchApiKey:
+        config.web.search.brave.enabled && credentials.broker.holds(CREDENTIAL_SEARCH)
+          ? credentials.broker.handle(CREDENTIAL_SEARCH)
+          : undefined,
+      // A key that is held but switched off is the one state worth narrating.
+      // Saying only "no search provider" to an operator who IS holding a Brave
+      // key is the friction `security/auth-detection-report.ts` exists to end —
+      // being asked for a credential while already having one, with no account of
+      // why the one you have will not do.
+      ...(!config.web.search.brave.enabled && credentials.broker.holds(CREDENTIAL_SEARCH)
+        ? { searchCredentialHeldButOff: true }
+        : {}),
       provider: resolveSearchProvider(config, credentials),
       // The operator's number governs unless the genome explicitly overrides
       // it — one budget, never two that can disagree. The refill rate stays

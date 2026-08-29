@@ -715,7 +715,14 @@ export interface ToolContext {
   /** Which surface is dispatching ("mcp", "cli-tool", "pass:P2_map"); lands in the usage trace. */
   surface?: string;
   /** Outward web sensing: search key, injectable fetch, and the per-session lookup budget. */
-  web?: { searchApiKey?: string; provider?: SearchProvider; fetchFn?: WebFetchFn; budget?: LookupBudget };
+  web?: {
+    searchApiKey?: string;
+    /** A search credential is held but `web.search.brave.enabled` is false — see PassContext. */
+    searchCredentialHeldButOff?: boolean;
+    provider?: SearchProvider;
+    fetchFn?: WebFetchFn;
+    budget?: LookupBudget;
+  };
   /** Local product repo roots the agent may read (config `product.repos`). */
   productRepos?: readonly string[];
   /** The full pass context, needed by the tools that report on the whole vault. */
@@ -1441,7 +1448,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
       run: async (input: { query: string; count?: number }) => {
         const provider =
           ctx.web?.provider ?? (ctx.web?.searchApiKey ? braveProvider(ctx.web.searchApiKey) : undefined);
-        if (!provider) return searchDelegationMessage(input.query);
+        if (!provider) return searchDelegationMessage(input.query, ctx.web?.searchCredentialHeldButOff ?? false);
         if (!lookupBudget.take())
           return budgetSpentMessage(lookupBudget.limit, lookupBudget.msUntilNext());
         // Clamp here, not in the provider: `searchWeb` clamps internally for Brave,
