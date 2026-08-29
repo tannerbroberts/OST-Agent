@@ -75,8 +75,32 @@ describe("what a declared loop block carries", () => {
     expect(loadConfig(dir).loop).toEqual({
       cadence: "6h",
       lockTtlMinutes: 15,
+      // Defaulted, not written above, and asserted here on purpose: these two
+      // decide what happens to a firing that overruns and to one that hangs, and
+      // an operator who declares a `loop:` block gets them whether they typed
+      // them or not. A round-trip test that let unstated defaults through would
+      // be the place that silence stopped being visible.
+      lockWaitMinutes: 15,
+      lockHeartbeatMinutes: 4,
       spend: { ceilingWeightedTokens: 4_000_000, windowHours: 24, sessionsDir: ".claude-sessions" },
     });
+  });
+
+  test("the wait and the heartbeat are settings, not constants", () => {
+    write(
+      [
+        "loop:",
+        '  cadence: "6h"',
+        "  lockWaitMinutes: 0",
+        "  lockHeartbeatMinutes: 0",
+        "",
+      ].join("\n"),
+    );
+    // Zero is meaningful for both and must survive the load: no wait is the
+    // refuse-on-sight behaviour, and no heartbeat is "this holder promises
+    // nothing, judge it on pid liveness and the TTL alone".
+    expect(loadConfig(dir).loop?.lockWaitMinutes).toBe(0);
+    expect(loadConfig(dir).loop?.lockHeartbeatMinutes).toBe(0);
   });
 
   /**

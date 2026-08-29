@@ -743,7 +743,13 @@ product:
 
 loop:                       # absent ⇒ this vault never fires unattended, and says so
   cadence: "6h"
-  lockTtlMinutes: 60
+  lockTtlMinutes: 60        # backstop for a holder nobody can watch (another host, no pid named)
+  lockWaitMinutes: 15       # a second firing WAITS this long for the holder; 0 ⇒ refuse on sight
+  lockHeartbeatMinutes: 4   # how often a firing promises to prove it is still working. Silent for
+                            # three of these and it is treated as hung and its lock recovered —
+                            # yours to pick, because from outside a hung run and a crashed one look
+                            # the same: lower interrupts slow-but-healthy runs, higher makes a
+                            # crash cost more waiting. 0 ⇒ no promise, pid liveness + TTL only.
   spend:
     ceilingWeightedTokens: 4000000   # weighted tokens, not currency; rolling window
     windowHours: 24
