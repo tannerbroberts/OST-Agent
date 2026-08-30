@@ -43,6 +43,7 @@ import {
 } from "../web/search.js";
 import { AllSourcesFailedError } from "../web/federated.js";
 import { budgetSpentMessage, createLookupBudget, type LookupBudget } from "../web/budget.js";
+import { outsideInRungNote } from "../web/outside-in.js";
 import {
   actorKey,
   appendObservation,
@@ -1515,6 +1516,12 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         const trust = webStanding(readTrustLedger(dir), page.host);
         return [
           `source: WEB:${page.host} (host trust: ${trust}) — ${page.url}`,
+          // The host's rung answers "how much weight does what this page REPORTS
+          // carry". It does not answer "does this page's approach transfer to my
+          // opportunity", which is the question an agent is asking the moment it
+          // borrows a solution off the page — and the two were one line, so the
+          // earned rung read as licence for the transplant too (`web/outside-in.ts`).
+          `outside-in: ${outsideInRungNote(page.host, trust)}`,
           page.title ? `title: ${page.title}` : null,
           `lookups remaining this session: ${lookupBudget.remaining()}`,
           DATA_FRAME,

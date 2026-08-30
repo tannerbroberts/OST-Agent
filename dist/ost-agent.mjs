@@ -52458,6 +52458,24 @@ function decodeEntities(s) {
   return s.replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#0?39;|&apos;/g, "'").replace(/&amp;/g, "&");
 }
 
+// src/web/outside-in.ts
+var OUTSIDE_IN_RUNG = FLOOR_RUNG;
+function outsideInSource(host) {
+  return `WEB:${host.trim().toLowerCase()}`;
+}
+function outsideInStanding(hostStanding) {
+  return {
+    rung: OUTSIDE_IN_RUNG,
+    hostStanding,
+    cappedBelowHost: hostStanding !== OUTSIDE_IN_RUNG
+  };
+}
+function outsideInRungNote(host, hostStanding) {
+  const s = outsideInStanding(hostStanding);
+  const because = s.cappedBelowHost ? `${host} has earned '${s.hostStanding}' as a publisher, and that standing is about what it reports, not about whether its approach transfers here` : `${host} has earned nothing beyond the floor`;
+  return `a solution candidate drawn from this page enters at '${s.rung}' with source ${outsideInSource(host)} \u2014 ${because}. Cite the passage you drew it from; a candidate whose page cannot be re-read is refused.`;
+}
+
 // src/product/repo.ts
 import fs34 from "node:fs";
 import path34 from "node:path";
@@ -53319,6 +53337,12 @@ ${instruction}`;
         const trust = webStanding(readTrustLedger(dir), page.host);
         return [
           `source: WEB:${page.host} (host trust: ${trust}) \u2014 ${page.url}`,
+          // The host's rung answers "how much weight does what this page REPORTS
+          // carry". It does not answer "does this page's approach transfer to my
+          // opportunity", which is the question an agent is asking the moment it
+          // borrows a solution off the page — and the two were one line, so the
+          // earned rung read as licence for the transplant too (`web/outside-in.ts`).
+          `outside-in: ${outsideInRungNote(page.host, trust)}`,
           page.title ? `title: ${page.title}` : null,
           `lookups remaining this session: ${lookupBudget.remaining()}`,
           DATA_FRAME,
