@@ -50,6 +50,7 @@ import { claimsPath } from "../../src/loop/claim.js";
 import { dispatchLedgerPath, parityLedgerPath } from "../../src/loop/environment.js";
 import { scopePath } from "../../src/loop/scope.js";
 import { openRunPath, runsPath } from "../../src/loop/health.js";
+import { buildPassesPath } from "../../src/loop/reserve.js";
 import { journalPath } from "../../src/loop/journal.js";
 import { firingLockPath } from "../../src/loop/lock.js";
 import { loopStateDir } from "../../src/loop/state.js";
@@ -355,6 +356,18 @@ const OFF_GATE_DECIDER_MODULES: Record<string, string> = {
   // could append to would let the agent certify the preflight it is running under.
   "environment.ts":
     "the dispatch environment check — decides whether a host can support a firing at all, not which of F1–F4 hold",
+  // The discovery reserve refuses a BUILD pass (exit 22) once the shared window is
+  // down to the share held for discovery. That is none of F1–F4's questions — the
+  // cadence gate asks whether the vault may fire, the ceiling asks what the pair
+  // has spent between them, and this asks which of the two claimants the remaining
+  // budget belongs to. Filing it under a Gate F criterion would attribute it to a
+  // verdict it does not compute. It takes the class's obligation instead: its
+  // ledger is enumerated below and goes through parts 2 and 4 byte for byte,
+  // because a build-pass ledger the unattended surface could append to would let
+  // the discovery agent spend down the reserve it is supposed to be holding — or,
+  // appended to enough, refuse every build pass on the vault.
+  "reserve.ts":
+    "the discovery reserve — decides whether a BUILD pass may spend the shared pool, not whether a firing may",
 };
 
 /**
@@ -381,6 +394,7 @@ const OFF_GATE_DECIDER_PATHS = (v: string): string[] => [
   scopePath(v, "sample-run"),
   dispatchLedgerPath(v)!,
   parityLedgerPath(v)!,
+  buildPassesPath(v)!,
 ];
 
 /**
@@ -612,6 +626,10 @@ beforeEach(() => {
     }) + "\n",
     "utf8",
   );
+  // And one build pass charged to the shared window, for the same reason: the
+  // reserve refuses a build pass by counting these, so a line the surface could
+  // append is a build the agent could refuse or a reserve it could spend.
+  fs.writeFileSync(buildPassesPath(vault)!, JSON.stringify({ at: "2026-07-02T00:00:00.000Z" }) + "\n", "utf8");
   // Same reason as the records above: a dispatch reading and the parity pair it
   // was compared against, so a write that lands on either ledger shows up as a
   // changed hash rather than as a file that appeared.

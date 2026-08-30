@@ -4,6 +4,11 @@
  * The commands, in the order a firing uses them:
  *
  *   due      may this vault fire right now? cadence + spend, both fail-closed.
+ *   reserve  may a pass of THIS KIND spend the shared pool? The one command here
+ *            the build loop calls: it and the discovery pass are charged against
+ *            one window, and this is what keeps build from spending the share
+ *            held for discovery. Refuses build only; discovery is never refused
+ *            by the mechanism that protects it.
  *   update   apply a pushed update, but only between passes. `start` does this
  *            itself; the command exists for a wrapper that wants the checkpoint
  *            on its own schedule, and for an operator who wants to see the answer.
@@ -61,6 +66,13 @@ import { computeShortfall, declareScope, shortfallReport } from "../loop/scope.j
 import { assessStall } from "../loop/stall.js";
 import { releaseFiringLock, stampFiringLock, waitForFiringLock } from "../loop/lock.js";
 import { checkCeiling, measureFiring, type SpendCeiling } from "../loop/spend.js";
+import {
+  assessReserve,
+  readBuildPasses,
+  recordBuildPass,
+  type DiscoveryReserve,
+  type PassKind,
+} from "../loop/reserve.js";
 import { formatQuestionBudget, measureInterruptions, type QuestionBudget } from "../loop/questions.js";
 import { gitHead, workingTreeStatus, type VaultTreeStatus } from "../loop/state.js";
 import { VERSION } from "../index.js";
@@ -129,6 +141,19 @@ export const LOOP_EXIT = {
    * report a quiet success on every cycle forever.
    */
   environmentUnready: 21,
+  /**
+   * `loop reserve` only: the pool this pass would spend is down to the share held
+   * for discovery, so a build pass is refused.
+   *
+   * Its own code rather than `ceilingBlocked`'s, because the two refusals are
+   * different facts with different fixes and only one of them is about money. The
+   * ceiling says the pair has spent too much; this says the pair's remaining
+   * budget belongs to the other claimant. A wrapper that collapsed them would
+   * report a starved discovery loop as an exhausted account, and the operator
+   * would raise a ceiling that was never the constraint. Routine, like
+   * `notElapsed` — the way out is the window rolling forward, not a person.
+   */
+  reserveHeld: 22,
 } as const;
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -345,6 +370,21 @@ export function dirtyTreeMessage(vaultDir: string, tree: VaultTreeStatus): strin
   ].join("\n");
 }
 
+/**
+ * The declared discovery reserve, or null for "nothing is held".
+ *
+ * Same all-or-nothing shape as `ceilingOf` and `questionBudgetOf`, and the same
+ * reason: a half-typed block must not be read as a share nobody declared.
+ * `discoveryPasses: 0` is a real and deliberate value — "count the passes, hold
+ * none of them" — so this checks for null rather than falsiness.
+ */
+function reserveOf(reserve: LoopConfig["reserve"]): DiscoveryReserve | null {
+  if (!reserve) return null;
+  const { discoveryPasses, totalPasses, windowHours } = reserve;
+  if (discoveryPasses == null || totalPasses == null || windowHours == null) return null;
+  return { discoveryPasses, totalPasses, windowHours };
+}
+
 /** Which required keys a partially-declared `spend:` block is missing, for the refusal. */
 function missingSpendKeys(spend: LoopConfig["spend"]): string[] {
   if (!spend) return [];
@@ -482,6 +522,74 @@ export function registerLoopCommands(program: Command): void {
             "starts sees what this check saw.",
         );
       }
+    });
+
+  loop
+    .command("reserve")
+    .description(
+      "may a pass of this kind spend the shared pool? (refuses a BUILD pass once the window is down to the " +
+        "share held for discovery; never refuses discovery)",
+    )
+    .requiredOption("--kind <discovery|build>", "which loop is asking")
+    .option(
+      "--claim",
+      "charge this build pass to the window when it is permitted — pass it at the moment the pass is about to " +
+        "spend a model call, never on a tick that decides to do nothing. Discovery needs no claim: its passes are " +
+        "counted from the run ledger `loop start` already writes.",
+    )
+    .option("--vault <dir>", VAULT_OPTION_HELP)
+    .action((opts: { kind: string; claim?: boolean; vault: string }) => {
+      /*
+       * The one gate in this file that is asked by the OTHER loop. `loop due`,
+       * `start`, `step` and `seal` are the discovery pass's bookends and are keyed
+       * to its cadence, its lock and its window; the build loop deliberately calls
+       * none of them. It calls this, because the pool it spends is not its own —
+       * both wrappers run Claude Code with the vault as cwd, so both are charged
+       * against `loop.spend` and only one of them was ever asked.
+       *
+       * Nothing here takes a verdict from its caller. `--kind` says which loop is
+       * asking and both counts come off ledgers this process reads itself.
+       */
+      if (opts.kind !== "discovery" && opts.kind !== "build") {
+        console.error(`not a pass kind: ${opts.kind} — use --kind discovery or --kind build`);
+        process.exitCode = 2;
+        return;
+      }
+      const kind: PassKind = opts.kind;
+      const config = loadConfig(opts.vault);
+      const verdict = assessReserve({
+        reserve: reserveOf(config.loop?.reserve),
+        kind,
+        discoveryAt: readRuns(opts.vault).map((r) => r.startedAt),
+        buildAt: readBuildPasses(opts.vault).map((r) => r.at),
+        now: Date.now(),
+      });
+
+      if (verdict.ignoredFuture > 0) {
+        console.error(
+          `⚠ ${verdict.ignoredFuture} pass record(s) are stamped in the future and were ignored — check this machine's clock.`,
+        );
+      }
+
+      if (!verdict.ok) {
+        console.error(`not building: ${verdict.reason}`);
+        process.exitCode = LOOP_EXIT.reserveHeld;
+        return;
+      }
+
+      console.log(`${kind}: ${verdict.reason}`);
+
+      // The claim is made only after the gate cleared, and only for the kind that
+      // has a ledger to write. Charging a refused pass would consume a window the
+      // pass never got to spend; charging a discovery pass here would double-count
+      // the record `loop start` already writes.
+      if (!opts.claim) return;
+      if (kind === "discovery") {
+        console.log("  nothing claimed: discovery passes are counted from the run ledger, not from a second file");
+        return;
+      }
+      recordBuildPass(opts.vault, new Date().toISOString());
+      console.log("  claimed: this build pass is charged to the window");
     });
 
   loop

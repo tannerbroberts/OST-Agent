@@ -3186,12 +3186,20 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,164 tests across 321 files, verified 2026-08-30 (`npx vitest run`
-> reports 4,156 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,176 tests across 322 files, verified 2026-08-30 (`npx vitest run`
+> reports 4,168 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-30 finished at 4,156 across
-> the 320 files it collects, in 329 s, green. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-30 finished at 4,168 across
+> the 321 files it collects, in 314 s, green. The file added since the previous line is
+> `test/loop/discovery-budget-reserved.test.ts` — the instrument for the discovery reserve
+> (`src/loop/reserve.ts`): a configured share of the shared window's passes is held for
+> discovery, a build pass is refused once it has spent the rest, and the allowance is
+> computed from the declaration rather than from what discovery actually used — so an idle
+> discovery loop enlarges nothing, this window or the next. It settles the *protection* only.
+> Whether the reserved passes were WORTH anything is the human rating the assumption test
+> asks for and is not a thing any suite can come out green on.
+> Previously 4,164 tests across 321 files, verified 2026-08-30, after
 > `test/security/injection-red-team.test.ts` — the adversarial suite (corpus and harness in
 > `test/security/red-team-corpus.ts`): twenty poisoned notes go through the real drop-folder
 > ingest, and for each one the harness makes the tool call the note was trying to talk the
