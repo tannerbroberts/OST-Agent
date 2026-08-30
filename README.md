@@ -754,6 +754,13 @@ loop:                       # absent ⇒ this vault never fires unattended, and 
     ceilingWeightedTokens: 4000000   # weighted tokens, not currency; rolling window
     windowHours: 24
     sessionsDir: "~/.claude/projects/<slug>"
+  reserve:                  # passes BUILD work may not spend; absent ⇒ nothing is held, and `loop reserve` says so
+    discoveryPasses: 3      # held for discovery inside the window and never lent to building. The build
+                            # allowance is `totalPasses - discoveryPasses` whether discovery spent its
+                            # share or sat idle — a budget the other claimant can borrow from is not a
+                            # reserve. Unused passes are lost at the window's edge, never banked.
+    totalPasses: 24         # passes of either kind the window allows
+    windowHours: 24
   questions:                # the ceiling on your ATTENTION; absent ⇒ unbounded, and `loop due` says so
     budget: 3               # times this vault may interrupt you; 0 ⇒ ask nothing, bank everything
     windowHours: 24

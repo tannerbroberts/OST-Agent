@@ -325,6 +325,25 @@ const LoopQuestionsSchema = z.object({
   sessionsDir: z.string().min(1).nullish(),
 });
 
+// The share of the window's passes that build work may not spend. Two loops draw
+// on one pool — the discovery pass and the build pass both run with the vault as
+// cwd, so both are charged against `loop.spend` — and only one of them asks
+// before spending. An absent block does NOT refuse to fire: nothing is held, which
+// is today's behaviour, and `loop reserve` says so. Same reasoning as
+// `loop.questions` and deliberately not `loop.spend`'s — an undeclared reserve
+// risks nothing that is not already being risked, while refusing every build pass
+// on a vault that predates this key would be a stopping state with a human-only
+// way out. All three keys are required together; a half-typed block is read as
+// undeclared, never as a bound nobody stated. See `src/loop/reserve.ts`.
+const LoopReserveSchema = z.object({
+  /** Passes held for discovery inside the window, unspendable by build. Required. */
+  discoveryPasses: z.number().int().nonnegative().nullish(),
+  /** Passes of either kind the window allows in total. Required. */
+  totalPasses: z.number().int().positive().nullish(),
+  /** The rolling window both counts are taken over. Required. */
+  windowHours: z.number().positive().nullish(),
+});
+
 // The push channel this vault subscribes to, and the only key that turns it on.
 // Absent ⇒ subscribed to nothing: the vault refuses to spool an announcement and
 // can never apply one. Same no-default rule as `loop.cadence`, and a stronger
@@ -437,6 +456,7 @@ const LoopSchema = z
      */
     lockHeartbeatMinutes: z.number().nonnegative().default(4),
     spend: LoopSpendSchema.nullish(),
+    reserve: LoopReserveSchema.nullish(),
     questions: LoopQuestionsSchema.nullish(),
     updates: LoopUpdatesSchema.nullish(),
   })

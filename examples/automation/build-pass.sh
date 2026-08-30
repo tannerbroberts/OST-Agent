@@ -566,6 +566,46 @@ fi
 # unprefixed rather than headed by a bare arrow.
 LINEAGE="$(node "$CLI" lineage "$TARGET" --vault . 2>/dev/null || true)"
 
+# ---------------------------------------------------------------------------
+# The discovery reserve — the one vault-side gate this loop is required to ask.
+#
+# Everything above is this loop's own business: its cadence, its lock, its state
+# directory. The pool it is about to spend is not. Both wrappers launch Claude
+# Code with the vault as cwd, so both write into `loop.spend.sessionsDir` and both
+# are charged against the same window — and only the discovery pass ever asked
+# (`loop due`). That is the mechanism behind "building crowds out the search for
+# better evidence": nothing separated the two budgets, so the one with an artefact
+# at the end took whatever it needed. This vault's own config records the
+# consequence — the ceiling was raised eightfold on 2026-08-04 after discovery
+# went 21 hours without firing.
+#
+# Asked HERE and not at the top of the script, deliberately. Most firings of this
+# loop reach no model at all — they grep the tree, find nothing red, and exit — and
+# charging those to the window would spend the budget on ticks that cost nothing.
+# The claim is made at the last moment before the model call, so a pass on the
+# ledger is a pass that really spent.
+#
+# A held reserve is a normal outcome, not a failure: exit 0, one report, no model
+# call. `--claim` is what consumes the window; a check without it would read the
+# same answer on every tick and refuse nothing, forever.
+# ---------------------------------------------------------------------------
+RESERVE_OUT="$(node "$CLI" loop reserve --kind build --claim --vault . 2>&1)"
+RESERVE_EXIT=$?
+if [ "$RESERVE_EXIT" -eq 22 ]; then
+  report "Build loop held this firing: the shared window is down to the passes reserved for discovery, so no model call was spent. ${RESERVE_OUT} The target it would have built (\"$TARGET\") is still waiting and will be picked up on the first firing after the window rolls forward. Nothing is required of you — this is the reserve working, not a fault. Raise \`loop.reserve.totalPasses\` in ost.config.yaml if the split is wrong for how you actually work."
+  exit 0
+elif [ "$RESERVE_EXIT" -ne 0 ]; then
+  # Any other non-zero is not a refusal — it is a vault this gate could not read,
+  # which for a budget means the honest answer to "how much is left for discovery"
+  # is not "all of it". Fail closed, the same way an unreadable transcript
+  # directory refuses a firing rather than granting the whole ceiling
+  # (`src/loop/spend.ts`). An undeclared reserve is NOT this branch: that comes
+  # back exit 0 saying nothing is held, so a vault that never opted in keeps
+  # building exactly as before.
+  report "Build loop refused this firing: the discovery reserve could not be consulted, so this pass cannot tell whether the window it was about to spend belongs to discovery. ${RESERVE_OUT} No model call was spent and no build was attempted. The way out is the vault's config — running \`node ${CLI} loop reserve --kind build --vault .\` from ${VAULT_DIR} reproduces it. The target (\"$TARGET\") stays on the queue."
+  exit 0
+fi
+
 MCP_CONFIG="$(mktemp "${TMPDIR:-/tmp}/ost-build-mcp.XXXXXX")"
 trap 'rm -f "$MCP_CONFIG"; rm -rf "$LOCK"' EXIT
 
