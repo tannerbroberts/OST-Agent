@@ -48,6 +48,7 @@ import { Vault } from "../../src/ost/vault.js";
 import type { OstNode } from "../../src/ost/node.js";
 import { buildOstTools, type ToolContext } from "../../src/security/tools.js";
 import { validateToolInput, type ToolSchema } from "../../src/security/validateToolInput.js";
+import { KILL_CRITERIA } from "../ost/kill-criteria-fixture.js";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -288,7 +289,7 @@ const SCENARIOS: Record<string, Scenario> = {
     create: [
       {
         tool: "ost_create_node",
-        input: { title: "A fresh idea", layer: "Solution", parent: OPPORTUNITY, body: "an idea", evidence: "assertion" },
+        input: { title: "A fresh idea", layer: "Solution", parent: OPPORTUNITY, body: "an idea", evidence: "assertion", ...KILL_CRITERIA },
       },
     ],
     plant: (v) => put(v, { title: "Unmapped idea", layer: "Solution" }),
@@ -477,6 +478,8 @@ const SCENARIOS: Record<string, Scenario> = {
           parent: OPPORTUNITY,
           body: "people will pay for this",
           evidence: "money",
+          // A Solution needs its kill criteria to reach the rung check at all.
+          ...KILL_CRITERIA,
         },
       },
     ],

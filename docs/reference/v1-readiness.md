@@ -3159,16 +3159,18 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,108 tests across 318 files, verified 2026-08-29 (`npx vitest run`
-> reports 4,100 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,125 tests across 319 files, verified 2026-08-30 (`npx vitest run`
+> reports 4,117 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-29 finished at 4,100 across
-> the 317 files it collects, in 319 s, green. The file added since the previous line is
-> `test/loop/prior-art-scan-catches-recorded-collision.test.ts` — the replay of the recorded
-> 2026-07-26 collision against a start-of-build prior-art scan, whose headline measurement is
-> that the scan misses it (`src/loop/prior-art-scan.ts` and `src/git/prior-art-sight.ts`, both
-> on the unreachable-module debt register for exactly that reason).
+> time rather than derived: a full `npx vitest run` on 2026-08-30 finished at 4,117 across
+> the 318 files it collects, in 349 s, green. The file added since the previous line is
+> `test/ost/kill-criteria-required.test.ts` — the birth-and-sweep instrument for
+> pre-committed kill criteria (`src/ost/kill-criteria.ts`): a Solution cannot be created
+> without a condition and a date, both are carried as frontmatter fields rather than prose,
+> and `ost-agent kill-list` lists every live solution whose date has passed. It settles the
+> feasibility half only; whether a written criterion is *honoured* still needs two weeks of
+> calendar and a person.
 > **A wall-clock note worth more than the counts.** Two full runs on 2026-08-29, from one
 > unchanged working tree, disagreed: the first reported 8 files and 13 tests failing in 935 s,
 > the second 3 files and 3 tests failing in 324 s, and the second run's three were a strict
@@ -3176,6 +3178,13 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > load, not code, and the run that saw them took nearly three times as long. A suite this long
 > reports on the machine as much as on the code, which is the same confusion the wall-clock
 > gate cost a week over (Z3, 2026-08-06).
+> **The same thing happened on 2026-08-30, and this time the difference was isolated rather
+> than inferred.** A full run taken while two other vitest runs shared the box reported 18
+> files and 55 tests failing in ~1,900 s. Seven of those files failed only with
+> `Test timed out in 20000ms`, and every one of them passed on the idle machine with no code
+> change between the two runs — `test/ost/vault-merge-conflict-census.test.ts` alone spent
+> 127 s under load against a clean pass alone. Only the genuine breakages survived. The
+> three-times-longer run is the tell, every time it has come up.
 > Previously 4,092 tests across 317 files, verified 2026-08-29 (`npx vitest run` reports 4,084
 > of them; the other 8 are the contended calibration file described below), after
 > `test/cli/first-run-without-key.test.ts` — the keyless-first-run and bring-your-own-key-off

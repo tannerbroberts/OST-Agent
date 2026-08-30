@@ -59,6 +59,7 @@ import { usageLogPath } from "../../src/telemetry/usage.js";
 import { readEvidence } from "../../src/processes/tree.js";
 import { CHANNEL_ZERO, resolveChannels } from "../../src/adapters/channels.js";
 import { loadConfig } from "../../src/config/load.js";
+import { KILL_CRITERIA } from "../ost/kill-criteria-fixture.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const CLI = path.resolve(here, "../../src/cli/index.ts");
@@ -213,6 +214,7 @@ describe("clause 1 — the fallback reaches the same vault and gives the same an
       parent: "Operators cannot tell what changed",
       body: "one candidate, no assumption test yet",
       evidence: "assertion",
+      ...KILL_CRITERIA,
     });
   });
 

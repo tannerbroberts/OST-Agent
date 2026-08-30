@@ -28,6 +28,7 @@
  *   ost-agent buildable ["<solution>"]        is it defined well enough to build, and against what command?
  *   ost-agent buildable "<s>" --repo DIR      …and is the recorded red still red, or was the ticket spent?
  *   ost-agent stranded [--also DIR]           evidence no node cites, split by which fix would clear it
+ *   ost-agent kill-list [--vault DIR]         every live solution whose kill date has passed, with the condition a person now reads
  *   ost-agent search "<glob>" [--vault DIR]   grep the node bodies; a subject it could not read is never a zero
  *   ost-agent capability [--repo DIR]         what each builder can do, read off the commits already written
  *   ost-agent preflight [--transcripts DIR]   did the callers whose calls failed already know they were unsure?
@@ -110,6 +111,7 @@ import { renderTournament, runTournament } from "../eval/tournament.js";
 import { renderCanary, runCanary, type CanaryProcess } from "../eval/canary.js";
 import { formatCensus, reconcileWithGit, reconcileWithUsage, recordCensusFiring } from "../ost/census.js";
 import { formatStrandedCensus, strandedEvidenceCensus } from "../ost/stranded.js";
+import { formatKillCriteriaCensus, killCriteriaCensus } from "../ost/kill-criteria.js";
 import { censusPeerMerge, formatMergeCensus } from "../ost/vault-merge.js";
 import { blindnessCensus, formatBlindnessCensus, readSweepRuns, recordSweepRun } from "../ost/sweep.js";
 import { formatAgeingReplay, replayAgeingRule } from "../ost/ageing.js";
@@ -1663,6 +1665,43 @@ program
       return;
     }
     console.log(text);
+  });
+
+program
+  .command("kill-list")
+  .description("every live solution whose pre-committed kill date has passed, with the condition a person now reads")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option("--as-of <date>", "take the reading against this day (YYYY-MM-DD) instead of today")
+  .action((opts: { vault: string; asOf?: string }) => {
+    const ctx = buildPassContext(opts.vault);
+    // The day is an input, not a clock read, so a list an operator acted on can
+    // be reproduced later — `--as-of` is what makes "what was overdue on the
+    // 14th?" a question this command can answer.
+    const today = opts.asOf ?? new Date().toISOString().slice(0, 10);
+    const census = killCriteriaCensus(ctx.vault.readTreeCensus(), today);
+    const blind = census.blindness === "totally-blind";
+    try {
+      recordSweepRun(ctx.dir, {
+        sweep: "kill-list",
+        at: new Date().toISOString(),
+        subject: census.subject,
+        findings: census.overdue.length,
+        outcome: blind ? "blind" : census.overdue.length > 0 ? "findings" : "clean",
+      });
+    } catch (e) {
+      console.error(`(this run was not recorded: ${e instanceof Error ? e.message : String(e)})`);
+    }
+    const text = formatKillCriteriaCensus(census);
+    if (blind) {
+      console.error(text);
+      process.exitCode = 1;
+      return;
+    }
+    console.log(text);
+    // Overdue candidates are a finding, not a failure: this command's whole
+    // point is to put a list in front of a person, and a non-zero exit is how
+    // the loop's own gates learn there is one waiting.
+    if (census.overdue.length > 0) process.exitCode = 1;
   });
 
 program

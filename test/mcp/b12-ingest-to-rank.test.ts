@@ -86,6 +86,7 @@ import {
 } from "../../src/knowledge/actor-trust.js";
 import { RESULTS_HEADING } from "../../src/ost/headings.js";
 import type { Vault } from "../../src/ost/vault.js";
+import { KILL_CRITERIA } from "../ost/kill-criteria-fixture.js";
 
 const OUTCOME = "Retention";
 
@@ -221,6 +222,7 @@ test("a dropped note is ranked by the channel it arrived on, all the way to the 
     body: "Walk them through it.",
     source: "INBOX:note.md",
     evidence: "assertion",
+    ...KILL_CRITERIA,
   });
   // The belief the solution rests on — an AssumptionTest attaches under one of
   // these, not under the solution. The solution is still what cites the channel,

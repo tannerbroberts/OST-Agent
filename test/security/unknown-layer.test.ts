@@ -6,6 +6,7 @@ import { buildPassContext } from "../../src/runner/context.js";
 import { initVault } from "../../src/runner/init.js";
 import { buildOstTools } from "../../src/security/tools.js";
 import { validateToolInput, type ToolSchema } from "../../src/security/validateToolInput.js";
+import { KILL_CRITERIA } from "../ost/kill-criteria-fixture.js";
 
 const OUTCOME = "Reach 10,000 daily active users";
 const OUTCOME_TITLE = "Retention";
@@ -33,7 +34,7 @@ describe("creating an Unknown", () => {
       title: "Opp", layer: "Opportunity", parent: OUTCOME_TITLE, body: "b", evidence: "assertion",
     });
     await call("ost_create_node", {
-      title: "Sol", layer: "Solution", parent: "Opp", body: "b", evidence: "assertion",
+      title: "Sol", layer: "Solution", parent: "Opp", body: "b", evidence: "assertion", ...KILL_CRITERIA,
     });
 
     for (const [title, parent] of [

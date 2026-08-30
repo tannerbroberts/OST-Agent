@@ -34,6 +34,7 @@ import { Vault } from "../../src/ost/vault.js";
 import { ALLOWED_TOOL_NAMES } from "../../src/security/policy.js";
 import { buildOstTools, type ToolContext } from "../../src/security/tools.js";
 import { validateToolInput, type ToolSchema } from "../../src/security/validateToolInput.js";
+import { KILL_CRITERIA } from "../ost/kill-criteria-fixture.js";
 
 let dir: string;
 let vault: Vault;
@@ -76,7 +77,7 @@ describe("B2 — the agent cannot declare a node validated", () => {
   // too. That is the vacuity trap this file exists on the other side of.
   test("ost_create_node with tags: [], then ost_set_status validated, then checkInvariants", async () => {
     await expect(
-      call("ost_create_node", { title: "A win", layer: "Solution", parent: "Opp", body: "an idea", evidence: "assertion", tags: [] }),
+      call("ost_create_node", { title: "A win", layer: "Solution", parent: "Opp", body: "an idea", evidence: "assertion", tags: [], ...KILL_CRITERIA }),
     ).resolves.toMatch(/created Solution/);
 
     // The stamp landed despite `tags: []` — the rule's precondition is no longer
@@ -148,7 +149,7 @@ describe("B2 — the agent cannot declare a node validated", () => {
   });
 
   test("the stamp is unremovable from the agent's surface", async () => {
-    await call("ost_create_node", { title: "Marked", layer: "Solution", parent: "Opp", body: "an idea", evidence: "assertion" });
+    await call("ost_create_node", { title: "Marked", layer: "Solution", parent: "Opp", body: "an idea", evidence: "assertion", ...KILL_CRITERIA });
     await call("ost_append_to_node", { title: "Marked", section: "## Notes\nmore" });
     await call("ost_annotate", { title: "Marked", issue: "possible duplicate" });
     await call("ost_set_evidence", { title: "Marked", evidence: "assertion", note: "still founder theory" });

@@ -33914,6 +33914,8 @@ function serialize(node) {
   if (node.threshold) data.threshold = node.threshold;
   if (node.instrument) data.instrument = node.instrument;
   if (node.sight) data.sight = node.sight;
+  if (node.killIf) data.killIf = node.killIf;
+  if (node.killBy) data.killBy = node.killBy;
   if (node.authorship) data.authorship = node.authorship;
   const extraTags = node.tags.filter((t2) => !EVIDENCE_TAG.test(t2));
   const tagLine = [
@@ -33973,6 +33975,9 @@ function deserialize(title, markdown) {
   if (typeof data.threshold === "string") node.threshold = data.threshold;
   if (typeof data.instrument === "string") node.instrument = data.instrument;
   if (isRepoSight(data.sight)) node.sight = data.sight;
+  if (typeof data.killIf === "string") node.killIf = data.killIf;
+  if (data.killBy instanceof Date) node.killBy = isoDate(data.killBy);
+  else if (typeof data.killBy === "string") node.killBy = data.killBy;
   if (isAuthorship(data.authorship)) node.authorship = data.authorship;
   return node;
 }
@@ -41392,7 +41397,8 @@ var OST_RULESET = {
     "Compare and contrast solutions against each other rather than validating a single idea in isolation ('good' is judgeable only relative to alternatives).",
     "Prefer generating more solutions especially when there is risk, when the opportunity is a differentiator, or when innovation is needed.",
     "Target one opportunity at a time (a work-in-progress limit) and go deep before moving on.",
-    "Every agent-originated solution enters the tree unvalidated \u2014 the marker is stamped by the server, not chosen by the author \u2014 and `validated` is not a status the agent can set at all; promotion is a human's call on the CLI."
+    "Every agent-originated solution enters the tree unvalidated \u2014 the marker is stamped by the server, not chosen by the author \u2014 and `validated` is not a status the agent can set at all; promotion is a human's call on the CLI.",
+    'Write every solution\'s kill criteria AT ITS BIRTH: `ost_create_node` requires `killIf` (the observation that would end this candidate \u2014 one line naming something a person could go and look at) and `killBy` (the date, YYYY-MM-DD, by which that observation gets checked, no more than a year out). A candidate is worth generating because it is cheap to abandon, and it is only cheap to abandon while nobody is attached to it \u2014 a criterion written later is an argument, and the argument is why trees accumulate every idea anyone ever had. `ost-agent kill-list` lists every live solution whose date has passed, with its condition beside it. Nothing is killed automatically: the machine checks the date, a person reads the condition, and retiring the candidate is `ost_set_status(\u2026, "deferred")`.'
   ],
   "assumptionCategories": [
     "desirability",
@@ -46680,6 +46686,19 @@ var COMPRESSION_SURFACES = [
     proof: "declaration"
   },
   {
+    name: "kill-criteria horizon",
+    module: "src/ost/kill-criteria.ts",
+    caps: ["MAX_KILL_HORIZON_DAYS"],
+    kind: "input-bound",
+    decision: "how far out a Solution's pre-committed kill date may sit \u2014 past it, `ost_create_node` refuses the node",
+    reads: [
+      "the refusal names the date, how many days out it is, and the horizon it crossed",
+      "nothing is stored short: a call that crosses the bound writes nothing at all"
+    ],
+    drops: "refusal",
+    proof: "declaration"
+  },
+  {
     name: "web search request",
     module: "src/web/search.ts",
     caps: ["MAX_SEARCH_RESULTS"],
@@ -48849,7 +48868,7 @@ function renderFaithfulness(report) {
 }
 
 // src/mcp/server.ts
-import path39 from "node:path";
+import path40 from "node:path";
 import { randomUUID } from "node:crypto";
 
 // node_modules/zod/v4/mini/parse.js
@@ -50608,7 +50627,7 @@ var Server = class extends Protocol {
 init_types();
 
 // src/security/tools.ts
-import path35 from "node:path";
+import path37 from "node:path";
 
 // src/knowledge/reversibility.ts
 var REVERSIBILITY = [
@@ -50654,18 +50673,355 @@ function tool(spec) {
   };
 }
 
-// src/adapters/mirror.ts
+// src/ost/sweep.ts
+import fs32 from "node:fs";
+import path32 from "node:path";
+
+// src/loop/state.ts
+import { spawnSync as spawnSync5 } from "node:child_process";
+import fs31 from "node:fs";
+import path31 from "node:path";
+var STATE_DIRNAME = "ost-agent";
+function gitDir(vaultDir) {
+  const abs = path31.resolve(vaultDir);
+  const dotGit = path31.join(abs, ".git");
+  let stat;
+  try {
+    stat = fs31.statSync(dotGit);
+  } catch {
+    return null;
+  }
+  if (stat.isDirectory()) return dotGit;
+  if (!stat.isFile()) return null;
+  const pointer = fs31.readFileSync(dotGit, "utf8").trim();
+  const match = pointer.match(/^gitdir:\s*(.+)$/);
+  if (!match) return null;
+  return path31.resolve(abs, match[1].trim());
+}
+function loopStateDir(vaultDir) {
+  const git5 = gitDir(vaultDir);
+  return git5 === null ? null : path31.join(git5, STATE_DIRNAME);
+}
+function requireLoopStateDir(vaultDir) {
+  const dir = loopStateDir(vaultDir);
+  if (dir === null) {
+    throw new Error(
+      `${path31.resolve(vaultDir)} is not a git checkout \u2014 the loop records every firing under .git/ost-agent/ and refuses to fire where it cannot record. Run \`ost-agent init\` or \`git init\` there first.`
+    );
+  }
+  fs31.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+function gitHead(vaultDir) {
+  const r2 = spawnSync5("git", ["rev-parse", "HEAD"], {
+    cwd: path31.resolve(vaultDir),
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"]
+  });
+  const sha = r2.status === 0 ? (r2.stdout ?? "").trim() : "";
+  return sha.length > 0 ? sha : void 0;
+}
+function workingTreeStatus(vaultDir) {
+  const r2 = spawnSync5("git", ["status", "--porcelain"], {
+    cwd: path31.resolve(vaultDir),
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  if (r2.error) {
+    return { kind: "unknown", reason: `git could not be run (${r2.error.code ?? r2.error.message})` };
+  }
+  if (r2.status !== 0) {
+    const firstLine2 = (r2.stderr ?? "").trim().split("\n")[0] ?? "";
+    const how = r2.status === null ? "was killed by a signal" : `exited ${r2.status}`;
+    return { kind: "unknown", reason: `\`git status\` ${how}${firstLine2 ? ` \u2014 ${firstLine2}` : ""}` };
+  }
+  const entries = (r2.stdout ?? "").split("\n").map((line) => line.replace(/\s+$/, "")).filter((line) => line.length > 0);
+  return entries.length === 0 ? { kind: "clean" } : { kind: "dirty", entries };
+}
+
+// src/ost/sweep.ts
+function classifySubject(subject) {
+  const { offered, read } = subject;
+  if (read > offered) {
+    throw new Error(
+      `a sweep cannot read ${read} of ${offered} subject(s) \u2014 \`offered\` is the size of the set and \`read\` a part of it`
+    );
+  }
+  if (read === 0) return "totally-blind";
+  return read < offered ? "partly-blind" : "full";
+}
+function classifyRun(run) {
+  if (!run.subject) return "unrecorded";
+  const { offered, read } = run.subject;
+  if (!Number.isFinite(offered) || !Number.isFinite(read) || offered < 0 || read < 0 || read > offered) {
+    return "unrecorded";
+  }
+  return classifySubject(run.subject);
+}
+function blindnessCensus(runs) {
+  let full = 0;
+  let partlyBlind = 0;
+  let totallyBlind = 0;
+  let unclassifiable = 0;
+  let unreadable = 0;
+  for (const run of runs) {
+    if (run.unreadable) unreadable++;
+    switch (classifyRun(run)) {
+      case "full":
+        full++;
+        break;
+      case "partly-blind":
+        partlyBlind++;
+        break;
+      case "totally-blind":
+        totallyBlind++;
+        break;
+      default:
+        unclassifiable++;
+    }
+  }
+  const nonFull = partlyBlind + totallyBlind;
+  return {
+    runs: runs.length,
+    full,
+    partlyBlind,
+    totallyBlind,
+    unclassifiable,
+    unreadable,
+    nonFull,
+    totallyBlindShareOfNonFull: nonFull === 0 ? null : totallyBlind / nonFull
+  };
+}
+function formatBlindnessCensus(census) {
+  const lines = [];
+  lines.push(
+    `Sweep blindness: ${census.runs} recorded run(s) \u2014 ${census.full} read their whole subject, ${census.partlyBlind} partly blind, ${census.totallyBlind} totally blind.`
+  );
+  const share = census.totallyBlindShareOfNonFull === null ? "no run fell short of its subject, so there is no share to report" : `${Math.round(census.totallyBlindShareOfNonFull * 100)}% of the ${census.nonFull} non-full run(s) were totally blind`;
+  lines.push(`  ${share}.`);
+  lines.push(
+    `  ${census.unclassifiable} run(s) could not be classified because the record preserves no subject count` + (census.unreadable > 0 ? ` (${census.unreadable} of them unparseable ledger line(s))` : "") + `.`
+  );
+  if (census.unclassifiable > census.runs - census.unclassifiable) {
+    lines.push(
+      `  More runs are unclassifiable than classifiable: this is a finding about the records, not about blindness.`
+    );
+  }
+  return lines.join("\n");
+}
+var SWEEP_LEDGER = "sweeps.jsonl";
+function sweepLedgerPath(vaultDir) {
+  const dir = loopStateDir(vaultDir);
+  return dir === null ? null : path32.join(dir, SWEEP_LEDGER);
+}
+function recordSweepRun(vaultDir, run) {
+  const dir = requireLoopStateDir(vaultDir);
+  fs32.appendFileSync(path32.join(dir, SWEEP_LEDGER), JSON.stringify(run) + "\n");
+}
+function readSweepRuns(vaultDir) {
+  const file = sweepLedgerPath(vaultDir);
+  if (file === null || !fs32.existsSync(file)) return [];
+  return fs32.readFileSync(file, "utf8").split("\n").filter((line) => line.trim().length > 0).map((line) => {
+    try {
+      const parsed = JSON.parse(line);
+      if (parsed && typeof parsed.sweep === "string") return parsed;
+    } catch {
+    }
+    return { sweep: "(unparseable ledger line)", at: "", unreadable: true };
+  });
+}
+
+// src/ost/kill-criteria.ts
+var DEFERRING_OPENERS = /* @__PURE__ */ new Set([
+  "fix",
+  "decide",
+  "choose",
+  "set",
+  "pick",
+  "agree",
+  "determine",
+  "establish",
+  "define",
+  "settle",
+  "select",
+  "nominate",
+  "specify",
+  "review",
+  "revisit",
+  "reassess",
+  "reconsider",
+  "evaluate"
+]);
+var PLACEHOLDERS = /* @__PURE__ */ new Set(["tbd", "tba", "n/a", "na", "none", "unknown", "?", "-", "todo", "x"]);
+var ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+var MAX_KILL_HORIZON_DAYS = 365;
 var MS_PER_DAY = 864e5;
+function isoToMs(value) {
+  const m = ISO_DATE.exec(value.trim());
+  if (!m) return null;
+  const [, y2, mo, d] = m;
+  const ms = Date.UTC(Number(y2), Number(mo) - 1, Number(d));
+  const back = new Date(ms).toISOString().slice(0, 10);
+  return back === value.trim() ? ms : null;
+}
+function daysBetween(from, to) {
+  const a = isoToMs(from);
+  const b2 = isoToMs(to);
+  if (a === null || b2 === null) return null;
+  return Math.round((b2 - a) / MS_PER_DAY);
+}
+function parseKillCondition(value) {
+  const trimmed2 = value.trim();
+  if (!trimmed2) return { stated: false, reason: "it is empty" };
+  if (/\n/.test(trimmed2)) {
+    return {
+      stated: false,
+      reason: "it is wrapped over more than one line, which is what a pasted paragraph looks like and what a condition does not"
+    };
+  }
+  if (PLACEHOLDERS.has(trimmed2.toLowerCase().replace(/[.!]+$/, ""))) {
+    return { stated: false, reason: `"${trimmed2}" is a placeholder, not an observation` };
+  }
+  const words = trimmed2.split(/\s+/).filter((w) => new RegExp("\\p{L}|\\d", "u").test(w));
+  if (words.length < 2) {
+    return { stated: false, reason: `"${trimmed2}" is one word \u2014 a condition names something someone could go and look at` };
+  }
+  const opener = words[0].replace(/^[^\p{L}]+/u, "").toLowerCase();
+  if (DEFERRING_OPENERS.has(opener)) {
+    return {
+      stated: false,
+      reason: `it opens with "${words[0]}", which schedules the decision instead of stating the observation that would settle it`
+    };
+  }
+  return { stated: true, condition: trimmed2 };
+}
+function parseKillDate(value, bornOn) {
+  const trimmed2 = value.trim();
+  if (!ISO_DATE.test(trimmed2) || isoToMs(trimmed2) === null) {
+    return { dated: false, reason: `"${trimmed2}" is not a calendar date \u2014 write it as YYYY-MM-DD (e.g. 2026-09-15)` };
+  }
+  const days = daysBetween(bornOn, trimmed2);
+  if (days === null) {
+    return { dated: false, reason: `it cannot be compared against "${bornOn}", which is not a calendar date either` };
+  }
+  if (days <= 0) {
+    return { dated: false, reason: `${trimmed2} is not after ${bornOn} \u2014 a criterion whose date has already passed commits to nothing` };
+  }
+  if (days > MAX_KILL_HORIZON_DAYS) {
+    return {
+      dated: false,
+      reason: `${trimmed2} is ${days} days out, past the ${MAX_KILL_HORIZON_DAYS}-day horizon \u2014 a date nothing will reach inside the life of this candidate is a filled field and not a commitment`
+    };
+  }
+  return { dated: true, by: trimmed2 };
+}
+function readKillCriteria(node) {
+  const condition = node.killIf?.trim();
+  const by = node.killBy?.trim();
+  return condition && by ? { condition, by } : null;
+}
+function killCriteriaCensus(census, today) {
+  const subject = { offered: census.nodes.length + census.unreadable.length, read: census.nodes.length };
+  const solutions = census.nodes.filter((n) => n.layer === "Solution");
+  const unlabelled = [];
+  const malformed = [];
+  const retiredTitles = [];
+  const overdue = [];
+  let carrying = 0;
+  for (const node of solutions) {
+    if (isRetiredNode(node) || isRetractedNode(node)) {
+      retiredTitles.push(node.title);
+      continue;
+    }
+    const criteria = readKillCriteria(node);
+    if (!criteria) {
+      unlabelled.push(node.title);
+      continue;
+    }
+    const condition = parseKillCondition(criteria.condition);
+    if (!condition.stated) {
+      malformed.push({ title: node.title, reason: `killIf: ${condition.reason}` });
+      continue;
+    }
+    const elapsed = daysBetween(criteria.by, today);
+    if (elapsed === null) {
+      malformed.push({
+        title: node.title,
+        reason: `killBy: "${criteria.by}" is not a calendar date, so no sweep can ever say this one is due`
+      });
+      continue;
+    }
+    carrying++;
+    if (elapsed > 0) {
+      overdue.push({ title: node.title, condition: condition.condition, by: criteria.by, daysOverdue: elapsed, status: node.status });
+    }
+  }
+  overdue.sort((a, b2) => b2.daysOverdue - a.daysOverdue || a.title.localeCompare(b2.title));
+  return {
+    today,
+    subject,
+    blindness: classifySubject(subject),
+    candidates: solutions.length,
+    live: solutions.length - retiredTitles.length,
+    carrying,
+    unlabelled,
+    malformed,
+    retired: retiredTitles,
+    overdue
+  };
+}
+function formatKillCriteriaCensus(c3) {
+  const lines = [];
+  if (c3.blindness === "totally-blind") {
+    lines.push(
+      `Kill criteria: BLIND \u2014 read 0 of ${c3.subject.offered} node file(s). Nothing was examined, so this is not a clean sweep; check that the vault path is a vault.`
+    );
+    return lines.join("\n");
+  }
+  lines.push(
+    `Kill criteria (as of ${c3.today}): ${c3.overdue.length} candidate(s) overdue for a reading, over ${c3.carrying} of ${c3.live} live Solution(s) carrying readable criteria (${c3.candidates} read in all).`
+  );
+  if (c3.blindness === "partly-blind") {
+    const shortfall = c3.subject.offered - c3.subject.read;
+    lines.push(
+      `  \u26A0 partly blind: ${shortfall} node file(s) present could not be read, so every count above is over ${c3.subject.read} of ${c3.subject.offered}.`
+    );
+  }
+  lines.push("");
+  lines.push(`Date passed, still live (${c3.overdue.length}):`);
+  if (!c3.overdue.length) lines.push("  (none)");
+  for (const o2 of c3.overdue) {
+    lines.push(`  ${o2.title} \u2014 due ${o2.by} (${o2.daysOverdue} day(s) ago)`);
+    lines.push(`    kill if: ${o2.condition}`);
+  }
+  if (c3.malformed.length) {
+    lines.push("");
+    lines.push(`Criteria nothing can evaluate (${c3.malformed.length}):`);
+    for (const m of c3.malformed) lines.push(`  ${m.title} \u2014 ${m.reason}`);
+  }
+  lines.push("");
+  lines.push(
+    `${c3.unlabelled.length} live Solution(s) carry no criteria at all \u2014 written before the field existed, and no sweep will ever call one of them due. ${c3.retired.length} already retired.`
+  );
+  lines.push("");
+  lines.push(
+    'The date is the machine\'s half. Whether each condition above is actually MET is a reading a person takes, and killing the candidate is `ost-agent dispose` or `ost_set_status(\u2026, "deferred")` \u2014 this list is the bookkeeping, not the verdict.'
+  );
+  return lines.join("\n");
+}
+
+// src/adapters/mirror.ts
+var MS_PER_DAY2 = 864e5;
 function classifyFreshness(fetchedAt, opts = {}) {
   const stamped = fetchedAt ? Date.parse(fetchedAt) : NaN;
   if (!Number.isFinite(stamped)) return { ageMs: null, freshness: "undated" };
   const ageMs = Math.max(0, (opts.now ?? /* @__PURE__ */ new Date()).getTime() - stamped);
   const bound = opts.staleAfterDays;
   if (bound == null) return { ageMs, freshness: "unbounded" };
-  return { ageMs, freshness: ageMs >= bound * MS_PER_DAY ? "stale" : "fresh" };
+  return { ageMs, freshness: ageMs >= bound * MS_PER_DAY2 ? "stale" : "fresh" };
 }
 function ageInDays(ageMs) {
-  return Math.floor(ageMs / MS_PER_DAY);
+  return Math.floor(ageMs / MS_PER_DAY2);
 }
 function freshnessNote(read, staleAfterDays) {
   switch (read.freshness) {
@@ -51264,8 +51620,8 @@ function readPendingAskQueue(dir, tree, now = () => /* @__PURE__ */ new Date()) 
 }
 
 // src/knowledge/dispositions.ts
-import fs31 from "node:fs";
-import path31 from "node:path";
+import fs33 from "node:fs";
+import path33 from "node:path";
 var DISPOSITION_KINDS = ["evidence", "solution", "opportunity"];
 function isDispositionKind(v) {
   return typeof v === "string" && DISPOSITION_KINDS.includes(v);
@@ -51279,7 +51635,7 @@ function isAcknowledgementVerdict(v) {
   return typeof v === "string" && ACKNOWLEDGEMENT_VERDICTS.includes(v);
 }
 function dispositionLedgerPath(dir) {
-  return path31.join(dir, ".ost-agent", "dispositions", "dispositions.jsonl");
+  return path33.join(dir, ".ost-agent", "dispositions", "dispositions.jsonl");
 }
 function appendDisposition(dir, rec, index, now = () => /* @__PURE__ */ new Date()) {
   if (!rec.subject.trim()) throw new Error("a disposition needs the subject it settles");
@@ -51315,8 +51671,8 @@ function appendDisposition(dir, rec, index, now = () => /* @__PURE__ */ new Date
     ...rec.verdict === "corroborates" ? { node: rec.node } : {}
   };
   const file = dispositionLedgerPath(dir);
-  fs31.mkdirSync(path31.dirname(file), { recursive: true });
-  fs31.appendFileSync(file, JSON.stringify(record2) + "\n");
+  fs33.mkdirSync(path33.dirname(file), { recursive: true });
+  fs33.appendFileSync(file, JSON.stringify(record2) + "\n");
   return record2;
 }
 function parseDisposition(raw) {
@@ -51349,8 +51705,8 @@ function readDispositionLedger(dir) {
   const file = dispositionLedgerPath(dir);
   const histories = /* @__PURE__ */ new Map();
   let damaged = 0;
-  if (!fs31.existsSync(file)) return { histories, damaged };
-  for (const line of fs31.readFileSync(file, "utf8").split("\n")) {
+  if (!fs33.existsSync(file)) return { histories, damaged };
+  for (const line of fs33.readFileSync(file, "utf8").split("\n")) {
     if (!line.trim()) continue;
     const rec = parseDisposition(line);
     if (!rec) {
@@ -51435,8 +51791,8 @@ ${ledger.damaged} ledger line(s) would not parse and were dropped. A dropped lin
 }
 
 // src/knowledge/suppressions.ts
-import fs32 from "node:fs";
-import path32 from "node:path";
+import fs34 from "node:fs";
+import path34 from "node:path";
 var SUPPRESSION_CONDITION_KINDS = [
   /** A solution declined because it is shipped — holds while the node's status is the named one. */
   "status-is",
@@ -51509,7 +51865,7 @@ function renderCondition(condition) {
   }
 }
 function suppressionLedgerPath(dir) {
-  return path32.join(dir, ".ost-agent", "suppressions", "suppressions.jsonl");
+  return path34.join(dir, ".ost-agent", "suppressions", "suppressions.jsonl");
 }
 function appendSuppression(dir, rec, now = () => /* @__PURE__ */ new Date()) {
   if (!rec.subject.trim()) throw new Error("a suppression needs the subject it declines");
@@ -51518,8 +51874,8 @@ function appendSuppression(dir, rec, now = () => /* @__PURE__ */ new Date()) {
   if (!rec.reason.trim()) throw new Error("a suppression needs the decline's reason in words \u2014 the condition says when it ends, not why it started");
   const record2 = { ts: now().toISOString(), subject: rec.subject, condition, reason: rec.reason, by: rec.by };
   const file = suppressionLedgerPath(dir);
-  fs32.mkdirSync(path32.dirname(file), { recursive: true });
-  fs32.appendFileSync(file, JSON.stringify(record2) + "\n");
+  fs34.mkdirSync(path34.dirname(file), { recursive: true });
+  fs34.appendFileSync(file, JSON.stringify(record2) + "\n");
   return record2;
 }
 function parseSuppressionLine(raw) {
@@ -51550,8 +51906,8 @@ function readSuppressionLedger(dir) {
   const file = suppressionLedgerPath(dir);
   const histories = /* @__PURE__ */ new Map();
   let damaged = 0;
-  if (!fs32.existsSync(file)) return { histories, damaged };
-  for (const line of fs32.readFileSync(file, "utf8").split("\n")) {
+  if (!fs34.existsSync(file)) return { histories, damaged };
+  for (const line of fs34.readFileSync(file, "utf8").split("\n")) {
     if (!line.trim()) continue;
     const rec = parseSuppressionLine(line);
     if (!rec) {
@@ -51746,7 +52102,7 @@ var EXCERPT_CHARS = 280;
 function contentSignature(body) {
   return body.trim().toLowerCase().replace(/\s+/g, " ");
 }
-var MS_PER_DAY2 = 24 * 60 * 60 * 1e3;
+var MS_PER_DAY3 = 24 * 60 * 60 * 1e3;
 var MAX_BODY_CHARS = 5e4;
 function mirrorFreshness(record2, opts) {
   const { ageMs, freshness } = classifyFreshness(record2.fetchedAt, opts);
@@ -51837,7 +52193,7 @@ function computeNextWork(vault, dir, min, now = () => /* @__PURE__ */ new Date()
     withheld
   );
   const liveRecords = omitSuppressed(undisposedRecords, (e) => e.id, suppressions, index, "unmappedEvidence", suppressed);
-  const ageOutMs = ageOutDays != null ? ageOutDays * MS_PER_DAY2 : null;
+  const ageOutMs = ageOutDays != null ? ageOutDays * MS_PER_DAY3 : null;
   const nowMs = now().getTime();
   const agedOutRecords = [];
   const individualRecords = [];
@@ -52147,8 +52503,8 @@ function nodeBody(node) {
 }
 
 // src/adapters/deposit.ts
-import fs33 from "node:fs";
-import path33 from "node:path";
+import fs35 from "node:fs";
+import path35 from "node:path";
 var DEPOSIT_PROMPT = "Before this closes: what was the reasoning behind what you just did \u2014 what did you consider and reject, what could you not do and why, and what would you have done with more room?";
 var VERBATIM_MARKER = "Deposited verbatim below this line. Nothing after it was written, altered or inferred by the agent.";
 var MAX_META_CHARS = 120;
@@ -52160,9 +52516,9 @@ function slug2(text2) {
   return text2.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "deposit";
 }
 function uniquePath2(dir, base) {
-  let candidate = path33.join(dir, `${base}.md`);
-  for (let n = 2; fs33.existsSync(candidate); n++) {
-    candidate = path33.join(dir, `${base}-${n}.md`);
+  let candidate = path35.join(dir, `${base}.md`);
+  for (let n = 2; fs35.existsSync(candidate); n++) {
+    candidate = path35.join(dir, `${base}-${n}.md`);
   }
   return candidate;
 }
@@ -52177,9 +52533,9 @@ function fileDeposit(vaultDir, filing) {
   if (!answer.trim()) {
     throw new Error("a deposit needs the collaborator's answer \u2014 if they declined, store nothing");
   }
-  const dir = path33.resolve(vaultDir);
+  const dir = path35.resolve(vaultDir);
   const inboxDir = depositDir(dir);
-  fs33.mkdirSync(inboxDir, { recursive: true });
+  fs35.mkdirSync(inboxDir, { recursive: true });
   const at = filing.at ?? (/* @__PURE__ */ new Date()).toISOString();
   const day = at.slice(0, 10);
   const from = filing.from ? cleanMeta(filing.from) : "";
@@ -52200,7 +52556,7 @@ function fileDeposit(vaultDir, filing) {
     answer
   ].join("\n");
   const target = uniquePath2(inboxDir, `${day}-deposit${from ? `-${slug2(from)}` : ""}`);
-  fs33.writeFileSync(target, body, "utf8");
+  fs35.writeFileSync(target, body, "utf8");
   return target;
 }
 
@@ -52459,8 +52815,8 @@ function decodeEntities(s) {
 }
 
 // src/product/repo.ts
-import fs34 from "node:fs";
-import path34 from "node:path";
+import fs36 from "node:fs";
+import path36 from "node:path";
 var MAX_FILE_CHARS = 2e4;
 var MAX_LIST_ENTRIES = 500;
 var VAULT_SIDECAR = ".ost-agent";
@@ -52469,7 +52825,7 @@ function isSidecarName(component) {
   return component.toLowerCase() === VAULT_SIDECAR;
 }
 function refuseVaultSidecar(candidate, rel) {
-  if (!candidate.split(path34.sep).some(isSidecarName)) return;
+  if (!candidate.split(path36.sep).some(isSidecarName)) return;
   throw new Error(
     `"${rel}" is inside a vault's own ${VAULT_SIDECAR}/ sidecar \u2014 the product reader does not serve it. Evidence is retrieved one record at a time, framed as data, with ost_next_work({ evidence: "<id>" }); the ids are in that tool's unmappedEvidence list. Cursors and state files are not readable through any tool.`
   );
@@ -52482,21 +52838,21 @@ function missingPathMessage(roots, root, rel) {
     hide: (name) => SKIP_DIRS.has(name) || isSidecarName(name)
   });
   const inRepo = (p2) => {
-    const owner = roots.find((r2) => p2 === r2 || p2.startsWith(r2 + path34.sep));
+    const owner = roots.find((r2) => p2 === r2 || p2.startsWith(r2 + path36.sep));
     if (!owner) return p2;
-    const within = path34.relative(owner, p2);
-    return within ? `${path34.basename(owner)}/${within}` : path34.basename(owner);
+    const within = path36.relative(owner, p2);
+    return within ? `${path36.basename(owner)}/${within}` : path36.basename(owner);
   };
   const where = miss.present.length ? `${inRepo(miss.reached)} exists and contains ${miss.present.join(", ")}${miss.truncated ? ", \u2026" : ""}` : `${inRepo(miss.reached)} exists and is empty`;
-  const then = miss.suggestion ? `did you mean ${inRepo(path34.resolve(root, miss.suggestion.path))}?` : "nothing there is close enough to name, so this is not a typo to correct";
-  return `"${rel}" does not exist in ${path34.basename(root)} \u2014 ${where}; ${then}`;
+  const then = miss.suggestion ? `did you mean ${inRepo(path36.resolve(root, miss.suggestion.path))}?` : "nothing there is close enough to name, so this is not a typo to correct";
+  return `"${rel}" does not exist in ${path36.basename(root)} \u2014 ${where}; ${then}`;
 }
 function repoSight(repos) {
   return repos.some((repo) => {
     try {
-      const resolved2 = path34.resolve(repo);
-      if (!fs34.statSync(resolved2).isDirectory()) return false;
-      fs34.readdirSync(resolved2);
+      const resolved2 = path36.resolve(repo);
+      if (!fs36.statSync(resolved2).isDirectory()) return false;
+      fs36.readdirSync(resolved2);
       return true;
     } catch {
       return false;
@@ -52509,12 +52865,12 @@ function readProductRepo(repos, input) {
       "no product repos configured \u2014 add local repo paths under `product.repos` in ost.config.yaml so the agent can read what the product is"
     );
   }
-  const roots = repos.map((r2) => fs34.realpathSync(path34.resolve(r2)));
+  const roots = repos.map((r2) => fs36.realpathSync(path36.resolve(r2)));
   let root;
   if (input.repo) {
-    const found = roots.find((r2) => path34.basename(r2) === input.repo || r2 === path34.resolve(input.repo));
+    const found = roots.find((r2) => path36.basename(r2) === input.repo || r2 === path36.resolve(input.repo));
     if (!found) {
-      throw new Error(`unknown repo "${input.repo}" \u2014 configured repos: ${roots.map((r2) => path34.basename(r2)).join(", ")}`);
+      throw new Error(`unknown repo "${input.repo}" \u2014 configured repos: ${roots.map((r2) => path36.basename(r2)).join(", ")}`);
     }
     root = found;
   } else if (roots.length === 1) {
@@ -52523,31 +52879,31 @@ function readProductRepo(repos, input) {
     return {
       framing: DATA_FRAME,
       kind: "repos",
-      entries: roots.map((r2) => ({ name: path34.basename(r2), type: "dir" }))
+      entries: roots.map((r2) => ({ name: path36.basename(r2), type: "dir" }))
     };
   } else {
-    throw new Error(`several repos are configured \u2014 pass \`repo\`: ${roots.map((r2) => path34.basename(r2)).join(", ")}`);
+    throw new Error(`several repos are configured \u2014 pass \`repo\`: ${roots.map((r2) => path36.basename(r2)).join(", ")}`);
   }
   const rel = input.path ?? ".";
-  const joined = path34.resolve(root, rel);
-  if (joined !== root && !joined.startsWith(root + path34.sep)) {
-    throw new Error(`"${rel}" resolves outside the repo \u2014 reads are confined to ${path34.basename(root)}`);
+  const joined = path36.resolve(root, rel);
+  if (joined !== root && !joined.startsWith(root + path36.sep)) {
+    throw new Error(`"${rel}" resolves outside the repo \u2014 reads are confined to ${path36.basename(root)}`);
   }
   refuseVaultSidecar(joined, rel);
   let real;
   try {
-    real = fs34.realpathSync(joined);
+    real = fs36.realpathSync(joined);
   } catch {
     throw new Error(missingPathMessage(roots, root, rel));
   }
-  if (real !== root && !real.startsWith(root + path34.sep)) {
-    throw new Error(`"${rel}" is a symlink escaping the repo \u2014 reads are confined to ${path34.basename(root)}`);
+  if (real !== root && !real.startsWith(root + path36.sep)) {
+    throw new Error(`"${rel}" is a symlink escaping the repo \u2014 reads are confined to ${path36.basename(root)}`);
   }
   refuseVaultSidecar(real, rel);
-  const repoName = path34.basename(root);
-  const stat = fs34.statSync(real);
+  const repoName = path36.basename(root);
+  const stat = fs36.statSync(real);
   if (stat.isDirectory()) {
-    const entries = fs34.readdirSync(real, { withFileTypes: true }).filter((e) => !SKIP_DIRS.has(e.name) && !isSidecarName(e.name)).sort((a, b2) => a.name.localeCompare(b2.name)).slice(0, MAX_LIST_ENTRIES).map((e) => ({ name: e.name, type: e.isDirectory() ? "dir" : "file" }));
+    const entries = fs36.readdirSync(real, { withFileTypes: true }).filter((e) => !SKIP_DIRS.has(e.name) && !isSidecarName(e.name)).sort((a, b2) => a.name.localeCompare(b2.name)).slice(0, MAX_LIST_ENTRIES).map((e) => ({ name: e.name, type: e.isDirectory() ? "dir" : "file" }));
     return { framing: DATA_FRAME, kind: "listing", repo: repoName, path: rel, entries };
   }
   if (input.probe) {
@@ -52560,7 +52916,7 @@ function readProductRepo(repos, input) {
       wouldTruncate: stat.size > MAX_FILE_CHARS
     };
   }
-  const buf = fs34.readFileSync(real);
+  const buf = fs36.readFileSync(real);
   if (buf.subarray(0, 8192).includes(0)) {
     throw new Error(`"${rel}" looks binary \u2014 only text files can be read`);
   }
@@ -52617,7 +52973,7 @@ function checkCorroboration(tree, input) {
 var AGENT_SETTABLE_STATUSES = ["unvalidated", "in-discovery", "shipped", "deferred"];
 var VALIDATED_REFUSAL = `"validated" is not a status the agent can set \u2014 a node that clears its own evidence gate by declaring itself cleared is the forgery this surface exists to prevent. Promotion is a human's call, made on the CLI: ost-agent promote "<title>" --by "<who>" --why "<the evidence>". Use "in-discovery" while a test is running, or "deferred" to record abandonment.`;
 function unresolvedSpecRefusal(repos, target) {
-  const checked = repos.map((r2) => path35.basename(r2)).join(", ");
+  const checked = repos.map((r2) => path37.basename(r2)).join(", ");
   return `\`${target}\` does not exist in the configured product repo${repos.length === 1 ? "" : "s"} (${checked}), so its red would say a file is missing rather than that any behaviour is \u2014 every question written on that filename is equally red, and an empty spec would turn it green. Two ways out, and either is a real fix: name a spec that exists and whose assertions go red for this behaviour, or pre-commit a fixed bar in the test's \`threshold\` \u2014 a bound threshold still hands the builder a definition of done, so it may name a spec that is yet to be written.`;
 }
 var MAX_TITLE_DISPLAY_LENGTH = 80;
@@ -52841,7 +53197,7 @@ function buildOstTools(ctx, allowedNames) {
     tool({
       name: "ost_create_node",
       reversibility: "reversible",
-      description: "Create a NEW node AND attach it under an existing parent in one call. Everything that can be refused \u2014 the parent, the hierarchy, the evidence class, the title, the body \u2014 is checked BEFORE anything is written, so a refused call leaves nothing on disk; if the attach still fails after the file exists (a filesystem error, the one failure that cannot be checked in advance), the error names the node it created and tells you to link it, and ost_check reports it as unattached until you do. You CANNOT create an Outcome (there is exactly one, human-set at init). Hierarchy is enforced: an Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an Assumption under a Solution; an AssumptionTest under an Assumption; an Unknown (darkness, representing uncertainty) attaches under any layer. An Assumption is the BELIEF a solution depends on, stated so it could be wrong ('operators will hand a secret to a broker'); the AssumptionTest beneath it is how you would find out. One assumption may carry several tests, and a solution resting on four beliefs is not covered by one test against one of them \u2014 which is the distinction this layer exists to keep. The type tag (#Opportunity / #Solution / #Assumption / #AssumptionTest / #Unknown) is applied automatically, and so is the #unvalidated marker: everything you create enters the tree unvalidated, and only a human can take that marker off (`ost-agent promote`). For an Unknown, write its body with three `## ` sections \u2014 `## Format` (the shape a valid answer would take), `## Methodology` (how it would be collected), and `## Rationale` (which node this darkens and what metric it serves) \u2014 because Format is the stopping condition: an unknown that cannot say what an answer looks like cannot know when it is done, and one lacking Methodology is worth commissioning observability for rather than chasing further.",
+      description: "Create a NEW node AND attach it under an existing parent in one call. Everything that can be refused \u2014 the parent, the hierarchy, the evidence class, the title, the body \u2014 is checked BEFORE anything is written, so a refused call leaves nothing on disk; if the attach still fails after the file exists (a filesystem error, the one failure that cannot be checked in advance), the error names the node it created and tells you to link it, and ost_check reports it as unattached until you do. You CANNOT create an Outcome (there is exactly one, human-set at init). Hierarchy is enforced: an Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an Assumption under a Solution; an AssumptionTest under an Assumption; an Unknown (darkness, representing uncertainty) attaches under any layer. An Assumption is the BELIEF a solution depends on, stated so it could be wrong ('operators will hand a secret to a broker'); the AssumptionTest beneath it is how you would find out. One assumption may carry several tests, and a solution resting on four beliefs is not covered by one test against one of them \u2014 which is the distinction this layer exists to keep. A Solution additionally REQUIRES its kill criteria at birth \u2014 `killIf` (the observation that would end it) and `killBy` (the date that observation gets checked) \u2014 because a candidate is valuable for being cheap to abandon, and nothing that cannot be abandoned is cheap. The type tag (#Opportunity / #Solution / #Assumption / #AssumptionTest / #Unknown) is applied automatically, and so is the #unvalidated marker: everything you create enters the tree unvalidated, and only a human can take that marker off (`ost-agent promote`). For an Unknown, write its body with three `## ` sections \u2014 `## Format` (the shape a valid answer would take), `## Methodology` (how it would be collected), and `## Rationale` (which node this darkens and what metric it serves) \u2014 because Format is the stopping condition: an unknown that cannot say what an answer looks like cannot know when it is done, and one lacking Methodology is worth commissioning observability for rather than chasing further.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -52870,11 +53226,20 @@ function buildOstTools(ctx, allowedNames) {
           humansRequired: {
             type: "string",
             description: "AssumptionTest only: use INSTEAD of `instrument`, and only when a person outside the building is irreducibly the measurement \u2014 an interview, an offer, willingness to pay, usability with strangers. Say who and why in one sentence; it is recorded in the node's History. The test is created in the humans-required lane, so it is counted and listed rather than sitting in the tree looking runnable. Do not use this to avoid writing a command: if the repository could answer the question, it is not a human-required test."
+          },
+          killIf: {
+            type: "string",
+            description: "Solution only, and REQUIRED for one: the observation that would END this candidate, written now, while nobody is attached to it \u2014 'no operator has run it twice in a fortnight', 'the replay costs more turns than the one-stage arm'. One line, stating something a person could go and look at. It is refused if it is empty, a placeholder, one word, a pasted paragraph, or a sentence that opens by scheduling the decision ('decide whether it is working'), because each of those fills the field without committing to anything. What it CANNOT check is whether the observation is real \u2014 that is the reader's job at the date, and it is why this field is paired with `killBy` rather than trusted alone."
+          },
+          killBy: {
+            type: "string",
+            description: `Solution only, and REQUIRED for one: the date (YYYY-MM-DD) by which \`killIf\` is to be checked. It must be after today and no more than ${MAX_KILL_HORIZON_DAYS} days out \u2014 a date already gone commits to nothing, and one five years out is a filled field no sweep will ever reach. This is the half a machine can evaluate: \`ost-agent kill-list\` lists every live Solution whose date has passed, with its condition, for a person to read. Nothing kills a candidate automatically; the list is the bookkeeping.`
           }
         },
         required: ["title", "layer", "parent", "body", "evidence"]
       },
       run: async (input) => {
+        const bornOn = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
         if (!input.evidence || !isRung(input.evidence)) {
           throw new Error(
             `"${input.title}" needs an evidence class \u2014 one of: ${BELIEVABILITY_LADDER.map((r2) => r2.id).join(", ")}. Use the weakest rung that honestly covers its sources ('assertion' when it rests on founder theory or your own inference).`
@@ -52927,6 +53292,27 @@ Either fix a bar in the field ("at least 5 of 20 book a kickoff", ">= 2 incident
             }
           }
         }
+        const killFieldOwner = "Solution";
+        for (const [name, value] of [["killIf", input.killIf], ["killBy", input.killBy]]) {
+          if (value !== void 0 && input.layer !== killFieldOwner) {
+            throw new Error(`${name} is only meaningful for a ${killFieldOwner}, not a ${input.layer}`);
+          }
+        }
+        if (input.layer === killFieldOwner) {
+          const condition = parseKillCondition(input.killIf ?? "");
+          if (!condition.stated) {
+            throw new Error(
+              `"${input.title}" needs \`killIf\` \u2014 the observation that would end this candidate, written now, while nobody is attached to it (${condition.reason}). A candidate nothing can kill is a permanent obligation rather than a cheap, disposable idea, and this tree already holds hundreds of them.
+Write one line naming something a person could go and look at: "no operator has run it twice in a fortnight", "the replay costs more turns than the arm it replaces".`
+            );
+          }
+          const date3 = parseKillDate(input.killBy ?? "", bornOn);
+          if (!date3.dated) {
+            throw new Error(
+              `"${input.title}" needs \`killBy\` \u2014 the date its condition gets checked (${date3.reason}). A criterion with no date never comes up, which is the failure this pair exists to close: \`ost-agent kill-list\` can only list a candidate whose date it can read.`
+            );
+          }
+        }
         if (input.layer === "AssumptionTest" && input.instrument === void 0) {
           const stated = (input.humansRequired ?? "").trim();
           if (!stated) {
@@ -52969,7 +53355,11 @@ A person outside the building is the measurement here: ${input.humansRequired.tr
           // when it matters. `humans-required` is the one lane compute may never
           // run, so erring into it costs an operator time and never credibility.
           lane: input.humansRequired ? CAUTIOUS_LANE : void 0,
-          created: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10)
+          // Trimmed, not reformatted: the pair was validated above and what a
+          // reader sees at the date has to be what the author committed to.
+          killIf: input.layer === killFieldOwner ? input.killIf?.trim() : void 0,
+          killBy: input.layer === killFieldOwner ? input.killBy?.trim() : void 0,
+          created: bornOn
         };
         const born = unearnedRung(node, /* @__PURE__ */ new Map());
         if (born) throw new Error(rungRefusal(born));
@@ -53563,7 +53953,7 @@ ${instruction}`;
       },
       run: async (input) => {
         const written = fileDeposit(dir, { answer: input.answer, from: input.from, closing: input.closing });
-        return `deposit stored verbatim at ${path35.basename(written)} \u2014 it will enter the tree at the assertion floor on the next ost_ingest_inbox`;
+        return `deposit stored verbatim at ${path37.basename(written)} \u2014 it will enter the tree at the assertion floor on the next ost_ingest_inbox`;
       }
     }),
     tool({
@@ -53707,82 +54097,18 @@ function describe2(value) {
 }
 
 // src/loop/lock.ts
-import fs36 from "node:fs";
+import fs37 from "node:fs";
 import os4 from "node:os";
-import path37 from "node:path";
-
-// src/loop/state.ts
-import { spawnSync as spawnSync5 } from "node:child_process";
-import fs35 from "node:fs";
-import path36 from "node:path";
-var STATE_DIRNAME = "ost-agent";
-function gitDir(vaultDir) {
-  const abs = path36.resolve(vaultDir);
-  const dotGit = path36.join(abs, ".git");
-  let stat;
-  try {
-    stat = fs35.statSync(dotGit);
-  } catch {
-    return null;
-  }
-  if (stat.isDirectory()) return dotGit;
-  if (!stat.isFile()) return null;
-  const pointer = fs35.readFileSync(dotGit, "utf8").trim();
-  const match = pointer.match(/^gitdir:\s*(.+)$/);
-  if (!match) return null;
-  return path36.resolve(abs, match[1].trim());
-}
-function loopStateDir(vaultDir) {
-  const git5 = gitDir(vaultDir);
-  return git5 === null ? null : path36.join(git5, STATE_DIRNAME);
-}
-function requireLoopStateDir(vaultDir) {
-  const dir = loopStateDir(vaultDir);
-  if (dir === null) {
-    throw new Error(
-      `${path36.resolve(vaultDir)} is not a git checkout \u2014 the loop records every firing under .git/ost-agent/ and refuses to fire where it cannot record. Run \`ost-agent init\` or \`git init\` there first.`
-    );
-  }
-  fs35.mkdirSync(dir, { recursive: true });
-  return dir;
-}
-function gitHead(vaultDir) {
-  const r2 = spawnSync5("git", ["rev-parse", "HEAD"], {
-    cwd: path36.resolve(vaultDir),
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "ignore"]
-  });
-  const sha = r2.status === 0 ? (r2.stdout ?? "").trim() : "";
-  return sha.length > 0 ? sha : void 0;
-}
-function workingTreeStatus(vaultDir) {
-  const r2 = spawnSync5("git", ["status", "--porcelain"], {
-    cwd: path36.resolve(vaultDir),
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"]
-  });
-  if (r2.error) {
-    return { kind: "unknown", reason: `git could not be run (${r2.error.code ?? r2.error.message})` };
-  }
-  if (r2.status !== 0) {
-    const firstLine2 = (r2.stderr ?? "").trim().split("\n")[0] ?? "";
-    const how = r2.status === null ? "was killed by a signal" : `exited ${r2.status}`;
-    return { kind: "unknown", reason: `\`git status\` ${how}${firstLine2 ? ` \u2014 ${firstLine2}` : ""}` };
-  }
-  const entries = (r2.stdout ?? "").split("\n").map((line) => line.replace(/\s+$/, "")).filter((line) => line.length > 0);
-  return entries.length === 0 ? { kind: "clean" } : { kind: "dirty", entries };
-}
-
-// src/loop/lock.ts
+import path38 from "node:path";
 function firingLockPath(vaultDir) {
   const state = loopStateDir(vaultDir);
-  return state === null ? null : path37.join(state, "firing.lock");
+  return state === null ? null : path38.join(state, "firing.lock");
 }
 function readFiringLock(vaultDir) {
   const p2 = firingLockPath(vaultDir);
-  if (p2 === null || !fs36.existsSync(p2)) return null;
+  if (p2 === null || !fs37.existsSync(p2)) return null;
   try {
-    const parsed = JSON.parse(fs36.readFileSync(p2, "utf8"));
+    const parsed = JSON.parse(fs37.readFileSync(p2, "utf8"));
     return typeof parsed?.pid === "number" && typeof parsed?.acquiredAt === "string" ? parsed : null;
   } catch {
     return null;
@@ -53839,21 +54165,21 @@ function staleAfterFor(heartbeatEveryMs) {
 }
 var tmpCounter = 0;
 function linkInPlace(stateDir2, lockFile, record2) {
-  const tmp = path37.join(stateDir2, `.firing.lock.${record2.pid}.${tmpCounter++}`);
-  fs36.writeFileSync(tmp, JSON.stringify(record2) + "\n");
+  const tmp = path38.join(stateDir2, `.firing.lock.${record2.pid}.${tmpCounter++}`);
+  fs37.writeFileSync(tmp, JSON.stringify(record2) + "\n");
   try {
-    fs36.linkSync(tmp, lockFile);
+    fs37.linkSync(tmp, lockFile);
     return true;
   } catch (e) {
     if (e.code !== "EEXIST") throw e;
     return false;
   } finally {
-    fs36.rmSync(tmp, { force: true });
+    fs37.rmSync(tmp, { force: true });
   }
 }
 function acquireFiringLock(vaultDir, opts) {
   const stateDir2 = requireLoopStateDir(vaultDir);
-  const lockFile = path37.join(stateDir2, "firing.lock");
+  const lockFile = path38.join(stateDir2, "firing.lock");
   const now = opts.now ?? Date.now();
   const record2 = {
     pid: opts.pid ?? process.pid,
@@ -53882,8 +54208,8 @@ function acquireFiringLock(vaultDir, opts) {
 function breakLock(lockFile, now, pid) {
   try {
     const sidelined = `${lockFile}.stale-${now}-${pid}`;
-    fs36.renameSync(lockFile, sidelined);
-    fs36.rmSync(sidelined, { force: true });
+    fs37.renameSync(lockFile, sidelined);
+    fs37.rmSync(sidelined, { force: true });
   } catch (e) {
     if (e.code !== "ENOENT") throw e;
   }
@@ -53902,29 +54228,29 @@ function breakFiringLockIfUnchanged(vaultDir, judged, now) {
 function touchFiringLock(vaultDir, now = Date.now()) {
   const dir = loopStateDir(vaultDir);
   if (dir === null) return false;
-  const lockFile = path37.join(dir, "firing.lock");
+  const lockFile = path38.join(dir, "firing.lock");
   const held = readFiringLock(vaultDir);
   if (held === null) return false;
   const next = { ...held, heartbeatAt: new Date(now).toISOString() };
-  const tmp = path37.join(dir, `.firing.lock.${process.pid}.${tmpCounter++}`);
+  const tmp = path38.join(dir, `.firing.lock.${process.pid}.${tmpCounter++}`);
   try {
-    fs36.writeFileSync(tmp, JSON.stringify(next) + "\n");
-    fs36.renameSync(tmp, lockFile);
+    fs37.writeFileSync(tmp, JSON.stringify(next) + "\n");
+    fs37.renameSync(tmp, lockFile);
     return true;
   } catch {
-    fs36.rmSync(tmp, { force: true });
+    fs37.rmSync(tmp, { force: true });
     return false;
   }
 }
 function stampFiringLock(vaultDir, record2, runId) {
   const stateDir2 = requireLoopStateDir(vaultDir);
-  const lockFile = path37.join(stateDir2, "firing.lock");
+  const lockFile = path38.join(stateDir2, "firing.lock");
   const onDisk = readFiringLock(vaultDir);
   const base = onDisk !== null && onDisk.acquiredAt === record2.acquiredAt && onDisk.pid === record2.pid ? onDisk : record2;
   const next = { ...base, runId };
-  const tmp = path37.join(stateDir2, `.firing.lock.${record2.pid}.${tmpCounter++}`);
-  fs36.writeFileSync(tmp, JSON.stringify(next) + "\n");
-  fs36.renameSync(tmp, lockFile);
+  const tmp = path38.join(stateDir2, `.firing.lock.${record2.pid}.${tmpCounter++}`);
+  fs37.writeFileSync(tmp, JSON.stringify(next) + "\n");
+  fs37.renameSync(tmp, lockFile);
   return next;
 }
 function releaseFiringLock(vaultDir, match) {
@@ -53935,7 +54261,7 @@ function releaseFiringLock(vaultDir, match) {
   if (match.pid !== void 0 && held.pid !== match.pid) return false;
   if (match.acquiredAt !== void 0 && held.acquiredAt !== match.acquiredAt) return false;
   if (match.runId !== void 0 && held.runId !== match.runId) return false;
-  fs36.rmSync(p2, { force: true });
+  fs37.rmSync(p2, { force: true });
   return true;
 }
 var REAL_WAIT_CLOCK = {
@@ -54029,8 +54355,8 @@ function enqueueCommit(dir, message) {
 }
 
 // src/mcp/bootstrap.ts
-import fs37 from "node:fs";
-import path38 from "node:path";
+import fs38 from "node:fs";
+import path39 from "node:path";
 
 // src/mcp/setup.ts
 var ASK_HUMAN_RULE = "Ask the human what outcome this tree should steer toward \u2014 a product outcome, in their words. NEVER invent or assume the outcome yourself: the outcome is human-set, always.";
@@ -54060,7 +54386,7 @@ function configProblemGuidance(dir, cause) {
 // src/mcp/bootstrap.ts
 function vaultReadiness(ctx) {
   const vault = ctx.dir;
-  if (!fs37.existsSync(path38.join(vault, ".git")) || !fs37.existsSync(configPath(vault))) {
+  if (!fs38.existsSync(path39.join(vault, ".git")) || !fs38.existsSync(configPath(vault))) {
     const nextStep = initCommand(vault);
     return {
       ready: false,
@@ -54245,7 +54571,7 @@ function newServer() {
   return new Server({ name: "ost-agent", version: VERSION }, { capabilities: { tools: {} } });
 }
 function createLazyOstMcpServer(vaultDir) {
-  const dir = path39.resolve(vaultDir);
+  const dir = path40.resolve(vaultDir);
   const session = mintSessionId();
   let live;
   let listingDefs;
@@ -54400,100 +54726,6 @@ function renderCanary(result) {
     lines.push("  incumbent's result is untouched by the candidate's failure");
   }
   return lines.join("\n");
-}
-
-// src/ost/sweep.ts
-import fs38 from "node:fs";
-import path40 from "node:path";
-function classifySubject(subject) {
-  const { offered, read } = subject;
-  if (read > offered) {
-    throw new Error(
-      `a sweep cannot read ${read} of ${offered} subject(s) \u2014 \`offered\` is the size of the set and \`read\` a part of it`
-    );
-  }
-  if (read === 0) return "totally-blind";
-  return read < offered ? "partly-blind" : "full";
-}
-function classifyRun(run) {
-  if (!run.subject) return "unrecorded";
-  const { offered, read } = run.subject;
-  if (!Number.isFinite(offered) || !Number.isFinite(read) || offered < 0 || read < 0 || read > offered) {
-    return "unrecorded";
-  }
-  return classifySubject(run.subject);
-}
-function blindnessCensus(runs) {
-  let full = 0;
-  let partlyBlind = 0;
-  let totallyBlind = 0;
-  let unclassifiable = 0;
-  let unreadable = 0;
-  for (const run of runs) {
-    if (run.unreadable) unreadable++;
-    switch (classifyRun(run)) {
-      case "full":
-        full++;
-        break;
-      case "partly-blind":
-        partlyBlind++;
-        break;
-      case "totally-blind":
-        totallyBlind++;
-        break;
-      default:
-        unclassifiable++;
-    }
-  }
-  const nonFull = partlyBlind + totallyBlind;
-  return {
-    runs: runs.length,
-    full,
-    partlyBlind,
-    totallyBlind,
-    unclassifiable,
-    unreadable,
-    nonFull,
-    totallyBlindShareOfNonFull: nonFull === 0 ? null : totallyBlind / nonFull
-  };
-}
-function formatBlindnessCensus(census) {
-  const lines = [];
-  lines.push(
-    `Sweep blindness: ${census.runs} recorded run(s) \u2014 ${census.full} read their whole subject, ${census.partlyBlind} partly blind, ${census.totallyBlind} totally blind.`
-  );
-  const share = census.totallyBlindShareOfNonFull === null ? "no run fell short of its subject, so there is no share to report" : `${Math.round(census.totallyBlindShareOfNonFull * 100)}% of the ${census.nonFull} non-full run(s) were totally blind`;
-  lines.push(`  ${share}.`);
-  lines.push(
-    `  ${census.unclassifiable} run(s) could not be classified because the record preserves no subject count` + (census.unreadable > 0 ? ` (${census.unreadable} of them unparseable ledger line(s))` : "") + `.`
-  );
-  if (census.unclassifiable > census.runs - census.unclassifiable) {
-    lines.push(
-      `  More runs are unclassifiable than classifiable: this is a finding about the records, not about blindness.`
-    );
-  }
-  return lines.join("\n");
-}
-var SWEEP_LEDGER = "sweeps.jsonl";
-function sweepLedgerPath(vaultDir) {
-  const dir = loopStateDir(vaultDir);
-  return dir === null ? null : path40.join(dir, SWEEP_LEDGER);
-}
-function recordSweepRun(vaultDir, run) {
-  const dir = requireLoopStateDir(vaultDir);
-  fs38.appendFileSync(path40.join(dir, SWEEP_LEDGER), JSON.stringify(run) + "\n");
-}
-function readSweepRuns(vaultDir) {
-  const file = sweepLedgerPath(vaultDir);
-  if (file === null || !fs38.existsSync(file)) return [];
-  return fs38.readFileSync(file, "utf8").split("\n").filter((line) => line.trim().length > 0).map((line) => {
-    try {
-      const parsed = JSON.parse(line);
-      if (parsed && typeof parsed.sweep === "string") return parsed;
-    } catch {
-    }
-    return { sweep: "(unparseable ledger line)", at: "", unreadable: true };
-  });
 }
 
 // src/ost/stranded.ts
@@ -65231,6 +65463,31 @@ program2.command("stranded").description("evidence no node cites, split into wha
     return;
   }
   console.log(text2);
+});
+program2.command("kill-list").description("every live solution whose pre-committed kill date has passed, with the condition a person now reads").option("--vault <dir>", VAULT_OPTION_HELP).option("--as-of <date>", "take the reading against this day (YYYY-MM-DD) instead of today").action((opts) => {
+  const ctx = buildPassContext(opts.vault);
+  const today = opts.asOf ?? (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  const census = killCriteriaCensus(ctx.vault.readTreeCensus(), today);
+  const blind = census.blindness === "totally-blind";
+  try {
+    recordSweepRun(ctx.dir, {
+      sweep: "kill-list",
+      at: (/* @__PURE__ */ new Date()).toISOString(),
+      subject: census.subject,
+      findings: census.overdue.length,
+      outcome: blind ? "blind" : census.overdue.length > 0 ? "findings" : "clean"
+    });
+  } catch (e) {
+    console.error(`(this run was not recorded: ${e instanceof Error ? e.message : String(e)})`);
+  }
+  const text2 = formatKillCriteriaCensus(census);
+  if (blind) {
+    console.error(text2);
+    process.exitCode = 1;
+    return;
+  }
+  console.log(text2);
+  if (census.overdue.length > 0) process.exitCode = 1;
 });
 program2.command("search").argument("<glob>", "glob matched against each line of every node body \u2014 `*` and `?` and `{a,b}`").description("grep the node bodies, reporting what it could not read rather than counting it as zero").option("--vault <dir>", VAULT_OPTION_HELP).action((glob, opts) => {
   const ctx = buildPassContext(opts.vault);

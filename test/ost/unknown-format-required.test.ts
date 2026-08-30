@@ -22,6 +22,7 @@ import { buildPassContext } from "../../src/runner/context.js";
 import { initVault } from "../../src/runner/init.js";
 import { buildOstTools } from "../../src/security/tools.js";
 import { computeNextWork } from "../../src/mcp/next-work.js";
+import { KILL_CRITERIA } from "./kill-criteria-fixture.js";
 
 const OUTCOME = "Reach 10,000 daily active users";
 const OUTCOME_TITLE = "Retention";
@@ -97,6 +98,7 @@ describe("ost_create_node refuses a Format-less Unknown", () => {
         parent: "Some opportunity",
         body: "no Format section here",
         evidence: "assertion",
+        ...KILL_CRITERIA,
       }),
     ).resolves.toContain("Solution");
   });

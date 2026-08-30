@@ -18,6 +18,7 @@ import { BELIEVABILITY_LADDER, isRung, rungRank, type RungId } from "../knowledg
 import { isInstrument, parseInstrument } from "../knowledge/instruments.js";
 import { specResolves } from "../ost/instrument.js";
 import { parseThresholdField, thresholdKindOf } from "../eval/coverage.js";
+import { MAX_KILL_HORIZON_DAYS, parseKillCondition, parseKillDate } from "../ost/kill-criteria.js";
 import { classifyUnknown, hasNonEmptySection } from "../knowledge/unknowns.js";
 import { titlesMatch } from "../ost/sanitize.js";
 import { Vault } from "../ost/vault.js";
@@ -820,7 +821,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
       name: "ost_create_node",
       reversibility: "reversible",
       description:
-        "Create a NEW node AND attach it under an existing parent in one call. Everything that can be refused — the parent, the hierarchy, the evidence class, the title, the body — is checked BEFORE anything is written, so a refused call leaves nothing on disk; if the attach still fails after the file exists (a filesystem error, the one failure that cannot be checked in advance), the error names the node it created and tells you to link it, and ost_check reports it as unattached until you do. You CANNOT create an Outcome (there is exactly one, human-set at init). Hierarchy is enforced: an Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an Assumption under a Solution; an AssumptionTest under an Assumption; an Unknown (darkness, representing uncertainty) attaches under any layer. An Assumption is the BELIEF a solution depends on, stated so it could be wrong ('operators will hand a secret to a broker'); the AssumptionTest beneath it is how you would find out. One assumption may carry several tests, and a solution resting on four beliefs is not covered by one test against one of them — which is the distinction this layer exists to keep. The type tag (#Opportunity / #Solution / #Assumption / #AssumptionTest / #Unknown) is applied automatically, and so is the #unvalidated marker: everything you create enters the tree unvalidated, and only a human can take that marker off (`ost-agent promote`). For an Unknown, write its body with three `## ` sections — `## Format` (the shape a valid answer would take), `## Methodology` (how it would be collected), and `## Rationale` (which node this darkens and what metric it serves) — because Format is the stopping condition: an unknown that cannot say what an answer looks like cannot know when it is done, and one lacking Methodology is worth commissioning observability for rather than chasing further.",
+        "Create a NEW node AND attach it under an existing parent in one call. Everything that can be refused — the parent, the hierarchy, the evidence class, the title, the body — is checked BEFORE anything is written, so a refused call leaves nothing on disk; if the attach still fails after the file exists (a filesystem error, the one failure that cannot be checked in advance), the error names the node it created and tells you to link it, and ost_check reports it as unattached until you do. You CANNOT create an Outcome (there is exactly one, human-set at init). Hierarchy is enforced: an Opportunity attaches under the Outcome or another Opportunity; a Solution under an Opportunity; an Assumption under a Solution; an AssumptionTest under an Assumption; an Unknown (darkness, representing uncertainty) attaches under any layer. An Assumption is the BELIEF a solution depends on, stated so it could be wrong ('operators will hand a secret to a broker'); the AssumptionTest beneath it is how you would find out. One assumption may carry several tests, and a solution resting on four beliefs is not covered by one test against one of them — which is the distinction this layer exists to keep. A Solution additionally REQUIRES its kill criteria at birth — `killIf` (the observation that would end it) and `killBy` (the date that observation gets checked) — because a candidate is valuable for being cheap to abandon, and nothing that cannot be abandoned is cheap. The type tag (#Opportunity / #Solution / #Assumption / #AssumptionTest / #Unknown) is applied automatically, and so is the #unvalidated marker: everything you create enters the tree unvalidated, and only a human can take that marker off (`ost-agent promote`). For an Unknown, write its body with three `## ` sections — `## Format` (the shape a valid answer would take), `## Methodology` (how it would be collected), and `## Rationale` (which node this darkens and what metric it serves) — because Format is the stopping condition: an unknown that cannot say what an answer looks like cannot know when it is done, and one lacking Methodology is worth commissioning observability for rather than chasing further.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -853,6 +854,16 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
             description:
               "AssumptionTest only: use INSTEAD of `instrument`, and only when a person outside the building is irreducibly the measurement — an interview, an offer, willingness to pay, usability with strangers. Say who and why in one sentence; it is recorded in the node's History. The test is created in the humans-required lane, so it is counted and listed rather than sitting in the tree looking runnable. Do not use this to avoid writing a command: if the repository could answer the question, it is not a human-required test.",
           },
+          killIf: {
+            type: "string",
+            description:
+              "Solution only, and REQUIRED for one: the observation that would END this candidate, written now, while nobody is attached to it — 'no operator has run it twice in a fortnight', 'the replay costs more turns than the one-stage arm'. One line, stating something a person could go and look at. It is refused if it is empty, a placeholder, one word, a pasted paragraph, or a sentence that opens by scheduling the decision ('decide whether it is working'), because each of those fills the field without committing to anything. What it CANNOT check is whether the observation is real — that is the reader's job at the date, and it is why this field is paired with `killBy` rather than trusted alone.",
+          },
+          killBy: {
+            type: "string",
+            description:
+              `Solution only, and REQUIRED for one: the date (YYYY-MM-DD) by which \`killIf\` is to be checked. It must be after today and no more than ${MAX_KILL_HORIZON_DAYS} days out — a date already gone commits to nothing, and one five years out is a filled field no sweep will ever reach. This is the half a machine can evaluate: \`ost-agent kill-list\` lists every live Solution whose date has passed, with its condition, for a person to read. Nothing kills a candidate automatically; the list is the bookkeeping.`,
+          },
         },
         required: ["title", "layer", "parent", "body", "evidence"],
       },
@@ -865,11 +876,18 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         threshold?: string;
         instrument?: string;
         humansRequired?: string;
+        killIf?: string;
+        killBy?: string;
         source?: string;
         confidence?: string;
         evidence?: string;
         tags?: string[];
       }) => {
+        // The day this node is being born, taken once so the kill date is
+        // validated against exactly the date `created` will carry — two reads of
+        // the clock either side of midnight is a node refused for a date it then
+        // gets stamped as legal.
+        const bornOn = new Date().toISOString().slice(0, 10);
         // A node with no declared rung is worse than an obviously weak one: the
         // reader cannot tell founder theory from evidence. Refuse, don't guess.
         if (!input.evidence || !isRung(input.evidence)) {
@@ -960,6 +978,47 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
             }
           }
         }
+        // A new Solution must say, now, what would end it.
+        //
+        // The cost of the old default is measured, the same way the threshold
+        // field's was. `ost-agent kill-list` over a copy of the meta vault on
+        // 2026-08-30 read 435 solutions: 434 live, exactly ONE ever retired, and
+        // not one carrying a criterion of any kind. Killing one was always an
+        // argument had after effort had accrued rather than bookkeeping against a
+        // commitment made when the candidate was cheap. Nobody chose that; it is
+        // what happens when the cheap path is the one that promises nothing.
+        //
+        // Both halves are required and neither is sufficient. A condition with no
+        // date never comes up; a date with no condition comes up and settles
+        // nothing. The fields are refused on any other layer for the same reason
+        // `threshold` is — an Opportunity is a need and does not get killed, it
+        // gets answered or it does not.
+        const killFieldOwner = "Solution";
+        for (const [name, value] of [["killIf", input.killIf], ["killBy", input.killBy]] as const) {
+          if (value !== undefined && input.layer !== killFieldOwner) {
+            throw new Error(`${name} is only meaningful for a ${killFieldOwner}, not a ${input.layer}`);
+          }
+        }
+        if (input.layer === killFieldOwner) {
+          const condition = parseKillCondition(input.killIf ?? "");
+          if (!condition.stated) {
+            throw new Error(
+              `"${input.title}" needs \`killIf\` — the observation that would end this candidate, written now, ` +
+                `while nobody is attached to it (${condition.reason}). A candidate nothing can kill is a permanent ` +
+                `obligation rather than a cheap, disposable idea, and this tree already holds hundreds of them.\n` +
+                `Write one line naming something a person could go and look at: "no operator has run it twice in a ` +
+                `fortnight", "the replay costs more turns than the arm it replaces".`,
+            );
+          }
+          const date = parseKillDate(input.killBy ?? "", bornOn);
+          if (!date.dated) {
+            throw new Error(
+              `"${input.title}" needs \`killBy\` — the date its condition gets checked (${date.reason}). ` +
+                `A criterion with no date never comes up, which is the failure this pair exists to close: ` +
+                `\`ost-agent kill-list\` can only list a candidate whose date it can read.`,
+            );
+          }
+        }
         // A new assumption test must be runnable, or must say out loud that it
         // cannot be.
         //
@@ -1032,7 +1091,11 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
           // when it matters. `humans-required` is the one lane compute may never
           // run, so erring into it costs an operator time and never credibility.
           lane: input.humansRequired ? CAUTIOUS_LANE : undefined,
-          created: new Date().toISOString().slice(0, 10),
+          // Trimmed, not reformatted: the pair was validated above and what a
+          // reader sees at the date has to be what the author committed to.
+          killIf: input.layer === killFieldOwner ? input.killIf?.trim() : undefined,
+          killBy: input.layer === killFieldOwner ? input.killBy?.trim() : undefined,
+          created: bornOn,
         };
         // B3, at the other write boundary. A refusal on `ost_set_evidence` while
         // this one stayed open would be a fake fix: `ost_create_node` takes a

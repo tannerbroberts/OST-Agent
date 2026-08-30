@@ -155,6 +155,26 @@ export interface OstNode {
    */
   sight?: RepoSight;
   /**
+   * For a Solution: the observation that would end this candidate, written at
+   * creation — before anyone is attached to it.
+   *
+   * Carried as a field rather than a sentence in the prose for the same reason
+   * `threshold` is: a commitment nothing can read is a commitment nobody has to
+   * honour. Paired with {@link killBy}, and the pair is what
+   * {@link ./kill-criteria.ts} sweeps.
+   *
+   * Absent on every Solution written before the field existed. That is
+   * `unlabelled` — reported by the sweep as a candidate it cannot judge, never
+   * folded into "no kill is due".
+   */
+  killIf?: string;
+  /**
+   * For a Solution: the ISO date (YYYY-MM-DD) by which {@link killIf} is to be
+   * checked. The half a machine can evaluate; the condition itself is a
+   * person's reading.
+   */
+  killBy?: string;
+  /**
    * Whose prose this node holds — `machine`, `human`, or `mixed` once both have
    * written in it. Folded by {@link ../ost/authorship.ts#foldAuthorship} at every
    * write in {@link ./vault.ts}, never replaced, and never accepted from the
@@ -214,6 +234,8 @@ export function serialize(node: OstNode): string {
   if (node.threshold) data.threshold = node.threshold;
   if (node.instrument) data.instrument = node.instrument;
   if (node.sight) data.sight = node.sight;
+  if (node.killIf) data.killIf = node.killIf;
+  if (node.killBy) data.killBy = node.killBy;
   if (node.authorship) data.authorship = node.authorship;
 
   // The evidence tag is derived from `evidence`, never carried in `tags`, so a
@@ -314,6 +336,13 @@ export function deserialize(title: string, markdown: string): OstNode {
   // Same posture as `lane`: a sight value nobody defined must never be the
   // reason an instrument counts as grounded.
   if (isRepoSight(data.sight)) node.sight = data.sight;
+  if (typeof data.killIf === "string") node.killIf = data.killIf;
+  // An unquoted ISO date is a Date to YAML, exactly as `created` is — coerced
+  // back so the field a person typed and the field a writer stamped read the
+  // same. Anything else is kept verbatim: a malformed kill date is named by the
+  // sweep rather than silently dropped, which would read as "no date was set".
+  if (data.killBy instanceof Date) node.killBy = isoDate(data.killBy);
+  else if (typeof data.killBy === "string") node.killBy = data.killBy;
   // Same posture again, and here it is the load-bearing one: an unrecognised
   // authorship value must never be the reason a node reads as a person's work.
   if (isAuthorship(data.authorship)) node.authorship = data.authorship;

@@ -68,7 +68,19 @@ export type DropRecord =
   /** Nothing records the clip. Registered so the debt is named, and pinned so it only shrinks. */
   | "silent"
   /** Nothing is dropped at all: the bounded form is derived over the full set. */
-  | "derived";
+  | "derived"
+  /**
+   * Nothing is shortened: the input crossing the bound is REFUSED, and the
+   * refusal names the bound it crossed.
+   *
+   * A seventh value rather than folding into `derived`, because the reader acts
+   * differently again: there is no bounded form to check against a full one, and
+   * the thing to audit is whether the refusal is reachable and says which number
+   * it applied. It is also the one value that can never be a hidden loss, which
+   * is worth being able to say out loud in a registry whose other end is
+   * `silent`.
+   */
+  | "refusal";
 
 /** How far the harness currently holds this surface to its contract. */
 export type ProofState =
@@ -483,6 +495,19 @@ export const COMPRESSION_SURFACES = [
     decision: "what a budgeted lookup brings back into the context",
     reads: ["the read marks itself truncated and the rendering names the served length"],
     drops: "boolean-flag",
+    proof: "declaration",
+  },
+  {
+    name: "kill-criteria horizon",
+    module: "src/ost/kill-criteria.ts",
+    caps: ["MAX_KILL_HORIZON_DAYS"],
+    kind: "input-bound",
+    decision: "how far out a Solution's pre-committed kill date may sit — past it, `ost_create_node` refuses the node",
+    reads: [
+      "the refusal names the date, how many days out it is, and the horizon it crossed",
+      "nothing is stored short: a call that crosses the bound writes nothing at all",
+    ],
+    drops: "refusal",
     proof: "declaration",
   },
   {

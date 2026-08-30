@@ -35,6 +35,7 @@ import { buildPassContext } from "../../src/runner/context.js";
 import { buildOstTools } from "../../src/security/tools.js";
 import { createOstMcpServer } from "../../src/mcp/server.js";
 import { writeEvidence } from "../../src/processes/tree.js";
+import { KILL_CRITERIA } from "../ost/kill-criteria-fixture.js";
 
 const OUTCOME_TITLE = "Retention";
 const OUTCOME_TEXT = "Reach 10,000 daily active users";
@@ -85,6 +86,7 @@ const PASS_SCRIPT: ReadonlyArray<{ tool: string; args: Record<string, unknown> }
       status: "unvalidated",
       body: "A seeded daily puzzle shared by all players.",
       evidence: "assertion",
+      ...KILL_CRITERIA,
     },
   },
   {
@@ -96,6 +98,7 @@ const PASS_SCRIPT: ReadonlyArray<{ tool: string; args: Record<string, unknown> }
       status: "unvalidated",
       body: "A push notification when a streak is about to lapse.",
       evidence: "assertion",
+      ...KILL_CRITERIA,
     },
   },
   {
