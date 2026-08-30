@@ -402,6 +402,12 @@ const ROWS: Record<string, Row> = {
     // nothing — the failure mode the landing count exists to catch. `threshold`
     // joined that list when the field began requiring an actual bar: "text for
     // threshold" is now refused, so aiming it is what keeps this row landing.
+    // `killIf`/`killBy` are aimed at NOTHING, which is a third variety of the same
+    // move: they are Solution-only fields, and this row's base layer is an
+    // AssumptionTest, so the generic filler would get every attempt refused for
+    // carrying a field the aimed layer forbids. `undefined` reads as absent to
+    // both the schema check and the boundary — and the layer sweep still tries
+    // `Solution`, where the pair's own refusal is the thing being exercised.
     aim: (n) => ({
       title: `A forged test ${n}`,
       parent: BLOCKED_BELIEF,
@@ -409,6 +415,8 @@ const ROWS: Record<string, Row> = {
       evidence: "assertion",
       instrument: "npx vitest run test/forged.test.ts",
       threshold: "at least 5 of 20 forge a pass",
+      killIf: undefined,
+      killBy: undefined,
     }),
   },
   ost_append_to_node: {

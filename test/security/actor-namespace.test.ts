@@ -35,6 +35,7 @@ import { rungRank } from "../../src/knowledge/believability.js";
 import { writeEvidence } from "../../src/processes/tree.js";
 import { Vault } from "../../src/ost/vault.js";
 import { RESULTS_HEADING } from "../../src/ost/headings.js";
+import { KILL_CRITERIA } from "../ost/kill-criteria-fixture.js";
 
 let dir: string;
 let vault: Vault;
@@ -93,8 +94,15 @@ describe("B6(a) — the trap, pinned", () => {
 });
 
 describe("B6(b) — a commissioned pipeline holds 'observed'; a publisher cannot", () => {
-  /** Attach a node under the opportunity, through the tool the agent actually holds. */
-  const create = (input: Record<string, unknown>) => tool("ost_create_node").run({ parent: "Users churn", ...input });
+  /**
+   * Attach a node under the opportunity, through the tool the agent actually holds.
+   *
+   * The kill criteria are supplied here rather than per call for the same reason
+   * `parent` is: every node this block creates is a Solution, the boundary now
+   * requires both halves on one, and this block is asking about rungs.
+   */
+  const create = (input: Record<string, unknown>) =>
+    tool("ost_create_node").run({ parent: "Users churn", ...KILL_CRITERIA, ...input });
 
   test("a first-party instrument's provenance carries a node at 'observed'", async () => {
     writeEvidence(

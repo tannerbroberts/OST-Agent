@@ -37,6 +37,7 @@ import type { OstNode } from "../../src/ost/node.js";
 import { Vault } from "../../src/ost/vault.js";
 import { buildOstTools, type ToolContext } from "../../src/security/tools.js";
 import { validateToolInput, type ToolSchema } from "../../src/security/validateToolInput.js";
+import { KILL_CRITERIA } from "../ost/kill-criteria-fixture.js";
 
 let dir: string;
 let vault: Vault;
@@ -105,6 +106,9 @@ describe("B3 — the ceiling is enforced where the label is written", () => {
         body: "people will pay",
         source: "INBOX:note.md",
         evidence: "money",
+        // Carried so the call reaches the ceiling at all: a Solution with no kill
+        // criteria is refused earlier, and this row is about the rung.
+        ...KILL_CRITERIA,
       }),
     ).rejects.toThrow(/cannot declare 'money'/);
     expect(vault.has("Paid idea")).toBe(false);

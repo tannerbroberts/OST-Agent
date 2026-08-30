@@ -71,6 +71,7 @@ import { CONFIG_FILENAME, configPath, readConfig } from "../../src/config/load.j
 import { CHANNEL_ZERO, resolveChannels } from "../../src/adapters/channels.js";
 import { Vault } from "../../src/ost/vault.js";
 import { RESULTS_HEADING } from "../../src/ost/headings.js";
+import { KILL_CRITERIA } from "../ost/kill-criteria-fixture.js";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const OUTCOME = "Reach 10,000 daily active users";
@@ -276,7 +277,7 @@ describe("the unattended surface writes no policy into the vault", () => {
       // carries has to come from `example.com` for the last call in this list to be a
       // real exercise of the tool rather than a refusal counted as one.
       name: "ost_create_node",
-      arguments: { title: "Daily streak", layer: "Solution", parent: "I want a reason to come back", body: "b", source: "WEB:example.com", evidence: "assertion" },
+      arguments: { title: "Daily streak", layer: "Solution", parent: "I want a reason to come back", body: "b", source: "WEB:example.com", evidence: "assertion", ...KILL_CRITERIA },
     },
     {
       // The belief the solution rests on. A test attaches under one of these
@@ -320,7 +321,7 @@ describe("the unattended surface writes no policy into the vault", () => {
     // that carries no recorded result.
     {
       name: "ost_create_node",
-      arguments: { title: "A streak counter", layer: "Solution", parent: "I want a reason to come back", body: "b", source: "a note from the founder", evidence: "assertion" },
+      arguments: { title: "A streak counter", layer: "Solution", parent: "I want a reason to come back", body: "b", source: "a note from the founder", evidence: "assertion", ...KILL_CRITERIA },
     },
     { name: "ost_edit_node", arguments: { title: "A streak counter", prose: "A sharper framing of the same idea.", why: "the first draft named a mechanism, not the need it serves" } },
     { name: "ost_detach_nodes", arguments: { parent: "I want a reason to come back", child: "A streak counter", why: "re-parenting under the surviving solution" } },

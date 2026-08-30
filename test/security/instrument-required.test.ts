@@ -29,6 +29,7 @@ import { MCP_TOOL_NAMES } from "../../src/mcp/server.js";
 import type { PassContext } from "../../src/runner/context.js";
 import { buildPermit, testsAwaitingVerification } from "../../src/eval/buildable.js";
 import { verifyInstrument, observedRed } from "../../src/ost/instrument.js";
+import { KILL_CRITERIA } from "../ost/kill-criteria-fixture.js";
 
 const OUTCOME = "Retention";
 const OPPORTUNITY = "Users churn after week one";
@@ -50,7 +51,7 @@ beforeEach(async () => {
   await initVault(dir, "Reach ten thousand daily active users", OUTCOME);
   ctx = buildPassContext(dir);
   await call("ost_create_node", { title: OPPORTUNITY, layer: "Opportunity", parent: OUTCOME, body: "b", evidence: "assertion" });
-  await call("ost_create_node", { title: SOLUTION, layer: "Solution", parent: OPPORTUNITY, body: "b", evidence: "assertion" });
+  await call("ost_create_node", { title: SOLUTION, layer: "Solution", parent: OPPORTUNITY, body: "b", evidence: "assertion", ...KILL_CRITERIA });
   await call("ost_create_node", { title: BELIEF, layer: "Assumption", parent: SOLUTION, body: "b", evidence: "assertion" });
 });
 afterEach(() => {

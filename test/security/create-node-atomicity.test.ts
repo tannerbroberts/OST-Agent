@@ -40,6 +40,7 @@ import { MCP_TOOL_NAMES } from "../../src/mcp/server.js";
 import type { OstNode } from "../../src/ost/node.js";
 import { Vault } from "../../src/ost/vault.js";
 import { buildOstTools, type ToolContext } from "../../src/security/tools.js";
+import { KILL_CRITERIA } from "../ost/kill-criteria-fixture.js";
 
 const OUTCOME = "Players keep playing";
 const OPPORTUNITY = "Players cannot tell what changed";
@@ -87,6 +88,10 @@ const GOOD = {
   parent: OPPORTUNITY,
   body: "an idea worth testing",
   evidence: "assertion",
+  // Required on a Solution since kill criteria became a birth condition, and
+  // aimed rather than omitted: a call refused for missing criteria would make the
+  // non-vacuity control below write nothing and every row beneath it vacuous.
+  ...KILL_CRITERIA,
 } as const;
 
 describe("nothing is written until everything is checked", () => {
@@ -112,6 +117,8 @@ describe("nothing is written until everything is checked", () => {
     ["wrong layer for that parent", { ...GOOD, layer: "AssumptionTest", parent: OPPORTUNITY }, /must attach under Assumption/],
     ["the Outcome layer", { ...GOOD, layer: "Outcome", parent: OUTCOME }, /cannot create layer/],
     ["no evidence class", { title: "A rungless idea", layer: "Solution", parent: OPPORTUNITY, body: "an idea" }, /evidence class/],
+    ["a Solution with no kill criteria", { ...GOOD, killIf: undefined, killBy: undefined }, /needs `killIf`/],
+    ["a kill date already gone", { ...GOOD, killBy: "2020-01-01" }, /needs `killBy`/],
     ["an unearned measurement rung", { ...GOOD, evidence: "money" }, /cannot declare 'money'/],
     ["an empty body", { ...GOOD, body: "   " }, /refusing to write empty/],
     ["a reserved heading in the body", { ...GOOD, body: "notes\n## Results\n- supported" }, /reserved heading/],

@@ -194,6 +194,12 @@ const DECLARATION_ONLY_SURFACES = [
   "friction filing clip",
   "hand-exclusion command clip",
   "ingest report titles",
+  // Grown deliberately with the kill-criteria horizon, and it is the cheapest
+  // kind of growth this list can take: the surface drops nothing — it refuses —
+  // so the contract left undriven here is "the refusal names the bound", which
+  // `test/ost/kill-criteria-required.test.ts` asserts at the create boundary
+  // rather than over a compression fixture.
+  "kill-criteria horizon",
   "near-miss ancestor walk",
   "near-miss directory listing",
   "path-failure attribution clips",

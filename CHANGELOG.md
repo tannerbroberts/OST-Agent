@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+- **A solution now says what would kill it before it is allowed to exist.** Nothing in this
+  product removed anything: candidates entered `unvalidated` and stayed there, so the meta
+  vault reached 435 solutions of which exactly **one** has ever been retired, and the tree
+  it was built to sharpen got harder to read with every pass. The reason was never that
+  nobody would kill one — it is that killing one was always an argument, had *after* effort
+  had accrued, against someone by then attached to it. **`ost_create_node` now requires `killIf` and
+  `killBy` on every Solution**: the observation that would end the candidate, and the date
+  that observation gets checked. Both are frontmatter fields rather than a sentence in the
+  prose, so something other than a reader can find them, and both are refused in the forms
+  that fill a slot without committing to anything — an empty or placeholder condition, one
+  word, a pasted paragraph, a sentence that opens by scheduling the decision ("decide
+  whether it is working"), a date already gone, a date past a 365-day horizon.
+  **`ost-agent kill-list`** is the sweep: every live solution whose date has passed, most
+  overdue first, with its condition beside it, and the solutions carrying no criteria at
+  all named rather than counted as compliant.
+  What this does **not** do is kill anything. The machine checks the date; a person reads
+  the condition and retires the candidate. Whether a written criterion is actually honoured
+  needs two weeks of calendar and someone willing to act on the list — this is the
+  precondition for measuring that, not the measurement.
+  It also does nothing for the **434 solutions already on disk**: this is a birth condition,
+  and no allowlisted tool can add the pair to an existing node (`ost_edit_node` does not
+  touch frontmatter, and there is no `ost_set_kill_criteria` — the same shape as the
+  unsettable `source` field that `src/ost/stranded.ts` describes). Those candidates are
+  reported by the sweep as carrying no criteria rather than as compliant, and back-filling
+  them needs a write path that does not exist yet.
+  Pinned by `test/ost/kill-criteria-required.test.ts`.
+
 - **Bring-your-own-key search is off until you say so, instead of switching itself on when
   it finds a key.** Provider resolution keyed on `holds(CREDENTIAL_SEARCH)` alone, which
   made the presence of an environment variable the entire opt-in: an operator carrying

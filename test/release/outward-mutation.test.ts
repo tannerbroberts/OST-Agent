@@ -403,6 +403,10 @@ const AIM: Record<string, (n: number) => Record<string, unknown>> = {
   // silently stops writing proves nothing about the push path it is testing.
   // `threshold` is aimed for the identical reason since the field started
   // requiring a bar — `text for threshold` fixes nothing and is refused.
+  // `killIf`/`killBy` are aimed at nothing for the mirror-image reason: they are
+  // Solution-only, this call creates an AssumptionTest, and the generic filler
+  // would carry a field the aimed layer forbids — a refused call again writes
+  // nothing and proves nothing about the push path.
   ost_create_node: (n) => ({
     title: `A new test ${n}`,
     parent: BELIEF,
@@ -410,6 +414,8 @@ const AIM: Record<string, (n: number) => Record<string, unknown>> = {
     evidence: "assertion",
     instrument: "npx vitest run test/driven.test.ts",
     threshold: "at least 5 of 20 drive a write",
+    killIf: undefined,
+    killBy: undefined,
   }),
   ost_append_to_node: () => ({ title: TEST, section: "## Notes\nsomething true" }),
   // A NEW edge, and a LEGAL one: `linkNodes` no-ops on a duplicate, so aiming at

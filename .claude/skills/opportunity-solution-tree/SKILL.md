@@ -160,6 +160,7 @@ These four run the same deterministic analyses the CI gate and the CLI run. None
 - Prefer generating more solutions especially when there is risk, when the opportunity is a differentiator, or when innovation is needed.
 - Target one opportunity at a time (a work-in-progress limit) and go deep before moving on.
 - Every agent-originated solution enters the tree unvalidated — the marker is stamped by the server, not chosen by the author — and `validated` is not a status the agent can set at all; promotion is a human's call on the CLI.
+- Write every solution's kill criteria AT ITS BIRTH: `ost_create_node` requires `killIf` (the observation that would end this candidate — one line naming something a person could go and look at) and `killBy` (the date, YYYY-MM-DD, by which that observation gets checked, no more than a year out). A candidate is worth generating because it is cheap to abandon, and it is only cheap to abandon while nobody is attached to it — a criterion written later is an argument, and the argument is why trees accumulate every idea anyone ever had. `ost-agent kill-list` lists every live solution whose date has passed, with its condition beside it. Nothing is killed automatically: the machine checks the date, a person reads the condition, and retiring the candidate is `ost_set_status(…, "deferred")`.
 
 ### Assumption rules
 
