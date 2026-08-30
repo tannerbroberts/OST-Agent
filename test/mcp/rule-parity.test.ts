@@ -175,7 +175,25 @@ const PLANT: Record<string, () => void> = {
   // false through evidence debt, which is a different term and would let this
   // test pass without the hygiene one working at all.
   "rung-unearned": () => vault.setEvidence(OPPORTUNITY, "money", "typed in by hand — no result anywhere behind it"),
+  // Both prerequisite rules arrive by hand edit, because the write path
+  // (`Vault.setPrerequisite`) refuses both — an edge onto a title nobody wrote
+  // and an edge that closes a cycle. A hand-written frontmatter field is exactly
+  // the out-of-band arrival R4 is about, and the only way either reaches a tree.
+  "prerequisite-unknown": () => handWritePrerequisites(ASSUMPTION, ["A test nobody wrote"]),
+  "prerequisite-cycle": () => {
+    put({ title: "A second question", layer: "AssumptionTest", instrument: "npx vitest run test/second.test.ts" });
+    vault.linkNodes(BELIEF, "A second question");
+    handWritePrerequisites(ASSUMPTION, ["A second question"]);
+    handWritePrerequisites("A second question", [ASSUMPTION]);
+  },
 };
+
+/** Set a node's `prerequisites` straight on disk — the one writer the tool surface is not. */
+function handWritePrerequisites(title: string, prerequisites: string[]): void {
+  const node = vault.read(title);
+  node.prerequisites = prerequisites;
+  fs.writeFileSync(path.join(dir, fileNameForTitle(title)), serialize(node), "utf8");
+}
 
 /** `min: 0`, so the *other* three `done` terms cannot mask the hygiene one. */
 const work = () => computeNextWork(new Vault(dir), dir, 0);

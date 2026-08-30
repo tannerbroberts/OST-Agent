@@ -44,6 +44,7 @@ import { VARIATION_DIMENSIONS, type VariationAssignment } from "../knowledge/for
 import { buildIdeationRound, roundAssignments, type IdeationArm } from "../knowledge/blind-ideation.js";
 import { CAUTIOUS_LANE, isLane, type LaneId } from "../knowledge/lanes.js";
 import { hasRecordedResult } from "../eval/evidence-debt.js";
+import { unmetPrerequisites } from "../ost/prerequisites.js";
 import { solutionsAwaitingObservation, solutionsMissingInstruments } from "../eval/buildable.js";
 import { DATA_FRAME, frameData } from "../security/framing.js";
 import { readAskLedger } from "../knowledge/asks.js";
@@ -230,6 +231,41 @@ export interface AssumptionWork {
    * outside the building are in the loop.
    */
   needsHumans: string[];
+  /**
+   * No result, and a test it declared as a prerequisite has no result either —
+   * blocked by the tree's own ordering rather than by a lane, whatever lane it
+   * is in.
+   *
+   * **This bucket outranks the four above, and that is the whole point of the
+   * edge.** A test whose prerequisite is unanswered is not work anyone can pick
+   * up: running it produces a number nobody can interpret, because the thing it
+   * was going to be read against does not exist yet. Offering it as `runnable`
+   * is offering to spend a session on an uninterpretable result, and the lane
+   * label — which answers "who may run this?" — has no way to say so.
+   *
+   * Each entry names what it waits on, so the bucket is a route rather than a
+   * refusal: the unmet prerequisite IS the next thing to go run.
+   *
+   * Like the other four, this never blocks `done` (B1/B2 — recording the result
+   * that would clear it is off this surface entirely).
+   */
+  blockedOnPrerequisite: BlockedTest[];
+}
+
+/** One entry of {@link AssumptionWork.blockedOnPrerequisite}. */
+export interface BlockedTest {
+  /** The test that cannot be offered yet. */
+  test: string;
+  /**
+   * The prerequisites with no recorded result — what to go answer first. Never
+   * empty: an entry with nothing outstanding would not be blocked.
+   *
+   * Every one of these resolves to an AssumptionTest in this tree. An edge
+   * naming a title nobody wrote orders nothing and is reported as a hygiene
+   * issue instead (`prerequisite-unknown`), so a typo can never be the reason a
+   * test stopped being offered.
+   */
+  waitingOn: string[];
 }
 
 /**
@@ -270,7 +306,14 @@ export interface OutstandingAsk {
  * maps to `runnable`, which is what makes `runnable` equal to
  * {@link runnableByCompute}'s set (P4 pins that exactly one lane is compute-runnable).
  */
-const DISPOSITION: Record<LaneId, keyof AssumptionWork> = {
+/**
+ * The buckets a LANE can route a test into — every bucket but
+ * `blockedOnPrerequisite`, which is reached by the tree's ordering rather than by
+ * a label and carries a different row shape.
+ */
+type LaneBucket = Exclude<keyof AssumptionWork, "blockedOnPrerequisite">;
+
+const DISPOSITION: Record<LaneId, LaneBucket> = {
   "compute-only": "runnable",
   "one-command": "awaitingOneCommand",
   "pending-permission": "blockedOnPermission",
@@ -280,11 +323,31 @@ const DISPOSITION: Record<LaneId, keyof AssumptionWork> = {
 /**
  * Route every unresulted assumption test into its lane's bucket. A test that has
  * recorded a result is off every queue — it is run, whatever lane it was in.
+ *
+ * The prerequisite check runs BEFORE the lane lookup and takes precedence over
+ * it, because the two answer different questions and only one of them can be
+ * "not yet": a lane says who may run a test, and an unmet prerequisite says the
+ * test is not answerable by anyone. A compute-only test whose prerequisite is
+ * unanswered used to appear in `runnable` — offered to an attended session as
+ * work it could go do — and nothing in the response said what it would be read
+ * against.
  */
 function disposeAssumptionTests(tree: readonly OstNode[]): AssumptionWork {
-  const work: AssumptionWork = { runnable: [], awaitingOneCommand: [], blockedOnPermission: [], needsHumans: [] };
+  const work: AssumptionWork = {
+    runnable: [],
+    awaitingOneCommand: [],
+    blockedOnPermission: [],
+    needsHumans: [],
+    blockedOnPrerequisite: [],
+  };
+  const unmet = unmetPrerequisites(tree);
   for (const t of tree) {
     if (t.layer !== "AssumptionTest" || hasRecordedResult(t)) continue;
+    const waitingOn = unmet.get(t.title);
+    if (waitingOn && waitingOn.length > 0) {
+      work.blockedOnPrerequisite.push({ test: t.title, waitingOn });
+      continue;
+    }
     const lane: LaneId = t.lane && isLane(t.lane) ? t.lane : CAUTIOUS_LANE;
     work[DISPOSITION[lane]].push(t.title);
   }
@@ -563,6 +626,8 @@ export const HYGIENE_LABELS: Readonly<Record<string, string>> = {
   "rung-unearned": "unearned rung",
   "single-parent": "two parents",
   "single-backlink": "linked more than once",
+  "prerequisite-unknown": "prerequisite names nothing",
+  "prerequisite-cycle": "prerequisite cycle",
 };
 
 /**
@@ -1323,6 +1388,18 @@ export function computeNextWork(
     awaitingOneCommand: omitSuppressed(dispatchedAssumptionWork.awaitingOneCommand, (t) => t, suppressions, index, "assumptionWork.awaitingOneCommand", suppressed),
     blockedOnPermission: omitSuppressed(dispatchedAssumptionWork.blockedOnPermission, (t) => t, suppressions, index, "assumptionWork.blockedOnPermission", suppressed),
     needsHumans: omitSuppressed(dispatchedAssumptionWork.needsHumans, (t) => t, suppressions, index, "assumptionWork.needsHumans", suppressed),
+    // Suppressible on the same terms as the four lane queues: a pass that
+    // declined a blocked test should not pay to re-decline it every sweep. Keyed
+    // by the test's own title, so a suppression written against it reads the same
+    // here as it does when the test is unblocked and back in a lane bucket.
+    blockedOnPrerequisite: omitSuppressed(
+      dispatchedAssumptionWork.blockedOnPrerequisite,
+      (b) => b.test,
+      suppressions,
+      index,
+      "assumptionWork.blockedOnPrerequisite",
+      suppressed,
+    ),
   };
   const scopedAssumptionWork: AssumptionWork =
     membership === null
@@ -1332,18 +1409,25 @@ export function computeNextWork(
           awaitingOneCommand: allAssumptionWork.awaitingOneCommand.filter(inScope),
           blockedOnPermission: allAssumptionWork.blockedOnPermission.filter(inScope),
           needsHumans: allAssumptionWork.needsHumans.filter(inScope),
+          // Scoped by the BLOCKED test's own membership. A prerequisite may sit
+          // in another branch entirely — that cross-branch reach is the whole
+          // reason this edge exists — so scoping on the far end would drop a
+          // blocked test out of its own branch's sweep.
+          blockedOnPrerequisite: allAssumptionWork.blockedOnPrerequisite.filter((b) => inScope(b.test)),
         };
   {
     const before =
       allAssumptionWork.runnable.length +
       allAssumptionWork.awaitingOneCommand.length +
       allAssumptionWork.blockedOnPermission.length +
-      allAssumptionWork.needsHumans.length;
+      allAssumptionWork.needsHumans.length +
+      allAssumptionWork.blockedOnPrerequisite.length;
     const after =
       scopedAssumptionWork.runnable.length +
       scopedAssumptionWork.awaitingOneCommand.length +
       scopedAssumptionWork.blockedOnPermission.length +
-      scopedAssumptionWork.needsHumans.length;
+      scopedAssumptionWork.needsHumans.length +
+      scopedAssumptionWork.blockedOnPrerequisite.length;
     if (before > after) scopeExcluded.push({ list: "assumptionWork", count: before - after });
   }
 
@@ -1416,6 +1500,12 @@ export function computeNextWork(
     awaitingOneCommand: capList(scopedAssumptionWork.awaitingOneCommand, "assumptionWork.awaitingOneCommand", truncated, listLimit),
     blockedOnPermission: capList(scopedAssumptionWork.blockedOnPermission, "assumptionWork.blockedOnPermission", truncated, listLimit),
     needsHumans: capList(scopedAssumptionWork.needsHumans, "assumptionWork.needsHumans", truncated, listLimit),
+    blockedOnPrerequisite: capList(
+      scopedAssumptionWork.blockedOnPrerequisite,
+      "assumptionWork.blockedOnPrerequisite",
+      truncated,
+      listLimit,
+    ),
   };
   const outstandingAsks = capList(allOutstandingAsks, "outstandingAsks", truncated, listLimit);
 
@@ -1545,6 +1635,20 @@ export function computeNextWork(
       ? ` ${runnableCount} assumption test(s) runnable now (compute-only, no result yet) → an attended session may run each and prepare a verdict; ` +
         `${awaitingHumans} more wait on a person (see assumptionWork). Recording a result stays a human's \`ost-agent result\`, so none block done.`
       : "";
+  // Ordering is reported separately from lanes, because it is a different reason
+  // to be waiting and it names a different next action: not "find the person",
+  // but "go answer the test this one is downstream of". Counted over the full
+  // set, and the prerequisites named — a count alone would say a test is blocked
+  // without saying by what, which is the one thing an edge exists to say.
+  const blockedByOrder = scopedAssumptionWork.blockedOnPrerequisite;
+  const prerequisiteNote = blockedByOrder.length
+    ? ` ${blockedByOrder.length} assumption test(s) are blocked by a prerequisite with no result yet and are NOT offered above: ` +
+      assumptionWork.blockedOnPrerequisite
+        .map((b) => `"${b.test}" (waiting on ${b.waitingOn.map((w) => `"${w}"`).join(", ")})`)
+        .join("; ") +
+      `${blockedByOrder.length > assumptionWork.blockedOnPrerequisite.length ? ", …" : ""}. ` +
+      "Each becomes offerable by itself the moment its prerequisite records a result — nothing marks it unblocked."
+    : "";
   // P2 — silence has a clock. Oldest ask leads because that is the one an
   // unattended pass or a human skimming the summary is most likely to have
   // forgotten about; an ask with no record on file is named as such rather than
@@ -1583,9 +1687,9 @@ export function computeNextWork(
   // can be the only capped lists, and a cap that named nothing would read as amnesty.
   const summary = done
     ? scopedOpenUnknowns.length
-      ? `${doneLead} ${scopedOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}`
-      : `${doneLead}${assumptionNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}`
-    : `${outstandingLead} ${parts.join("; ")}.${assumptionNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${excerptNote}${staleNote}${retirementNote}${agedOutNote}`;
+      ? `${doneLead} ${scopedOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}`
+      : `${doneLead}${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}`
+    : `${outstandingLead} ${parts.join("; ")}.${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${excerptNote}${staleNote}${retirementNote}${agedOutNote}`;
 
   return {
     framing: DATA_FRAME,
