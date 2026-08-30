@@ -3159,12 +3159,20 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,125 tests across 319 files, verified 2026-08-30 (`npx vitest run`
-> reports 4,117 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,155 tests across 320 files, verified 2026-08-30 (`npx vitest run`
+> reports 4,147 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-30 finished at 4,117 across
-> the 318 files it collects, in 349 s, green. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-30 finished at 4,147 across
+> the 319 files it collects, in 332 s, green. The file added since the previous line is
+> `test/ost/test-prerequisite-edges.test.ts` — the instrument for prerequisite edges between
+> assumption tests (`src/ost/prerequisites.ts`): a test declares another as its prerequisite
+> in frontmatter rather than as a `[[wikilink]]`, a cycle is refused at the write path and
+> named by `checkInvariants` when one arrives by hand, and `ost_next_work` reports a test
+> whose prerequisite has no result as blocked instead of offering it as runnable. It settles
+> the *holding* half only; whether real prerequisite pairs exist among the 272 tests is still
+> a person with a printout.
+> Previously 4,125 tests across 319 files, verified 2026-08-30, after
 > `test/ost/kill-criteria-required.test.ts` — the birth-and-sweep instrument for
 > pre-committed kill criteria (`src/ost/kill-criteria.ts`): a Solution cannot be created
 > without a condition and a date, both are carried as frontmatter fields rather than prose,

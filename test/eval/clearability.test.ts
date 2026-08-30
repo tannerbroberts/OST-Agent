@@ -45,7 +45,8 @@ import { checkInvariants } from "../../src/eval/invariants.js";
 import { MCP_TOOL_NAMES } from "../../src/mcp/server.js";
 import { bareToolName } from "../../scripts/mcp-prefix.js";
 import { Vault } from "../../src/ost/vault.js";
-import type { OstNode } from "../../src/ost/node.js";
+import { serialize, type OstNode } from "../../src/ost/node.js";
+import { fileNameForTitle } from "../../src/ost/sanitize.js";
 import { buildOstTools, type ToolContext } from "../../src/security/tools.js";
 import { validateToolInput, type ToolSchema } from "../../src/security/validateToolInput.js";
 import { KILL_CRITERIA } from "../ost/kill-criteria-fixture.js";
@@ -168,6 +169,31 @@ function withProseLane(v: Vault): void {
     body: "Compare two build manifests offline. Lane: compute-only.",
   });
   v.linkNodes(BELIEF, ASSUMPTION);
+}
+
+/** The belief plus one plain assumption test beneath it — a legal tree with something to order. */
+function withTest(v: Vault): void {
+  withBelief(v);
+  put(v, { title: ASSUMPTION, layer: "AssumptionTest" });
+  v.linkNodes(BELIEF, ASSUMPTION);
+}
+
+/** A second test beside the first, so a cycle has two ends to run between. */
+const SECOND_TEST = "Ask five players whether they read it";
+
+/**
+ * Write a node's `prerequisites` straight to disk.
+ *
+ * The plant for both prerequisite rules, and it has to be a hand edit: no tool
+ * on either surface writes the field (the write is a human's `ost-agent
+ * prerequisite`), and that command refuses both an edge onto a title nobody
+ * wrote and an edge that would close a cycle. So a violation of either rule
+ * arrives exactly the way this fixture arrives — someone editing markdown.
+ */
+function handWritePrerequisites(v: Vault, dir: string, title: string, prerequisites: string[]): void {
+  const node = v.read(title);
+  node.prerequisites = prerequisites;
+  fs.writeFileSync(path.join(dir, fileNameForTitle(title)), serialize(node), "utf8");
 }
 
 const SCENARIOS: Record<string, Scenario> = {
@@ -505,6 +531,66 @@ const SCENARIOS: Record<string, Scenario> = {
     // a human editing markdown can still write the label by hand.
     expected: { mcp: { create: false, clear: true }, "ost-pass": { create: false, clear: true } },
     createRefusal: /cannot declare 'money'/,
+  },
+
+  /*
+   * The two prerequisite rules. Both are `create: false, clear: false`, and the
+   * reason is the same for both halves: nothing on either surface writes the
+   * `prerequisites` field. A prerequisite is a reading of a pair of tests — "B is
+   * uninterpretable until A lands" — so the write is a human's `ost-agent
+   * prerequisite`, beside `result` and `promote`.
+   *
+   * That makes the create attempt below the one the agent would actually reach
+   * for, and it is the move the tetrix instance really made: write the dependency
+   * out longhand in the prose, in the only field that accepts free text. It does
+   * not author the rule, which is the point — prose is not an edge, and this is
+   * where that stops being an assertion.
+   */
+  "prerequisite-unknown": {
+    setup: withTest,
+    createPath: "ost_append_to_node writing the dependency out longhand — prose is the only field on this surface that takes it",
+    create: [
+      {
+        tool: "ost_append_to_node",
+        input: { title: ASSUMPTION, section: 'Prerequisite: cannot be run until "A test nobody wrote" lands.' },
+      },
+    ],
+    plant: (v, dir) => handWritePrerequisites(v, dir, ASSUMPTION, ["A test nobody wrote"]),
+    clearPath: "annotating — repairing the edge means editing `prerequisites`, which no tool here writes",
+    clear: [
+      {
+        tool: "ost_annotate",
+        input: { title: ASSUMPTION, issue: "prerequisite names nothing — the edge orders nothing and needs a human's repair" },
+      },
+    ],
+    expected: { mcp: { create: false, clear: false }, "ost-pass": { create: false, clear: false } },
+  },
+
+  "prerequisite-cycle": {
+    setup: (v) => {
+      withTest(v);
+      put(v, { title: SECOND_TEST, layer: "AssumptionTest" });
+      v.linkNodes(BELIEF, SECOND_TEST);
+    },
+    createPath: "ost_append_to_node, again — the same longhand, and it draws no edge either way",
+    create: [
+      {
+        tool: "ost_append_to_node",
+        input: { title: ASSUMPTION, section: `Prerequisite: cannot be run until "${SECOND_TEST}" lands, which needs this one first.` },
+      },
+    ],
+    plant: (v, dir) => {
+      handWritePrerequisites(v, dir, ASSUMPTION, [SECOND_TEST]);
+      handWritePrerequisites(v, dir, SECOND_TEST, [ASSUMPTION]);
+    },
+    clearPath: "annotating — one of the two edges is wrong and only a person can say which",
+    clear: [
+      {
+        tool: "ost_annotate",
+        input: { title: ASSUMPTION, issue: "prerequisite cycle — every test on it waits on itself; one of these edges is wrong" },
+      },
+    ],
+    expected: { mcp: { create: false, clear: false }, "ost-pass": { create: false, clear: false } },
   },
 };
 

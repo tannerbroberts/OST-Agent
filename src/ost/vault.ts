@@ -61,6 +61,7 @@ import {
 import { parseFrontmatter } from "./frontmatter.js";
 import { foldAuthorship, type Writer } from "./authorship.js";
 import { canonicalTitle, fileNameForTitle, sanitizeTitle } from "./sanitize.js";
+import { cycleFromAdding } from "./prerequisites.js";
 import { isHeadingLine, reservedHeadingIn } from "./headings.js";
 import { joinReservedSections, splitReservedSections } from "./sections.js";
 import {
@@ -708,6 +709,68 @@ export class Vault {
     // and the History line below is where the old pairing survives.
     if (sight) node.sight = sight;
     const line = `- ${isoToday()} instrument: ${prev} → ${instrument}${sight ? ` [sight: ${sight}]` : ""}${note ? ` — ${note}` : ""}`;
+    node.body = appendUnderHeading(node.body, "## History", line);
+    this.writeNodeFile(this.nodePath(title), serialize(node));
+    return line;
+  }
+
+  /**
+   * Declare that `title` cannot be answered until `prerequisite` is, recording
+   * the claim in History. Returns the line written.
+   *
+   * **The refusals are the point, and there are four.** This is the one edge in
+   * the schema that is not parent-child, so it is also the one that can be
+   * written into a shape the tree has no other defence against:
+   *
+   *   - both ends must be assumption tests — an ordering claim about a Solution
+   *     is a claim nothing here knows how to read
+   *   - a test may not require itself
+   *   - the edge may not close a CYCLE, and the refusal names the chain it
+   *     collided with. This is the failure mode the field introduces: a cycle is
+   *     not a slow ordering, it is an ordering that can never start, and every
+   *     test on it is blocked by the tree's own shape forever
+   *   - the prerequisite must already exist, so an edge cannot be written onto a
+   *     title that will be created later and possibly differently
+   *
+   * Idempotent: declaring an edge that is already there is a no-op returning the
+   * empty string, because the same claim twice is one claim.
+   *
+   * A cycle written by hand into a file — this is not the only writer a vault has
+   * — is caught by `checkInvariants` instead, which is the same division of
+   * labour every other structural rule here follows.
+   */
+  setPrerequisite(title: string, prerequisite: string, note?: string): string {
+    assertWritableNote(`the prerequisite note on "${title}"`, note);
+    const node = this.read(title);
+    if (node.layer !== "AssumptionTest") {
+      throw new Error(`"${title}" is a ${node.layer} — a prerequisite orders one AssumptionTest against another`);
+    }
+    // Sanitized for the same reason `linkNodes` sanitizes: the caller names the
+    // title they meant, the tree carries the title the filesystem allowed, and an
+    // edge written in the first spelling would never resolve.
+    const target = sanitizeTitle(prerequisite);
+    if (target === node.title) {
+      throw new Error(
+        `"${title}" cannot be its own prerequisite — that is an ordering nothing can start, not a slow one`,
+      );
+    }
+    const required = this.read(target);
+    if (required.layer !== "AssumptionTest") {
+      throw new Error(`"${target}" is a ${required.layer} — a prerequisite orders one AssumptionTest against another`);
+    }
+    if ((node.prerequisites ?? []).includes(target)) return "";
+
+    const cycle = cycleFromAdding(this.readTree(), node.title, target);
+    if (cycle) {
+      throw new Error(
+        `refusing to make "${target}" a prerequisite of "${title}" — it would close a cycle: ` +
+          `${cycle.map((t) => `"${t}"`).join(" requires ")}. Every test on that chain would wait on itself. ` +
+          `One of those edges is the wrong one; the tree cannot say which.`,
+      );
+    }
+
+    node.prerequisites = [...(node.prerequisites ?? []), target];
+    const line = `- ${isoToday()} prerequisite: + ${target}${note ? ` — ${note}` : ""}`;
     node.body = appendUnderHeading(node.body, "## History", line);
     this.writeNodeFile(this.nodePath(title), serialize(node));
     return line;

@@ -155,6 +155,32 @@ export interface OstNode {
    */
   sight?: RepoSight;
   /**
+   * For an AssumptionTest: the titles of tests that must be answered *before*
+   * this one — the one edge in this schema that is not parent-child.
+   *
+   * A strict OST is a tree and real discovery is not: "you cannot run the
+   * community-seeding test until arrivals are measurable" is an ordering claim
+   * that spans branches, and with nowhere to put it an agent invented
+   * `#prerequisite` tags and wrote the dependency out longhand in the prose.
+   * That is a schema gap announcing itself, and this field is where it lands.
+   *
+   * Deliberately a frontmatter list rather than a `[[wikilink]]` line. A link
+   * line is a *child* edge here, and every structural rule reads it that way —
+   * `single-parent`, `single-backlink` and `test-mapped` would all fire on a
+   * prerequisite written as an edge, so the validator would call a real
+   * dependency an orphan or a second parent. Keeping the two link kinds in
+   * different fields is what lets it learn the difference; the cost is that
+   * Obsidian's graph does not draw these, which is a real loss and the reason
+   * `ost-agent prerequisites` prints them.
+   *
+   * Absent (rather than `[]`) on every node that declares none, so a reader
+   * cannot tell "no prerequisites" apart from "written before the field
+   * existed" — and nothing here needs to: no prerequisites is what both mean
+   * for ordering. What is NOT permitted is a cycle; see
+   * {@link ./prerequisites.ts}.
+   */
+  prerequisites?: string[];
+  /**
    * For a Solution: the observation that would end this candidate, written at
    * creation — before anyone is attached to it.
    *
@@ -217,6 +243,23 @@ export function wrappedLinkTargets(text: string): string[] {
   return targets;
 }
 
+/**
+ * A frontmatter value read as a list of node titles.
+ *
+ * Tolerant in one direction only. A bare string is accepted, because
+ * `prerequisites: Some other test` is what a person writes when there is exactly
+ * one and YAML gives them no reason to think otherwise. Anything that is not a
+ * string is DROPPED rather than coerced: `prerequisites: 3` naming node "3" is a
+ * title nobody wrote, and an ordering edge invented by a parser is worse than an
+ * ordering edge missing. Blanks go, and duplicates collapse — declaring the same
+ * prerequisite twice is one claim, not two.
+ */
+function readTitleList(value: unknown): string[] {
+  const raw = typeof value === "string" ? [value] : Array.isArray(value) ? value : [];
+  const titles = raw.filter((t): t is string => typeof t === "string").map((t) => t.trim()).filter((t) => t.length > 0);
+  return [...new Set(titles)];
+}
+
 /** UTC calendar date (YYYY-MM-DD) for a Date. */
 function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -224,7 +267,10 @@ function isoDate(d: Date): string {
 
 /** Render an {@link OstNode} to its Markdown file contents. */
 export function serialize(node: OstNode): string {
-  const data: Record<string, string> = { type: node.layer };
+  // `string[]` for `prerequisites` alone — the one field here that is a set of
+  // titles rather than a single value. YAML renders it as a block list, which is
+  // what a person hand-editing the file will expect to write.
+  const data: Record<string, string | string[]> = { type: node.layer };
   if (node.status) data.status = node.status;
   if (node.source) data.source = node.source;
   if (node.created) data.created = node.created;
@@ -234,6 +280,10 @@ export function serialize(node: OstNode): string {
   if (node.threshold) data.threshold = node.threshold;
   if (node.instrument) data.instrument = node.instrument;
   if (node.sight) data.sight = node.sight;
+  // Omitted when empty rather than written as `[]` — see the field doc; an empty
+  // list and an absent field say the same thing about ordering, and only one of
+  // them adds a line to every test file in the vault.
+  if (node.prerequisites && node.prerequisites.length > 0) data.prerequisites = [...node.prerequisites];
   if (node.killIf) data.killIf = node.killIf;
   if (node.killBy) data.killBy = node.killBy;
   if (node.authorship) data.authorship = node.authorship;
@@ -336,6 +386,8 @@ export function deserialize(title: string, markdown: string): OstNode {
   // Same posture as `lane`: a sight value nobody defined must never be the
   // reason an instrument counts as grounded.
   if (isRepoSight(data.sight)) node.sight = data.sight;
+  const prerequisites = readTitleList(data.prerequisites);
+  if (prerequisites.length > 0) node.prerequisites = prerequisites;
   if (typeof data.killIf === "string") node.killIf = data.killIf;
   // An unquoted ISO date is a Date to YAML, exactly as `created` is — coerced
   // back so the field a person typed and the field a writer stamped read the

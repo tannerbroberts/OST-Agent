@@ -972,6 +972,22 @@ const AUTHORSHIP: Record<string, Authorship> = {
       "ost_create_node attaches a NEW node, which has no other parent, and ost_link_nodes refuses a second edge onto " +
       "an already-parented node. One arrives from a hand edit or from a vault written before the rule",
   },
+  "prerequisite-unknown": {
+    create: null,
+    escapes: [],
+    why:
+      "no tool on this surface writes `prerequisites` at all — a prerequisite is a human's reading of a pair of " +
+      "tests, so the write is `ost-agent prerequisite`, beside `result` and `promote`. That path additionally " +
+      "refuses a prerequisite that is not an AssumptionTest already on disk, so even the human's command cannot " +
+      "author one. It arrives from a hand edit, an import, or a rename that left the far end behind",
+  },
+  "prerequisite-cycle": {
+    create: null,
+    escapes: [],
+    why:
+      "the same surface argument, plus `Vault.setPrerequisite` refuses the edge that would close a cycle " +
+      "(`cycleFromAdding`) — so the human's own command cannot author one either. It arrives from a hand edit or an import",
+  },
 };
 
 /**

@@ -161,6 +161,7 @@ import {
 } from "../security/preflight-manifest.js";
 import { buildOstTools } from "../security/tools.js";
 import { Vault } from "../ost/vault.js";
+import { prerequisiteCycles, prerequisiteEdges, unknownPrerequisites, unmetPrerequisites } from "../ost/prerequisites.js";
 import { defaultTranscriptDir } from "../adapters/transcript.js";
 import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
 import { formatMigrationReport, migrateEvidenceClass } from "../ost/migrate.js";
@@ -1178,6 +1179,94 @@ program
     console.log(`classified "${test}": ${line}`);
     const def = laneDef(opts.set as LaneId);
     console.log(def.computeMayRun ? "  an unattended pass MAY now run this test." : "  a person is still required.");
+  });
+
+/*
+ * `prerequisite` and `prerequisites` — the write path and the audit surface for
+ * the one edge in this schema that is not parent-child.
+ *
+ * On the CLI rather than the tool surface, and the reason is what the edge
+ * actually is. Which pairs are prerequisites is a READING of the tests — "B is
+ * uninterpretable until A lands" — and the whole argument for edges over ranking
+ * is that such a claim can be wrong and therefore argued with. A claim that gets
+ * argued with needs an author, so this sits where `result`, `promote` and
+ * `dispose` sit: a command a person runs, with their name on it. The agent reads
+ * the resulting order (`ost_next_work.assumptionWork.blockedOnPrerequisite`) and
+ * cannot write one.
+ *
+ * Nothing here infers an edge from prose. The tests that reached for
+ * `#prerequisite` tags wrote their dependencies out longhand, and reading those
+ * back automatically would be the tree deciding its own ordering from text the
+ * same actor wrote.
+ */
+program
+  .command("prerequisite")
+  .description("declare that one assumption test cannot be answered until another is (attributed, recorded in History)")
+  .argument("<test>", "title of the AssumptionTest that is blocked")
+  .requiredOption("-r, --requires <test>", "title of the AssumptionTest that must be answered first")
+  .requiredOption("-b, --by <who>", "who read the pair that way — an unattributed ordering is unarguable")
+  .requiredOption("-w, --why <text>", "why B is uninterpretable until A lands, in the reader's words")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((test: string, opts: { requires: string; by: string; why: string; vault: string }) => {
+    const by = opts.by.trim();
+    if (!by) throw new Error("a prerequisite needs attribution — say who read the pair that way");
+    const why = opts.why.trim();
+    if (!why) {
+      throw new Error(
+        "a prerequisite needs a why — the claim is that one test is uninterpretable until the other lands, " +
+          "and that sentence is the only thing anyone can argue with later",
+      );
+    }
+    const vault = new Vault(path.resolve(opts.vault));
+    const line = vault.setPrerequisite(test, opts.requires, `by ${by} — ${why}`);
+    if (!line) {
+      console.log(`"${test}" already requires "${opts.requires}" — nothing to do.`);
+      return;
+    }
+    console.log(`ordered "${test}": ${line}`);
+    console.log(`  it is off the runnable queue until "${opts.requires}" records a result — nothing marks it unblocked.`);
+  });
+
+program
+  .command("prerequisites")
+  .description("every declared prerequisite edge, what it blocks, and anything wrong with the ordering")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((opts: { vault: string }) => {
+    const tree = new Vault(path.resolve(opts.vault)).readTree();
+    const edges = prerequisiteEdges(tree);
+    if (edges.length === 0) {
+      console.log("No prerequisite edges declared — every test's ordering is its lane and nothing else.");
+      console.log('Declare one with: ost-agent prerequisite "<blocked test>" --requires "<test>" --by "<you>" --why "<...>"');
+      return;
+    }
+    console.log(`${edges.length} prerequisite edge(s):`);
+    for (const e of edges) console.log(`  - "${e.test}" requires "${e.prerequisite}"`);
+
+    // Obsidian's graph does not draw these — they are frontmatter, not
+    // [[wikilinks]], deliberately (see OstNode.prerequisites) — so this printout
+    // is the only place the ordering is visible as a whole.
+    const unmet = unmetPrerequisites(tree);
+    console.log(`\n${unmet.size} test(s) blocked right now (a prerequisite with no recorded result):`);
+    for (const [test, waitingOn] of unmet) console.log(`  - ${test}\n      waiting on: ${waitingOn.join(", ")}`);
+
+    const unknown = unknownPrerequisites(tree);
+    if (unknown.length > 0) {
+      console.log(`\n⚠ ${unknown.length} edge(s) name nothing this tree can order against — these block NOTHING:`);
+      for (const u of unknown) {
+        console.log(
+          `  - "${u.test}" requires "${u.prerequisite}" — ` +
+            (u.reason === "missing" ? "no node carries that title" : `that node is a ${u.found}`),
+        );
+      }
+      console.log("  Repair or annotate them; `ost-agent check` is red until you do.");
+    }
+
+    const cycles = prerequisiteCycles(tree);
+    if (cycles.length > 0) {
+      console.log(`\n⚠ ${cycles.length} prerequisite cycle(s) — every test on one waits on itself:`);
+      for (const c of cycles) console.log(`  - ${[...c, c[0]].join(" requires ")}`);
+      console.log("  The write path refuses these, so each arrived by hand edit or import. One of its edges is wrong.");
+    }
   });
 
 /*

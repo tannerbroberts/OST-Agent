@@ -9,6 +9,7 @@ import { BELIEVABILITY_LADDER } from "../knowledge/believability.js";
 import { byTitle } from "../processes/tree.js";
 import { laneConflicts } from "../ost/lanes.js";
 import { wrappedLinkTargets, type OstNode } from "../ost/node.js";
+import { prerequisiteCycles, unknownPrerequisites } from "../ost/prerequisites.js";
 import { unearnedRungs } from "./rungs.js";
 
 export interface Violation {
@@ -266,6 +267,44 @@ export function checkInvariants(tree: OstNode[]): Violation[] {
           ? "an unattended pass will run it while the test says a person is needed; reconcile before it does"
           : "one of the two is stale; a human decides which"),
     });
+  }
+
+  // A prerequisite edge naming something that is not a test in this tree.
+  //
+  // This is the rule the OST validator had to grow to hold prerequisites at all:
+  // `dangling-link` reads a node's `[[wikilink]]` edges, and a prerequisite is
+  // deliberately not one of those (see the field doc on `OstNode.prerequisites`),
+  // so before this rule an ordering edge onto a title nobody wrote was invisible
+  // to every gate. Loud rather than fail-closed on purpose: `unmetPrerequisites`
+  // lets an unresolvable edge order NOTHING, so a typo cannot quietly withhold a
+  // test from the runnable queue — it has to be repaired or annotated instead.
+  for (const u of unknownPrerequisites(tree)) {
+    v.push({
+      rule: "prerequisite-unknown",
+      node: u.test,
+      detail:
+        u.reason === "missing"
+          ? `declares "${u.prerequisite}" as a prerequisite, but no node carries that title — the edge orders nothing`
+          : `declares "${u.prerequisite}" as a prerequisite, but that node is a ${u.found} — a prerequisite orders one AssumptionTest against another`,
+    });
+  }
+
+  // A prerequisite cycle: an ordering that can never start.
+  //
+  // The write path refuses one (`Vault.setPrerequisite`), so anything reaching
+  // here arrived by hand edit, by import, or from a vault written before the
+  // field — which is exactly the case a structural check exists for. Reported on
+  // every member, because the tree cannot say which of the edges is the wrong
+  // one and annotating any single node would otherwise hide the rest.
+  for (const cycle of prerequisiteCycles(tree)) {
+    const chain = [...cycle, cycle[0]].map((t) => `"${t}"`).join(" requires ");
+    for (const member of cycle) {
+      v.push({
+        rule: "prerequisite-cycle",
+        node: member,
+        detail: `sits on a prerequisite cycle: ${chain} — every test on it waits on itself, so none can ever be first`,
+      });
+    }
   }
 
   return v;
