@@ -1457,6 +1457,21 @@ not.**
 > same complaint P6 makes about `MCP_TOOL_NAMES`. A determined author can still
 > name a tool something bland. What the guard buys is that the *obvious* spelling
 > of a consequential tool cannot ship by accident.
+>
+> **One bland spelling is now named rather than left to be discovered.** The
+> red-team corpus asks for ten capabilities this product does not hold, and
+> `isDestructiveToolName` flags nine of them; the tenth is `ost_set_lane`
+> (`test/security/injection-red-team.test.ts`, asserted by exact equality so the
+> exception cannot quietly grow or quietly vanish). It tokenizes to `ost`/`set`/
+> `lane`, and neither token set has a place for it: a lane is not destruction and
+> not an outward act, it is *who may run a test and whether compute may clear it*
+> — an authority escalation, which is a third category these two sets do not
+> model. Widening `CONSEQUENCE_TOKENS` to cover it would blur a documented
+> category rather than close a hole, so what stops `ost_set_lane` is the closed
+> allowlist and only the closed allowlist, which is exactly what the paragraph
+> above says the guard is not a substitute for. The restrictive-only
+> `ost_flag_humans_required` is the allowlisted shape of this capability
+> (`src/ost/lanes.ts`), and there is deliberately no general setter beside it.
 
 **P8 — The system can state a total bound on outward reach, not just a burst
 rate.**
@@ -2713,6 +2728,18 @@ data.**
 > guard and title sanitisation — so the four reporters are unframed by design, and
 > `ost_read_tree` is asserted *not* to carry the marker, so "frame everything"
 > cannot pass by spraying the sentence.
+>
+> **Framing is now demonstrated under attack as well as at rest** (2026-08-30,
+> `test/security/injection-red-team.test.ts`). This criterion and the policy test
+> are both properties of the surface standing still; neither drove hostile content
+> at it. The red team drops twenty poisoned notes through the real ingest path and,
+> for each, makes the tool call the note was asking for — so containment and
+> capability are checked as the two halves of one attack rather than as two
+> unrelated greens. Its containment check uses this criterion's own definition
+> (`carriesDataFrame` over the whole rendered response), which means it inherits
+> this criterion's coarseness and adds nothing to it; what it adds is the second
+> half, and a mutation control that catches zero of twenty when either defence is
+> taken away.
 
 **S5 — Every shipped adapter is reachable from a live caller, or is not
 constructed at all.**
@@ -3159,12 +3186,21 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,155 tests across 320 files, verified 2026-08-30 (`npx vitest run`
-> reports 4,147 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,164 tests across 321 files, verified 2026-08-30 (`npx vitest run`
+> reports 4,156 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-30 finished at 4,147 across
-> the 319 files it collects, in 332 s, green. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-30 finished at 4,156 across
+> the 320 files it collects, in 329 s, green. The file added since the previous line is
+> `test/security/injection-red-team.test.ts` — the adversarial suite (corpus and harness in
+> `test/security/red-team-corpus.ts`): twenty poisoned notes go through the real drop-folder
+> ingest, and for each one the harness makes the tool call the note was trying to talk the
+> agent into. An attack counts as caught only if its bytes surfaced framed AND its call
+> failed closed, and the same corpus is run against two vulnerable branches — responses with
+> the marker deleted, and a surface that performs whatever it is asked — each required to
+> catch zero. It settles the *known-twenty* half only; the twenty-first attack, and whether
+> an operator trusts the product more for the suite existing, are both outside it.
+> Previously 4,155 tests across 320 files, verified 2026-08-30, after
 > `test/ost/test-prerequisite-edges.test.ts` — the instrument for prerequisite edges between
 > assumption tests (`src/ost/prerequisites.ts`): a test declares another as its prerequisite
 > in frontmatter rather than as a `[[wikilink]]`, a cycle is refused at the write path and
