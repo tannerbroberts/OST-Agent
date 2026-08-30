@@ -3159,23 +3159,31 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,108 tests across 318 files, verified 2026-08-29 (`npx vitest run`
-> reports 4,100 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,124 tests across 319 files, verified 2026-08-30 (`npx vitest run`
+> reports 4,116 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-29 finished at 4,100 across
-> the 317 files it collects, in 319 s, green. The file added since the previous line is
-> `test/loop/prior-art-scan-catches-recorded-collision.test.ts` — the replay of the recorded
-> 2026-07-26 collision against a start-of-build prior-art scan, whose headline measurement is
-> that the scan misses it (`src/loop/prior-art-scan.ts` and `src/git/prior-art-sight.ts`, both
-> on the unreachable-module debt register for exactly that reason).
-> **A wall-clock note worth more than the counts.** Two full runs on 2026-08-29, from one
-> unchanged working tree, disagreed: the first reported 8 files and 13 tests failing in 935 s,
-> the second 3 files and 3 tests failing in 324 s, and the second run's three were a strict
-> subset — the ones a new source file genuinely breaks. The five extra files were machine
-> load, not code, and the run that saw them took nearly three times as long. A suite this long
-> reports on the machine as much as on the code, which is the same confusion the wall-clock
-> gate cost a week over (Z3, 2026-08-06).
+> time rather than derived: two full `npx vitest run`s on 2026-08-30 each collected 4,116
+> across the 318 files they collect. The file added since the previous line is
+> `test/web/outside-in-candidate-provenance.test.ts` — the provenance instrument for
+> outside-in candidates (`src/web/outside-in.ts`): host recorded as `WEB:<host>`, the floor
+> rung whatever the host has earned, and a refusal when the page behind it cannot be read.
+> **A wall-clock note worth more than the counts, now with the competing process named.**
+> The 2026-08-29 entry recorded two runs from one unchanged tree disagreeing (8 files/13
+> tests failing in 935 s versus 3 files/3 tests in 324 s) and attributed the difference to
+> machine load without saying what the load was. On 2026-08-30 it was identified. Two full
+> runs, both 6 files and 11 tests red, in 1,027 s and 1,059 s — three times the 319 s a quiet
+> run of the same suite takes. **Ten of the eleven were wall-clock assertions or timeouts,
+> every one of them passed when its file was run alone, and all ten reproduced identically at
+> `origin/main` with the same five files running side by side** (`ingest of 2380 items took
+> 29,469 ms` against a 25,000 ms bound; `ost_next_work took 2,765 ms` against 2,000 ms). The
+> cause was read off the machine rather than guessed at: `uptime` reported a load average of
+> 5.08 on ten cores with the suite the *smaller* consumer — a Minecraft JVM at 51% of a core
+> and a `Virtualization.framework` VM at 37% were resident throughout. `vitest.config.ts`
+> already isolates tests that GENERATE load (`SUITE_EXCLUSIONS`); nothing isolates the tests
+> that are SENSITIVE to it, and these two have no headroom at all — five concurrent files is
+> enough to redden both. So a developer machine running anything else fails this gate on code
+> that is not at fault, which is Z3's confusion arriving from the opposite direction.
 > Previously 4,092 tests across 317 files, verified 2026-08-29 (`npx vitest run` reports 4,084
 > of them; the other 8 are the contended calibration file described below), after
 > `test/cli/first-run-without-key.test.ts` — the keyless-first-run and bring-your-own-key-off
