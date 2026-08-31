@@ -3204,12 +3204,20 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,582 tests across 340 files, verified 2026-08-31 (`npx vitest run`
-> reports 4,574 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,599 tests across 341 files, verified 2026-08-31 (`npx vitest run`
+> reports 4,591 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,574 across
-> the 339 files it collects, in 348 s. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,591 across
+> the 340 files it collects, in 356 s. The file added since the previous line is
+> `test/mcp/edit-node-unacknowledged-section-guard.test.ts` — the instrument for "Refuse a
+> rewrite that would drop a section the caller never accounted for"
+> (`src/ost/section-accounting.ts`): a rewrite must reproduce every `## Section` the node
+> stores or name it in `dropping`, and one in neither is refused by name instead of deleted.
+> Two of its cases are there to record what the guard COSTS rather than what it catches — a
+> retitle and a fold-into-prose are legitimate rewrites and both now pay a refusal — because
+> the assumption beneath it turns on that rate and this spec does not measure it. The line
+> before it was
 > `test/tools/merge-read-guard-bypass.test.ts` — the instrument for "Refuse a merge whose
 > prose was composed without a read of the survivor"
 > (`src/security/read-receipts.ts`, `security/tools.ts:assertSurvivorRead`): seven tests that

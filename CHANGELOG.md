@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+- **A rewrite that would drop a section you never accounted for is now refused, by name.**
+  `ost_edit_node` replaces a node's prose wholesale, so any `## Section` the caller did not
+  reproduce was deleted — with no error, no warning, and the same success string a lossless
+  edit returns. That is how four `## History` entries died on 2026-08-05, recovered only
+  because the pass happened to have read the file minutes earlier for something else.
+  `## History` itself is closed (it joined the reserved set, which is what that observation
+  bought first), but the *shape* was not: `## Provenance`, `## Definition of done` and the
+  `## Issues` section `ost_annotate` writes into are all ordinary prose, and all were
+  droppable by a caller who simply did not know they were there. A rewrite must now
+  **account for every stored section** — include its heading in `prose` to keep it, or name
+  it in the new **`dropping`** argument to remove it on purpose, which is recorded in the
+  node's History as a named removal. A section in neither is refused, the refusal names
+  every one of them at once and in full so the name can be pasted straight back, and
+  nothing is written. Reserved sections are exempt because no tool can drop one: they are
+  reattached verbatim, and naming one in `dropping` is refused rather than silently
+  ignored. Published on `ost-agent preconditions` as `sections-accounted-for`.
+  **What this costs, said out loud:** consolidating two sections, retitling one, or folding
+  one into running prose are all legitimate rewrites, and all three now pay a refusal and a
+  retry. `test/mcp/edit-node-unacknowledged-section-guard.test.ts` asserts that cost exists
+  rather than pretending it away — how often it is actually paid is a replay of recorded
+  edits with someone judging which were legitimate, and that measurement has not been made.
+
 - **A merge now requires that you have seen the node you are merging into.**
   `ost_merge_nodes` stopped taking the survivor's body a release ago, so prose you never
   read can no longer be *lost* there — but `contribution` is still prose you compose, and

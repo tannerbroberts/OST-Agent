@@ -447,7 +447,18 @@ const AIM: Record<string, (n: number) => Record<string, unknown>> = {
   // `ost_read_tree` row above is what does that, and without it this row lands
   // nothing and the named-landers assertion below goes red rather than silent.
   ost_detach_nodes: () => ({ parent: OUTCOME, child: SECOND_OPPORTUNITY, why: "driven probe" }),
-  ost_edit_node: () => ({ title: TEST, prose: "A driven rewrite.", why: "driven probe" }),
+  // `dropping` is aimed rather than left to the filler, and the driver goes red
+  // without it: the `ost_append_to_node` and `ost_annotate` rows put `## Notes`
+  // and `## Issues` on TEST, and a rewrite that accounts for no section the node
+  // holds is now refused (`ost/section-accounting.ts`). A probe that means to
+  // replace the whole body says so. Order-independent — naming a section the node
+  // does not hold drops nothing and refuses nothing.
+  ost_edit_node: () => ({
+    title: TEST,
+    prose: "A driven rewrite.",
+    why: "driven probe",
+    dropping: ["## Notes", "## Issues"],
+  }),
   ost_merge_nodes: () => ({ from: SECOND_OPPORTUNITY, into: OPPORTUNITY, contribution: "One framing.", why: "driven probe" }),
   ost_flag_humans_required: () => ({ test: TEST, why: 'a person has to read it: "interview"' }),
   ost_rank_source: () => ({ kind: "web", id: "example.com", direction: "contradicted", reason: "a strike needs no citation" }),
