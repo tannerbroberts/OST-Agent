@@ -224,6 +224,25 @@ const KNOWN_UNREACHABLE: Record<string, string> = {
 };
 
 /*
+ * `src/ost/unblock-leverage.ts` is deliberately NOT on this register, and the
+ * reason is the trap this criterion warns about rather than an oversight.
+ *
+ * Its sweep refuted the ranking it would serve — 390 of 441 candidates unblock
+ * exactly one test — so nothing in the tool surface calls it, and the first
+ * draft of this file listed it here as parked. The walk disagreed: the entry
+ * failed, because `scripts/harvest-unblock-leverage-corpus.ts` imports it and
+ * everything `scripts/` imports is an entry point. That import was type-only at
+ * the time, which is the `tokens.ts`-behind-a-`spend`-command trap in another
+ * costume — a specifier that satisfies a textual walk while nothing ever runs
+ * the module. Rather than delete the import to earn the entry, the harvest
+ * script now calls `sweepReadings` and prints the verdict at cut time, so the
+ * module has a caller that actually executes it and the entry comes off
+ * honestly. Where it is parked is recorded in its own header and in
+ * `test/fixtures/unblock-leverage/PROVENANCE.md`, which is where a reader of the
+ * finding will be.
+ */
+
+/*
  * `src/loop/pass-shape.ts` was on this register and came off when
  * `src/loop/stop-condition.ts` adopted `classifyPassShape`, so the reason it was
  * parked is worth carrying rather than deleting with the entry.

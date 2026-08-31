@@ -3077,23 +3077,39 @@ whole tool surface.**
 > `import` outside `test/`. (Computing the dead set mechanically is the point —
 > "excluding dead modules" as a manual carve-out lets whoever runs the check make
 > it pass by declaring more modules dead.)
-> *Today:* **met** (2026-07-29). **The debt register is empty**
-> (`KNOWN_UNREACHABLE = {}`, `test/release/module-reachability.test.ts:59`), and it
-> emptied itself rather than being emptied. `test/release/module-reachability.test.ts`
-> walks the import graph from entry points **derived** from `package.json` (the
-> esbuild bundle entry and the `tsx` dev entry, both `src/cli/index.ts`) plus
-> whatever `scripts/` imports.
+> *Today:* **met** (2026-07-29; register re-read 2026-08-31), pinned by
+> `test/release/module-reachability.test.ts`, which walks the import graph from
+> entry points **derived** from `package.json` (the esbuild bundle entry and the
+> `tsx` dev entry, both `src/cli/index.ts`) plus whatever `scripts/` imports, and
+> asserts the debt register by **exact equality**.
+>
+> **This entry read "the debt register is empty (`KNOWN_UNREACHABLE = {}`)" while
+> the register held nine modules, and that is the failure this document warns about
+> in its own preamble** — a status carried by memory rather than by the test. The
+> count is not restated here for the same reason: `KNOWN_UNREACHABLE` in
+> `test/release/module-reachability.test.ts` is the register, each entry carrying
+> its own reason and the thing that would take it off, and a copy of that list in
+> prose is a second reading of it that can drift. The criterion is met because the
+> equality assertion holds and every widening of the register is a visible commit
+> that had to argue for itself, not because the register is short.
+>
+> **What every entry on it has in common is the finding worth carrying.** They are
+> all the same shape — *built and tested, parked* — and none is dead by neglect:
+> each is a module written to discharge a red instrument whose own result then said
+> not to wire it (`src/telemetry/quarantine-expiry.ts`, whose sweep refuted the
+> period the mechanism needs), or to serve a mechanism this repository does not yet
+> have (`src/runner/no-tty-policy.ts`, with no subprocess call site to answer for),
+> or to await a decision only the operator can make (`src/loop/early-push.ts`). The
+> register exists precisely so "dead by neglect" and "built ahead of its consumer"
+> stop looking alike, and so far every entry has been the second kind.
+>
+> The first two entries it ever held both came off, which is the ending it was
+> designed to have:
 >
 > | Module | How its entry came off |
 > |---|---|
 > | `src/loop/exitLaundering.ts` | H3's detector, whose refusal message named `ost-agent loop step` before that command existed. F1 built the command; `loop step` now calls it before it runs or records anything. |
 > | `src/adapters/tokens.ts` | Reads token spend from Claude Code's session JSONL. F3's ceiling is the consumer it was written for and never had — the correlator its header names (`src/eval/attention.ts`) never imported it. |
->
-> **Both entries came off because a criterion that needed them landed, which is the
-> only ending this register was designed to have.** Its two entries had described
-> "a module that is dead by neglect" and "a module that is dead because its
-> criterion has not been built yet" — the register existed precisely so those two
-> would stop looking alike, and in the event both turned out to be the second kind.
 >
 > *One trap worth recording, because the obvious way to close this criterion is to
 > fake it.* The walk measures **import**-reachability, not call-reachability, so
@@ -3109,7 +3125,9 @@ whole tool surface.**
 > assertion rather than "is imported at least once", because two dead modules that
 > import each other pass the weaker form. The register is asserted by **exact
 > equality**, not as a floor: widening it is a visible commit that has to argue for
-> itself. A debt register, not an exemption — and now a paid one.
+> itself. A debt register, not an exemption — it was paid off once, and has since
+> been widened ten times by builds that landed ahead of the decision that would use
+> them, each widening arguing for itself in the commit that made it.
 >
 > The rule earns its place under DEC-2: the harness was the repo's only
 > prediction/outcome/score triple, and a harness varying a gene that reached no
@@ -3186,12 +3204,28 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,327 tests across 328 files, verified 2026-08-31 (`npx vitest run`
-> reports 4,319 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,350 tests across 329 files, verified 2026-08-31 (`npx vitest run`
+> reports 4,342 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,319 across
-> the 327 files it collects, in 337 s. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,342 across
+> the 328 files it collects, in 350 s. The file added since the previous line is
+> `test/rank/unblock-leverage-distribution.test.ts` — the sweep behind "Rank every node by
+> how many blocked tests one build would unblock" (`src/ost/unblock-leverage.ts`,
+> `test/fixtures/unblock-leverage/`). It counts, for each of the meta vault's 441 candidate
+> builds, how many blocked assumption tests shipping it would make readable, and asserts the
+> bar the assumption test fixed on 2026-08-06 — max ≥ 3× median, top decile ≥ 25% of all
+> unblockings. It came out **refuted under all three readings of "readable"**, asserted as
+> `meetsBar === false` by name for each rather than left to be inferred: 390 of 441
+> candidates unblock exactly one test, the maximum is 3, and the top decile carries 18.6%
+> where a perfectly uniform tree of that size would carry 10.2%. The cause is the finding:
+> the vault declares **zero** prerequisite edges, so the only what-unblocks-what edge the
+> sweep can read is parent-child coverage, which is fan-out rather than leverage — the
+> cross-branch ordering the ranking was generalized from has nowhere to have been written
+> down. `src/ost/prerequisites.ts` built the field; populating it is the human paper-map node
+> that has not been done.
+>
+> The file added by the line before this one was
 > `test/ost/quarantine-unknown-node-type.test.ts` — the instrument beneath "Quarantine
 > unknown node types instead of dropping them" (`src/ost/quarantine.ts`). A node whose
 > `type:` this reader does not recognise used to be dropped at the read, taking its outgoing
@@ -3211,7 +3245,7 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > `src/loop/stop-condition.ts` declares it not-actionable with that reason, and the partition
 > test holds the declaration to it.
 >
-> The file added by the line before this one was
+> Before that came
 > `test/telemetry/quarantine-expiry-period.test.ts` — the replay behind "quarantine entries
 > expire, so a workaround cannot become permanent by inattention"
 > (`src/telemetry/quarantine-expiry.ts`, `test/fixtures/quarantine-expiry/`): every exclusion
