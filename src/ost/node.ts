@@ -332,17 +332,24 @@ export function tryOutgoingLinks(title: string, markdown: string): string[] | nu
   }
 }
 
-/** Parse Markdown file contents (with the given title) back into an {@link OstNode}. */
-export function deserialize(title: string, markdown: string): OstNode {
-  const parsed = parseFrontmatter(markdown);
-  const data = parsed.data as Record<string, unknown>;
-
-  const layer = data.type as Layer;
-  if (!LAYERS.includes(layer)) {
-    throw new Error(`node "${title}" has invalid or missing type: ${String(data.type)}`);
-  }
-
-  const lines = parsed.content.replace(/^\n+/, "").split("\n");
+/**
+ * The three things a node file's CONTENT (everything below the frontmatter)
+ * carries: its tag line, its child edges, and its prose.
+ *
+ * Split out of {@link deserialize} because {@link ./quarantine.ts} has to read
+ * exactly this much out of a file whose `type:` the reader does NOT recognise —
+ * and reading it with a second, near-identical parser is how a quarantined node
+ * would come to disagree with a live one about its own edges. The layer is a
+ * parameter rather than a lookup because the only thing the layer decides here
+ * is which tag to drop from `tags`; a quarantined file passes its declared type,
+ * so `#Metric` is dropped from a `type: Metric` file the same way `#Solution` is
+ * dropped from a Solution.
+ */
+export function parseNodeContent(
+  content: string,
+  layerTag: string,
+): { tags: string[]; links: string[]; body: string; taggedRung: string | undefined } {
+  const lines = content.replace(/^\n+/, "").split("\n");
 
   // First non-empty line is the tag line.
   let i = 0;
@@ -353,7 +360,7 @@ export function deserialize(title: string, markdown: string): OstNode {
   const allTags = [...tagLine.matchAll(/#(\S+)/g)].map((m) => m[1]);
   // Everything except the layer tag becomes an extra tag (dedupe, drop the layer).
   // The evidence tag is lifted back onto `evidence` rather than left in `tags`.
-  const tags = allTags.filter((t) => t !== layer && !EVIDENCE_TAG.test(t));
+  const tags = allTags.filter((t) => t !== layerTag && !EVIDENCE_TAG.test(t));
   const taggedRung = allTags.map((t) => EVIDENCE_TAG.exec(t)?.[1]).find((r): r is string => !!r);
 
   // Contiguous wikilink-only lines immediately after the tag line are child edges.
@@ -365,7 +372,20 @@ export function deserialize(title: string, markdown: string): OstNode {
     i++;
   }
 
-  const body = lines.slice(i).join("\n").trim();
+  return { tags, links, body: lines.slice(i).join("\n").trim(), taggedRung };
+}
+
+/** Parse Markdown file contents (with the given title) back into an {@link OstNode}. */
+export function deserialize(title: string, markdown: string): OstNode {
+  const parsed = parseFrontmatter(markdown);
+  const data = parsed.data as Record<string, unknown>;
+
+  const layer = data.type as Layer;
+  if (!LAYERS.includes(layer)) {
+    throw new Error(`node "${title}" has invalid or missing type: ${String(data.type)}`);
+  }
+
+  const { tags, links, body, taggedRung } = parseNodeContent(parsed.content, layer);
 
   const node: OstNode = { title, layer, tags, links, body };
   if (typeof data.status === "string") node.status = data.status as NodeStatus;

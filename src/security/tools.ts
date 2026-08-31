@@ -14,6 +14,7 @@ import path from "node:path";
 import { tool } from "./tool.js";
 import { gitCommit, gitPush, pushTargetFor } from "../git/safe-git.js";
 import { AGENT_IDEATED_TAG, type NodeStatus, type OstNode } from "../ost/node.js";
+import type { QuarantinedNode } from "../ost/quarantine.js";
 import { BELIEVABILITY_LADDER, isRung, rungRank, type RungId } from "../knowledge/believability.js";
 import { isInstrument, parseInstrument } from "../knowledge/instruments.js";
 import { specResolves } from "../ost/instrument.js";
@@ -618,6 +619,17 @@ interface ListedNode {
   linkCount?: number;
 }
 
+/** One quarantined file as `ost_read_tree` renders it. See {@link ../ost/quarantine.ts}. */
+interface ListedQuarantine {
+  title: string;
+  /** The `type:` this reader did not recognise, verbatim — the field a live node calls `layer`. */
+  unrecognizedType: string;
+  tags: string[];
+  links: string[];
+  /** Present only when `links` is a sample. */
+  linkCount?: number;
+}
+
 export interface ReadTreeResponse {
   /** The whole tree's size. Never capped — this is the number that says what was left out. */
   count: number;
@@ -628,6 +640,19 @@ export interface ReadTreeResponse {
   /** Present only when something was withheld, so a reader cannot mistake a window for the whole. */
   note?: string;
   nodes: ListedNode[];
+  /**
+   * Node-shaped files this reader could not classify — present only when there
+   * are some, so the field cannot become wallpaper.
+   *
+   * They are listed APART from `nodes` and are not in `count`, because they are
+   * not nodes: nothing in the product classifies them, counts them or gates on
+   * them. What they are is *present*, which is the one thing the old behaviour —
+   * dropping them at the read — could not say. Their bodies are served by
+   * `ost_read_tree({ node })` exactly as a live node's are.
+   */
+  quarantined?: ListedQuarantine[];
+  /** Present iff `quarantined` is. Says what the list means without the caller having to know. */
+  quarantineNote?: string;
 }
 
 /**
@@ -643,7 +668,10 @@ export interface ReadTreeResponse {
  * and every verdict in the product is computed by `ost_check` / `ost_next_work`
  * over the full tree.
  */
-export function readTreeResponse(tree: readonly OstNode[]): ReadTreeResponse {
+export function readTreeResponse(
+  tree: readonly OstNode[],
+  quarantined: readonly QuarantinedNode[] = [],
+): ReadTreeResponse {
   const nodes: ListedNode[] = [];
   let bytes = 0;
   for (const n of tree) {
@@ -676,6 +704,29 @@ export function readTreeResponse(tree: readonly OstNode[]): ReadTreeResponse {
       `Showing ${nodes.length} of ${tree.length} node(s) — ${hidden} not listed (response size limit). ` +
       `This is a display cap, not a smaller tree: ost_check and ost_next_work are computed over all ${tree.length}. ` +
       `Use ost_next_work to find what to work on rather than reading the whole tree.`;
+  }
+  // Appended AFTER the node cap and never subject to it: the cap bounds a window
+  // onto a tree the reader can see, and this list is the reader's own blindness.
+  // Shortening it would be the same defect one level up — and there is no vault
+  // where it is large enough to matter that the size is not itself the finding.
+  if (quarantined.length > 0) {
+    response.quarantined = quarantined.map((q) => {
+      const entry: ListedQuarantine = {
+        title: q.title,
+        unrecognizedType: q.unrecognizedType,
+        tags: q.tags.slice(0, MAX_EDGES_LISTED_PER_NODE),
+        links: q.links.slice(0, MAX_EDGES_LISTED_PER_NODE),
+      };
+      if (q.links.length > entry.links.length) entry.linkCount = q.links.length;
+      return entry;
+    });
+    response.quarantineNote =
+      `${quarantined.length} file(s) at the vault root are node-shaped but declare a \`type:\` this reader ` +
+      `does not recognise. They are NOT part of \`count\` and not part of any verdict: ost_check and ` +
+      `ost_next_work are computed over the ${tree.length} node(s) above, so everything beneath these — the ` +
+      `\`links\` listed here and their descendants — is dark to both. This is a hole in the tree, not a ` +
+      `display cap. Read one with ost_read_tree({ node: "<title>" }); repairing it means editing the file's ` +
+      `\`type:\`, which no tool on this surface can do.`;
   }
   return response;
 }
@@ -772,8 +823,14 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
       // Two modes, one tool, for the reason ost_next_work({evidence}) is (W7):
       // a second tool would need four allowlists to agree before it could serve
       // a byte. A node is what this tool reports on; `node` says which one.
-      run: async (input: { node?: string }) =>
-        JSON.stringify(input.node !== undefined ? readNodeBody(vault, input.node) : readTreeResponse(vault.readTree()), null, 2),
+      run: async (input: { node?: string }) => {
+        if (input.node !== undefined) return JSON.stringify(readNodeBody(vault, input.node), null, 2);
+        // ONE census read, for the reason `ost_next_work` states: the node list
+        // and the account of what was withheld from it have to come from the
+        // same walk, or the two can disagree about which files exist.
+        const census = vault.readTreeCensus();
+        return JSON.stringify(readTreeResponse(census.nodes, census.quarantined), null, 2);
+      },
     }),
 
     tool({

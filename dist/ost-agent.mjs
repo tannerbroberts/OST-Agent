@@ -33978,20 +33978,14 @@ function tryOutgoingLinks(title, markdown) {
     return null;
   }
 }
-function deserialize(title, markdown) {
-  const parsed = parseFrontmatter(markdown);
-  const data = parsed.data;
-  const layer = data.type;
-  if (!LAYERS.includes(layer)) {
-    throw new Error(`node "${title}" has invalid or missing type: ${String(data.type)}`);
-  }
-  const lines = parsed.content.replace(/^\n+/, "").split("\n");
+function parseNodeContent(content, layerTag) {
+  const lines = content.replace(/^\n+/, "").split("\n");
   let i2 = 0;
   while (i2 < lines.length && lines[i2].trim() === "") i2++;
   const tagLine = i2 < lines.length ? lines[i2].trim() : "";
   i2++;
   const allTags = [...tagLine.matchAll(/#(\S+)/g)].map((m) => m[1]);
-  const tags = allTags.filter((t2) => t2 !== layer && !EVIDENCE_TAG.test(t2));
+  const tags = allTags.filter((t2) => t2 !== layerTag && !EVIDENCE_TAG.test(t2));
   const taggedRung = allTags.map((t2) => EVIDENCE_TAG.exec(t2)?.[1]).find((r2) => !!r2);
   const links = [];
   while (i2 < lines.length) {
@@ -34000,7 +33994,16 @@ function deserialize(title, markdown) {
     links.push(m[1]);
     i2++;
   }
-  const body = lines.slice(i2).join("\n").trim();
+  return { tags, links, body: lines.slice(i2).join("\n").trim(), taggedRung };
+}
+function deserialize(title, markdown) {
+  const parsed = parseFrontmatter(markdown);
+  const data = parsed.data;
+  const layer = data.type;
+  if (!LAYERS.includes(layer)) {
+    throw new Error(`node "${title}" has invalid or missing type: ${String(data.type)}`);
+  }
+  const { tags, links, body, taggedRung } = parseNodeContent(parsed.content, layer);
   const node2 = { title, layer, tags, links, body };
   if (typeof data.status === "string") node2.status = data.status;
   if (typeof data.source === "string") node2.source = data.source;
@@ -34020,6 +34023,23 @@ function deserialize(title, markdown) {
   else if (typeof data.killBy === "string") node2.killBy = data.killBy;
   if (isAuthorship(data.authorship)) node2.authorship = data.authorship;
   return node2;
+}
+
+// src/ost/quarantine.ts
+function quarantineNode(file, markdown, declaredType, content) {
+  const { tags, links, body } = parseNodeContent(content, declaredType);
+  return { file, title: file.replace(/\.md$/, ""), unrecognizedType: declaredType, tags, links, body };
+}
+function quarantineReason(q2) {
+  return `unrecognised type ${JSON.stringify(q2.unrecognizedType)} \u2014 QUARANTINED, not dropped: its title, body and ${q2.links.length} outgoing link(s) are retained and reachable, and it is excluded from every count and gate rather than miscounted. Fix the \`type:\` to bring it back into the tree; no tool on the agent's surface can.`;
+}
+function quarantinedTitles(quarantined) {
+  return new Set(quarantined.map((q2) => q2.title));
+}
+function quarantinedParents(quarantined) {
+  const held2 = /* @__PURE__ */ new Map();
+  for (const q2 of quarantined) for (const child of q2.links) if (!held2.has(child)) held2.set(child, q2);
+  return held2;
 }
 
 // src/ost/sanitize.ts
@@ -40047,10 +40067,23 @@ function formatCensus(census, nodeCount) {
   const lines = [];
   const dropped = census.skipped.length + census.unreadable.length;
   lines.push(
-    `Counted over: ${nodeCount} node(s) of ${census.examined} markdown file(s) examined` + (dropped > 0 ? `, ${dropped} dropped` : "")
+    `Counted over: ${nodeCount} node(s) of ${census.examined} markdown file(s) examined` + (dropped > 0 ? `, ${dropped} dropped` : "") + (census.quarantined.length > 0 ? `, ${census.quarantined.length} quarantined (unrecognised \`type:\`)` : "")
   );
   for (const s of census.skipped) lines.push(`  \u2013 dropped ${s.file}: ${s.reason}`);
   for (const u of census.unreadable) lines.push(`  \u2013 unreadable ${u.file}: ${u.reason}`);
+  if (census.quarantined.length > 0) {
+    lines.push(
+      `  \u26A0 quarantined: ${census.quarantined.length} node(s) present on disk that this reader cannot classify.
+    They are NOT in the ${nodeCount} above, and the branches beneath them are dark to every
+    count, gate and rollup. This is a hole in the tree, not a formatting complaint.`
+    );
+    for (const q2 of census.quarantined) {
+      lines.push(`    \xB7 ${q2.file}: ${quarantineReason(q2)}`);
+      if (q2.links.length > 0) {
+        lines.push(`      quarantined-parent of: ${q2.links.join(", ")}`);
+      }
+    }
+  }
   if (census.retired.length > 0) {
     lines.push(`  \u2013 retired: ${census.retired.length} node(s) out of the live tree, excluded from the counts above`);
     for (const r2 of census.retired) lines.push(`    \xB7 ${r2.file}: ${r2.reason}`);
@@ -40068,6 +40101,9 @@ function formatCensus(census, nodeCount) {
   }
   return lines.join("\n");
 }
+function quarantineDrops(census) {
+  return census.quarantined.map((q2) => ({ file: q2.file, reason: quarantineReason(q2) }));
+}
 var MAX_CENSUS_FIRINGS = 10;
 function censusHistoryPath(vaultDir) {
   return path12.join(path12.resolve(vaultDir), ".ost-agent", "census-history", "firings.jsonl");
@@ -40080,6 +40116,7 @@ function recordCensusFiring(vaultDir, command, census, ts) {
       examined: census.examined,
       skipped: census.skipped,
       unreadable: census.unreadable,
+      quarantined: quarantineDrops(census),
       unseenByWalk: census.independent?.unseenByWalk ?? []
     };
     const next = [...readCensusHistory(vaultDir), entry].slice(-MAX_CENSUS_FIRINGS);
@@ -40521,9 +40558,19 @@ var Vault = class {
     const near = this.nearestTitle(title);
     return new Error(`no such node: ${title}${near ? ` \u2014 did you mean "${near}"?` : ""}`);
   }
-  /** Read all node files at the vault root (skips non-node files and subdirs). */
+  /**
+   * Read all node files at the vault root (skips non-node files and subdirs).
+   *
+   * A file whose `type:` this reader does not recognise is deliberately NOT here
+   * — it is on `readTreeCensus().quarantined`, retained and named, and excluded
+   * from every count and gate that reads this array. See {@link ./quarantine.ts}.
+   */
   readTree() {
     return this.readTreeCensus().nodes;
+  }
+  /** The node-shaped files this reader could not classify. See {@link ./quarantine.ts}. */
+  readQuarantined() {
+    return this.readTreeCensus().quarantined;
   }
   /**
    * The live tree — `readTree` with retired nodes withheld.
@@ -40569,6 +40616,7 @@ var Vault = class {
     const seenFiles = [];
     const skipped = [];
     const unreadable = [];
+    const quarantined = [];
     const retired = this.archivedFiles();
     for (const e of entries) {
       if (!e.isFile() || !e.name.endsWith(".md")) continue;
@@ -40581,17 +40629,26 @@ var Vault = class {
         continue;
       }
       let type;
+      let content;
       try {
-        type = parseFrontmatter(raw).data.type;
+        const parsed = parseFrontmatter(raw);
+        type = parsed.data.type;
+        content = parsed.content;
       } catch (err) {
         unreadable.push({ file: e.name, reason: `frontmatter did not parse: ${err.message}` });
         continue;
       }
       if (typeof type !== "string" || !LAYERS.includes(type)) {
-        skipped.push({
-          file: e.name,
-          reason: type === void 0 ? "no frontmatter `type` \u2014 not an OST node" : `unrecognised type ${JSON.stringify(String(type))}`
-        });
+        if (typeof type === "string" && type.trim().length > 0) {
+          const held2 = quarantineNode(e.name, raw, type, content);
+          if (isRetractedNode(held2)) retired.push({ file: e.name, reason: retractionReason(held2) });
+          else quarantined.push(held2);
+        } else {
+          skipped.push({
+            file: e.name,
+            reason: type === void 0 ? "no frontmatter `type` \u2014 not an OST node" : `unrecognised type ${JSON.stringify(String(type))}`
+          });
+        }
         continue;
       }
       let node2;
@@ -40607,7 +40664,7 @@ var Vault = class {
       }
       nodes.push(node2);
     }
-    const census = { nodes, examined: seenFiles.length, seenFiles, skipped, unreadable, retired };
+    const census = { nodes, examined: seenFiles.length, seenFiles, skipped, unreadable, quarantined, retired };
     return opts.excludeRetired ? withoutRetiredNodes(census) : census;
   }
   /**
@@ -45644,16 +45701,19 @@ function rungRefusal(u) {
 }
 
 // src/eval/invariants.ts
-function checkInvariants(tree) {
+function checkInvariants(tree, quarantined = []) {
   const v = [];
   const index = byTitle(tree);
   const outcomes = tree.filter((n) => n.layer === "Outcome");
+  const quarantinedTitle = quarantinedTitles(quarantined);
+  const heldBy = quarantinedParents(quarantined);
   if (outcomes.length !== 1) {
     v.push({ rule: "single-outcome", detail: `expected exactly 1 Outcome, found ${outcomes.length}` });
   }
   for (const n of tree) {
     for (const link of n.links) {
-      if (!index.has(link)) v.push({ rule: "dangling-link", node: n.title, detail: `[[${link}]] has no node` });
+      if (index.has(link) || quarantinedTitle.has(link)) continue;
+      v.push({ rule: "dangling-link", node: n.title, detail: `[[${link}]] has no node` });
     }
   }
   for (const n of tree) {
@@ -45677,7 +45737,7 @@ function checkInvariants(tree) {
       });
     }
   }
-  const reachable = reachableOpportunities(tree, index);
+  const reachable = reachableOpportunities(tree, index, quarantined);
   for (const n of tree) {
     if (n.layer === "Opportunity" && !reachable.has(n.title)) {
       v.push({ rule: "opportunity-connected", node: n.title, detail: "not connected to the outcome (directly or via a parent opportunity)" });
@@ -45691,22 +45751,23 @@ function checkInvariants(tree) {
       else parentsOf.set(child, [p2]);
     }
   }
+  const heldByQuarantine = (title) => heldBy.has(title);
   for (const n of tree) {
-    if (n.layer === "Solution") {
+    if (n.layer === "Solution" && !heldByQuarantine(n.title)) {
       const parents = parentsOf.get(n.title) ?? [];
       if (!parents.some((p2) => p2.layer === "Opportunity"))
         v.push({ rule: "solution-mapped", node: n.title, detail: "not linked under any Opportunity" });
     }
   }
   for (const n of tree) {
-    if (n.layer === "Assumption") {
+    if (n.layer === "Assumption" && !heldByQuarantine(n.title)) {
       const parents = parentsOf.get(n.title) ?? [];
       if (!parents.some((p2) => p2.layer === "Solution"))
         v.push({ rule: "assumption-mapped", node: n.title, detail: "not linked under any Solution" });
     }
   }
   for (const n of tree) {
-    if (n.layer === "AssumptionTest") {
+    if (n.layer === "AssumptionTest" && !heldByQuarantine(n.title)) {
       const parents = parentsOf.get(n.title) ?? [];
       if (!parents.some((p2) => p2.layer === "Assumption" || p2.layer === "Solution"))
         v.push({ rule: "test-mapped", node: n.title, detail: "not linked under any Assumption" });
@@ -45793,17 +45854,26 @@ function checkInvariants(tree) {
   }
   return v;
 }
-function reachableOpportunities(tree, index) {
+function reachableOpportunities(tree, index, quarantined) {
   const reachable = /* @__PURE__ */ new Set();
+  const through = new Map(quarantined.map((q2) => [q2.title, q2.links]));
   const start = tree.find((n) => n.layer === "Outcome");
   if (!start) return reachable;
   const stack = [...start.links];
+  const crossed = /* @__PURE__ */ new Set();
   while (stack.length) {
     const title = stack.pop();
+    const held2 = through.get(title);
+    if (held2) {
+      if (crossed.has(title)) continue;
+      crossed.add(title);
+      stack.push(...held2);
+      continue;
+    }
     const node2 = index.get(title);
     if (!node2 || node2.layer !== "Opportunity" || reachable.has(title)) continue;
     reachable.add(title);
-    for (const child of node2.links) if (index.get(child)?.layer === "Opportunity") stack.push(child);
+    for (const child of node2.links) if (index.get(child)?.layer === "Opportunity" || through.has(child)) stack.push(child);
   }
   return reachable;
 }
@@ -46991,7 +47061,7 @@ function appendElisionCoda(lines, hidden, howToSeeTheRest) {
 function appendCensus(lines, census, budget, coda) {
   const dropped = census.skipped.length + census.unreadable.length;
   const unseen = census.independent?.unseenByWalk.length ?? 0;
-  if (dropped === 0 && unseen === 0 && census.retired.length === 0) return 0;
+  if (dropped === 0 && unseen === 0 && census.retired.length === 0 && census.quarantined.length === 0) return 0;
   const [header, ...detail2] = formatCensus(census, census.nodes.length).split("\n");
   lines.push(header);
   const source = census.independent?.source;
@@ -47110,7 +47180,7 @@ function renderCheck(census) {
   const lines = [];
   const budget = newBudget();
   let hidden = 0;
-  const violations = checkInvariants(census.nodes);
+  const violations = checkInvariants(census.nodes, census.quarantined);
   if (violations.length === 0) {
     lines.push(`invariants: PASS (0 violations over ${census.nodes.length} node(s))`);
   } else {
@@ -52523,7 +52593,7 @@ var HYGIENE_ONLY_RULES = [
   ...EXTENT_RULES
 ];
 var UNRESOLVED_CITATION_RULE = "unresolved-citation";
-function detectHygiene(tree, live, limit, storedEvidenceIds, standing, inScope = () => true) {
+function detectHygiene(tree, live, limit, storedEvidenceIds, standing, inScope = () => true, quarantined = []) {
   const index = byTitle(tree);
   const annotatedCache = /* @__PURE__ */ new Map();
   const alreadyAnnotated = (title, issue2) => {
@@ -52548,7 +52618,7 @@ function detectHygiene(tree, live, limit, storedEvidenceIds, standing, inScope =
     if (issues.length < limit) issues.push(issue2);
   };
   const outcome = tree.find((n) => n.layer === "Outcome")?.title;
-  for (const v of checkInvariants(tree)) {
+  for (const v of checkInvariants(tree, quarantined)) {
     if (v.rule in NOT_DONE_BLOCKING) continue;
     const title = v.node ?? outcome;
     if (!title) continue;
@@ -52796,7 +52866,15 @@ function computeNextWork(vault, dir, min, now = () => /* @__PURE__ */ new Date()
     (s) => s.title
   );
   const standing = reconcileWithTrust(dir, census);
-  const hygiene = detectHygiene(tree, liveCensus.nodes, MAX_ITEMS_PER_LIST2, storedEvidenceIds, standing, inScope);
+  const hygiene = detectHygiene(
+    tree,
+    liveCensus.nodes,
+    MAX_ITEMS_PER_LIST2,
+    storedEvidenceIds,
+    standing,
+    inScope,
+    census.quarantined
+  );
   if (hygiene.excluded) scopeExcluded.push({ list: "hygieneIssues", count: hygiene.excluded });
   const allOpenUnknowns = omitSuppressed(
     tree.filter((n) => n.layer === "Unknown" && resolutionState(n) === "open").map((u) => ({
@@ -52945,9 +53023,18 @@ function computeNextWork(vault, dir, min, now = () => /* @__PURE__ */ new Date()
   const askNote = allOutstandingAsks.length ? ` ${allOutstandingAsks.length} outstanding ask(s) awaiting an answer` + (oldestAsk ? `, oldest ${oldestAsk.ageDays} day(s) unanswered (${oldestAsk.test})` : "") + (unrecordedAsks ? `; ${unrecordedAsks} predate ask tracking and have no recorded age` : "") + ` (see outstandingAsks). Answering one stays a human's, so none block done.` : "";
   const scope = target != null && target !== "" ? { target, resolved: membership !== null, subtreeSize: membership?.size ?? 0, excluded: scopeExcluded } : void 0;
   const scopeNote = scope ? scope.resolved ? scopeExcluded.length ? ` Out of scope for this target (not listed, not counted toward done): ` + scopeExcluded.map((e) => `${e.count} ${e.list}`).join(", ") + `. Clearing discovery.target in ost.config.yaml resumes the whole-tree sweep.` : "" : ` Configured discovery.target ${JSON.stringify(scope.target)} names no Opportunity in this tree, so this sweep ran UNSCOPED over the whole tree \u2014 fix or clear discovery.target in ost.config.yaml.` : "";
+  const quarantinedReport = census.quarantined.map((q2) => ({
+    title: q2.title,
+    unrecognizedType: q2.unrecognizedType,
+    darkens: tree.find((n) => n.links.includes(q2.title))?.title ?? null,
+    children: [...q2.links]
+  }));
+  const quarantineNote = quarantinedReport.length ? `${quarantinedReport.length} node(s) on disk could not be classified and are NOT in this sweep: ` + quarantinedReport.map(
+    (q2) => `"${q2.title}" (type ${JSON.stringify(q2.unrecognizedType)}` + (q2.darkens ? `, linked from "${q2.darkens}"` : "") + (q2.children.length ? `, quarantined-parent of ${q2.children.length}: ${q2.children.map((c3) => `"${c3}"`).join(", ")}` : "") + ")"
+  ).join("; ") + `. Everything beneath them is dark to every count and verdict below, including \`done\` \u2014 the branch is on disk and this reader cannot see it. No tool on this surface can fix a \`type:\`; a person edits the file. Until then, read every number below as taken over a tree with a hole in it. ` : "";
   const doneLead = scope?.resolved === true ? `Branch ${JSON.stringify(scope.target)} is fully maintained (${scope.subtreeSize} node(s) in scope) \u2014 nothing to do in it.` : `Tree is fully maintained \u2014 nothing to do.`;
   const outstandingLead = scope?.resolved === true ? `Outstanding in branch ${JSON.stringify(scope.target)}:` : `Outstanding:`;
-  const summary = done ? scopedOpenUnknowns.length ? `${doneLead} ${scopedOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}` : `${doneLead}${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}` : `${outstandingLead} ${parts.join("; ")}.${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${excerptNote}${staleNote}${retirementNote}${agedOutNote}`;
+  const summary = quarantineNote + (done ? scopedOpenUnknowns.length ? `${doneLead} ${scopedOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}` : `${doneLead}${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}` : `${outstandingLead} ${parts.join("; ")}.${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${excerptNote}${staleNote}${retirementNote}${agedOutNote}`);
   return {
     framing: DATA_FRAME,
     done,
@@ -52963,6 +53050,7 @@ function computeNextWork(vault, dir, min, now = () => /* @__PURE__ */ new Date()
     outstandingAsks,
     hygieneIssues,
     openUnknowns,
+    quarantined: quarantinedReport,
     retiredFromDuplicateScan,
     withheldByDisposition,
     suppressedByCondition,
@@ -52990,16 +53078,47 @@ function readNodeBody(vault, title) {
   if (title.trim().startsWith(".")) {
     refuseOutOfScope("it names a hidden file, and the vault's own sidecar lives under one");
   }
-  const tree = vault.readTree();
+  const census = vault.readTreeCensus();
+  const tree = census.nodes;
   const node2 = tree.find((n) => titlesMatch(n.title, title));
   if (!node2) {
+    const held2 = census.quarantined.find((q2) => titlesMatch(q2.title, title));
+    if (held2) return quarantinedBody(held2);
     const wanted = canonicalTitle(title);
-    const near = wanted ? nearestName(wanted, tree.map((n) => n.title)) : void 0;
+    const near = wanted ? nearestName(wanted, [...tree.map((n) => n.title), ...census.quarantined.map((q2) => q2.title)]) : void 0;
     throw new Error(
       "no node on the tree carries that title. Titles are exact and come from ost_read_tree's own listing \u2014 call it with no arguments and use a `title` from `nodes` verbatim." + (near ? ` Did you mean "${near}"?` : "")
     );
   }
   return nodeBody(node2);
+}
+function quarantinedBody(held2) {
+  const { prose, reserved } = splitReservedSections(held2.body);
+  const proseChars = prose.length;
+  const truncated = proseChars > MAX_BODY_CHARS ? [{ list: "prose (characters)", shown: MAX_BODY_CHARS, total: proseChars, hidden: proseChars - MAX_BODY_CHARS }] : [];
+  return {
+    framing: DATA_FRAME,
+    kind: "node",
+    title: held2.title,
+    layer: held2.unrecognizedType,
+    unrecognizedType: held2.unrecognizedType,
+    quarantineNote: `This file declares \`type: ${held2.unrecognizedType}\`, which this reader does not recognise, so it is QUARANTINED: retained and readable, excluded from every count, gate and rollup, and absent from ost_read_tree's \`nodes\`. Its ${held2.links.length} outgoing link(s) are listed, and the nodes they name are quarantined-parent rather than orphaned. The frontmatter fields below read null because nothing here validated them \u2014 do not treat this as a node until a person fixes the \`type:\`, which no tool on this surface can do.`,
+    status: null,
+    evidence: null,
+    lane: null,
+    instrument: null,
+    threshold: null,
+    source: null,
+    tags: held2.tags,
+    links: held2.links,
+    prose: frameData(prose.slice(0, MAX_BODY_CHARS)),
+    proseChars,
+    reserved: reserved.map((block) => ({
+      heading: headingOf(block),
+      content: block.split("\n").slice(1).join("\n").trim()
+    })),
+    truncated
+  };
 }
 function nodeBody(node2) {
   const { prose, reserved } = splitReservedSections(node2.body);
@@ -53640,7 +53759,7 @@ function unknownProperty() {
 }
 var READ_TREE_BUDGET_BYTES = 1e5;
 var MAX_EDGES_LISTED_PER_NODE = 25;
-function readTreeResponse(tree) {
+function readTreeResponse(tree, quarantined = []) {
   const nodes = [];
   let bytes = 0;
   for (const n of tree) {
@@ -53662,6 +53781,19 @@ function readTreeResponse(tree) {
   const response = { count: tree.length, shown: nodes.length, hidden, nodes };
   if (hidden > 0) {
     response.note = `Showing ${nodes.length} of ${tree.length} node(s) \u2014 ${hidden} not listed (response size limit). This is a display cap, not a smaller tree: ost_check and ost_next_work are computed over all ${tree.length}. Use ost_next_work to find what to work on rather than reading the whole tree.`;
+  }
+  if (quarantined.length > 0) {
+    response.quarantined = quarantined.map((q2) => {
+      const entry = {
+        title: q2.title,
+        unrecognizedType: q2.unrecognizedType,
+        tags: q2.tags.slice(0, MAX_EDGES_LISTED_PER_NODE),
+        links: q2.links.slice(0, MAX_EDGES_LISTED_PER_NODE)
+      };
+      if (q2.links.length > entry.links.length) entry.linkCount = q2.links.length;
+      return entry;
+    });
+    response.quarantineNote = `${quarantined.length} file(s) at the vault root are node-shaped but declare a \`type:\` this reader does not recognise. They are NOT part of \`count\` and not part of any verdict: ost_check and ost_next_work are computed over the ${tree.length} node(s) above, so everything beneath these \u2014 the \`links\` listed here and their descendants \u2014 is dark to both. This is a hole in the tree, not a display cap. Read one with ost_read_tree({ node: "<title>" }); repairing it means editing the file's \`type:\`, which no tool on this surface can do.`;
   }
   return response;
 }
@@ -53688,7 +53820,11 @@ function buildOstTools(ctx, allowedNames) {
       // Two modes, one tool, for the reason ost_next_work({evidence}) is (W7):
       // a second tool would need four allowlists to agree before it could serve
       // a byte. A node is what this tool reports on; `node` says which one.
-      run: async (input) => JSON.stringify(input.node !== void 0 ? readNodeBody(vault, input.node) : readTreeResponse(vault.readTree()), null, 2)
+      run: async (input) => {
+        if (input.node !== void 0) return JSON.stringify(readNodeBody(vault, input.node), null, 2);
+        const census = vault.readTreeCensus();
+        return JSON.stringify(readTreeResponse(census.nodes, census.quarantined), null, 2);
+      }
     }),
     tool({
       name: "ost_next_work",
@@ -61411,6 +61547,11 @@ var OUTSTANDING_NOT_ACTIONABLE = [
     field: "openUnknowns",
     why: "unbounded by construction \u2014 darkness is discretionary and budget-governed, which is why `next-work.ts` keeps it out of `done` too. A term that can never reach zero is a stop condition that never fires, and this loop would then be paying to explore forever on the strength of its own curiosity. A human wanting an exploring pass runs an attended session, which never passes through this gate.",
     count: (w) => trueTotal(w, "openUnknowns", w.openUnknowns.length)
+  },
+  {
+    field: "quarantined",
+    why: "a node-shaped file on disk whose `type:` no reader here recognises. It is the one entry in this list that is a real defect rather than somebody else's queue, and it is still not this loop's to do: repairing it means editing a frontmatter field, and no tool `/ost-pass` grants can write one \u2014 a term counting it would idle the loop forever on work it is structurally unable to perform. Not counted is not unsaid, which is the whole point of quarantining rather than dropping it: `ost_next_work` leads its summary with it, `ost_check` names it, and `ost_read_tree` lists it apart from the tree. A person fixes the file.",
+    count: (w) => trueTotal(w, "quarantined", w.quarantined.length)
   },
   {
     field: "retiredFromDuplicateScan",

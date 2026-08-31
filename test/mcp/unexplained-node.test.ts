@@ -122,7 +122,7 @@ test("the finding counts as a violation, so the CLI exits non-zero on it", () =>
   // `retired` is a required field on `TreeCensus` and this literal omitted it —
   // caught by no compiler, because `tsconfig.json` covers `src/` only. Every
   // real census carries it, so a fixture without it is a shape nothing produces.
-  const census = { nodes: [], examined: 0, seenFiles: ["Injected.md"], skipped: [], unreadable: [], retired: [] };
+  const census = { nodes: [], examined: 0, seenFiles: ["Injected.md"], skipped: [], unreadable: [], quarantined: [], retired: [] };
   const before = renderCheck(census).violations;
   const after = renderCheck({
     ...census,

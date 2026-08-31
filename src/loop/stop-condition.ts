@@ -261,6 +261,17 @@ export const OUTSTANDING_NOT_ACTIONABLE: readonly NotActionable[] = [
     count: (w) => trueTotal(w, "openUnknowns", w.openUnknowns.length),
   },
   {
+    field: "quarantined",
+    why:
+      "a node-shaped file on disk whose `type:` no reader here recognises. It is the one entry in this list that " +
+      "is a real defect rather than somebody else's queue, and it is still not this loop's to do: repairing it " +
+      "means editing a frontmatter field, and no tool `/ost-pass` grants can write one — a term counting it would " +
+      "idle the loop forever on work it is structurally unable to perform. Not counted is not unsaid, which is the " +
+      "whole point of quarantining rather than dropping it: `ost_next_work` leads its summary with it, `ost_check` " +
+      "names it, and `ost_read_tree` lists it apart from the tree. A person fixes the file.",
+    count: (w) => trueTotal(w, "quarantined", w.quarantined.length),
+  },
+  {
     field: "retiredFromDuplicateScan",
     why:
       "not work at all: nodes withheld from the duplicate scan because they are retired, reported so a denominator " +

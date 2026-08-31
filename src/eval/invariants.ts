@@ -10,6 +10,7 @@ import { byTitle } from "../processes/tree.js";
 import { laneConflicts } from "../ost/lanes.js";
 import { wrappedLinkTargets, type OstNode } from "../ost/node.js";
 import { prerequisiteCycles, unknownPrerequisites } from "../ost/prerequisites.js";
+import { quarantinedParents, quarantinedTitles, type QuarantinedNode } from "../ost/quarantine.js";
 import { unearnedRungs } from "./rungs.js";
 
 export interface Violation {
@@ -18,10 +19,21 @@ export interface Violation {
   detail: string;
 }
 
-export function checkInvariants(tree: OstNode[]): Violation[] {
+/**
+ * @param quarantined Node-shaped files the reader could not classify
+ * ({@link ../ost/quarantine.ts}). They are NOT checked — the reader cannot
+ * classify them, so it has no business judging them — but they are read for two
+ * things, and both turn symptoms back into their cause: an edge INTO one is not
+ * dangling, and a node hanging BENEATH one is quarantined-parent rather than an
+ * orphan. Defaults to none, so every caller that has no census behaves exactly
+ * as it did.
+ */
+export function checkInvariants(tree: OstNode[], quarantined: readonly QuarantinedNode[] = []): Violation[] {
   const v: Violation[] = [];
   const index = byTitle(tree);
   const outcomes = tree.filter((n) => n.layer === "Outcome");
+  const quarantinedTitle = quarantinedTitles(quarantined);
+  const heldBy = quarantinedParents(quarantined);
 
   // exactly one root outcome (its mandate lives in the body; identity is the node itself)
   if (outcomes.length !== 1) {
@@ -29,9 +41,15 @@ export function checkInvariants(tree: OstNode[]): Violation[] {
   }
 
   // no dangling links
+  //
+  // A link onto a QUARANTINED title is not dangling and never was: the file is
+  // right there on disk with a body and edges of its own, and calling the edge
+  // broken sends a reader to repair the wrong end of it. The census names the
+  // quarantine; this rule stays quiet about a target it can see.
   for (const n of tree) {
     for (const link of n.links) {
-      if (!index.has(link)) v.push({ rule: "dangling-link", node: n.title, detail: `[[${link}]] has no node` });
+      if (index.has(link) || quarantinedTitle.has(link)) continue;
+      v.push({ rule: "dangling-link", node: n.title, detail: `[[${link}]] has no node` });
     }
   }
 
@@ -79,7 +97,7 @@ export function checkInvariants(tree: OstNode[]): Violation[] {
   }
 
   // every Opportunity is reachable from the outcome through Outcome/Opportunity edges
-  const reachable = reachableOpportunities(tree, index);
+  const reachable = reachableOpportunities(tree, index, quarantined);
   for (const n of tree) {
     if (n.layer === "Opportunity" && !reachable.has(n.title)) {
       v.push({ rule: "opportunity-connected", node: n.title, detail: "not connected to the outcome (directly or via a parent opportunity)" });
@@ -114,9 +132,19 @@ export function checkInvariants(tree: OstNode[]): Violation[] {
     }
   }
 
+  // A node hanging beneath a quarantined parent is not an orphan.
+  //
+  // It has a parent; what is missing is the reader's ability to say what layer
+  // that parent is. Reporting it under `solution-mapped` sends whoever reads the
+  // finding to re-parent a node that is already parented, and it does so once per
+  // child — nine findings for one edited `type:`, none of them naming the edit.
+  // The quarantine itself is reported by the census and by `ost_next_work`, once,
+  // naming these children as quarantined-parent.
+  const heldByQuarantine = (title: string): boolean => heldBy.has(title);
+
   // every Solution sits under at least one Opportunity
   for (const n of tree) {
-    if (n.layer === "Solution") {
+    if (n.layer === "Solution" && !heldByQuarantine(n.title)) {
       const parents = parentsOf.get(n.title) ?? [];
       if (!parents.some((p) => p.layer === "Opportunity"))
         v.push({ rule: "solution-mapped", node: n.title, detail: "not linked under any Opportunity" });
@@ -125,7 +153,7 @@ export function checkInvariants(tree: OstNode[]): Violation[] {
 
   // every Assumption sits under at least one Solution
   for (const n of tree) {
-    if (n.layer === "Assumption") {
+    if (n.layer === "Assumption" && !heldByQuarantine(n.title)) {
       const parents = parentsOf.get(n.title) ?? [];
       if (!parents.some((p) => p.layer === "Solution"))
         v.push({ rule: "assumption-mapped", node: n.title, detail: "not linked under any Solution" });
@@ -142,7 +170,7 @@ export function checkInvariants(tree: OstNode[]): Violation[] {
   // written today — `CHILD_HIERARCHY` refuses a new Solution→AssumptionTest
   // edge, so the legacy branch can only ever shrink.
   for (const n of tree) {
-    if (n.layer === "AssumptionTest") {
+    if (n.layer === "AssumptionTest" && !heldByQuarantine(n.title)) {
       const parents = parentsOf.get(n.title) ?? [];
       if (!parents.some((p) => p.layer === "Assumption" || p.layer === "Solution"))
         v.push({ rule: "test-mapped", node: n.title, detail: "not linked under any Assumption" });
@@ -310,18 +338,45 @@ export function checkInvariants(tree: OstNode[]): Violation[] {
   return v;
 }
 
-function reachableOpportunities(tree: OstNode[], index: Map<string, OstNode>): Set<string> {
+/**
+ * The walk traverses THROUGH a quarantined node rather than stopping at one.
+ *
+ * That is the whole "diagnosis, not symptom" rule applied to reachability. A
+ * `type:` this reader does not know says nothing about whether the branch below
+ * it hangs off the Outcome — on disk it plainly does — so treating quarantine as
+ * a break reports every Opportunity beneath it as adrift. That is exactly the
+ * shape the defect took: one edited `type:` produced four orphan Opportunities,
+ * none of which was actually disconnected from anything.
+ *
+ * A quarantined node contributes its edges and nothing else: it is never added
+ * to `reachable` (it is not an Opportunity — it is not classified at all), so it
+ * cannot satisfy this rule on its own behalf.
+ */
+function reachableOpportunities(
+  tree: OstNode[],
+  index: Map<string, OstNode>,
+  quarantined: readonly QuarantinedNode[],
+): Set<string> {
   const reachable = new Set<string>();
+  const through = new Map(quarantined.map((q) => [q.title, q.links]));
   // locate the outcome by layer (there is exactly one) so title punctuation can't break traversal
   const start = tree.find((n) => n.layer === "Outcome");
   if (!start) return reachable;
   const stack = [...start.links];
+  const crossed = new Set<string>();
   while (stack.length) {
     const title = stack.pop()!;
+    const held = through.get(title);
+    if (held) {
+      if (crossed.has(title)) continue;
+      crossed.add(title);
+      stack.push(...held);
+      continue;
+    }
     const node = index.get(title);
     if (!node || node.layer !== "Opportunity" || reachable.has(title)) continue;
     reachable.add(title);
-    for (const child of node.links) if (index.get(child)?.layer === "Opportunity") stack.push(child);
+    for (const child of node.links) if (index.get(child)?.layer === "Opportunity" || through.has(child)) stack.push(child);
   }
   return reachable;
 }

@@ -40,6 +40,7 @@
 import { nearestName } from "../fs/near-miss.js";
 import { isHeadingLine, RESERVED_HEADINGS } from "../ost/headings.js";
 import type { OstNode } from "../ost/node.js";
+import type { QuarantinedNode } from "../ost/quarantine.js";
 import { canonicalTitle, titlesMatch } from "../ost/sanitize.js";
 import { splitReservedSections } from "../ost/sections.js";
 import type { Vault } from "../ost/vault.js";
@@ -65,7 +66,19 @@ export interface NodeBody {
   kind: "node";
   /** The node's canonical title — the resolved node's own, never the caller's spelling. */
   title: string;
+  /** The node's layer — or, for a quarantined file, the `type:` it declared. */
   layer: string;
+  /**
+   * Present only when this file is QUARANTINED ({@link ../ost/quarantine.ts}) —
+   * `layer` above is then a type nobody defined, not a layer of this schema.
+   *
+   * Absent on every real node, so a reader that ignores it reads a node exactly
+   * as it always did, and a reader that checks it cannot mistake an unclassified
+   * file for a classified one.
+   */
+  unrecognizedType?: string;
+  /** Present iff `unrecognizedType` is. Says what quarantine means for this read. */
+  quarantineNote?: string;
   status: string | null;
   evidence: string | null;
   lane: string | null;
@@ -136,11 +149,22 @@ export function readNodeBody(vault: Vault, title: string): NodeBody {
   // Resolution is against the NODE SET, not the directory: readTree applies the
   // census rules (frontmatter type, retraction), so a stray .md at the vault
   // root is a miss here even though a raw file read would have found it.
-  const tree = vault.readTree();
+  //
+  // Quarantined files are the one addition to that set, and they belong here for
+  // the reason `ost/quarantine.ts` states: retaining a node's body is not a
+  // property of the census unless something can actually read it back. The
+  // listing offers these under `quarantined`, so a caller naming one is naming a
+  // title this reader handed it — which is the whole of the scope rule.
+  const census = vault.readTreeCensus();
+  const tree = census.nodes;
   const node = tree.find((n) => titlesMatch(n.title, title));
   if (!node) {
+    const held = census.quarantined.find((q) => titlesMatch(q.title, title));
+    if (held) return quarantinedBody(held);
     const wanted = canonicalTitle(title);
-    const near = wanted ? nearestName(wanted, tree.map((n) => n.title)) : undefined;
+    const near = wanted
+      ? nearestName(wanted, [...tree.map((n) => n.title), ...census.quarantined.map((q) => q.title)])
+      : undefined;
     throw new Error(
       "no node on the tree carries that title. Titles are exact and come from ost_read_tree's own " +
         "listing — call it with no arguments and use a `title` from `nodes` verbatim." +
@@ -148,6 +172,62 @@ export function readNodeBody(vault: Vault, title: string): NodeBody {
     );
   }
   return nodeBody(node);
+}
+
+/**
+ * A quarantined file, served through the same shape a node is.
+ *
+ * Same shape, because a caller reading this is doing exactly what a caller
+ * reading a node does — looking at prose to work out what the file is and what
+ * should happen to it — and a second response type would mean a second set of
+ * truncation and reserved-section rules to keep in step.
+ *
+ * `layer` carries the declared type verbatim rather than a placeholder. That is
+ * the finding: `Metric` says somebody reached for a node kind the schema lacks,
+ * and `Solutoin` says somebody typed. `unrecognizedType` is the flag that stops a
+ * reader mistaking either for a layer this product knows.
+ *
+ * The frontmatter FIELDS are all null, and not because they are absent: nothing
+ * here validated a `lane`, an `instrument` or a rung, and reporting the raw
+ * strings would be this reader asserting it had read a node it just said it
+ * could not classify.
+ */
+function quarantinedBody(held: QuarantinedNode): NodeBody {
+  const { prose, reserved } = splitReservedSections(held.body);
+  const proseChars = prose.length;
+  const truncated: Truncation[] =
+    proseChars > MAX_BODY_CHARS
+      ? [{ list: "prose (characters)", shown: MAX_BODY_CHARS, total: proseChars, hidden: proseChars - MAX_BODY_CHARS }]
+      : [];
+  return {
+    framing: DATA_FRAME,
+    kind: "node",
+    title: held.title,
+    layer: held.unrecognizedType,
+    unrecognizedType: held.unrecognizedType,
+    quarantineNote:
+      `This file declares \`type: ${held.unrecognizedType}\`, which this reader does not recognise, so it is ` +
+      `QUARANTINED: retained and readable, excluded from every count, gate and rollup, and absent from ` +
+      `ost_read_tree's \`nodes\`. Its ${held.links.length} outgoing link(s) are listed, and the nodes they name ` +
+      `are quarantined-parent rather than orphaned. The frontmatter fields below read null because nothing here ` +
+      `validated them — do not treat this as a node until a person fixes the \`type:\`, which no tool on this ` +
+      `surface can do.`,
+    status: null,
+    evidence: null,
+    lane: null,
+    instrument: null,
+    threshold: null,
+    source: null,
+    tags: held.tags,
+    links: held.links,
+    prose: frameData(prose.slice(0, MAX_BODY_CHARS)),
+    proseChars,
+    reserved: reserved.map((block) => ({
+      heading: headingOf(block),
+      content: block.split("\n").slice(1).join("\n").trim(),
+    })),
+    truncated,
+  };
 }
 
 function nodeBody(node: OstNode): NodeBody {

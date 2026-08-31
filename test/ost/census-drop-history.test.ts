@@ -41,7 +41,7 @@ const cleanCensus = (): TreeCensus => ({
   seenFiles: ["Alpha.md", "Beta.md", "Gamma.md"],
   skipped: [],
   unreadable: [],
-  retired: [],
+  quarantined: [], retired: [],
 });
 
 const droppedCensus = (): TreeCensus => ({
@@ -50,7 +50,7 @@ const droppedCensus = (): TreeCensus => ({
   seenFiles: ["Alpha.md", "Beta.md", "Gamma.md", "Stray.md"],
   skipped: [{ file: "Stray.md", reason: 'unrecognised type "Opportunties"' }],
   unreadable: [],
-  retired: [],
+  quarantined: [], retired: [],
 });
 
 describe("isNonEmptyCensus — the same question the assumption test's threshold asks", () => {
@@ -100,6 +100,7 @@ describe("recordCensusFiring + readCensusHistory — the per-firing record", () 
       examined: 4,
       skipped: [{ file: "Stray.md", reason: 'unrecognised type "Opportunties"' }],
       unreadable: [],
+      quarantined: [],
       unseenByWalk: [],
     });
   });

@@ -56,8 +56,14 @@ describe("Z5 — a web lookup does not cost a vault parse", () => {
   // Three assertions of "not called" are worth nothing if the spy could never
   // observe a call. This is the control: same spy, same vault instance, a tool
   // that genuinely parses.
+  //
+  // The spy is on `readTreeCensus` rather than on `readTree`, because that is the
+  // walk — `readTree` and `readQuarantined` are each one line delegating to it.
+  // Spying on the wrapper measured only the callers that happened to use the
+  // wrapper, so "zero parses" would have been satisfied by a caller that reached
+  // the census directly and parsed the whole vault.
   test("the spy observes a parse when one actually happens", async () => {
-    const spy = vi.spyOn(Vault.prototype, "readTree");
+    const spy = vi.spyOn(Vault.prototype, "readTreeCensus");
     const ctx: ToolContext = { vault, dir, remote: { enabled: false }, surface: "test" };
     await tool(ctx, "ost_read_tree").run({});
     expect(spy).toHaveBeenCalled();
@@ -65,7 +71,7 @@ describe("Z5 — a web lookup does not cost a vault parse", () => {
 
   test("ost_search_web against a provider parses the tree zero times", async () => {
     process.env.OST_UNKNOWN = "Unknown what we cannot see";
-    const spy = vi.spyOn(Vault.prototype, "readTree");
+    const spy = vi.spyOn(Vault.prototype, "readTreeCensus");
     const ctx: ToolContext = {
       vault,
       dir,
@@ -80,7 +86,7 @@ describe("Z5 — a web lookup does not cost a vault parse", () => {
   // The default path — no provider configured — is the one most sessions take,
   // so a parse reintroduced there would be the expensive one to miss.
   test("the no-provider delegation path parses the tree zero times", async () => {
-    const spy = vi.spyOn(Vault.prototype, "readTree");
+    const spy = vi.spyOn(Vault.prototype, "readTreeCensus");
     const ctx: ToolContext = { vault, dir, remote: { enabled: false }, surface: "test", web: { budget: createLookupBudget(5) } };
     await tool(ctx, "ost_search_web").run({ query: "q" });
     expect(spy).not.toHaveBeenCalled();
@@ -93,7 +99,7 @@ describe("Z5 — a web lookup does not cost a vault parse", () => {
       headers: { get: (k: string) => (k.toLowerCase() === "content-type" ? "text/html" : null) },
       text: async () => "<title>T</title><p>hello</p>",
     });
-    const spy = vi.spyOn(Vault.prototype, "readTree");
+    const spy = vi.spyOn(Vault.prototype, "readTreeCensus");
     const ctx: ToolContext = {
       vault,
       dir,
