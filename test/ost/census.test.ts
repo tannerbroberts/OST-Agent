@@ -54,8 +54,15 @@ describe("readTreeCensus — the counter reports what it was taken over", () => 
    * The whole point of the idea. Before this, a markdown file whose `type` was
    * misspelled vanished from every count in the product with no trace: it was
    * enumerated, silently filtered, and the operator read a confident integer.
+   *
+   * It is now QUARANTINED rather than skipped, which is strictly more than the
+   * census asked for: the file is still counted as examined and still named, and
+   * its title, body and edges survive the read as well. `skipped` keeps the files
+   * that were never nodes. See `./quarantine-unknown-node-type.test.ts` and
+   * `src/ost/quarantine.ts` for why that distinction is load-bearing — nine
+   * findings in this project's own vault, none of which named the edited file.
    */
-  test("a .md file with an unrecognised type is counted as examined and named as skipped", () => {
+  test("a .md file with an unrecognised type is counted as examined and named, and is not dropped", () => {
     vault.createNode(node("Alpha"));
     fs.writeFileSync(path.join(dir, "Stray.md"), "---\ntype: Opportunties\n---\ntypo in the layer\n");
 
@@ -63,8 +70,10 @@ describe("readTreeCensus — the counter reports what it was taken over", () => 
 
     expect(census.nodes).toHaveLength(1);
     expect(census.examined).toBe(2);
-    expect(census.skipped.map((s) => s.file)).toEqual(["Stray.md"]);
-    expect(census.skipped[0]!.reason).toContain("Opportunties");
+    expect(census.skipped).toEqual([]);
+    expect(census.quarantined.map((q) => q.file)).toEqual(["Stray.md"]);
+    expect(census.quarantined[0]!.unrecognizedType).toBe("Opportunties");
+    expect(formatCensus(census, census.nodes.length)).toContain("Opportunties");
   });
 
   test("a .md file with no frontmatter type at all is skipped and named", () => {
@@ -211,7 +220,7 @@ describe("reconcileWithGit — the denominator comes from a different source tha
 
 describe("formatCensus — the operator reads a ratio, never a bare integer", () => {
   test("states the denominator even when nothing was dropped", () => {
-    const line = formatCensus({ nodes: [], examined: 12, skipped: [], unreadable: [], retired: [] } as never, 12);
+    const line = formatCensus({ nodes: [], examined: 12, skipped: [], unreadable: [], quarantined: [], retired: [] } as never, 12);
     expect(line).toContain("12");
     expect(line).toMatch(/of 12 .*examined/i);
   });
@@ -223,7 +232,7 @@ describe("formatCensus — the operator reads a ratio, never a bare integer", ()
         examined: 3,
         skipped: [{ file: "Stray.md", reason: "unrecognised type \"Opportunties\"" }],
         unreadable: [{ file: "Broken.md", reason: "bad yaml" }],
-        retired: [],
+        quarantined: [], retired: [],
       } as never,
       1,
     );
@@ -239,7 +248,7 @@ describe("formatCensus — the operator reads a ratio, never a bare integer", ()
         examined: 1,
         skipped: [],
         unreadable: [],
-        retired: [],
+        quarantined: [], retired: [],
         independent: { source: "git", tracked: 2, unseenByWalk: ["Ghost.md"] },
       } as never,
       1,
@@ -255,7 +264,7 @@ describe("formatCensus — the operator reads a ratio, never a bare integer", ()
         examined: 2,
         skipped: [],
         unreadable: [],
-        retired: [],
+        quarantined: [], retired: [],
         independent: { source: "git", tracked: 2, unseenByWalk: [] },
       } as never,
       2,

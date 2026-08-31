@@ -44,6 +44,7 @@ import {
 } from "../knowledge/actor-trust.js";
 import { declaresHeading, entriesUnder, RETRACTION_HEADING } from "./headings.js";
 import type { NodeStatus, OstNode } from "./node.js";
+import { quarantineReason, type QuarantinedNode } from "./quarantine.js";
 
 /** A markdown file the walk enumerated but did not turn into a node. */
 export interface CensusDrop {
@@ -207,6 +208,17 @@ export interface TreeCensus {
   skipped: CensusDrop[];
   /** Enumerated but could not be read or parsed at all. */
   unreadable: CensusDrop[];
+  /**
+   * Enumerated, readable, node-shaped — but carrying a `type:` this reader does
+   * not recognise. Retained here rather than dropped; see
+   * {@link ./quarantine.ts} for the whole argument.
+   *
+   * A separate list from `skipped` for the same reason `retired` is: a skipped
+   * file was never a node, and a quarantined one is a node this reader cannot
+   * classify. Conflating them is exactly the silence that made a `type: Metric`
+   * edit read as four orphan Opportunities and a dangling link.
+   */
+  quarantined: QuarantinedNode[];
   /**
    * Real nodes that were withheld from `nodes` because they have left the live
    * tree — archived into `archive/`, or (only when the caller asked for the
@@ -705,13 +717,37 @@ export function formatCensus(census: TreeCensus, nodeCount: number): string {
   const lines: string[] = [];
   const dropped = census.skipped.length + census.unreadable.length;
 
+  // The quarantine count rides on the HEADER, not only on the detail lines
+  // beneath it. `appendCensus` emits this line unconditionally and samples what
+  // follows, so a number that appeared only in the detail could be elided by a
+  // vault with enough stray files — which is this file's own failure mode wearing
+  // a display cap.
   lines.push(
     `Counted over: ${nodeCount} node(s) of ${census.examined} markdown file(s) examined` +
-      (dropped > 0 ? `, ${dropped} dropped` : ""),
+      (dropped > 0 ? `, ${dropped} dropped` : "") +
+      (census.quarantined.length > 0 ? `, ${census.quarantined.length} quarantined (unrecognised \`type:\`)` : ""),
   );
 
   for (const s of census.skipped) lines.push(`  – dropped ${s.file}: ${s.reason}`);
   for (const u of census.unreadable) lines.push(`  – unreadable ${u.file}: ${u.reason}`);
+
+  // Quarantine, named ABOVE the retired block and never folded into `dropped`.
+  // A dropped file subtracted itself from every count in the product silently;
+  // this one is the same subtraction with the subtraction stated, which is the
+  // only difference the operator can act on.
+  if (census.quarantined.length > 0) {
+    lines.push(
+      `  ⚠ quarantined: ${census.quarantined.length} node(s) present on disk that this reader cannot classify.` +
+        `\n    They are NOT in the ${nodeCount} above, and the branches beneath them are dark to every` +
+        `\n    count, gate and rollup. This is a hole in the tree, not a formatting complaint.`,
+    );
+    for (const q of census.quarantined) {
+      lines.push(`    · ${q.file}: ${quarantineReason(q)}`);
+      if (q.links.length > 0) {
+        lines.push(`      quarantined-parent of: ${q.links.join(", ")}`);
+      }
+    }
+  }
 
   // A retired node leaves the denominator, and this is the line that stops that
   // from being the same thing as vanishing. Before the archive directory was
@@ -761,15 +797,31 @@ export interface CensusFiring {
   skipped: CensusDrop[];
   /** Enumerated but unreadable — same shape as {@link TreeCensus.unreadable}. */
   unreadable: CensusDrop[];
+  /**
+   * Enumerated and quarantined — file and reason, flattened from
+   * {@link TreeCensus.quarantined}.
+   *
+   * Optional, because the history file predates the field and a firing written
+   * before it exists holds no answer either way. A reader must treat `undefined`
+   * as "this firing could not say", never as "there were none" — the same
+   * posture `sight` and `authorship` take on a node.
+   */
+  quarantined?: CensusDrop[];
   /** Filenames an independent source (git) saw that this walk never enumerated. */
   unseenByWalk: string[];
 }
 
-/** Does this firing's census line carry a drop, an unreadable file, or a git discrepancy? */
+/** Flatten quarantined nodes to the file/reason pair the history and the renderers share. */
+export function quarantineDrops(census: TreeCensus): CensusDrop[] {
+  return census.quarantined.map((q) => ({ file: q.file, reason: quarantineReason(q) }));
+}
+
+/** Does this firing's census line carry a drop, a quarantine, an unreadable file, or a git discrepancy? */
 export function isNonEmptyCensus(census: TreeCensus): boolean {
   return (
     census.skipped.length > 0 ||
     census.unreadable.length > 0 ||
+    census.quarantined.length > 0 ||
     (census.independent?.unseenByWalk.length ?? 0) > 0
   );
 }
@@ -805,6 +857,7 @@ export function recordCensusFiring(
       examined: census.examined,
       skipped: census.skipped,
       unreadable: census.unreadable,
+      quarantined: quarantineDrops(census),
       unseenByWalk: census.independent?.unseenByWalk ?? [],
     };
     const next = [...readCensusHistory(vaultDir), entry].slice(-MAX_CENSUS_FIRINGS);

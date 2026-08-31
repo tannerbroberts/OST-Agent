@@ -59,6 +59,7 @@ import {
   LAYERS,
 } from "./node.js";
 import { parseFrontmatter } from "./frontmatter.js";
+import { quarantineNode, type QuarantinedNode } from "./quarantine.js";
 import { foldAuthorship, type Writer } from "./authorship.js";
 import { canonicalTitle, fileNameForTitle, sanitizeTitle } from "./sanitize.js";
 import { cycleFromAdding } from "./prerequisites.js";
@@ -343,9 +344,20 @@ export class Vault {
     return new Error(`no such node: ${title}${near ? ` — did you mean "${near}"?` : ""}`);
   }
 
-  /** Read all node files at the vault root (skips non-node files and subdirs). */
+  /**
+   * Read all node files at the vault root (skips non-node files and subdirs).
+   *
+   * A file whose `type:` this reader does not recognise is deliberately NOT here
+   * — it is on `readTreeCensus().quarantined`, retained and named, and excluded
+   * from every count and gate that reads this array. See {@link ./quarantine.ts}.
+   */
   readTree(): OstNode[] {
     return this.readTreeCensus().nodes;
+  }
+
+  /** The node-shaped files this reader could not classify. See {@link ./quarantine.ts}. */
+  readQuarantined(): QuarantinedNode[] {
+    return this.readTreeCensus().quarantined;
   }
 
   /**
@@ -393,6 +405,7 @@ export class Vault {
     const seenFiles: string[] = [];
     const skipped: CensusDrop[] = [];
     const unreadable: CensusDrop[] = [];
+    const quarantined: QuarantinedNode[] = [];
     // Node files a human moved out of the live tree. Read only to be named:
     // they never enter `nodes`, and they are not counted in `examined` either,
     // because `examined` is the denominator the ROOT walk was taken over and
@@ -414,8 +427,11 @@ export class Vault {
       }
 
       let type: unknown;
+      let content: string;
       try {
-        type = (parseFrontmatter(raw).data as Record<string, unknown>).type;
+        const parsed = parseFrontmatter(raw);
+        type = (parsed.data as Record<string, unknown>).type;
+        content = parsed.content;
       } catch (err) {
         // Frontmatter that will not parse. Before the census this threw out of
         // readTree and took every command down with a stack trace that named no
@@ -424,14 +440,32 @@ export class Vault {
         continue;
       }
 
+      // Two different files land here and they are not the same finding.
+      //
+      // A file with NO `type:` was never a node — a README, a template, a note
+      // beside the vault — and dropping it is right. A file that DECLARES a type
+      // this reader does not know is a node this reader cannot classify, and
+      // dropping THAT is the defect `./quarantine.ts` exists for: it took a
+      // branch of this project's own tree dark and reported the disappearance as
+      // nine unrelated orphans. It is quarantined instead — retained, named, and
+      // kept out of `nodes` so no count or gate can miscount it.
       if (typeof type !== "string" || !LAYERS.includes(type as Layer)) {
-        skipped.push({
-          file: e.name,
-          reason:
-            type === undefined
-              ? "no frontmatter `type` — not an OST node"
-              : `unrecognised type ${JSON.stringify(String(type))}`,
-        });
+        if (typeof type === "string" && type.trim().length > 0) {
+          const held = quarantineNode(e.name, raw, type, content);
+          // A retraction outranks quarantine, and by the same argument it
+          // outranks everything else here: the heading is unforgeable, so a
+          // human who retracted a node meant it whatever its `type:` says.
+          if (isRetractedNode(held)) retired.push({ file: e.name, reason: retractionReason(held) });
+          else quarantined.push(held);
+        } else {
+          skipped.push({
+            file: e.name,
+            reason:
+              type === undefined
+                ? "no frontmatter `type` — not an OST node"
+                : `unrecognised type ${JSON.stringify(String(type))}`,
+          });
+        }
         continue;
       }
 
@@ -465,7 +499,7 @@ export class Vault {
       nodes.push(node);
     }
 
-    const census: TreeCensus = { nodes, examined: seenFiles.length, seenFiles, skipped, unreadable, retired };
+    const census: TreeCensus = { nodes, examined: seenFiles.length, seenFiles, skipped, unreadable, quarantined, retired };
     return opts.excludeRetired ? withoutRetiredNodes(census) : census;
   }
 

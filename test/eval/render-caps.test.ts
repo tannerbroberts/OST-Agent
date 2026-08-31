@@ -444,7 +444,7 @@ function censusOf(nodes: OstNode[], extra: Partial<TreeCensus> = {}): TreeCensus
     seenFiles: nodes.map((n) => `${n.title}.md`),
     skipped: [],
     unreadable: [],
-    retired: [],
+    quarantined: [], retired: [],
     ...extra,
   };
 }

@@ -3186,12 +3186,32 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,313 tests across 327 files, verified 2026-08-30 (`npx vitest run`
-> reports 4,305 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,327 tests across 328 files, verified 2026-08-31 (`npx vitest run`
+> reports 4,319 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-30 finished at 4,305 across
-> the 326 files it collects, in 341 s. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,319 across
+> the 327 files it collects, in 337 s. The file added since the previous line is
+> `test/ost/quarantine-unknown-node-type.test.ts` — the instrument beneath "Quarantine
+> unknown node types instead of dropping them" (`src/ost/quarantine.ts`). A node whose
+> `type:` this reader does not recognise used to be dropped at the read, taking its outgoing
+> edges with it. The recorded incident is one hand-edited `type: Opportunity` → `type: Metric`
+> in this project's own vault, which reached the operator as five orphan Opportunities, three
+> orphan Solutions and one dangling link — nine findings, none of which said a node was
+> missing. The test rebuilds that fixture, pins the nine the old reader produced, and then
+> pins the three properties of the new one: **retained** (title, body and every outgoing link
+> survive the read and are served by `ost_read_tree({ node })`), **excluded from counts and
+> gates rather than miscounted** (`readTree` is one shorter, and `checkInvariants` reports
+> nothing about it), and **named with the type that was not understood** on all three
+> surfaces — `ost_check`, `ost_read_tree` and the lead sentence of `ost_next_work`'s summary.
+> It does **not** settle whether an agent handed that output goes on to ACT on the hole; the
+> assumption test says in as many words that this needs a person judging a pass. Quarantine
+> deliberately does not block `done`: no allowlisted tool can write a frontmatter `type:`, so
+> a term counting it would idle the loop forever on work it cannot do —
+> `src/loop/stop-condition.ts` declares it not-actionable with that reason, and the partition
+> test holds the declaration to it.
+>
+> The file added by the line before this one was
 > `test/telemetry/quarantine-expiry-period.test.ts` — the replay behind "quarantine entries
 > expire, so a workaround cannot become permanent by inattention"
 > (`src/telemetry/quarantine-expiry.ts`, `test/fixtures/quarantine-expiry/`): every exclusion

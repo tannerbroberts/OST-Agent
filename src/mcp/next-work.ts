@@ -38,6 +38,7 @@ import {
   type SourceStandingAccounting,
 } from "../ost/census.js";
 import type { OstNode } from "../ost/node.js";
+import type { QuarantinedNode } from "../ost/quarantine.js";
 import type { Vault } from "../ost/vault.js";
 import { classifyUnknown, contractGaps, resolutionState, type UnknownClass } from "../knowledge/unknowns.js";
 import { VARIATION_DIMENSIONS, type VariationAssignment } from "../knowledge/forced-variation.js";
@@ -181,6 +182,30 @@ export interface OpenUnknown {
   darkens: string | null;
   /** Contract sections not yet declared — what to write to make it actionable. */
   gaps: string[];
+}
+
+/**
+ * One quarantined file, as the sweep reports it: the cause, and the symptoms it
+ * accounts for.
+ *
+ * `children` is the whole point of reporting this at all. Nine findings for one
+ * edited `type:` is a reader that has mistaken symptoms for defects; one finding
+ * that names its own nine is a diagnosis, and it is the only form of this an
+ * operator can act on without re-deriving the walk.
+ */
+export interface QuarantinedReport {
+  /** The node's title — the filename, which is all a reader has when the type is unknown. */
+  title: string;
+  /** The `type:` value that was not understood, verbatim. It is the signal, not the noise. */
+  unrecognizedType: string;
+  /** The node linking TO it, when one does — the live end of an edge that is not dangling. */
+  darkens: string | null;
+  /**
+   * Titles beneath it, each of which would otherwise have been reported as an
+   * orphan. They are *quarantined-parent*: parented on disk, by a node this
+   * reader cannot classify.
+   */
+  children: string[];
 }
 
 /**
@@ -512,6 +537,31 @@ export interface NextWork {
    */
   openUnknowns: OpenUnknown[];
   /**
+   * Node-shaped files on disk this reader could not classify — a hole in the
+   * tree, named ({@link ../ost/quarantine.ts}).
+   *
+   * **This is the one list here that reports something the sweep itself cannot
+   * see.** Every other number on this response is taken over `census.nodes`, and
+   * a quarantined file is by construction not in it: its branch is dark to every
+   * count, gate, rollup and ranking, and before this field the only trace it left
+   * was the symptoms — an orphan per child, a dangling link per inbound edge, and
+   * nothing anywhere saying *a node is missing*. A pass reading only the tools
+   * would run to completion against a tree with a hole in it and report success.
+   *
+   * **Never capped and never suppressed**, unlike every list above it. A cap
+   * exists to bound a response over a tree the reader can see; this is the
+   * reader's own blindness and shortening it would be the defect again, one level
+   * up. There is nothing to suppress either: no ledger entry and no annotation can
+   * reach a file that no reader can turn into a node.
+   *
+   * **Does not block `done`**, and that is deliberate rather than an oversight —
+   * see {@link ../ost/quarantine.ts}. No allowlisted tool can rewrite a `type:`,
+   * so a `done`-blocker here would wedge every unattended pass on a defect only a
+   * human at an editor can clear. It is stated in `summary` and `nextStep`
+   * instead, where a pass reads it whether or not it looks at this field.
+   */
+  quarantined: QuarantinedReport[];
+  /**
    * Nodes withheld from the near-duplicate scan because they are retired (Z4).
    * Named rather than counted, and named here rather than nowhere: a node that
    * leaves a denominator silently is how a count starts lying. May be capped.
@@ -703,6 +753,14 @@ function detectHygiene(
    * has to be counted without materializing a list the cap exists to bound.
    */
   inScope: (title: string) => boolean = () => true,
+  /**
+   * Node-shaped files the reader could not classify. Handed to `checkInvariants`
+   * so the branch beneath one is diagnosed once rather than reported as an orphan
+   * per child; the quarantine itself is reported on {@link NextWork.quarantined},
+   * never as a hygiene issue, because no tool on this surface can annotate a file
+   * that no reader can turn into a node.
+   */
+  quarantined: readonly QuarantinedNode[] = [],
 ): { issues: HygieneIssue[]; total: number; excluded: number } {
   const index = byTitle(tree);
 
@@ -748,7 +806,7 @@ function detectHygiene(
   // that names no node of its own gets attached — an issue with no node is an
   // issue no one can annotate, and therefore a wedge.
   const outcome = tree.find((n) => n.layer === "Outcome")?.title;
-  for (const v of checkInvariants(tree)) {
+  for (const v of checkInvariants(tree, quarantined)) {
     if (v.rule in NOT_DONE_BLOCKING) continue;
     const title = v.node ?? outcome;
     if (!title) continue; // nothing to hang it on; the parity test is what keeps this unreachable
@@ -1353,7 +1411,15 @@ export function computeNextWork(
   // gates cannot disagree about which nodes cite a withdrawn source.
   const standing = reconcileWithTrust(dir, census);
 
-  const hygiene = detectHygiene(tree, liveCensus.nodes, MAX_ITEMS_PER_LIST, storedEvidenceIds, standing, inScope);
+  const hygiene = detectHygiene(
+    tree,
+    liveCensus.nodes,
+    MAX_ITEMS_PER_LIST,
+    storedEvidenceIds,
+    standing,
+    inScope,
+    census.quarantined,
+  );
   if (hygiene.excluded) scopeExcluded.push({ list: "hygieneIssues", count: hygiene.excluded });
 
   // Tree order — the order the walk produced. Suppression consulted for the
@@ -1678,6 +1744,39 @@ export function computeNextWork(
         : ""
       : ` Configured discovery.target ${JSON.stringify(scope.target)} names no Opportunity in this tree, so this sweep ran UNSCOPED over the whole tree — fix or clear discovery.target in ost.config.yaml.`
     : "";
+  // Quarantine, reported before anything else in the summary and outside the
+  // done/outstanding branch entirely.
+  //
+  // Every other note here qualifies a verdict taken over the tree. This one says
+  // the tree is not all of it: `done` was computed over `census.nodes`, and each
+  // file named here is a node-shaped file that is not in `census.nodes` and whose
+  // whole branch is therefore dark to the verdict. That sentence has to arrive
+  // before the verdict, or a pass reads "Tree is fully maintained" and stops.
+  //
+  // Never capped — see {@link NextWork.quarantined}. A tree with more than a
+  // handful of these has a systematic problem (a version skew, another tool
+  // writing the vault) and the list IS the finding.
+  const quarantinedReport: QuarantinedReport[] = census.quarantined.map((q) => ({
+    title: q.title,
+    unrecognizedType: q.unrecognizedType,
+    darkens: tree.find((n) => n.links.includes(q.title))?.title ?? null,
+    children: [...q.links],
+  }));
+  const quarantineNote = quarantinedReport.length
+    ? `${quarantinedReport.length} node(s) on disk could not be classified and are NOT in this sweep: ` +
+      quarantinedReport
+        .map(
+          (q) =>
+            `"${q.title}" (type ${JSON.stringify(q.unrecognizedType)}` +
+            (q.darkens ? `, linked from "${q.darkens}"` : "") +
+            (q.children.length ? `, quarantined-parent of ${q.children.length}: ${q.children.map((c) => `"${c}"`).join(", ")}` : "") +
+            ")",
+        )
+        .join("; ") +
+      `. Everything beneath them is dark to every count and verdict below, including \`done\` — the branch is on ` +
+      `disk and this reader cannot see it. No tool on this surface can fix a \`type:\`; a person edits the file. ` +
+      `Until then, read every number below as taken over a tree with a hole in it. `
+    : "";
   const doneLead =
     scope?.resolved === true
       ? `Branch ${JSON.stringify(scope.target)} is fully maintained (${scope.subtreeSize} node(s) in scope) — nothing to do in it.`
@@ -1685,11 +1784,13 @@ export function computeNextWork(
   const outstandingLead = scope?.resolved === true ? `Outstanding in branch ${JSON.stringify(scope.target)}:` : `Outstanding:`;
   // `truncationNote` is appended in every branch: on a done tree the lane queues
   // can be the only capped lists, and a cap that named nothing would read as amnesty.
-  const summary = done
-    ? scopedOpenUnknowns.length
-      ? `${doneLead} ${scopedOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}`
-      : `${doneLead}${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}`
-    : `${outstandingLead} ${parts.join("; ")}.${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${excerptNote}${staleNote}${retirementNote}${agedOutNote}`;
+  const summary =
+    quarantineNote +
+    (done
+      ? scopedOpenUnknowns.length
+        ? `${doneLead} ${scopedOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}`
+        : `${doneLead}${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}`
+      : `${outstandingLead} ${parts.join("; ")}.${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${excerptNote}${staleNote}${retirementNote}${agedOutNote}`);
 
   return {
     framing: DATA_FRAME,
@@ -1706,6 +1807,7 @@ export function computeNextWork(
     outstandingAsks,
     hygieneIssues,
     openUnknowns,
+    quarantined: quarantinedReport,
     retiredFromDuplicateScan,
     withheldByDisposition,
     suppressedByCondition,

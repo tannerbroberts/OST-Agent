@@ -180,7 +180,13 @@ function appendCensus(lines: string[], census: TreeCensus, budget: Budget, coda?
   // drop happened to be present too. So an archived node, and now a retracted
   // one, was withheld from every number above and named on no surface a human
   // reads. Withheld AND named is the whole rule (see `ARCHIVE_DIRNAME`).
-  if (dropped === 0 && unseen === 0 && census.retired.length === 0) return 0;
+  // Quarantine counts toward "is there anything to say" for a stronger version
+  // of the reason `retired` does: a retired node left the denominator because
+  // somebody meant it to, and a quarantined one left because this reader could
+  // not classify it. Withholding that from `ost_check` is the original silence —
+  // a whole branch dark, and a PASS line over a denominator that never mentions
+  // it.
+  if (dropped === 0 && unseen === 0 && census.retired.length === 0 && census.quarantined.length === 0) return 0;
   const [header, ...detail] = formatCensus(census, census.nodes.length).split("\n");
   lines.push(header);
 
@@ -410,7 +416,7 @@ export function renderCheck(census: TreeCensus): { text: string; violations: num
   const lines: string[] = [];
   const budget = newBudget();
   let hidden = 0;
-  const violations = checkInvariants(census.nodes);
+  const violations = checkInvariants(census.nodes, census.quarantined);
   if (violations.length === 0) {
     // "0 violations" over an unstated denominator is the shape of a check that
     // passed because it looked at nothing. State what was checked.

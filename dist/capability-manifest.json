@@ -3,8 +3,8 @@
   "version": "0.23.0",
   "artifact": {
     "path": "dist/ost-agent.mjs",
-    "bytes": 2642910,
-    "sha256": "f1bb1ba844a2a56f6307161cd918d7401e3a5b0de9324a97f12480152a426df5"
+    "bytes": 2651118,
+    "sha256": "3cd368d2783c13fe3dc201294e20300b420f4b0638baf6be73e6bef93fa08f09"
   },
   "capabilities": [
     {

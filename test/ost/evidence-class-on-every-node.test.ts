@@ -24,7 +24,7 @@ const node = (title: string, layer: OstNode["layer"], links: string[] = [], extr
 });
 
 function censusOf(nodes: OstNode[]): TreeCensus {
-  return { nodes, examined: nodes.length, seenFiles: nodes.map((n) => `${n.title}.md`), skipped: [], unreadable: [], retired: [] };
+  return { nodes, examined: nodes.length, seenFiles: nodes.map((n) => `${n.title}.md`), skipped: [], unreadable: [], quarantined: [], retired: [] };
 }
 
 describe("ost_check fails a vault holding any unlabelled node", () => {
