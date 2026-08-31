@@ -3204,12 +3204,22 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,496 tests across 335 files, verified 2026-08-31 (`npx vitest run`
-> reports 4,488 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,498 tests across 336 files, verified 2026-08-31 (`npx vitest run`
+> reports 4,490 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,488 across
-> the 334 files it collects, in 837 s. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,490 across
+> the 335 files it collects, in 373 s. The file added since the previous line is
+> `test/ost/evidence-dismissal-audit-trail.test.ts` — ten evidence records dismissed and
+> every one required to be attributable and reversible, behind "Record a read-and-skipped
+> judgement so the queue drains without a write". It is the instrument the assumption test
+> named, and authoring it found the defect below: the module claimed every bucket read
+> "closed" through one call, and `isDisposed` — the function so documented — was reached by
+> no production code at all. `omitDisposed`, `corroborationsFor` and `liveDispositions`
+> each carried their own copy of the comparison, so a mutation flipping the one the buckets
+> actually use left `isDisposed` and its own tests green. All four now go through a single
+> `closes` predicate, and mutating it turns the instrument red
+> (`src/knowledge/dispositions.ts`). The file before that is
 > `test/loop/run-boundary-from-history.test.ts` — bounding a past run from the commit log
 > alone, behind "Reconstruct what finished from the commit history, so no run has to be
 > trusted to report" (`src/loop/run-boundary.ts`). 317 of 319 real runs over 1,500 commits

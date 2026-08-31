@@ -52574,6 +52574,9 @@ function latestDisposition(ledger, subject) {
   if (!list || list.length === 0) return null;
   return list[list.length - 1];
 }
+function closes(rec) {
+  return rec?.state === "closed";
+}
 function isOrphanedAcknowledgement(rec, index) {
   return rec.verdict === "corroborates" && rec.node !== void 0 && !index.has(rec.node);
 }
@@ -52582,7 +52585,7 @@ function omitDisposed(items, subjectOf3, ledger, index, list, into) {
   for (const item of items) {
     const subject = subjectOf3(item);
     const standing = latestDisposition(ledger, subject);
-    if (standing?.state === "closed" && !isOrphanedAcknowledgement(standing, index)) {
+    if (standing && closes(standing) && !isOrphanedAcknowledgement(standing, index)) {
       into.push({ list, subject, kind: standing.kind, reason: standing.reason, by: standing.by, at: standing.ts });
       continue;
     }
@@ -52594,7 +52597,7 @@ function liveDispositions(ledger) {
   const live = [];
   for (const [subject] of ledger.histories) {
     const standing = latestDisposition(ledger, subject);
-    if (standing?.state === "closed") live.push(standing);
+    if (standing && closes(standing)) live.push(standing);
   }
   return live.sort((a, b2) => a.ts.localeCompare(b2.ts));
 }
