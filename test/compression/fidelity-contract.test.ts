@@ -63,6 +63,7 @@ import {
   frictionSurfaceReplay,
   MAX_IDS_SHOWN,
 } from "../../src/telemetry/friction-surface.js";
+import { formatRecurrenceReplay, recurrenceReplay } from "../../src/telemetry/friction-recurrence.js";
 
 /**
  * The three fields `fileFriction` now demands. Spread into filings whose subject is
@@ -250,6 +251,7 @@ const DRIVEN_SURFACES = [
   "computed rollup",
   "evidence body channel",
   "failed-match site excerpt",
+  "friction-recurrence report id lists",
   "friction-surface report id lists",
   "next-work sweep",
   "ruleset proposal bound",
@@ -537,5 +539,40 @@ describe("fidelity — the behavioral surfaces preserve their declared reads", (
     expect(bigReport).toContain("… and 12 more");
     // The shown ids are the leading ones, verbatim — not a re-ordered sample.
     expect(bigReport).toContain(many.slice(0, MAX_IDS_SHOWN).map((r) => r.id).join(", "));
+  });
+
+  test("friction-recurrence report: a filed shape's count and span survive the id clip", () => {
+    // The decision here is "which shape of friction keeps coming back", so the
+    // number that must never move with the cap is the shape's own session count
+    // — a reader acting on "22 sessions" must not be reading a list of eight.
+    const quiet = (n: number) => ({
+      id: `USAGE:${String(n).padStart(3, "0")}`,
+      file: `USAGE_${n}.md`,
+      kind: "usage" as const,
+      truncated: false,
+      timestamp: "2026-08-02T00:00:00.000Z",
+      events: [],
+    });
+    const recurring = (n: number) => ({
+      ...quiet(n),
+      kind: "transcript" as const,
+      id: `TRANSCRIPT:${String(n).padStart(3, "0")}`,
+      events: [{ kind: "tool_error", tool: "Bash", detail: `Exit code 1 … (eval):${n}: == not found`, command: "" }],
+    });
+
+    // Control, small: inside the cap nothing is clipped and nothing claims to be.
+    const few = Array.from({ length: 3 }, (_, i) => quiet(i));
+    const smallReport = formatRecurrenceReplay(recurrenceReplay(few, []));
+    expect(smallReport).toContain("3 record(s), 0 failing event(s)");
+    expect(smallReport).not.toContain("more");
+
+    // Control, large: the "no failing call" list IS clipped, and the counts that
+    // decide anything — records read, sessions in the filed shape — are not.
+    const many = [...Array.from({ length: MAX_IDS_SHOWN + 12 }, (_, i) => quiet(i)), ...Array.from({ length: 22 }, (_, i) => recurring(i))];
+    const bigReport = formatRecurrenceReplay(recurrenceReplay(many, []));
+    expect(bigReport).toContain(`${many.length} record(s), 22 failing event(s)`);
+    expect(bigReport).toContain(`of the records read, ${MAX_IDS_SHOWN + 12} held no failing call at all`);
+    expect(bigReport).toContain("… and 12 more");
+    expect(bigReport).toContain("22 session(s), 22 event(s)");
   });
 });

@@ -415,6 +415,20 @@ export const COMPRESSION_SURFACES = [
     proof: "behavioral",
   },
   {
+    name: "friction-recurrence report id lists",
+    module: "src/telemetry/friction-recurrence.ts",
+    caps: ["MAX_IDS_SHOWN"],
+    kind: "bounded-output",
+    decision: "which shapes of friction have come back often enough to file, and which are still one incident",
+    reads: [
+      "every count in the report is taken over the full set, never over the ids the line happens to show",
+      "a filed shape's session count and span are the shape's own, never the length of a clipped list",
+      "a clipped list says how many more there are, so a reader can tell a short list from a squeezed one",
+    ],
+    drops: "dropped-count",
+    proof: "behavioral",
+  },
+  {
     name: "hand-exclusion command clip",
     module: "src/telemetry/hand-exclusion.ts",
     caps: ["MAX_COMMAND_CHARS"],

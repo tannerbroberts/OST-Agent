@@ -157,6 +157,9 @@ import {
   formatFrictionSurfaceReplay, frictionSurfaceReplay, readFrictionRecords, type JudgedRecord,
 } from "../telemetry/friction-surface.js";
 import {
+  formatRecurrenceReplay, readRecurrenceRecords, RECURRENCE_RULE, recurrenceReplay,
+} from "../telemetry/friction-recurrence.js";
+import {
   formatRefusalCoverageCensus, refusalCoverageCensus,
 } from "../telemetry/refusal-coverage.js";
 import {
@@ -2273,6 +2276,53 @@ program
     // through the exit code rather than off a report saying 0 filed, 0 counted.
     // A judgement that matched no record is the same failure one step later.
     if (records.length === 0 || (judgement.length > 0 && !replay.keeps.scored && !replay.drops.scored)) {
+      process.exitCode = 1;
+    }
+  });
+
+program
+  .command("friction-recurrence")
+  .description(
+    "which shapes of friction have come back across sessions and which are still one incident — " +
+      "the census behind filing the friction channel on repetition rather than on whose tool failed",
+  )
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option(
+    "--judgement <file>",
+    "a JSON file of `{id, need, note}` rows saying which records a human read as carrying a product need. " +
+      "The same file the `friction-surface` census takes, so the two candidates are scored on one reading.",
+  )
+  .option(
+    "--min-sessions <n>",
+    `how many distinct sessions a shape must recur in before it files (default ${RECURRENCE_RULE.minSessions})`,
+  )
+  .action((opts: { vault: string; judgement?: string; minSessions?: string }) => {
+    // Not `buildPassContext`, on `friction-surface`'s precedent: this reads a
+    // folder and answers a question about it, and a Vault handle would create the
+    // directory a mistyped path names.
+    const vault = path.resolve(opts.vault);
+    const records = readRecurrenceRecords(evidenceDirOf(vault));
+
+    let judgement: JudgedRecord[] = [];
+    if (opts.judgement) {
+      const parsed: unknown = JSON.parse(fs.readFileSync(path.resolve(opts.judgement), "utf8"));
+      judgement = Array.isArray(parsed) ? (parsed as JudgedRecord[]) : ((parsed as { records?: JudgedRecord[] }).records ?? []);
+    }
+
+    const minSessions = opts.minSessions === undefined ? undefined : Number(opts.minSessions);
+    if (minSessions !== undefined && (!Number.isInteger(minSessions) || minSessions < 1)) {
+      console.error(`--min-sessions must be a whole number of sessions, at least 1. Got: ${opts.minSessions}`);
+      process.exitCode = 1;
+      return;
+    }
+
+    const replay = recurrenceReplay(records, judgement, { minSessions });
+    console.log(formatRecurrenceReplay(replay));
+    // Reading no harvested record is not "nothing recurs" — it is a sweep that
+    // could not read its subject. A judgement naming no record the corpus holds is
+    // the same failure one step later, and both have to reach an automation
+    // through the exit code rather than off a report saying 0 filed.
+    if (records.length === 0 || (judgement.length > 0 && replay.missing.length === judgement.length)) {
       process.exitCode = 1;
     }
   });
