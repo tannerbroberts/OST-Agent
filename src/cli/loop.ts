@@ -42,6 +42,7 @@ import { lastNodeTouchedSince } from "../telemetry/node-touch.js";
 import { fallbackBanner, fallbackRefusalReport, runFallback } from "../loop/fallback.js";
 import { appendStep, readOpenRun, readRuns, sealRun, startRun, sweepCrashed } from "../loop/health.js";
 import { detectHandEdits, renderDriftReport } from "../git/hand-edit-detector.js";
+import { readRunHistory, reconstructRuns, renderRunHistory } from "../loop/run-boundary.js";
 import { observeToolSurface } from "../loop/tool-surface-record.js";
 import {
   closeGoalContract,
@@ -1138,6 +1139,46 @@ export function registerLoopCommands(program: Command): void {
           if (outcome.record.verbs.some((v) => !v.ok)) process.exitCode = 1;
           return;
         }
+      }
+    });
+
+  loop
+    .command("runs")
+    .description("reconstruct what each past run did, from the vault's commit log alone (read-only; decides nothing)")
+    .option("--vault <dir>", VAULT_OPTION_HELP)
+    .option("--since <sha>", "read only the commits after this one, rather than the whole of HEAD's history")
+    .option("--limit <n>", "read at most this many commits, newest last")
+    .action(async (opts: { vault: string; since?: string; limit?: string }) => {
+      /*
+       * A REPORTER, and the one that does not believe anybody.
+       *
+       * `loop health` reads `runs.jsonl` — the record a run writes about itself,
+       * at the end. This reads the commit log, which was written by the writes
+       * themselves. The two disagree exactly when it matters: a run killed
+       * before it sealed appears here with everything it finished and appears
+       * there as `crashed` with nothing, and a run whose state directory was
+       * wiped appears here unchanged.
+       *
+       * So this is not a second view of the same data, it is the answer to
+       * "what actually got done" for the case the ledger cannot cover. It reads
+       * git and no vault state at all, which is also why it works on a clone
+       * that never had a loop directory.
+       *
+       * Never sets a non-zero exit code. An unreadable history is reported as
+       * unreadable — "nothing ran" and "nobody could tell what ran" are
+       * different facts, and a caller acting on the second as the first is the
+       * failure the whole module exists to prevent.
+       */
+      const limit = opts.limit === undefined ? undefined : Number(opts.limit);
+      if (limit !== undefined && (!Number.isInteger(limit) || limit <= 0)) {
+        console.log(`runs: unknown — --limit must be a positive whole number, got "${opts.limit}"`);
+        return;
+      }
+      try {
+        const history = await readRunHistory(opts.vault, { since: opts.since, limit });
+        for (const line of renderRunHistory(reconstructRuns(history))) console.log(line);
+      } catch (e) {
+        console.log(`runs: unknown — could not read the commit history: ${e instanceof Error ? e.message : String(e)}`);
       }
     });
 

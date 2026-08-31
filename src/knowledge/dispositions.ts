@@ -295,6 +295,21 @@ export function latestDisposition(ledger: DispositionLedger, subject: string): D
 }
 
 /**
+ * Whether a standing entry closes its subject — the one place `state === "closed"` is
+ * written down, and the one thing a bucket, an audit or a reversal may ask.
+ *
+ * It exists because the four readers below all had their own copy of that comparison,
+ * and `isDisposed` — the function this module's header calls "THE read" — was reached
+ * by no production code at all: every bucket goes through {@link omitDisposed}, which
+ * re-implemented the check inline. Two copies of a predicate are two predicates, and
+ * a mutation flipping the one the buckets actually use left `isDisposed` and its tests
+ * green (2026-08-31). A claim of one read is only true if there is one function.
+ */
+function closes(rec: DispositionRecord | null): boolean {
+  return rec?.state === "closed";
+}
+
+/**
  * THE read. Every bucket asks this question and no bucket asks a different one.
  *
  * It takes a string and nothing else — no kind, no layer, no bucket name — which is the
@@ -303,7 +318,7 @@ export function latestDisposition(ledger: DispositionLedger, subject: string): D
  * per-bucket fixes would be the better buy.
  */
 export function isDisposed(ledger: DispositionLedger, subject: string): boolean {
-  return latestDisposition(ledger, subject)?.state === "closed";
+  return closes(latestDisposition(ledger, subject));
 }
 
 /**
@@ -357,7 +372,7 @@ export function omitDisposed<T>(
   for (const item of items) {
     const subject = subjectOf(item);
     const standing = latestDisposition(ledger, subject);
-    if (standing?.state === "closed" && !isOrphanedAcknowledgement(standing, index)) {
+    if (standing && closes(standing) && !isOrphanedAcknowledgement(standing, index)) {
       into.push({ list, subject, kind: standing.kind, reason: standing.reason, by: standing.by, at: standing.ts });
       continue;
     }
@@ -379,7 +394,7 @@ export function corroborationsFor(ledger: DispositionLedger, node: string): Disp
   const live: DispositionRecord[] = [];
   for (const [subject] of ledger.histories) {
     const standing = latestDisposition(ledger, subject);
-    if (standing?.state === "closed" && standing.verdict === "corroborates" && standing.node === node) {
+    if (standing && closes(standing) && standing.verdict === "corroborates" && standing.node === node) {
       live.push(standing);
     }
   }
@@ -391,7 +406,7 @@ export function liveDispositions(ledger: DispositionLedger): DispositionRecord[]
   const live: DispositionRecord[] = [];
   for (const [subject] of ledger.histories) {
     const standing = latestDisposition(ledger, subject);
-    if (standing?.state === "closed") live.push(standing);
+    if (standing && closes(standing)) live.push(standing);
   }
   return live.sort((a, b) => a.ts.localeCompare(b.ts));
 }

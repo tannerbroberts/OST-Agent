@@ -599,3 +599,70 @@ describe("a run of dry firings escalates", () => {
     expect(d.code).toBe(10);
   });
 });
+
+/**
+ * `loop runs` — the reporter that believes the commit log rather than the run.
+ *
+ * The module's rule is measured against 1,500 real commits in
+ * `test/loop/run-boundary-from-history.test.ts`; what these assert is the thing
+ * a corpus cannot, which is that the wiring exists and that the command holds
+ * its posture when git has nothing to say.
+ */
+describe("loop runs", () => {
+  /** One auto-commit, in the subject form the loop it belongs to really writes. */
+  function commit(subject: string, author: string, at: string): void {
+    fs.writeFileSync(path.join(vault, `${subject.slice(-24).replace(/\W+/g, "-")}.md`), subject, "utf8");
+    git("add", "-A");
+    execFileSync("git", ["commit", "--quiet", "-m", subject], {
+      cwd: vault,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, GIT_AUTHOR_NAME: author, GIT_AUTHOR_EMAIL: `${author}@x`, GIT_AUTHOR_DATE: at, GIT_COMMITTER_DATE: at },
+    });
+  }
+
+  test("two loops writing into one hour come out as two runs, from git and nothing else", () => {
+    commit("chore(instruments): record 8 observation(s) from the build loop", "build-loop", "2026-08-31T09:00:00Z");
+    commit("mcp: ost_ingest_inbox — captured 2 new item(s)", "surface", "2026-08-31T09:20:00Z");
+    commit('mcp: ost_annotate — annotated "X"', "surface", "2026-08-31T09:22:00Z");
+    commit("chore(instruments): record the post-build observation for X", "build-loop", "2026-08-31T09:40:00Z");
+
+    const r = loop("runs");
+    expect(r.code).toBe(0);
+    expect(r.out).toMatch(/runs: 2 reconstructed from the commit log alone/);
+    expect(r.out).toMatch(/build-loop \w{8}\.\.\w{8} 2 commit\(s\)/);
+    expect(r.out).toMatch(/discovery \w{8}\.\.\w{8} 2 commit\(s\)/);
+  });
+
+  test("a commit no loop wrote is named and left out of every run", () => {
+    commit("mcp: ost_ingest_inbox — captured 1 new item(s)", "surface", "2026-08-31T09:00:00Z");
+    commit("rename the outcome to what I actually meant", "human", "2026-08-31T09:02:00Z");
+
+    // Two, not one: the hand edit and the fixture's own `baseline` commit. That
+    // is the posture — a commit no loop wrote is named whether or not anybody
+    // meant it as an edit, because the reader is the one deciding what it was.
+    const r = loop("runs");
+    expect(r.out).toMatch(/2 commit\(s\) attributed to no run/);
+    expect(r.out).toMatch(/unattributed \w{8} — no loop in this repository writes subjects of this shape/);
+    expect(r.out).toMatch(/rename the outcome to what I actually meant/);
+  });
+
+  test("a vault whose history holds nothing either loop wrote says so, at exit 0", () => {
+    // The baseline commit is a plain `baseline`, which no loop writes.
+    const r = loop("runs");
+    expect(r.code).toBe(0);
+    expect(r.out).toMatch(/attributed to no run/);
+  });
+
+  test("an unreadable history is reported as unknown, never as a clean result", () => {
+    // "nothing ran" and "nobody could tell what ran" are different facts, and a
+    // caller acting on the second as the first is the failure this exists for.
+    const r = loop("runs", "--since", "not-a-real-ref");
+    expect(r.code).toBe(0);
+    expect(r.out).toMatch(/^runs: unknown — could not read the commit history/m);
+  });
+
+  test("a nonsense --limit refuses to guess", () => {
+    expect(loop("runs", "--limit", "banana").out).toMatch(/^runs: unknown — --limit must be a positive whole number/m);
+  });
+});
