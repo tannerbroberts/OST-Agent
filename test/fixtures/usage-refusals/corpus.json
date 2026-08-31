@@ -1,0 +1,18 @@
+{
+  "source": "ost-agent-meta/.ost-agent/usage/events.jsonl",
+  "events": 7707,
+  "refusals": 118,
+  "unparseableLines": 0,
+  "firstEvent": "2026-07-25T01:53:33.667Z",
+  "lastEvent": "2026-08-31T00:00:02.517Z",
+  "toolsRefused": {
+    "ost_annotate": 61,
+    "ost_create_node": 25,
+    "ost_read_repo": 20,
+    "ost_read_tree": 4,
+    "ost_set_evidence": 3,
+    "ost_set_instrument": 3,
+    "ost_append_to_node": 1,
+    "ost_next_work": 1
+  }
+}
