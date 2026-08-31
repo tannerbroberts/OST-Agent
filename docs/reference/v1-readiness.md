@@ -3204,12 +3204,21 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,403 tests across 332 files, verified 2026-08-31 (`npx vitest run`
-> reports 4,395 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,446 tests across 333 files, verified 2026-08-31 (`npx vitest run`
+> reports 4,438 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,395 across
-> the 331 files it collects, in 360 s. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,438 across
+> the 332 files it collects, in 344 s. The file added since the previous line is
+> `test/ost/outcome-signal-gate.test.ts` — the external-signal gate on the root Outcome
+> behind "Real-world signal gates outcome achievement" (`src/ost/outcome-signal.ts`). Every
+> write on the agent surface is enumerated as the complement of the read-only set and driven
+> at the root with an achievement claim; each one refuses, or — for the three whose write
+> cannot reach that node at all — leaves it recording nothing. The verdict itself is typed
+> and lives under the reserved `## Outcome Signal`, read against a bar the operator declares
+> in `ost.config.yaml`, which is the half that holds: the prose detector beside it refuses
+> the forms a self-certifying pass writes and is defence in depth, not the mechanism. The
+> line before that added
 > `test/runner/flake-attribution.test.ts` — the re-run-and-attribute mechanism behind
 > "Re-run once and report the disagreement rather than the first result"
 > (`src/runner/flake-attribution.ts`). A timing failure is re-run and the two runs compared,

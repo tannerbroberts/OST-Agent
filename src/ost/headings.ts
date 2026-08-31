@@ -81,6 +81,27 @@ export const INSTRUMENT_LOG_HEADING = "## Instrument Log";
 export const RETRACTION_HEADING = "## Retraction";
 
 /**
+ * The heading a human's reading of the declared external signal lives under, on
+ * the root Outcome — read by the gate that decides whether the outcome may be
+ * called achieved at all.
+ *
+ * Reserved for the strongest claim in the tree. `## Results` lets its author
+ * clear one node's evidence gate; a line here says the thing the whole tree is
+ * pointed at came true, which is the one verdict a model must never be able to
+ * return about itself. So the line is written only by
+ * `ost/outcome-signal.ts`'s `recordOutcomeSignal`, CLI-only, off every
+ * allowlist, through `appendUnderSection`'s unscanned heading argument — the
+ * same asymmetry that keeps `## Results` a human's.
+ *
+ * Note what reserving it buys and what it does not. It makes the *record* typed,
+ * so nothing the agent writes into ordinary prose is read by anything as an
+ * achievement. It does not stop an agent from writing an English sentence
+ * claiming one, which is a different harm with a different (and weaker) answer —
+ * see the header of `ost/outcome-signal.ts`.
+ */
+export const OUTCOME_SIGNAL_HEADING = "## Outcome Signal";
+
+/**
  * The heading a node's own audit trail lives under — appended to, never
  * rewritten, by every mutating method in `Vault`.
  *
@@ -112,6 +133,9 @@ export const HISTORY_HEADING = "## History";
  * so authoring one is deleting a node from every count, scan and gate at once.
  * `## History` is the node's own record of what happened to it: nothing a gate
  * reads, but the one section every mutating method promises never to rewrite.
+ * `## Outcome Signal` is the verdict at the top: a line there says the mandate
+ * the whole tree serves came true, so authoring one is the agent grading its own
+ * homework at the only scale where nothing beneath can catch it.
  */
 export const RESERVED_HEADINGS: readonly string[] = Object.freeze([
   RESULTS_HEADING,
@@ -119,6 +143,7 @@ export const RESERVED_HEADINGS: readonly string[] = Object.freeze([
   INSTRUMENT_LOG_HEADING,
   RETRACTION_HEADING,
   HISTORY_HEADING,
+  OUTCOME_SIGNAL_HEADING,
 ]);
 
 /**
