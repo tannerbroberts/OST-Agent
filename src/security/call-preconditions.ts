@@ -74,6 +74,7 @@ import { parseThresholdField, thresholdKindOf } from "../eval/coverage.js";
 import { MEASUREMENT_RUNGS, unearnedRung } from "../eval/rungs.js";
 import { MAX_KILL_HORIZON_DAYS, parseKillCondition, parseKillDate } from "../ost/kill-criteria.js";
 import { RESERVED_HEADINGS, reservedHeadingIn } from "../ost/headings.js";
+import { accountForSections } from "../ost/section-accounting.js";
 import { specResolves } from "../ost/instrument.js";
 import { claimsOutcomeAchieved, outcomeSignalState, rootOutcome } from "../ost/outcome-signal.js";
 import { canonicalTitle, fileNameForTitle, titlesMatch } from "../ost/sanitize.js";
@@ -534,6 +535,28 @@ export const CALL_PRECONDITIONS: readonly CallPrecondition[] = Object.freeze([
         if (content === undefined) continue;
         const hit = reservedHeadingIn(content);
         if (hit) return `"${hit}" is a reserved heading`;
+      }
+      return null;
+    },
+  },
+  {
+    id: "sections-accounted-for",
+    tools: ["ost_edit_node"],
+    statement:
+      "A rewrite must account for every `## Section` the node currently stores: reproduce the heading in `prose`, or name it in `dropping`. One in neither is refused by name rather than silently deleted — reserved sections are exempt, being reattached verbatim, and naming one in `dropping` is refused because no tool may remove one.",
+    expressibility: "fully",
+    enforcedBy: "ost/section-accounting.ts:assertSectionsAccountedFor",
+    check: (input, facts) => {
+      const title = str(input, "title");
+      const prose = str(input, "prose");
+      if (title === undefined || prose === undefined) return null;
+      const target = node(facts, title);
+      if (!target) return null; // `node-exists` owns that refusal; do not report it twice.
+      const dropping = Array.isArray(input.dropping) ? input.dropping.filter((d): d is string => typeof d === "string") : [];
+      const found = accountForSections(target.body, prose, dropping);
+      if (found.reservedDrops.length > 0) return `\`dropping\` names the reserved section ${found.reservedDrops[0]}`;
+      if (found.unaccounted.length > 0) {
+        return `this rewrite would remove ${found.unaccounted.join(", ")}, which is in neither \`prose\` nor \`dropping\``;
       }
       return null;
     },

@@ -9352,15 +9352,15 @@ var require_parser = __commonJS({
     var node_process = __require("process");
     var cst = require_cst();
     var lexer = require_lexer();
-    function includesToken(list, type) {
-      for (let i2 = 0; i2 < list.length; ++i2)
-        if (list[i2].type === type)
+    function includesToken(list2, type) {
+      for (let i2 = 0; i2 < list2.length; ++i2)
+        if (list2[i2].type === type)
           return true;
       return false;
     }
-    function findNonEmptyIndex(list) {
-      for (let i2 = 0; i2 < list.length; ++i2) {
-        switch (list[i2].type) {
+    function findNonEmptyIndex(list2) {
+      for (let i2 = 0; i2 < list2.length; ++i2) {
+        switch (list2[i2].type) {
           case "space":
           case "comment":
           case "newline":
@@ -10545,21 +10545,21 @@ var require_section_matter = __commonJS({
       var opts = extend2({}, defaults, options2);
       var delim = opts.section_delimiter;
       var lines = file.content.split(/\r?\n/);
-      var sections = null;
+      var sections2 = null;
       var section = createSection();
       var content = [];
       var stack = [];
       function initSections(val) {
         file.content = val;
-        sections = [];
+        sections2 = [];
         content = [];
       }
       function closeSection(val) {
         if (stack.length) {
           section.key = getKey(stack[0], delim);
           section.content = val;
-          opts.parse(section, sections);
-          sections.push(section);
+          opts.parse(section, sections2);
+          sections2.push(section);
           section = createSection();
           content = [];
           stack = [];
@@ -10580,7 +10580,7 @@ var require_section_matter = __commonJS({
             content = [];
             continue;
           }
-          if (sections === null) {
+          if (sections2 === null) {
             initSections(content.join("\n"));
           }
           if (len === 2) {
@@ -10591,12 +10591,12 @@ var require_section_matter = __commonJS({
         }
         content.push(line);
       }
-      if (sections === null) {
+      if (sections2 === null) {
         initSections(content.join("\n"));
       } else {
         closeSection(content.join("\n"));
       }
-      file.sections = sections;
+      file.sections = sections2;
       return file;
     };
     function isDelimiter(line, delim) {
@@ -13745,7 +13745,7 @@ var require_gray_matter = __commonJS({
   "node_modules/gray-matter/index.js"(exports2, module2) {
     "use strict";
     var fs85 = __require("fs");
-    var sections = require_section_matter();
+    var sections2 = require_section_matter();
     var defaults = require_defaults();
     var stringify = require_stringify2();
     var excerpt = require_excerpt();
@@ -13818,7 +13818,7 @@ var require_gray_matter = __commonJS({
       }
       excerpt(file, opts);
       if (opts.sections === true || typeof opts.section === "function") {
-        sections(file, opts.section);
+        sections2(file, opts.section);
       }
       return file;
     }
@@ -26893,8 +26893,8 @@ var require_dist4 = __commonJS({
         return ajv;
       }
       const [formats, exportName] = opts.mode === "fast" ? [formats_1.fastFormats, fastName] : [formats_1.fullFormats, fullName];
-      const list = opts.formats || formats_1.formatNames;
-      addFormats(ajv, list, formats, exportName);
+      const list2 = opts.formats || formats_1.formatNames;
+      addFormats(ajv, list2, formats, exportName);
       if (opts.keywords)
         (0, limit_1.default)(ajv);
       return ajv;
@@ -26906,11 +26906,11 @@ var require_dist4 = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs85, exportName) {
+    function addFormats(ajv, list2, fs85, exportName) {
       var _a2;
       var _b;
       (_a2 = (_b = ajv.opts.code).formats) !== null && _a2 !== void 0 ? _a2 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
-      for (const f of list)
+      for (const f of list2)
         ajv.addFormat(f, fs85[f]);
     }
     module2.exports = exports2 = formatsPlugin;
@@ -34619,6 +34619,63 @@ function joinReservedSections(prose, reserved) {
   return parts.join("\n\n");
 }
 
+// src/ost/section-accounting.ts
+var HEADING_CONTROL_CHARS = new RegExp("[\\u0000-\\u001F\\u007F]+", "g");
+function headingKey(text2) {
+  return text2.replace(HEADING_CONTROL_CHARS, " ").replace(/^\s*#{1,6}\s*/, "").replace(/\s*#+\s*$/, "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+function displayHeading(line) {
+  return line.replace(HEADING_CONTROL_CHARS, " ").replace(/\s+/g, " ").trim();
+}
+function isSectionHeading(line) {
+  return /^##\s+\S/.test(line.trim());
+}
+function sectionHeadings(body) {
+  const out = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const line of body.split("\n")) {
+    if (!isSectionHeading(line)) continue;
+    const key2 = headingKey(line);
+    if (key2 === "" || seen.has(key2)) continue;
+    seen.add(key2);
+    out.push(displayHeading(line.trim()));
+  }
+  return out;
+}
+function sections(body) {
+  return sectionHeadings(body).map((display) => ({ display, key: headingKey(display) }));
+}
+function accountForSections(storedBody, newProse, dropping) {
+  const stored = sections(splitReservedSections(storedBody).prose);
+  const submitted = new Set(sections(newProse).map((s) => s.key));
+  const dropKeys = new Set(dropping.map((d) => headingKey(d)).filter((k2) => k2 !== ""));
+  return {
+    stored: stored.map((s) => s.display),
+    unaccounted: stored.filter((s) => !submitted.has(s.key) && !dropKeys.has(s.key)).map((s) => s.display),
+    dropped: stored.filter((s) => dropKeys.has(s.key) && !submitted.has(s.key)).map((s) => s.display),
+    reservedDrops: dropping.filter((d) => RESERVED_HEADINGS.some((h2) => isHeadingLine(`## ${headingKey(d)}`, h2)))
+  };
+}
+function list(headings) {
+  const quoted = headings.map((h2) => `\`${h2}\``);
+  if (quoted.length === 1) return quoted[0];
+  return `${quoted.slice(0, -1).join(", ")} and ${quoted[quoted.length - 1]}`;
+}
+function assertSectionsAccountedFor(title, storedBody, newProse, dropping) {
+  const found = accountForSections(storedBody, newProse, dropping);
+  if (found.reservedDrops.length > 0) {
+    throw new Error(
+      `refusing to edit "${title}": \`dropping\` names ${list(found.reservedDrops.map(displayHeading))}, which is reserved. A reserved section records something that happened outside the tree \u2014 a human's result, a stated limit, an observed exit code, the node's own history \u2014 and no tool may author or remove one; an edit reattaches them verbatim. Take it out of \`dropping\` and the edit will keep it. Nothing was written.`
+    );
+  }
+  if (found.unaccounted.length > 0) {
+    throw new Error(
+      `refusing to edit "${title}": this rewrite would remove ${list(found.unaccounted)}, which you did not include or list. Include ${found.unaccounted.length === 1 ? "it" : "them"} in \`prose\` to keep ${found.unaccounted.length === 1 ? "it" : "them"}, or name ${found.unaccounted.length === 1 ? "it" : "them"} in \`dropping\` to remove ${found.unaccounted.length === 1 ? "it" : "them"} on purpose. ost_read_tree({ node: "${title}" }) returns the body this was compared against. Nothing was written.`
+    );
+  }
+  return found.dropped;
+}
+
 // src/ost/census.ts
 import fs13 from "node:fs";
 import path12 from "node:path";
@@ -39834,9 +39891,9 @@ function readTrustLedger(dir) {
     }
     if (rec.type === "migration") continue;
     const key2 = keyString({ kind: rec.kind, id: rec.id });
-    const list = histories.get(key2) ?? [];
-    list.push(rec);
-    histories.set(key2, list);
+    const list2 = histories.get(key2) ?? [];
+    list2.push(rec);
+    histories.set(key2, list2);
   }
   return { histories, damaged };
 }
@@ -41092,17 +41149,27 @@ ${section.trim()}`;
    * lands in between those two reads is invisible here. Widening it means
    * carrying a fingerprint across the tool boundary, which is a change to the
    * `ost_edit_node` surface, not to this method.
+   *
+   * The drift guard answers "did the file move since I read it". It does not
+   * answer "did the caller know what was in it", and those are different losses:
+   * a rewrite composed from a title alone drifts nothing and still drops every
+   * `## Section` it failed to reproduce. `dropping` is the second answer — every
+   * stored section must be reproduced in `newProse` or named there, and one in
+   * neither is refused by name ({@link ./section-accounting.ts}) before anything
+   * is composed. Reserved sections are not accountable and cannot be dropped;
+   * they are reattached below regardless of what either argument says.
    */
-  editProse(title, newProse, why) {
+  editProse(title, newProse, why, dropping = []) {
     assertWritableContent(`the new body of "${title}"`, newProse);
     assertWritableContent(`the reason for editing "${title}"`, why);
     const p2 = this.nodePath(title);
     if (!fs16.existsSync(p2)) throw this.noSuchNode(title);
     const read = readWithHash(p2);
     const node2 = deserialize(title, read.content);
+    const removed = assertSectionsAccountedFor(title, node2.body, newProse, dropping);
     const { reserved } = splitReservedSections(node2.body);
     node2.body = joinReservedSections(newProse, reserved);
-    const line = `- ${isoToday()} body edited \u2014 ${why}`;
+    const line = removed.length > 0 ? `- ${isoToday()} body edited, dropping ${removed.map((h2) => `\`${h2}\``).join(", ")} \u2014 ${why}` : `- ${isoToday()} body edited \u2014 ${why}`;
     node2.body = appendUnderHeading(node2.body, "## History", line);
     const rendered = serialize(this.authoredBy(node2, "machine"));
     try {
@@ -41512,9 +41579,9 @@ function interleave(lists, count2) {
   const seen = /* @__PURE__ */ new Set();
   const depth = Math.max(0, ...lists.map((l) => l.length));
   for (let i2 = 0; i2 < depth && out.length < count2; i2++) {
-    for (const list of lists) {
+    for (const list2 of lists) {
       if (out.length >= count2) break;
-      const r2 = list[i2];
+      const r2 = list2[i2];
       if (!r2) continue;
       const key2 = r2.url.replace(/\/+$/, "").toLowerCase();
       if (seen.has(key2)) continue;
@@ -41747,6 +41814,7 @@ var OST_RULESET = {
     'Finish a solution by appending its definition of done to the end of the solution node: the AssumptionTest\'s title in PLAIN QUOTED TEXT on its own line \u2014 "Some test title", never `[[Some test title]]` \u2014 and beneath it the one command that will go green when the solution is built. A builder reads the solution, not the layer beneath it, and a definition of done kept one node away is a definition of done nobody reads. It is quoted rather than linked because a title is wikilinked exactly ONCE in the whole vault, by its parent; see the one-backlink rule below.',
     "Flag tree-hygiene issues: staleness, orphan solutions, duplicates, mislabeled nodes, and unbacked validity claims.",
     "Preserve full provenance for every node it touches: '## History' is append-only and every removal writes the line that explains it.",
+    'Account for every section a rewrite would touch. `ost_edit_node` replaces a node\'s prose wholesale, so a `## Section` you do not reproduce is DELETED \u2014 and it used to go silently. A rewrite must now account for each stored section: include its heading in `prose` to keep it, or name it in `dropping` (`dropping: ["## Provenance"]`) to remove it on purpose, which is recorded in the node\'s History. A section in neither is refused BY NAME and nothing is written. Read the node first \u2014 `ost_read_tree({ node: "<title>" })` returns the body the accounting is decided against \u2014 and the rule costs you nothing. Reserved sections are exempt because no tool can drop one: they are reattached verbatim, and naming one in `dropping` is refused.',
     'Resolve duplicates by merging them, not by annotating both. Two nodes making the same claim are a debt the tree pays on every future pass \u2014 each one re-read, re-counted, and re-ideated under. `ost_merge_nodes` folds one into the other, repoints every inbound edge, and deletes the loser\'s file; you choose the survivor and supply ONLY what the loser contributes \u2014 what it says that the survivor does not \u2014 which the tool appends under a dated heading. The survivor\'s body is not an argument, so a merge cannot overwrite prose you never read \u2014 but you must have READ it: call `ost_read_tree({ node: "<the survivor>" })` first in this session or the merge is refused, because "what the survivor does not already say" is not a judgement anyone can make from a title. The cost is that a node merged repeatedly reads as an original plus its appended contributions; folding those into one claim is a rewrite, and `ost_edit_node` is where a rewrite happens, after reading the body. Annotate instead only when you are unsure they are the same claim, and say what would settle it.',
     "Keep every wikilink on one line. A hard-wrapped paragraph that breaks a [[Node title]] across two lines produces bracketed text and no edge: it reads correctly in the source, and the graph \u2014 the artifact this whole thing produces \u2014 simply lacks the line. Let the line run long rather than wrap inside the brackets. `check` fails on it (rule wrapped-wikilink) and the hygiene pass reports it, because discipline alone has repeatedly not been enough.",
     "State a test's lane once, in one sentence, and let it name exactly one lane. `**Lane: compute-only.**` is a declaration a tool can read back; `**Lane: compute-only for the census, humans-required for the fixing.**` is two tests wearing one node, and the reader refuses it rather than picking a half. If a test really does split, split the test. A lane written in prose is still only a suggestion: `check` fails when it contradicts the `lane:` field (rule lane-conflict), and nothing ever promotes prose to a label \u2014 only a human's `ost-agent lane --set` moves what compute may run.",
@@ -42176,13 +42244,13 @@ function effectiveRuleset(vaultDir) {
   const { proposals } = readRulesetProposals(vaultDir);
   const accepted = proposals.filter((p2) => p2.status === "accepted").sort((a, b2) => (a.decidedAt ?? "").localeCompare(b2.decidedAt ?? "") || a.id.localeCompare(b2.id));
   if (accepted.length === 0) return { ruleset: OST_RULESET, adopted: [], problems: [] };
-  const sections = Object.fromEntries(
+  const sections2 = Object.fromEntries(
     PROPOSABLE_SECTIONS.map((s) => [s, [...OST_RULESET[s]]])
   );
   const adopted = [];
   const problems = [];
   for (const p2 of accepted) {
-    const rules = sections[p2.section];
+    const rules = sections2[p2.section];
     if (p2.replaces !== void 0) {
       const i2 = rules.indexOf(p2.replaces);
       if (i2 === -1) {
@@ -42197,7 +42265,7 @@ function effectiveRuleset(vaultDir) {
     }
     adopted.push(p2.id);
   }
-  return { ruleset: { ...OST_RULESET, ...sections }, adopted, problems };
+  return { ruleset: { ...OST_RULESET, ...sections2 }, adopted, problems };
 }
 
 // src/security/credential-audit.ts
@@ -45528,16 +45596,16 @@ function readAskLedger(dir) {
       damaged += 1;
       continue;
     }
-    const list = histories.get(rec.test) ?? [];
-    list.push(rec);
-    histories.set(rec.test, list);
+    const list2 = histories.get(rec.test) ?? [];
+    list2.push(rec);
+    histories.set(rec.test, list2);
   }
   return { histories, damaged };
 }
 function latestAsk(ledger, test) {
-  const list = ledger.histories.get(test);
-  if (!list || list.length === 0) return null;
-  return list[list.length - 1];
+  const list2 = ledger.histories.get(test);
+  if (!list2 || list2.length === 0) return null;
+  return list2[list2.length - 1];
 }
 
 // src/ost/lanes.ts
@@ -45794,8 +45862,8 @@ function checkInvariants(tree, quarantined = []) {
   const parentsOf = /* @__PURE__ */ new Map();
   for (const p2 of tree) {
     for (const child of p2.links) {
-      const list = parentsOf.get(child);
-      if (list) list.push(p2);
+      const list2 = parentsOf.get(child);
+      if (list2) list2.push(p2);
       else parentsOf.set(child, [p2]);
     }
   }
@@ -45834,14 +45902,14 @@ function checkInvariants(tree, quarantined = []) {
   const linkedFrom = /* @__PURE__ */ new Map();
   for (const p2 of tree) {
     for (const child of p2.links) {
-      const list = linkedFrom.get(child);
-      if (list) list.push(`${p2.title} (edge)`);
+      const list2 = linkedFrom.get(child);
+      if (list2) list2.push(`${p2.title} (edge)`);
       else linkedFrom.set(child, [`${p2.title} (edge)`]);
     }
     for (const m of (p2.body ?? "").matchAll(/\[\[([^\]|#]+?)(?:[|#][^\]]*)?\]\]/g)) {
       const target = m[1].trim();
-      const list = linkedFrom.get(target);
-      if (list) list.push(`${p2.title} (prose)`);
+      const list2 = linkedFrom.get(target);
+      if (list2) list2.push(`${p2.title} (prose)`);
       else linkedFrom.set(target, [`${p2.title} (prose)`]);
     }
   }
@@ -46004,8 +46072,8 @@ function carriesAnswer(body, heading, nonAnswers) {
     return normalized.length > 0 && !refused.has(normalized);
   });
 }
-function contractGaps(node2, sections = CONTRACT_SECTIONS) {
-  return sections.filter((s) => !hasSection(node2.body, s));
+function contractGaps(node2, sections2 = CONTRACT_SECTIONS) {
+  return sections2.filter((s) => !hasSection(node2.body, s));
 }
 function hasNonEmptySection(body, heading) {
   return sectionBlocks(body, heading).some((block) => normalizeAnswer(block).length > 0);
@@ -51992,9 +52060,9 @@ function* scanNearDuplicates(nodes, threshold = 0.7) {
   const byLayer = /* @__PURE__ */ new Map();
   for (const n of nodes) {
     if (n.layer === "Outcome") continue;
-    const list = byLayer.get(n.layer) ?? [];
-    list.push(n.title);
-    byLayer.set(n.layer, list);
+    const list2 = byLayer.get(n.layer) ?? [];
+    list2.push(n.title);
+    byLayer.set(n.layer, list2);
   }
   for (const titles of byLayer.values()) yield* scanLayer(titles, threshold);
 }
@@ -52032,16 +52100,16 @@ function* scanLayer(titles, threshold) {
     const len = Math.max(size - Math.ceil(threshold * size) + 1, 0);
     prefixes[p2] = [...sets[p2]].sort(byRarity).slice(0, len);
     for (const token of prefixes[p2]) {
-      const list = index.get(token);
-      if (list) list.push(p2);
+      const list2 = index.get(token);
+      if (list2) list2.push(p2);
       else index.set(token, [p2]);
     }
   }
   const emptyIndex = /* @__PURE__ */ new Map();
   for (let p2 = 0; p2 < n; p2++) {
     if (sets[p2].size > 0) continue;
-    const list = emptyIndex.get(norms[p2]);
-    if (list) list.push(p2);
+    const list2 = emptyIndex.get(norms[p2]);
+    if (list2) list2.push(p2);
     else emptyIndex.set(norms[p2], [p2]);
   }
   const candidates = /* @__PURE__ */ new Set();
@@ -52049,10 +52117,10 @@ function* scanLayer(titles, threshold) {
     candidates.clear();
     const a = sets[i2].size;
     const postings = a === 0 ? [emptyIndex.get(norms[i2])] : prefixes[i2].map((t2) => index.get(t2));
-    for (const list of postings) {
-      if (!list) continue;
-      for (let k2 = lowerBound(list, i2 + 1); k2 < list.length; k2++) {
-        const j2 = list[k2];
+    for (const list2 of postings) {
+      if (!list2) continue;
+      for (let k2 = lowerBound(list2, i2 + 1); k2 < list2.length; k2++) {
+        const j2 = list2[k2];
         const b2 = sets[j2].size;
         if (a > 0 && b2 > 0 && Math.min(a, b2) < threshold * Math.max(a, b2)) continue;
         candidates.add(j2);
@@ -52065,12 +52133,12 @@ function* scanLayer(titles, threshold) {
     }
   }
 }
-function lowerBound(list, value) {
+function lowerBound(list2, value) {
   let lo = 0;
-  let hi = list.length;
+  let hi = list2.length;
   while (lo < hi) {
     const mid = lo + hi >> 1;
-    if (list[mid] < value) lo = mid + 1;
+    if (list2[mid] < value) lo = mid + 1;
     else hi = mid;
   }
   return lo;
@@ -52140,18 +52208,18 @@ function* scanExtentOverlap(nodes) {
     const posting = /* @__PURE__ */ new Map();
     for (let p2 = 0; p2 < reps.length; p2++) {
       for (const id of extents.get(reps[p2])) {
-        const list = posting.get(id);
-        if (list) list.push(p2);
+        const list2 = posting.get(id);
+        if (list2) list2.push(p2);
         else posting.set(id, [p2]);
       }
     }
     const candidates = /* @__PURE__ */ new Map();
-    for (const list of posting.values()) {
-      for (let x2 = 0; x2 < list.length; x2++) {
-        for (let y2 = x2 + 1; y2 < list.length; y2++) {
-          let set = candidates.get(list[x2]);
-          if (!set) candidates.set(list[x2], set = /* @__PURE__ */ new Set());
-          set.add(list[y2]);
+    for (const list2 of posting.values()) {
+      for (let x2 = 0; x2 < list2.length; x2++) {
+        for (let y2 = x2 + 1; y2 < list2.length; y2++) {
+          let set = candidates.get(list2[x2]);
+          if (!set) candidates.set(list2[x2], set = /* @__PURE__ */ new Set());
+          set.add(list2[y2]);
         }
       }
     }
@@ -52627,16 +52695,16 @@ function readDispositionLedger(dir) {
       damaged += 1;
       continue;
     }
-    const list = histories.get(rec.subject) ?? [];
-    list.push(rec);
-    histories.set(rec.subject, list);
+    const list2 = histories.get(rec.subject) ?? [];
+    list2.push(rec);
+    histories.set(rec.subject, list2);
   }
   return { histories, damaged };
 }
 function latestDisposition(ledger, subject) {
-  const list = ledger.histories.get(subject);
-  if (!list || list.length === 0) return null;
-  return list[list.length - 1];
+  const list2 = ledger.histories.get(subject);
+  if (!list2 || list2.length === 0) return null;
+  return list2[list2.length - 1];
 }
 function closes(rec) {
   return rec?.state === "closed";
@@ -52644,13 +52712,13 @@ function closes(rec) {
 function isOrphanedAcknowledgement(rec, index) {
   return rec.verdict === "corroborates" && rec.node !== void 0 && !index.has(rec.node);
 }
-function omitDisposed(items, subjectOf3, ledger, index, list, into) {
+function omitDisposed(items, subjectOf3, ledger, index, list2, into) {
   const kept = [];
   for (const item of items) {
     const subject = subjectOf3(item);
     const standing = latestDisposition(ledger, subject);
     if (standing && closes(standing) && !isOrphanedAcknowledgement(standing, index)) {
-      into.push({ list, subject, kind: standing.kind, reason: standing.reason, by: standing.by, at: standing.ts });
+      into.push({ list: list2, subject, kind: standing.kind, reason: standing.reason, by: standing.by, at: standing.ts });
       continue;
     }
     kept.push(item);
@@ -52831,18 +52899,18 @@ function readSuppressionLedger(dir) {
       damaged += 1;
       continue;
     }
-    const list = histories.get(rec.subject) ?? [];
-    list.push(rec);
-    histories.set(rec.subject, list);
+    const list2 = histories.get(rec.subject) ?? [];
+    list2.push(rec);
+    histories.set(rec.subject, list2);
   }
   return { histories, damaged };
 }
 function latestSuppression(ledger, subject) {
-  const list = ledger.histories.get(subject);
-  if (!list || list.length === 0) return null;
-  return list[list.length - 1];
+  const list2 = ledger.histories.get(subject);
+  if (!list2 || list2.length === 0) return null;
+  return list2[list2.length - 1];
 }
-function omitSuppressed(items, subjectOf3, ledger, index, list, into) {
+function omitSuppressed(items, subjectOf3, ledger, index, list2, into) {
   if (ledger.histories.size === 0) return [...items];
   const kept = [];
   for (const item of items) {
@@ -52850,7 +52918,7 @@ function omitSuppressed(items, subjectOf3, ledger, index, list, into) {
     const standing = latestSuppression(ledger, subject);
     if (standing && conditionHolds(standing.condition, index)) {
       into.push({
-        list,
+        list: list2,
         subject,
         until: `revives when no longer ${renderCondition(standing.condition)}`,
         reason: standing.reason,
@@ -53070,8 +53138,8 @@ function readEvidenceBody(dir, id, mirror = {}) {
     truncated
   };
 }
-function capList(list, name, into, limit = MAX_ITEMS_PER_LIST2, total = list.length) {
-  const shown2 = list.slice(0, limit);
+function capList(list2, name, into, limit = MAX_ITEMS_PER_LIST2, total = list2.length) {
+  const shown2 = list2.slice(0, limit);
   if (total > shown2.length) into.push({ list: name, shown: shown2.length, total, hidden: total - shown2.length });
   return shown2;
 }
@@ -53083,10 +53151,10 @@ function computeNextWork(vault, dir, min, now = () => /* @__PURE__ */ new Date()
   const membership = targetNode?.layer === "Opportunity" ? subtreeTitles(targetNode, index) : null;
   const inScope = (title) => membership === null || membership.has(title);
   const scopeExcluded = [];
-  const excludeByScope = (list, name, title) => {
-    if (membership === null) return list;
-    const kept = list.filter((item) => membership.has(title(item)));
-    if (kept.length < list.length) scopeExcluded.push({ list: name, count: list.length - kept.length });
+  const excludeByScope = (list2, name, title) => {
+    if (membership === null) return list2;
+    const kept = list2.filter((item) => membership.has(title(item)));
+    if (kept.length < list2.length) scopeExcluded.push({ list: name, count: list2.length - kept.length });
     return kept;
   };
   const liveCensus = withoutRetiredNodes(census);
@@ -53479,7 +53547,7 @@ function nodeBody(node2) {
   const { prose, reserved } = splitReservedSections(node2.body);
   const proseChars = prose.length;
   const truncated = proseChars > MAX_BODY_CHARS ? [{ list: "prose (characters)", shown: MAX_BODY_CHARS, total: proseChars, hidden: proseChars - MAX_BODY_CHARS }] : [];
-  const sections = reserved.map((block) => ({
+  const sections2 = reserved.map((block) => ({
     heading: headingOf(block),
     content: block.split("\n").slice(1).join("\n").trim()
   }));
@@ -53498,10 +53566,10 @@ function nodeBody(node2) {
     links: node2.links,
     prose: frameData(prose.slice(0, MAX_BODY_CHARS)),
     proseChars,
-    reserved: sections,
+    reserved: sections2,
     truncated
   };
-  if (sections.length > 0) {
+  if (sections2.length > 0) {
     body.reservedNote = "The `reserved` sections are measurements recorded outside the tree \u2014 a human's result, an observed exit code. They are returned apart from `prose` because no tool may author, rewrite or remove them: compose any edit or merge from `prose` alone, and the writer will keep these blocks verbatim.";
   }
   return body;
@@ -54676,19 +54744,24 @@ ${instruction}`;
     tool({
       name: "ost_edit_node",
       reversibility: "costly",
-      description: "Replace a node's prose. Costly to reverse \u2014 the previous wording leaves the file and survives only in git. Use to sharpen a framing, fold in what a duplicate said, or cut prose that has gone stale; use `ost_append_to_node` when you are ADDING to a node rather than rewriting it. `prose` is the body WITHOUT any reserved section: the node's existing `## Results`, `## Uncovered` and `## Instrument Log` blocks are reattached verbatim and are not yours to write or to drop. Frontmatter is untouched \u2014 status, evidence, lane and instrument each have their own tool because each records a typed transition.",
+      description: "Replace a node's prose. Costly to reverse \u2014 the previous wording leaves the file and survives only in git. Use to sharpen a framing, fold in what a duplicate said, or cut prose that has gone stale; use `ost_append_to_node` when you are ADDING to a node rather than rewriting it. `prose` is the body WITHOUT any reserved section: the node's existing `## Results`, `## Uncovered`, `## Instrument Log` and `## History` blocks are reattached verbatim and are not yours to write or to drop. Every OTHER `## Section` the node currently holds is ordinary prose, so a rewrite that omits one deletes it \u2014 and this refuses that unless you meant it: account for each stored section either by including its heading in `prose` or by naming it in `dropping`, and one in neither is refused BY NAME before anything is written. Read the node first (`ost_read_tree({ node })`) and the accounting costs you nothing; skip the read and the refusal tells you what you missed. Frontmatter is untouched \u2014 status, evidence, lane and instrument each have their own tool because each records a typed transition.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
         properties: {
           title: { type: "string" },
           prose: { type: "string", description: "The node's new body, excluding reserved sections." },
-          why: { type: "string", description: "Why the previous wording was wrong or stale. Recorded in History." }
+          why: { type: "string", description: "Why the previous wording was wrong or stale. Recorded in History." },
+          dropping: {
+            type: "array",
+            items: { type: "string" },
+            description: 'The stored `## Sections` this rewrite deliberately REMOVES \u2014 e.g. ["## Provenance"]. Each is named in the node\'s History as removed. Omit for the ordinary case where the rewrite keeps every section; a section you neither include in `prose` nor name here is refused rather than dropped. Reserved sections cannot be named here: no tool may remove one.'
+          }
         },
         required: ["title", "prose", "why"]
       },
       run: async (input) => {
-        vault.editProse(input.title, input.prose, input.why);
+        vault.editProse(input.title, input.prose, input.why, input.dropping ?? []);
         return `edited the body of "${input.title}"`;
       }
     }),
@@ -54987,8 +55060,8 @@ ${instruction}`;
           if (capturedTitles.length > 0) producing++;
           const shown2 = capturedTitles.slice(0, MAX_TITLES_LISTED).map(displaySafeTitle);
           const overflow = capturedTitles.length - shown2.length;
-          const list = `${shown2.join(", ")}${overflow > 0 ? ` (+${overflow} more)` : ""}`;
-          const head = capturedTitles.length > 0 ? `captured ${capturedTitles.length}: ${list}` : "0 new";
+          const list2 = `${shown2.join(", ")}${overflow > 0 ? ` (+${overflow} more)` : ""}`;
+          const head = capturedTitles.length > 0 ? `captured ${capturedTitles.length}: ${list2}` : "0 new";
           if (failure) {
             lines.push(
               `  [${source.name}] ${head}. STOPPED at "${displaySafeTitle(failure.item.title)}" \u2014 ${oneLine4(failure.reason)}. It was NOT captured and the cursor was not advanced past it: fix the cause and call ost_ingest_inbox again to re-offer it and everything after it.`
@@ -61102,6 +61175,27 @@ var CALL_PRECONDITIONS = Object.freeze([
     }
   },
   {
+    id: "sections-accounted-for",
+    tools: ["ost_edit_node"],
+    statement: "A rewrite must account for every `## Section` the node currently stores: reproduce the heading in `prose`, or name it in `dropping`. One in neither is refused by name rather than silently deleted \u2014 reserved sections are exempt, being reattached verbatim, and naming one in `dropping` is refused because no tool may remove one.",
+    expressibility: "fully",
+    enforcedBy: "ost/section-accounting.ts:assertSectionsAccountedFor",
+    check: (input, facts) => {
+      const title = str3(input, "title");
+      const prose = str3(input, "prose");
+      if (title === void 0 || prose === void 0) return null;
+      const target = node(facts, title);
+      if (!target) return null;
+      const dropping = Array.isArray(input.dropping) ? input.dropping.filter((d) => typeof d === "string") : [];
+      const found = accountForSections(target.body, prose, dropping);
+      if (found.reservedDrops.length > 0) return `\`dropping\` names the reserved section ${found.reservedDrops[0]}`;
+      if (found.unaccounted.length > 0) {
+        return `this rewrite would remove ${found.unaccounted.join(", ")}, which is in neither \`prose\` nor \`dropping\``;
+      }
+      return null;
+    }
+  },
+  {
     id: "humans-required-takes-no-instrument",
     tools: ["ost_set_instrument"],
     statement: "A test flagged humans-required cannot carry an instrument: a person is the measurement, and no command can stand in for them.",
@@ -62696,8 +62790,8 @@ function classifyPassShape(subjects) {
 }
 
 // src/loop/stop-condition.ts
-function trueTotal(work, list, shown2) {
-  return work.truncated.find((t2) => t2.list === list)?.total ?? shown2;
+function trueTotal(work, list2, shown2) {
+  return work.truncated.find((t2) => t2.list === list2)?.total ?? shown2;
 }
 var STOP_CONDITION = [
   {
@@ -64614,9 +64708,9 @@ function dependents(set) {
   const map = /* @__PURE__ */ new Map();
   for (const item of set.items) {
     if (item.dependsOn === void 0) continue;
-    const list = map.get(item.dependsOn) ?? [];
-    list.push(item.id);
-    map.set(item.dependsOn, list);
+    const list2 = map.get(item.dependsOn) ?? [];
+    list2.push(item.id);
+    map.set(item.dependsOn, list2);
   }
   return map;
 }
@@ -65236,10 +65330,10 @@ function briefingItems(briefing) {
     blocks.push(...bullets.length > 1 ? bullets : [trimmed2]);
   }
   return blocks.map((text2, index) => {
-    const list = termsOf(text2);
+    const list2 = termsOf(text2);
     const counts = /* @__PURE__ */ new Map();
-    for (const t2 of list) counts.set(t2, (counts.get(t2) ?? 0) + 1);
-    return { index, text: text2, label: labelOf(text2), terms: new Set(list), counts };
+    for (const t2 of list2) counts.set(t2, (counts.get(t2) ?? 0) + 1);
+    return { index, text: text2, label: labelOf(text2), terms: new Set(list2), counts };
   });
 }
 function labelOf(text2) {

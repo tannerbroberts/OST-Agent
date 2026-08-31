@@ -1614,7 +1614,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
       name: "ost_edit_node",
       reversibility: "costly",
       description:
-        "Replace a node's prose. Costly to reverse — the previous wording leaves the file and survives only in git. Use to sharpen a framing, fold in what a duplicate said, or cut prose that has gone stale; use `ost_append_to_node` when you are ADDING to a node rather than rewriting it. `prose` is the body WITHOUT any reserved section: the node's existing `## Results`, `## Uncovered` and `## Instrument Log` blocks are reattached verbatim and are not yours to write or to drop. Frontmatter is untouched — status, evidence, lane and instrument each have their own tool because each records a typed transition.",
+        "Replace a node's prose. Costly to reverse — the previous wording leaves the file and survives only in git. Use to sharpen a framing, fold in what a duplicate said, or cut prose that has gone stale; use `ost_append_to_node` when you are ADDING to a node rather than rewriting it. `prose` is the body WITHOUT any reserved section: the node's existing `## Results`, `## Uncovered`, `## Instrument Log` and `## History` blocks are reattached verbatim and are not yours to write or to drop. Every OTHER `## Section` the node currently holds is ordinary prose, so a rewrite that omits one deletes it — and this refuses that unless you meant it: account for each stored section either by including its heading in `prose` or by naming it in `dropping`, and one in neither is refused BY NAME before anything is written. Read the node first (`ost_read_tree({ node })`) and the accounting costs you nothing; skip the read and the refusal tells you what you missed. Frontmatter is untouched — status, evidence, lane and instrument each have their own tool because each records a typed transition.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -1622,11 +1622,17 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
           title: { type: "string" },
           prose: { type: "string", description: "The node's new body, excluding reserved sections." },
           why: { type: "string", description: "Why the previous wording was wrong or stale. Recorded in History." },
+          dropping: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "The stored `## Sections` this rewrite deliberately REMOVES — e.g. [\"## Provenance\"]. Each is named in the node's History as removed. Omit for the ordinary case where the rewrite keeps every section; a section you neither include in `prose` nor name here is refused rather than dropped. Reserved sections cannot be named here: no tool may remove one.",
+          },
         },
         required: ["title", "prose", "why"],
       },
-      run: async (input: { title: string; prose: string; why: string }) => {
-        vault.editProse(input.title, input.prose, input.why);
+      run: async (input: { title: string; prose: string; why: string; dropping?: string[] }) => {
+        vault.editProse(input.title, input.prose, input.why, input.dropping ?? []);
         return `edited the body of "${input.title}"`;
       },
     }),

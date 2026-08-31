@@ -65,6 +65,7 @@ import { canonicalTitle, fileNameForTitle, sanitizeTitle } from "./sanitize.js";
 import { cycleFromAdding } from "./prerequisites.js";
 import { isHeadingLine, reservedHeadingIn } from "./headings.js";
 import { joinReservedSections, splitReservedSections } from "./sections.js";
+import { assertSectionsAccountedFor } from "./section-accounting.js";
 import {
   ARCHIVE_DIRNAME,
   isRetractedNode,
@@ -956,17 +957,34 @@ export class Vault {
    * lands in between those two reads is invisible here. Widening it means
    * carrying a fingerprint across the tool boundary, which is a change to the
    * `ost_edit_node` surface, not to this method.
+   *
+   * The drift guard answers "did the file move since I read it". It does not
+   * answer "did the caller know what was in it", and those are different losses:
+   * a rewrite composed from a title alone drifts nothing and still drops every
+   * `## Section` it failed to reproduce. `dropping` is the second answer — every
+   * stored section must be reproduced in `newProse` or named there, and one in
+   * neither is refused by name ({@link ./section-accounting.ts}) before anything
+   * is composed. Reserved sections are not accountable and cannot be dropped;
+   * they are reattached below regardless of what either argument says.
    */
-  editProse(title: string, newProse: string, why: string): string {
+  editProse(title: string, newProse: string, why: string, dropping: readonly string[] = []): string {
     assertWritableContent(`the new body of "${title}"`, newProse);
     assertWritableContent(`the reason for editing "${title}"`, why);
     const p = this.nodePath(title);
     if (!fs.existsSync(p)) throw this.noSuchNode(title);
     const read = readWithHash(p);
     const node = deserialize(title, read.content);
+    const removed = assertSectionsAccountedFor(title, node.body, newProse, dropping);
     const { reserved } = splitReservedSections(node.body);
     node.body = joinReservedSections(newProse, reserved);
-    const line = `- ${isoToday()} body edited — ${why}`;
+    // A deliberate removal is still a removal, and this vault's rule is that every
+    // one of them writes the line that explains it. Naming the sections in History
+    // is what makes a drop auditable from the node itself rather than from `git
+    // log` — the same reason `detach` and `mergeNodes` name what they took.
+    const line =
+      removed.length > 0
+        ? `- ${isoToday()} body edited, dropping ${removed.map((h) => `\`${h}\``).join(", ")} — ${why}`
+        : `- ${isoToday()} body edited — ${why}`;
     node.body = appendUnderHeading(node.body, "## History", line);
     const rendered = serialize(this.authoredBy(node, "machine"));
     try {

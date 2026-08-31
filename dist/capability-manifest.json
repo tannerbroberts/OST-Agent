@@ -3,8 +3,8 @@
   "version": "0.23.0",
   "artifact": {
     "path": "dist/ost-agent.mjs",
-    "bytes": 2745861,
-    "sha256": "0f828d8b49ca13ecdf2c626d0f537b477d54a0caaf176f72d7d0e263442c28f5"
+    "bytes": 2752946,
+    "sha256": "64993543ac0dcd856f4fe1451892ef77fd3ffeab33df26ab619ae602a18a01c7"
   },
   "capabilities": [
     {
@@ -510,7 +510,7 @@
     {
       "name": "ost_edit_node",
       "surface": "mcp-tool",
-      "fingerprint": "61c7077a033ed5266499c20f975f77288f7c796dcc3178c618fd5c7bbd3c6134"
+      "fingerprint": "4a13ddba12a55fa9d545b907bd053c6b783f8065ffb3905fd5b8d7ddbf141e43"
     },
     {
       "name": "ost_flag_humans_required",
