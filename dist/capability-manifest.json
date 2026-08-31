@@ -1,0 +1,567 @@
+{
+  "schema": "ost-agent/capability-manifest@1",
+  "version": "0.23.0",
+  "artifact": {
+    "path": "dist/ost-agent.mjs",
+    "bytes": 2633302,
+    "sha256": "6d52d74fca6ef9a2ea6e4d3cdffceec660fc72355b3d335744482e1bc7ca225d"
+  },
+  "capabilities": [
+    {
+      "name": "allowlist",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "asks",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "auth",
+      "surface": "cli-command",
+      "fingerprint": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+    },
+    {
+      "name": "authority",
+      "surface": "cli-command",
+      "fingerprint": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+    },
+    {
+      "name": "backlog-replay",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "bank-question",
+      "surface": "cli-command",
+      "fingerprint": "cafb2a0e226235c69f2edefe6467581257031cc79136b22345cae8433cba608b"
+    },
+    {
+      "name": "briefing",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "build-check",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "buildable",
+      "surface": "cli-command",
+      "fingerprint": "f963db8d2747a2b6de9f981b1d9e8b36e1a2be659709f02aa20480dc482d2b0c"
+    },
+    {
+      "name": "canary",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "capability",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "capability-manifest",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "channels",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "check",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "claim",
+      "surface": "cli-command",
+      "fingerprint": "b9e68cbda90cb8809ad5119137bb58bcb529261af60d558225574d282c6d3512"
+    },
+    {
+      "name": "consequence-set",
+      "surface": "cli-command",
+      "fingerprint": "89107e211bfeb1c53f57640bc99c8d3de2cc06cded31b8678223fd2361334dd2"
+    },
+    {
+      "name": "corrections",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "critic",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "debt",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "dispose",
+      "surface": "cli-command",
+      "fingerprint": "6d2efa5f2959b5b45cb1869ec15284ac62409127dfb67b71e75cb09dd6615dbd"
+    },
+    {
+      "name": "dispositions",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "exclusions",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "faithfulness",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "friction",
+      "surface": "cli-command",
+      "fingerprint": "ff03263b05394c95affc4b327e71feb1ab37c1ff66b618c869be50a6104c5289"
+    },
+    {
+      "name": "friction-count",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "friction-surface",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "gate",
+      "surface": "cli-command",
+      "fingerprint": "684debc8d40d4cbca7af8bcdccf90ef8dcfe4965b682ac7ef2463ee8016968e6"
+    },
+    {
+      "name": "grants",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "help",
+      "surface": "cli-command",
+      "fingerprint": "dcf8b5b1ff4d02a57dab703bc3bcf955edd31cfb729d26959723e805b588ccf5"
+    },
+    {
+      "name": "helper-preflight",
+      "surface": "cli-command",
+      "fingerprint": "bb570b007e34cce45c22f0fe66b0da3611dc7b5a19f4920ba0d7dfa6f282d452"
+    },
+    {
+      "name": "host-delegation",
+      "surface": "cli-command",
+      "fingerprint": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+    },
+    {
+      "name": "init",
+      "surface": "cli-command",
+      "fingerprint": "220420657ed54ce83c98eedc2153fb293bf93a82a3042136b651192ab288f3da"
+    },
+    {
+      "name": "judge-panel",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "kill-list",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "lane",
+      "surface": "cli-command",
+      "fingerprint": "a041d11f25085dbced28eee644f7157bb64f59f7776a0afcf330dc0d4ae38ba5"
+    },
+    {
+      "name": "lanes",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "ledger",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "legacy-fallback",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "lineage",
+      "surface": "cli-command",
+      "fingerprint": "538fb04361ab3ab02d0c7e38e6fb7f4050e2c01822c03d3cece5f503e154e406"
+    },
+    {
+      "name": "log-friction",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "loop",
+      "surface": "cli-command",
+      "fingerprint": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+    },
+    {
+      "name": "manifest",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "mcp",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "migrate",
+      "surface": "cli-command",
+      "fingerprint": "523de43b581635cd40476b9f063a9b9067757d0b693694f5def202cdf07d89a7"
+    },
+    {
+      "name": "next-build",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "path-failures",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "peer-census",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "precondition-coverage",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "preconditions",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "preflight",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "prerequisite",
+      "surface": "cli-command",
+      "fingerprint": "a041d11f25085dbced28eee644f7157bb64f59f7776a0afcf330dc0d4ae38ba5"
+    },
+    {
+      "name": "prerequisites",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "promote",
+      "surface": "cli-command",
+      "fingerprint": "538fb04361ab3ab02d0c7e38e6fb7f4050e2c01822c03d3cece5f503e154e406"
+    },
+    {
+      "name": "proposal",
+      "surface": "cli-command",
+      "fingerprint": "129c5dc4e1e602b55f50a7b2452cb063d8715d02b78306b10102c91c19c1a0eb"
+    },
+    {
+      "name": "proposals",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "propose-rule",
+      "surface": "cli-command",
+      "fingerprint": "523de43b581635cd40476b9f063a9b9067757d0b693694f5def202cdf07d89a7"
+    },
+    {
+      "name": "reflection",
+      "surface": "cli-command",
+      "fingerprint": "684debc8d40d4cbca7af8bcdccf90ef8dcfe4965b682ac7ef2463ee8016968e6"
+    },
+    {
+      "name": "refusals",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "repair-renames",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "required-tools",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "resources",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "result",
+      "surface": "cli-command",
+      "fingerprint": "a041d11f25085dbced28eee644f7157bb64f59f7776a0afcf330dc0d4ae38ba5"
+    },
+    {
+      "name": "retract",
+      "surface": "cli-command",
+      "fingerprint": "538fb04361ab3ab02d0c7e38e6fb7f4050e2c01822c03d3cece5f503e154e406"
+    },
+    {
+      "name": "retrospective",
+      "surface": "cli-command",
+      "fingerprint": "d5a18d5416c9cb1f8e61d257018e7ea4cc95efe8b35fd83d2945396c5e16fa14"
+    },
+    {
+      "name": "review-sample",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "rollup",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "routes",
+      "surface": "cli-command",
+      "fingerprint": "1aa0201d3be2a65cfb89887c884a416c332ed72a5e25d9c58cc79367af48e1db"
+    },
+    {
+      "name": "routing-record",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "score",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "search",
+      "surface": "cli-command",
+      "fingerprint": "786258e73804d4ae6fb775838edfb174ebef22b05c92cef0b7219f7d2c9adc78"
+    },
+    {
+      "name": "searches",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "set-outcome",
+      "surface": "cli-command",
+      "fingerprint": "0ec1f3b6c5a961fbf7868230c2f394bd3e4bb22995c3641681882052a0ca3498"
+    },
+    {
+      "name": "setup-check",
+      "surface": "cli-command",
+      "fingerprint": "11d0620c5a6a9b536b28b20975769de4eccf6d2325c5f8762144bc34f59bbfe6"
+    },
+    {
+      "name": "ship",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "status",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "stranded",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "suppress",
+      "surface": "cli-command",
+      "fingerprint": "6d2efa5f2959b5b45cb1869ec15284ac62409127dfb67b71e75cb09dd6615dbd"
+    },
+    {
+      "name": "suppressions",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "surface-profile",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "sweeps",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "symbols",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "tool-surface",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "tournament",
+      "surface": "cli-command",
+      "fingerprint": "f02ed678e3f2bdcd9c8a56dd106f8d06d883fa6cd4e2cd3a8fdf601a05eccc2a"
+    },
+    {
+      "name": "usage-consent",
+      "surface": "cli-command",
+      "fingerprint": "8dc66cfdd36b7b1e8d668dd5689548862ef84ecfa2870a25dff4f3c18bc8e40b"
+    },
+    {
+      "name": "usage-export",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "verify",
+      "surface": "cli-command",
+      "fingerprint": "a041d11f25085dbced28eee644f7157bb64f59f7776a0afcf330dc0d4ae38ba5"
+    },
+    {
+      "name": "wait-shim",
+      "surface": "cli-command",
+      "fingerprint": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+    },
+    {
+      "name": "workspace",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "ost_annotate",
+      "surface": "mcp-tool",
+      "fingerprint": "3a1dc995189a0bc4ad0531e1f0b192f697debfb6d9dcc2a51a45cfac48e41141"
+    },
+    {
+      "name": "ost_append_to_node",
+      "surface": "mcp-tool",
+      "fingerprint": "4c23d2513deb3372b86e2a7b7298c6de55be17be019adc2c3c7bbeefc1253726"
+    },
+    {
+      "name": "ost_check",
+      "surface": "mcp-tool",
+      "fingerprint": "99334726611ccf58a148b0814696bfa6fe08c1b2d027e946beccf5a74331c9aa"
+    },
+    {
+      "name": "ost_create_node",
+      "surface": "mcp-tool",
+      "fingerprint": "f43186c3c41e6967db3f96636ccef5b31f0f506fcf0647b9f7a0711449867ce0"
+    },
+    {
+      "name": "ost_debt",
+      "surface": "mcp-tool",
+      "fingerprint": "99334726611ccf58a148b0814696bfa6fe08c1b2d027e946beccf5a74331c9aa"
+    },
+    {
+      "name": "ost_deposit",
+      "surface": "mcp-tool",
+      "fingerprint": "3c96d8990a3902e69203d2b363b4b20f7d3beb48236a7c9838f9ed22d32ab65b"
+    },
+    {
+      "name": "ost_detach_nodes",
+      "surface": "mcp-tool",
+      "fingerprint": "772a999ba2694c09e08561ce43f4c9a3a2ebc44ab30692cd771f9a35a9cb41e7"
+    },
+    {
+      "name": "ost_edit_node",
+      "surface": "mcp-tool",
+      "fingerprint": "61c7077a033ed5266499c20f975f77288f7c796dcc3178c618fd5c7bbd3c6134"
+    },
+    {
+      "name": "ost_flag_humans_required",
+      "surface": "mcp-tool",
+      "fingerprint": "50531e70c8667173d986dc160c0f1d6356949ad8ed78e3348c731f2cbb11a2a1"
+    },
+    {
+      "name": "ost_gate",
+      "surface": "mcp-tool",
+      "fingerprint": "a1f2413835cab063a074dd24364d271b895da3eaf1ad1df98bec33e699de75ba"
+    },
+    {
+      "name": "ost_ingest_inbox",
+      "surface": "mcp-tool",
+      "fingerprint": "99334726611ccf58a148b0814696bfa6fe08c1b2d027e946beccf5a74331c9aa"
+    },
+    {
+      "name": "ost_link_nodes",
+      "surface": "mcp-tool",
+      "fingerprint": "33156d5430ec5b93a6053480e94e169eb28a9bc41b169911455a7524cafed703"
+    },
+    {
+      "name": "ost_merge_nodes",
+      "surface": "mcp-tool",
+      "fingerprint": "abbd7a3f7ab8c8bccfe97ca961bd30a3e8c66f600b3624e04bafe152ca8ead19"
+    },
+    {
+      "name": "ost_next_work",
+      "surface": "mcp-tool",
+      "fingerprint": "8c72a1c9e1269e4f6cefe4b7c68b06029c61fbf2fc64f8d6a09dd61b928e5ec4"
+    },
+    {
+      "name": "ost_rank_source",
+      "surface": "mcp-tool",
+      "fingerprint": "3088a430f1127958c39b6b3a68c2f4084b9444172a25e2b7b2dc56af95d652d0"
+    },
+    {
+      "name": "ost_read_repo",
+      "surface": "mcp-tool",
+      "fingerprint": "357f0c6d0d3a441da846a388e0c62d3dae728cc307f494b65db084327c777cf8"
+    },
+    {
+      "name": "ost_read_tree",
+      "surface": "mcp-tool",
+      "fingerprint": "c032276188b921cf96180d439795db9ed8d85312295833349fe0d3e027a60ddf"
+    },
+    {
+      "name": "ost_read_web",
+      "surface": "mcp-tool",
+      "fingerprint": "fa7e3ed9efe62a2daa1741339e68ba64fbbd860394e240d7415eaefab02e7808"
+    },
+    {
+      "name": "ost_search_web",
+      "surface": "mcp-tool",
+      "fingerprint": "29ead4b1359cf0a89e894eaed2e49f28df39155d2304bcd9db2e50f4008572e2"
+    },
+    {
+      "name": "ost_set_evidence",
+      "surface": "mcp-tool",
+      "fingerprint": "6388feeec8c38cbb9d122bbb399213026323854e29d96e894009149c49530446"
+    },
+    {
+      "name": "ost_set_instrument",
+      "surface": "mcp-tool",
+      "fingerprint": "a55726568156205f5b57f10c4a954440ec5f4be64e097fe667bf73b11ed5e6f7"
+    },
+    {
+      "name": "ost_set_status",
+      "surface": "mcp-tool",
+      "fingerprint": "3eb61902ff82e12af3a666683c98dcde5cae31e8b04b6b838d230329e14e7188"
+    },
+    {
+      "name": "ost_status",
+      "surface": "mcp-tool",
+      "fingerprint": "99334726611ccf58a148b0814696bfa6fe08c1b2d027e946beccf5a74331c9aa"
+    }
+  ],
+  "signature": null
+}

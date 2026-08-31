@@ -89,6 +89,8 @@ import { setOutcome } from "../runner/set-outcome.js";
 import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/render.js";
 import { ship } from "../release/ship-repo.js";
 import { BUILD_CHECK_EXIT, formatBuildCheck, inheritedTreeBuildCheck } from "../release/inherited-tree.js";
+import { RELEASE_KEY_PATH, renderVerdict, verifyRelease } from "../release/capability-manifest.js";
+import { findReleaseRoot, loadRelease } from "../release/capability-surface.js";
 import { renderRollup, rollupTree } from "../eval/rollup.js";
 import { evidenceActors } from "../knowledge/actor-trust.js";
 import { legacyFallbackCensus, renderLegacyFallbackCensus } from "../ost/legacy-fallback.js";
@@ -1942,6 +1944,38 @@ program
     // not see at all exits the same way, and for a stronger reason: a sweep that
     // reports a clean run over a subject it never read is worse than a red one.
     if (report.verdict === "refuted" || report.shallow) process.exitCode = 1;
+  });
+
+program
+  .command("capability-manifest")
+  .description("check the published capability manifest against the binary you are about to run: every tool and command it exposes, bound to the artefact's sha256 (exits non-zero on any divergence)")
+  .option("--root <dir>", "the release root holding dist/ — defaults to the one this binary was launched from")
+  .option("--key <file>", `a trusted release public key (base64 SPKI); defaults to ${RELEASE_KEY_PATH} in the release root when present`)
+  .action(async (opts: { root?: string; key?: string }) => {
+    // The operator's question is about the artefact in front of them, so the
+    // root is found from the running file rather than from the cwd, which for a
+    // plugin install is some unrelated project directory.
+    const root = opts.root ? path.resolve(opts.root) : findReleaseRoot(path.dirname(process.argv[1] ?? "."));
+    let input;
+    try {
+      input = await loadRelease(root);
+    } catch (e) {
+      console.error(String(e instanceof Error ? e.message : e));
+      process.exitCode = 1;
+      return;
+    }
+    // An explicit --key overrides the committed default, and is the only form of
+    // this check that is worth anything against a hostile build: a key that
+    // travelled with the artefact was written by whoever wrote the artefact.
+    if (opts.key) input = { ...input, trustedPublicKey: fs.readFileSync(path.resolve(opts.key), "utf8").trim() };
+    const verdict = verifyRelease(input);
+    const text = renderVerdict(verdict, input.manifest);
+    if (verdict.ok) {
+      console.log(text);
+      return;
+    }
+    console.error(text);
+    process.exitCode = 1;
   });
 
 program

@@ -111,8 +111,11 @@ Two more, each conditional and each enforced by CI, so skipping one turns into a
 build rather than a silent drift:
 
 - **Changed anything under `src/`?** Run `npm run bundle` and commit
-  `dist/ost-agent.mjs`. The plugin launches that committed artifact; the `bundle-drift`
-  job in `.github/workflows/ci.yml` fails if it is stale.
+  `dist/ost-agent.mjs` **and** `dist/capability-manifest.json` (bundling regenerates the
+  manifest from the artefact it just built). The plugin launches that committed artifact;
+  the `bundle-drift` job in `.github/workflows/ci.yml` fails if either is stale, and
+  `test/release/capability-manifest.test.ts` fails if the manifest stops describing the
+  surface the artefact actually exposes.
 - **Changed `src/knowledge/ruleset.ts`?** Run `npm run gen:skill` and commit the
   regenerated `SKILL.md` (`test/skill/drift.test.ts` holds you to it).
 - **Changed `src/knowledge/workflow-grammar.ts`?** Same command; it also regenerates

@@ -192,6 +192,17 @@ describe("the consumer set, enumerated and held there", () => {
     // the version is parsed out of the output or the requirement is reported
     // undecidable and the install refuses — so nothing here reduces a process
     // to pass/fail. Asserted below.
+    //
+    // `release/capability-surface.ts` joined on 2026-08-30: the published
+    // capability manifest is checked by running the shipped artefact and asking
+    // what it exposes (`mcp` + `tools/list`, then `--help`), because a manifest
+    // generated from `MCP_TOOL_NAMES` and checked against `MCP_TOOL_NAMES` is a
+    // list agreeing with itself. It cannot receive a suite: the executable is
+    // always `process.execPath`, and both argvs are literals — `["mcp",
+    // "--vault", <scratch dir>]` and `["--help"]` — with the artefact path the
+    // only caller-supplied part. A non-zero exit is thrown as "the probe could
+    // not read the artefact", which fails the release check closed rather than
+    // becoming a pass/fail verdict about something that ran. Asserted below.
     const doors = sources()
       .filter((f) => f.text.includes('"node:child_process"'))
       .map((f) => f.rel)
@@ -202,11 +213,20 @@ describe("the consumer set, enumerated and held there", () => {
       path.join("git", "conflict-guard.ts"),
       path.join("loop", "state.ts"),
       path.join("ost", "instrument.ts"),
+      path.join("release", "capability-surface.ts"),
       path.join("release", "ship-repo.ts"),
       path.join("release", "ship.ts"),
       path.join("runner", "helper-manifest.ts"),
       path.join("runner", "shell-necessity.ts"),
     ]);
+
+    // `release/capability-surface.ts` has one spawn point and both of its argvs
+    // are literals, so nothing a caller passes can turn it into a suite runner.
+    const surface = readRepo("src/release/capability-surface.ts");
+    expect((surface.match(/spawn\(/g) ?? []).length).toBe(1);
+    expect(surface).toMatch(/spawn\(process\.execPath, \[artifactPath, \.\.\.argv\]/);
+    expect(surface).toMatch(/runArtifact\(artifactPath, \["mcp", "--vault", vault\]/);
+    expect(surface).toMatch(/runArtifact\(artifactPath, \["--help"\]/);
 
     // `runner/helper-manifest.ts` has one spawn point, and it is gated on a
     // literal allowlist before the name reaches it. The argv is a literal, and
