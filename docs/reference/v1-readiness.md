@@ -3186,12 +3186,33 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,244 tests across 324 files, verified 2026-08-30 (`npx vitest run`
-> reports 4,236 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,268 tests across 325 files, verified 2026-08-30 (`npx vitest run`
+> reports 4,260 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-30 finished at 4,236 across
-> the 323 files it collects, in 337 s, green. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-30 finished at 4,260 across
+> the 324 files it collects, in 350 s, green. The file added since the previous line is
+> `test/release/capability-manifest.test.ts` — the instrument for the published capability
+> manifest (`src/release/capability-manifest.ts`, `src/release/capability-surface.ts`):
+> `dist/capability-manifest.json` enumerates every MCP tool and every CLI subcommand the
+> shipped artefact answers to, each fingerprinted by its argument shape, bound to the
+> artefact by SHA-256 and byte length, and the surface is observed by **running** the
+> artefact and asking it (`tools/list`, `--help`) rather than by re-reading the source lists
+> the manifest was generated from — a list checked against itself cannot catch the drift
+> this exists for. Divergence in either direction fails the suite gate, so a build whose
+> real surface outgrew its published one does not ship. It settles *enumeration, binding and
+> divergence*; it does not settle **authenticity**, which needs a release key a person
+> holds — the ed25519 sign/verify mechanism is built and exercised end to end (including
+> that a published trusted key turns an unsigned build into a refusal), the shipped manifest
+> reports `unsigned` rather than implying otherwise, and no key can live in this repository
+> because one anybody could clone could be used by anybody to re-sign a rewritten list. Nor
+> does it settle whether a published manifest moves an operator's willingness to run this
+> unattended, which is a person's reaction and no suite comes out green on. It found the
+> failure it exists to catch already live: `README.md` claimed "exactly 22 registered MCP
+> tools (pinned by test)" from 2026-08-05 while `ost_deposit` had made the surface 23 on
+> 2026-08-12 (80d69b8) — eighteen days of an operator-facing count that nothing was
+> pinning, beside the words promising that something was.
+> Previously 4,244 tests across 324 files, verified 2026-08-30, after
 > `test/mcp/refusal-precondition-coverage.test.ts` — the instrument for the published call
 > preconditions (`src/security/call-preconditions.ts`): every condition this surface refuses
 > a call for, stated so a caller can evaluate it against a snapshot before composing the

@@ -59,9 +59,16 @@ Mirror `src/adapters/atlassian.ts` / `src/adapters/slack.ts`:
 
 ## Releasing
 
-Maintainers: see [`RELEASING.md`](RELEASING.md). Bump `package.json` **and**
-`src/index.ts` `VERSION` together (a test enforces the pair), update `CHANGELOG.md`,
-tag, and publish a GitHub Release (the `npm-publish` workflow does the rest).
+Maintainers: see [`RELEASING.md`](RELEASING.md). Bump `package.json`,
+`.claude-plugin/plugin.json` **and** `src/index.ts` `VERSION` together (a test
+enforces the trio), run `npm run bundle` and commit both `dist/ost-agent.mjs` and
+the `dist/capability-manifest.json` it regenerates, update `CHANGELOG.md`, and
+tag.
+
+There is **no publish step and no npm package** — `package.json` is `private` and
+there is no publishing workflow. This section used to end "publish a GitHub
+Release (the `npm-publish` workflow does the rest)", naming a workflow that does
+not exist and contradicting `RELEASING.md` on the same page.
 
 ## Commits
 

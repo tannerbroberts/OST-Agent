@@ -29,7 +29,8 @@
   },
   "scripts": {
     "build": "tsc",
-    "bundle": "esbuild src/cli/index.ts --bundle --platform=node --target=node20 --format=esm --alias:jsonc-parser=jsonc-parser/lib/esm/main.js --banner:js=\"import{createRequire as __ost_createRequire}from'node:module';const require=__ost_createRequire(import.meta.url);\" --outfile=dist/ost-agent.mjs",
+    "bundle": "esbuild src/cli/index.ts --bundle --platform=node --target=node20 --format=esm --alias:jsonc-parser=jsonc-parser/lib/esm/main.js --banner:js=\"import{createRequire as __ost_createRequire}from'node:module';const require=__ost_createRequire(import.meta.url);\" --outfile=dist/ost-agent.mjs && npm run manifest",
+    "manifest": "tsx scripts/gen-capability-manifest.ts",
     "dev": "tsx src/cli/index.ts",
     "gen:skill": "tsx scripts/gen-skill.ts",
     "test": "vitest run",
