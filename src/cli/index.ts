@@ -36,6 +36,7 @@
  *   ost-agent path-failures [--transcripts D] which of the path failures a pass hit came through a tool this repo controls?
  *   ost-agent manifest [--vault DIR]          every precondition the tool schemas can state, before you compose a call
  *   ost-agent refusals [--transcripts DIR]    how many of the refusals a pass hit a schema-derived manifest could have named
+ *   ost-agent absorption [--transcripts DIR]  which recurring refusal classes could be accommodated rather than enforced, and which are load-bearing
  *   ost-agent channels [--vault DIR]          every drop folder, its last delivery, and what has gone silent
  *   ost-agent resources [--vault DIR]         each standing resource question, and whether the vault already answers it without asking
  *   ost-agent review-sample [--seed S]        a stratified, reproducible 10% draw of the tree for a human to rate against the faithfulness rubric — the draw only, never a score
@@ -169,6 +170,9 @@ import { publishCallPreconditions, renderCallPreconditions } from "../security/c
 import {
   formatRefusalPreconditionCensus, refusalPreconditionCensus, type RecordedRefusal,
 } from "../telemetry/refusal-precondition-coverage.js";
+import {
+  formatRefusalAbsorptionCensus, rankTranscriptRefusals, rankUsageRefusals, refusalAbsorptionCensus,
+} from "../telemetry/refusal-absorption.js";
 import { buildOstTools } from "../security/tools.js";
 import { Vault } from "../ost/vault.js";
 import { prerequisiteCycles, prerequisiteEdges, unknownPrerequisites, unmetPrerequisites } from "../ost/prerequisites.js";
@@ -2392,28 +2396,40 @@ program
     console.log(renderCallPreconditions(published));
   });
 
+/**
+ * Every refusal this vault's usage trace holds, or `null` when there is no trace
+ * at all — a distinction two commands need and neither may invent.
+ *
+ * A truncated tail is a real state of a fail-open append-only log. The censuses
+ * count what they can read; a parse error is not a refusal.
+ */
+function readUsageRefusals(vaultDir: string): RecordedRefusal[] | null {
+  const log = path.join(vaultDir, ".ost-agent", "usage", "events.jsonl");
+  if (!fs.existsSync(log)) return null;
+  const refusals: RecordedRefusal[] = [];
+  for (const line of fs.readFileSync(log, "utf8").split("\n")) {
+    if (!line) continue;
+    try {
+      const e = JSON.parse(line) as RecordedRefusal & { ok: boolean };
+      if (e.ok === false) refusals.push(e);
+    } catch {
+      // see the note above: an unreadable line is not an event.
+    }
+  }
+  return refusals;
+}
+
 program
   .command("precondition-coverage")
   .description("what share of the refusals this tool's own calls actually hit a caller could have decided in advance — the census behind the published preconditions")
   .option("--vault <dir>", VAULT_OPTION_HELP)
   .action((opts: { vault: string }) => {
     const dir = path.resolve(opts.vault);
-    const log = path.join(dir, ".ost-agent", "usage", "events.jsonl");
-    if (!fs.existsSync(log)) {
-      console.error(`no usage trace at ${log} — nothing has been recorded for this vault yet`);
+    const refusals = readUsageRefusals(dir);
+    if (refusals === null) {
+      console.error(`no usage trace at ${dir} — nothing has been recorded for this vault yet`);
       process.exitCode = 1;
       return;
-    }
-    const refusals: RecordedRefusal[] = [];
-    for (const line of fs.readFileSync(log, "utf8").split("\n")) {
-      if (!line) continue;
-      try {
-        const e = JSON.parse(line) as RecordedRefusal & { ok: boolean };
-        if (e.ok === false) refusals.push(e);
-      } catch {
-        // A truncated tail is a real state of a fail-open append-only log. The
-        // census counts what it can read; a parse error is not a refusal.
-      }
     }
     console.log(formatRefusalPreconditionCensus(refusalPreconditionCensus(refusals)));
     // No refusal recorded is not "the surface refuses nothing" — it is a sweep
@@ -2447,6 +2463,49 @@ program
     // sweep that found nothing to read, and an automation has to learn that
     // through the exit code rather than off a report that looks clean.
     if (census.classes.length === 0) process.exitCode = 1;
+  });
+
+program
+  .command("absorption")
+  .description("of the refusal classes that recur most, how many exist for a reason that could be accommodated rather than enforced — the column a person has to ratify before anything is absorbed")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option(
+    "--transcripts <dir>",
+    "a directory of session transcripts to read the refusals out of (repeatable); defaults to this project's own",
+    collect,
+    [],
+  )
+  .action((opts: { vault: string; transcripts: string[] }) => {
+    // Both records, always, and never one folded into the other. They answer
+    // different questions — the transcript record is what a pass hits, most of it
+    // issued by a surface this repository does not ship; the usage trace is what
+    // this repository itself refuses, which is the only half it could absorb.
+    // Printing one of them alone is how a share gets read against the wrong
+    // denominator.
+    const vault = path.resolve(opts.vault);
+    const dirs = opts.transcripts.length ? opts.transcripts : [defaultTranscriptDir(vault)];
+    const sessions = dirs.flatMap((d) => readTranscriptSessions(path.resolve(d)));
+    const { failures } = readPathFailures(sessions);
+    const transcript = refusalAbsorptionCensus(rankTranscriptRefusals(failures), "transcript record");
+    console.log(formatRefusalAbsorptionCensus(transcript));
+
+    const usage = readUsageRefusals(vault);
+    console.log("");
+    if (usage === null) {
+      console.log(`No usage trace under ${vault} — this repository's own refusals could not be counted.`);
+    } else {
+      const counts = rankUsageRefusals(usage);
+      const classified = counts.reduce((n, c) => n + c.occurrences, 0);
+      console.log(
+        formatRefusalAbsorptionCensus(
+          refusalAbsorptionCensus(counts, "this vault's usage trace", { unclassified: usage.length - classified }),
+        ),
+      );
+    }
+    // Nothing read is not "nothing is refused" — it is a sweep that found nothing
+    // to read, and an automation has to learn that through the exit code rather
+    // than off a report that looks clean.
+    if (transcript.ranked.length === 0) process.exitCode = 1;
   });
 
 program
