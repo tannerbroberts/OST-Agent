@@ -33244,36 +33244,12 @@ function htmlToText(html) {
   return html.replace(/<\/(p|h[1-6]|li|tr|div)>/gi, "\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
-// src/adapters/usage.ts
+// src/telemetry/raw-event-store.ts
 import fs9 from "node:fs";
-var DEFAULT_MIN_EVENTS = 5;
-function utcDay(iso) {
-  return iso.slice(0, 10);
-}
-function percentile(sorted2, p2) {
-  if (sorted2.length === 0) return 0;
-  const idx = Math.min(sorted2.length - 1, Math.ceil(p2 / 100 * sorted2.length) - 1);
-  return sorted2[Math.max(0, idx)];
-}
-function countBy(items, key2) {
-  const out = /* @__PURE__ */ new Map();
-  for (const item of items) {
-    const k2 = key2(item);
-    out.set(k2, (out.get(k2) ?? 0) + 1);
-  }
-  return out;
-}
-function table(counts) {
-  return [...counts.entries()].sort((a, b2) => b2[1] - a[1]).map(([name, n]) => `| ${name} | ${n} |`).join("\n");
-}
 function classifyUsageEvent(event) {
   if (event.ok) return "ok";
   return event.denied ? "denied" : "error";
 }
-var LOSS_MEANING = {
-  stripped: "the node carried it before the write and not after",
-  dropped: "the call declared it and nothing it wrote holds it"
-};
 function fieldLosses(events) {
   const counts = /* @__PURE__ */ new Map();
   const add = (tool2, field2, kind) => {
@@ -33290,6 +33266,134 @@ function fieldLosses(events) {
     (a, b2) => b2.calls - a.calls || (a.tool < b2.tool ? -1 : a.tool > b2.tool ? 1 : 0) || (a.field < b2.field ? -1 : 1)
   );
 }
+function percentile(sorted2, p2) {
+  if (sorted2.length === 0) return 0;
+  const idx = Math.min(sorted2.length - 1, Math.ceil(p2 / 100 * sorted2.length) - 1);
+  return sorted2[Math.max(0, idx)];
+}
+function countBy(events, key2) {
+  const counts = /* @__PURE__ */ new Map();
+  for (const event of events) {
+    const k2 = key2(event);
+    counts.set(k2, (counts.get(k2) ?? 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b2) => b2[1] - a[1]).map(([name, calls]) => ({ name, calls }));
+}
+function sample(e) {
+  return `- \`${e.tool}\` on ${e.surface}${e.unknown ? ` (working: ${e.unknown})` : ""}: ${e.err ?? "(no message)"}`;
+}
+function deriveDailyView(day, events) {
+  const errors = events.filter((e) => !e.ok);
+  const denied = errors.filter((e) => classifyUsageEvent(e) === "denied");
+  const trueErrors = errors.filter((e) => classifyUsageEvent(e) === "error");
+  const durations = events.map((e) => e.ms).sort((a, b2) => a - b2);
+  return {
+    day,
+    calls: events.length,
+    ok: events.length - errors.length,
+    denied: denied.length,
+    failed: trueErrors.length,
+    p50Ms: percentile(durations, 50),
+    maxMs: percentile(durations, 100),
+    sessions: new Set(events.filter((e) => e.session).map((e) => e.session)).size,
+    byTool: countBy(events, (e) => e.tool),
+    bySurface: countBy(events, (e) => e.surface ?? "unknown"),
+    losses: fieldLosses(events),
+    // Counted over calls, not over rows: one call that stripped two fields is one call
+    // that came back green while damaging a node, and that is the number a reader is
+    // deciding on.
+    lossyCalls: events.filter((e) => (e.lost?.length ?? 0) > 0 || (e.dropped?.length ?? 0) > 0).length,
+    // First three in append order, not the worst three: the rollup samples, it does not
+    // rank, and a reader must not read a sample as a selection.
+    deniedSamples: denied.slice(0, 3).map(sample),
+    errorSamples: trueErrors.slice(0, 3).map(sample)
+  };
+}
+function eventDay(event) {
+  return event.ts.slice(0, 10);
+}
+var RawEventStore = class _RawEventStore {
+  all;
+  /** Lines that did not parse, or parsed to something without a `ts` and `tool`. */
+  unparseableLines;
+  constructor(events, unparseableLines) {
+    this.all = events;
+    this.unparseableLines = unparseableLines;
+  }
+  /** Parse JSONL. A line that is not an event is dropped and counted, never thrown on. */
+  static fromText(text2) {
+    const events = [];
+    let unparseable = 0;
+    for (const line of text2.split("\n")) {
+      const trimmed2 = line.trim();
+      if (!trimmed2) continue;
+      try {
+        const parsed = JSON.parse(trimmed2);
+        if (typeof parsed.ts === "string" && typeof parsed.tool === "string") events.push(parsed);
+        else unparseable++;
+      } catch {
+        unparseable++;
+      }
+    }
+    return new _RawEventStore(events, unparseable);
+  }
+  /** Read a JSONL file. A file that is not there is an empty store, not an exception. */
+  static fromFile(file) {
+    let text2;
+    try {
+      text2 = fs9.readFileSync(file, "utf8");
+    } catch {
+      return new _RawEventStore([], 0);
+    }
+    return _RawEventStore.fromText(text2);
+  }
+  /** Read a vault's own trace, wherever {@link usageLogPath} puts it. */
+  static fromVault(vaultDir) {
+    return _RawEventStore.fromFile(usageLogPath(vaultDir));
+  }
+  /** Build a store over events already in hand — the shape a test or a filter produces. */
+  static of(events) {
+    return new _RawEventStore([...events], 0);
+  }
+  /** Every event, in append order. Append order, not timestamp order: see `node-touch.ts`. */
+  events() {
+    return this.all;
+  }
+  /** The UTC days the store holds events for, ascending. Days with no events do not appear. */
+  days() {
+    return [...new Set(this.all.map(eventDay))].sort();
+  }
+  /** One day's events, in append order. */
+  eventsOn(day) {
+    return this.all.filter((e) => eventDay(e) === day);
+  }
+  /** A store over the events between two ISO instants, inclusive of both ends. */
+  between(fromIso, toIso) {
+    return new _RawEventStore(
+      this.all.filter((e) => e.ts >= fromIso && e.ts <= toIso),
+      0
+    );
+  }
+  /** The derived view for one day, or undefined when the store holds no event in it. */
+  view(day) {
+    const events = this.eventsOn(day);
+    return events.length > 0 ? deriveDailyView(day, events) : void 0;
+  }
+  /** Every day's view, ascending. The whole of what a summary-only store would keep. */
+  views() {
+    return this.days().map((day) => deriveDailyView(day, this.eventsOn(day)));
+  }
+};
+
+// src/adapters/usage.ts
+var DEFAULT_MIN_EVENTS = 5;
+function table(rows) {
+  return rows.map((row) => `| ${row.name} | ${row.calls} |`).join("\n");
+}
+var LOSS_MEANING = {
+  stripped: "the node carried it before the write and not after",
+  dropped: "the call declared it and nothing it wrote holds it"
+};
 var UsageSource = class {
   name = "usage";
   actor = "usage";
@@ -33302,21 +33406,11 @@ var UsageSource = class {
     this.today = opts.today ?? (() => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10));
   }
   async fetchSince(cursor) {
-    if (!fs9.existsSync(this.file)) return { items: [], cursor };
-    const events = [];
-    for (const line of fs9.readFileSync(this.file, "utf8").split("\n")) {
-      const trimmed2 = line.trim();
-      if (!trimmed2) continue;
-      try {
-        const parsed = JSON.parse(trimmed2);
-        if (typeof parsed.ts === "string" && typeof parsed.tool === "string") events.push(parsed);
-      } catch {
-      }
-    }
+    const store = RawEventStore.fromFile(this.file);
     const today = this.today();
     const byDay = /* @__PURE__ */ new Map();
-    for (const ev of events) {
-      const day = utcDay(ev.ts);
+    for (const ev of store.events()) {
+      const day = eventDay(ev);
       if (day >= today) continue;
       if (cursor && day <= cursor) continue;
       const bucket = byDay.get(day) ?? [];
@@ -33329,7 +33423,7 @@ var UsageSource = class {
       const dayEvents = byDay.get(day);
       if (!advanced || day > advanced) advanced = day;
       if (dayEvents.length < this.minEvents) continue;
-      items.push(this.rollup(day, dayEvents));
+      items.push(renderDailyView(deriveDailyView(day, dayEvents)));
     }
     return { items, cursor: advanced };
   }
@@ -33342,66 +33436,57 @@ var UsageSource = class {
   advanceCursor(previous) {
     return previous;
   }
-  rollup(day, events) {
-    const errors = events.filter((e) => !e.ok);
-    const denied = errors.filter((e) => classifyUsageEvent(e) === "denied");
-    const trueErrors = errors.filter((e) => classifyUsageEvent(e) === "error");
-    const durations = events.map((e) => e.ms).sort((a, b2) => a - b2);
-    const sessions = new Set(events.filter((e) => e.session).map((e) => e.session));
-    const sample2 = (e) => `- \`${e.tool}\` on ${e.surface}${e.unknown ? ` (working: ${e.unknown})` : ""}: ${e.err ?? "(no message)"}`;
-    const deniedSamples = denied.slice(0, 3).map(sample2);
-    const errSamples = trueErrors.slice(0, 3).map(sample2);
-    const losses = fieldLosses(events);
-    const lossyCalls = events.filter((e) => (e.lost?.length ?? 0) > 0 || (e.dropped?.length ?? 0) > 0).length;
-    const body = [
-      `# Usage trace \u2014 ${day} (${events.length} tool invocations, machine-recorded)`,
-      "",
-      "Mechanical rollup of the append-only tool-invocation trace. Computed, not composed:",
-      "no agent narrated, selected, or summarized these numbers.",
-      "",
-      `- **Calls:** ${events.length} (${events.length - errors.length} ok` + (denied.length > 0 ? `, ${denied.length} denied` : "") + `, ${trueErrors.length} failed)`,
-      `- **Duration:** p50 ${percentile(durations, 50)}ms, max ${percentile(durations, 100)}ms`,
-      ...sessions.size > 0 ? [`- **Sessions:** ${sessions.size}`] : [],
-      ...lossyCalls > 0 ? [
-        `- **Silent frontmatter loss:** ${lossyCalls} call(s) returned OK and still lost a field (${[...new Set(losses.map((l) => l.field))].join(", ")}) \u2014 see below`
-      ] : [],
-      "",
-      "| Tool | Calls |",
-      "| --- | --- |",
-      table(countBy(events, (e) => e.tool)),
-      "",
-      "| Surface | Calls |",
-      "| --- | --- |",
-      table(countBy(events, (e) => e.surface ?? "unknown")),
-      ...losses.length > 0 ? [
-        "",
-        "**Silent frontmatter loss \u2014 calls that succeeded and still cost a node a field.**",
-        "Nothing in the counts, the error rate or the durations above can show this; it is read",
-        "off the before/after field sets the vault's single writer reported at each write.",
-        "",
-        "| Tool | Field | What happened | Calls |",
-        "| --- | --- | --- | --- |",
-        ...losses.map((l) => `| ${l.tool} | \`${l.field}\` | ${LOSS_MEANING[l.kind]} | ${l.calls} |`)
-      ] : [],
-      ...deniedSamples.length > 0 ? ["", "**Denied calls (refused for lack of a grant; redacted, first 3):**", ...deniedSamples] : [],
-      ...errSamples.length > 0 ? ["", "**Failed calls (redacted, first 3):**", ...errSamples] : [],
-      "",
-      "Evidence class: **observed behavior** \u2014 machine-recorded trace of tool invocations;",
-      "no narrator. Grounds usability and the agent-tool loop, not external demand.",
-      ""
-    ].join("\n");
-    return {
-      id: `USAGE:${day}`,
-      source: `USAGE:${day}`,
-      // The loss count rides in the title only when there is one, so a quiet day's
-      // headline is unchanged and a reader who never opens the body still sees the
-      // one number the body was added for.
-      title: `Usage trace ${day} \u2014 ${events.length} calls, ${errors.length} failed` + (lossyCalls > 0 ? `, ${lossyCalls} silently lost a field` : ""),
-      body,
-      timestamp: `${day}T23:59:59.000Z`
-    };
-  }
 };
+function renderDailyView(view) {
+  const failures = view.denied + view.failed;
+  const body = [
+    `# Usage trace \u2014 ${view.day} (${view.calls} tool invocations, machine-recorded)`,
+    "",
+    "Mechanical rollup of the append-only tool-invocation trace. Computed, not composed:",
+    "no agent narrated, selected, or summarized these numbers.",
+    "",
+    `- **Calls:** ${view.calls} (${view.ok} ok` + (view.denied > 0 ? `, ${view.denied} denied` : "") + `, ${view.failed} failed)`,
+    `- **Duration:** p50 ${view.p50Ms}ms, max ${view.maxMs}ms`,
+    ...view.sessions > 0 ? [`- **Sessions:** ${view.sessions}`] : [],
+    ...view.lossyCalls > 0 ? [
+      `- **Silent frontmatter loss:** ${view.lossyCalls} call(s) returned OK and still lost a field (${[...new Set(view.losses.map((l) => l.field))].join(", ")}) \u2014 see below`
+    ] : [],
+    "",
+    "| Tool | Calls |",
+    "| --- | --- |",
+    table(view.byTool),
+    "",
+    "| Surface | Calls |",
+    "| --- | --- |",
+    table(view.bySurface),
+    ...view.losses.length > 0 ? [
+      "",
+      "**Silent frontmatter loss \u2014 calls that succeeded and still cost a node a field.**",
+      "Nothing in the counts, the error rate or the durations above can show this; it is read",
+      "off the before/after field sets the vault's single writer reported at each write.",
+      "",
+      "| Tool | Field | What happened | Calls |",
+      "| --- | --- | --- | --- |",
+      ...view.losses.map((l) => `| ${l.tool} | \`${l.field}\` | ${LOSS_MEANING[l.kind]} | ${l.calls} |`)
+    ] : [],
+    ...view.deniedSamples.length > 0 ? ["", "**Denied calls (refused for lack of a grant; redacted, first 3):**", ...view.deniedSamples] : [],
+    ...view.errorSamples.length > 0 ? ["", "**Failed calls (redacted, first 3):**", ...view.errorSamples] : [],
+    "",
+    "Evidence class: **observed behavior** \u2014 machine-recorded trace of tool invocations;",
+    "no narrator. Grounds usability and the agent-tool loop, not external demand.",
+    ""
+  ].join("\n");
+  return {
+    id: `USAGE:${view.day}`,
+    source: `USAGE:${view.day}`,
+    // The loss count rides in the title only when there is one, so a quiet day's
+    // headline is unchanged and a reader who never opens the body still sees the
+    // one number the body was added for.
+    title: `Usage trace ${view.day} \u2014 ${view.calls} calls, ${failures} failed` + (view.lossyCalls > 0 ? `, ${view.lossyCalls} silently lost a field` : ""),
+    body,
+    timestamp: `${view.day}T23:59:59.000Z`
+  };
+}
 
 // src/adapters/slack.ts
 function tsGte(a, b2) {
@@ -33573,7 +33658,7 @@ function runSeconds(run) {
   if (!Number.isFinite(started) || !Number.isFinite(updated)) return null;
   return Math.max(0, Math.round((updated - started) / 1e3));
 }
-function utcDay2(iso) {
+function utcDay(iso) {
   return iso.slice(0, 10);
 }
 function duration(seconds) {
@@ -33617,7 +33702,7 @@ var ActionsSource = class {
     for (const run of runs) {
       if (seenIds.has(run.id)) continue;
       seenIds.add(run.id);
-      const day = utcDay2(run.createdAt);
+      const day = utcDay(run.createdAt);
       if (day >= today) continue;
       if (cursor && day <= cursor) continue;
       const bucket = byDay.get(day) ?? [];
@@ -48544,14 +48629,14 @@ function pct2(fraction) {
   const n = fraction * 100;
   return `${Number.isInteger(n) ? n : n.toFixed(1)}%`;
 }
-function formatReviewSample(sample2) {
+function formatReviewSample(sample3) {
   const lines = [];
   lines.push(
-    `Review sample \u2014 ${sample2.drawn.length} of ${sample2.reviewable} reviewable node(s) (${pct2(sample2.fraction)} asks for ${sample2.target}), seed ${JSON.stringify(sample2.seed)}`
+    `Review sample \u2014 ${sample3.drawn.length} of ${sample3.reviewable} reviewable node(s) (${pct2(sample3.fraction)} asks for ${sample3.target}), seed ${JSON.stringify(sample3.seed)}`
   );
-  lines.push(`Reproduce this exact draw: ost-agent review-sample --seed ${JSON.stringify(sample2.seed)}`);
+  lines.push(`Reproduce this exact draw: ost-agent review-sample --seed ${JSON.stringify(sample3.seed)}`);
   lines.push("");
-  if (sample2.reviewable === 0) {
+  if (sample3.reviewable === 0) {
     lines.push("Nothing to review: this vault holds no node other than its Outcome.");
     return lines.join("\n");
   }
@@ -48561,39 +48646,39 @@ function formatReviewSample(sample2) {
     lines.push(`    looking for: ${c3.looksFor}`);
   }
   lines.push("");
-  const covered = sample2.strata.filter((s) => s.drawn > 0).length;
+  const covered = sample3.strata.filter((s) => s.drawn > 0).length;
   lines.push(
-    `Frame: ${sample2.strata.length} bucket \xD7 layer cell(s) hold a node; ${covered} are represented in this draw${covered === sample2.strata.length ? " \u2014 every bucket and every layer" : ` (${sample2.strata.length - covered} MISSED)`}.`
+    `Frame: ${sample3.strata.length} bucket \xD7 layer cell(s) hold a node; ${covered} are represented in this draw${covered === sample3.strata.length ? " \u2014 every bucket and every layer" : ` (${sample3.strata.length - covered} MISSED)`}.`
   );
-  if (sample2.overflow > 0) {
+  if (sample3.overflow > 0) {
     lines.push(
-      `  The draw is ${sample2.overflow} above the ${pct2(sample2.fraction)} target: there are more cells than that fraction has nodes, and one per cell is what "every bucket and every layer" costs.`
+      `  The draw is ${sample3.overflow} above the ${pct2(sample3.fraction)} target: there are more cells than that fraction has nodes, and one per cell is what "every bucket and every layer" costs.`
     );
   }
-  if (sample2.multiHomed > 0) {
+  if (sample3.multiHomed > 0) {
     lines.push(
-      `  ${sample2.multiHomed} node(s) in the frame hang under more than one bucket and are homed under the first alphabetically, so each occupies one cell and can be on this sheet at most once.`
+      `  ${sample3.multiHomed} node(s) in the frame hang under more than one bucket and are homed under the first alphabetically, so each occupies one cell and can be on this sheet at most once.`
     );
   }
   lines.push(
-    sample2.uniform ? `  Every cell drew the same number, so this is a COVERAGE sample and not a proportional one: to estimate the whole tree, weight each node's ratings by the "stands for" figure on its cell rather than averaging the sheet.` : `  Cells drew in proportion to their size where the fraction allowed it. Weight each node's ratings by the "stands for" figure on its cell anyway \u2014 the one-per-cell floor leaves small cells over-represented.`
+    sample3.uniform ? `  Every cell drew the same number, so this is a COVERAGE sample and not a proportional one: to estimate the whole tree, weight each node's ratings by the "stands for" figure on its cell rather than averaging the sheet.` : `  Cells drew in proportion to their size where the fraction allowed it. Weight each node's ratings by the "stands for" figure on its cell anyway \u2014 the one-per-cell floor leaves small cells over-represented.`
   );
-  const orphans = sample2.strata.filter((s) => s.bucket === NO_BUCKET);
+  const orphans = sample3.strata.filter((s) => s.bucket === NO_BUCKET);
   if (orphans.length > 0) {
     lines.push(
       `  ${orphans.reduce((a, s) => a + s.population, 0)} node(s) sit under no bucket at all and are drawn as "${NO_BUCKET}" rather than dropped \u2014 \`ost-agent rollup\` names these unfiled.`
     );
   }
-  if (sample2.unreadable.length > 0) {
+  if (sample3.unreadable.length > 0) {
     lines.push(
-      `  ${sample2.unreadable.length} file(s) could not be read and are OUTSIDE this frame entirely \u2014 a sample of a tree it cannot read is not a sample of that tree:`
+      `  ${sample3.unreadable.length} file(s) could not be read and are OUTSIDE this frame entirely \u2014 a sample of a tree it cannot read is not a sample of that tree:`
     );
-    for (const u of sample2.unreadable) lines.push(`    ${u.file} \u2014 ${u.reason}`);
+    for (const u of sample3.unreadable) lines.push(`    ${u.file} \u2014 ${u.reason}`);
   }
   lines.push("");
   const boxes = FAITHFULNESS_RUBRIC.map((c3) => `[ ] ${c3.id}`).join("  ");
   let bucket = null;
-  for (const s of sample2.strata) {
+  for (const s of sample3.strata) {
     if (s.drawn === 0) continue;
     if (s.bucket !== bucket) {
       bucket = s.bucket;
@@ -48603,7 +48688,7 @@ function formatReviewSample(sample2) {
     lines.push(
       `  ${s.layer} \u2014 ${s.drawn} of ${s.population} drawn \xB7 each stands for ${Number.isInteger(weight) ? weight : weight.toFixed(2)}`
     );
-    for (const n of sample2.drawn.filter((d) => d.bucket === s.bucket && d.layer === s.layer)) {
+    for (const n of sample3.drawn.filter((d) => d.bucket === s.bucket && d.layer === s.layer)) {
       const meta = [n.evidence ?? "no rung declared", n.status ?? "no status", n.source ?? "no source"];
       lines.push(`    ${boxes}  ${n.title}`);
       lines.push(`        ${meta.join(" \xB7 ")}`);
@@ -59147,14 +59232,14 @@ function inWindow(iso, w) {
 }
 function deriveFrictionClasses(events, window2) {
   const counts = /* @__PURE__ */ new Map();
-  const bump = (kind, tool2, sample2) => {
+  const bump = (kind, tool2, sample3) => {
     const key2 = classKey({ kind, tool: tool2 });
     const existing = counts.get(key2);
     if (existing) {
       existing.occurrences += 1;
-      if (!existing.sample && sample2) existing.sample = sample2;
+      if (!existing.sample && sample3) existing.sample = sample3;
     } else {
-      counts.set(key2, { kind, tool: tool2, occurrences: 1, recurring: false, ...sample2 ? { sample: sample2 } : {} });
+      counts.set(key2, { kind, tool: tool2, occurrences: 1, recurring: false, ...sample3 ? { sample: sample3 } : {} });
     }
   };
   const seenCalls = /* @__PURE__ */ new Set();
@@ -59577,7 +59662,7 @@ function frictionSurfaceReplay(records, judgement) {
   };
 }
 var MAX_IDS_SHOWN = 8;
-function sample(ids) {
+function sample2(ids) {
   if (ids.length <= MAX_IDS_SHOWN) return ids.join(", ");
   return `${ids.slice(0, MAX_IDS_SHOWN).join(", ")} \u2026 and ${ids.length - MAX_IDS_SHOWN} more`;
 }
@@ -59590,11 +59675,11 @@ function formatFrictionSurfaceReplay(replay) {
       `Truncated: ${replay.truncated.length} digest(s) showed only their first events \u2014 a demotion there may be the harvester's cap rather than the record.`
     );
   }
-  if (replay.missing.length > 0) lines.push(`Judged but absent from the corpus: ${sample(replay.missing)}.`);
+  if (replay.missing.length > 0) lines.push(`Judged but absent from the corpus: ${sample2(replay.missing)}.`);
   if (replay.judged > 0 && replay.unjudged.length > 0) {
-    lines.push(`In the corpus and unjudged: ${sample(replay.unjudged)}.`);
+    lines.push(`In the corpus and unjudged: ${sample2(replay.unjudged)}.`);
   }
-  lines.push(`Filed: ${reading.filed.length === 0 ? "(none)" : sample(reading.filed)}`);
+  lines.push(`Filed: ${reading.filed.length === 0 ? "(none)" : sample2(reading.filed)}`);
   lines.push(
     `Counted, not discarded: ${reading.tally.records} record(s), ${reading.tally.events} event(s) \u2014 ` + reading.tally.byTool.map((t2) => `${t2.tool} \xD7${t2.n}`).join(", ")
   );
@@ -59614,10 +59699,10 @@ function formatFrictionSurfaceReplay(replay) {
     lines.push(`${c3.name}: ${c3.got}/${c3.of} \u2014 bar is ${c3.bar}, ${c3.meets ? "MET" : "NOT MET"}.`);
   }
   if (replay.needsDropped.length > 0) {
-    lines.push(`  demoted despite carrying a need: ${sample(replay.needsDropped)}`);
+    lines.push(`  demoted despite carrying a need: ${sample2(replay.needsDropped)}`);
   }
   if (replay.nonNeedsKept.length > 0) {
-    lines.push(`  filed despite carrying none: ${sample(replay.nonNeedsKept)}`);
+    lines.push(`  filed despite carrying none: ${sample2(replay.nonNeedsKept)}`);
   }
   lines.push(
     `Generous bound (a mention of this product in the error text counts): needs kept ${replay.keepsUpperBound.got}/${replay.keepsUpperBound.of}, non-needs demoted ${replay.dropsUpperBound.got}/${replay.dropsUpperBound.of} \u2014 ` + (replay.boundDecides ? "and it CHANGES the verdict." : "the verdict is the same either way.")
@@ -68134,13 +68219,13 @@ program2.command("review-sample").description(
     return;
   }
   const ctx = buildPassContext(opts.vault);
-  const sample2 = drawReviewSample(ctx.vault.readTreeCensus(), { seed, fraction });
-  if (sample2.reviewable === 0) {
-    console.error(formatReviewSample(sample2));
+  const sample3 = drawReviewSample(ctx.vault.readTreeCensus(), { seed, fraction });
+  if (sample3.reviewable === 0) {
+    console.error(formatReviewSample(sample3));
     process.exitCode = 1;
     return;
   }
-  console.log(opts.titles ? sample2.drawn.map((n) => n.title).join("\n") : formatReviewSample(sample2));
+  console.log(opts.titles ? sample3.drawn.map((n) => n.title).join("\n") : formatReviewSample(sample3));
 });
 program2.command("corrections").description(
   "the corrections this workspace has already been given: refusals harvested from finished sessions, deduplicated by the permitted form they named, rendered for the next session to read before it composes"
