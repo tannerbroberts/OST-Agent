@@ -3204,12 +3204,22 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,470 tests across 334 files, verified 2026-08-31 (`npx vitest run`
-> reports 4,462 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,496 tests across 335 files, verified 2026-08-31 (`npx vitest run`
+> reports 4,488 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,462 across
-> the 333 files it collects, in 358 s. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,488 across
+> the 334 files it collects, in 837 s. The file added since the previous line is
+> `test/loop/run-boundary-from-history.test.ts` — bounding a past run from the commit log
+> alone, behind "Reconstruct what finished from the commit history, so no run has to be
+> trusted to report" (`src/loop/run-boundary.ts`). 317 of 319 real runs over 1,500 commits
+> of the meta vault are bounded to the exact commit set, against a pre-committed bar of 4 in
+> 5 — and against 27.0% for the rule the solution node actually proposes, which is arrival
+> time alone. The distance between those two numbers is the finding: what recovers a run's
+> extent is knowing which loop wrote each commit and what that loop's first act looks like,
+> which is a contract with this repository's loops rather than anything git guarantees
+> (`test/fixtures/run-boundary/PROVENANCE.md`).
+> The line before it was
 > `test/git/hand-edit-detector.test.ts` — the drift report behind "Reconcile hand-edits and
 > report drift at the start of every pass" (`src/git/hand-edit-detector.ts`). Its seven
 > adversarial git fixtures are the assumption test's own list, and two of them pin a refusal

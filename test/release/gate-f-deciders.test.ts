@@ -354,6 +354,18 @@ const TREE_READER_MODULES: Record<string, string> = {
  * no-decider-imports-a-reporter assertion is what keeps that true: `health.ts`
  * declares the record's shape inline rather than importing it, the same trick and
  * for the same reason as `ToolSurfaceObservation`.
+ *
+ * `run-boundary.ts` is the seventh, and it is the one that reads no file this
+ * gate could police at all. It reconstructs what each past run did from `git
+ * log` and nothing else — no vault state, no `runs.jsonl`, no open-run marker —
+ * and returns runs and lines. `ost-agent loop runs` prints them and never sets a
+ * non-zero exit code, on any path including an unreadable history. It could not
+ * be a decider input in the sense parts 2 and 4 mean: its input is the commit
+ * graph, which every decider in this file already sits downstream of and which
+ * no vault-writing tool can rewrite. What it must not become is a module a
+ * decider imports — a verdict computed from a reconstruction would let a firing
+ * certify itself from the commits it just made — and the assertion below is what
+ * says so.
  */
 const REPORTER_MODULES = [
   "questions.ts",
@@ -362,6 +374,7 @@ const REPORTER_MODULES = [
   "question-bank.ts",
   "tool-surface-record.ts",
   "goal-contract.ts",
+  "run-boundary.ts",
 ];
 
 /**
@@ -451,7 +464,19 @@ function sampleCheckout(): string {
   return dir;
 }
 
-const FS_READ =/\bfs\.(readFileSync|readdirSync|existsSync|statSync|lstatSync|realpathSync|openSync)\b|\bspawnSync\b|\bexecFileSync\b/;
+/**
+ * Reading state from outside the process, by every route a module under
+ * `src/loop` currently takes.
+ *
+ * `simpleGit` is the newest arm and the one that is not a filesystem call at
+ * all: `run-boundary.ts` reads the commit log through it and touches no file.
+ * It belongs here for both directions this regex is used in — a module filed as
+ * a reporter or a reader has to be shown to read *something*, and a module filed
+ * as PURE must be shown to read nothing, which a git read would violate exactly
+ * as an `fs` read does.
+ */
+const FS_READ =
+  /\bfs\.(readFileSync|readdirSync|existsSync|statSync|lstatSync|realpathSync|openSync)\b|\bspawnSync\b|\bexecFileSync\b|\bsimpleGit\b/;
 
 describe("1 — the enumeration covers every module that can become a decider input", () => {
   const loopDir = path.join(repoRoot, "src/loop");
