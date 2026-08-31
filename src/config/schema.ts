@@ -429,6 +429,38 @@ const SurfaceProfileSchema = z.object({
  */
 const SurfacesSchema = z.record(z.string(), SurfaceProfileSchema).default({});
 
+// The push digest — the only outbound surface in the product, and off unless
+// both keys are typed. Same no-default rule as `loop.cadence`, with a sharper
+// reason than either: a default cadence here would be this repository deciding
+// how often to interrupt somebody else's stakeholders, and a default destination
+// would be it deciding where their tree gets copied to.
+//
+// `destination` must resolve OUTSIDE the vault — the drop folders' containment
+// rule (DEC-1), inverted. A digest written inside the vault is one more file
+// somebody has to go and read, which is the problem the digest exists to solve
+// restated as its solution, so `deliverDigest` refuses it by name rather than
+// delivering somewhere useless. See `src/adapters/digest.ts`.
+const DigestSchema = z
+  .object({
+    /** How often a digest goes out: `"7d"`, `"24h"`. Absent ⇒ never due. */
+    cadence: z.string().nullish(),
+    /** Where it lands, vault-relative or absolute. Absent ⇒ nothing is delivered. */
+    destination: z.string().min(1).nullish(),
+  })
+  .nullish()
+  .superRefine((d, ctx) => {
+    // The same treatment `adapters.inbox.cadence` gets, for the same reason:
+    // guessing at an unreadable cadence would be inventing the number that
+    // decides how often a stakeholder hears from this vault.
+    if (d?.cadence != null && parseCadence(d.cadence) === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["cadence"],
+        message: `unreadable digest cadence "${d.cadence}" — use a count and a unit ("24h", "7d")`,
+      });
+    }
+  });
+
 const LoopSchema = z
   .object({
     /** How often this vault may fire: `"30m"`, `"6h"`, `"1d"`. Absent ⇒ never. */
@@ -487,10 +519,12 @@ export const ConfigSchema = z.object({
   discovery: DiscoverySchema,
   evidence: EvidenceSchema,
   loop: LoopSchema,
+  digest: DigestSchema,
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
 export type LoopConfig = NonNullable<Config["loop"]>;
+export type DigestConfig = NonNullable<Config["digest"]>;
 export type ProcessConfig = Config["processes"][string];
 export type SurfaceProfile = Config["surfaces"][string];
 
@@ -617,5 +651,13 @@ processes:
 #   staleAfterDays: 7     # captured evidence is a MIRROR of the system it came from; past this age a read
                           # of it is served marked STALE, with the age, so nobody mistakes it for a live
                           # look. No default: only you know how fast the data you decide on goes off.
+
+# digest:                 # push a few lines to where you already read things, instead of waiting for you
+#   cadence: "7d"         # to remember to run \`ost-agent status\`. \`ost-agent digest\` sends one when due
+#   destination: "../ost-digests"   # and exits non-zero if a window went by with nothing sent.
+                          # Both keys required; either alone sends nothing. destination must resolve
+                          # OUTSIDE the vault — a digest filed next to the tree is one more thing to go
+                          # and read. This project holds no send capability by design (see CONTRIBUTING),
+                          # so the last hop from this folder to Slack/email is yours to wire.
 `;
 }

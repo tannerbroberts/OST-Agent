@@ -3186,12 +3186,31 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,268 tests across 325 files, verified 2026-08-30 (`npx vitest run`
-> reports 4,260 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,293 tests across 326 files, verified 2026-08-30 (`npx vitest run`
+> reports 4,285 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-30 finished at 4,260 across
-> the 324 files it collects, in 350 s, green. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-30 finished at 4,285 across
+> the 325 files it collects, in 336 s. The file added since the previous line is
+> `test/adapters/digest-delivery.test.ts` — the instrument for the push digest
+> (`src/adapters/digest.ts`, `digest:` in `src/config/schema.ts`, `ost-agent digest`): on a
+> declared cadence the vault composes what changed **since the previous digest** and hands
+> it to a transport that puts it outside the vault, a destination that resolves *inside* the
+> vault is refused by name, and a cadence window that elapsed with nothing sent is counted
+> and exits non-zero rather than passing silently. It settles *delivery* — that the pipe
+> exists, fires on schedule, does not restate the tree every week, and cannot fail quietly.
+> It does **not** settle engagement, which is what stakeholders do with a digest once it
+> lands and needs three weeks and real people. The **last hop is deliberately absent and is
+> the honest limit here**: the guarantee in `CONTRIBUTING.md` and `src/security/policy.ts`
+> is that this product holds no capability that acts on the world — "sends, signs, pays,
+> publishes" is as unwelcome as one that deletes — so a Slack post or an email would negate
+> the guarantee to satisfy a feature. What ships instead is an injected `DigestTransport`
+> seam plus one built-in file drop, so the operator's own wrapper owns the send and this
+> process never holds the credential. It found one defect in its own subject while being
+> written: the file-drop transport named its output from `new Date()` rather than from the
+> delivery stamp, so two digests covering different windows collided on any shared
+> millisecond of wall time — every test run, and any backfill.
+> Previously 4,268 tests across 325 files, verified 2026-08-30, after
 > `test/release/capability-manifest.test.ts` — the instrument for the published capability
 > manifest (`src/release/capability-manifest.ts`, `src/release/capability-surface.ts`):
 > `dist/capability-manifest.json` enumerates every MCP tool and every CLI subcommand the
