@@ -3204,12 +3204,19 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,498 tests across 336 files, verified 2026-08-31 (`npx vitest run`
-> reports 4,490 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,529 tests across 337 files, verified 2026-08-31 (`npx vitest run`
+> reports 4,521 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,490 across
-> the 335 files it collects, in 373 s. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,521 across
+> the 336 files it collects, in 362 s. The file added since the previous line is
+> `test/adapters/recurrence-rule-filing.test.ts` — the same 29-record friction corpus the
+> surface rule was judged on, replayed through a rule that files on recurrence instead of on
+> whose tool failed, behind "Recurrence across sessions files a record, a single incident
+> does not". It files 4 records where the corpus holds 29, and it collapses the thirteen
+> blocked sleep-then-poll refusals — fifteen events, fifteen distinct strings — into one
+> record carrying its count and its span, which is what separates grouping from
+> deduplication (`src/telemetry/friction-recurrence.ts`). The file before that is
 > `test/ost/evidence-dismissal-audit-trail.test.ts` — ten evidence records dismissed and
 > every one required to be attributable and reversible, behind "Record a read-and-skipped
 > judgement so the queue drains without a write". It is the instrument the assumption test
