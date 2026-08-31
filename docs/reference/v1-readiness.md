@@ -3186,12 +3186,24 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,176 tests across 322 files, verified 2026-08-30 (`npx vitest run`
-> reports 4,168 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,193 tests across 323 files, verified 2026-08-30 (`npx vitest run`
+> reports 4,185 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-30 finished at 4,168 across
-> the 321 files it collects, in 314 s, green. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-30 finished at 4,185 across
+> the 322 files it collects, in 318 s, green. The file added since the previous line is
+> `test/loop/stop-condition.test.ts` — the instrument for the published stop condition
+> (`src/loop/stop-condition.ts`): the rule is data rather than prose (every work-bearing
+> field of a sweep is either a term of the condition or is declared not-actionable with a
+> reason, checked against a real sweep so a new field is unclassified until somebody decides
+> which it is), `ost-agent loop stop` evaluates it and exits 23 on a maintained tree without
+> writing anything, and `loop seal` records a firing `unhealthy` when it authored structure
+> while the condition held and no new evidence had arrived. It settles *existence,
+> evaluability and enforcement* only. Whether "actionable by an unattended pass right now"
+> is decidable in a way two readers would agree on is the assumption beneath it, its test is
+> two people labelling one sweep independently at ≥85% agreement, and no suite can come out
+> green on that.
+> Previously 4,176 tests across 322 files, verified 2026-08-30, after
 > `test/loop/discovery-budget-reserved.test.ts` — the instrument for the discovery reserve
 > (`src/loop/reserve.ts`): a configured share of the shared window's passes is held for
 > discovery, a build pass is refused once it has spent the rest, and the allowance is

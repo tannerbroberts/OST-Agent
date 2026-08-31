@@ -50911,6 +50911,16 @@ function gitHead(vaultDir) {
   const sha = r2.status === 0 ? (r2.stdout ?? "").trim() : "";
   return sha.length > 0 ? sha : void 0;
 }
+function commitSubjectsSince(vaultDir, sinceSha) {
+  if (!sinceSha) return void 0;
+  const r2 = spawnSync5("git", ["log", "--reverse", "--format=%s", `${sinceSha}..HEAD`], {
+    cwd: path31.resolve(vaultDir),
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"]
+  });
+  if (r2.status !== 0) return void 0;
+  return (r2.stdout ?? "").split("\n").filter((line) => line.trim().length > 0);
+}
 function workingTreeStatus(vaultDir) {
   const r2 = spawnSync5("git", ["status", "--porcelain"], {
     cwd: path31.resolve(vaultDir),
@@ -63000,6 +63010,234 @@ function appendJournal(dir, entry) {
   fs64.appendFileSync(journalPath(dir), JSON.stringify(entry) + "\n");
 }
 
+// src/loop/pass-shape.ts
+var STRUCTURE_CALLS = [
+  "ost_create_node",
+  "ost_set_status",
+  "ost_set_instrument",
+  "ost_set_evidence",
+  "ost_merge_nodes",
+  "ost_detach_nodes"
+];
+function toolFromSubject(subject) {
+  return /^mcp:\s+(ost_[a-z_]+)\b/.exec(subject)?.[1];
+}
+function classifyCommitShape(subject) {
+  const tool2 = toolFromSubject(subject);
+  if (tool2 === void 0) return "commentary";
+  return STRUCTURE_CALLS.includes(tool2) ? "structure" : "commentary";
+}
+function classifyPassShape(subjects) {
+  let structure = 0;
+  let commentary = 0;
+  let unrecognised = 0;
+  for (const subject of subjects) {
+    if (toolFromSubject(subject) === void 0) unrecognised++;
+    if (classifyCommitShape(subject) === "structure") structure++;
+    else commentary++;
+  }
+  return {
+    shape: structure > 0 ? "structure" : "commentary",
+    structure,
+    commentary,
+    unrecognised
+  };
+}
+
+// src/loop/stop-condition.ts
+function trueTotal(work, list, shown2) {
+  return work.truncated.find((t2) => t2.list === list)?.total ?? shown2;
+}
+var STOP_CONDITION = [
+  {
+    id: "unmapped-evidence",
+    field: "unmappedEvidence",
+    action: "distil into #Opportunity nodes",
+    count: (w) => trueTotal(w, "unmappedEvidence", w.unmappedEvidence.length)
+  },
+  {
+    id: "underserved-opportunities",
+    field: "underservedOpportunities",
+    action: "ideate #Solution nodes, one blind ideator per assigned dimension",
+    count: (w) => trueTotal(w, "underservedOpportunities", w.underservedOpportunities.length)
+  },
+  {
+    id: "solutions-missing-assumptions",
+    field: "solutionsMissingAssumptions",
+    action: "surface the #Assumption and #AssumptionTest beneath it",
+    count: (w) => trueTotal(w, "solutionsMissingAssumptions", w.solutionsMissingAssumptions.length)
+  },
+  {
+    id: "solutions-missing-instruments",
+    field: "solutionsMissingInstruments",
+    action: "declare an `instrument:` \u2014 a command that fails today and passes when the solution is built",
+    count: (w) => trueTotal(w, "solutionsMissingInstruments", w.solutionsMissingInstruments.length)
+  },
+  {
+    id: "hygiene-issues",
+    field: "hygieneIssues",
+    action: "annotate on the node (never delete)",
+    count: (w) => trueTotal(w, "hygieneIssues", w.hygieneIssues.length)
+  }
+];
+var OUTSTANDING_NOT_ACTIONABLE = [
+  {
+    field: "agedOutEvidence",
+    why: "still unmapped and still on disk, but past `evidence.ageOutDays` AND redundant with a record some node already cites. It left the individual list precisely so it would stop asking; counting it here would turn an ageing rule into a standing reason to keep firing.",
+    count: (w) => w.agedOutEvidence.count
+  },
+  {
+    field: "solutionsAwaitingObservation",
+    why: "asks for an instrument to be RUN and its result recorded, and recording a result is off the unattended surface entirely (`ost-agent result`, a human's). This is the B1/B2 rule `next-work.ts` already applies to the same queue: work no granted tool can reach is not work this loop may fire itself to do.",
+    count: (w) => trueTotal(w, "solutionsAwaitingObservation", w.solutionsAwaitingObservation.length)
+  },
+  {
+    field: "assumptionWork.runnable",
+    why: "compute-only tests an ATTENDED session may go run right now. `/ost-pass` holds the hard rule that the unattended pass never runs a test \u2014 an agent that runs and records its own test is the one failure this product cannot survive \u2014 so this bucket is information to a firing, not an instruction to it.",
+    count: (w) => trueTotal(w, "assumptionWork.runnable", w.assumptionWork.runnable.length)
+  },
+  {
+    field: "assumptionWork.awaitingOneCommand",
+    why: "waiting on a person to read a paragraph and run one pre-filled `ost-agent result` line.",
+    count: (w) => trueTotal(w, "assumptionWork.awaitingOneCommand", w.assumptionWork.awaitingOneCommand.length)
+  },
+  {
+    field: "assumptionWork.blockedOnPermission",
+    why: "the work is finished and what is missing is a credential or a consent, which is a person's to give.",
+    count: (w) => trueTotal(w, "assumptionWork.blockedOnPermission", w.assumptionWork.blockedOnPermission.length)
+  },
+  {
+    field: "assumptionWork.needsHumans",
+    why: "real people outside the building are in the loop, plus every unlabelled test, which lands here by the lanes' fail-closed rule.",
+    count: (w) => trueTotal(w, "assumptionWork.needsHumans", w.assumptionWork.needsHumans.length)
+  },
+  {
+    field: "assumptionWork.blockedOnPrerequisite",
+    why: "a test whose declared prerequisite has no result yet. Running it produces a number nobody can interpret, and the prerequisite that would make it interpretable is itself a human's reading.",
+    count: (w) => trueTotal(w, "assumptionWork.blockedOnPrerequisite", w.assumptionWork.blockedOnPrerequisite.length)
+  },
+  {
+    field: "outstandingAsks",
+    why: "the standing queue of asks a person has not answered. It ages so a human can see how long they have been waited on; a pass that treated the age as its own work would be answering for them.",
+    count: (w) => trueTotal(w, "outstandingAsks", w.outstandingAsks.length)
+  },
+  {
+    field: "openUnknowns",
+    why: "unbounded by construction \u2014 darkness is discretionary and budget-governed, which is why `next-work.ts` keeps it out of `done` too. A term that can never reach zero is a stop condition that never fires, and this loop would then be paying to explore forever on the strength of its own curiosity. A human wanting an exploring pass runs an attended session, which never passes through this gate.",
+    count: (w) => trueTotal(w, "openUnknowns", w.openUnknowns.length)
+  },
+  {
+    field: "retiredFromDuplicateScan",
+    why: "not work at all: nodes withheld from the duplicate scan because they are retired, reported so a denominator does not shrink in silence.",
+    count: (w) => trueTotal(w, "retiredFromDuplicateScan", w.retiredFromDuplicateScan.length)
+  },
+  {
+    field: "withheldByDisposition",
+    why: "work somebody settled by asserting rather than by doing. It is disclosed on every response precisely so the dismissal is visible; acting on it anyway would be the pass re-deciding what a human decided.",
+    count: (w) => trueTotal(w, "withheldByDisposition", w.withheldByDisposition.length)
+  },
+  {
+    field: "suppressedByCondition",
+    why: "work a pass already declined, standing exactly as long as the machine-checkable fact it names still holds. The item returns to its bucket by itself the moment the fact flips, so nothing is lost by not counting it.",
+    count: (w) => trueTotal(w, "suppressedByCondition", w.suppressedByCondition.length)
+  }
+];
+function evaluateStopCondition(work) {
+  const terms = STOP_CONDITION.map((t2) => ({
+    id: t2.id,
+    field: t2.field,
+    action: t2.action,
+    count: t2.count(work)
+  }));
+  const ignored = OUTSTANDING_NOT_ACTIONABLE.map((n) => ({
+    field: n.field,
+    why: n.why,
+    count: n.count(work)
+  })).filter((n) => n.count > 0);
+  const outstanding = terms.filter((t2) => t2.count > 0);
+  const holds = outstanding.length === 0;
+  const ignoredTotal = ignored.reduce((n, i2) => n + i2.count, 0);
+  const ignoredNote = ignoredTotal > 0 ? ` ${ignoredTotal} outstanding item(s) are NOT counted, by declaration: ` + ignored.map((i2) => `${i2.field} (${i2.count})`).join(", ") + " \u2014 each waits on a person, was already settled, or is unbounded. See OUTSTANDING_NOT_ACTIONABLE." : "";
+  const reason = holds ? "nothing an unattended pass may act on: every term of the published stop condition is zero." + ignoredNote : `work remains: ${outstanding.map((t2) => `${t2.count} ${t2.field}`).join(", ")}.` + ignoredNote;
+  return { holds, terms, ignored, reason };
+}
+function observeStopCondition(vaultDir) {
+  let evidenceAtStart = 0;
+  try {
+    evidenceAtStart = readEvidenceScan(vaultDir).offered;
+  } catch {
+  }
+  try {
+    const config2 = loadConfig(vaultDir);
+    const work = computeNextWork(
+      new Vault(vaultDir),
+      vaultDir,
+      config2.processes?.["P3_ideate"]?.minSolutionsPerOpportunity ?? DEFAULT_MIN_SOLUTIONS_PER_OPPORTUNITY,
+      void 0,
+      config2.discovery?.target ?? void 0,
+      config2.evidence?.ageOutDays,
+      Number.POSITIVE_INFINITY,
+      config2.evidence?.staleAfterDays
+    );
+    const verdict = evaluateStopCondition(work);
+    return {
+      heldAtStart: verdict.holds,
+      terms: verdict.terms,
+      // Field and count only. The `why` behind each is stable data in
+      // OUTSTANDING_NOT_ACTIONABLE, and copying a paragraph of it into every
+      // firing's ledger line would be a record that grows with the prose rather
+      // than with the tree.
+      ignored: verdict.ignored.map((i2) => ({ field: i2.field, count: i2.count })),
+      evidenceAtStart
+    };
+  } catch (e) {
+    return {
+      heldAtStart: null,
+      unevaluated: e instanceof Error ? e.message : String(e),
+      evidenceAtStart
+    };
+  }
+}
+function countEvidence(vaultDir) {
+  try {
+    return readEvidenceScan(vaultDir).offered;
+  } catch {
+    return 0;
+  }
+}
+function idleBreach(record2) {
+  if (!record2 || record2.heldAtStart !== true) return null;
+  const closed = record2.closed;
+  if (!closed?.shape) return null;
+  if (closed.evidenceAtSeal > record2.evidenceAtStart) return null;
+  if (closed.shape.structure === 0) return null;
+  return {
+    authored: closed.shape.structure,
+    reason: `the stop condition held when this run opened \u2014 every term zero, nothing an unattended pass may act on \u2014 and no new evidence arrived during it (${record2.evidenceAtStart} record(s) at both ends), yet ${closed.shape.structure} of this firing's ${closed.shape.structure + closed.shape.commentary} commit(s) created structure. Work the sweep did not ask for is work the sweep cannot check. Idling is the honest outcome of a pass with nothing to do, and it is free: file a friction note about the standstill and seal.`
+  };
+}
+function stopConditionReport(record2) {
+  if (!record2) return [];
+  if (record2.heldAtStart === null) {
+    return [`stop condition: not evaluated \u2014 ${record2.unevaluated ?? "no reason recorded"}. Nothing was enforced.`];
+  }
+  const breach = idleBreach(record2);
+  if (breach) return [`\u2717 stop condition breached: ${breach.reason}`];
+  if (record2.heldAtStart) {
+    const grew = (record2.closed?.evidenceAtSeal ?? record2.evidenceAtStart) - record2.evidenceAtStart;
+    return [
+      grew > 0 ? `stop condition: held when this run opened, and ${grew} new evidence record(s) arrived during it \u2014 this firing had input the sweep could not have seen, so nothing was held against it.` : "stop condition: held when this run opened, and this firing authored no structure. Idling was the honest outcome."
+    ];
+  }
+  const outstanding = (record2.terms ?? []).filter((t2) => t2.count > 0);
+  return [
+    `stop condition: did not hold when this run opened \u2014 ${outstanding.map((t2) => `${t2.count} ${t2.field}`).join(", ") || "work remained"}.`
+  ];
+}
+function observePassShape(subjects) {
+  return subjects === void 0 ? void 0 : classifyPassShape(subjects);
+}
+
 // src/loop/health.ts
 var REQUIRED_PHASES = ["pass", "check"];
 function healthDir(dir) {
@@ -63064,6 +63302,7 @@ function startRun(dir, meta) {
     ...meta.ceiling ? { ceiling: meta.ceiling } : {},
     ...meta.toolSurface ? { toolSurface: meta.toolSurface } : {},
     ...meta.goal ? { goal: meta.goal } : {},
+    ...meta.stopCondition ? { stopCondition: meta.stopCondition } : {},
     steps: []
   };
   fs65.writeFileSync(openRunPath(dir), JSON.stringify(run, null, 2));
@@ -63104,6 +63343,7 @@ function computeVerdict(run) {
   if (run.steps.some(stepFailed)) return "unhealthy";
   const phases = new Set(run.steps.map((s) => s.phase));
   if (!REQUIRED_PHASES.every((p2) => phases.has(p2))) return "unhealthy";
+  if (idleBreach(run.stopCondition)) return "unhealthy";
   if (run.degradations && run.degradations.length > 0) return "degraded";
   if (!run.headBefore || !run.headAfter || run.headBefore === run.headAfter) return "no-op";
   return "healthy";
@@ -63114,6 +63354,7 @@ function sealRun(dir, meta = {}) {
     ...open,
     ...meta.headAfter ? { headAfter: meta.headAfter } : {},
     ...meta.goal && open.goal ? { goal: meta.goal } : {},
+    ...meta.stopCondition && open.stopCondition ? { stopCondition: { ...open.stopCondition, closed: meta.stopCondition } } : {},
     // Stamped before the verdict is computed, so the verdict is derived from the
     // same list the record carries — a reader can always re-run `computeVerdict`
     // over a sealed line and get the verdict it was sealed with.
@@ -64541,7 +64782,19 @@ var LOOP_EXIT = {
    * would raise a ceiling that was never the constraint. Routine, like
    * `notElapsed` — the way out is the window rolling forward, not a person.
    */
-  reserveHeld: 22
+  reserveHeld: 22,
+  /**
+   * `loop stop` only: every term of the published stop condition is zero, so
+   * there is nothing an unattended pass may act on.
+   *
+   * Routine, like `notElapsed`, and non-zero for the same reason: a wrapper that
+   * read 0 here would treat "nothing to do" as "go and do it", which is the
+   * whole failure. Its own code rather than `notElapsed`'s because the two are
+   * different facts with different fixes — one is a clock and clears itself, and
+   * this one clears when the world produces something to react to. An operator
+   * seeing a week of these has a signal about their inputs, not their schedule.
+   */
+  nothingActionable: 23
 };
 var HOUR_MS2 = 60 * 60 * 1e3;
 function ceilingOf(vaultDir, spend) {
@@ -64736,6 +64989,36 @@ function registerLoopCommands(program3) {
     recordBuildPass(opts.vault, (/* @__PURE__ */ new Date()).toISOString());
     console.log("  claimed: this build pass is charged to the window");
   });
+  loop.command("stop").description(
+    "is there anything an unattended pass may act on? (evaluates the published stop condition against the tree; exit 23 means every term is zero and idling is the honest move)"
+  ).option("--explain", "print the whole published rule \u2014 every term, and every outstanding kind it deliberately ignores").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
+    const record2 = observeStopCondition(opts.vault);
+    if (opts.explain) {
+      console.log("the published stop condition \u2014 the loop idles when every term below is zero:");
+      for (const t2 of STOP_CONDITION) console.log(`  ${t2.id} (${t2.field}) \u2192 ${t2.action}`);
+      console.log("outstanding but NOT counted, by declaration:");
+      for (const n of OUTSTANDING_NOT_ACTIONABLE) console.log(`  ${n.field} \u2014 ${n.why}`);
+    }
+    if (record2.heldAtStart === null) {
+      console.error(`cannot evaluate: ${record2.unevaluated ?? "the sweep could not be taken"}`);
+      process.exitCode = LOOP_EXIT.treeUnreadable;
+      return;
+    }
+    for (const t2 of record2.terms ?? []) console.log(`  ${t2.count === 0 ? "\xB7" : "\u2192"} ${t2.count} ${t2.field}`);
+    const ignored = record2.ignored ?? [];
+    if (ignored.length > 0) {
+      console.log(
+        `  not counted, by declaration (\`loop stop --explain\` says why each): ${ignored.map((i2) => `${i2.count} ${i2.field}`).join(", ")}`
+      );
+    }
+    if (record2.heldAtStart) {
+      console.log("stop: nothing an unattended pass may act on. Idling is the honest outcome and it is free.");
+      process.exitCode = LOOP_EXIT.nothingActionable;
+      return;
+    }
+    const outstanding = (record2.terms ?? []).filter((t2) => t2.count > 0);
+    console.log(`go: ${outstanding.map((t2) => `${t2.count} ${t2.field}`).join(", ")}`);
+  });
   loop.command("announce").description("record an update this vault's subscriber heard (writes nothing but a spool line; applies nothing)").requiredOption("--release <version>", "the version announced").option("--channel <name>", "the channel it was announced on (default: the one this vault subscribes to)").option("--source <who>", "who announced it \u2014 informational, nothing branches on it").option("--notes <text>", "what is in it, for a human reading the spool").option("--announced-at <iso>", "when the publisher announced it (default: now)").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
     const config2 = loadConfig(opts.vault);
     const subscription = subscriptionOf(config2.loop?.updates);
@@ -64838,17 +65121,26 @@ function registerLoopCommands(program3) {
       available: opts.available.split(",").map((t2) => t2.trim()).filter(Boolean)
     });
     const goal = openGoalContract(observeGoal(opts.vault));
+    const stopCondition = observeStopCondition(opts.vault);
     const opened = startRun(opts.vault, {
       loopVersion: VERSION,
       cliVersion: VERSION,
       headBefore: gitHead(opts.vault),
       ...stampedCeiling ? { ceiling: stampedCeiling } : {},
       ...toolSurface ? { toolSurface } : {},
-      goal
+      goal,
+      stopCondition
     });
     stampFiringLock(opts.vault, lock.record, opened.runId);
     console.log(`loop run ${opened.runId} open`);
     for (const line2 of goalContractReport(goal)) console.log(line2);
+    if (stopCondition.heldAtStart === true) {
+      console.error(
+        "\u26A0 the stop condition holds: nothing an unattended pass may act on. Idling is the honest outcome \u2014 read, report, file a friction note about the standstill if there is one, and author nothing. A firing that creates structure from here seals `unhealthy`."
+      );
+    } else if (stopCondition.heldAtStart === null) {
+      console.error(`stop condition: not evaluated \u2014 ${stopCondition.unevaluated ?? "the sweep could not be taken"}. Nothing is enforced.`);
+    }
     const parity = recordRunParity(opts.vault, {
       runId: opened.runId,
       reading: runEnvironment,
@@ -65001,10 +65293,18 @@ function registerLoopCommands(program3) {
     const senses = open ? observeSenses(opts.vault, open) : [];
     const shortfall = open && opts.attempted !== void 0 ? computeShortfall(opts.vault, open.runId, opts.attempted) : null;
     const goal = open?.goal ? closeGoalContract(open.goal.opened, observeGoal(opts.vault)) : void 0;
+    const stopCondition = open?.stopCondition ? {
+      evidenceAtSeal: countEvidence(opts.vault),
+      ...(() => {
+        const shape = observePassShape(commitSubjectsSince(opts.vault, open.headBefore));
+        return shape ? { shape } : {};
+      })()
+    } : void 0;
     const sealed = sealRun(opts.vault, {
       headAfter: gitHead(opts.vault),
       degradations,
-      ...goal ? { goal } : {}
+      ...goal ? { goal } : {},
+      ...stopCondition ? { stopCondition } : {}
     });
     const released = releaseFiringLock(opts.vault, { runId: sealed.runId });
     console.log(`loop run ${sealed.runId} sealed: ${sealed.verdict}`);
@@ -65017,6 +65317,10 @@ function registerLoopCommands(program3) {
     }
     for (const line of failureSummary(sealed, lastNodeTouchedSince(opts.vault, sealed.startedAt))) {
       console.error(line);
+    }
+    for (const line of stopConditionReport(sealed.stopCondition)) {
+      if (line.startsWith("\u2717")) console.error(line);
+      else console.log(line);
     }
     for (const line of degradedReport(degradations)) console.error(line);
     if (!released) {

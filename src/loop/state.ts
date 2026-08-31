@@ -96,6 +96,33 @@ export function gitHead(vaultDir: string): string | undefined {
 }
 
 /**
+ * The subject line of every commit made after `sinceSha`, oldest first — what a
+ * firing actually wrote, read from the only account of it the firing cannot
+ * author.
+ *
+ * Read-only, like {@link gitHead} and for the same reason: `log` cannot change a
+ * byte, and this module never grows a verb that can. Undefined rather than `[]`
+ * when the range cannot be read — no `sinceSha`, git not on PATH, a sha that is
+ * not an ancestor of HEAD — because "this firing committed nothing" and "nobody
+ * could tell what this firing committed" are different facts and the caller
+ * enforcing on the answer must not act on the second as though it were the first.
+ *
+ * Subjects only. The classifier that consumes these reads nothing else
+ * (`pass-shape.ts` argues why at length), and a reader that pulled diffs would be
+ * a second, expensive instrument to install and keep correct.
+ */
+export function commitSubjectsSince(vaultDir: string, sinceSha: string | undefined): string[] | undefined {
+  if (!sinceSha) return undefined;
+  const r = spawnSync("git", ["log", "--reverse", "--format=%s", `${sinceSha}..HEAD`], {
+    cwd: path.resolve(vaultDir),
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  if (r.status !== 0) return undefined;
+  return (r.stdout ?? "").split("\n").filter((line) => line.trim().length > 0);
+}
+
+/**
  * What `git status --porcelain` says about the vault, in the three shapes a
  * caller has to treat differently.
  *

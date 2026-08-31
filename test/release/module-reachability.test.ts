@@ -201,33 +201,31 @@ const KNOWN_UNREACHABLE: Record<string, string> = {
    */
   "src/git/branch-isolation.ts":
     "built and tested; parked pending a decision to run more than one build pass concurrently, which nothing in this repository does yet",
-  /*
-   * Reads a commit subject and says whether that commit built structure or wrote
-   * commentary about structure that already existed — the detection half of
-   * "Idle down when a pass produces commentary instead of structure". Measured
-   * against 2,950 commits of the meta vault labelled from their diffs, at 91.12%
-   * against a bar of 90% pre-committed before the corpus was cut
-   * (`test/loop/pass-shape-classifier.test.ts`).
-   *
-   * Parked because the assumption test that cleared this build measures
-   * *detection*, and its own text refuses to carry further: "a green exit says the
-   * classifier agrees with the fixture; it does not say the hand labels were
-   * right, and it does not say throttling on that signal is a good idea." The
-   * solution node names the counter-example itself — the most valuable artefact of
-   * the run that first showed the decay was a builder briefing, it was
-   * commentary-only, and it was last, so a classifier at 100% agreement would have
-   * idled the loop immediately after the best thing the agent did. Wiring this to
-   * `loop/cadence.ts` would answer a question about value with a commit instead of
-   * with the evidence that was meant to answer it.
-   *
-   * It comes off when a schedule-backoff policy adopts `classifyPassShape` — which
-   * needs the "commentary that repeats the previous pass's commentary" comparison
-   * the solution node says the real rule requires, and which this module does not
-   * attempt — or goes when the node is deferred.
-   */
-  "src/loop/pass-shape.ts":
-    "built and measured at 91.12% against its pre-committed 90% bar; parked because that bar licenses detection, and the throttle it would feed is a spend decision the assumption test explicitly does not settle",
 };
+
+/*
+ * `src/loop/pass-shape.ts` was on this register and came off when
+ * `src/loop/stop-condition.ts` adopted `classifyPassShape`, so the reason it was
+ * parked is worth carrying rather than deleting with the entry.
+ *
+ * It was parked because the assumption test that cleared its build measures
+ * *detection* and its own text refuses to carry further: a green exit says the
+ * classifier agrees with the fixture, not that throttling on that signal is a
+ * good idea. The counter-example is in the solution node — the most valuable
+ * artefact of the run that first showed the decay was a builder briefing, it was
+ * commentary-only, and it was last, so a classifier at 100% agreement would have
+ * idled the loop immediately after the best thing the agent did.
+ *
+ * The consumer that took it off does not make that mistake, and the direction is
+ * why: it never throttles on commentary. Commentary is the *permitted* outcome —
+ * a pass that idles and files a friction note about the standstill is exactly the
+ * behaviour the stop condition wants. What the classifier is asked is the reverse
+ * question, "did this firing author structure", and only when the loop has
+ * already recorded that the tree had nothing for it to build. The residual 8.9%
+ * is dominated by `ost_append_to_node` commits that moved an edge and are read as
+ * commentary, which errs toward letting a firing off rather than toward failing
+ * an honest one.
+ */
 
 function tsFiles(dir: string): string[] {
   const out: string[] = [];

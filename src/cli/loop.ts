@@ -64,6 +64,14 @@ import { announceUpdate, applyAtCheckpoint, subscriptionOf, updateStatusLine } f
 import { observeSenses, senseCensusReport } from "../loop/senses.js";
 import { computeShortfall, declareScope, shortfallReport } from "../loop/scope.js";
 import { assessStall } from "../loop/stall.js";
+import {
+  countEvidence,
+  observePassShape,
+  observeStopCondition,
+  stopConditionReport,
+  OUTSTANDING_NOT_ACTIONABLE,
+  STOP_CONDITION,
+} from "../loop/stop-condition.js";
 import { releaseFiringLock, stampFiringLock, waitForFiringLock } from "../loop/lock.js";
 import { checkCeiling, measureFiring, type SpendCeiling } from "../loop/spend.js";
 import {
@@ -74,7 +82,7 @@ import {
   type PassKind,
 } from "../loop/reserve.js";
 import { formatQuestionBudget, measureInterruptions, type QuestionBudget } from "../loop/questions.js";
-import { gitHead, workingTreeStatus, type VaultTreeStatus } from "../loop/state.js";
+import { commitSubjectsSince, gitHead, workingTreeStatus, type VaultTreeStatus } from "../loop/state.js";
 import { VERSION } from "../index.js";
 import { VAULT_OPTION_HELP } from "./vault-option.js";
 
@@ -154,6 +162,18 @@ export const LOOP_EXIT = {
    * `notElapsed` — the way out is the window rolling forward, not a person.
    */
   reserveHeld: 22,
+  /**
+   * `loop stop` only: every term of the published stop condition is zero, so
+   * there is nothing an unattended pass may act on.
+   *
+   * Routine, like `notElapsed`, and non-zero for the same reason: a wrapper that
+   * read 0 here would treat "nothing to do" as "go and do it", which is the
+   * whole failure. Its own code rather than `notElapsed`'s because the two are
+   * different facts with different fixes — one is a clock and clears itself, and
+   * this one clears when the world produces something to react to. An operator
+   * seeing a week of these has a signal about their inputs, not their schedule.
+   */
+  nothingActionable: 23,
 } as const;
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -593,6 +613,72 @@ export function registerLoopCommands(program: Command): void {
     });
 
   loop
+    .command("stop")
+    .description(
+      "is there anything an unattended pass may act on? (evaluates the published stop condition against the " +
+        "tree; exit 23 means every term is zero and idling is the honest move)",
+    )
+    .option("--explain", "print the whole published rule — every term, and every outstanding kind it deliberately ignores")
+    .option("--vault <dir>", VAULT_OPTION_HELP)
+    .action((opts: { explain?: boolean; vault: string }) => {
+      /*
+       * Read-only, and it writes nothing — not a ledger line, not a dispatch
+       * record, not a lock. That is deliberate rather than incidental: this is the
+       * command an operator is meant to be able to run at any moment to ask why
+       * the loop is quiet, and a question that consumes a window is a question
+       * nobody asks twice.
+       *
+       * It is NOT wired into `loop due`, and `stop-condition.ts` says why at
+       * length: ingestion happens inside the pass, so a maintained tree with a
+       * full inbox evaluates as "nothing actionable" right up until the ingest
+       * that is the whole reason to fire. What consumes this is a wrapper that
+       * wants to skip a firing on a vault whose inputs it knows are quiet, and
+       * `loop start`, which stamps the same reading into the run record and holds
+       * the pass to it at seal.
+       */
+      const record = observeStopCondition(opts.vault);
+
+      if (opts.explain) {
+        console.log("the published stop condition — the loop idles when every term below is zero:");
+        for (const t of STOP_CONDITION) console.log(`  ${t.id} (${t.field}) → ${t.action}`);
+        console.log("outstanding but NOT counted, by declaration:");
+        for (const n of OUTSTANDING_NOT_ACTIONABLE) console.log(`  ${n.field} — ${n.why}`);
+      }
+
+      if (record.heldAtStart === null) {
+        // Loud, and NOT the routine code: a sweep that could not be taken has not
+        // said there is nothing to do. Collapsing it into the quiet exit would
+        // idle a loop on the strength of a broken tree, which is the one way this
+        // gate could do real damage.
+        console.error(`cannot evaluate: ${record.unevaluated ?? "the sweep could not be taken"}`);
+        process.exitCode = LOOP_EXIT.treeUnreadable;
+        return;
+      }
+
+      for (const t of record.terms ?? []) console.log(`  ${t.count === 0 ? "·" : "→"} ${t.count} ${t.field}`);
+
+      // Printed in BOTH branches, and it is the holding branch that needs it: a
+      // loop reporting nothing to do beside a tree with forty open items reads
+      // as a lie until the output says which declaration accounts for them.
+      const ignored = record.ignored ?? [];
+      if (ignored.length > 0) {
+        console.log(
+          `  not counted, by declaration (\`loop stop --explain\` says why each): ${ignored
+            .map((i) => `${i.count} ${i.field}`)
+            .join(", ")}`,
+        );
+      }
+
+      if (record.heldAtStart) {
+        console.log("stop: nothing an unattended pass may act on. Idling is the honest outcome and it is free.");
+        process.exitCode = LOOP_EXIT.nothingActionable;
+        return;
+      }
+      const outstanding = (record.terms ?? []).filter((t) => t.count > 0);
+      console.log(`go: ${outstanding.map((t) => `${t.count} ${t.field}`).join(", ")}`);
+    });
+
+  loop
     .command("announce")
     .description("record an update this vault's subscriber heard (writes nothing but a spool line; applies nothing)")
     // `--release`, not `--version`: commander's program-level `--version` is
@@ -822,6 +908,15 @@ export function registerLoopCommands(program: Command): void {
       // surface: the record's writer observes nothing itself, so there is one
       // place a reading can come from and the firing is not it.
       const goal = openGoalContract(observeGoal(opts.vault));
+      // The stopping question, asked of the vault at the last moment before the
+      // run opens and stamped unconditionally — every firing records one, for the
+      // reason the goal stamp gives and one more: this reading is what the pass is
+      // held to at seal, and a stamp a caller could omit would be missing from
+      // exactly the firing that most wanted it missing. It refuses nothing here.
+      // `loop start` has already taken the lock and applied the checkpoint, and a
+      // gate that fired at this point would leave both to be unwound; the wrapper
+      // that wants to skip a quiet firing asks `loop stop` before any of that.
+      const stopCondition = observeStopCondition(opts.vault);
       const opened = startRun(opts.vault, {
         loopVersion: VERSION,
         cliVersion: VERSION,
@@ -829,10 +924,26 @@ export function registerLoopCommands(program: Command): void {
         ...(stampedCeiling ? { ceiling: stampedCeiling } : {}),
         ...(toolSurface ? { toolSurface } : {}),
         goal,
+        stopCondition,
       });
       stampFiringLock(opts.vault, lock.record, opened.runId);
       console.log(`loop run ${opened.runId} open`);
       for (const line of goalContractReport(goal)) console.log(line);
+      // Said at the top of the firing, on stderr when it holds, because the pass
+      // about to run is entitled to know it is being held to this. A rule enforced
+      // at seal and never announced at start would fail a firing for a standard it
+      // was not told about, which is the shape of gate people quite rightly
+      // disable. `examples/automation/autonomous-pass.sh` puts the same sentence
+      // in front of the model.
+      if (stopCondition.heldAtStart === true) {
+        console.error(
+          "⚠ the stop condition holds: nothing an unattended pass may act on. Idling is the honest outcome — " +
+            "read, report, file a friction note about the standstill if there is one, and author nothing. A firing " +
+            "that creates structure from here seals `unhealthy`.",
+        );
+      } else if (stopCondition.heldAtStart === null) {
+        console.error(`stop condition: not evaluated — ${stopCondition.unevaluated ?? "the sweep could not be taken"}. Nothing is enforced.`);
+      }
 
       // The other half of the dispatch check: what `loop due` saw when it let
       // this firing through, against what this run actually got. Recorded after
@@ -1133,10 +1244,27 @@ export function registerLoopCommands(program: Command): void {
       // comparison that was actually made, which is a different fact from never
       // having re-read it.
       const goal = open?.goal ? closeGoalContract(open.goal.opened, observeGoal(opts.vault)) : undefined;
+      // The seal-time half of the stopping question, and both readings are taken
+      // from the vault rather than from the firing: how much evidence is on disk
+      // now (new input during the pass voids the start reading), and what this
+      // firing's own commits were made of, folded by the pass-shape classifier
+      // over the range this run's OWN `headBefore` opens. A firing that never
+      // recorded a head leaves `shape` undefined, and an unreadable shape enforces
+      // nothing — see `idleBreach` for why fail-open is the right asymmetry here.
+      const stopCondition = open?.stopCondition
+        ? {
+            evidenceAtSeal: countEvidence(opts.vault),
+            ...(() => {
+              const shape = observePassShape(commitSubjectsSince(opts.vault, open.headBefore));
+              return shape ? { shape } : {};
+            })(),
+          }
+        : undefined;
       const sealed = sealRun(opts.vault, {
         headAfter: gitHead(opts.vault),
         degradations,
         ...(goal ? { goal } : {}),
+        ...(stopCondition ? { stopCondition } : {}),
       });
       const released = releaseFiringLock(opts.vault, { runId: sealed.runId });
       console.log(`loop run ${sealed.runId} sealed: ${sealed.verdict}`);
@@ -1171,6 +1299,15 @@ export function registerLoopCommands(program: Command): void {
       // is the one line of it a reader who reads nothing else must get.
       for (const line of failureSummary(sealed, lastNodeTouchedSince(opts.vault, sealed.startedAt))) {
         console.error(line);
+      }
+      // Unconditionally, like the census and the goal contract: a line that spoke
+      // only when the condition had been breached could not be trusted to be
+      // silent because it had not been. Loud on stderr only for the breach — the
+      // ordinary "held, and this firing authored nothing" is the outcome this
+      // whole mechanism wants and must not read as an alarm.
+      for (const line of stopConditionReport(sealed.stopCondition)) {
+        if (line.startsWith("✗")) console.error(line);
+        else console.log(line);
       }
       // On stderr, beside the stall escalation, because a cron mails stderr and
       // this is the line that must not be scrolled past. Printed whenever a
