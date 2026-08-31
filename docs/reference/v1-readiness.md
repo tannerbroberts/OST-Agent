@@ -3204,12 +3204,22 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,388 tests across 331 files, verified 2026-08-31 (`npx vitest run`
-> reports 4,380 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,403 tests across 332 files, verified 2026-08-31 (`npx vitest run`
+> reports 4,395 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,380 across
-> the 330 files it collects, in 350 s. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,395 across
+> the 331 files it collects, in 360 s. The file added since the previous line is
+> `test/runner/flake-attribution.test.ts` — the re-run-and-attribute mechanism behind
+> "Re-run once and report the disagreement rather than the first result"
+> (`src/runner/flake-attribution.ts`). A timing failure is re-run and the two runs compared,
+> and the verdict carries its own attribution rather than leaving a reader to re-derive it:
+> the runs agree and the red stands, or they disagree and a same-run control decides whether
+> the box was busier or the code is slow only under concurrency. The three scenarios are real
+> timed runs, and the third — a slowdown planted behind a shared lock, which a re-run-only
+> mechanism would silently acquit — is the one the assumption test made non-negotiable.
+> With no control reading the verdict is `undetermined`, never `contention`. The line before
+> that added
 > `test/ost/instrument-rationing.test.ts` — the write-boundary ration behind "Ration
 > instrumenting against the rate results are recorded, so readiness cannot outrun execution"
 > (`src/ost/rationing.ts`). A pass gets a non-zero floor of instrument attaches and an

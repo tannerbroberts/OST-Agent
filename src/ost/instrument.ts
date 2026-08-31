@@ -38,6 +38,11 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { isInstrument, parseInstrument, type ParsedInstrument } from "../knowledge/instruments.js";
+import {
+  attributeRerun,
+  describeFlakeAttribution,
+  type FlakeAttribution,
+} from "../runner/flake-attribution.js";
 import { testAnswersForShippedSolution } from "../eval/shipped-audit.js";
 import { INSTRUMENT_LOG_HEADING } from "./headings.js";
 import type { OstNode } from "./node.js";
@@ -58,6 +63,25 @@ export interface InstrumentRun {
   exitCode: number | null;
   /** First meaningful line of output, for the log line. Never the whole run. */
   excerpt: string;
+  /**
+   * What a second run of the same command said, when one was asked for and the
+   * first came back red. Absent when no re-run happened.
+   */
+  attribution?: FlakeAttribution;
+}
+
+/** Knobs on a single run. Everything here costs something, so nothing here is on by default. */
+export interface RunInstrumentOptions {
+  /**
+   * On red, run the command once more and record whether the two runs agree.
+   *
+   * Off by default because it doubles the cost of every red, and only the path
+   * that *records* an observation is worth paying that on. A pre-flight that
+   * just wants to know whether a permit is still live
+   * ({@link ../eval/buildable.ts}'s `confirmPermit`) gets the same answer out of
+   * one run and should not wait for two.
+   */
+  rerunOnRed?: boolean;
 }
 
 /**
@@ -198,8 +222,70 @@ export function specResolves(repos: readonly string[], target: string): boolean 
   return repos.some((repo) => existsSync(path.resolve(repo, target)));
 }
 
-/** Run an instrument against a repository. Never through a shell. */
-export function runInstrument(instrument: ParsedInstrument, repoDir: string): InstrumentRun {
+/**
+ * One spawn of the command, and how long it took. Never through a shell.
+ *
+ * Split out from {@link runInstrument} so the same command can be run twice
+ * without the second run re-deciding anything the first already settled — the
+ * `no-spec` short-circuit in particular, which is a fact about the filesystem
+ * and does not change between two runs seconds apart.
+ */
+function spawnOnce(
+  instrument: ParsedInstrument,
+  repoDir: string,
+): { observation: Observation; exitCode: number | null; excerpt: string; elapsedMs: number } {
+  const started = Date.now();
+  const run = spawnSync("npx", instrument.argv, {
+    cwd: path.resolve(repoDir),
+    encoding: "utf8",
+    // A spec suite that hangs would otherwise hang the loop that called it.
+    timeout: 10 * 60_000,
+    maxBuffer: 32 * 1024 * 1024,
+  });
+  const elapsedMs = Date.now() - started;
+
+  const exitCode = run.status;
+  const output = `${run.stdout ?? ""}\n${run.stderr ?? ""}`;
+  if (exitCode === 0) {
+    return { observation: "green", exitCode, excerpt: firstMeaningfulLine(output, run.error?.message), elapsedMs };
+  }
+  // The file is there but the runner still collected nothing from it — an empty
+  // spec, or one whose cases are all skipped. Non-zero, and still not a measurement.
+  if (collectedNothing(output)) {
+    return {
+      observation: "no-spec",
+      exitCode,
+      excerpt: `${instrument.target} collected no test cases — nothing in it can fail, so nothing was measured`,
+      elapsedMs,
+    };
+  }
+  return { observation: "red", exitCode, excerpt: firstMeaningfulLine(output, run.error?.message), elapsedMs };
+}
+
+/**
+ * Run an instrument against a repository, and — with `rerunOnRed` — run it once
+ * more when it comes back red, so the record carries whether the two runs agreed.
+ *
+ * **The second run is a repetition, not an isolation, and that bound is why the
+ * verdict here is never `contention`.** An instrument names one spec file, so
+ * the command already runs that file alone; running it again samples the same
+ * conditions a second time rather than removing anything from beside it. And
+ * the parent is blocked in `spawnSync` for the whole of each run, so it cannot
+ * interleave a control workload with the child the way an in-process caller
+ * can ({@link ../runner/flake-attribution.ts} explains why a load average
+ * sampled around the child is not a substitute). So exactly two answers are
+ * reachable from here: the runs agree and the red is solid, or they disagree
+ * and the cause is **undetermined** — which is the honest half of the
+ * mechanism, and still strictly more than the bare red this recorded before.
+ *
+ * A `no-spec` run is never re-run. It is a fact about a missing file, and a
+ * second look at the same filesystem is a second look at the same fact.
+ */
+export function runInstrument(
+  instrument: ParsedInstrument,
+  repoDir: string,
+  options: RunInstrumentOptions = {},
+): InstrumentRun {
   // Short-circuit the commonest vacuous red without paying for a runner start.
   // A missing spec file is answerable from the filesystem, and answering it here
   // means a queue full of un-written specs costs nothing to re-check every pass —
@@ -214,29 +300,23 @@ export function runInstrument(instrument: ParsedInstrument, repoDir: string): In
     };
   }
 
-  const run = spawnSync("npx", instrument.argv, {
-    cwd: path.resolve(repoDir),
-    encoding: "utf8",
-    // A spec suite that hangs would otherwise hang the loop that called it.
-    timeout: 10 * 60_000,
-    maxBuffer: 32 * 1024 * 1024,
-  });
+  const { elapsedMs, ...first } = spawnOnce(instrument, repoDir);
+  if (first.observation !== "red" || !options.rerunOnRed) return first;
 
-  const exitCode = run.status;
-  const output = `${run.stdout ?? ""}\n${run.stderr ?? ""}`;
-  if (exitCode === 0) {
-    return { observation: "green", exitCode, excerpt: firstMeaningfulLine(output, run.error?.message) };
-  }
-  // The file is there but the runner still collected nothing from it — an empty
-  // spec, or one whose cases are all skipped. Non-zero, and still not a measurement.
-  if (collectedNothing(output)) {
-    return {
-      observation: "no-spec",
-      exitCode,
-      excerpt: `${instrument.target} collected no test cases — nothing in it can fail, so nothing was measured`,
-    };
-  }
-  return { observation: "red", exitCode, excerpt: firstMeaningfulLine(output, run.error?.message) };
+  const second = spawnOnce(instrument, repoDir);
+  // A second run that collects nothing is not a disagreement about the
+  // behaviour — the spec vanished or the runner broke between the two, and
+  // reading that as "passed on the re-run" would acquit on an absence.
+  if (second.observation === "no-spec") return first;
+
+  const attribution = attributeRerun(
+    { failed: true, elapsedMs },
+    { failed: second.observation === "red", elapsedMs: second.elapsedMs },
+  );
+  // The observation stays red either way. The first result is what was observed
+  // and the log is append-only; what the re-run buys is the attribution beside
+  // it, not a licence to overwrite the verdict with the luckier of two runs.
+  return { ...first, attribution, excerpt: `${first.excerpt} [${describeFlakeAttribution(attribution)}]` };
 }
 
 /**
@@ -300,7 +380,11 @@ export function verifyInstrument(vaultDir: string, filing: VerifyFiling): Verify
     );
   }
 
-  const run = runInstrument(parsed, filing.repo);
+  // The recording path is the one that pays for the re-run, because it is the
+  // one that writes a line somebody will later read as the whole verdict. Two
+  // reds recorded on 2026-08-01 said "exit 1" and nothing else, and the work of
+  // telling a busy box from a broken change fell on a human twice.
+  const run = runInstrument(parsed, filing.repo, { rerunOnRed: true });
   const alreadyRed = observedRed(node);
 
   // A vacuous run is filed, not refused. Refusing would throw away the one fact

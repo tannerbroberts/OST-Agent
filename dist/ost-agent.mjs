@@ -13933,41 +13933,41 @@ var require_ms = __commonJS({
           return void 0;
       }
     }
-    function fmtShort(ms) {
-      var msAbs = Math.abs(ms);
+    function fmtShort(ms2) {
+      var msAbs = Math.abs(ms2);
       if (msAbs >= d) {
-        return Math.round(ms / d) + "d";
+        return Math.round(ms2 / d) + "d";
       }
       if (msAbs >= h2) {
-        return Math.round(ms / h2) + "h";
+        return Math.round(ms2 / h2) + "h";
       }
       if (msAbs >= m) {
-        return Math.round(ms / m) + "m";
+        return Math.round(ms2 / m) + "m";
       }
       if (msAbs >= s) {
-        return Math.round(ms / s) + "s";
+        return Math.round(ms2 / s) + "s";
       }
-      return ms + "ms";
+      return ms2 + "ms";
     }
-    function fmtLong(ms) {
-      var msAbs = Math.abs(ms);
+    function fmtLong(ms2) {
+      var msAbs = Math.abs(ms2);
       if (msAbs >= d) {
-        return plural(ms, msAbs, d, "day");
+        return plural(ms2, msAbs, d, "day");
       }
       if (msAbs >= h2) {
-        return plural(ms, msAbs, h2, "hour");
+        return plural(ms2, msAbs, h2, "hour");
       }
       if (msAbs >= m) {
-        return plural(ms, msAbs, m, "minute");
+        return plural(ms2, msAbs, m, "minute");
       }
       if (msAbs >= s) {
-        return plural(ms, msAbs, s, "second");
+        return plural(ms2, msAbs, s, "second");
       }
-      return ms + " ms";
+      return ms2 + " ms";
     }
-    function plural(ms, msAbs, n, name) {
+    function plural(ms2, msAbs, n, name) {
       var isPlural = msAbs >= n * 1.5;
-      return Math.round(ms / n) + " " + name + (isPlural ? "s" : "");
+      return Math.round(ms2 / n) + " " + name + (isPlural ? "s" : "");
     }
   }
 });
@@ -14010,8 +14010,8 @@ var require_common2 = __commonJS({
           }
           const self = debug2;
           const curr = Number(/* @__PURE__ */ new Date());
-          const ms = curr - (prevTime || curr);
-          self.diff = ms;
+          const ms2 = curr - (prevTime || curr);
+          self.diff = ms2;
           self.prev = prevTime;
           self.curr = curr;
           prevTime = curr;
@@ -31113,8 +31113,8 @@ function parseCadence(spec) {
   if (!Number.isFinite(value) || value <= 0) return null;
   return value * UNITS[match[2]];
 }
-function stamp(ms) {
-  return new Date(ms).toISOString();
+function stamp(ms2) {
+  return new Date(ms2).toISOString();
 }
 function evaluateCadence(input) {
   const { runs, now, cadenceMs } = input;
@@ -32888,10 +32888,10 @@ function allChannels(vaultDir, config2, opts = {}) {
 }
 var HOUR = 60 * 6e4;
 var DAY = 24 * HOUR;
-function humanAge(ms) {
-  if (ms >= DAY) return `${Math.floor(ms / DAY)}d`;
-  if (ms >= HOUR) return `${Math.floor(ms / HOUR)}h`;
-  return `${Math.max(0, Math.floor(ms / 6e4))}m`;
+function humanAge(ms2) {
+  if (ms2 >= DAY) return `${Math.floor(ms2 / DAY)}d`;
+  if (ms2 >= HOUR) return `${Math.floor(ms2 / HOUR)}h`;
+  return `${Math.max(0, Math.floor(ms2 / 6e4))}m`;
 }
 function channelHealth(vaultDir, channels, opts = {}) {
   const now = opts.now ?? Date.now();
@@ -32940,9 +32940,9 @@ function channelHealth(vaultDir, channels, opts = {}) {
     }
     const usable = (stamp4) => {
       if (!stamp4) return void 0;
-      const ms = Date.parse(stamp4);
-      if (!Number.isFinite(ms)) return void 0;
-      return ms <= now ? ms : void 0;
+      const ms2 = Date.parse(stamp4);
+      if (!Number.isFinite(ms2)) return void 0;
+      return ms2 <= now ? ms2 : void 0;
     };
     const future = [record2.lastItemAt, record2.firstFetchedAt, record2.lastFetchedAt].filter(
       (s) => s !== void 0 && Number.isFinite(Date.parse(s)) && Date.parse(s) > now
@@ -46044,22 +46044,22 @@ function rollUpUsage(vaultDir, knownTitles, staleAttribution = "drop") {
     if (!trimmed2) continue;
     try {
       const event = JSON.parse(trimmed2);
-      const ms = typeof event.ms === "number" && Number.isFinite(event.ms) ? event.ms : 0;
+      const ms2 = typeof event.ms === "number" && Number.isFinite(event.ms) ? event.ms : 0;
       if (!event.unknown) {
         unattributed.calls++;
-        unattributed.ms += ms;
+        unattributed.ms += ms2;
         continue;
       }
       if (!knownTitles.has(event.unknown)) {
         if (staleAttribution === "unattributed") {
           unattributed.calls++;
-          unattributed.ms += ms;
+          unattributed.ms += ms2;
         }
         continue;
       }
       const bucket = byUnknown.get(event.unknown) ?? emptyCallCost();
       bucket.calls++;
-      bucket.ms += ms;
+      bucket.ms += ms2;
       byUnknown.set(event.unknown, bucket);
     } catch {
     }
@@ -46099,18 +46099,18 @@ function computeAttention(tree, vaultDir, opts = {}) {
   mergeCorrelated(usage, knownTitles, opts.correlated, stale);
   const unknowns = darkNodes.map((node2) => {
     let calls = 0;
-    let ms = 0;
+    let ms2 = 0;
     let tokens = emptyTiers();
     for (const entry of readAttention(vaultDir, node2.title)) {
       if (entry.kind !== "spend") continue;
       calls += entry.calls ?? 0;
-      ms += entry.ms ?? 0;
+      ms2 += entry.ms ?? 0;
       if (entry.tokens) tokens = addTiers(tokens, entry.tokens);
     }
     const traced = usage.byUnknown.get(node2.title);
     if (traced) {
       calls += traced.calls;
-      ms += traced.ms;
+      ms2 += traced.ms;
       tokens = addTiers(tokens, traced.tokens);
     }
     return {
@@ -46118,7 +46118,7 @@ function computeAttention(tree, vaultDir, opts = {}) {
       klass: classifyUnknown(node2, classifier),
       state: resolutionState(node2, resolution),
       calls,
-      ms,
+      ms: ms2,
       tokens,
       weightedCost: weightedTokenCost(tokens, weightedTokenSpend)
     };
@@ -46184,6 +46184,54 @@ function parseInstrument(raw) {
 }
 function isInstrument(r2) {
   return r2.form !== void 0;
+}
+
+// src/runner/flake-attribution.ts
+var CONTENTION_RATIO = 1.5;
+function attributeRerun(first2, rerun) {
+  const shared = {
+    firstMs: first2.elapsedMs,
+    rerunMs: rerun.elapsedMs,
+    budgetMs: first2.budgetMs
+  };
+  if (rerun.failed) {
+    return { kind: "regression", via: "agreement", ...shared };
+  }
+  const control = controlPair(first2.control, rerun.control);
+  if (control === void 0) {
+    return {
+      ...shared,
+      kind: "undetermined",
+      reason: "no control reading was taken in both phases, so a busy box and a slowdown that only appears under concurrency are indistinguishable from these two runs alone"
+    };
+  }
+  if (control.ratio > CONTENTION_RATIO) {
+    return { kind: "contention", ...shared, control };
+  }
+  return { kind: "regression", via: "idle-control", ...shared, control };
+}
+function controlPair(atFailure, atRerun) {
+  if (atFailure === void 0 || atRerun === void 0) return void 0;
+  if (!(atFailure > 0) || !(atRerun > 0)) return void 0;
+  return { atFailure, atRerun, ratio: atFailure / atRerun };
+}
+function describeFlakeAttribution(a) {
+  const against = a.budgetMs === void 0 ? "" : ` against a ${ms(a.budgetMs)} budget`;
+  const failed = `failed at ${ms(a.firstMs)}${against}`;
+  switch (a.kind) {
+    case "regression":
+      return a.via === "agreement" ? `${failed}, failed again at ${ms(a.rerunMs)} \u2014 regression, not contention; the re-run agrees and the red stands.` : `${failed}, passed at ${ms(a.rerunMs)} on a second run \u2014 but the box was no busier when it failed (${ratio(a.control)}), so the machine is not what changed. A regression that only shows under concurrency, not contention.`;
+    case "contention":
+      return `${failed}, passed at ${ms(a.rerunMs)} on a second run, and the box read ${ratio(a.control)} busier during the failure \u2014 contention, not regression.`;
+    case "undetermined":
+      return `${failed}, passed at ${ms(a.rerunMs)} on a second run; cause not determined \u2014 ${a.reason}.`;
+  }
+}
+function ratio(c3) {
+  return `${c3.ratio.toFixed(2)}x`;
+}
+function ms(n) {
+  return `${Math.round(n).toLocaleString("en-US")}ms`;
 }
 
 // src/eval/shipped-audit.ts
@@ -46255,7 +46303,33 @@ function instrumentLog(node2) {
 function specResolves(repos, target) {
   return repos.some((repo) => existsSync(path28.resolve(repo, target)));
 }
-function runInstrument(instrument, repoDir) {
+function spawnOnce(instrument, repoDir) {
+  const started = Date.now();
+  const run = spawnSync2("npx", instrument.argv, {
+    cwd: path28.resolve(repoDir),
+    encoding: "utf8",
+    // A spec suite that hangs would otherwise hang the loop that called it.
+    timeout: 10 * 6e4,
+    maxBuffer: 32 * 1024 * 1024
+  });
+  const elapsedMs = Date.now() - started;
+  const exitCode = run.status;
+  const output = `${run.stdout ?? ""}
+${run.stderr ?? ""}`;
+  if (exitCode === 0) {
+    return { observation: "green", exitCode, excerpt: firstMeaningfulLine(output, run.error?.message), elapsedMs };
+  }
+  if (collectedNothing(output)) {
+    return {
+      observation: "no-spec",
+      exitCode,
+      excerpt: `${instrument.target} collected no test cases \u2014 nothing in it can fail, so nothing was measured`,
+      elapsedMs
+    };
+  }
+  return { observation: "red", exitCode, excerpt: firstMeaningfulLine(output, run.error?.message), elapsedMs };
+}
+function runInstrument(instrument, repoDir, options2 = {}) {
   const target = path28.resolve(repoDir, instrument.target);
   if (!existsSync(target)) {
     return {
@@ -46264,27 +46338,15 @@ function runInstrument(instrument, repoDir) {
       excerpt: `${instrument.target} does not exist \u2014 no spec was collected, so nothing was measured`
     };
   }
-  const run = spawnSync2("npx", instrument.argv, {
-    cwd: path28.resolve(repoDir),
-    encoding: "utf8",
-    // A spec suite that hangs would otherwise hang the loop that called it.
-    timeout: 10 * 6e4,
-    maxBuffer: 32 * 1024 * 1024
-  });
-  const exitCode = run.status;
-  const output = `${run.stdout ?? ""}
-${run.stderr ?? ""}`;
-  if (exitCode === 0) {
-    return { observation: "green", exitCode, excerpt: firstMeaningfulLine(output, run.error?.message) };
-  }
-  if (collectedNothing(output)) {
-    return {
-      observation: "no-spec",
-      exitCode,
-      excerpt: `${instrument.target} collected no test cases \u2014 nothing in it can fail, so nothing was measured`
-    };
-  }
-  return { observation: "red", exitCode, excerpt: firstMeaningfulLine(output, run.error?.message) };
+  const { elapsedMs, ...first2 } = spawnOnce(instrument, repoDir);
+  if (first2.observation !== "red" || !options2.rerunOnRed) return first2;
+  const second = spawnOnce(instrument, repoDir);
+  if (second.observation === "no-spec") return first2;
+  const attribution = attributeRerun(
+    { failed: true, elapsedMs },
+    { failed: second.observation === "red", elapsedMs: second.elapsedMs }
+  );
+  return { ...first2, attribution, excerpt: `${first2.excerpt} [${describeFlakeAttribution(attribution)}]` };
 }
 function firstMeaningfulLine(output, spawnError) {
   if (spawnError) return spawnError.slice(0, 200);
@@ -46305,7 +46367,7 @@ function verifyInstrument(vaultDir, filing) {
       `"${filing.test}" declares no runnable instrument: ${parsed.reason}. Add an \`instrument:\` field naming one spec file, e.g. \`npx vitest run test/thing.test.ts\`.`
     );
   }
-  const run = runInstrument(parsed, filing.repo);
+  const run = runInstrument(parsed, filing.repo, { rerunOnRed: true });
   const alreadyRed = observedRed(node2);
   if (run.observation === "no-spec") {
     const on2 = filing.on ?? (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
@@ -47598,8 +47660,8 @@ var MERGE_RETRY_MS = 2e3;
 function isStaleMergeability(output) {
   return /has merge conflicts|not mergeable|Base branch was modified|mergeable state|try again/i.test(output);
 }
-function sleepSync(ms) {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+function sleepSync(ms2) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms2);
 }
 function git2(repo, args, run) {
   const { status, output } = run(["git", ...args], repo);
@@ -51466,9 +51528,9 @@ function isoToMs(value) {
   const m = ISO_DATE.exec(value.trim());
   if (!m) return null;
   const [, y2, mo, d] = m;
-  const ms = Date.UTC(Number(y2), Number(mo) - 1, Number(d));
-  const back = new Date(ms).toISOString().slice(0, 10);
-  return back === value.trim() ? ms : null;
+  const ms2 = Date.UTC(Number(y2), Number(mo) - 1, Number(d));
+  const back = new Date(ms2).toISOString().slice(0, 10);
+  return back === value.trim() ? ms2 : null;
 }
 function daysBetween(from, to) {
   const a = isoToMs(from);
@@ -54984,8 +55046,8 @@ function releaseFiringLock(vaultDir, match) {
 }
 var REAL_WAIT_CLOCK = {
   now: () => Date.now(),
-  sleep: (ms) => {
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+  sleep: (ms2) => {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms2);
   }
 };
 var DEFAULT_POLL_MS = 2e3;
@@ -61310,7 +61372,7 @@ function appendDelivery(dir, delivery) {
   fs54.mkdirSync(path60.dirname(p2), { recursive: true });
   fs54.appendFileSync(p2, JSON.stringify(delivery) + "\n");
 }
-var stamp3 = (ms) => new Date(ms).toISOString();
+var stamp3 = (ms2) => new Date(ms2).toISOString();
 function evaluateDigestCadence(input) {
   const { deliveries, now, cadenceMs } = input;
   if (cadenceMs === null) {
