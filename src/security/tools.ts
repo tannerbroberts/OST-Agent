@@ -18,6 +18,7 @@ import type { QuarantinedNode } from "../ost/quarantine.js";
 import { BELIEVABILITY_LADDER, isRung, rungRank, type RungId } from "../knowledge/believability.js";
 import { isInstrument, parseInstrument } from "../knowledge/instruments.js";
 import { specResolves } from "../ost/instrument.js";
+import { createInstrumentRation, rationRefusal, type InstrumentRation } from "../ost/rationing.js";
 import { parseThresholdField, thresholdKindOf } from "../eval/coverage.js";
 import { MAX_KILL_HORIZON_DAYS, parseKillCondition, parseKillDate } from "../ost/kill-criteria.js";
 import { classifyUnknown, hasNonEmptySection } from "../knowledge/unknowns.js";
@@ -775,6 +776,12 @@ export interface ToolContext {
     fetchFn?: WebFetchFn;
     budget?: LookupBudget;
   };
+  /**
+   * The pass's instrument ration — how many commands this session may attach
+   * before the tree's execution rate has to catch up. Built here when absent,
+   * so a caller cannot get an unrationed surface by forgetting it.
+   */
+  instrumentRation?: InstrumentRation;
   /** Local product repo roots the agent may read (config `product.repos`). */
   productRepos?: readonly string[];
   /** The full pass context, needed by the tools that report on the whole vault. */
@@ -801,6 +808,13 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
   // per invocation — the shape this avoids; it now reads the channels
   // `buildPassContext` resolved once.)
   const lookupBudget = ctx.web?.budget ?? createLookupBudget();
+  // One instrument ration for this pass/session, on the same terms and for the
+  // same reason as the lookup budget above: created here if the context did not
+  // bring one, so the bound holds on every surface rather than only the one that
+  // remembered to pass it. Unlike the lookup budget it reads the tree on demand —
+  // its allowance is a fact about how much has been executed, not a number the
+  // operator set (`ost/rationing.ts`).
+  const instrumentRation = ctx.instrumentRation ?? createInstrumentRation(() => vault.readTree());
   const rankedBy = `agent${ctx.surface ? `:${ctx.surface}` : ""}`;
 
   const all = [
@@ -1192,6 +1206,17 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         // the ATTACH can refuse is asked here, before the first byte is written:
         // the parent resolves and deserializes, the title reduces to a name
         // inside the vault, and the parent's file is writable.
+        // The instrument ration, charged at the OTHER door into the same field.
+        // `ost_set_instrument` is not the only way a command reaches a node —
+        // this tool takes one at birth, on a surface that grants both — so a
+        // ration applied there alone is a sieve, and a pass would learn within
+        // one session that it can attach an unlimited number of commands by
+        // creating the tests that carry them. Charged here, after every other
+        // refusal and before the first byte is written, for the same reason it
+        // is charged last over there.
+        if (node.instrument !== undefined && !instrumentRation.take()) {
+          throw new Error(rationRefusal(input.title, instrumentRation, true));
+        }
         vault.assertLinkable(input.parent, input.title);
         vault.createNode(node); // gets its #<layer> tag from serialize
         try {
@@ -1373,6 +1398,18 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         const repos = ctx.productRepos ?? [];
         if (repos.length > 0 && !specResolves(repos, parsed.target) && thresholdKindOf(node) !== "bound") {
           throw new Error(`cannot set that instrument on "${input.test}": ${unresolvedSpecRefusal(repos, parsed.target)}`);
+        }
+        // The ration, charged last so that a call which was going to be refused
+        // for any other reason does not spend the pass's allowance on nothing.
+        //
+        // An ATTACH is charged; a correction is not. Replacing a command on a
+        // test that already carries one leaves the tree holding exactly as many
+        // unrun instruments as before, so it adds no readiness and there is
+        // nothing to push back on — and rationing it would make a pass choose
+        // between fixing a wrong command and writing a right one, which is the
+        // opposite of what the shortage asks for.
+        if (!existing && !instrumentRation.take()) {
+          throw new Error(rationRefusal(input.test, instrumentRation));
         }
         // Whether THIS write could see the repository, taken from the grant
         // table at this moment and from nowhere else. `input` has no sight

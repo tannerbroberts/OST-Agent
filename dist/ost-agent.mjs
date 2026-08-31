@@ -51225,6 +51225,50 @@ function tool(spec) {
   };
 }
 
+// src/ost/rationing.ts
+var INSTRUMENT_FLOOR = 5;
+var INSTRUMENTS_PER_RESULT = 3;
+function countRecordedResults(tree) {
+  return tree.filter((n) => n.layer === "AssumptionTest").reduce((total, test) => total + entriesUnder(test.body ?? "", RESULTS_HEADING).length, 0);
+}
+function instrumentShortage(tree) {
+  const carriers = tree.filter((n) => n.layer === "AssumptionTest" && typeof n.instrument === "string");
+  return {
+    results: countRecordedResults(tree),
+    // Reuses the census rather than re-filtering, so "how many instruments does
+    // this tree carry" has one answer here, in `debt` and in `status`.
+    instrumented: sightCensus(tree).total,
+    unanswered: carriers.filter((n) => !hasRecordedResult(n)).length
+  };
+}
+function createInstrumentRation(readTree, opts = {}) {
+  const floor = opts.floor ?? INSTRUMENT_FLOOR;
+  const perResult = opts.perResult ?? INSTRUMENTS_PER_RESULT;
+  let used = 0;
+  const allowance = () => floor + perResult * countRecordedResults(readTree());
+  return {
+    floor,
+    perResult,
+    take: () => {
+      if (used >= allowance()) return false;
+      used++;
+      return true;
+    },
+    spent: () => used,
+    allowance,
+    remaining: () => Math.max(0, allowance() - used),
+    shortage: () => instrumentShortage(readTree())
+  };
+}
+function rationRefusal(test, ration, atBirth = false) {
+  const s = ration.shortage();
+  const opening = s.results === 0 ? `no result has ever been recorded in this tree, so the allowance is at its floor of ${ration.floor}` : `${s.results} result(s) are recorded, which allows ${ration.allowance()}`;
+  const doNotLaunder = atBirth ? `
+Do NOT get past this by declaring \`humansRequired\` on a test a spec would settle. That lane means a person outside the building is the measurement, no unattended pass may ever run it, and mislabelling one costs an operator time it will never get back. Write the test when the allowance is there.` : "";
+  return `refusing to instrument "${test}": this pass has attached ${ration.spent()} instrument(s) and ${opening}. The tree already carries ${s.instrumented} command(s), ${s.unanswered} of which no result answers \u2014 attaching another adds readiness to a queue nothing has executed, which is the shortage this ration exists to make visible rather than an error in your call.
+The allowance opens by ${ration.perResult} for each result recorded, and recording one is a person's \`ost-agent result\` \u2014 it is not on this surface and never will be. Until then, spend the pass on work that does not need a command: map evidence, ideate against under-served opportunities, or annotate what you would have instrumented so the next pass finds it.${doNotLaunder}`;
+}
+
 // src/ost/sweep.ts
 import fs33 from "node:fs";
 import path33 from "node:path";
@@ -53801,6 +53845,7 @@ function buildOstTools(ctx, allowedNames) {
   const { vault, dir, remote } = ctx;
   const minSolutions = ctx.minSolutionsPerOpportunity ?? DEFAULT_MIN_SOLUTIONS_PER_OPPORTUNITY;
   const lookupBudget = ctx.web?.budget ?? createLookupBudget();
+  const instrumentRation = ctx.instrumentRation ?? createInstrumentRation(() => vault.readTree());
   const rankedBy = `agent${ctx.surface ? `:${ctx.surface}` : ""}`;
   const all = [
     tool({
@@ -54041,6 +54086,9 @@ A person outside the building is the measurement here: ${input.humansRequired.tr
             );
           }
         }
+        if (node2.instrument !== void 0 && !instrumentRation.take()) {
+          throw new Error(rationRefusal(input.title, instrumentRation, true));
+        }
         vault.assertLinkable(input.parent, input.title);
         vault.createNode(node2);
         try {
@@ -54163,6 +54211,9 @@ A person outside the building is the measurement here: ${input.humansRequired.tr
         const repos = ctx.productRepos ?? [];
         if (repos.length > 0 && !specResolves(repos, parsed.target) && thresholdKindOf(node2) !== "bound") {
           throw new Error(`cannot set that instrument on "${input.test}": ${unresolvedSpecRefusal(repos, parsed.target)}`);
+        }
+        if (!existing && !instrumentRation.take()) {
+          throw new Error(rationRefusal(input.test, instrumentRation));
         }
         const line = vault.setInstrument(input.test, parsed.command, why, repoSight(repos));
         return `instrument of "${input.test}" set: ${line}
