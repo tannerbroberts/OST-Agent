@@ -251,6 +251,48 @@ const TRACE_READER_MODULES: Record<string, string> = {
 };
 
 /**
+ * The sixth class, and the trace readers' sibling: modules that move a Gate F
+ * verdict from an input the surface can write ON PURPOSE.
+ *
+ * It is separate from {@link TRACE_READER_MODULES} rather than folded into it
+ * because the non-vacuity assertion differs — a trace reader has to be shown
+ * reading the trace, and one of these has to be shown sweeping the tree — and
+ * because the weaker property that stands in for part 2's proof is a different
+ * argument, spelled out below rather than borrowed.
+ *
+ * `stop-condition.ts` is the only member. It sweeps the tree — nodes, the config,
+ * `.ost-agent/evidence/` — and every one of those is writable by the unattended
+ * surface by design, because writing the tree is what the surface is FOR. What it
+ * returns moves a verdict: `computeVerdict` reads `idleBreach` over the record it
+ * stamps, and a firing that authored structure while the condition held seals
+ * `unhealthy`.
+ *
+ * **The weaker property, in full, because it is weaker than the trace's.** Three
+ * inputs, three directions:
+ *
+ *   - `heldAtStart` is swept at `loop start`, BEFORE the pass phase spawns, so
+ *     THIS firing cannot move its own reading. A PREVIOUS firing can, by leaving
+ *     outstanding work behind. That is the honest limit of this gate rather than a
+ *     hole in it: a tree with outstanding work is exactly the state where
+ *     authoring is licensed. What the gate catches is the case actually observed —
+ *     a maintained tree, a firing with nothing it may do, structure appearing
+ *     anyway. What it does not catch is a pass that keeps its own queue warm by
+ *     leaving half-finished structure, which is the invented-work cycle one step
+ *     removed and needs a pass compared against its own previous output to see.
+ *   - `evidenceAtSeal` this firing CAN move, and only OUT of the breach, by really
+ *     ingesting — the same shape as the trace's argument. `ost_ingest_inbox`
+ *     writes a record only for an item the read-only adapters actually found,
+ *     nothing on the allowlist deletes one, and an ingesting firing is meant to be
+ *     let off.
+ *   - the commit subjects are written by the dispatcher, one per real call, and
+ *     `toolFromSubject` anchors on the leading `mcp: <tool>` it writes — so a node
+ *     TITLE quoting a tool name lands mid-subject and classifies nothing.
+ */
+const TREE_READER_MODULES: Record<string, string> = {
+  "stop-condition.ts": "F4 / H1 / H4",
+};
+
+/**
  * The fourth class: modules that open files and decide nothing.
  *
  * `questions.ts` reads the same session transcripts `spend.ts` does, but it
@@ -423,22 +465,23 @@ describe("1 — the enumeration covers every module that can become a decider in
       const classifications = [
         READER_MODULES[m] ? "reader" : null,
         TRACE_READER_MODULES[m] ? "trace-reader" : null,
+        TREE_READER_MODULES[m] ? "tree-reader" : null,
         PURE_MODULES.includes(m) ? "pure" : null,
         REPORTER_MODULES.includes(m) ? "reporter" : null,
         OFF_GATE_DECIDER_MODULES[m] ? "off-gate decider" : null,
       ].filter(Boolean);
       expect(
         classifications,
-        `src/loop/${m} is not classified — add it to READER_MODULES, TRACE_READER_MODULES, PURE_MODULES, ` +
-          "REPORTER_MODULES or OFF_GATE_DECIDER_MODULES, and if it opens a new file for a DECIDER, add that " +
-          "file to the decider's reads so both surfaces below cover it",
+        `src/loop/${m} is not classified — add it to READER_MODULES, TRACE_READER_MODULES, TREE_READER_MODULES, ` +
+          "PURE_MODULES, REPORTER_MODULES or OFF_GATE_DECIDER_MODULES, and if it opens a new file for a DECIDER, " +
+          "add that file to the decider's reads so both surfaces below cover it",
       ).toHaveLength(1);
     }
   });
 
   test("every reader is attributed to a decider this file enumerates", () => {
     const known = new Set(DECIDERS.map((d) => d.criterion));
-    for (const [m, criterion] of Object.entries({ ...READER_MODULES, ...TRACE_READER_MODULES })) {
+    for (const [m, criterion] of Object.entries({ ...READER_MODULES, ...TRACE_READER_MODULES, ...TREE_READER_MODULES })) {
       expect(known.has(criterion), `src/loop/${m} is attributed to "${criterion}", which is not in DECIDERS`).toBe(true);
     }
   });
@@ -485,6 +528,40 @@ describe("1 — the enumeration covers every module that can become a decider in
     }
   });
 
+  test("the tree readers really do sweep the tree", () => {
+    // Same non-vacuity as the trace readers, spelled for this class's input: a
+    // module filed here that stopped sweeping would be claiming an exemption from
+    // part 2 that it no longer needs, and the weaker property above would be
+    // covering nothing. `computeNextWork` is the sweep; a module that calls it is
+    // reading every node file, the config and the evidence directory through it.
+    for (const m of Object.keys(TREE_READER_MODULES)) {
+      const src = fs.readFileSync(path.join(loopDir, m), "utf8");
+      expect(src, `src/loop/${m} is enumerated as a tree reader but does not sweep the tree`).toMatch(
+        /computeNextWork|readEvidenceScan/,
+      );
+    }
+  });
+
+  test("the tree readers' verdict is swept before the pass phase can move it", () => {
+    // The half of the weaker property that is checkable from here. `loop start`
+    // takes the reading, and the pass phase is spawned by `loop step` — a
+    // different command, later — so a firing cannot sweep itself into a licence.
+    // If the reading ever moved into `seal`, this fails rather than quietly
+    // handing every pass the answer it wanted.
+    const cli = readRepoFile("src/cli/loop.ts");
+    const start = cli.indexOf('.command("start")');
+    const seal = cli.indexOf('.command("seal")');
+    expect(Math.min(start, seal)).toBeGreaterThan(-1);
+    expect(
+      cli.slice(start, seal),
+      "`loop start` does not take the stop-condition reading, so no firing is stamped with one",
+    ).toContain("observeStopCondition(");
+    expect(
+      cli.slice(seal),
+      "`loop seal` re-sweeps the tree — a reading taken after the pass ran is a reading the pass moved",
+    ).not.toContain("observeStopCondition(");
+  });
+
   test("the modules declared reporters really do read something", () => {
     // Same non-vacuity as the readers: a "reporter" that touches no file is just a
     // pure module filed in the class with the weaker obligations.
@@ -525,9 +602,12 @@ describe("1 — the enumeration covers every module that can become a decider in
     // parts 2–4; that is only sound while no verdict can reach them.
     const deciderModules = [
       ...DECIDERS.map((d) => d.module),
-      ...Object.keys({ ...READER_MODULES, ...TRACE_READER_MODULES, ...OFF_GATE_DECIDER_MODULES }).map(
-        (m) => `src/loop/${m}`,
-      ),
+      ...Object.keys({
+        ...READER_MODULES,
+        ...TRACE_READER_MODULES,
+        ...TREE_READER_MODULES,
+        ...OFF_GATE_DECIDER_MODULES,
+      }).map((m) => `src/loop/${m}`),
     ];
     for (const decider of new Set(deciderModules)) {
       const src = readRepoFile(decider);

@@ -26,6 +26,7 @@ import { appendJournal } from "./journal.js";
 // it hands back.
 import type { Degradation } from "./degraded.js";
 import type { SpendCeiling } from "./spend.js";
+import { idleBreach, type StopConditionClose, type StopConditionRecord } from "./stop-condition.js";
 
 /**
  * What a firing had, and what it declared it could not work without and did
@@ -197,6 +198,19 @@ export interface LoopRunRecord {
    * `startRun` caller did not observe a goal.
    */
   goal?: GoalContractRecord;
+  /**
+   * The loop's own reading of the stopping question: whether the published stop
+   * condition held when this run opened, how much evidence was on disk then and
+   * at seal, and what the firing's commits were made of.
+   *
+   * Stamped from the vault at both ends and never from the pass, like `goal` and
+   * for a sharper reason — this one has teeth. `computeVerdict` reads
+   * {@link idleBreach} over it, so a firing that authored structure it had been
+   * told there was no call for seals `unhealthy`. Absent on a run started before
+   * this field existed, which every consumer treats as "nothing enforced" rather
+   * than as a clean reading.
+   */
+  stopCondition?: StopConditionRecord;
 }
 
 /**
@@ -298,6 +312,8 @@ export function startRun(
     toolSurface?: ToolSurfaceObservation;
     /** Likewise: the caller reads the vault's mandate, this only records what it was handed. */
     goal?: GoalContractRecord;
+    /** Likewise: the caller sweeps the tree and counts the evidence; this records the reading. */
+    stopCondition?: StopConditionRecord;
   },
 ): LoopRunRecord {
   sweepCrashed(dir);
@@ -311,6 +327,7 @@ export function startRun(
     ...(meta.ceiling ? { ceiling: meta.ceiling } : {}),
     ...(meta.toolSurface ? { toolSurface: meta.toolSurface } : {}),
     ...(meta.goal ? { goal: meta.goal } : {}),
+    ...(meta.stopCondition ? { stopCondition: meta.stopCondition } : {}),
     steps: [],
   };
   fs.writeFileSync(openRunPath(dir), JSON.stringify(run, null, 2));
@@ -387,6 +404,15 @@ export function stampFallback(dir: string, fallback: FallbackRecord): LoopRunRec
  * (`no-op`). Both of those are claims about the tree, and a degraded firing has
  * no standing to make one. That is the whole of "not allowed to report a clean
  * run", expressed where a caller cannot route around it.
+ *
+ * **Where the idle breach sits, and why above `degraded`.** A firing that
+ * authored structure while the stop condition held has not merely run without
+ * what it needed — it has put work into the tree that nothing asked for and
+ * nothing can check, which is the ungoverned half of the failure the condition
+ * exists to close. `unhealthy` is the honest word for that, and it has to outrank
+ * `degraded` or a firing could buy itself the softer verdict by also being
+ * blind. It sits below the step and phase checks for the same reason `degraded`
+ * does: a red step is a failure this one has nothing to add to.
  */
 /** Whether a step's own exit code, not the run's derived verdict, was non-zero. */
 export function stepFailed(step: LoopStepRecord): boolean {
@@ -397,6 +423,7 @@ export function computeVerdict(run: LoopRunRecord): LoopVerdict {
   if (run.steps.some(stepFailed)) return "unhealthy";
   const phases = new Set(run.steps.map((s) => s.phase));
   if (!REQUIRED_PHASES.every((p) => phases.has(p))) return "unhealthy";
+  if (idleBreach(run.stopCondition)) return "unhealthy";
   if (run.degradations && run.degradations.length > 0) return "degraded";
   if (!run.headBefore || !run.headAfter || run.headBefore === run.headAfter) return "no-op";
   return "healthy";
@@ -416,6 +443,17 @@ export function sealRun(
      * ignored rather than allowed to invent what the run was aimed at.
      */
     goal?: GoalContractRecord;
+    /**
+     * The seal-time half of the stopping question — the evidence count now and
+     * what this firing's commits were made of, both read from the vault by the
+     * caller.
+     *
+     * Like `goal`, it can only CLOSE a reading `startRun` already opened: a
+     * caller handing this in for a run that stamped none is ignored rather than
+     * allowed to invent what the firing was told. That asymmetry is what keeps
+     * the half with teeth out of reach of anything but the loop's own bookends.
+     */
+    stopCondition?: StopConditionClose;
   } = {},
 ): LoopRunRecord {
   const open = requireOpenRun(dir);
@@ -423,6 +461,9 @@ export function sealRun(
     ...open,
     ...(meta.headAfter ? { headAfter: meta.headAfter } : {}),
     ...(meta.goal && open.goal ? { goal: meta.goal } : {}),
+    ...(meta.stopCondition && open.stopCondition
+      ? { stopCondition: { ...open.stopCondition, closed: meta.stopCondition } }
+      : {}),
     // Stamped before the verdict is computed, so the verdict is derived from the
     // same list the record carries — a reader can always re-run `computeVerdict`
     // over a sealed line and get the verdict it was sealed with.

@@ -195,12 +195,13 @@ MCP_CONFIG="$(mktemp "${TMPDIR:-/tmp}/ost-agent-mcp.XXXXXX")"
 # too. They hold the computed top-level view and the prompt it is prepended to.
 ROLLUP_FILE="$(mktemp "${TMPDIR:-/tmp}/ost-rollup.XXXXXX")"
 CORRECTIONS_FILE="$(mktemp "${TMPDIR:-/tmp}/ost-corrections.XXXXXX")"
+STOP_FILE="$(mktemp "${TMPDIR:-/tmp}/ost-stop-condition.XXXXXX")"
 PROMPT_FILE="$(mktemp "${TMPDIR:-/tmp}/ost-pass-prompt.XXXXXX")"
 
 # Seal on every exit path, including a phase that aborted under `set -e`. The
 # verdict is computed from what was recorded, so an aborted firing seals unhealthy
 # rather than vanishing, and the lock is released either way.
-trap 'rm -f "$MCP_CONFIG" "$ROLLUP_FILE" "$CORRECTIONS_FILE" "$PROMPT_FILE"; node "$CLI" loop seal --vault . || true' EXIT
+trap 'rm -f "$MCP_CONFIG" "$ROLLUP_FILE" "$CORRECTIONS_FILE" "$STOP_FILE" "$PROMPT_FILE"; node "$CLI" loop seal --vault . || true' EXIT
 
 # The MCP server is declared here rather than loaded as a plugin, and the pass
 # instructions are handed over as the prompt rather than invoked as `/ost-pass`.
@@ -320,8 +321,33 @@ fi
 if ! node "$CLI" corrections --vault . >"$CORRECTIONS_FILE"; then
   printf '(the corrections ledger could not be read this firing)\n' >"$CORRECTIONS_FILE"
 fi
+# The published stop condition, evaluated against this tree and handed over.
+#
+# `loop start` has already stamped this same reading into the run record, and
+# `loop seal` holds the pass to it: a firing that authors structure while the
+# condition holds seals `unhealthy`. So the pass has to be TOLD, here, before it
+# composes anything. A rule enforced at seal and announced nowhere would fail a
+# firing for a standard it was never given, which is the shape of gate an operator
+# rightly switches off.
+#
+# `set +e` around it because the quiet answer is a non-zero exit by design (23 —
+# see LOOP_EXIT.nothingActionable), and this script runs under `set -e`. Nothing
+# branches on the code: the firing goes ahead either way, because the honest idle
+# pass still reads, still ingests, and may still have a friction note to file. What
+# changes is what it is allowed to author.
+set +e
+node "$CLI" loop stop --vault . >"$STOP_FILE" 2>&1
+set -e
 {
   cat "$CORRECTIONS_FILE"
+  printf '\n\n---\n\n'
+  printf 'THE STOP CONDITION, evaluated against this tree by the loop (not by you):\n\n'
+  cat "$STOP_FILE"
+  printf '\nIf it says `stop`, idling is the honest outcome of this firing and it costs nothing.\n'
+  printf 'Read, ingest, and if there is something to say about the standstill, file a friction\n'
+  printf 'note about it — but author no structure. When this firing is sealed the loop observes\n'
+  printf 'what you committed, and a firing that created structure the sweep did not ask for is\n'
+  printf 'recorded `unhealthy`.\n'
   printf '\n\n---\n\n'
   printf 'THE TREE AS IT STANDS (computed by `ost-agent rollup`, not written by anyone):\n\n'
   cat "$ROLLUP_FILE"
