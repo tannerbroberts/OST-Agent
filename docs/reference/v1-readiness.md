@@ -3204,12 +3204,27 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,529 tests across 337 files, verified 2026-08-31 (`npx vitest run`
-> reports 4,521 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,551 tests across 338 files, verified 2026-08-31 (`npx vitest run`
+> reports 4,543 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,521 across
-> the 336 files it collects, in 362 s. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,543 across
+> the 337 files it collects, in 361 s. The file added since the previous line is
+> `test/knowledge/corrections-file-size.test.ts` — the corrections briefing measured against
+> the 2,000-character bar its assumption test fixed, behind "Refusals are written back as a
+> standing corrections file every session reads first". Its subject is
+> `test/fixtures/corrections/aged-ledger.json`, this machine's real build-loop ledger after
+> **678 harvested sessions**, and what it found is not what the node predicted. Entry growth
+> never happened — three corrections, `MAX_CORRECTIONS` (25) never approached, `dropped`
+> still 0 — yet the briefing rendered at 2,128 characters, over the bar, because one entry
+> cost 1,577 on its own. Both expiry rules the node proposed are counted in entries, so both
+> drop zero and change nothing; the instrument runs them and asserts that. What brought it
+> under was finding that one of the three was never a correction: the unparseable-input
+> report, whose remedy reduces to "emit valid JSON". Dropping it lands at 1,734 with nothing
+> truncated. The ordering is load-bearing and is pinned as its own case — that entry carries
+> the largest count in the file, so a character budget applied *before* it is pruned keeps it
+> and evicts the sleep-then-poll block, the correction thirteen sessions of this workspace
+> have paid for (`src/loop/corrections.ts`). The file before that is
 > `test/adapters/recurrence-rule-filing.test.ts` — the same 29-record friction corpus the
 > surface rule was judged on, replayed through a rule that files on recurrence instead of on
 > whose tool failed, behind "Recurrence across sessions files a record, a single incident

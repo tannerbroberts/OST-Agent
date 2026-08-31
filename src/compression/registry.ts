@@ -260,6 +260,32 @@ export const COMPRESSION_SURFACES = [
     proof: "declaration",
   },
   {
+    /*
+     * Registered apart from "corrections ledger" above because it bounds a
+     * different thing in a different unit, and the difference is the finding that
+     * created it. That cap counts stored ENTRIES; this one counts the CHARACTERS a
+     * session actually reads. The real 678-session ledger overran this bound while
+     * sitting at three entries — an eighth of MAX_CORRECTIONS, with `dropped` still
+     * zero — because one entry cost two thirds of the budget on its own. Folding
+     * the two into one surface would put a contract about entry age next to a
+     * contract about reader attention and lose the fact that the entry-counted one
+     * cannot see the overrun.
+     */
+    name: "corrections briefing budget",
+    module: "src/loop/corrections.ts",
+    caps: ["MAX_BRIEFING_CHARS"],
+    kind: "bounded-output",
+    decision:
+      "which already-issued corrections a session is handed before it composes its first tool call",
+    reads: [
+      "the briefing is under the 2,000 characters the assumption test fixed as the bar for fitting in opening context",
+      "a trimmed briefing says how many corrections it left out and on what criterion, so a short list is never read as the whole ledger",
+      "the correction paid for most often is never the one evicted, so trimming cannot invert the ledger's own ranking",
+    ],
+    drops: "prose-note",
+    proof: "behavioral",
+  },
+  {
     name: "ruleset proposal bound",
     module: "src/knowledge/ruleset-proposal.ts",
     caps: ["MAX_RULE_CHARS", "MAX_RATIONALE_CHARS", "MAX_SOURCE_CHARS"],

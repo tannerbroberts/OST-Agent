@@ -235,7 +235,8 @@ import { renderAuthorityContract } from "../loop/authority-contract.js";
 import { renderHostSurfaces } from "../security/host-delegation.js";
 import { detectAuthentication, renderAuthDetectionReport } from "../security/auth-detection-report.js";
 import {
-  DEFAULT_QUIET_MINUTES, emptyCorrectionsLedger, readLedger, recordCorrections, renderCorrections,
+  DEFAULT_QUIET_MINUTES, MAX_BRIEFING_CHARS, emptyCorrectionsLedger, readLedger, recordCorrections,
+  renderCorrections,
 } from "../loop/corrections.js";
 import { SHIM_NAME, renderWaitShim } from "../loop/wait.js";
 import {
@@ -297,6 +298,8 @@ interface CorrectionsOptions {
   quietMinutes?: string;
   /** Commander's `--no-record`: absent ⇒ true. */
   record?: boolean;
+  /** Print every correction, ignoring the briefing's character budget. */
+  full?: boolean;
   vault: string;
 }
 
@@ -2661,6 +2664,10 @@ program
     `a session must be untouched this long to count as finished (default ${DEFAULT_QUIET_MINUTES})`,
   )
   .option("--no-record", "render what is already recorded; do not read any transcript")
+  .option(
+    "--full",
+    `print every recorded correction, ignoring the ${MAX_BRIEFING_CHARS}-character budget the briefing is trimmed to`,
+  )
   .option("--vault <dir>", VAULT_OPTION_HELP)
   .action((opts: CorrectionsOptions) => {
     /*
@@ -2710,7 +2717,13 @@ program
       }
     }
 
-    console.log(renderCorrections(readLedger(state)));
+    /*
+     * Budgeted by default, because the default caller is a wrapper pasting this
+     * into a prompt and the whole value of the artifact is being short enough to
+     * be read. `--full` is for a human auditing the ledger, where being over the
+     * bar is the thing they came to see.
+     */
+    console.log(renderCorrections(readLedger(state), opts.full ? { maxChars: null } : {}));
   });
 
 program
