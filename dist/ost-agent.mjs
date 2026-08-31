@@ -64363,6 +64363,263 @@ function readRankedLedger(vaultDir) {
   return fs66.existsSync(p2) ? fs66.readFileSync(p2, "utf8") : null;
 }
 
+// src/ost/recorded-decisions.ts
+var DECISION_KINDS = [
+  "prioritization-lane",
+  "founder-decision",
+  "evidence-debt-gate",
+  "wip-hold",
+  "lane-label"
+];
+var RECORDED_DECISION_RULE = Object.freeze({
+  fixed: "2026-08-02",
+  denominator: 32,
+  /** At least this many positioned rows and the candidate is worth building on its own. */
+  pass: 13,
+  /** Below this many and the candidate is dead. "Below 7 of 32 kills the candidate." */
+  kill: 7
+});
+function coverageVerdict(positioned) {
+  if (positioned >= RECORDED_DECISION_RULE.pass) return "supports";
+  if (positioned < RECORDED_DECISION_RULE.kill) return "kills";
+  return "supplement";
+}
+var WIKILINK2 = /\[\[([^\]\n]+)\]\]/g;
+var QUOTED = /"([^"\n]+)"/g;
+var HOLD_WORDS = /(\bhold until\b|\bheld on\b|\bHeld\s*:|\bon hold\b|\bGate held\b|\bheld,? deliberately\b|\bgated\b|\bevidence-debt gate\b|\bdo not (?:ideate|expand)\b|\bexpand only when\b|\bno new siblings\b|\bsequenced-after\b|\bdeferred?\b|\bWIP limit\b)/i;
+var ADVANCE_WORDS = /(\bTARGET\b|\bcritical path\b|\brun first\b|\bhighest[- ]leverage\b)/i;
+var WIP_HOLD_MARKER = /(\bWIP limit\b|\bHeld\s*:|\bheld on\b|\bhold(?:ing)? (?:until|the remaining|these|those)\b|\bon hold\b|\bGate held\b|\bheld,? deliberately\b)/i;
+function directionOf(text2) {
+  const hold = HOLD_WORDS.test(text2);
+  const advance = ADVANCE_WORDS.test(text2);
+  if (hold && advance) return "mixed";
+  if (hold) return "hold";
+  if (advance) return "advance";
+  return "unstated";
+}
+function namesIn(text2, titles) {
+  const flat = text2.replace(/\s+/g, " ");
+  const hits = [];
+  for (const re of [WIKILINK2, QUOTED]) {
+    re.lastIndex = 0;
+    for (const m of flat.matchAll(re)) {
+      const name = m[1].trim();
+      if (titles.has(name)) hits.push({ at: m.index ?? 0, title: name });
+    }
+  }
+  hits.sort((a, b2) => a.at - b2.at);
+  const seen = /* @__PURE__ */ new Set();
+  return hits.filter((h2) => !seen.has(h2.title) && seen.add(h2.title)).map((h2) => h2.title);
+}
+function headingOf2(line) {
+  const m = /^##+\s+(.*\S)\s*$/.exec(line);
+  return m ? m[1] : null;
+}
+function dateIn(text2) {
+  const m = /\b(\d{4}-\d{2}-\d{2})\b/.exec(text2);
+  return m ? m[1] : "";
+}
+function blocksByHeading(body) {
+  const out = [];
+  let heading = "";
+  let buffer = [];
+  const flush = () => {
+    const text2 = buffer.join("\n");
+    buffer = [];
+    if (!text2.trim()) return;
+    const blocks = [];
+    let current = [];
+    let inBullet = false;
+    for (const line of text2.split("\n")) {
+      if (/^\s*[-*]\s+/.test(line)) {
+        if (current.length) blocks.push(current.join("\n"));
+        current = [line];
+        inBullet = true;
+      } else if (line.trim() === "" && inBullet) {
+        if (current.length) blocks.push(current.join("\n"));
+        current = [];
+        inBullet = false;
+      } else if (line.trim() === "") {
+        if (current.length) blocks.push(current.join("\n"));
+        current = [];
+      } else {
+        current.push(line);
+      }
+    }
+    if (current.length) blocks.push(current.join("\n"));
+    for (const b2 of blocks) if (b2.trim()) out.push({ heading, block: b2 });
+  };
+  for (const line of body.split("\n")) {
+    const h2 = headingOf2(line);
+    if (h2 !== null) {
+      flush();
+      heading = h2;
+      continue;
+    }
+    buffer.push(line);
+  }
+  flush();
+  return out;
+}
+var PRIORITIZATION_HEADING = /^Prioritization\b/i;
+var FOUNDER_HEADING = /^Founder (decision|framing)\b/i;
+var GATE_MARKER = /(\*\*\s*Evidence-debt gate\b|\bno solutions? ideated under (?:this|it)\b[^.]{0,60}\bdeliberate)/i;
+function extractDecisions(tree) {
+  const titles = new Set(tree.map((n) => n.title));
+  const passages = [];
+  let order = 0;
+  for (const node2 of tree) {
+    if (node2.lane) {
+      passages.push({
+        kind: "lane-label",
+        node: node2.title,
+        section: "frontmatter lane:",
+        date: node2.created ?? "",
+        text: `lane: ${node2.lane}`,
+        names: [node2.title],
+        direction: directionOf(`lane: ${node2.lane}`),
+        order: order++
+      });
+    }
+    for (const { heading, block } of blocksByHeading(node2.body ?? "")) {
+      const named = namesIn(block, titles);
+      const flat = block.replace(/\s+/g, " ").trim();
+      if (PRIORITIZATION_HEADING.test(heading) && named.length > 0) {
+        passages.push(passage("prioritization-lane", node2, heading, flat, named, order++));
+        continue;
+      }
+      if (FOUNDER_HEADING.test(heading) && named.length > 0) {
+        passages.push(passage("founder-decision", node2, heading, flat, named, order++));
+        continue;
+      }
+      if (heading === "" && GATE_MARKER.test(block)) {
+        passages.push(passage("evidence-debt-gate", node2, "body", flat, [node2.title], order++));
+        continue;
+      }
+      if (WIP_HOLD_MARKER.test(block) && named.length > 0) {
+        passages.push(passage("wip-hold", node2, heading || "body", flat, named, order++));
+      }
+    }
+  }
+  return passages;
+}
+function passage(kind, node2, section, text2, names, order) {
+  const body = text2.replace(/^[-*]\s+/, "");
+  return {
+    kind,
+    node: node2.title,
+    section,
+    // The passage's own date first, then the date its heading carries, and only
+    // then the node's creation date. A founder decision written under a heading
+    // dated 2026-07-25 inside a node created 2026-07-24 is dated by the decision,
+    // not by the file — and since the date is the ordering key, getting that
+    // backwards would rank one human decision under another on file mtime.
+    date: dateIn(body) || dateIn(section) || node2.created || "",
+    text: body,
+    names,
+    direction: directionOf(body),
+    order
+  };
+}
+function quoteFor(text2, title) {
+  const at = text2.indexOf(title);
+  if (at < 0) return text2.replace(/\*+/g, "").trim();
+  return sentencesAround(text2, at, at + title.length);
+}
+function byRecordOrder(a, b2) {
+  const ad = a.date || "9999-99-99";
+  const bd = b2.date || "9999-99-99";
+  return ad < bd ? -1 : ad > bd ? 1 : a.order - b2.order;
+}
+function orderByRecordedDecision(rows, passages) {
+  const byRow = /* @__PURE__ */ new Map();
+  const firstAt = /* @__PURE__ */ new Map();
+  const rowSet = new Set(rows);
+  [...passages].sort(byRecordOrder).forEach((p2, at) => {
+    p2.names.forEach((title, i2) => {
+      if (!rowSet.has(title)) return;
+      const cites = byRow.get(title) ?? [];
+      cites.push({
+        kind: p2.kind,
+        node: p2.node,
+        section: p2.section,
+        date: p2.date,
+        direction: p2.direction,
+        quote: quoteFor(p2.text, title)
+      });
+      byRow.set(title, cites);
+      if (!firstAt.has(title)) firstAt.set(title, [at, i2]);
+    });
+  });
+  const positioned = [...byRow.keys()].sort((a, b2) => {
+    const [ao, ai] = firstAt.get(a);
+    const [bo, bi] = firstAt.get(b2);
+    return ao - bo || ai - bi || a.localeCompare(b2);
+  });
+  const ranked = positioned.map((title, i2) => {
+    const citations = byRow.get(title);
+    return {
+      rank: i2 + 1,
+      title,
+      citations,
+      contradicted: citations.some((c3) => c3.direction === "advance") && citations.some((c3) => c3.direction === "hold")
+    };
+  });
+  const unranked = rows.filter((t2) => !byRow.has(t2)).map((title) => ({ title, problem: "no recorded decision in this vault positions this row" }));
+  return { ranked, unranked };
+}
+function citationReason(row) {
+  const c3 = row.citations[0];
+  const dated = c3.date ? ` (${c3.date})` : "";
+  const rest = row.citations.length > 1 ? ` \u2014 and ${row.citations.length - 1} further recorded decision(s)${row.contradicted ? ", pointing the other way" : ""}` : "";
+  return `positioned by [[${c3.node}]] \xA7 ${c3.section}${dated} \u2014 ${c3.kind}, ${DIRECTION_VERB[c3.direction]}: "${c3.quote}"${rest}`;
+}
+var DIRECTION_VERB = {
+  advance: "which would advance it",
+  hold: "which would hold it",
+  mixed: "whose own words point both ways on it",
+  unstated: "which names it without saying which way"
+};
+function coverageOf2(reading, rows, passages) {
+  const ordering = orderByRecordedDecision(rows, passages);
+  const byKind = Object.fromEntries(DECISION_KINDS.map((k2) => [k2, 0]));
+  for (const r2 of ordering.ranked) byKind[r2.citations[0].kind] += 1;
+  return {
+    reading,
+    rows: rows.length,
+    positioned: ordering.ranked.length,
+    contradicted: ordering.ranked.filter((r2) => r2.contradicted).length,
+    byKind,
+    verdict: coverageVerdict(ordering.ranked.length),
+    denominatorMoved: rows.length !== RECORDED_DECISION_RULE.denominator,
+    ordering
+  };
+}
+function formatDecisionSweep(readings) {
+  const out = [
+    "RECORDED-DECISION ORDERING",
+    "",
+    `Bar fixed ${RECORDED_DECISION_RULE.fixed}, before the sweep: ${RECORDED_DECISION_RULE.pass}+ of ${RECORDED_DECISION_RULE.denominator} positioned rows supports the candidate; below ${RECORDED_DECISION_RULE.kill} kills it.`,
+    ""
+  ];
+  for (const r2 of readings) {
+    out.push(
+      `${r2.reading}: ${r2.positioned}/${r2.rows} positioned \u2014 ${r2.verdict.toUpperCase()}` + (r2.denominatorMoved ? ` (denominator is ${r2.rows}, not the ${RECORDED_DECISION_RULE.denominator} the bar was fixed over)` : "") + (r2.contradicted > 0 ? `, ${r2.contradicted} contradicted` : "")
+    );
+    for (const k2 of DECISION_KINDS) if (r2.byKind[k2] > 0) out.push(`    ${k2}: ${r2.byKind[k2]}`);
+    for (const row of r2.ordering.ranked) {
+      out.push(`  ${row.rank}. ${row.title}${row.contradicted ? "  [CONTRADICTED]" : ""}`);
+      out.push(`     ${citationReason(row)}`);
+    }
+    if (r2.ordering.unranked.length > 0) {
+      out.push(`  Unranked \u2014 no recorded decision reaches them (${r2.ordering.unranked.length}):`);
+      for (const u of r2.ordering.unranked) out.push(`  - ${u.title}`);
+    }
+    out.push("");
+  }
+  return out.join("\n");
+}
+
 // src/ost/standing-briefing.ts
 import fs67 from "node:fs";
 import path69 from "node:path";
@@ -67960,6 +68217,23 @@ program2.command("next-build").description(
     return;
   }
   console.log(renderBriefing(readBriefing(opts.vault), nextBuildPath(opts.vault), opts.history === true));
+});
+program2.command("decisions").description(
+  "rank only the rows a decision already recorded in this vault positions \u2014 each with the citation it was read from \u2014 and name every row no decision reaches rather than giving it a place the agent invented (read-only; exits non-zero when the vault records no decision at all)"
+).option("--vault <dir>", VAULT_OPTION_HELP).option(
+  "--rows <reading>",
+  "which rows to order: `underserved` (opportunities under the solution minimum), `top-level` (the Outcome's own rows), or `all` (every opportunity)",
+  "top-level"
+).option("--min <n>", "the solution minimum the `underserved` reading uses", (v) => Number(v), 3).action((opts) => {
+  const dir = path81.resolve(opts.vault);
+  const vault = new Vault(dir, { create: false });
+  const tree = vault.readTree();
+  const opportunities = new Set(tree.filter((n) => n.layer === "Opportunity").map((n) => n.title));
+  const root = tree.find((n) => n.layer === "Outcome");
+  const rows = opts.rows === "all" ? [...opportunities] : opts.rows === "underserved" ? computeNextWork(vault, dir, opts.min).underservedOpportunities.map((o2) => o2.title) : (root?.links ?? []).filter((t2) => opportunities.has(t2));
+  const passages = extractDecisions(tree);
+  console.log(formatDecisionSweep([coverageOf2(opts.rows, rows, passages)]));
+  if (passages.length === 0) process.exitCode = 1;
 });
 program2.command("ledger").description(
   "the whole-tree ranked ledger at its one stable address (<vault>/.ost-agent/RANKED-LEDGER.md): print it, or --publish a JSON array of {title, reason} rows \u2014 a row whose reason is missing, empty, or cites no live node title or stored evidence id is refused a rank and lands in the named unranked tail"

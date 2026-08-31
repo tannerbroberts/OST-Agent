@@ -240,6 +240,8 @@ import {
 } from "../loop/claim.js";
 import { nextBuildPath, readBriefing, renderBriefing, rewriteBriefing } from "../ost/briefing.js";
 import { publishRankedLedger, rankedLedgerPath, readRankedLedger, type LedgerRowInput } from "../ost/ranked-ledger.js";
+import { coverageOf, extractDecisions, formatDecisionSweep } from "../ost/recorded-decisions.js";
+import { computeNextWork } from "../mcp/next-work.js";
 import { composeStandingBriefing, regenerateStandingBriefing, standingBriefingPath } from "../ost/standing-briefing.js";
 import { entriesRequiringAHuman, registerLoopCommands, resolveSessionsDir } from "./loop.js";
 import { installVaultResolution, resolvedVaultSource, VAULT_OPTION_HELP } from "./vault-option.js";
@@ -2780,6 +2782,46 @@ program
       return;
     }
     console.log(renderBriefing(readBriefing(opts.vault), nextBuildPath(opts.vault), opts.history === true));
+  });
+
+program
+  .command("decisions")
+  .description(
+    "rank only the rows a decision already recorded in this vault positions — each with the citation it was " +
+      "read from — and name every row no decision reaches rather than giving it a place the agent invented " +
+      "(read-only; exits non-zero when the vault records no decision at all)",
+  )
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option(
+    "--rows <reading>",
+    "which rows to order: `underserved` (opportunities under the solution minimum), `top-level` (the " +
+      "Outcome's own rows), or `all` (every opportunity)",
+    "top-level",
+  )
+  .option("--min <n>", "the solution minimum the `underserved` reading uses", (v: string) => Number(v), 3)
+  .action((opts: { vault: string; rows: string; min: number }) => {
+    // Not `buildPassContext`, on `exclusions`' precedent: this answers a question
+    // about a vault and opening a writable handle would create the directory a
+    // mistyped path names.
+    const dir = path.resolve(opts.vault);
+    const vault = new Vault(dir, { create: false });
+    const tree = vault.readTree();
+    const opportunities = new Set(tree.filter((n) => n.layer === "Opportunity").map((n) => n.title));
+    const root = tree.find((n) => n.layer === "Outcome");
+
+    const rows =
+      opts.rows === "all"
+        ? [...opportunities]
+        : opts.rows === "underserved"
+          ? computeNextWork(vault, dir, opts.min).underservedOpportunities.map((o) => o.title)
+          : (root?.links ?? []).filter((t) => opportunities.has(t));
+
+    const passages = extractDecisions(tree);
+    console.log(formatDecisionSweep([coverageOf(opts.rows, rows, passages)]));
+    // A vault that records no decision has not been measured as "nothing is
+    // ordered" — nothing was read, and an automation has to learn the difference
+    // through the exit code rather than off a report that looks like an answer.
+    if (passages.length === 0) process.exitCode = 1;
   });
 
 program
