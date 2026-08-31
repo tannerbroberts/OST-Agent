@@ -69,7 +69,7 @@ import type { Actor } from "../adapters/source.js";
 import { BELIEVABILITY_LADDER, isRung, rungRank, type RungId } from "../knowledge/believability.js";
 import { INSTRUMENT_FORMS, isInstrument, parseInstrument } from "../knowledge/instruments.js";
 import { hasNonEmptySection } from "../knowledge/unknowns.js";
-import { parseThresholdField } from "../eval/coverage.js";
+import { parseThresholdField, thresholdKindOf } from "../eval/coverage.js";
 import { MEASUREMENT_RUNGS, unearnedRung } from "../eval/rungs.js";
 import { MAX_KILL_HORIZON_DAYS, parseKillCondition, parseKillDate } from "../ost/kill-criteria.js";
 import { RESERVED_HEADINGS, reservedHeadingIn } from "../ost/headings.js";
@@ -209,6 +209,29 @@ function held(facts: PublishedFacts, title: string | undefined): boolean {
     // here; `title-is-a-filename` is the precondition that reports the reason.
     return false;
   }
+}
+
+/**
+ * The AssumptionTest an instrument is being attached to, as it will read once the
+ * call lands: the node already on disk for `ost_set_instrument`, and the draft the
+ * arguments describe for `ost_create_node`.
+ *
+ * Both doors reach the same rule in `security/tools.ts`, so both are read here.
+ * Returning `undefined` means the caller named a node the snapshot does not hold,
+ * which `node-exists` owns and this rule must not report a second time.
+ */
+function testUnderInstrument(input: Record<string, unknown>, facts: PublishedFacts): OstNode | undefined {
+  const existing = node(facts, str(input, "test"));
+  if (existing) return existing;
+  if (str(input, "layer") !== "AssumptionTest") return undefined;
+  return {
+    title: str(input, "title") ?? "",
+    layer: "AssumptionTest",
+    body: str(input, "body") ?? "",
+    threshold: str(input, "threshold"),
+    tags: [],
+    links: [],
+  } as OstNode;
 }
 
 function node(facts: PublishedFacts, title: string | undefined): OstNode | undefined {
@@ -590,15 +613,23 @@ export const CALL_PRECONDITIONS: readonly CallPrecondition[] = Object.freeze([
     expressibility: "caveat",
     caveat:
       "The product repository is a separate checkout this tool does not own. A spec present when the snapshot was taken can be gone, or arrive, before the call is made.",
-    enforcedBy: "ost/instrument.ts:specResolves",
+    enforcedBy: "ost/instrument.ts:specResolves,eval/coverage.ts:thresholdKindOf",
     check: (input, facts) => {
       const raw = str(input, "instrument");
       if (raw === undefined || facts.productRepos.length === 0) return null;
       const parsed = parseInstrument(raw);
       if (!isInstrument(parsed)) return null; // `instrument-is-a-spec-file` owns that refusal.
-      return specResolves(facts.productRepos, parsed.target)
-        ? null
-        : `${parsed.target} does not exist in the configured product repo, so its red would say nothing about this test`;
+      if (specResolves(facts.productRepos, parsed.target)) return null;
+      // The tool waives this for a test carrying a bound threshold, and the
+      // waiver is not an edge case: a spec file that does not exist yet is
+      // exactly what a red instrument on a buildable test names, so the whole
+      // build loop composes this call. Checking the resolution and not the
+      // waiver published a refusal the tool does not issue — the
+      // confidently-wrong contract this module exists to avoid, in the strict
+      // direction, on the one call shape that matters most.
+      const test = testUnderInstrument(input, facts);
+      if (test && thresholdKindOf(test) === "bound") return null;
+      return `${parsed.target} does not exist in the configured product repo, so its red would say nothing about this test`;
     },
   },
   {

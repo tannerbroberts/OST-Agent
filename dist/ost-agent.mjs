@@ -60791,6 +60791,19 @@ function held(facts, title) {
     return false;
   }
 }
+function testUnderInstrument(input, facts) {
+  const existing = node(facts, str3(input, "test"));
+  if (existing) return existing;
+  if (str3(input, "layer") !== "AssumptionTest") return void 0;
+  return {
+    title: str3(input, "title") ?? "",
+    layer: "AssumptionTest",
+    body: str3(input, "body") ?? "",
+    threshold: str3(input, "threshold"),
+    tags: [],
+    links: []
+  };
+}
 function node(facts, title) {
   if (!title) return void 0;
   try {
@@ -61104,13 +61117,16 @@ var CALL_PRECONDITIONS = Object.freeze([
     statement: "The spec file an instrument names must exist in a configured product repository \u2014 a file that does not exist yet fails identically whatever question was written on it, so its red grants no build permit.",
     expressibility: "caveat",
     caveat: "The product repository is a separate checkout this tool does not own. A spec present when the snapshot was taken can be gone, or arrive, before the call is made.",
-    enforcedBy: "ost/instrument.ts:specResolves",
+    enforcedBy: "ost/instrument.ts:specResolves,eval/coverage.ts:thresholdKindOf",
     check: (input, facts) => {
       const raw = str3(input, "instrument");
       if (raw === void 0 || facts.productRepos.length === 0) return null;
       const parsed = parseInstrument(raw);
       if (!isInstrument(parsed)) return null;
-      return specResolves(facts.productRepos, parsed.target) ? null : `${parsed.target} does not exist in the configured product repo, so its red would say nothing about this test`;
+      if (specResolves(facts.productRepos, parsed.target)) return null;
+      const test = testUnderInstrument(input, facts);
+      if (test && thresholdKindOf(test) === "bound") return null;
+      return `${parsed.target} does not exist in the configured product repo, so its red would say nothing about this test`;
     }
   },
   {

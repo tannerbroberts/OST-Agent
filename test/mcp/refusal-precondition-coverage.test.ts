@@ -265,6 +265,46 @@ describe("the published preconditions agree with the tools that enforce them", (
     });
   }
 
+  /**
+   * The control in the other direction, and the one that was missing.
+   *
+   * Every row above drives a call the tool refuses and requires the publication
+   * to have said so first. Nothing drove a call the tool ACCEPTS and required the
+   * publication to stay quiet — so `instrument-spec-resolves` published a refusal
+   * for a spec file that does not exist yet, while `ost_set_instrument` waives
+   * exactly that when the test carries a bound threshold. A caller screening its
+   * calls against the publication would have dropped the one call the build loop
+   * is made of: attaching a red instrument to a buildable test.
+   */
+  test("a red instrument on a buildable test is accepted by the tool and not refused by the publication", async () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "ost-product-"));
+    put("Buildable", "AssumptionTest", {
+      threshold: "at least 4 of the top 10 classes are safe to absorb, covering 30% or more of all refusals fired",
+    });
+    vault.linkNodes("Ass", "Buildable");
+    const withRepo = publishCallPreconditions({ vault, dir, productRepos: [repo], asOf: "2026-08-30" });
+    const input = {
+      test: "Buildable",
+      instrument: "npx vitest run test/not-written-yet.test.ts",
+      why: "it fails today and passes when the thing beneath it is built",
+    };
+
+    expect(checkCall(withRepo, "ost_set_instrument", input)).toEqual([]);
+    const built = (buildOstTools({ ...ctx(), productRepos: [repo] }, MCP_TOOL_NAMES) as unknown as RawTool[]).find(
+      (t) => t.name === "ost_set_instrument",
+    )!;
+    await expect(built.run(input)).resolves.toBeTruthy();
+
+    // And the waiver is not the rule being switched off: the same call on a test
+    // whose threshold fixes no bar is still refused, by both.
+    put("Unfixed", "AssumptionTest", { threshold: "we will see whether it works" });
+    vault.linkNodes("Ass", "Unfixed");
+    const republished = publishCallPreconditions({ vault, dir, productRepos: [repo], asOf: "2026-08-30" });
+    const unfixed = { ...input, test: "Unfixed" };
+    expect(checkCall(republished, "ost_set_instrument", unfixed).map((v) => v.id)).toContain("instrument-spec-resolves");
+    await expect(built.run(unfixed)).rejects.toThrow(/does not exist in/);
+  });
+
   test("a legal call is refused by neither", async () => {
     const legal = {
       title: "A node that is fine",
