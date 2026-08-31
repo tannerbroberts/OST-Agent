@@ -262,7 +262,8 @@ describe("the unattended surface writes no policy into the vault", () => {
   /**
    * Every mutating tool on the MCP surface, in an order where each one's
    * precondition is already on the tree. Read-only tools are omitted: they
-   * cannot produce a diff, so they cannot write a policy file either.
+   * cannot produce a diff, so they cannot write a policy file either — with the
+   * one exception a read-before-write guard creates, which is noted where it sits.
    */
   const CALLS: Array<{ name: string; arguments: Record<string, unknown> }> = [
     {
@@ -325,6 +326,13 @@ describe("the unattended surface writes no policy into the vault", () => {
     },
     { name: "ost_edit_node", arguments: { title: "A streak counter", prose: "A sharper framing of the same idea.", why: "the first draft named a mechanism, not the need it serves" } },
     { name: "ost_detach_nodes", arguments: { parent: "I want a reason to come back", child: "A streak counter", why: "re-parenting under the surviving solution" } },
+    // Read-only, and in this list anyway: `ost_merge_nodes` refuses a survivor
+    // whose body this session has not been served
+    // (`security/read-receipts.ts`), so the read is a PRECONDITION of the widest
+    // write on the surface rather than an omissible reporting call. It is
+    // exercised here for the same reason every other row is in the order it is —
+    // each one's precondition is already on the tree when it runs.
+    { name: "ost_read_tree", arguments: { node: "Daily streak" } },
     { name: "ost_merge_nodes", arguments: { from: "A streak counter", into: "Daily streak", contribution: "One framing covering both.", why: "the same solution, written twice" } },
     { name: "ost_ingest_inbox", arguments: {} },
     // The deposit writes a file, so it is exercised rather than declared
@@ -335,7 +343,6 @@ describe("the unattended surface writes no policy into the vault", () => {
 
   /** The rest of the surface, with the reason calling it would prove nothing here. */
   const NOT_EXERCISED: Record<string, string> = {
-    ost_read_tree: "read-only — cannot produce a diff, so cannot write a policy file",
     ost_next_work: "read-only",
     ost_check: "read-only analysis",
     ost_debt: "read-only analysis",

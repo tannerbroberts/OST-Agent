@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+- **A merge now requires that you have seen the node you are merging into.**
+  `ost_merge_nodes` stopped taking the survivor's body a release ago, so prose you never
+  read can no longer be *lost* there — but `contribution` is still prose you compose, and
+  its contract is "only what the loser says that the survivor does not". A caller who has
+  not read the survivor cannot evaluate that clause at all: it appends whatever the loser
+  said, and the survivor ends up saying the same thing twice under a dated heading. The
+  merge is now **refused unless this session has been served the survivor's body** by
+  `ost_read_tree({ node })` — the shape the file tools already use, and the reason
+  `File has not been read yet` appears throughout this project's own friction records.
+  What the guard proves is stated as the limit it is, in the refusal text and in the
+  instrument: it checks that the body was **served**, not that it was read, and a fetch
+  whose result is discarded satisfies it. `test/tools/merge-read-guard-bypass.test.ts`
+  asserts that the bypass is **open**, because the assumption the tree cleared this
+  against is that the bypass exists — a guard that silently closed it would be a
+  different claim than the one that was argued. The refusal names the call that clears
+  it, sits **behind** every structural refusal (a merge that can never be allowed is not
+  answered with "go read the survivor"), and is published on `ost-agent preconditions`
+  as `survivor-body-read` so a caller can screen for it before spending the call.
+
 - **A solution now says what would kill it before it is allowed to exist.** Nothing in this
   product removed anything: candidates entered `unvalidated` and stayed there, so the meta
   vault reached 435 solutions of which exactly **one** has ever been retired, and the tree
