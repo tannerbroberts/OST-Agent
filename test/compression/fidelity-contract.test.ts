@@ -41,6 +41,15 @@ import {
   type CensusConstant,
 } from "../../src/compression/registry.js";
 import { MAX_SITE_LINES, renderIntendedSite, textAtIntendedSite } from "../../src/fs/current-text.js";
+import {
+  MAX_BRIEFING_CHARS,
+  MAX_CORRECTIONS,
+  fitToBudget,
+  pruneNonLessons,
+  renderCorrections,
+  renderCorrectionsUnbounded,
+  type CorrectionsLedger,
+} from "../../src/loop/corrections.js";
 import { initVault } from "../../src/runner/init.js";
 import { buildPassContext } from "../../src/runner/context.js";
 import {
@@ -252,6 +261,7 @@ const DRIVEN_SURFACES = [
   "evidence body channel",
   "failed-match site excerpt",
   "friction-recurrence report id lists",
+  "corrections briefing budget",
   "friction-surface report id lists",
   "next-work sweep",
   "ruleset proposal bound",
@@ -415,6 +425,62 @@ describe("fidelity — the behavioral surfaces preserve their declared reads", (
     },
     120_000,
   );
+
+  test("corrections briefing budget: under the bar, the trim is named, and the dearest correction survives", () => {
+    /*
+     * Driven over `test/fixtures/corrections/aged-ledger.json` — this machine's
+     * real ledger after 678 harvested sessions — because the growth this bound
+     * exists for only appears on an aged ledger. `test/knowledge/
+     * corrections-file-size.test.ts` is the full instrument, including what the
+     * unbounded form measured and why the two expiry rules its node proposed
+     * could not do the job; this drive asserts the three `reads` the registry
+     * declares, over the same fixture.
+     */
+    const stored = JSON.parse(
+      fs.readFileSync(path.resolve(__dirname, "../fixtures/corrections/aged-ledger.json"), "utf8"),
+    ) as CorrectionsLedger;
+
+    // Control: the bound must actually bite somewhere, or every assertion under
+    // it is vacuous. It does — at the storage cap, on corrections that are all
+    // genuine, the unbounded briefing runs past the bar.
+    const capped: CorrectionsLedger = {
+      version: 1,
+      harvested: [],
+      dropped: 0,
+      corrections: Array.from({ length: MAX_CORRECTIONS }, (_, i) => ({
+        id: `synthetic-${i}`,
+        permitted: `Do not write form ${i}; use the permitted form ${i} instead, which the guard names in full.`,
+        attempted: `Refused: a call of shape ${i} this workspace has composed at least once.`,
+        tools: ["Bash"],
+        sessions: [`session-${i}`],
+        occurrences: MAX_CORRECTIONS - i,
+        firstSeen: "2026-08-01T00:00:00.000Z",
+        lastSeen: `2026-08-${String((i % 28) + 1).padStart(2, "0")}T12:00:00.000Z`,
+      })),
+    };
+    expect(renderCorrectionsUnbounded(capped).length).toBeGreaterThan(MAX_BRIEFING_CHARS);
+
+    // Read 1 — the briefing fits, on the real ledger and at the cap.
+    expect(renderCorrections(pruneNonLessons(stored)).length).toBeLessThanOrEqual(MAX_BRIEFING_CHARS);
+    expect(renderCorrections(capped).length).toBeLessThanOrEqual(MAX_BRIEFING_CHARS);
+
+    // Read 2 — what a trim left out is named, with the criterion and the number.
+    const fit = fitToBudget(capped);
+    expect(fit.elided).toBeGreaterThan(0);
+    const briefing = renderCorrections(capped);
+    expect(briefing).toContain(`${fit.elided} further correction(s) are recorded but left out`);
+    expect(briefing).toContain("the ones paid for fewest times");
+    expect(briefing).toContain(String(MAX_BRIEFING_CHARS));
+
+    // Read 3 — trimming cannot invert the ledger's own ranking.
+    const dearest = [...capped.corrections].sort((a, b) => b.occurrences - a.occurrences)[0];
+    expect(fit.ledger.corrections.map((c) => c.permitted)).toContain(dearest.permitted);
+
+    // The other direction: a ledger already inside the bound reports no trim at
+    // all, so a prose note never claims a loss that did not happen.
+    expect(fitToBudget(pruneNonLessons(stored)).elided).toBe(0);
+    expect(renderCorrections(pruneNonLessons(stored))).not.toContain("left out of this briefing");
+  });
 
   test(
     "tree read: count is never capped, shown plus hidden equals count, the note names the full tree",

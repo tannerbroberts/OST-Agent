@@ -42,6 +42,14 @@
  * Keying on the remedy collapses all eight sightings of the sleep block into one
  * line, which is what a reader needs.
  *
+ * ## Two bounds, and they are counted in different units
+ *
+ * {@link MAX_CORRECTIONS} bounds what is *stored*, in entries. {@link
+ * MAX_BRIEFING_CHARS} bounds what is *read*, in characters, and {@link
+ * fitToBudget} enforces it. They are separate because the real ledger overran the
+ * second while sitting at an eighth of the first — three corrections, 2,128
+ * characters — so a single entry-counted cap could not have caught it.
+ *
  * ## Where the ledger lives, and why the caller has to say
  *
  * A **state directory**, passed in, never derived from a vault here. There are two
@@ -78,6 +86,45 @@ export const DEFAULT_QUIET_MINUTES = 30;
  * truncated list that does not say it was truncated reads as the whole truth.
  */
 export const MAX_CORRECTIONS = 25;
+
+/**
+ * Longest the rendered briefing may be, in characters.
+ *
+ * This is the bar the assumption test beneath "The corrections worth inheriting
+ * fit in a session's opening context" fixed — "the deduplicated file is under
+ * 2,000 characters, or a stated expiry rule brings it under" — and
+ * {@link fitToBudget} is that stated rule. It is not a guess at a context window;
+ * it is a number a human wrote down before the file was measured, which is the
+ * only kind of threshold that can come out a failure.
+ *
+ * **The measurement it exists because of.** `test/fixtures/corrections/
+ * aged-ledger.json` is this machine's real ledger after 678 harvested sessions.
+ * It holds **three** corrections and renders at **2,128 characters** — over the
+ * bar, with the cap of {@link MAX_CORRECTIONS} never once approached and
+ * `dropped` still at zero. So the failure the solution node predicted ("it grows
+ * without bound") is not the failure that arrived: the entry count is fine and
+ * the per-entry cost is not. One entry — the sleep block, which carries
+ * `renderWaitAffordance()`'s three verbatim example commands — costs 1,577 of
+ * those characters on its own.
+ *
+ * That is why the bound is on **characters and not on entries**. Both expiry
+ * rules the node proposed are counted in entries — "drop anything not seen in 30
+ * days" and "keep only the top ten by count" — and each drops *zero* of these
+ * three, leaving the briefing at 2,128. `test/knowledge/corrections-file-size.
+ * test.ts` measures both so that stays a recorded result rather than a
+ * remembered one.
+ *
+ * **What actually brought this ledger under the bar was {@link pruneNonLessons},
+ * not this budget**, and the order matters more than either rule. Dropping the
+ * one entry that was never a correction takes the file to **1,734 characters**
+ * with nothing truncated. Applying the budget *first* — before that entry is
+ * gone — is worse than doing nothing, because the non-lesson carries the largest
+ * count in the file and count is what decides who survives: the briefing comes
+ * out holding it alone, having evicted the sleep block. So the budget is the
+ * standing bound for a ledger that outgrows the bar on genuine corrections, and
+ * it is deliberately the *second* rule to fire.
+ */
+export const MAX_BRIEFING_CHARS = 2000;
 
 /** Longest a remedy may be before it is clipped in the ledger. */
 const MAX_PERMITTED_CHARS = 400;
@@ -140,6 +187,67 @@ const REMEDY_CUES = [/\buse\b/i, /\bmust\b/i, /\binstead\b/i, /\btry\b/i];
 
 /** A guard refusal — the surface rejecting a call — rather than a command that failed. */
 const GUARD_MARKER = /<tool_use_error>/;
+
+/**
+ * The surface reporting that it never received a parseable call at all.
+ *
+ * Observed shape, uniform across every sighting in the evidence store and in
+ * `test/fixtures/corrections/`: *"Read was called with input that could not be
+ * parsed as JSON"*, *"StructuredOutput was called with input that could not be
+ * parsed as JSON"*. It carries a remedy cue ("Retry with valid JSON"), so
+ * {@link splitRefusal} reads it as a correction — and it is not one.
+ *
+ * **The distinction is between a call that was rejected and a call that was never
+ * made.** Every other entry in this ledger names a *shape*: `sleep` then poll is
+ * refused and an until-loop is not; `head_limit` is not a parameter `Glob` has.
+ * A composer who reads those writes something different next time. This one names
+ * no shape, because there was no parsed call to have one — the remedy reduces to
+ * "emit syntactically valid input", which is true of every call ever made and
+ * therefore tells a reader nothing they did not already intend.
+ *
+ * **Excluded because keeping it was measured to be actively destructive, not
+ * because it is untidy.** In this machine's real ledger it carries the largest
+ * count in the file (25 sightings across 20 sessions, because a generation slip
+ * recurs for as long as generation is stochastic), and count is what decides who
+ * survives a briefing that has to be trimmed. With it in, {@link fitToBudget}
+ * evicts the sleep-then-poll block — the single most repeated genuine correction
+ * this workspace has recorded, thirteen sessions of it — in order to keep an entry
+ * whose advice is "do what you meant to do". `test/knowledge/
+ * corrections-file-size.test.ts` pins that inversion so it cannot come back.
+ *
+ * Nothing is lost by the exclusion: the raw sightings stay in the evidence store
+ * and in the friction telemetry, which is where a count of malformed calls belongs.
+ * What is dropped is only its claim on the reader's attention.
+ *
+ * Deliberately narrow. `InputValidationError` on its own would be far too wide —
+ * "An unexpected parameter `head_limit` was provided" arrives under that same
+ * banner and *is* a lesson about a tool's shape. Only the unparseable case goes.
+ */
+const UNPARSEABLE_CALL = /\bwas called with input that could not be parsed\b/i;
+
+/**
+ * Is this refusal a lesson a later session could act on?
+ *
+ * The one exclusion is {@link UNPARSEABLE_CALL}. Kept as a named predicate rather
+ * than inlined so that the next class someone wants to exclude has to be argued
+ * for in one place, against this one — a ledger that quietly grew a blocklist
+ * would be able to explain away any correction that embarrassed it.
+ */
+export function isCarryableLesson(refusal: { attempted: string; permitted: string }): boolean {
+  return !UNPARSEABLE_CALL.test(`${refusal.attempted} ${refusal.permitted}`);
+}
+
+/**
+ * Drop entries that were never corrections.
+ *
+ * Applied on read as well as on write, so a ledger that recorded one before this
+ * rule existed is cleaned the next time it is opened rather than carrying the
+ * entry until someone deletes the file by hand.
+ */
+export function pruneNonLessons(ledger: CorrectionsLedger): CorrectionsLedger {
+  const kept = ledger.corrections.filter(isCarryableLesson);
+  return kept.length === ledger.corrections.length ? ledger : { ...ledger, corrections: kept };
+}
 
 /** Split a message into sentence-ish pieces. Newlines end a sentence too. */
 function sentences(text: string): { start: number; text: string }[] {
@@ -267,6 +375,9 @@ export function extractRefusals(jsonl: string, session: string): RefusalSighting
       if (!GUARD_MARKER.test(body)) continue;
       const split = splitRefusal(body);
       if (split === null) continue;
+      // A refusal the surface could not even parse a call out of names no shape,
+      // so there is nothing for a later session to compose differently.
+      if (!isCarryableLesson(split)) continue;
       const tool = toolById.get(String(block.tool_use_id ?? ""));
       sightings.push({ session, ...(tool ? { tool } : {}), ...split, at });
     }
@@ -299,12 +410,15 @@ export function readLedger(stateDir: string): CorrectionsLedger {
   try {
     const parsed = JSON.parse(fs.readFileSync(p, "utf8")) as Partial<CorrectionsLedger>;
     if (parsed.version !== LEDGER_VERSION) return emptyCorrectionsLedger();
-    return {
+    // Pruned on the way in, not only on the way out: a ledger written before
+    // `isCarryableLesson` existed still holds entries that were never lessons, and
+    // they would otherwise sit there until somebody deleted the file by hand.
+    return pruneNonLessons({
       version: LEDGER_VERSION,
       harvested: Array.isArray(parsed.harvested) ? parsed.harvested : [],
       corrections: Array.isArray(parsed.corrections) ? parsed.corrections : [],
       dropped: typeof parsed.dropped === "number" ? parsed.dropped : 0,
-    };
+    });
   } catch {
     return emptyCorrectionsLedger();
   }
@@ -478,7 +592,8 @@ export function recordCorrections(
 }
 
 /**
- * The ledger as the text a session is handed before it composes.
+ * The ledger as the text a session is handed before it composes, with nothing
+ * left out — the subject of the size measurement rather than the thing shipped.
  *
  * Written as instruction rather than as a report, because the reader is a model
  * about to write its first tool call and the failure being addressed is a reflex,
@@ -489,8 +604,11 @@ export function recordCorrections(
  * An empty ledger renders as one honest line rather than as nothing. A prompt that
  * silently omits a section teaches the reader nothing about whether the section was
  * empty or the machinery was broken.
+ *
+ * Exported so an instrument can ask what the briefing costs *before* any rule
+ * trims it. {@link renderCorrections} is what a caller building a prompt wants.
  */
-export function renderCorrections(ledger: CorrectionsLedger): string {
+export function renderCorrectionsUnbounded(ledger: CorrectionsLedger, elided = 0): string {
   const lines = [
     "CORRECTIONS ALREADY ISSUED IN THIS WORKSPACE (read before composing a call):",
     "",
@@ -523,5 +641,101 @@ export function renderCorrections(ledger: CorrectionsLedger): string {
       `  (${ledger.dropped} older correction(s) have fallen off the end of this ledger — it keeps the ${MAX_CORRECTIONS} most recent.)`,
     );
   }
+  if (elided > 0) {
+    lines.push("");
+    lines.push(
+      `  (${elided} further correction(s) are recorded but left out of this briefing to keep it under ` +
+        `${MAX_BRIEFING_CHARS} characters — the ones paid for fewest times. \`ost-agent corrections --no-record\` prints the ledger.)`,
+    );
+  }
   return lines.join("\n");
+}
+
+/** What a budget left in and what it had to leave out. */
+export interface BudgetFit {
+  /** The corrections that fit, still in the ledger's own most-recent-first order. */
+  ledger: CorrectionsLedger;
+  /** How many corrections the budget left out. Named in the briefing, never silent. */
+  elided: number;
+}
+
+/**
+ * Drop the least-paid-for corrections until the briefing fits in `maxChars`.
+ *
+ * The standing bound, and the *second* of this module's two trims — {@link
+ * pruneNonLessons} runs first, on read. On today's ledger this one has nothing
+ * left to do, and that is the intended resting state: truncation is a last
+ * resort, not the mechanism.
+ *
+ * It is a third rule rather than either of the two the node proposed, because the
+ * measurement killed both: on the real 678-session ledger, "unseen in 30 days"
+ * and "top ten by count" each drop nothing and leave the file 128 characters over
+ * (see {@link MAX_BRIEFING_CHARS}). Both are counted in entries and what overran
+ * was characters — three entries, one of them costing 1,577 on its own.
+ *
+ * **What decides who survives is the count, and the node said so first**: "the
+ * count is the useful part: it says which corrections are load-bearing and which
+ * were one-offs." So eviction is by `occurrences` ascending, breaking ties on the
+ * older `lastSeen`. Display order is untouched: the kept set is rendered
+ * most-recent-first, as before, because that is what a reader scans.
+ *
+ * **The count is only a good proxy for value once the non-lessons are gone**, and
+ * that is the whole reason for the ordering. A generation slip recurs as often as
+ * generation is stochastic, so it accumulates the biggest number in the file
+ * without ever being worth reading; count-ordered eviction run over an unpruned
+ * ledger therefore protects exactly the wrong entry. Measured, not feared — see
+ * {@link UNPARSEABLE_CALL}.
+ *
+ * **One correction always survives, even one bigger than the whole budget.** The
+ * alternative is a briefing that renders as its own header and nothing else,
+ * which reads exactly like a workspace that has never been corrected — the one
+ * failure mode worse than being slightly too long.
+ *
+ * Pure: the ledger on disk keeps everything. This bounds what gets *read*, not
+ * what gets *stored*, and the two must not be the same number. A rule that
+ * deleted the record would make the count it evicts on unrecoverable, so the next
+ * harvest would re-learn the same correction from scratch — the storage failure
+ * this whole module exists to end, re-entered through the door marked "hygiene".
+ */
+export function fitToBudget(ledger: CorrectionsLedger, maxChars: number = MAX_BRIEFING_CHARS): BudgetFit {
+  if (ledger.corrections.length === 0) return { ledger, elided: 0 };
+
+  // Cheapest-first, so slicing the tail off drops the least load-bearing entries.
+  const byValue = [...ledger.corrections].sort(
+    (a, b) => b.occurrences - a.occurrences || b.lastSeen.localeCompare(a.lastSeen) || a.id.localeCompare(b.id),
+  );
+  // Keyed on `permitted` rather than on `id`: that is the ledger's dedup key, and
+  // `id` is a lossy slug of it that two distinct corrections could in principle share.
+  const order = new Map(ledger.corrections.map((c, i) => [c.permitted, i]));
+  const inDisplayOrder = (cs: Correction[]): Correction[] =>
+    [...cs].sort((a, b) => (order.get(a.permitted) ?? 0) - (order.get(b.permitted) ?? 0));
+
+  // Exact rather than estimated: re-render at each width, because the elision
+  // notice is itself part of what has to fit. n is bounded by MAX_CORRECTIONS.
+  for (let keep = byValue.length; keep >= 1; keep--) {
+    const elided = byValue.length - keep;
+    const kept = { ...ledger, corrections: inDisplayOrder(byValue.slice(0, keep)) };
+    if (renderCorrectionsUnbounded(kept, elided).length <= maxChars || keep === 1) {
+      return { ledger: kept, elided };
+    }
+  }
+  /* c8 ignore next */
+  return { ledger, elided: 0 };
+}
+
+/**
+ * The briefing as a caller building a prompt should have it: bounded, and honest
+ * about what the bound cost.
+ *
+ * Pass `maxChars: null` to opt out — an instrument measuring the growth curve
+ * wants the unbounded form, and so does anyone printing the ledger to read it.
+ */
+export function renderCorrections(
+  ledger: CorrectionsLedger,
+  opts: { maxChars?: number | null } = {},
+): string {
+  const max = opts.maxChars === undefined ? MAX_BRIEFING_CHARS : opts.maxChars;
+  if (max === null) return renderCorrectionsUnbounded(ledger);
+  const fit = fitToBudget(ledger, max);
+  return renderCorrectionsUnbounded(fit.ledger, fit.elided);
 }

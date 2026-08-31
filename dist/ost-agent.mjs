@@ -46816,6 +46816,31 @@ var COMPRESSION_SURFACES = [
     proof: "declaration"
   },
   {
+    /*
+     * Registered apart from "corrections ledger" above because it bounds a
+     * different thing in a different unit, and the difference is the finding that
+     * created it. That cap counts stored ENTRIES; this one counts the CHARACTERS a
+     * session actually reads. The real 678-session ledger overran this bound while
+     * sitting at three entries — an eighth of MAX_CORRECTIONS, with `dropped` still
+     * zero — because one entry cost two thirds of the budget on its own. Folding
+     * the two into one surface would put a contract about entry age next to a
+     * contract about reader attention and lose the fact that the entry-counted one
+     * cannot see the overrun.
+     */
+    name: "corrections briefing budget",
+    module: "src/loop/corrections.ts",
+    caps: ["MAX_BRIEFING_CHARS"],
+    kind: "bounded-output",
+    decision: "which already-issued corrections a session is handed before it composes its first tool call",
+    reads: [
+      "the briefing is under the 2,000 characters the assumption test fixed as the bar for fitting in opening context",
+      "a trimmed briefing says how many corrections it left out and on what criterion, so a short list is never read as the whole ledger",
+      "the correction paid for most often is never the one evicted, so trimming cannot invert the ledger's own ranking"
+    ],
+    drops: "prose-note",
+    proof: "behavioral"
+  },
+  {
     name: "ruleset proposal bound",
     module: "src/knowledge/ruleset-proposal.ts",
     caps: ["MAX_RULE_CHARS", "MAX_RATIONALE_CHARS", "MAX_SOURCE_CHARS"],
@@ -64288,10 +64313,19 @@ var LEDGER_FILE = "corrections.json";
 var LEDGER_VERSION = 1;
 var DEFAULT_QUIET_MINUTES2 = 30;
 var MAX_CORRECTIONS = 25;
+var MAX_BRIEFING_CHARS = 2e3;
 var MAX_PERMITTED_CHARS = 400;
 var MAX_ATTEMPTED_CHARS = 200;
 var REMEDY_CUES = [/\buse\b/i, /\bmust\b/i, /\binstead\b/i, /\btry\b/i];
 var GUARD_MARKER = /<tool_use_error>/;
+var UNPARSEABLE_CALL = /\bwas called with input that could not be parsed\b/i;
+function isCarryableLesson(refusal2) {
+  return !UNPARSEABLE_CALL.test(`${refusal2.attempted} ${refusal2.permitted}`);
+}
+function pruneNonLessons(ledger) {
+  const kept = ledger.corrections.filter(isCarryableLesson);
+  return kept.length === ledger.corrections.length ? ledger : { ...ledger, corrections: kept };
+}
 function sentences3(text2) {
   const out = [];
   let start = 0;
@@ -64355,6 +64389,7 @@ function extractRefusals(jsonl, session) {
       if (!GUARD_MARKER.test(body)) continue;
       const split = splitRefusal(body);
       if (split === null) continue;
+      if (!isCarryableLesson(split)) continue;
       const tool2 = toolById.get(String(block.tool_use_id ?? ""));
       sightings.push({ session, ...tool2 ? { tool: tool2 } : {}, ...split, at });
     }
@@ -64373,12 +64408,12 @@ function readLedger(stateDir2) {
   try {
     const parsed = JSON.parse(fs65.readFileSync(p2, "utf8"));
     if (parsed.version !== LEDGER_VERSION) return emptyCorrectionsLedger();
-    return {
+    return pruneNonLessons({
       version: LEDGER_VERSION,
       harvested: Array.isArray(parsed.harvested) ? parsed.harvested : [],
       corrections: Array.isArray(parsed.corrections) ? parsed.corrections : [],
       dropped: typeof parsed.dropped === "number" ? parsed.dropped : 0
-    };
+    });
   } catch {
     return emptyCorrectionsLedger();
   }
@@ -64483,7 +64518,7 @@ function recordCorrections(stateDir2, sessionsDir, opts = {}) {
     ledger: next
   };
 }
-function renderCorrections(ledger) {
+function renderCorrectionsUnbounded(ledger, elided = 0) {
   const lines = [
     "CORRECTIONS ALREADY ISSUED IN THIS WORKSPACE (read before composing a call):",
     ""
@@ -64509,7 +64544,35 @@ function renderCorrections(ledger) {
       `  (${ledger.dropped} older correction(s) have fallen off the end of this ledger \u2014 it keeps the ${MAX_CORRECTIONS} most recent.)`
     );
   }
+  if (elided > 0) {
+    lines.push("");
+    lines.push(
+      `  (${elided} further correction(s) are recorded but left out of this briefing to keep it under ${MAX_BRIEFING_CHARS} characters \u2014 the ones paid for fewest times. \`ost-agent corrections --no-record\` prints the ledger.)`
+    );
+  }
   return lines.join("\n");
+}
+function fitToBudget(ledger, maxChars = MAX_BRIEFING_CHARS) {
+  if (ledger.corrections.length === 0) return { ledger, elided: 0 };
+  const byValue = [...ledger.corrections].sort(
+    (a, b2) => b2.occurrences - a.occurrences || b2.lastSeen.localeCompare(a.lastSeen) || a.id.localeCompare(b2.id)
+  );
+  const order = new Map(ledger.corrections.map((c3, i2) => [c3.permitted, i2]));
+  const inDisplayOrder = (cs) => [...cs].sort((a, b2) => (order.get(a.permitted) ?? 0) - (order.get(b2.permitted) ?? 0));
+  for (let keep = byValue.length; keep >= 1; keep--) {
+    const elided = byValue.length - keep;
+    const kept = { ...ledger, corrections: inDisplayOrder(byValue.slice(0, keep)) };
+    if (renderCorrectionsUnbounded(kept, elided).length <= maxChars || keep === 1) {
+      return { ledger: kept, elided };
+    }
+  }
+  return { ledger, elided: 0 };
+}
+function renderCorrections(ledger, opts = {}) {
+  const max = opts.maxChars === void 0 ? MAX_BRIEFING_CHARS : opts.maxChars;
+  if (max === null) return renderCorrectionsUnbounded(ledger);
+  const fit = fitToBudget(ledger, max);
+  return renderCorrectionsUnbounded(fit.ledger, fit.elided);
 }
 
 // src/loop/claim.ts
@@ -69182,7 +69245,10 @@ program2.command("corrections").description(
 ).option("--state <dir>", "where the ledger lives (default: <vault>/.git/ost-agent)").option("--sessions <dir>", "directory of Claude Code session transcripts to harvest").option("--project <dir>", "derive --sessions from a project directory's transcript slug").option(
   "--quiet-minutes <n>",
   `a session must be untouched this long to count as finished (default ${DEFAULT_QUIET_MINUTES2})`
-).option("--no-record", "render what is already recorded; do not read any transcript").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
+).option("--no-record", "render what is already recorded; do not read any transcript").option(
+  "--full",
+  `print every recorded correction, ignoring the ${MAX_BRIEFING_CHARS}-character budget the briefing is trimmed to`
+).option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
   const state = correctionsStateDir(opts);
   if (state === null) {
     console.error(
@@ -69210,7 +69276,7 @@ program2.command("corrections").description(
       }
     }
   }
-  console.log(renderCorrections(readLedger(state)));
+  console.log(renderCorrections(readLedger(state), opts.full ? { maxChars: null } : {}));
 });
 program2.command("wait-shim").description(
   `print the ${SHIM_NAME} shim \u2014 a POSIX sh script that waits for a condition instead of guessing at a sleep, for a wrapper to install on an unattended session's PATH`

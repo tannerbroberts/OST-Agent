@@ -75,3 +75,52 @@ Three things it cannot carry, all of which matter:
   which is a test of the cap and not of the growth curve.
 - **How many refusal classes exist in general.** These seven sessions contain two. That is
   a fact about four days of one machine's build work, not a population estimate.
+
+# `aged-ledger.json` — the growth curve, taken off the machine
+
+The second bullet above says what the seven-session corpus cannot carry: *"whether the
+ledger stays readable over months. The unbounded-growth failure the solution node names
+appears after a long time and a lot of distinct guards. Seven sessions produce two
+corrections; the cap is exercised with synthetic sightings instead, which is a test of the
+cap and not of the growth curve."*
+
+`aged-ledger.json` is that missing subject, and it is not synthetic. It is a verbatim copy
+of this machine's real build-loop ledger — `~/.local/state/ost-build-loop/corrections.json`
+— taken on 2026-08-31, after the loop had harvested **678 finished sessions** over four
+weeks. `test/knowledge/corrections-file-size.test.ts` measures against it.
+
+Copied byte-for-byte, `harvested` array and all. That array is 678 session ids and most of
+the file's 33 KB, and trimming it would have destroyed the only thing that makes this
+fixture worth having: it is the denominator. Three corrections **out of 678 sessions** is
+the finding; three corrections on their own is a shrug. `redactSecrets` runs over every
+`attempted` and `permitted` string on the way into the ledger, so the copy needed no
+further masking; the paths and session ids in it are the same ones already carried verbatim
+in `src/loop/wait.ts`.
+
+## What it turned out to say, which is not what the node predicted
+
+The solution node this fixture was cut for ("Refusals are written back as a standing
+corrections file every session reads first") named its own failure mode as *"it grows
+without bound"*. After 678 sessions the ledger holds **three** entries, `dropped` is **0**,
+and `MAX_CORRECTIONS` (25) has never been approached. Entry growth is not the problem.
+
+The briefing is over the bar anyway — **2,128 characters against a 2,000-character
+threshold** — because one entry costs 1,577 of them on its own. That entry is the sleep
+block, and it is expensive because `renderWaitAffordance()` appends three verbatim example
+commands to it, two carrying ~200-character absolute paths. The overrun is per-entry cost,
+not entry count.
+
+Which is why neither expiry rule the assumption test proposed can work here, and the
+instrument asserts that rather than assuming it: "drop anything not seen in 30 days" and
+"keep only the top ten by count" are both counted in *entries*, and both drop **zero** of
+these three. `MAX_BRIEFING_CHARS` and `fitToBudget` are the third rule, counted in the unit
+that actually overran.
+
+## What this fixture still cannot carry
+
+It is one machine, one workspace, four weeks, and one agent's tool surface. Three refusal
+classes is what *this* environment produced; a workspace with more guards, or a session
+with a wider tool grant, would produce more, and at more entries the count-ordered eviction
+in `fitToBudget` starts making choices this fixture never asks it to make. The synthetic
+at-the-cap ledger in the instrument covers that arm deliberately, and it is synthetic for
+the honest reason: nothing on this machine has ever reached the cap.
