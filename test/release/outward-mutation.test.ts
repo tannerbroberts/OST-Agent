@@ -389,7 +389,14 @@ interface RunnableTool {
  * Everything the row does not name is filled from the tool's own schema.
  */
 const AIM: Record<string, (n: number) => Record<string, unknown>> = {
-  ost_read_tree: () => ({}),
+  // Aimed at a real node rather than left to the filler, which would produce
+  // `node: "text for node"` and a refusal. Two things ride on it: the read is
+  // actually exercised, and it mints the session receipt `ost_merge_nodes` now
+  // requires for its survivor (`security/read-receipts.ts`). The driver walks the
+  // tools in surface order and `ost_read_tree` is first, so the receipt exists by
+  // the time the merge row runs — the merge's own comment says what happens if it
+  // does not.
+  ost_read_tree: () => ({ node: OPPORTUNITY }),
   ost_next_work: () => ({}),
   ost_check: () => ({}),
   ost_debt: () => ({}),
@@ -435,7 +442,10 @@ const AIM: Record<string, (n: number) => Record<string, unknown>> = {
   // being refused — a refused call proves nothing about whether the push path is
   // reachable from inside it. `ost_merge_nodes` folds the second opportunity into
   // the first: same layer, neither carries a recorded result, so
-  // `assertMergeAllowed` lets it through and the write actually happens.
+  // `assertMergeAllowed` lets it through and the write actually happens. It also
+  // needs the survivor's body to have been served to this session — the
+  // `ost_read_tree` row above is what does that, and without it this row lands
+  // nothing and the named-landers assertion below goes red rather than silent.
   ost_detach_nodes: () => ({ parent: OUTCOME, child: SECOND_OPPORTUNITY, why: "driven probe" }),
   ost_edit_node: () => ({ title: TEST, prose: "A driven rewrite.", why: "driven probe" }),
   ost_merge_nodes: () => ({ from: SECOND_OPPORTUNITY, into: OPPORTUNITY, contribution: "One framing.", why: "driven probe" }),

@@ -41,9 +41,10 @@
  *   state this tool owns (the vault, its config, its ruleset). A caller that
  *   holds {@link PublishedPreconditions} can get the same verdict the tool will.
  * - **`caveat`** — decidable from the arguments and a snapshot, but the snapshot
- *   is taken over something this tool does NOT own — a product repository checked
- *   out beside the vault — so it can be true when published and false when
- *   called. The check is real; the guarantee is not.
+ *   can be true when published and false when called. Usually because the state
+ *   is not this tool's to own — a product repository checked out beside the vault
+ *   — and once because it is state the CALLER moves between the snapshot and the
+ *   call (the session's read receipts). The check is real; the guarantee is not.
  * - **`not`** — the answer does not exist before the call. A filesystem write
  *   that fails, a web fetch that returns nothing, a response that turns out too
  *   large. Publishing these is honest bookkeeping and nothing more: a caller
@@ -75,7 +76,8 @@ import { MAX_KILL_HORIZON_DAYS, parseKillCondition, parseKillDate } from "../ost
 import { RESERVED_HEADINGS, reservedHeadingIn } from "../ost/headings.js";
 import { specResolves } from "../ost/instrument.js";
 import { claimsOutcomeAchieved, outcomeSignalState, rootOutcome } from "../ost/outcome-signal.js";
-import { fileNameForTitle, titlesMatch } from "../ost/sanitize.js";
+import { canonicalTitle, fileNameForTitle, titlesMatch } from "../ost/sanitize.js";
+import type { ReadReceipts } from "./read-receipts.js";
 import { ALLOWED_TOOL_NAMES, writesTheVault } from "./policy.js";
 import { CAUTIOUS_LANE } from "../knowledge/lanes.js";
 import type { OstNode } from "../ost/node.js";
@@ -147,6 +149,16 @@ export interface PublishedFacts {
   readonly evidenceActors: ReadonlyMap<string, Actor>;
   /** Filenames of tests in the humans-required lane — no command may be attached. */
   readonly humansRequired: ReadonlySet<string>;
+  /**
+   * The node bodies this session had been served when the snapshot was taken,
+   * canonically spelled — what `ost_merge_nodes` requires of its survivor.
+   *
+   * Empty on a publication taken with no session behind it (the CLI's
+   * `preconditions` command builds one per process, and that process has read
+   * nothing). Empty is the honest answer there and not a bug: in that process,
+   * every merge WOULD be refused.
+   */
+  readonly bodiesRead: ReadonlySet<string>;
   /** Product repositories configured for this vault, absolute. */
   readonly productRepos: readonly string[];
   /** Longest kill horizon a new Solution may name, in days. */
@@ -633,6 +645,23 @@ export const CALL_PRECONDITIONS: readonly CallPrecondition[] = Object.freeze([
     },
   },
   {
+    id: "survivor-body-read",
+    tools: ["ost_merge_nodes"],
+    statement:
+      "`into` must name a node whose body this session has already been served by `ost_read_tree({ node })`. `contribution` is defined as what the loser says and the survivor does not, and that is not a judgement anyone can make from a title.",
+    expressibility: "caveat",
+    caveat:
+      "the state is the caller's own reading history, and the caller moves it. A snapshot taken before the read says refused for a call that succeeds a moment later, which is the intended way past this rule rather than a defect in publishing it. Note also what the rule checks: that the body was SERVED, not that it was read — a fetch whose result is discarded satisfies it, deliberately (test/tools/merge-read-guard-bypass.test.ts).",
+    enforcedBy: "security/tools.ts:assertSurvivorRead",
+    check: (input, facts) => {
+      const into = str(input, "into");
+      if (into === undefined) return null;
+      const key = canonicalTitle(into);
+      if (key === null || facts.bodiesRead.has(key)) return null;
+      return `this session has not read the body of "${into}" — call ost_read_tree({ node: "${into}" }) first`;
+    },
+  },
+  {
     id: "repo-path-exists",
     tools: ["ost_read_repo"],
     statement: "`path` must exist inside a configured product repository.",
@@ -685,6 +714,12 @@ export interface PublishContext {
   readonly productRepos?: readonly string[];
   /** The day the snapshot describes, so a caller can pin it in a test. */
   readonly asOf?: string;
+  /**
+   * The session whose read receipts this publication describes, if the caller has
+   * one. Absent means "no session" and publishes an empty set — never "assume the
+   * reads happened", which would be the confidently-wrong direction.
+   */
+  readonly readReceipts?: ReadReceipts;
 }
 
 /**
@@ -741,6 +776,12 @@ export function publishCallPreconditions(ctx: PublishContext): PublishedPrecondi
       trustLedger: readTrustLedger(ctx.dir),
       evidenceActors: evidenceActors(ctx.dir),
       humansRequired,
+      // Canonical spellings, because that is the key the receipt book uses and a
+      // publication that compared raw titles would refuse a merge on a node the
+      // session demonstrably read (`ost/sanitize.ts:titlesMatch`).
+      bodiesRead: new Set<string>(
+        (ctx.readReceipts?.titles() ?? []).map((t) => canonicalTitle(t)).filter((t): t is string => t !== null),
+      ),
       productRepos: ctx.productRepos ?? [],
       maxKillHorizonDays: MAX_KILL_HORIZON_DAYS,
       ...(root ? { outcomeTitle: root.title } : {}),

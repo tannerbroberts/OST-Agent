@@ -83,11 +83,28 @@ function freshVault(): Vault {
  * so that a schema still advertising `prose` fails here rather than at the first
  * real call.
  */
-function mergeTool(vault: Vault): { inputSchema: unknown; run: (i: unknown) => Promise<unknown> } {
+interface SurfaceTool {
+  inputSchema: unknown;
+  run: (i: unknown) => Promise<unknown>;
+}
+
+/**
+ * ONE tool set over this vault, so the read and the merge share a session.
+ *
+ * They have to: `ost_merge_nodes` now refuses a survivor whose body this session
+ * has not been served (`security/read-receipts.ts`), and the receipt lives in the
+ * closure `buildOstTools` opens. Two `buildOstTools` calls would be two sessions
+ * and the merge would be refused however many times the read had been made.
+ */
+function surface(vault: Vault): { readTree: SurfaceTool; merge: SurfaceTool } {
   const ctx: ToolContext = { vault, dir: vaultDir.get(vault)!, remote: { enabled: false } };
-  const tool = buildOstTools(ctx).find((t) => t.name === "ost_merge_nodes");
-  if (!tool) throw new Error("ost_merge_nodes is not on the tool surface");
-  return tool as { inputSchema: unknown; run: (i: unknown) => Promise<unknown> };
+  const built = buildOstTools(ctx);
+  const pick = (name: string): SurfaceTool => {
+    const tool = built.find((t) => t.name === name);
+    if (!tool) throw new Error(`${name} is not on the tool surface`);
+    return tool as unknown as SurfaceTool;
+  };
+  return { readTree: pick("ost_read_tree"), merge: pick("ost_merge_nodes") };
 }
 
 const node = (title: string, layer: OstNode["layer"], body: string): OstNode => ({
@@ -114,13 +131,24 @@ const REPLACE: Shape = async (vault) => {
   vault.mergeNodes(LOSER, SURVIVOR, { prose: "One framing covering both machines.", why: WHY });
 };
 
-/** What it runs now, through the real tool — schema checked, guard reached the way the agent reaches it. */
+/**
+ * What it runs now, through the real tool — schema checked, guard reached the way
+ * the agent reaches it.
+ *
+ * The read is part of the shape rather than setup around it, because it is part
+ * of the call sequence the surface now requires: an agent merging through this
+ * tool reads the survivor first or is refused. Every parity assertion below is
+ * about what the FOLD does, and the fold is only reachable from here through this
+ * pair. (`REPLACE` needs no read: it is the library shape, reached by a human on
+ * the CLI who has both bodies in front of them.)
+ */
 const PATCH: Shape = async (vault) => {
-  const tool = mergeTool(vault);
+  const { readTree, merge } = surface(vault);
   const input = { from: LOSER, into: SURVIVOR, contribution: "It also happens on a fresh checkout.", why: WHY };
-  const problems = validateToolInput(tool.inputSchema as never, input);
+  const problems = validateToolInput(merge.inputSchema as never, input);
   expect(problems, "ost_merge_nodes rejected a patch-shaped call before it ran").toEqual([]);
-  await tool.run(input);
+  await readTree.run({ node: SURVIVOR });
+  await merge.run(input);
 };
 
 /**

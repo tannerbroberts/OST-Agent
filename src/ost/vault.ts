@@ -1064,10 +1064,11 @@ export class Vault {
    *
    * `composeProse` receives the survivor's CURRENT prose (reserved sections
    * already held aside) and the loser's sanitised title, and returns the prose
-   * the survivor ends up with. Every other decision — which merges are refused,
-   * which edges move, which sections carry, what History records — is made here
-   * once, so "the two shapes agree" is a property of there being one
-   * implementation rather than of a test noticing when they stop.
+   * the survivor ends up with. Every other decision — which edges move, which
+   * sections carry, what History records — is made here once, and which merges
+   * are refused is made once in {@link Vault.assertFoldable}, which this calls
+   * before it touches anything. So "the two shapes agree" is a property of there
+   * being one implementation rather than of a test noticing when they stop.
    */
   private fold(
     from: string,
@@ -1076,47 +1077,9 @@ export class Vault {
     composeProse: (survivorProse: string, loserTitle: string) => string,
   ): string {
     assertWritableContent(`the reason for merging "${from}" into "${into}"`, why);
-    if (sanitizeTitle(from) === sanitizeTitle(into)) {
-      throw new Error(`refusing to merge "${from}" into itself`);
-    }
+    this.assertFoldable(from, into);
     const loser = this.read(from);
     const survivor = this.read(into);
-    if (loser.layer !== survivor.layer) {
-      throw new Error(
-        `refusing to merge a ${loser.layer} into a ${survivor.layer}: "${from}" and "${into}" are different ` +
-          `kinds of claim, and folding one into the other would assert they are the same thing. ` +
-          `Merge is for duplicates within a layer.`,
-      );
-    }
-    if (loser.layer === "Outcome") {
-      throw new Error(`refusing to merge the Outcome node "${from}" — the root's identity is the mandate it carries`);
-    }
-    /*
-     * The laundering path, closed where it opens.
-     *
-     * A merge carries the LOSER's reserved blocks onto the survivor so a result
-     * it recorded is not lost with its file — correct for the three measurement
-     * headings and catastrophic for the fourth. `## Retraction` carried across
-     * would retract the survivor, so `ost_merge_nodes(retracted, live)` would be
-     * a delete of an arbitrary live node in one allowlisted call: the exact
-     * capability making the heading reserved was meant to withhold, reached by
-     * copying it rather than by writing it.
-     *
-     * Refused in both directions. The loser's case is the attack; the survivor's
-     * is the mirror of it — folding a live node into a retracted one buries a
-     * node the tree still holds behind a retirement it never had, which is the
-     * same loss with the arrow reversed. A human who means to do either retracts
-     * the node they mean to retract, by name.
-     */
-    for (const [role, node] of [["loser", loser] as const, ["survivor", survivor] as const]) {
-      if (!isRetractedNode(node)) continue;
-      throw new Error(
-        `refusing to merge "${from}" into "${into}": the ${role} "${node.title}" is retracted. ` +
-          `A merge carries reserved sections onto the survivor, so this would copy a retraction ` +
-          `onto a live node — taking it out of every count, scan and gate without anyone retracting it. ` +
-          `Retraction is a human's call on the CLI: ost-agent retract "<node>" -b "<who>" -w "<why>".`,
-      );
-    }
 
     const loserTitle = sanitizeTitle(from);
     const survivorTitle = sanitizeTitle(into);
@@ -1166,6 +1129,69 @@ export class Vault {
 
     fs.unlinkSync(this.nodePath(from));
     return line;
+  }
+
+  /**
+   * Every way a merge destroys rather than consolidates, asked WITHOUT writing.
+   *
+   * Extracted from {@link Vault.fold} rather than copied out of it, and `fold`
+   * still calls it first, so there is exactly one statement of these rules. The
+   * separation exists because the tool surface has a refusal of its own to order
+   * against them (`security/tools.ts:assertSurvivorRead`): a merge this method
+   * refuses can never succeed, so telling that caller to go and read the survivor
+   * first would spend a call to arrive at a no that was already true. A caller
+   * that only wants to know can ask here and write nothing.
+   *
+   * The refusals:
+   *   - a node cannot merge into itself
+   *   - the two must share a layer, because an Opportunity folded into a Solution
+   *     is not a merge, it is a claim that a need and a way to meet it are one
+   *     thing — the confusion the tree exists to keep apart
+   *   - the Outcome is never a loser; the root's identity is the mandate
+   *   - neither side may be retracted, in either direction (see below)
+   */
+  assertFoldable(from: string, into: string): void {
+    if (sanitizeTitle(from) === sanitizeTitle(into)) {
+      throw new Error(`refusing to merge "${from}" into itself`);
+    }
+    const loser = this.read(from);
+    const survivor = this.read(into);
+    if (loser.layer !== survivor.layer) {
+      throw new Error(
+        `refusing to merge a ${loser.layer} into a ${survivor.layer}: "${from}" and "${into}" are different ` +
+          `kinds of claim, and folding one into the other would assert they are the same thing. ` +
+          `Merge is for duplicates within a layer.`,
+      );
+    }
+    if (loser.layer === "Outcome") {
+      throw new Error(`refusing to merge the Outcome node "${from}" — the root's identity is the mandate it carries`);
+    }
+    /*
+     * The laundering path, closed where it opens.
+     *
+     * A merge carries the LOSER's reserved blocks onto the survivor so a result
+     * it recorded is not lost with its file — correct for the three measurement
+     * headings and catastrophic for the fourth. `## Retraction` carried across
+     * would retract the survivor, so `ost_merge_nodes(retracted, live)` would be
+     * a delete of an arbitrary live node in one allowlisted call: the exact
+     * capability making the heading reserved was meant to withhold, reached by
+     * copying it rather than by writing it.
+     *
+     * Refused in both directions. The loser's case is the attack; the survivor's
+     * is the mirror of it — folding a live node into a retracted one buries a
+     * node the tree still holds behind a retirement it never had, which is the
+     * same loss with the arrow reversed. A human who means to do either retracts
+     * the node they mean to retract, by name.
+     */
+    for (const [role, node] of [["loser", loser] as const, ["survivor", survivor] as const]) {
+      if (!isRetractedNode(node)) continue;
+      throw new Error(
+        `refusing to merge "${from}" into "${into}": the ${role} "${node.title}" is retracted. ` +
+          `A merge carries reserved sections onto the survivor, so this would copy a retraction ` +
+          `onto a live node — taking it out of every count, scan and gate without anyone retracting it. ` +
+          `Retraction is a human's call on the CLI: ost-agent retract "<node>" -b "<who>" -w "<why>".`,
+      );
+    }
   }
 }
 

@@ -3204,12 +3204,19 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,574 tests across 339 files, verified 2026-08-31 (`npx vitest run`
-> reports 4,566 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,582 tests across 340 files, verified 2026-08-31 (`npx vitest run`
+> reports 4,574 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,566 across
-> the 338 files it collects, in 355 s. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,574 across
+> the 339 files it collects, in 348 s. The file added since the previous line is
+> `test/tools/merge-read-guard-bypass.test.ts` — the instrument for "Refuse a merge whose
+> prose was composed without a read of the survivor"
+> (`src/security/read-receipts.ts`, `security/tools.ts:assertSurvivorRead`): seven tests that
+> try to DEFEAT the guard rather than confirm it, because the assumption beneath it is that a
+> bare fetch whose result is discarded satisfies it. It does, and the file pins that open
+> bypass in place alongside the refusal that makes it mean anything — a merge with no prior
+> fetch. The line before it was
 > `test/mcp/refusal-absorption-census.test.ts` — the instrument for "Refusals the tool can
 > prevent become refusals the tool never issues" (`src/telemetry/refusal-absorption.ts`,
 > `ost-agent absorption`): the top ten refusal classes of each record this repository holds,
