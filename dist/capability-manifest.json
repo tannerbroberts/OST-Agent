@@ -3,8 +3,8 @@
   "version": "0.23.0",
   "artifact": {
     "path": "dist/ost-agent.mjs",
-    "bytes": 2633302,
-    "sha256": "6d52d74fca6ef9a2ea6e4d3cdffceec660fc72355b3d335744482e1bc7ca225d"
+    "bytes": 2642910,
+    "sha256": "f1bb1ba844a2a56f6307161cd918d7401e3a5b0de9324a97f12480152a426df5"
   },
   "capabilities": [
     {
@@ -99,6 +99,11 @@
     },
     {
       "name": "debt",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "digest",
       "surface": "cli-command",
       "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
     },

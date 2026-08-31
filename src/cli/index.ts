@@ -193,6 +193,8 @@ import {
   type ConsentScope,
 } from "../telemetry/consent.js";
 import { fileFriction, FRICTION_KINDS, type FrictionFilingKind } from "../adapters/friction.js";
+import { deliverDigest, renderDeliveryResult } from "../adapters/digest.js";
+import { readRuns } from "../loop/health.js";
 import { fileRetrospective } from "../adapters/retrospective.js";
 import {
   decideRulesetProposal, draftRulesetProposal, effectiveRuleset, PROPOSABLE_SECTIONS, PROPOSALS_DIR,
@@ -1282,6 +1284,36 @@ program
  * it answered. Age leads because it is the one thing the run that filed the ask
  * could not know — it was gone before the days elapsed.
  */
+/**
+ * `ost-agent digest` — the one command in this product that goes outward.
+ *
+ * Everything else here answers a question the operator had to remember to ask.
+ * This one runs on a cron beside the loop, composes what changed since the last
+ * digest, and hands it to a transport that puts it where they already read.
+ *
+ * The exit code is the load-bearing part, not the prose. A cadence that quietly
+ * stops firing is invisible to the surface that would have reported it, so a
+ * window that elapsed with nothing sent exits non-zero — and so does a
+ * destination that would have filed the digest back inside the vault. `undeclared`
+ * exits 0: a vault that asked for no digest is not failing to send one.
+ */
+program
+  .command("digest")
+  .description("send the what-changed-since-last-time digest to the configured destination, if one is due")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((opts: { vault: string }) => {
+    const dir = path.resolve(opts.vault);
+    const ctx = buildPassContext(opts.vault);
+    const result = deliverDigest({
+      dir,
+      settings: ctx.config.digest ?? {},
+      runs: readRuns(dir),
+      asks: readPendingAskQueue(dir, ctx.vault.readTree()),
+    });
+    console.log(renderDeliveryResult(result));
+    if (result.outcome === "refused" || result.missed > 0) process.exitCode = 1;
+  });
+
 program
   .command("asks")
   .description("the standing queue of pending asks — aged, oldest first, each with the command that clears it")
