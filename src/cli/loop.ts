@@ -41,6 +41,7 @@ import { failureSummary } from "../loop/failure-summary.js";
 import { lastNodeTouchedSince } from "../telemetry/node-touch.js";
 import { fallbackBanner, fallbackRefusalReport, runFallback } from "../loop/fallback.js";
 import { appendStep, readOpenRun, readRuns, sealRun, startRun, sweepCrashed } from "../loop/health.js";
+import { detectHandEdits, renderDriftReport } from "../git/hand-edit-detector.js";
 import { observeToolSurface } from "../loop/tool-surface-record.js";
 import {
   closeGoalContract,
@@ -772,7 +773,7 @@ export function registerLoopCommands(program: Command): void {
       "--available <csv>",
       "the tools this firing will actually be able to call — the same string handed to `required-tools --available`",
     )
-    .action((opts: { vault: string; holderPid?: string; pass?: string; available?: string }) => {
+    .action(async (opts: { vault: string; holderPid?: string; pass?: string; available?: string }) => {
       // The run's own account of where it is standing, taken in its first
       // instant and before this command has changed anything — no lock, no
       // record, no checkpoint. Later would be a reading of an environment this
@@ -962,6 +963,25 @@ export function registerLoopCommands(program: Command): void {
       const line = parityLine(parity);
       if (parity && parity.disagreements.length > 0) console.error(line);
       else console.log(line);
+
+      // What changed in the vault while this loop was not looking — read from
+      // git, against the commit the last sealed run left behind.
+      //
+      // LAST, and never a refusal. A hand edit is evidence, not a fault: the
+      // 2026-07-24 incident was an operator renaming a node and retyping it
+      // `Metric`, which is a person telling this product their schema is missing
+      // a word. A gate here would turn the most direct user feedback the tree
+      // ever receives into a reason not to run. So it prints and the pass
+      // proceeds — including when the read itself fails, which is reported as
+      // `unknown` rather than folded into silence, because "nothing drifted" and
+      // "nobody could tell" are different facts.
+      const lastSealed = [...readRuns(opts.vault)].reverse().find((r) => typeof r.headAfter === "string");
+      try {
+        const drift = await detectHandEdits(opts.vault, lastSealed?.headAfter ? { since: lastSealed.headAfter } : {});
+        for (const driftLine of renderDriftReport(drift)) console.error(driftLine);
+      } catch (e) {
+        console.error(`drift: unknown — ${e instanceof Error ? e.message : String(e)}`);
+      }
     });
 
   loop

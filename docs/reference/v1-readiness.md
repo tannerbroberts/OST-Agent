@@ -3204,14 +3204,20 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,446 tests across 333 files, verified 2026-08-31 (`npx vitest run`
-> reports 4,438 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,470 tests across 334 files, verified 2026-08-31 (`npx vitest run`
+> reports 4,462 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,438 across
-> the 332 files it collects, in 344 s. The file added since the previous line is
-> `test/ost/outcome-signal-gate.test.ts` — the external-signal gate on the root Outcome
-> behind "Real-world signal gates outcome achievement" (`src/ost/outcome-signal.ts`). Every
+> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,462 across
+> the 333 files it collects, in 358 s. The file added since the previous line is
+> `test/git/hand-edit-detector.test.ts` — the drift report behind "Reconcile hand-edits and
+> report drift at the start of every pass" (`src/git/hand-edit-detector.ts`). Its seven
+> adversarial git fixtures are the assumption test's own list, and two of them pin a refusal
+> to report rather than a report: a `git stash` and a branch switch are where a detector
+> manufactures drift out of git plumbing rather than out of anything anyone did to the tree.
+> The line before it was `test/ost/outcome-signal-gate.test.ts` — the external-signal gate on
+> the root Outcome behind "Real-world signal gates outcome achievement"
+> (`src/ost/outcome-signal.ts`). Every
 > write on the agent surface is enumerated as the complement of the read-only set and driven
 > at the root with an achievement claim; each one refuses, or — for the three whose write
 > cannot reach that node at all — leaves it recording nothing. The verdict itself is typed
