@@ -84,10 +84,10 @@ import type { PassContext } from "../processes/types.js";
  * as `ost_flag_humans_required`: the unsafe value has no argument position
  * rather than a validator. (B2.)
  */
-const AGENT_SETTABLE_STATUSES = ["unvalidated", "in-discovery", "shipped", "deferred"];
+export const AGENT_SETTABLE_STATUSES = ["unvalidated", "in-discovery", "shipped", "deferred"];
 
 /** The refusal, in one place because both tools raise it. */
-const VALIDATED_REFUSAL =
+export const VALIDATED_REFUSAL =
   `"validated" is not a status the agent can set — a node that clears its own evidence gate by ` +
   `declaring itself cleared is the forgery this surface exists to prevent. Promotion is a human's ` +
   `call, made on the CLI: ost-agent promote "<title>" --by "<who>" --why "<the evidence>". ` +
@@ -177,7 +177,7 @@ function oneLine(reason: unknown): string {
 }
 
 /** Which parent layers a given child layer may attach under (Outcome is not creatable). */
-const CHILD_HIERARCHY: Record<string, string[]> = {
+export const CHILD_HIERARCHY: Record<string, string[]> = {
   Opportunity: ["Outcome", "Opportunity"],
   Solution: ["Opportunity"],
   Assumption: ["Solution"],

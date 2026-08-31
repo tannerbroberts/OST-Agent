@@ -63,7 +63,13 @@ import { retractNode } from "../../src/ost/results.js";
 import { strandedEvidenceCensus } from "../../src/ost/stranded.js";
 import { writeEvidence } from "../../src/processes/tree.js";
 import { buildPassContext } from "../../src/runner/context.js";
+import { fileNameForTitle } from "../../src/ost/sanitize.js";
 import { Vault } from "../../src/ost/vault.js";
+import {
+  checkCall,
+  publishCallPreconditions,
+  renderCallPreconditions,
+} from "../../src/security/call-preconditions.js";
 import { buildOstTools, type ToolContext } from "../../src/security/tools.js";
 import { validateToolInput, type ToolSchema } from "../../src/security/validateToolInput.js";
 
@@ -155,7 +161,7 @@ describe("the consumer set, enumerated and held there", () => {
     return out;
   }
 
-  test("every module that reads nodes is one of nine, and the audit's bar is 12", () => {
+  test("every module that reads nodes is one of ten, and the audit's bar is 12", () => {
     const readers = sources()
       .filter((f) => f.rel !== path.join("ost", "vault.ts"))
       .filter((f) => /\.(readTree|readTreeCensus|readLiveTree)\(/.test(f.text))
@@ -195,6 +201,21 @@ describe("the consumer set, enumerated and held there", () => {
     // retracted node is unconditionally absent from that answer the same way it
     // is absent everywhere else — nothing bespoke was added, and nothing needed
     // to be.
+    //
+    // `security/call-preconditions.ts` is the tenth, and it is the first reader
+    // that needs BOTH sides of the census, which is why the argument for it is
+    // longer than the others. It publishes what a caller can check before making
+    // a call, so it must agree with `Vault.has` — and `Vault.has` asks the
+    // filesystem, where a retracted node's file still is. Built out of
+    // `readTree()` it would have said "no such node" for a title every write tool
+    // accepts: a publication stricter than the rule it publishes, which costs a
+    // caller a capability silently. So it takes existence from `seenFiles` (the
+    // same walk `Vault.has` would hit) and node CONTENT from `nodes` (where a
+    // retraction is withheld unconditionally, like everywhere else), and it
+    // publishes the difference as an advisory rather than as a refusal —
+    // annotating a retracted node is work nothing will read, and that is a cost
+    // to name, not a rule to invent. Asserted below ("the publication agrees with
+    // `Vault.has` about a retracted node, and says nothing will read it").
     expect(readers).toEqual([
       path.join("cli", "index.ts"),
       path.join("mcp", "bootstrap.ts"),
@@ -204,6 +225,7 @@ describe("the consumer set, enumerated and held there", () => {
       path.join("ost", "ranked-ledger.ts"),
       path.join("ost", "stranded.ts"),
       path.join("runner", "set-outcome.ts"),
+      path.join("security", "call-preconditions.ts"),
       path.join("security", "tools.ts"),
     ]);
     // The assumption test's own threshold, stated in its own units.
@@ -325,6 +347,30 @@ describe("a retracted node is in no count, scan, gate or rollup", () => {
     expect(readNodeBody(vault, REGRETTED).prose).toContain(`prose for ${REGRETTED}`);
     retract(REGRETTED);
     expect(() => readNodeBody(new Vault(dir), REGRETTED)).toThrow(/no node on the tree/);
+  });
+
+  test("the publication agrees with `Vault.has` about a retracted node, and says nothing will read it", () => {
+    // The tenth reader's argument, made load-bearing, and it runs the OPPOSITE
+    // way to every other assertion in this file. Retraction takes a node out of
+    // circulation for readers; it does not take the FILE off disk, and the write
+    // tools ask the filesystem. So a publication of what a caller may call must
+    // still say yes here — a stricter publication is a caller silently losing a
+    // capability, which is the confidently-wrong contract in the other direction.
+    retract(REGRETTED);
+    const published = publishCallPreconditions({ vault: new Vault(dir), dir, asOf: "2026-08-30" });
+    const file = path.basename(fileNameForTitle(REGRETTED));
+
+    expect(new Vault(dir).has(REGRETTED)).toBe(true);
+    expect(published.facts.nodeFiles.has(file)).toBe(true);
+    expect(checkCall(published, "ost_annotate", { title: REGRETTED, issue: "x" })).toEqual([]);
+    // And withheld from every reader, which is the half a caller has to be told
+    // rather than left to discover by annotating into a void.
+    expect(published.facts.nodesByFile.has(file)).toBe(false);
+    expect(published.facts.existsButWithheld.has(file)).toBe(true);
+    expect(renderCallPreconditions(published)).toContain("withheld from every reader");
+    // The control: a title that was never on disk is still absent from both.
+    expect(published.facts.nodeFiles.has("Never written.md")).toBe(false);
+    expect(checkCall(published, "ost_annotate", { title: "Never written", issue: "x" })).not.toEqual([]);
   });
 
   test("the sweep — it is in no hygiene issue, and it is still named as retired", () => {

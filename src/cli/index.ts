@@ -159,6 +159,10 @@ import {
 import {
   generatePreflightManifest, renderPreflightManifest, type ToolSchemaLike,
 } from "../security/preflight-manifest.js";
+import { publishCallPreconditions, renderCallPreconditions } from "../security/call-preconditions.js";
+import {
+  formatRefusalPreconditionCensus, refusalPreconditionCensus, type RecordedRefusal,
+} from "../telemetry/refusal-precondition-coverage.js";
 import { buildOstTools } from "../security/tools.js";
 import { Vault } from "../ost/vault.js";
 import { prerequisiteCycles, prerequisiteEdges, unknownPrerequisites, unmetPrerequisites } from "../ost/prerequisites.js";
@@ -2210,6 +2214,58 @@ program
     const dir = path.resolve(opts.vault);
     const tools = buildOstTools({ vault: new Vault(dir, { create: false }), dir, remote: { enabled: false } });
     console.log(renderPreflightManifest(generatePreflightManifest(tools as unknown as ToolSchemaLike[])));
+  });
+
+program
+  .command("preconditions")
+  .description("every condition this surface refuses a call for, stated so a caller can check it BEFORE composing the call — read it once, screen a batch against it")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((opts: { vault: string }) => {
+    // Read-only, and it must stay that way: the whole point of the publication is
+    // that a caller can screen candidate calls without touching anything, so a
+    // command that created the directory a mistyped `--vault` names would be
+    // contradicting its own contract. `create: false` for the reason `manifest`
+    // gives; `readConfig` for the reason `channels` gives — a broken config is a
+    // likely reason to be reading this, and it should still print the rules that
+    // do not depend on one.
+    const dir = path.resolve(opts.vault);
+    const { config, problem } = readConfig(dir);
+    const published = publishCallPreconditions({
+      vault: new Vault(dir, { create: false }),
+      dir,
+      productRepos: problem ? [] : config.product.repos,
+    });
+    console.log(renderCallPreconditions(published));
+  });
+
+program
+  .command("precondition-coverage")
+  .description("what share of the refusals this tool's own calls actually hit a caller could have decided in advance — the census behind the published preconditions")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((opts: { vault: string }) => {
+    const dir = path.resolve(opts.vault);
+    const log = path.join(dir, ".ost-agent", "usage", "events.jsonl");
+    if (!fs.existsSync(log)) {
+      console.error(`no usage trace at ${log} — nothing has been recorded for this vault yet`);
+      process.exitCode = 1;
+      return;
+    }
+    const refusals: RecordedRefusal[] = [];
+    for (const line of fs.readFileSync(log, "utf8").split("\n")) {
+      if (!line) continue;
+      try {
+        const e = JSON.parse(line) as RecordedRefusal & { ok: boolean };
+        if (e.ok === false) refusals.push(e);
+      } catch {
+        // A truncated tail is a real state of a fail-open append-only log. The
+        // census counts what it can read; a parse error is not a refusal.
+      }
+    }
+    console.log(formatRefusalPreconditionCensus(refusalPreconditionCensus(refusals)));
+    // No refusal recorded is not "the surface refuses nothing" — it is a sweep
+    // that found nothing to read, and an automation has to learn that through the
+    // exit code rather than off a report that looks clean.
+    if (refusals.length === 0) process.exitCode = 1;
   });
 
 program

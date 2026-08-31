@@ -3186,12 +3186,25 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,193 tests across 323 files, verified 2026-08-30 (`npx vitest run`
-> reports 4,185 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,244 tests across 324 files, verified 2026-08-30 (`npx vitest run`
+> reports 4,236 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-30 finished at 4,185 across
-> the 322 files it collects, in 318 s, green. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-30 finished at 4,236 across
+> the 323 files it collects, in 337 s, green. The file added since the previous line is
+> `test/mcp/refusal-precondition-coverage.test.ts` — the instrument for the published call
+> preconditions (`src/security/call-preconditions.ts`): every condition this surface refuses
+> a call for, stated so a caller can evaluate it against a snapshot before composing the
+> call, with each check calling the same function the tool's `run` calls so the publication
+> cannot drift from enforcement. The census beside it
+> (`src/telemetry/refusal-precondition-coverage.ts`) weights the refusals this project's own
+> calls actually hit and comes out **96 of 118 (81%)** against a 70% bar — but 61 of those
+> 118 are one caller's unquoted title on one day, and collapsing that cluster to the single
+> event it is takes the share to 62%, under the bar. Both numbers are asserted by name in
+> the spec so the exit code cannot be read as the whole finding. It settles *what is
+> publishable and what it covers*; it does not settle whether publishing changes a caller's
+> behaviour, which no suite can come out green on.
+> Previously 4,193 tests across 323 files, verified 2026-08-30, after
 > `test/loop/stop-condition.test.ts` — the instrument for the published stop condition
 > (`src/loop/stop-condition.ts`): the rule is data rather than prose (every work-bearing
 > field of a sweep is either a term of the condition or is declared not-actionable with a
