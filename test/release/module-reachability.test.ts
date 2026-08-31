@@ -201,6 +201,26 @@ const KNOWN_UNREACHABLE: Record<string, string> = {
    */
   "src/git/branch-isolation.ts":
     "built and tested; parked pending a decision to run more than one build pass concurrently, which nothing in this repository does yet",
+  /*
+   * The quarantine-expiry replay: reconstruct every exclusion this project ever
+   * typed as a timeline — opened, resolved, forgotten — and fire twelve candidate
+   * expiry periods at it, to settle the one real risk in "quarantine entries
+   * expire, so a workaround cannot become permanent by inattention", which is the
+   * period rather than the mechanism. The buildable permit was that assumption
+   * test, and it is discharged: `test/telemetry/quarantine-expiry-period.test.ts`
+   * pins the sweep.
+   *
+   * It came back **refuted under both readings of the record** — no period fires
+   * after every recorded flake was resolved and before it was forgotten — and the
+   * number under that is that no quarantine on this record outlived 58 minutes.
+   * So there is nothing to wire: the mechanism this module would serve is exactly
+   * what its own sweep says not to ship on a guessed number, and this repository
+   * holds no quarantine list to attach an expiry to in the first place. It comes
+   * off when a list is built and a period is supported by a record containing an
+   * entry that outlived a day, or goes when the node is deferred.
+   */
+  "src/telemetry/quarantine-expiry.ts":
+    "built and tested; parked because its own sweep refuted the period the mechanism would need, and nothing here holds a quarantine list to expire",
 };
 
 /*

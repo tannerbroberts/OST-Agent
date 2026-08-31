@@ -3186,12 +3186,34 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,293 tests across 326 files, verified 2026-08-30 (`npx vitest run`
-> reports 4,285 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,313 tests across 327 files, verified 2026-08-30 (`npx vitest run`
+> reports 4,305 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-30 finished at 4,285 across
-> the 325 files it collects, in 336 s. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-30 finished at 4,305 across
+> the 326 files it collects, in 341 s. The file added since the previous line is
+> `test/telemetry/quarantine-expiry-period.test.ts` — the replay behind "quarantine entries
+> expire, so a workaround cannot become permanent by inattention"
+> (`src/telemetry/quarantine-expiry.ts`, `test/fixtures/quarantine-expiry/`): every exclusion
+> this project ever typed by hand is reconstructed as a timeline — opened, resolved,
+> forgotten — and twelve candidate expiry periods are fired at it, because the mechanism in
+> that candidate is a date beside an entry and the only real risk in it is the **period**.
+> It settles that period, and it came out **refuted under both readings of the record**,
+> which is asserted as `readings.meetsBar === false` by name rather than left to be inferred
+> from a table: the one genuinely flaky subject has no resolution event at all — the file is
+> byte-identical to its first commit, so the absolute 2,000 ms bound both 2026-08-01 friction
+> notes named as the root cause is still the assertion in the suite — so every period fires
+> on a live flake; and the other three quarantines were resolved 40–46 minutes after they
+> were opened, so every period of a day or more lands after everyone had moved on. **No
+> quarantine on this record outlived 58 minutes**, which makes the permanence-by-inattention
+> the candidate exists to break a state this record has never observed. It does not settle
+> whether an operator renews a lapsed quarantine thoughtfully or reflexively, which is what
+> decides whether expiry is pressure or ceremony and which no replay can see. It found two
+> false resolutions for the same flake on the way: a pass declared it retired on 2026-08-02
+> after four clean runs with no code change, cc4ea95 fixed a real 3,151 ms-against-2,000 ms
+> regression in that very test on 2026-08-03, and ten hand exclusions on 2026-08-04 falsified
+> both — the second while the fix was already an ancestor of that session's own commit.
+> Previously 4,293 tests across 326 files, verified 2026-08-30, after
 > `test/adapters/digest-delivery.test.ts` — the instrument for the push digest
 > (`src/adapters/digest.ts`, `digest:` in `src/config/schema.ts`, `ost-agent digest`): on a
 > declared cadence the vault composes what changed **since the previous digest** and hands
