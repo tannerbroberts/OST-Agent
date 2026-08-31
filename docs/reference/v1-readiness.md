@@ -3204,12 +3204,44 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,350 tests across 329 files, verified 2026-08-31 (`npx vitest run`
-> reports 4,342 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,375 tests across 330 files, verified 2026-08-31 (`npx vitest run`
+> reports 4,367 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,342 across
-> the 328 files it collects, in 350 s. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,367 across
+> the 329 files it collects, in 348 s. The file added since the previous line is
+> `test/ost/recorded-decision-ordering.test.ts` — the coverage sweep behind "Rank only what a
+> recorded decision already ordered, and leave the rest unranked"
+> (`src/ost/recorded-decisions.ts`, `test/fixtures/recorded-decisions/`, `ost-agent
+> decisions`). The candidate never authors a priority: it reads the decisions already written
+> into the vault — the root's Prioritization lanes, evidence-debt gates in node bodies,
+> founder decisions, WIP holds, lane labels — publishes each rank with the citation it was
+> read from, and leaves every row no decision reaches explicitly unranked. Coverage is the
+> assumption, and the bar was fixed on 2026-08-02: **13+ of 32 under-served rows supports it,
+> below 7 kills it**.
+>
+> **The denominator moved and that is the finding: the vault has 1 under-served row, not 32.**
+> Every other row that was under-served when the bar was written has since been given
+> solutions, so the reading the assumption test named cannot reach 13 by arithmetic. The test
+> asserts that by name (`denominatorMoved`) rather than rescaling the bar into a percentage —
+> a threshold re-expressed to fit the number it judges is the failure "My tests carry
+> thresholds nobody ever fixed" describes. Over the 37 top-level rows the Prioritization
+> section actually grades, **20 are positioned — supports**; over all 163 opportunities, 22.
+> Three further findings the count alone would hide: **13 of the 20 come from one heading in
+> one file** (delete it and the reading falls to 9, from "an answer on its own" to
+> "a supplement"); **the vault's WIP holds are written as counts, not names** — "held on 20 of
+> 23 underserved rows" cites no row and can position none, which is what the root's own
+> 2026-08-02 request for a status the sweep honours would fix; and **60 lane labels position
+> nothing**, because a lane sits on an assumption test two layers below the rows. One row
+> comes out **contradicted** — the distribution row, advanced by the 2026-07-25 founder
+> decision and held by its own evidence-debt gate — published with both citations and
+> resolved by neither, which is the deadlock the solution node predicted in advance.
+> `test/fixtures/recorded-decisions/PROVENANCE.md` records the cut, the sensitivity, and the
+> narrowing the detector needed: reading `held`/`gated`/`do not merge` as dispositions
+> admitted 215 passages of ordinary prose and inflated coverage from 22 rows to 73, so all
+> three false positives are planted as controls.
+>
+> The file added by the line before this was
 > `test/rank/unblock-leverage-distribution.test.ts` — the sweep behind "Rank every node by
 > how many blocked tests one build would unblock" (`src/ost/unblock-leverage.ts`,
 > `test/fixtures/unblock-leverage/`). It counts, for each of the meta vault's 441 candidate
@@ -3225,7 +3257,7 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > down. `src/ost/prerequisites.ts` built the field; populating it is the human paper-map node
 > that has not been done.
 >
-> The file added by the line before this one was
+> Before those came
 > `test/ost/quarantine-unknown-node-type.test.ts` — the instrument beneath "Quarantine
 > unknown node types instead of dropping them" (`src/ost/quarantine.ts`). A node whose
 > `type:` this reader does not recognise used to be dropped at the read, taking its outgoing

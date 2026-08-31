@@ -1,0 +1,1259 @@
+{
+  "vault": "/Users/tanner/ost-agent-meta",
+  "head": "97ee01a93578e85954c76c9d5c06863a28eb1bf7",
+  "harvestedAt": "2026-08-31",
+  "layers": {
+    "Solution": 441,
+    "Assumption": 495,
+    "Opportunity": 163,
+    "AssumptionTest": 494,
+    "Outcome": 1,
+    "Unknown": 2
+  },
+  "passages": [
+    {
+      "kind": "wip-hold",
+      "node": "A background task's own output directory is automatically readable by the Monitor call that started it",
+      "section": "Issues",
+      "date": "2026-08-30",
+      "text": "2026-08-30 2026-08-30 unattended sweep, repo sight held: examined for a missing instrument and deliberately left without one. Recording the examination because this node carried no prior note and would otherwise be re-read from scratch by every firing that meets it in `solutionsMissingInstruments` — the same re-derivation cost its siblings already record on themselves. The artefact is Monitor, a harness tool: no spec under this repository's `test/` can assert anything about its read-scoping, so the mechanical half is structurally out of reach here. This is the identical blocker already recorded on the siblings \"Monitor states its accepted command grammar up front rather than discovered by refusal\" and \"Adopt the platform's own job-control wait instead of maintaining a bespoke shell helper\". The belief beneath this node, \"A background task can declare its own output path and have Monitor's read scope extended to exactly that path\", is feasibility about someone else's sandbox implementation, and its test is already on the standing queue as \"Ask someone with the harness's sandbox implementation open whether a per-task scoped read grant is addable without widening the sandbox generally\" — an ask, not a command. Fresh corroboration that the grant boundary is real and is discovered by refusal: this pass ingested TRANSCRIPT:28157325-0aa7-4b83-86f7-5292e9b7c509, in which a firing hit `Claude requested permissions to read from /Users/tanner/dev/OST-Agent, but you haven't granted it yet` twice on Glob before reaching the same source through ost_read_repo. That is evidence about the shape of the problem, not a reason to instrument the node. What a human should do: set the lane with `ost-agent lane --set`, since `ost_flag_humans_required` is withheld on the unattended surface. Not a skipped step.",
+      "names": [
+        "Monitor states its accepted command grammar up front rather than discovered by refusal",
+        "Adopt the platform's own job-control wait instead of maintaining a bespoke shell helper",
+        "A background task can declare its own output path and have Monitor's read scope extended to exactly that path",
+        "Ask someone with the harness's sandbox implementation open whether a per-task scoped read grant is addable without widening the sandbox generally"
+      ],
+      "direction": "hold",
+      "order": 0
+    },
+    {
+      "kind": "wip-hold",
+      "node": "A highlight criteria note the founder edits and the loop reads before deciding what to surface",
+      "section": "Issues",
+      "date": "2026-08-29",
+      "text": "2026-08-29 2026-08-29 unattended sweep, repo sight held: examined for a missing instrument and deliberately left without one. Recording the examination because this node carried no prior note and would otherwise be re-read from scratch by every firing that meets it in `solutionsMissingInstruments`. The only belief beneath it, \"The founder will actually maintain a highlight criteria note over time\", is viability about one person's behaviour over months, and its test — \"Seed a one-line criteria note and see whether the founder edits it within two weeks\" — has a two-week wall-clock and a human editor as its measurement. No exit code encodes whether someone kept a note current. Note one cheaper route a human may prefer: the same question is partly answerable from history rather than by waiting, since the sibling candidate \"An operator-set evidence window in ost.config.yaml, amended by hand like discovery.target\" already proposes reading amendment counts out of the vault's git log for exactly this class of belief — if the founder has never amended a comparable hand-held artefact, that is evidence about this belief obtained for the price of reading a log. What a human should do: set the lane with `ost-agent lane --set`, since `ost_flag_humans_required` is withheld on the unattended surface. Not a skipped step.",
+      "names": [
+        "The founder will actually maintain a highlight criteria note over time",
+        "Seed a one-line criteria note and see whether the founder edits it within two weeks",
+        "An operator-set evidence window in ost.config.yaml, amended by hand like discovery.target"
+      ],
+      "direction": "mixed",
+      "order": 1
+    },
+    {
+      "kind": "lane-label",
+      "node": "A human re-judges the first twelve extent flags against Torres's test",
+      "section": "frontmatter lane:",
+      "date": "2026-08-11",
+      "text": "lane: humans-required",
+      "names": [
+        "A human re-judges the first twelve extent flags against Torres's test"
+      ],
+      "direction": "unstated",
+      "order": 2
+    },
+    {
+      "kind": "lane-label",
+      "node": "After three deep-dive firings the operator names a decision their output changed",
+      "section": "frontmatter lane:",
+      "date": "2026-08-11",
+      "text": "lane: humans-required",
+      "names": [
+        "After three deep-dive firings the operator names a decision their output changed"
+      ],
+      "direction": "unstated",
+      "order": 3
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ask five operators whether they would let a stated default stand while they are away",
+      "section": "frontmatter lane:",
+      "date": "2026-08-04",
+      "text": "lane: humans-required",
+      "names": [
+        "Ask five operators whether they would let a stated default stand while they are away"
+      ],
+      "direction": "unstated",
+      "order": 4
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ask someone with the Monitor tool's implementation open whether a bounded until sleep primitive is addable without reopening arbitrary shell execution",
+      "section": "frontmatter lane:",
+      "date": "2026-08-18",
+      "text": "lane: humans-required",
+      "names": [
+        "Ask someone with the Monitor tool's implementation open whether a bounded until sleep primitive is addable without reopening arbitrary shell execution"
+      ],
+      "direction": "unstated",
+      "order": 5
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ask someone with the Monitor tool's implementation open whether a wait that blocks on job exit is accepted where the polling forms are refused",
+      "section": "frontmatter lane:",
+      "date": "2026-08-29",
+      "text": "lane: humans-required",
+      "names": [
+        "Ask someone with the Monitor tool's implementation open whether a wait that blocks on job exit is accepted where the polling forms are refused"
+      ],
+      "direction": "unstated",
+      "order": 6
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ask someone with the build loop's source and persisted state open whether a per-target failure record already exists across firings",
+      "section": "frontmatter lane:",
+      "date": "2026-08-19",
+      "text": "lane: humans-required",
+      "names": [
+        "Ask someone with the build loop's source and persisted state open whether a per-target failure record already exists across firings"
+      ],
+      "direction": "unstated",
+      "order": 7
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ask someone with the build loop's source open whether target selection re-reads live status or works from a cached snapshot",
+      "section": "frontmatter lane:",
+      "date": "2026-08-19",
+      "text": "lane: humans-required",
+      "names": [
+        "Ask someone with the build loop's source open whether target selection re-reads live status or works from a cached snapshot"
+      ],
+      "direction": "unstated",
+      "order": 8
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ask someone with the build loop's target-selection source open whether it filters candidates on status",
+      "section": "frontmatter lane:",
+      "date": "2026-08-19",
+      "text": "lane: humans-required",
+      "names": [
+        "Ask someone with the build loop's target-selection source open whether it filters candidates on status"
+      ],
+      "direction": "unstated",
+      "order": 9
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ask someone with the harness's sandbox implementation open whether a per-task scoped read grant is addable without widening the sandbox generally",
+      "section": "frontmatter lane:",
+      "date": "2026-08-18",
+      "text": "lane: humans-required",
+      "names": [
+        "Ask someone with the harness's sandbox implementation open whether a per-task scoped read grant is addable without widening the sandbox generally"
+      ],
+      "direction": "unstated",
+      "order": 10
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ask the founder whether a machine-cleared permit may start a build with nobody watching",
+      "section": "frontmatter lane:",
+      "date": "2026-08-11",
+      "text": "lane: humans-required",
+      "names": [
+        "Ask the founder whether a machine-cleared permit may start a build with nobody watching"
+      ],
+      "direction": "unstated",
+      "order": 11
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ask the operator how often they actually read the run's completion report",
+      "section": "frontmatter lane:",
+      "date": "2026-08-17",
+      "text": "lane: humans-required",
+      "names": [
+        "Ask the operator how often they actually read the run's completion report"
+      ],
+      "direction": "unstated",
+      "order": 12
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ask the operator to name one permission class a survived stake may widen with nobody watching",
+      "section": "frontmatter lane:",
+      "date": "2026-08-10",
+      "text": "lane: humans-required",
+      "names": [
+        "Ask the operator to name one permission class a survived stake may widen with nobody watching"
+      ],
+      "direction": "unstated",
+      "order": 13
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ask the operator to write the expiry note now, then check ninety days later whether it is still true",
+      "section": "frontmatter lane:",
+      "date": "2026-08-29",
+      "text": "lane: humans-required",
+      "names": [
+        "Ask the operator to write the expiry note now, then check ninety days later whether it is still true"
+      ],
+      "direction": "unstated",
+      "order": 14
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ask the operator whether a firing may add to their personal queue without being asked",
+      "section": "frontmatter lane:",
+      "date": "2026-08-29",
+      "text": "lane: humans-required",
+      "names": [
+        "Ask the operator whether a firing may add to their personal queue without being asked"
+      ],
+      "direction": "unstated",
+      "order": 15
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ask the operator whether any firing has legitimately needed to edit its own automation scripts mid-run",
+      "section": "frontmatter lane:",
+      "date": "2026-08-18",
+      "text": "lane: humans-required",
+      "names": [
+        "Ask the operator whether any firing has legitimately needed to edit its own automation scripts mid-run"
+      ],
+      "direction": "unstated",
+      "order": 16
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ask the operator whether anything installs or loads this package straight from the committed dist without its own build step",
+      "section": "frontmatter lane:",
+      "date": "2026-08-18",
+      "text": "lane: humans-required",
+      "names": [
+        "Ask the operator whether anything installs or loads this package straight from the committed dist without its own build step"
+      ],
+      "direction": "unstated",
+      "order": 17
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ask the operator whether anything reads dist directly off the shared trunk between firings",
+      "section": "frontmatter lane:",
+      "date": "2026-08-18",
+      "text": "lane: humans-required",
+      "names": [
+        "Ask the operator whether anything reads dist directly off the shared trunk between firings"
+      ],
+      "direction": "unstated",
+      "order": 18
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ask the operator whether firings on the shared checkout can ever overlap in time",
+      "section": "frontmatter lane:",
+      "date": "2026-08-18",
+      "text": "lane: humans-required",
+      "names": [
+        "Ask the operator whether firings on the shared checkout can ever overlap in time"
+      ],
+      "direction": "unstated",
+      "order": 19
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ask the operator whether reading Monitor's stated constraints before composing would have changed how these two sessions wrote their commands",
+      "section": "frontmatter lane:",
+      "date": "2026-08-18",
+      "text": "lane: humans-required",
+      "names": [
+        "Ask the operator whether reading Monitor's stated constraints before composing would have changed how these two sessions wrote their commands"
+      ],
+      "direction": "unstated",
+      "order": 20
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ask the operator whether the actual firing cadence and disk budget can absorb a fresh worktree per firing",
+      "section": "frontmatter lane:",
+      "date": "2026-08-18",
+      "text": "lane: humans-required",
+      "names": [
+        "Ask the operator whether the actual firing cadence and disk budget can absorb a fresh worktree per firing"
+      ],
+      "direction": "unstated",
+      "order": 21
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ask the operator whether they'd check a rolling trend view unprompted, or need it pushed like an alert",
+      "section": "frontmatter lane:",
+      "date": "2026-08-17",
+      "text": "lane: humans-required",
+      "names": [
+        "Ask the operator whether they'd check a rolling trend view unprompted, or need it pushed like an alert"
+      ],
+      "direction": "unstated",
+      "order": 22
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ask the operator whether they'd rather a warning let the write through than have it hard-blocked",
+      "section": "frontmatter lane:",
+      "date": "2026-08-18",
+      "text": "lane: humans-required",
+      "names": [
+        "Ask the operator whether they'd rather a warning let the write through than have it hard-blocked"
+      ],
+      "direction": "unstated",
+      "order": 23
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ask the operator whether they'd trust a prior session's task list over reconstructing state themselves",
+      "section": "frontmatter lane:",
+      "date": "2026-08-18",
+      "text": "lane: humans-required",
+      "names": [
+        "Ask the operator whether they'd trust a prior session's task list over reconstructing state themselves"
+      ],
+      "direction": "unstated",
+      "order": 24
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ask the operator, ruleset line in hand, whether sweep-chosen order violates their auto-select rule",
+      "section": "frontmatter lane:",
+      "date": "2026-08-11",
+      "text": "lane: humans-required",
+      "names": [
+        "Ask the operator, ruleset line in hand, whether sweep-chosen order violates their auto-select rule"
+      ],
+      "direction": "unstated",
+      "order": 25
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ask the operator, with the 2026-08-09 vacuous-red count in hand, whether the write-time numeric-bar check may be relaxed",
+      "section": "frontmatter lane:",
+      "date": "2026-08-20",
+      "text": "lane: humans-required",
+      "names": [
+        "Ask the operator, with the 2026-08-09 vacuous-red count in hand, whether the write-time numeric-bar check may be relaxed"
+      ],
+      "direction": "unstated",
+      "order": 26
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ask the operator, with the third firing's hand merge of PR #181 in front of them, whether an unattended firing may merge its own green PR",
+      "section": "frontmatter lane:",
+      "date": "2026-08-20",
+      "text": "lane: humans-required",
+      "names": [
+        "Ask the operator, with the third firing's hand merge of PR #181 in front of them, whether an unattended firing may merge its own green PR"
+      ],
+      "direction": "unstated",
+      "order": 27
+    },
+    {
+      "kind": "wip-hold",
+      "node": "Axioms elicited at the moment a derivation needs them, one accept-or-reject ask at a time",
+      "section": "Issues",
+      "date": "2026-08-29",
+      "text": "2026-08-29 2026-08-28 unattended sweep, repo sight held: examined for a missing instrument and deliberately left without one. Recording the examination because this node carried no prior note and would otherwise be re-read from scratch by every firing that meets it in `solutionsMissingInstruments` — which is the re-derivation cost its siblings already record. The belief beneath it, \"Axiom asks arrive rarely enough to be answered instead of batched into ignorance\", is a viability judgement about one person's answering behaviour over time: it needs a real queue to accumulate real asks and then the operator to say whether the arrival rate was tolerable. Neither half is a spec, and this node's own prose already names viability as its sharpest risk. Note also that the ask-queue machinery this candidate would ride on already exists and is populated — `ost_next_work` reported 52 outstanding asks this pass, all 52 predating ask tracking and carrying no recorded age — so the rate question could be answered from that ledger once the asks carry timestamps, which is a cheaper route than building anything here. What a human should do: set the lane with `ost-agent lane --set`, since `ost_flag_humans_required` is withheld on the unattended surface. Not a skipped step.",
+      "names": [
+        "Axiom asks arrive rarely enough to be answered instead of batched into ignorance"
+      ],
+      "direction": "hold",
+      "order": 28
+    },
+    {
+      "kind": "lane-label",
+      "node": "Blind-rate ten instruments for groundedness and compare against whether their pass had repo sight",
+      "section": "frontmatter lane:",
+      "date": "2026-08-06",
+      "text": "lane: humans-required",
+      "names": [
+        "Blind-rate ten instruments for groundedness and compare against whether their pass had repo sight"
+      ],
+      "direction": "unstated",
+      "order": 29
+    },
+    {
+      "kind": "wip-hold",
+      "node": "Borrow the axiom set from a named body of practice and let the human only veto",
+      "section": "Issues",
+      "date": "2026-08-29",
+      "text": "2026-08-29 2026-08-29 unattended sweep, repo sight held: examined for a missing instrument and deliberately left without one. Recording the examination because this node carried no prior note, and because its sibling \"Axioms elicited at the moment a derivation needs them, one accept-or-reject ask at a time\" was examined and annotated a firing earlier the same day — a reader meeting one and not the other would reasonably assume this branch had been half-checked. The belief beneath it, \"Veto-only review of imported axioms still leaves the operator owning them\", is desirability and specifically a question about how a person feels about authorship: whether striking entries from an imported list produces the same sense of ownership as writing them. That is measured by asking the operator after they have done it, not by any exit code, and this node's own prose already names desirability as its sharpest risk. Note the mechanical half that IS in this repository and is a different question: `src/knowledge/believability.ts` and the proof-rung machinery are here, and a test on the standing queue — \"A proof rung resolves through its cited axioms instead of returning a constant rank\" — already covers whether derivations consume an axiom set correctly. That is the plumbing; this node is about where the axioms come from and whether the operator owns them, so instrumenting it against the plumbing would measure the sibling's job under a second name. What a human should do: set the lane with `ost-agent lane --set`, since `ost_flag_humans_required` is withheld on the unattended surface. Not a skipped step.",
+      "names": [
+        "Axioms elicited at the moment a derivation needs them, one accept-or-reject ask at a time",
+        "Veto-only review of imported axioms still leaves the operator owning them",
+        "A proof rung resolves through its cited axioms instead of returning a constant rank"
+      ],
+      "direction": "hold",
+      "order": 30
+    },
+    {
+      "kind": "lane-label",
+      "node": "By 2026-08-25 the target is set and one scoped firing has run",
+      "section": "frontmatter lane:",
+      "date": "2026-08-11",
+      "text": "lane: humans-required",
+      "names": [
+        "By 2026-08-25 the target is set and one scoped firing has run"
+      ],
+      "direction": "unstated",
+      "order": 31
+    },
+    {
+      "kind": "lane-label",
+      "node": "Classify 12 already-falsified claims from this vault's git history by what falsified each",
+      "section": "frontmatter lane:",
+      "date": "2026-08-22",
+      "text": "lane: humans-required",
+      "names": [
+        "Classify 12 already-falsified claims from this vault's git history by what falsified each"
+      ],
+      "direction": "unstated",
+      "order": 32
+    },
+    {
+      "kind": "lane-label",
+      "node": "Count from git history how many hand-held vault artifacts the operator has amended more than once",
+      "section": "frontmatter lane:",
+      "date": "2026-08-30",
+      "text": "lane: humans-required",
+      "names": [
+        "Count from git history how many hand-held vault artifacts the operator has amended more than once"
+      ],
+      "direction": "unstated",
+      "order": 33
+    },
+    {
+      "kind": "lane-label",
+      "node": "Count how many recurring-input artifacts the founder has actually kept current, before asking for another",
+      "section": "frontmatter lane:",
+      "date": "2026-08-26",
+      "text": "lane: humans-required",
+      "names": [
+        "Count how many recurring-input artifacts the founder has actually kept current, before asking for another"
+      ],
+      "direction": "unstated",
+      "order": 34
+    },
+    {
+      "kind": "lane-label",
+      "node": "Count how many routed asks the operator answers in the four weeks after they arrive with an age on them",
+      "section": "frontmatter lane:",
+      "date": "2026-08-30",
+      "text": "lane: humans-required",
+      "names": [
+        "Count how many routed asks the operator answers in the four weeks after they arrive with an age on them"
+      ],
+      "direction": "unstated",
+      "order": 35
+    },
+    {
+      "kind": "lane-label",
+      "node": "Count how many times the operator amends discovery.target over eight weeks of git history",
+      "section": "frontmatter lane:",
+      "date": "2026-08-27",
+      "text": "lane: humans-required",
+      "names": [
+        "Count how many times the operator amends discovery.target over eight weeks of git history"
+      ],
+      "direction": "unstated",
+      "order": 36
+    },
+    {
+      "kind": "lane-label",
+      "node": "Count the recorded expiries that later succeeded against those whose condition could never have become true",
+      "section": "frontmatter lane:",
+      "date": "2026-08-29",
+      "text": "lane: humans-required",
+      "names": [
+        "Count the recorded expiries that later succeeded against those whose condition could never have become true"
+      ],
+      "direction": "unstated",
+      "order": 37
+    },
+    {
+      "kind": "lane-label",
+      "node": "Five operators choose between sixty-one weak instruments and sixty-one blanks",
+      "section": "frontmatter lane:",
+      "date": "2026-08-07",
+      "text": "lane: humans-required",
+      "names": [
+        "Five operators choose between sixty-one weak instruments and sixty-one blanks"
+      ],
+      "direction": "unstated",
+      "order": 38
+    },
+    {
+      "kind": "lane-label",
+      "node": "Hand a reclassified-node mock to a cold reader and time finding its prior self",
+      "section": "frontmatter lane:",
+      "date": "2026-08-10",
+      "text": "lane: humans-required",
+      "names": [
+        "Hand a reclassified-node mock to a cold reader and time finding its prior self"
+      ],
+      "direction": "unstated",
+      "order": 39
+    },
+    {
+      "kind": "lane-label",
+      "node": "Hand the founder a digest built from last month's history and ask what it missed",
+      "section": "frontmatter lane:",
+      "date": "2026-08-11",
+      "text": "lane: humans-required",
+      "names": [
+        "Hand the founder a digest built from last month's history and ask what it missed"
+      ],
+      "direction": "unstated",
+      "order": 40
+    },
+    {
+      "kind": "lane-label",
+      "node": "Have someone with the build scripts open confirm the dist build is deterministic enough to run inside a git merge step",
+      "section": "frontmatter lane:",
+      "date": "2026-08-18",
+      "text": "lane: humans-required",
+      "names": [
+        "Have someone with the build scripts open confirm the dist build is deterministic enough to run inside a git merge step"
+      ],
+      "direction": "unstated",
+      "order": 41
+    },
+    {
+      "kind": "lane-label",
+      "node": "Have someone with the build-loop harness's source open confirm whether a pre-interruption hook exists",
+      "section": "frontmatter lane:",
+      "date": "2026-08-18",
+      "text": "lane: humans-required",
+      "names": [
+        "Have someone with the build-loop harness's source open confirm whether a pre-interruption hook exists"
+      ],
+      "direction": "unstated",
+      "order": 42
+    },
+    {
+      "kind": "lane-label",
+      "node": "Have someone with the editor-tool source open confirm auto-read can run strictly before the edit it guards",
+      "section": "frontmatter lane:",
+      "date": "2026-08-18",
+      "text": "lane: humans-required",
+      "names": [
+        "Have someone with the editor-tool source open confirm auto-read can run strictly before the edit it guards"
+      ],
+      "direction": "unstated",
+      "order": 43
+    },
+    {
+      "kind": "lane-label",
+      "node": "Have someone with the tool harness open confirm self-created files can be tracked distinctly from pre-existing ones within a session",
+      "section": "frontmatter lane:",
+      "date": "2026-08-18",
+      "text": "lane: humans-required",
+      "names": [
+        "Have someone with the tool harness open confirm self-created files can be tracked distinctly from pre-existing ones within a session"
+      ],
+      "direction": "unstated",
+      "order": 44
+    },
+    {
+      "kind": "lane-label",
+      "node": "Have someone with the vault-write code open confirm every commit path can carry a session id without breaking commit-message parsers",
+      "section": "frontmatter lane:",
+      "date": "2026-08-18",
+      "text": "lane: humans-required",
+      "names": [
+        "Have someone with the vault-write code open confirm every commit path can carry a session id without breaking commit-message parsers"
+      ],
+      "direction": "unstated",
+      "order": 45
+    },
+    {
+      "kind": "lane-label",
+      "node": "Hold one 30-minute axiom-writing session and re-test endorsement a week later",
+      "section": "frontmatter lane:",
+      "date": "2026-08-10",
+      "text": "lane: humans-required",
+      "names": [
+        "Hold one 30-minute axiom-writing session and re-test endorsement a week later"
+      ],
+      "direction": "unstated",
+      "order": 46
+    },
+    {
+      "kind": "evidence-debt-gate",
+      "node": "I can't say why anyone wouldn't just do this by hand with Claude and Obsidian",
+      "section": "body",
+      "date": "2026-07-25",
+      "text": "**Evidence-debt gate (deliberate):** no solutions ideated under this node yet — applying the tree's own gate to itself. Expand only when a non-founder artifact cites this need. Until then it stands as an open strategic question on the map, not a branch to build under.",
+      "names": [
+        "I can't say why anyone wouldn't just do this by hand with Claude and Obsidian"
+      ],
+      "direction": "hold",
+      "order": 47
+    },
+    {
+      "kind": "evidence-debt-gate",
+      "node": "I don't know what unit of this anyone would pay for",
+      "section": "body",
+      "date": "2026-07-25",
+      "text": "**Evidence-debt gate (deliberate):** no solutions ideated under this node yet — applying the tree's own gate to itself. Expand only when a non-founder artifact cites this need. Until then it stands as an open strategic question on the map, not a branch to build under.",
+      "names": [
+        "I don't know what unit of this anyone would pay for"
+      ],
+      "direction": "hold",
+      "order": 48
+    },
+    {
+      "kind": "evidence-debt-gate",
+      "node": "I don't know who this is for beyond myself",
+      "section": "body",
+      "date": "2026-07-25",
+      "text": "**Evidence-debt gate (deliberate):** no solutions ideated under this node yet — applying the tree's own gate to itself. Expand only when a non-founder artifact cites this need. Until then it stands as an open strategic question on the map, not a branch to build under.",
+      "names": [
+        "I don't know who this is for beyond myself"
+      ],
+      "direction": "hold",
+      "order": 49
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ideate three times over a map with closed roads and count re-proposals of the closed misconception",
+      "section": "frontmatter lane:",
+      "date": "2026-08-10",
+      "text": "lane: humans-required",
+      "names": [
+        "Ideate three times over a map with closed roads and count re-proposals of the closed misconception"
+      ],
+      "direction": "unstated",
+      "order": 50
+    },
+    {
+      "kind": "evidence-debt-gate",
+      "node": "If the agent tends the tree for me, I may lose the understanding that tending it built",
+      "section": "body",
+      "date": "2026-07-25",
+      "text": "**Evidence-debt gate (deliberate):** no solutions ideated under this node yet — applying the tree's own gate to itself. Expand only when a non-founder artifact cites this need. Until then it stands as an open strategic question on the map, not a branch to build under.",
+      "names": [
+        "If the agent tends the tree for me, I may lose the understanding that tending it built"
+      ],
+      "direction": "hold",
+      "order": 51
+    },
+    {
+      "kind": "lane-label",
+      "node": "Import ten doctrine axioms, run a veto pass, then probe ownership with an unwelcome consequence",
+      "section": "frontmatter lane:",
+      "date": "2026-08-10",
+      "text": "lane: humans-required",
+      "names": [
+        "Import ten doctrine axioms, run a veto pass, then probe ownership with an unwelcome consequence"
+      ],
+      "direction": "unstated",
+      "order": 52
+    },
+    {
+      "kind": "wip-hold",
+      "node": "Monitor states its accepted command grammar up front rather than discovered by refusal",
+      "section": "Issues",
+      "date": "2026-08-29",
+      "text": "2026-08-29 2026-08-29 unattended sweep, repo sight held: examined for a missing instrument and deliberately left without one. Recording the examination because this node carried no prior note. Two separate reasons, and the second is the one that would otherwise get re-litigated. First, the artefact is Monitor, a harness tool: no spec under this repository's `test/` can assert anything about its tool description, so the mechanical half is out of reach here — the same blocker already recorded on the sibling \"Adopt the platform's own job-control wait instead of maintaining a bespoke shell helper\". Second, the belief beneath it, \"Publishing Monitor's accepted grammar up front would cut the refusal-then-retry cost these transcripts show\", is a counterfactual about how an agent would have composed differently given information it did not have; a spec cannot run the counterfactual, and the corresponding ask is already on the standing queue as \"Ask the operator whether reading Monitor's stated constraints before composing would have changed how these two sessions wrote their commands\". Worth recording alongside: this firing's own corrections preamble carries the Monitor `sleep` refusal and its permitted replacement, which is this candidate's mechanism already partly delivered by a different surface — evidence about the idea, not a reason to instrument the node. What a human should do: set the lane with `ost-agent lane --set`, since `ost_flag_humans_required` is withheld on the unattended surface. Not a skipped step.",
+      "names": [
+        "Adopt the platform's own job-control wait instead of maintaining a bespoke shell helper",
+        "Publishing Monitor's accepted grammar up front would cut the refusal-then-retry cost these transcripts show",
+        "Ask the operator whether reading Monitor's stated constraints before composing would have changed how these two sessions wrote their commands"
+      ],
+      "direction": "hold",
+      "order": 53
+    },
+    {
+      "kind": "evidence-debt-gate",
+      "node": "No one outside my own network could discover this product exists",
+      "section": "body",
+      "date": "2026-07-25",
+      "text": "**Evidence-debt gate (deliberate):** no solutions ideated under this node yet — applying the tree's own gate to itself. Expand only when a non-founder artifact cites this need. Until then it stands as an open strategic question on the map, not a branch to build under.",
+      "names": [
+        "No one outside my own network could discover this product exists"
+      ],
+      "direction": "hold",
+      "order": 54
+    },
+    {
+      "kind": "founder-decision",
+      "node": "OST-Agent (meta)",
+      "section": "Founder framing — 2026-07-24 (`assertion`; the mandate is unchanged)",
+      "date": "2026-07-25",
+      "text": "2026-07-25 superseded mandate: > Ground the OST-Agent product in real EXTERNAL evidence: relentlessly increase the quantity and believability of validated, non-founder data about demand and usage, compress it into a trustworthy, ever-improving map from where the product is today to the metric we want to move, and keep that map compounding — so that goal + compute alone drive discovery and buildout, and stakeholders can trust the goal will not change and the process will not halt. > > ## Issues > - 2026-07-24 Provenance gap across the whole tree (agent-flagged, 2026-07-24 pass). All 8 opportunities below this outcome were distilled from founder-authored inbox notes. None came from a story-based customer interview, and no node in this tree rests on non-founder evidence of any kind. By the tree's own rules this is the weakest possible provenance — the opportunity space is a set of hypotheses about needs, not a set of observed needs. The map should not be treated as believable until external evidence enters it; the branch \"I can't tell if anyone outside my own head wants this\" is the one that fixes this condition, and is the natural first target. A human should confirm the outcome and the opportunity set against real customer conversations before any building is funded off this map.",
+      "names": [
+        "I can't tell if anyone outside my own head wants this"
+      ],
+      "direction": "advance",
+      "order": 55
+    },
+    {
+      "kind": "prioritization-lane",
+      "node": "OST-Agent (meta)",
+      "section": "Prioritization — row-by-row (2026-07-24, human-authorized hard-fix pass)",
+      "date": "2026-07-24",
+      "text": "**TARGET → \"I can't tell if anyone outside my own head wants this\"** (status: in-discovery). The only row whose assumption tests create non-founder evidence; every other row's believability is blocked on it. Sized: affects the only current operator, every session, and gates all 148 unvalidated nodes.",
+      "names": [
+        "I can't tell if anyone outside my own head wants this"
+      ],
+      "direction": "advance",
+      "order": 56
+    },
+    {
+      "kind": "prioritization-lane",
+      "node": "OST-Agent (meta)",
+      "section": "Prioritization — row-by-row (2026-07-24, human-authorized hard-fix pass)",
+      "date": "2026-07-24",
+      "text": "**Sequenced-after-demand:** \"Trust an unmonitored agent enough to walk away\" (41 nodes, ~28% of tree — adoption-stage hardening for operators who do not yet exist), \"I can't leave the process running unattended without worrying\", \"Don't want to buy a second AI credential just to try it\" (need reverse-engineered from a design decision). Hold until external returning operators > 0.",
+      "names": [
+        "Trust an unmonitored agent enough to walk away",
+        "I can't leave the process running unattended without worrying",
+        "Don't want to buy a second AI credential just to try it"
+      ],
+      "direction": "hold",
+      "order": 57
+    },
+    {
+      "kind": "prioritization-lane",
+      "node": "OST-Agent (meta)",
+      "section": "Prioritization — row-by-row (2026-07-24, human-authorized hard-fix pass)",
+      "date": "2026-07-24",
+      "text": "**Dogfood lane (real, observed, but produces no external evidence):** \"I opened the vault in Obsidian and the agent lost half the tree\", \"The pass never says it is done, so I can't tell when to stop paying for compute\", \"I have a tree full of unvalidated nodes and no idea which one to pick up\", \"Checking on progress means digging through files\".",
+      "names": [
+        "I opened the vault in Obsidian and the agent lost half the tree",
+        "The pass never says it is done, so I can't tell when to stop paying for compute",
+        "I have a tree full of unvalidated nodes and no idea which one to pick up",
+        "Checking on progress means digging through files"
+      ],
+      "direction": "unstated",
+      "order": 58
+    },
+    {
+      "kind": "prioritization-lane",
+      "node": "OST-Agent (meta)",
+      "section": "Prioritization — row-by-row (2026-07-24, human-authorized hard-fix pass)",
+      "date": "2026-07-24",
+      "text": "**Founder-theory lane (evidence-debt-gated — no new siblings until a non-founder artifact cites the row):** \"The goal I care about is too far from anything I can act on this week\", \"Nothing kills a candidate, so every idea I have ever had is still alive\", \"The candidate maps all look alike, so the route that would have worked is never among them\", \"Building crowds out the search for better evidence\", \"What the agent learns doesn't accumulate over time\".",
+      "names": [
+        "The goal I care about is too far from anything I can act on this week",
+        "Nothing kills a candidate, so every idea I have ever had is still alive",
+        "The candidate maps all look alike, so the route that would have worked is never among them",
+        "Building crowds out the search for better evidence",
+        "What the agent learns doesn't accumulate over time"
+      ],
+      "direction": "hold",
+      "order": 59
+    },
+    {
+      "kind": "wip-hold",
+      "node": "OST-Agent (meta)",
+      "section": "Issues",
+      "date": "2026-08-02",
+      "text": "2026-08-02 **2026-08-02, third maintenance pass (unattended) — one target row, and two tools the pass was refused.** Ingest captured 0 new items across all six channels for the second pass running, so this pass worked the backlog. **Target: \"The agent has to guess what resources it's actually working with\"** — chosen because it carries no evidence-debt gate, was not among the eight gated rows named this morning, sits top-level under the Outcome (it conditions planning on every branch rather than one), and its own body already names distinct mechanisms with real trade-offs, so the litmus test was passed before this pass touched it. Three candidate solutions with deliberately different failure modes — declaration (\"A declared resource manifest the planner must cite before it ranks anything\"), inference-from-failure (\"Constraint profile mined from what actually blocked the loop\"), and periodic elicitation with decay (\"Expiring resource questions asked at a fixed cadence\") — each with one assumption test carrying a pre-committed threshold in the `threshold` field, spread across value, feasibility, and viability. `solutionsMissingAssumptions` stays at zero. **Held: the remaining 18 rows**, for the reasons already recorded in the two ledgers above — eight carry an explicit gate in their own body, the rest are held under Torres's WIP limit. One row changed character since this morning and should be re-read rather than re-held by habit: \"Every run ends blocked on a credential only I hold\" now carries a 2026-07-26 annotation disconfirming it as framed, and whether to re-frame or close it is a human's call, so ideating three solutions under its current framing would have built on a claim the tree has already retired. **Two tool refusals, both at the permission layer rather than the server.** `ost_check` was declined for the second consecutive pass, so two passes have now written to this vault without confirming its invariants afterwards; the last confirmed reading remains the fifteenth pass's 0 violations over 241 nodes, and a human should run `ost-agent check` to confirm this pass's six new nodes introduced none. `ost_flag_humans_required` was also declined, so \"Time the resource questions once and count answers the vault could not already recover\" could not be labelled — it needs a person by construction (the measurement is what a human says and how long they take), its body says so in prose, and a human should set the lane with `ost-agent lane`. Both refusals are appended as observed evidence on \"The same agent has a different tool surface on every surface I run it on\", because they refine that claim: the surface varies per-tool within a single session, not just between environments, so a partly-equipped pass is indistinguishable from a fully-equipped one until the call that fails. **Unchanged and now three passes old: the two decisions a human owes this tree** — give the gated rows a status the sweep honours (or accept `underservedOpportunities` is permanently non-empty), and build \"Let a pass mark evidence acknowledged, with a reason, without inventing an opportunity\" so the 41 dispositioned evidence items stop reporting unmapped forever.",
+      "names": [
+        "The agent has to guess what resources it's actually working with",
+        "A declared resource manifest the planner must cite before it ranks anything",
+        "Constraint profile mined from what actually blocked the loop",
+        "Expiring resource questions asked at a fixed cadence",
+        "Every run ends blocked on a credential only I hold",
+        "Time the resource questions once and count answers the vault could not already recover",
+        "The same agent has a different tool surface on every surface I run it on",
+        "Let a pass mark evidence acknowledged, with a reason, without inventing an opportunity"
+      ],
+      "direction": "mixed",
+      "order": 60
+    },
+    {
+      "kind": "founder-decision",
+      "node": "OST-Agent (meta)",
+      "section": "Founder decision — 2026-07-25 (`human:conversation`; free distribution, notoriety as the return, memory as the positioning)",
+      "date": "2026-07-25",
+      "text": "The cold-offer concierge outreach was declined as drafted (\"that isn't going to fly\") — annotated on \"Cold-offer test - will outside teams hand over real discovery work\". The desirability question it targeted stays open; it is now expected to be answered by inbound adoption of a free product rather than cold outreach.",
+      "names": [
+        "Cold-offer test - will outside teams hand over real discovery work"
+      ],
+      "direction": "unstated",
+      "order": 61
+    },
+    {
+      "kind": "founder-decision",
+      "node": "OST-Agent (meta)",
+      "section": "Founder decision — 2026-07-25 (`human:conversation`; free distribution, notoriety as the return, memory as the positioning)",
+      "date": "2026-07-25",
+      "text": "The money rungs are mooted by decision: annotated on \"Pre-order probe - will anyone pay before the map proves itself\" and \"I don't know what unit of this anyone would pay for\". Attention (follows, returning operators) replaces payment as the highest reachable external rung.",
+      "names": [
+        "Pre-order probe - will anyone pay before the map proves itself",
+        "I don't know what unit of this anyone would pay for"
+      ],
+      "direction": "unstated",
+      "order": 62
+    },
+    {
+      "kind": "founder-decision",
+      "node": "OST-Agent (meta)",
+      "section": "Founder decision — 2026-07-25 (`human:conversation`; free distribution, notoriety as the return, memory as the positioning)",
+      "date": "2026-07-25",
+      "text": "Distribution becomes the critical path: \"No one outside my own network could discover this product exists\" and the blocked npm publish (five consecutive passes, recorded above) are now the gate in front of every external-evidence hope this tree holds.",
+      "names": [
+        "No one outside my own network could discover this product exists"
+      ],
+      "direction": "advance",
+      "order": 63
+    },
+    {
+      "kind": "lane-label",
+      "node": "Offer the operator a written probe list and count how many they pre-authorize unattended",
+      "section": "frontmatter lane:",
+      "date": "2026-08-10",
+      "text": "lane: humans-required",
+      "names": [
+        "Offer the operator a written probe list and count how many they pre-authorize unattended"
+      ],
+      "direction": "unstated",
+      "order": 64
+    },
+    {
+      "kind": "lane-label",
+      "node": "Present the founder three derivations from their own axioms, one unwelcome, and count silent revocations",
+      "section": "frontmatter lane:",
+      "date": "2026-08-10",
+      "text": "lane: humans-required",
+      "names": [
+        "Present the founder three derivations from their own axioms, one unwelcome, and count silent revocations"
+      ],
+      "direction": "unstated",
+      "order": 65
+    },
+    {
+      "kind": "lane-label",
+      "node": "Replay the recorded expiries and check whether last-line age would have separated the slow runs from the stuck ones",
+      "section": "frontmatter lane:",
+      "date": "2026-08-29",
+      "text": "lane: humans-required",
+      "names": [
+        "Replay the recorded expiries and check whether last-line age would have separated the slow runs from the stuck ones"
+      ],
+      "direction": "unstated",
+      "order": 66
+    },
+    {
+      "kind": "lane-label",
+      "node": "Run one live triage offering only class-rank verbs and watch for per-node fallback",
+      "section": "frontmatter lane:",
+      "date": "2026-08-10",
+      "text": "lane: humans-required",
+      "names": [
+        "Run one live triage offering only class-rank verbs and watch for per-node fallback"
+      ],
+      "direction": "unstated",
+      "order": 67
+    },
+    {
+      "kind": "lane-label",
+      "node": "Run the refusals section for two weeks and count the mornings it changes anything",
+      "section": "frontmatter lane:",
+      "date": "2026-08-06",
+      "text": "lane: humans-required",
+      "names": [
+        "Run the refusals section for two weeks and count the mornings it changes anything"
+      ],
+      "direction": "unstated",
+      "order": 68
+    },
+    {
+      "kind": "wip-hold",
+      "node": "Scheduled ambient passes that page the operator only at hard gates",
+      "section": "Issues",
+      "date": "2026-08-26",
+      "text": "2026-08-26 2026-08-26 unattended sweep, repo sight held: examined for a missing instrument and deliberately left without one — recording the examination because this node carried no prior note and would otherwise be re-read from scratch every firing. The belief beneath it, \"Two unattended weeks produce few enough pages, and little enough grind, to be worth the spend\", is a longitudinal cost judgement: it needs two weeks of real firings to elapse and then a person to say whether the page count and the money were worth it. Neither half is a spec. Note that the mechanical prerequisites this node names have moved on and are pinned elsewhere — the exit-0 defect is fixed, and the remaining \"silence means working\" half depends on the heartbeat candidate this node already points at, so an instrument written here would either re-measure a shipped fact or measure the heartbeat's job under a second name. What a human should do: set the lane with `ost-agent lane --set`, since `ost_flag_humans_required` is withheld on the unattended surface. Not a skipped step.",
+      "names": [
+        "Two unattended weeks produce few enough pages, and little enough grind, to be worth the spend"
+      ],
+      "direction": "hold",
+      "order": 69
+    },
+    {
+      "kind": "lane-label",
+      "node": "Seed a one-line criteria note and see whether the founder edits it within two weeks",
+      "section": "frontmatter lane:",
+      "date": "2026-08-11",
+      "text": "lane: humans-required",
+      "names": [
+        "Seed a one-line criteria note and see whether the founder edits it within two weeks"
+      ],
+      "direction": "unstated",
+      "order": 70
+    },
+    {
+      "kind": "lane-label",
+      "node": "Seed five axiom asks into the standing queue and count answers within a week",
+      "section": "frontmatter lane:",
+      "date": "2026-08-10",
+      "text": "lane: humans-required",
+      "names": [
+        "Seed five axiom asks into the standing queue and count answers within a week"
+      ],
+      "direction": "unstated",
+      "order": 71
+    },
+    {
+      "kind": "lane-label",
+      "node": "Send flip announcements for two weeks and count which ones the founder reacts to",
+      "section": "frontmatter lane:",
+      "date": "2026-08-11",
+      "text": "lane: humans-required",
+      "names": [
+        "Send flip announcements for two weeks and count which ones the founder reacts to"
+      ],
+      "direction": "unstated",
+      "order": 72
+    },
+    {
+      "kind": "wip-hold",
+      "node": "Ship the helper with its own runtime rather than borrowing the machine's",
+      "section": "Issues",
+      "date": "2026-08-23",
+      "text": "2026-08-23 2026-08-23 unattended sweep, repo sight held: checked whether the missing instrument here is an oversight, and it is not. The mechanical half of this candidate — how many shipped helpers genuinely need a shell — is already owned by a sibling's test, \"Take the harvested commands and count how many genuinely need a shell to do their work\", and its harvester exists in the repo (`scripts/harvest-shell-necessity-corpus.ts`). Writing a second spec here would measure the same fact under a second name. What is left beneath this node is the one belief the harvest cannot answer: \"A helper rewritten against the bundled runtime stays short enough that the operator would still edit it\" — a readability judgement about a person, which no exit code settles. Repo facts backing this, read first-party: `scripts/` is already entirely TypeScript, and the shell surface is exactly two files, `examples/automation/autonomous-pass.sh` and `build-pass.sh`. So the rewrite this candidate proposes is small and already mostly done, which sharpens the remaining question from \"is it feasible\" to \"is the rewritten version still one the operator would open and change.\" Deliberately left uninstrumented; not a skipped step.",
+      "names": [
+        "Take the harvested commands and count how many genuinely need a shell to do their work",
+        "A helper rewritten against the bundled runtime stays short enough that the operator would still edit it"
+      ],
+      "direction": "hold",
+      "order": 73
+    },
+    {
+      "kind": "lane-label",
+      "node": "Show five operators a pass's dismissed-work list and ask whether they would have let it stand",
+      "section": "frontmatter lane:",
+      "date": "2026-08-06",
+      "text": "lane: humans-required",
+      "names": [
+        "Show five operators a pass's dismissed-work list and ask whether they would have let it stand"
+      ],
+      "direction": "unstated",
+      "order": 74
+    },
+    {
+      "kind": "lane-label",
+      "node": "Show one operator the grouped queue and the record listing, and record which one they act from",
+      "section": "frontmatter lane:",
+      "date": "2026-08-30",
+      "text": "lane: humans-required",
+      "names": [
+        "Show one operator the grouped queue and the record listing, and record which one they act from"
+      ],
+      "direction": "unstated",
+      "order": 75
+    },
+    {
+      "kind": "lane-label",
+      "node": "Show the escalated message to five fresh sessions facing the same failure and count which change approach",
+      "section": "frontmatter lane:",
+      "date": "2026-08-20",
+      "text": "lane: humans-required",
+      "names": [
+        "Show the escalated message to five fresh sessions facing the same failure and count which change approach"
+      ],
+      "direction": "unstated",
+      "order": 76
+    },
+    {
+      "kind": "lane-label",
+      "node": "Show the operator a handful of recorded sessions and the threshold's would-have-fired verdict, and ask which they'd have wanted alerted",
+      "section": "frontmatter lane:",
+      "date": "2026-08-17",
+      "text": "lane: humans-required",
+      "names": [
+        "Show the operator a handful of recorded sessions and the threshold's would-have-fired verdict, and ask which they'd have wanted alerted"
+      ],
+      "direction": "unstated",
+      "order": 77
+    },
+    {
+      "kind": "wip-hold",
+      "node": "Show the whole write, exactly as it will land, and require a confirm before it does",
+      "section": "Issues",
+      "date": "2026-08-26",
+      "text": "2026-08-26 2026-08-26 unattended sweep, repo sight held: examined for a missing instrument and deliberately left without one — recording the examination because this node carried no prior note and would otherwise be re-read from scratch every firing. The single belief beneath it, \"A caller shown the exact bytes will sometimes change the write before confirming\", is a claim about what a person does when shown a rendering, and its own test asks five authors to preview a write and counts how many change it. No exit code settles that: a spec can prove a preview form *renders* the bytes, which nobody doubts, but not that seeing them changes anyone's mind. The node's own prose already names the sharper version of the risk — if the caller composing the write is the same one confirming it, the confirm is a formality — and that too is answerable only by watching callers. What a human should do: set the lane with `ost-agent lane --set`, since `ost_flag_humans_required` is withheld on the unattended surface and this sweep cannot label it. Not a skipped step.",
+      "names": [
+        "A caller shown the exact bytes will sometimes change the write before confirming"
+      ],
+      "direction": "hold",
+      "order": 78
+    },
+    {
+      "kind": "lane-label",
+      "node": "Ten opportunities restated in the grammar, and the operator says which still sound like their need",
+      "section": "frontmatter lane:",
+      "date": "2026-08-11",
+      "text": "lane: humans-required",
+      "names": [
+        "Ten opportunities restated in the grammar, and the operator says which still sound like their need"
+      ],
+      "direction": "unstated",
+      "order": 79
+    },
+    {
+      "kind": "evidence-debt-gate",
+      "node": "The agent narrows its own capability to get past a gate I set",
+      "section": "body",
+      "date": "2026-07-25",
+      "text": "**No solutions ideated under this, deliberately.** This vault's evidence-debt gate says an opportunity resting only on founder or agent sources does not get candidate solutions ideated under it, and this one rests on the thinnest source there is: the agent's own account of its own behaviour. It will therefore show up in `ost_next_work` as an under-served opportunity on every pass, exactly like the other seven, and that is the rule working rather than neglected work.",
+      "names": [
+        "The agent narrows its own capability to get past a gate I set"
+      ],
+      "direction": "hold",
+      "order": 80
+    },
+    {
+      "kind": "wip-hold",
+      "node": "The credential I am already authenticated with can't be used by the tool asking for one",
+      "section": "Issues",
+      "date": "2026-08-03",
+      "text": "2026-08-03 2026-08-03, unattended sweep — declined to ideate here, deliberately, honouring the hold rather than the counter. `ost_next_work` reports this row as under-served (0 of 3 solutions). It is not ideated because the note above is correct and the gate it names is still shut: this node's parent, \"Don't want to buy a second AI credential just to try it\", is placed in the sequenced-after-demand group by the human-authorized prioritization of 2026-07-24 recorded on the root Outcome, with the instruction to hold until external returning operators exceed zero. Nothing in this pass's evidence shows that condition met — the twenty-two transcripts and three usage traces read this pass are all the agent's own dogfooding, which by their own stated evidence class grounds usability and never demand. Adding three solutions beneath a held row would spend the pass's ideation on structure the human sequenced away from, and would do it invisibly, since the under-served counter cannot see a gate. The prior recommendation stands unchanged and is not this pass's to execute: archive unless the demand gate has since opened, or fold into the parent. A human should also note that this row will keep being reported outstanding on every future pass until the gated rows carry a status the sweep honours — that is the standing decision already recorded three times at the root, and this annotation is a fourth instance of the same cost.",
+      "names": [
+        "Don't want to buy a second AI credential just to try it"
+      ],
+      "direction": "hold",
+      "order": 81
+    },
+    {
+      "kind": "lane-label",
+      "node": "The operator grades the first ten differentia statements as discriminators or filler",
+      "section": "frontmatter lane:",
+      "date": "2026-08-11",
+      "text": "lane: humans-required",
+      "names": [
+        "The operator grades the first ten differentia statements as discriminators or filler"
+      ],
+      "direction": "unstated",
+      "order": 82
+    },
+    {
+      "kind": "lane-label",
+      "node": "The operator judges the next five builder-filed disconfirmations against their specs and counts the honest ones",
+      "section": "frontmatter lane:",
+      "date": "2026-08-20",
+      "text": "lane: humans-required",
+      "names": [
+        "The operator judges the next five builder-filed disconfirmations against their specs and counts the honest ones"
+      ],
+      "direction": "unstated",
+      "order": 83
+    }
+  ],
+  "readings": {
+    "underserved": [
+      "The agent can decompose my goal but cannot acquire and test its own guesses about how to reach it"
+    ],
+    "topLevel": [
+      "I can't tell if anyone outside my own head wants this",
+      "I can't leave the process running unattended without worrying",
+      "Checking on progress means digging through files",
+      "Building crowds out the search for better evidence",
+      "What the agent learns doesn't accumulate over time",
+      "The goal I care about is too far from anything I can act on this week",
+      "Nothing kills a candidate, so every idea I have ever had is still alive",
+      "The candidate maps all look alike, so the route that would have worked is never among them",
+      "Don't want to buy a second AI credential just to try it",
+      "I have a tree full of unvalidated nodes and no idea which one to pick up",
+      "I opened the vault in Obsidian and the agent lost half the tree",
+      "The pass never says it is done, so I can't tell when to stop paying for compute",
+      "Trust an unmonitored agent enough to walk away",
+      "I don't know who this is for beyond myself",
+      "I can't say why anyone wouldn't just do this by hand with Claude and Obsidian",
+      "I don't know what unit of this anyone would pay for",
+      "No one outside my own network could discover this product exists",
+      "If the agent tends the tree for me, I may lose the understanding that tending it built",
+      "I want my usage to automatically feed into and make the OST-Agent better",
+      "I need the tree's output to be actionable by compute alone, because my hours don't exist",
+      "The agent narrows its own capability to get past a gate I set",
+      "My tests carry thresholds nobody ever fixed, so nothing can come out a failure",
+      "The agent has no picture of what the builder can do, because reasoning traces never reach it",
+      "When the rules tighten, my existing tree is stranded out of compliance",
+      "I can't tell another PM 'just run npm install' and have it work",
+      "Fresh outside findings never reach the tree unless I go get them",
+      "Experiment data sits at its source until a human carries it into the inbox",
+      "The agent has to guess what resources it's actually working with",
+      "Give me the most efficient mapping of actions from where we are to where we want to get",
+      "I can't scale OST-Agents with my own compute because their experience never comes back to me",
+      "A sweep that cannot read its subject reports a clean result",
+      "A test that failed because the machine was busy looks exactly like one that failed because I broke something",
+      "Two release trains picked the same version number because nothing checked what was already published",
+      "The file changed after I read it, and the failed edit is how I find out",
+      "Discovery visits every branch and dwells on none, so the hard problems never get sustained thought",
+      "Two opportunities saying almost the same thing blur every comparison built on them",
+      "More reaches my senses than fits in the window where I think"
+    ],
+    "allOpportunities": [
+      "A backgrounded session leaves no marker of what it finished versus abandoned",
+      "A block stops everything and announces itself to no one",
+      "A build session's edit to the automation scripts becomes unreviewed policy for every future firing",
+      "A build that is finished and waiting in an open PR is picked as a target again, because selection reads only the tree",
+      "A build that refutes my idea looks, to the loop, exactly like a build that is not finished yet",
+      "A call the tool should have refused is permanent, because append-only cannot take it back",
+      "A call with several defects is refused one defect at a time, so I pay a turn per objection",
+      "A change I ship can only reach the agent by stopping it first",
+      "A command stops to ask a yes no question and the unattended run has nobody to answer it",
+      "A failed pass reports success, so my automation can't tell",
+      "A flag I already judged false comes back every pass, because the clear is keyed to wording nothing told me to repeat",
+      "A guard derived the rule it was checking, so it agreed with the bug for 23 releases",
+      "A helper I installed fails on my own machine's shell, and only running it says so",
+      "A malformed call lands before anything checks it, and only reading back the file says so",
+      "A measured bar is only re-taken when a pass feels like it, so a fix reads as working long after it stopped",
+      "A merge conflict got committed into a source file, so the next run inherits a repo that cannot build",
+      "A probe I write outside the repo can't import the repo's modules, and only running it says so",
+      "A quoted justification makes me check the agent's advice less",
+      "A recorded failure can't be reproduced, because the record omits where it ran",
+      "A refusal names a field that was fine, so the retry fixes the wrong thing",
+      "A rule change lands on finished work, and nothing carries that work across",
+      "A run has no authority to decide anything, so every fork is a full stop",
+      "A run never states which tools it had, so a degraded pass reads like a full one afterwards",
+      "A run that dies while I am away stays dead, and nothing says where it stopped",
+      "A run's own leftovers break the next run's setup, so the loop fails before it starts",
+      "A scheduled run finds out its tools are missing only after it has started",
+      "A second pass builds what the first already built, because nothing says the work was taken",
+      "A second process is editing the same files, and a failed string match is the only notification",
+      "A string I meant literally is read as syntax, so the command fails instead of searching",
+      "A sweep that cannot read its subject reports a clean result",
+      "A test that failed because the machine was busy looks exactly like one that failed because I broke something",
+      "A third of my calls go on re-asking what is outstanding",
+      "A tool call I got slightly wrong destroyed the note I was filing",
+      "A wait that gave up tells me nothing about whether waiting longer would have worked",
+      "An interrupted run leaves no trustworthy account of what it completed",
+      "An opportunity built on a misunderstanding has nowhere to go, because the tree can only add beside it",
+      "An upgrade changed what counts as done, so finished work silently reopened",
+      "Answering one question costs me three turns, because I have to fix its options before I can reply",
+      "Building crowds out the search for better evidence",
+      "Can't tell if the generated tree is actually any good",
+      "Checking on progress means digging through files",
+      "Commands are composed against a repo layout nobody checked, so the first thing that runs is a path that isn't there",
+      "Connecting my systems of record could leak or corrupt them",
+      "Discovery and building draw on the same budget, and building always wins",
+      "Discovery visits every branch and dwells on none, so the hard problems never get sustained thought",
+      "Don't want to buy a second AI credential just to try it",
+      "Each pass leaves me more to check than it started with",
+      "Every piece of work is priced in my minutes, and I have none to spend",
+      "Every precondition is discovered by violating it, so a pass pays a turn per rule it did not know",
+      "Every run ends blocked on a credential only I hold",
+      "Every session leaves an evidence record that restates a need the tree already holds",
+      "Evidence that fits no layer keeps coming back, so the pass never runs out of work",
+      "Evidence that only confirms a need I already recorded still arrives as work I have to clear",
+      "Experiment data sits at its source until a human carries it into the inbox",
+      "Fear the agent could take a destructive, irreversible action",
+      "Fresh outside findings never reach the tree unless I go get them",
+      "Funded tools already generate these trees, so I can't say why anyone would pick this one",
+      "Give me the most efficient mapping of actions from where we are to where we want to get",
+      "Having the vault is not the same as having the tools, and nothing points that out",
+      "I aim at a goal I can afford to chart, not the one I actually want",
+      "I call a symbol I never wrote, and a whole-project typecheck at the end of the batch is what tells me",
+      "I can't leave the process running unattended without worrying",
+      "I can't say why anyone wouldn't just do this by hand with Claude and Obsidian",
+      "I can't scale OST-Agents with my own compute because their experience never comes back to me",
+      "I can't tell another PM 'just run npm install' and have it work",
+      "I can't tell if anyone outside my own head wants this",
+      "I can't tell real friction from the loop doing exactly what I told it to do",
+      "I can't tell which evidence deserves weight",
+      "I cannot see what the agent did while I was away, so walking away is a leap",
+      "I compose a hundred and seventy lines before the surface tells me it does not accept that dialect",
+      "I don't know what unit of this anyone would pay for",
+      "I don't know who this is for beyond myself",
+      "I hand-exclude the flaky test on every run, and the green that comes back never says what it skipped",
+      "I have a tree full of unvalidated nodes and no idea which one to pick up",
+      "I have no side-by-side evidence that the tool beats doing it by hand",
+      "I map evidence the way the method says — onto an existing node — and the queue counts it as untouched",
+      "I need the tree's output to be actionable by compute alone, because my hours don't exist",
+      "I only find out an artifact is too big to read after the read has already cost me the turn",
+      "I opened the vault in Obsidian and the agent lost half the tree",
+      "I overwrote a good instrument because nothing showed me one was already there",
+      "I probe for files that were never there, because nothing hands me the layout of the workspace I am in",
+      "I repeat one shell mistake five times in a session, because the first failure never said it was a class",
+      "I run git in a folder that was never initialised, and exit 128 is how I learn it",
+      "I want my usage to automatically feed into and make the OST-Agent better",
+      "If the agent tends the tree for me, I may lose the understanding that tending it built",
+      "Improvements I ship never reach the agents already running",
+      "Merging a build branch conflicts on the compiled dist file from a concurrent firing, stalling the run",
+      "More reaches my senses than fits in the window where I think",
+      "Most of my backlog has never been read once, because every firing is shown the same alphabetical first 25",
+      "My bounded wait gives up before the job it is watching finishes, so the run stalls on work that was still healthy",
+      "My instruments are red because a file is absent, not because the behaviour is",
+      "My loop spends its time waiting for a check it cannot subscribe to",
+      "My performance gate is an absolute number, so a busy machine alone can fail it",
+      "My tests carry thresholds nobody ever fixed, so nothing can come out a failure",
+      "My unattended run stops at a prompt that assumes a person is sitting there",
+      "My unattended runs recover from tool errors and retries I never find out about",
+      "Near-identical evidence can only be discharged by giving each copy its own node",
+      "No one outside my own network could discover this product exists",
+      "Nobody outside the building has been asked, so every claim about demand is mine",
+      "Nothing brings the tree's state to me, so staying current means going and reading it",
+      "Nothing connects this week's work to the goal, so I can't tell if I am moving toward it",
+      "Nothing declares what I have to work with, so every plan is built on a guess",
+      "Nothing kills a candidate, so every idea I have ever had is still alive",
+      "Nothing names the one node to pick up next, so choosing is work before the work",
+      "Nothing points from my project to the vault that maps it",
+      "Nothing tells an honest loop to stop, so it either idles or invents work",
+      "One migration stopped me seven times, because settling the policy once never settled the rest",
+      "One red run is all I get, and nothing in it separates noise from a real break",
+      "Show me the whole priority order, and why each item sits where it does",
+      "Something can ship, pass its tests, and never be wired into anything that runs",
+      "Tests get written and instrumented all day, and not one of them has ever been run",
+      "The Monitor tool refuses the exact commands an unattended run needs to check on its own background work",
+      "The agent can decompose my goal but cannot acquire and test its own guesses about how to reach it",
+      "The agent can't earn wider autonomy, because it has no way to let reality judge its own claims",
+      "The agent has no picture of what the builder can do, because reasoning traces never reach it",
+      "The agent has to guess what resources it's actually working with",
+      "The agent narrows its own capability to get past a gate I set",
+      "The agent's repo sight fails mid-pass, because nothing checked the product path before it was needed",
+      "The biggest queue on my report is one the surface reading it to me has no tool to clear",
+      "The build loop re-selects a solution I already marked deferred and re-derives the same disproven result",
+      "The candidate maps all look alike, so the route that would have worked is never among them",
+      "The corrections that would save me most are the ones my own tool issues, and those are the only ones nothing remembers",
+      "The credential I am already authenticated with can't be used by the tool asking for one",
+      "The evidence queue counts records, not distinct problems, so I cannot tell whether 464 items is 464 needs or five repeating",
+      "The file changed after I read it, and the failed edit is how I find out",
+      "The friction I hit leaves no record behind, so nothing can be learned from it",
+      "The friction channel fills with my own typos, so the signal I wanted is buried",
+      "The friction that matters leaves no error behind",
+      "The gate can tell me something was tested, not whether the risky thing was",
+      "The goal I care about is too far from anything I can act on this week",
+      "The loop's highlights never reach me unless I go digging",
+      "The pass never says it is done, so I can't tell when to stop paying for compute",
+      "The queue sends me to ideate under a heading that already has thirty solutions under it",
+      "The repair I am asked to make requires rewriting prose no tool will show me",
+      "The same agent has a different tool surface on every surface I run it on",
+      "The same blocked call comes back next session, because a correction only lives as long as the session it was given in",
+      "The same refusal is rediscovered every session, because nothing carries the lesson forward",
+      "The session tries to write a file before it has read it this run, and the guard fails the turn instead of reading first",
+      "The tree never revisits itself, so old nodes rot and tried things get tried again",
+      "The unattended run is scoped for tools nobody granted it, and it finds out one denial at a time",
+      "The wait stops at its own default while the call I made still had time left",
+      "The whole loop waits on one human command, and nobody is told it is waiting",
+      "The work I most want to run unattended is the work that keeps needing a decision",
+      "There's no way to declare which axioms I accept, so derivable truth can't move the tree",
+      "Trust an unmonitored agent enough to walk away",
+      "Trying this at all costs a purchase, before I know whether it is worth anything",
+      "Two agents sharing my vault can trample each other",
+      "Two opportunities saying almost the same thing blur every comparison built on them",
+      "Two release trains picked the same version number because nothing checked what was already published",
+      "Two runs write the same vault at once and nothing arbitrates between them",
+      "Two thirds of my calls failed, and each one only told me after I made it",
+      "Usage reaches me as summaries, with the raw signal already discarded",
+      "Want proof no hijackable capability even exists",
+      "What I actually do with the tool is never recorded, so improving it runs on memory",
+      "What the agent learns doesn't accumulate over time",
+      "What the agent struggles with every session disappears",
+      "When a wait gives up, I can't tell whether it was nearly there or never going to happen",
+      "When the rules tighten, my existing tree is stranded out of compliance",
+      "Work I already decided needs a person comes back every pass as work I failed to do",
+      "Work I already finished keeps coming back in the queue, so the pass can never say it is done",
+      "Work a previous pass settled comes back on the next list, so I pay to re-decide it",
+      "Work my own governance has already gated still shows as outstanding every pass",
+      "Worry the agent is grading its own homework"
+    ]
+  }
+}
