@@ -60791,6 +60791,19 @@ function held(facts, title) {
     return false;
   }
 }
+function testUnderInstrument(input, facts) {
+  const existing = node(facts, str3(input, "test"));
+  if (existing) return existing;
+  if (str3(input, "layer") !== "AssumptionTest") return void 0;
+  return {
+    title: str3(input, "title") ?? "",
+    layer: "AssumptionTest",
+    body: str3(input, "body") ?? "",
+    threshold: str3(input, "threshold"),
+    tags: [],
+    links: []
+  };
+}
 function node(facts, title) {
   if (!title) return void 0;
   try {
@@ -61104,13 +61117,16 @@ var CALL_PRECONDITIONS = Object.freeze([
     statement: "The spec file an instrument names must exist in a configured product repository \u2014 a file that does not exist yet fails identically whatever question was written on it, so its red grants no build permit.",
     expressibility: "caveat",
     caveat: "The product repository is a separate checkout this tool does not own. A spec present when the snapshot was taken can be gone, or arrive, before the call is made.",
-    enforcedBy: "ost/instrument.ts:specResolves",
+    enforcedBy: "ost/instrument.ts:specResolves,eval/coverage.ts:thresholdKindOf",
     check: (input, facts) => {
       const raw = str3(input, "instrument");
       if (raw === void 0 || facts.productRepos.length === 0) return null;
       const parsed = parseInstrument(raw);
       if (!isInstrument(parsed)) return null;
-      return specResolves(facts.productRepos, parsed.target) ? null : `${parsed.target} does not exist in the configured product repo, so its red would say nothing about this test`;
+      if (specResolves(facts.productRepos, parsed.target)) return null;
+      const test = testUnderInstrument(input, facts);
+      if (test && thresholdKindOf(test) === "bound") return null;
+      return `${parsed.target} does not exist in the configured product repo, so its red would say nothing about this test`;
     }
   },
   {
@@ -61398,6 +61414,491 @@ function formatRefusalPreconditionCensus(c3) {
     out.push(`      needed: ${t2.needed}`);
   }
   return out.join("\n").trimEnd();
+}
+
+// src/telemetry/refusal-absorption.ts
+var ABSORPTION_RULE = {
+  /** The bar the assumption test fixed before anything was counted. Both halves. */
+  bar: { classes: 4, coverage: 0.3 },
+  /** How many classes the assumption test looks at. */
+  topN: 10,
+  /**
+   * The corpus the verdict is taken on, and why it rather than the other.
+   *
+   * The transcript record is the one the parent opportunity was harvested from
+   * and the one the solution node points at ("the candidates are visible directly
+   * in the friction record"). It is also the corpus where the assumption test's
+   * declared bias does not apply: this repository wrote almost none of the
+   * refusals in it, so a finding that comes out low there cannot be explained by
+   * the judge defending their own guards.
+   */
+  verdictCorpus: "transcript",
+  /**
+   * Nobody has ratified the load-bearing column. See the module note; the test
+   * asserts this by name so that ratifying it is a deliberate edit rather than a
+   * thing that happens by drift.
+   */
+  ratifiedBy: null,
+  judgements: [
+    // ── the harness's handshakes ──────────────────────────────────────────────
+    {
+      cls: "read-before-write",
+      issuedBy: "another-surface",
+      protects: "a write composed without seeing the file's current bytes overwrites work the caller never read; this refusal is the only thing making an edit informed",
+      absorption: {
+        mode: "accommodate",
+        behaviour: "read the file first and then apply the write, so the call succeeds without the caller asking twice"
+      },
+      // This repository enforces the same rule on itself rather than absorbing it.
+      precedent: "git/read-write-hash-guard.ts:writeWithHash"
+    },
+    {
+      cls: "stale-read",
+      issuedBy: "another-surface",
+      protects: "a write computed against bytes that have since changed silently discards whatever the other writer put there",
+      absorption: {
+        mode: "accommodate",
+        behaviour: "re-read and re-apply the edit against the new bytes when the anchor is still unique in them"
+      },
+      precedent: "git/read-write-hash-guard.ts:writeWithHash"
+    },
+    {
+      cls: "wrong-worktree",
+      issuedBy: "another-surface",
+      protects: "a command that addresses outside the worktree it was pinned to writes into a tree another agent owns",
+      absorption: null
+    },
+    // ── grants: what the user has said yes to ─────────────────────────────────
+    {
+      cls: "tool-not-granted",
+      issuedBy: "another-surface",
+      protects: "the user's consent to run the tool at all; a surface that granted itself the tool would make the permission prompt decorative",
+      absorption: null
+    },
+    {
+      cls: "path-not-granted",
+      issuedBy: "another-surface",
+      protects: "the user's consent to read or write that path; the same prompt, over a different noun",
+      absorption: null
+    },
+    {
+      cls: "sensitive-file",
+      issuedBy: "another-surface",
+      protects: "paths whose contents must not enter a context window whatever grant the run holds",
+      absorption: null
+    },
+    // ── the argument itself ───────────────────────────────────────────────────
+    {
+      cls: "closed-parameter-set",
+      issuedBy: "another-surface",
+      protects: "an unlisted parameter is usually a misspelled one, and accepting it silently makes the call do something other than what was asked",
+      absorption: {
+        mode: "accommodate",
+        behaviour: "drop the unlisted parameter, or resolve it to the nearest declared name, and run the call"
+      }
+    },
+    {
+      cls: "output-schema-violation",
+      issuedBy: "another-surface",
+      protects: "the schema is the contract the consumer parses against; accepting a violation moves the failure downstream to code that cannot report it",
+      absorption: {
+        mode: "accommodate",
+        behaviour: "accept the body unvalidated and let the consumer cope with whatever arrived"
+      }
+    },
+    {
+      cls: "malformed-body",
+      issuedBy: "another-surface",
+      protects: "a body that does not parse was not received; a repair that happens to succeed executes a call nobody composed",
+      absorption: {
+        mode: "accommodate",
+        behaviour: "repair the common JSON damage \u2014 a trailing comma, an unescaped newline \u2014 and parse again"
+      }
+    },
+    {
+      cls: "argument-content-rejected",
+      issuedBy: "another-surface",
+      protects: "control bytes inside an argument change what the command is by the time a shell has read it",
+      absorption: null
+    },
+    {
+      cls: "blocked-command-form",
+      issuedBy: "another-surface",
+      // Every one of the 30 in the corpus is `sleep N` followed by a check, and
+      // the refusal text names the form that would have worked. Nothing is
+      // defended: the blocked form costs wall-clock and nothing else.
+      protects: null,
+      absorption: {
+        mode: "accommodate",
+        behaviour: "run the permitted form the refusal already names \u2014 a `sleep N; <check>` becomes the until-loop the message asks the caller to write"
+      }
+    },
+    {
+      cls: "script-parse-error",
+      issuedBy: "another-surface",
+      // The guess in the refusal text is TypeScript, and stripping annotations
+      // would be a real accommodation. Both rejections this repository has on
+      // record were something else — a backtick inside a template literal, which
+      // ends the string a hundred and seventy lines early (CLAUDE.md). There is
+      // no honest reconstruction of a program that means two different things.
+      protects: null,
+      absorption: null
+    },
+    {
+      cls: "malformed-argument",
+      issuedBy: "another-surface",
+      protects: null,
+      absorption: null
+    },
+    {
+      cls: "no-op-edit",
+      issuedBy: "another-surface",
+      protects: "an edit whose two strings are identical means the caller's model of the file is wrong; performing it would report success for a change that did not happen",
+      absorption: {
+        mode: "accommodate",
+        behaviour: "accept it and change nothing, reporting success"
+      }
+    },
+    // ── the world the call lands in ───────────────────────────────────────────
+    {
+      cls: "response-size-cap",
+      issuedBy: "another-surface",
+      // The cap is real and the accommodation keeps it: a bounded prefix protects
+      // the context window exactly as a refusal does, and answers the question.
+      // This repository already does it for its own reads rather than refusing.
+      protects: null,
+      absorption: {
+        mode: "accommodate",
+        behaviour: "return a bounded prefix, name what was withheld and how to ask for the rest, in the same call"
+      },
+      precedent: "product/repo.ts:MAX_FILE_CHARS"
+    },
+    {
+      cls: "evidence-rung-ceiling",
+      issuedBy: "this-repository",
+      protects: "the ladder's meaning: a declaration is a claim a caller makes, and a surface that quietly rewrote it to what the sources support would record a claim nobody made and remove the moment that sends the caller after better evidence",
+      absorption: {
+        mode: "accommodate",
+        behaviour: "clamp the declared rung down to the one the cited sources have earned and write the node anyway"
+      }
+    },
+    {
+      cls: "missing-config",
+      issuedBy: "this-repository",
+      protects: null,
+      absorption: null
+    },
+    {
+      cls: "missing-path",
+      issuedBy: "another-surface",
+      protects: null,
+      absorption: null,
+      // The nearest-thing answer improves the refusal; it does not remove it.
+      precedent: "fs/near-miss.ts:nearMiss"
+    },
+    {
+      cls: "stale-anchor",
+      issuedBy: "another-surface",
+      protects: "an anchor that is gone means the file is not what the caller thinks it is; applying the edit anywhere else puts a change where nobody asked for one",
+      absorption: null
+    },
+    {
+      cls: "ambiguous-anchor",
+      issuedBy: "another-surface",
+      protects: "which of the several matches was meant is not recoverable from the call, and picking one edits a place the caller did not name",
+      absorption: null
+    },
+    {
+      cls: "cwd-deleted",
+      issuedBy: "another-surface",
+      protects: "a command that runs somewhere other than the directory it was composed for writes in the wrong place",
+      absorption: {
+        mode: "accommodate",
+        behaviour: "recover to the nearest surviving ancestor and run the command there"
+      }
+    },
+    {
+      cls: "destructive-confirmation",
+      issuedBy: "another-surface",
+      protects: "an irreversible action needs a person's assent, and the first call is where that is asked for",
+      absorption: null
+    },
+    // ── the schema that was there and said the wrong thing ────────────────────
+    {
+      cls: "conditionally-required-parameter",
+      issuedBy: "another-surface",
+      // The schema marks the parameter optional and the server requires it unless
+      // remote state supplies it. Nothing is defended by refusing rather than by
+      // declaring it required in the first place.
+      protects: null,
+      absorption: {
+        mode: "make-uncomposable",
+        behaviour: "declare the parameter required in the schema, so the call that gets refused cannot be composed"
+      }
+    },
+    // ── the surface this process was started with ─────────────────────────────
+    {
+      cls: "tool-not-available",
+      issuedBy: "another-surface",
+      protects: null,
+      absorption: null
+    },
+    {
+      cls: "schema-not-discovered",
+      issuedBy: "another-surface",
+      protects: null,
+      absorption: {
+        mode: "accommodate",
+        behaviour: "fetch the schema the call needs and then make the call, instead of refusing it once"
+      }
+    },
+    {
+      cls: "unknown-skill",
+      issuedBy: "another-surface",
+      protects: null,
+      absorption: null
+    },
+    // ── this repository's own surface, as its usage trace records it ──────────
+    {
+      cls: "no-such-node",
+      issuedBy: "this-repository",
+      // The heaviest class in the vault's own trace, and the one whose
+      // accommodation this repository has already built and deliberately declined
+      // to act on: `near-miss.ts` answers a miss with the nearest thing that does
+      // exist and refuses to follow its own suggestion, because a run that wrote
+      // `report2.txt`, died, and then read the `report.txt` beside it is one
+      // character of edit distance and completely wrong.
+      protects: "a write applied to a node the caller did not name is a silent corruption of the tree, and the nearest title is routinely the wrong one",
+      absorption: {
+        mode: "accommodate",
+        behaviour: "resolve the title to the one node that is a near-miss for it, and write there"
+      },
+      precedent: "fs/near-miss.ts:nearMiss"
+    },
+    {
+      cls: "repo-path-missing",
+      issuedBy: "this-repository",
+      protects: null,
+      absorption: null,
+      precedent: "fs/near-miss.ts:nearMiss"
+    },
+    {
+      cls: "instrument-not-a-spec-file",
+      issuedBy: "this-repository",
+      protects: "an instrument that carries a `-t` filter or a pipe reports green for a subset nobody declared, so the verdict stops meaning what the test says it means",
+      absorption: {
+        mode: "accommodate",
+        behaviour: "strip the shell punctuation and keep the spec file the command names"
+      }
+    },
+    {
+      cls: "unearned-measurement-rung",
+      issuedBy: "this-repository",
+      protects: "'observed' and 'money' assert that something was measured; a surface that granted them on request would let the tree claim measurements nobody took",
+      absorption: null
+    },
+    {
+      cls: "no-product-repo",
+      issuedBy: "this-repository",
+      protects: null,
+      absorption: null
+    },
+    {
+      cls: "above-source-standing",
+      issuedBy: "this-repository",
+      protects: "a rung above what the cited actor has earned is the whole trust ledger defeated by one caller's assertion",
+      absorption: null
+    },
+    {
+      cls: "threshold-not-a-bar",
+      issuedBy: "this-repository",
+      protects: "a threshold with no comparator next to a number is a test that cannot come out a failure, which is the defect the tree already carries a whole bucket about",
+      absorption: null
+    },
+    {
+      cls: "no-evidence-class",
+      issuedBy: "this-repository",
+      protects: "the rung is a claim someone makes; defaulting an unrecognised one to the floor would record a claim nobody chose and skip the moment the caller has to think about evidence",
+      absorption: {
+        mode: "accommodate",
+        behaviour: "record the floor rung `assertion` when the declared class is not one of the five, since the floor can only understate"
+      }
+    },
+    {
+      cls: "instrument-spec-missing",
+      issuedBy: "this-repository",
+      // Already absorbed, and the waiver is the interesting half: a spec file that
+      // does not exist yet is exactly what a red instrument on a buildable test
+      // names, so the surface accepts it when the test carries a bound threshold
+      // and refuses it otherwise.
+      protects: "a red that comes from a missing file fails identically whatever question was written on it, so it grants no build permit",
+      absorption: {
+        mode: "accommodate",
+        behaviour: "accept a spec path that does not exist yet when the test carries a bound threshold to build to"
+      },
+      precedent: "security/tools.ts:specResolves"
+    },
+    {
+      cls: "humans-required-lane",
+      issuedBy: "this-repository",
+      protects: "a test in the humans-required lane says a person is the measurement, and a command attached to it is compute standing in for the verdict the lane exists to reserve",
+      absorption: null
+    },
+    {
+      cls: "reserved-heading",
+      issuedBy: "this-repository",
+      protects: "the reserved sections are read by the gates as proof something happened outside the tree, so a caller that could write one could manufacture that proof",
+      absorption: {
+        mode: "accommodate",
+        behaviour: "escape the heading in the caller's prose and write the rest of the content"
+      }
+    }
+  ]
+};
+function verdictOf(j2) {
+  if (j2.protects !== null) return "load-bearing";
+  return j2.absorption !== null ? "safe-to-absorb" : "nothing-to-absorb";
+}
+var READINGS = [
+  {
+    name: "strict",
+    admits: "the refusal protects nothing real and an accommodation exists",
+    safe: (j2) => verdictOf(j2) === "safe-to-absorb"
+  },
+  {
+    name: "could-have-honoured",
+    admits: "an accommodation exists, whatever the refusal defends",
+    safe: (j2) => j2.absorption !== null
+  }
+];
+function refusalAbsorptionCensus(counts, corpus, opts = {}) {
+  const topN = opts.topN ?? ABSORPTION_RULE.topN;
+  const column = opts.judgements ?? ABSORPTION_RULE.judgements;
+  const ranked = [...counts].sort((a, b2) => b2.occurrences - a.occurrences || a.cls.localeCompare(b2.cls)).map((c3, i2) => {
+    const judgement = column.find((j2) => j2.cls === c3.cls) ?? null;
+    return {
+      cls: c3.cls,
+      occurrences: c3.occurrences,
+      judgement,
+      verdict: judgement ? verdictOf(judgement) : null,
+      rank: i2 + 1
+    };
+  });
+  const refusals = ranked.reduce((n, c3) => n + c3.occurrences, 0);
+  const top = ranked.slice(0, topN);
+  const byIssuer = {
+    "this-repository": { classes: 0, occurrences: 0 },
+    "another-surface": { classes: 0, occurrences: 0 }
+  };
+  for (const c3 of top) {
+    if (!c3.judgement) continue;
+    const slot = byIssuer[c3.judgement.issuedBy];
+    slot.classes++;
+    slot.occurrences += c3.occurrences;
+  }
+  const readings = READINGS.map((r2) => {
+    const safe = top.filter((c3) => c3.judgement && r2.safe(c3.judgement));
+    const covered = safe.reduce((n, c3) => n + c3.occurrences, 0);
+    const coverage = refusals === 0 ? 0 : covered / refusals;
+    const meetsCountBar = safe.length >= ABSORPTION_RULE.bar.classes;
+    const meetsCoverageBar = coverage >= ABSORPTION_RULE.bar.coverage;
+    return {
+      name: r2.name,
+      admits: r2.admits,
+      safe: safe.map((c3) => c3.cls),
+      covered,
+      coverage,
+      meetsCountBar,
+      meetsCoverageBar,
+      meetsBar: meetsCountBar && meetsCoverageBar
+    };
+  });
+  const verdict = readings.find((r2) => r2.name === "strict");
+  return {
+    corpus,
+    refusals,
+    unclassified: opts.unclassified ?? 0,
+    ranked,
+    top,
+    unjudged: ranked.filter((c3) => !c3.judgement).map((c3) => c3.cls),
+    byIssuer,
+    topOccurrences: top.reduce((n, c3) => n + c3.occurrences, 0),
+    readings,
+    verdict,
+    meetsBar: verdict.meetsBar,
+    judgementDecides: new Set(readings.map((r2) => r2.meetsBar)).size > 1,
+    nothingToAbsorb: top.filter((c3) => c3.verdict === "nothing-to-absorb").map((c3) => c3.cls),
+    ratifiedBy: ABSORPTION_RULE.ratifiedBy
+  };
+}
+function rankTranscriptRefusals(failures) {
+  const counts = /* @__PURE__ */ new Map();
+  for (const f of failures) {
+    if (REFUSAL_RULE.consideredAndExcluded.some((e) => e.match.test(f.error))) continue;
+    const cls = REFUSAL_RULE.classes.find((c3) => c3.match.test(f.error))?.id;
+    if (!cls) continue;
+    counts.set(cls, (counts.get(cls) ?? 0) + 1);
+  }
+  return [...counts.entries()].map(([cls, occurrences]) => ({ cls, occurrences }));
+}
+function rankUsageRefusals(rows) {
+  const counts = /* @__PURE__ */ new Map();
+  for (const row of rows) {
+    const cls = classifyRefusal(row).class?.id;
+    if (!cls) continue;
+    counts.set(cls, (counts.get(cls) ?? 0) + 1);
+  }
+  return [...counts.entries()].map(([cls, occurrences]) => ({ cls, occurrences }));
+}
+var pct10 = (n) => `${Math.round(n * 1e3) / 10}%`;
+function formatRefusalAbsorptionCensus(c3) {
+  const out = [];
+  out.push(
+    `Refusal absorption \u2014 ${c3.corpus}: ${c3.refusals} refusal(s) across ${c3.ranked.length} class(es), judging the top ${c3.top.length}` + (c3.unclassified > 0 ? `, and ${c3.unclassified} the corpus held that no classifier could read` : "")
+  );
+  if (!c3.ratifiedBy) {
+    out.push(
+      "  NOT RATIFIED: no person has read the load-bearing column. These verdicts are a proposal, and nothing may be removed on the strength of them."
+    );
+  }
+  const mine = c3.byIssuer["this-repository"];
+  const theirs = c3.byIssuer["another-surface"];
+  const share = (n) => pct10(c3.topOccurrences === 0 ? 0 : n / c3.topOccurrences);
+  out.push(
+    `  of the ${c3.topOccurrences} refusal(s) the top ${c3.top.length} account for, this repository issued ${mine.occurrences} (${share(mine.occurrences)}) across ${mine.classes} class(es). A surface it cannot change issued ${theirs.occurrences} (${share(theirs.occurrences)}) across ${theirs.classes}` + (theirs.occurrences > 0 ? ". Nothing this repository ships can absorb the second number." : ".")
+  );
+  if (c3.unjudged.length > 0) out.push(`  UNJUDGED: ${c3.unjudged.join(", ")} \u2014 in the corpus and in no column.`);
+  out.push("");
+  for (const r2 of c3.readings) {
+    out.push(
+      `  ${r2.name.padEnd(20)} ${r2.safe.length}/${c3.top.length} class(es) ${r2.meetsCountBar ? "clears" : "below"} the ${ABSORPTION_RULE.bar.classes}-class half, ${r2.covered}/${c3.refusals} refusal(s) = ${pct10(r2.coverage)} ${r2.meetsCoverageBar ? "clears" : "below"} the ${pct10(ABSORPTION_RULE.bar.coverage)} half \u2014 ${r2.meetsBar ? "MET" : "NOT MET"}`
+    );
+    out.push(`      admits: ${r2.admits}`);
+    out.push(`      safe: ${r2.safe.join(", ") || "(none)"}`);
+  }
+  out.push(
+    `  verdict is taken on '${c3.verdict.name}': ${c3.meetsBar ? "MET" : "NOT MET"}` + (c3.judgementDecides ? " \u2014 AND THE JUDGEMENT DECIDES IT: the two readings disagree." : "")
+  );
+  out.push("");
+  out.push("The column a person has to check, heaviest first:");
+  for (const row of c3.top) {
+    const j2 = row.judgement;
+    out.push(`  ${String(row.occurrences).padStart(4)} ${(row.verdict ?? "UNJUDGED").padEnd(17)} ${row.cls}`);
+    if (!j2) continue;
+    out.push(`       issued by ${j2.issuedBy}`);
+    if (j2.protects) out.push(`       protects: ${j2.protects}`);
+    if (j2.absorption) out.push(`       ${j2.absorption.mode}: ${j2.absorption.behaviour}`);
+    if (!j2.protects && !j2.absorption) out.push("       protects nothing, and there is nothing to honour the call with");
+    if (j2.precedent) out.push(`       precedent: ${j2.precedent}`);
+  }
+  if (c3.ranked.length > c3.top.length) {
+    out.push("");
+    out.push("Below the cut, so the bar does not see them:");
+    for (const row of c3.ranked.slice(c3.top.length)) {
+      out.push(`  ${String(row.occurrences).padStart(4)} ${(row.verdict ?? "UNJUDGED").padEnd(17)} ${row.cls}`);
+    }
+  }
+  return out.join("\n");
 }
 
 // src/ost/migrate.ts
@@ -69117,14 +69618,9 @@ program2.command("preconditions").description("every condition this surface refu
   });
   console.log(renderCallPreconditions(published));
 });
-program2.command("precondition-coverage").description("what share of the refusals this tool's own calls actually hit a caller could have decided in advance \u2014 the census behind the published preconditions").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
-  const dir = path85.resolve(opts.vault);
-  const log = path85.join(dir, ".ost-agent", "usage", "events.jsonl");
-  if (!fs84.existsSync(log)) {
-    console.error(`no usage trace at ${log} \u2014 nothing has been recorded for this vault yet`);
-    process.exitCode = 1;
-    return;
-  }
+function readUsageRefusals(vaultDir) {
+  const log = path85.join(vaultDir, ".ost-agent", "usage", "events.jsonl");
+  if (!fs84.existsSync(log)) return null;
   const refusals = [];
   for (const line of fs84.readFileSync(log, "utf8").split("\n")) {
     if (!line) continue;
@@ -69133,6 +69629,16 @@ program2.command("precondition-coverage").description("what share of the refusal
       if (e.ok === false) refusals.push(e);
     } catch {
     }
+  }
+  return refusals;
+}
+program2.command("precondition-coverage").description("what share of the refusals this tool's own calls actually hit a caller could have decided in advance \u2014 the census behind the published preconditions").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
+  const dir = path85.resolve(opts.vault);
+  const refusals = readUsageRefusals(dir);
+  if (refusals === null) {
+    console.error(`no usage trace at ${dir} \u2014 nothing has been recorded for this vault yet`);
+    process.exitCode = 1;
+    return;
   }
   console.log(formatRefusalPreconditionCensus(refusalPreconditionCensus(refusals)));
   if (refusals.length === 0) process.exitCode = 1;
@@ -69151,6 +69657,33 @@ program2.command("refusals").description("how many of the refusal classes a pass
   const census = refusalCoverageCensus(failures, generatePreflightManifest(tools));
   console.log(formatRefusalCoverageCensus(census));
   if (census.classes.length === 0) process.exitCode = 1;
+});
+program2.command("absorption").description("of the refusal classes that recur most, how many exist for a reason that could be accommodated rather than enforced \u2014 the column a person has to ratify before anything is absorbed").option("--vault <dir>", VAULT_OPTION_HELP).option(
+  "--transcripts <dir>",
+  "a directory of session transcripts to read the refusals out of (repeatable); defaults to this project's own",
+  collect,
+  []
+).action((opts) => {
+  const vault = path85.resolve(opts.vault);
+  const dirs = opts.transcripts.length ? opts.transcripts : [defaultTranscriptDir(vault)];
+  const sessions = dirs.flatMap((d) => readTranscriptSessions(path85.resolve(d)));
+  const { failures } = readPathFailures(sessions);
+  const transcript = refusalAbsorptionCensus(rankTranscriptRefusals(failures), "transcript record");
+  console.log(formatRefusalAbsorptionCensus(transcript));
+  const usage = readUsageRefusals(vault);
+  console.log("");
+  if (usage === null) {
+    console.log(`No usage trace under ${vault} \u2014 this repository's own refusals could not be counted.`);
+  } else {
+    const counts = rankUsageRefusals(usage);
+    const classified = counts.reduce((n, c3) => n + c3.occurrences, 0);
+    console.log(
+      formatRefusalAbsorptionCensus(
+        refusalAbsorptionCensus(counts, "this vault's usage trace", { unclassified: usage.length - classified })
+      )
+    );
+  }
+  if (transcript.ranked.length === 0) process.exitCode = 1;
 });
 program2.command("channels").description("list every commissioned channel, when it last delivered, and which ones are silent or unavailable (read-only)").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
   const dir = path85.resolve(opts.vault);

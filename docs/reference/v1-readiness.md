@@ -3204,12 +3204,31 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,551 tests across 338 files, verified 2026-08-31 (`npx vitest run`
-> reports 4,543 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,574 tests across 339 files, verified 2026-08-31 (`npx vitest run`
+> reports 4,566 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,543 across
-> the 337 files it collects, in 361 s. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,566 across
+> the 338 files it collects, in 355 s. The file added since the previous line is
+> `test/mcp/refusal-absorption-census.test.ts` — the instrument for "Refusals the tool can
+> prevent become refusals the tool never issues" (`src/telemetry/refusal-absorption.ts`,
+> `ost-agent absorption`): the top ten refusal classes of each record this repository holds,
+> each sorted into what the refusal defends and what would honour the call instead, against
+> the bar its assumption test fixed in advance — 4 of the top 10 safe to absorb, covering 30%
+> of all refusals fired. It comes out **1 of 10 classes and 30 of 330 refusals (9.1%)** on the
+> transcript record and **0 of 10** on this repository's own usage trace, so the assumption is
+> refuted as stated and `meetsBar` is asserted `false` by name in both. Two findings the
+> counts alone would hide are asserted the same way. On the generous reading — an
+> accommodation exists, whatever the refusal defends — the bar is **met** on both records, and
+> every class that carries it is a guard (read-before-write, the evidence-rung ceiling, the
+> closed parameter set, the output schema), which is the solution node's own stated failure
+> mode arriving as a number rather than as a risk. And **274 of the 295 refusals the
+> transcript top ten account for (93%) were issued by a surface this repository does not
+> ship** — including all three candidates the solution node names, the wait idiom, shell
+> quoting and TypeScript in a workflow script — so most of the volume is not this repository's
+> to absorb whatever the verdict. The load-bearing column is a build pass's proposal:
+> `ABSORPTION_RULE.ratifiedBy` is null, asserted null, and a green run here means the count
+> has been taken and never that a guard may be removed. The file before that is
 > `test/knowledge/corrections-file-size.test.ts` — the corrections briefing measured against
 > the 2,000-character bar its assumption test fixed, behind "Refusals are written back as a
 > standing corrections file every session reads first". Its subject is
