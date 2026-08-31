@@ -34,7 +34,8 @@ import { CAUTIOUS_LANE } from "../knowledge/lanes.js";
 import { readPendingAskQueue } from "../ost/pending-asks.js";
 import { defaultClearingCommand } from "../knowledge/asks.js";
 import { renderBlockAnnouncementInstruction } from "../loop/block-announcement.js";
-import { ALLOWED_TOOL_NAMES, assertNoDestructiveTool } from "./policy.js";
+import { ALLOWED_TOOL_NAMES, assertNoDestructiveTool, writesTheVault } from "./policy.js";
+import { outcomeSelfCertificationRefusal, rootOutcome } from "../ost/outcome-signal.js";
 import { withUsageTracing } from "../telemetry/usage.js";
 import { readWebPage, type WebFetchFn } from "../web/reader.js";
 import {
@@ -2108,7 +2109,64 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
   const selected = names ? all.filter((t) => names.has(t.name)) : all;
   // Every invocation lands in the vault's mechanical usage trace — the record
   // with no narrator. Fail-open: tracing can lose an event, never a mutation.
-  return withUsageTracing(degradeOnBrokenConfig(selected, ctx.configProblem), dir, ctx.surface ?? "unknown");
+  return withUsageTracing(
+    gateOutcomeSelfCertification(degradeOnBrokenConfig(selected, ctx.configProblem), vault, dir),
+    dir,
+    ctx.surface ?? "unknown",
+  );
+}
+
+/**
+ * Put the Outcome self-certification gate in front of every write on this
+ * surface (`ost/outcome-signal.ts`).
+ *
+ * Wrapped here, at the one place the whole tool set passes through, rather than
+ * inside each `run`. That is the difference between a rule and a habit: a tool
+ * added tomorrow is gated because it was built, not because its author
+ * remembered — and the write surface is derived as the complement of the
+ * read-only set (`security/policy.ts`), so forgetting to classify a new tool
+ * fails toward gating it rather than toward exempting it.
+ *
+ * The root's title costs a whole-tree read to find, so it is resolved LAZILY —
+ * on the first write this tool set actually dispatches — and then memoized.
+ * Resolving it eagerly here would put a vault parse in front of every session
+ * that only ever reads, which is the Z5 criterion (`a web lookup does not cost a
+ * vault parse`) and was measured going red the moment this was written the other
+ * way round. Nothing on this surface can create or rename an Outcome, so one
+ * resolution holds for the pass; whether a person has since recorded a signal
+ * reading CAN change, and that is re-read per call from the root's own file.
+ */
+function gateOutcomeSelfCertification<T extends { name: string; run: (input: never) => unknown }>(
+  tools: T[],
+  vault: Vault,
+  dir: string,
+): T[] {
+  let resolved = false;
+  let rootTitle: string | undefined;
+  const root = (): string | undefined => {
+    if (!resolved) {
+      resolved = true;
+      try {
+        rootTitle = rootOutcome(vault.readTree())?.title;
+      } catch {
+        rootTitle = undefined; // no readable tree yet — there is no Outcome to forge a verdict on
+      }
+    }
+    return rootTitle;
+  };
+
+  return tools.map((t) =>
+    writesTheVault(t.name)
+      ? {
+          ...t,
+          run: async (input: never) => {
+            const refusal = outcomeSelfCertificationRefusal({ vault, dir, rootTitle: root() }, input);
+            if (refusal) throw new Error(refusal);
+            return t.run(input);
+          },
+        }
+      : t,
+  );
 }
 
 /**

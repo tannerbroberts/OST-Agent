@@ -83,6 +83,43 @@ export const ALLOWED_TOOL_NAMES = [
 export type AllowedToolName = (typeof ALLOWED_TOOL_NAMES)[number];
 
 /**
+ * The tools that read and format and nothing else.
+ *
+ * The set worth naming is this one, because it is the one that is closed: a tool
+ * added to the surface is a WRITE until someone deliberately says otherwise, and
+ * {@link writesTheVault} derives the write surface as the complement. A
+ * hand-maintained list of writes would be one short of the truth on the day
+ * somebody adds a tool and forgets — which is the failure every guard that runs
+ * over "every write path" exists to close.
+ *
+ * `ost_rank_source` is deliberately absent: it appends a trust record. So are
+ * `git_commit`/`git_push`, which write git rather than a node — they carry a
+ * message, not a claim on the tree, and neither can reach a node's body.
+ *
+ * Two consumers, and they must not fork: `mcp/server.ts` decides which calls it
+ * auto-commits, and `security/tools.ts` decides which calls pass the Outcome
+ * self-certification gate.
+ */
+export const READ_ONLY_TOOL_NAMES: ReadonlySet<string> = new Set<string>([
+  "ost_read_tree",
+  "ost_next_work",
+  "ost_search_web",
+  "ost_read_web",
+  "ost_read_repo",
+  // Analysis: they read the tree and format it. Nothing they do can produce a
+  // diff, so a commit would always be empty.
+  "ost_check",
+  "ost_debt",
+  "ost_status",
+  "ost_gate",
+]);
+
+/** Does a call to this tool write the vault? Everything that is not read-only does. */
+export function writesTheVault(name: string): boolean {
+  return !READ_ONLY_TOOL_NAMES.has(name);
+}
+
+/**
  * Tokens that mark a tool as destructive. Matched against the name's tokens (split
  * on non-alphanumerics AND camelCase) so snake_case like `rm_rf` or `git_reset`
  * cannot slip past a `\b` word boundary. Errs toward over-flagging (fail-closed).

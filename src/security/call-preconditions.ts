@@ -74,7 +74,9 @@ import { MEASUREMENT_RUNGS, unearnedRung } from "../eval/rungs.js";
 import { MAX_KILL_HORIZON_DAYS, parseKillCondition, parseKillDate } from "../ost/kill-criteria.js";
 import { RESERVED_HEADINGS, reservedHeadingIn } from "../ost/headings.js";
 import { specResolves } from "../ost/instrument.js";
-import { fileNameForTitle } from "../ost/sanitize.js";
+import { claimsOutcomeAchieved, outcomeSignalState, rootOutcome } from "../ost/outcome-signal.js";
+import { fileNameForTitle, titlesMatch } from "../ost/sanitize.js";
+import { ALLOWED_TOOL_NAMES, writesTheVault } from "./policy.js";
 import { CAUTIOUS_LANE } from "../knowledge/lanes.js";
 import type { OstNode } from "../ost/node.js";
 import type { Vault } from "../ost/vault.js";
@@ -149,6 +151,14 @@ export interface PublishedFacts {
   readonly productRepos: readonly string[];
   /** Longest kill horizon a new Solution may name, in days. */
   readonly maxKillHorizonDays: number;
+  /** The root Outcome's title, if the vault has one — the node the top verdict is about. */
+  readonly outcomeTitle?: string;
+  /**
+   * Whether a declared external signal has been read as met by a person. False
+   * on a vault that declared no signal at all, which is the same answer for the
+   * caller and a different one for the operator (`ost/outcome-signal.ts`).
+   */
+  readonly outcomeAchieved: boolean;
 }
 
 /** One violation a caller found without making the call. */
@@ -450,6 +460,32 @@ export const CALL_PRECONDITIONS: readonly CallPrecondition[] = Object.freeze([
     },
   },
   {
+    id: "outcome-achievement-needs-an-external-signal",
+    // Every write on the surface, derived rather than listed: the path this rule
+    // has to close is the one nobody remembered to name.
+    tools: ALLOWED_TOOL_NAMES.filter((n) => writesTheVault(n) && !n.startsWith("git_")),
+    statement:
+      "No call may record the root Outcome as achieved. That verdict comes from an external signal the operator declared in ost.config.yaml and a person read on the CLI (`ost-agent outcome-signal`); an agent that could write it would be grading its own homework at the one scale nothing beneath can catch.",
+    expressibility: "caveat",
+    caveat:
+      "the reading that opens this gate is written outside the tool surface entirely, so a snapshot taken before a person records one will say refused for a call that now succeeds.",
+    enforcedBy: "ost/outcome-signal.ts:outcomeSelfCertificationRefusal",
+    check: (input, facts) => {
+      if (!facts.outcomeTitle || facts.outcomeAchieved) return null;
+      const args = Object.values(input).filter((v): v is string => typeof v === "string");
+      if (!args.some((a) => titlesMatch(a, facts.outcomeTitle!))) return null;
+      const status = str(input, "status");
+      if (status === "validated" || status === "shipped") {
+        return `"${status}" on the Outcome node records it as achieved, and no external signal says it is`;
+      }
+      for (const arg of args) {
+        const claim = claimsOutcomeAchieved(arg);
+        if (claim) return `this call writes the verdict as prose — ${JSON.stringify(claim)}`;
+      }
+      return null;
+    },
+  },
+  {
     id: "no-reserved-heading-in-content",
     tools: Object.keys(SCANNED_CONTENT),
     statement:
@@ -656,6 +692,7 @@ export function publishCallPreconditions(ctx: PublishContext): PublishedPrecondi
     if (n.tags?.includes(CAUTIOUS_LANE)) humansRequired.add(file);
   }
   const existsButWithheld = new Set<string>([...nodeFiles].filter((f) => !nodesByFile.has(f)));
+  const root = rootOutcome(census.nodes);
   return {
     preconditions: CALL_PRECONDITIONS,
     facts: {
@@ -675,6 +712,8 @@ export function publishCallPreconditions(ctx: PublishContext): PublishedPrecondi
       humansRequired,
       productRepos: ctx.productRepos ?? [],
       maxKillHorizonDays: MAX_KILL_HORIZON_DAYS,
+      ...(root ? { outcomeTitle: root.title } : {}),
+      outcomeAchieved: outcomeSignalState(ctx.dir, root).achieved,
     },
   };
 }

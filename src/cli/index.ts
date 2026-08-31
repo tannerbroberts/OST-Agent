@@ -100,6 +100,7 @@ import { lineageOf, renderLineage } from "../eval/lineage.js";
 import { reflectionBinding, renderReflectionGauge } from "../loop/reflection.js";
 import { BELIEVABILITY_LADDER, type RungId } from "../knowledge/believability.js";
 import { promoteNode, recordResult, retractNode, VERDICTS, type Verdict } from "../ost/results.js";
+import { recordOutcomeSignal, SIGNAL_VERDICTS, type SignalVerdict } from "../ost/outcome-signal.js";
 import { verifyInstrument } from "../ost/instrument.js";
 import { titlesMatch } from "../ost/sanitize.js";
 import { buildableSolutions, buildPermit, confirmPermit, testsAwaitingVerification } from "../eval/buildable.js";
@@ -909,6 +910,38 @@ program
     const line = promoteNode(opts.vault, { node, by: opts.by, why: opts.why });
     console.log(`promoted "${node}": ${line}`);
     console.log("  removed the #unvalidated marker");
+  });
+
+/**
+ * The only path by which the Outcome is ever recorded as achieved.
+ *
+ * Sits here beside `result`, `promote` and `retract` for the reason they do: a
+ * pass that could return this verdict about itself is the hall of mirrors this
+ * product exists to close. What is different is where the BAR comes from — a
+ * promotion argues from evidence the caller supplies, while this can only read
+ * against a signal the operator wrote into `ost.config.yaml`, a file no surface
+ * here can write. So the command refuses on a vault that has declared none,
+ * rather than accepting whatever the caller happens to say the target was.
+ */
+program
+  .command("outcome-signal")
+  .description("record a reading of the declared external signal on the Outcome (humans only — no tool can express this)")
+  .requiredOption("-v, --verdict <verdict>", `one of: ${SIGNAL_VERDICTS.join(", ")}`)
+  .requiredOption("-b, --by <who>", "who read it — an unattributed reading cannot be told apart from a fabricated one")
+  .requiredOption("-r, --reading <text>", "what the signal actually said, and when — the number, not the conclusion")
+  .option("--on <date>", "the date of the reading (YYYY-MM-DD); defaults to today")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((opts: { verdict: string; by: string; reading: string; on?: string; vault: string }) => {
+    const line = recordOutcomeSignal(opts.vault, {
+      verdict: opts.verdict as SignalVerdict,
+      by: opts.by,
+      reading: opts.reading,
+      ...(opts.on ? { on: opts.on } : {}),
+    });
+    console.log(`recorded on the Outcome: ${line}`);
+    if (opts.verdict === "met") {
+      console.log("  the agent surface may now report this verdict; until this line existed, every write path refused it");
+    }
   });
 
 program

@@ -31,6 +31,7 @@ import {
   declaresHeading,
   HISTORY_HEADING,
   INSTRUMENT_LOG_HEADING,
+  OUTCOME_SIGNAL_HEADING,
   RESERVED_HEADINGS,
   RESULTS_HEADING,
   RETRACTION_HEADING,
@@ -373,12 +374,23 @@ describe("the guard and the readers cannot drift apart", () => {
     // buys the same carry-across `splitReservedSections`/`joinReservedSections`
     // already give the other four, for a section no gate needed protected but
     // every rewrite needed to leave alone.
+    //
+    // `## Outcome Signal` is the sixth and it is the strongest claim on the list.
+    // The other five govern one node — its evidence gate, its build permit, its
+    // presence in the tree. A line under this one says the mandate the WHOLE tree
+    // serves came true, which is the one verdict a model must never be able to
+    // return about itself: an agent that could write it would clear every gate
+    // beneath it at once and there is nothing above it left to notice. It is
+    // written only by `ost/outcome-signal.ts`'s `recordOutcomeSignal`, CLI-only,
+    // and only against a signal the operator declared in `ost.config.yaml` — a
+    // file no tool on this surface can write. (`test/ost/outcome-signal-gate.test.ts`.)
     expect([...RESERVED_HEADINGS]).toEqual([
       RESULTS_HEADING,
       UNCOVERED_HEADING,
       INSTRUMENT_LOG_HEADING,
       RETRACTION_HEADING,
       HISTORY_HEADING,
+      OUTCOME_SIGNAL_HEADING,
     ]);
   });
 

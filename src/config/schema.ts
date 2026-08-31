@@ -494,6 +494,27 @@ const LoopSchema = z
   })
   .nullish();
 
+/**
+ * The external signal that decides whether the Outcome was met.
+ *
+ * It lives in this file, and nowhere else, on purpose: no tool on the agent
+ * surface can write `ost.config.yaml`, so a signal compute could declare would
+ * be a gate compute could open (`ost/outcome-signal.ts`). Both fields are
+ * required together because either alone is unfalsifiable — a `signal` with no
+ * `met` names a thing to watch rather than a bar to clear, and a `met` with no
+ * `signal` is a number attached to nothing.
+ */
+const OutcomeSignalSchema = z
+  .object({
+    /** What is measured, out in the world — metrics, customer behaviour, revenue. */
+    signal: z.string().min(1, "outcomeSignal.signal is required — what you measure out in the world"),
+    /** The bar that counts as the outcome having been achieved. */
+    met: z.string().min(1, "outcomeSignal.met is required — the bar that counts as achieved"),
+    /** Where the number comes from, so a later reader can go and look. */
+    source: z.string().optional(),
+  })
+  .nullish();
+
 export const ConfigSchema = z.object({
   // The steering mandate the agentic system optimizes toward (tuned often via
   // `ost-agent set-outcome`). Stored as the root node's body.
@@ -501,6 +522,7 @@ export const ConfigSchema = z.object({
   // Stable, unique title/label for the root node (the graph's central hub).
   // Defaults to the vault folder name at init. Rarely changed.
   outcomeTitle: z.string().optional(),
+  outcomeSignal: OutcomeSignalSchema,
   remote: RemoteSchema,
   adapters: z
     .object({
@@ -555,6 +577,17 @@ export function defaultConfigYaml(outcome: string, outcomeTitle = "Outcome", opt
   return `# OST-Agent configuration
 outcome: ${JSON.stringify(outcome)}   # the steering mandate (human-set; tune with \`ost-agent set-outcome\`)
 outcomeTitle: ${JSON.stringify(outcomeTitle)}   # stable label for the root node (rarely changed)
+
+# The real-world signal that decides whether the outcome was MET. Uncomment and
+# fill it in when you can name one. Until you do, no call on the agent surface can
+# record the outcome as achieved — and once you have, only a person can, with
+# \`ost-agent outcome-signal --verdict met --by "<who>" --reading "<the number>"\`.
+# It lives here rather than in the tree because nothing the agent can write may
+# declare it: a signal compute could declare is a gate compute could open.
+# outcomeSignal:
+#   signal: "weekly active teams that ran a pass"
+#   met: "25 or more, four weeks running"
+#   source: "the usage dashboard"
 
 # No model is named here, and none is needed: OST-Agent never calls one. The
 # Claude Code session you are talking to supplies all the reasoning; everything

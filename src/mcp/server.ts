@@ -11,7 +11,7 @@ import { randomUUID } from "node:crypto";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { buildOstTools } from "../security/tools.js";
-import { assertNoDestructiveTool } from "../security/policy.js";
+import { assertNoDestructiveTool, writesTheVault } from "../security/policy.js";
 import { validateToolInput, type ToolSchema } from "../security/validateToolInput.js";
 import type { PassContext } from "../processes/types.js";
 import { buildPassContext } from "../runner/context.js";
@@ -49,22 +49,10 @@ export const MCP_TOOL_NAMES = [
 
 // The read-only tools carry no commit; every other exposed tool mutates and is
 // auto-committed. Deriving MUTATING as the complement means a tool added to the
-// surface can never silently skip its commit. (`ost_rank_source` is deliberately
-// NOT here: it appends a trust record, and that record must be committed.)
-const READ_ONLY = new Set<string>([
-  "ost_read_tree",
-  "ost_next_work",
-  "ost_search_web",
-  "ost_read_web",
-  "ost_read_repo",
-  // Analysis: they read the tree and format it. Nothing they do can produce a
-  // diff, so a commit would always be empty.
-  "ost_check",
-  "ost_debt",
-  "ost_status",
-  "ost_gate",
-]);
-const MUTATING = new Set<string>(MCP_TOOL_NAMES.filter((n) => !READ_ONLY.has(n)));
+// surface can never silently skip its commit. The read-only set itself lives in
+// `security/policy.ts`, because the Outcome self-certification gate derives the
+// write surface the same way and the two must not fork.
+const MUTATING = new Set<string>(MCP_TOOL_NAMES.filter((n) => writesTheVault(n)));
 
 /**
  * Does a call to this tool have to be followed by a commit? The dispatcher's own

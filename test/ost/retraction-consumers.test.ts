@@ -161,7 +161,7 @@ describe("the consumer set, enumerated and held there", () => {
     return out;
   }
 
-  test("every module that reads nodes is one of ten, and the audit's bar is 12", () => {
+  test("every module that reads nodes is one of eleven, and the audit's bar is 12", () => {
     const readers = sources()
       .filter((f) => f.rel !== path.join("ost", "vault.ts"))
       .filter((f) => /\.(readTree|readTreeCensus|readLiveTree)\(/.test(f.text))
@@ -216,12 +216,23 @@ describe("the consumer set, enumerated and held there", () => {
     // annotating a retracted node is work nothing will read, and that is a cost
     // to name, not a rule to invent. Asserted below ("the publication agrees with
     // `Vault.has` about a retracted node, and says nothing will read it").
+    //
+    // `ost/outcome-signal.ts` is the eleventh, and the argument for it is the
+    // shortest on this list because the node it looks for is the one node
+    // retraction cannot reach: `retractNode` refuses the Outcome by name, since a
+    // tree with no root reports a broken tree rather than a smaller one. So its
+    // `readTree()` — used once, to find the root a human's signal reading is
+    // filed on — cannot encounter a retracted answer, and the withholding it
+    // inherits is correct for the same reason it is inert. The gate that runs on
+    // every write does not read the tree at all after the first resolution; it
+    // reads that one node's file.
     expect(readers).toEqual([
       path.join("cli", "index.ts"),
       path.join("mcp", "bootstrap.ts"),
       path.join("mcp", "next-work.ts"),
       path.join("mcp", "node-body.ts"),
       path.join("ost", "instrument.ts"),
+      path.join("ost", "outcome-signal.ts"),
       path.join("ost", "ranked-ledger.ts"),
       path.join("ost", "stranded.ts"),
       path.join("runner", "set-outcome.ts"),
