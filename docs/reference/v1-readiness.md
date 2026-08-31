@@ -3204,12 +3204,19 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,375 tests across 330 files, verified 2026-08-31 (`npx vitest run`
-> reports 4,367 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,388 tests across 331 files, verified 2026-08-31 (`npx vitest run`
+> reports 4,380 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,367 across
-> the 329 files it collects, in 348 s. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,380 across
+> the 330 files it collects, in 350 s. The file added since the previous line is
+> `test/ost/instrument-rationing.test.ts` — the write-boundary ration behind "Ration
+> instrumenting against the rate results are recorded, so readiness cannot outrun execution"
+> (`src/ost/rationing.ts`). A pass gets a non-zero floor of instrument attaches and an
+> allowance that opens by three for every result the tree records, charged across BOTH doors
+> into the field (`ost_set_instrument` and `ost_create_node`), so the 88-attaches-in-a-day
+> shape that commissioned it is refused with a message naming the shortage rather than a
+> generic error. The line before that added
 > `test/ost/recorded-decision-ordering.test.ts` — the coverage sweep behind "Rank only what a
 > recorded decision already ordered, and leave the rest unranked"
 > (`src/ost/recorded-decisions.ts`, `test/fixtures/recorded-decisions/`, `ost-agent
