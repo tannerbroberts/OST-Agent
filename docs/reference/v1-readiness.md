@@ -3204,15 +3204,44 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,814 tests across 352 files, verified 2026-09-01 (`npx vitest run`
-> reports 4,806 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,825 tests across 353 files, verified 2026-09-01 (`npx vitest run`
+> reports 4,817 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-09-01 finished at 4,806 across
-> the 351 files it collects. Wall clock is reported as a range because it was measured
+> time rather than derived: a full `npx vitest run` on 2026-09-01 finished at 4,817 across
+> the 352 files it collects. Wall clock is reported as a range because it was measured
 > twice on the same machine and the same commit and came back **207 s and 341 s** — a 1.6×
 > spread with no code between the two runs, which is worth knowing before anyone reads a
 > single timing as a regression. The file added since the previous line is
+> `test/guards/mutation-detects-self-derivation.test.ts` — the instrument for "Mutate the
+> manifest server name and require the three prefix guards to go red", the assumption test
+> beneath "Require every guard to demonstrate it can fail, by mutating the thing it claims
+> to protect" (`scripts/mutation-harness.ts`). It came out **refuted**, against a bar of
+> three of three. Renaming the `mcpServers` key and re-running the generator that reads it
+> flags **one** of the three known-defective subjects, and the one it flags is
+> `scripts/gen-skill.ts` — the subject that contains no assertion at all. The two files that
+> are actually guards, `test/release/command-allowlists.test.ts` and
+> `test/skill/surface-parity.test.ts`, both go red under the mutant, which in mutation
+> testing is a clean bill of health; the technique would have cleared them on the day the
+> bug was live. Three findings the node did not carry. **The wording selects the vacuous
+> experiment**: cut the manifest and stop there and all three specs go red, satisfying the
+> threshold's literal words — but those reds are staleness, because `SKILL.md` and
+> `/ost-setup` are generated from the manifest and `CLAUDE.md` requires regenerating them,
+> so the arm that meets the bar is the arm that detects nothing and the arm that detects
+> something misses the bar. **There are not three guards**: two guards and one unguarded
+> generator, so a three-of-three bar cannot be met by any technique that scores guards, and
+> "a check that never runs is invisible to every technique" is the larger finding the
+> sibling census reached from the other direction. **The repair did not move the
+> measurement**: the verdicts at `4521f06^` and in today's tree are identical, spec for spec
+> and arm for arm, so a result here is not evidence about whether the bug is fixed. Two
+> smaller ones. Scoring granularity changes the answer — `surface-parity.test.ts` is killed
+> by a single collateral assertion about a hand-written command file while the D3 prefix
+> assertion it exists for survives, so by spec file the score is 1 of 3 and by prefix
+> assertion it is 2 of 3. And what these guards got wrong —
+> `mcp__plugin_<plugin>_<server>__`, the namespace a *plugin* session mints — is not in the
+> manifest, or in any committed file: it was a belief copied by hand into nine command
+> files, and no mutation of a file reaches a belief nothing wrote down. Cost is ~30 s of
+> suite time, six vitest runs across two materialised trees. The line before it was
 > `test/friction/path-guess-hit-rate.test.ts` — the instrument for "Replay the corpus to
 > count how many correct path guesses the guard would have taxed", the assumption test
 > beneath "Require a path to have been observed this session before a command may address
