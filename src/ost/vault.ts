@@ -733,8 +733,15 @@ export class Vault {
    * {@link ../eval/buildable.ts} stops recognising them the moment the field
    * says something else. Swapping the instrument therefore un-clears the build
    * permit rather than inheriting it, and the test has to be verified again.
+   *
+   * The un-clearing is undone by putting the command back, because the filter is
+   * a string match on an append-only log — see {@link ../ost/rearm.ts}, which is
+   * where that restore is made conditional on the spec file not having changed
+   * underneath it. `rearm` is the clause that ruling wants recorded; this method
+   * writes it and reads nothing, because the identity check needs a repository
+   * and the vault has none.
    */
-  setInstrument(title: string, instrument: string, note?: string, sight?: RepoSight): string {
+  setInstrument(title: string, instrument: string, note?: string, sight?: RepoSight, rearm?: string): string {
     assertWritableNote(`the instrument note on "${title}"`, note);
     const node = this.read(title);
     const prev = node.instrument ?? "(none)";
@@ -743,7 +750,11 @@ export class Vault {
     // prior write's sight was — the field describes the current instrument,
     // and the History line below is where the old pairing survives.
     if (sight) node.sight = sight;
-    const line = `- ${isoToday()} instrument: ${prev} → ${instrument}${sight ? ` [sight: ${sight}]` : ""}${note ? ` — ${note}` : ""}`;
+    // The re-arm clause goes LAST, after the free-text note, so a note that
+    // happens to contain the marker cannot displace the real one: the reader
+    // takes the largest withholding it finds, and an extra one only ever
+    // withholds more.
+    const line = `- ${isoToday()} instrument: ${prev} → ${instrument}${sight ? ` [sight: ${sight}]` : ""}${note ? ` — ${note}` : ""}${rearm ?? ""}`;
     node.body = appendUnderHeading(node.body, "## History", line);
     this.writeNodeFile(this.nodePath(title), serialize(node));
     return line;

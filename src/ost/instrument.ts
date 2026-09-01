@@ -45,6 +45,7 @@ import {
 } from "../runner/flake-attribution.js";
 import { testAnswersForShippedSolution } from "../eval/shipped-audit.js";
 import { INSTRUMENT_LOG_HEADING } from "./headings.js";
+import { digestSpecFile, formatSpecDigest, withheldObservations } from "./rearm.js";
 import type { OstNode } from "./node.js";
 import { Vault } from "./vault.js";
 
@@ -321,11 +322,20 @@ export function nodeInstrument(node: OstNode): ParsedInstrument | undefined {
  *
  * A node with no parseable instrument has no current observations by
  * definition, which is the fail-closed direction.
+ *
+ * The filter is symmetric, and that is a feature with an edge on it: restore a
+ * displaced command byte-for-byte and its old lines match again, so the permit
+ * re-arms. {@link ./rearm.ts} is where that is made conditional — a restore that
+ * could not show the spec file was unchanged writes down how many observations
+ * it refused to re-arm, and those are dropped here. Nothing is rewritten; the
+ * lines stay in the log, because a run that happened, happened.
  */
 function currentObservations(node: OstNode): string[] {
   const instrument = nodeInstrument(node);
   if (!instrument) return [];
-  return instrumentLog(node).filter((l) => l.includes(`\`${instrument.command}\``));
+  const lines = instrumentLog(node).filter((l) => l.includes(`\`${instrument.command}\``));
+  const withheld = withheldObservations(node, instrument.command);
+  return withheld > 0 ? lines.slice(withheld) : lines;
 }
 
 /**
@@ -532,6 +542,18 @@ export function verifyInstrument(vaultDir: string, filing: VerifyFiling): Verify
   const run = runInstrument(parsed, filing.repo, { rerunOnRed: true });
   const alreadyRed = observedRed(node);
 
+  // WHAT was measured, beside the fact that something was. The command names a
+  // path and the path is not the file: the same command run either side of an
+  // edit is two different measurements, and until this was recorded the log had
+  // no way to say so. It is what lets a restored command's observations be
+  // checked for identity rather than merely for string equality
+  // ({@link ./rearm.ts}) — and it costs one hash of one file per filing.
+  //
+  // Absent on a `no-spec` run whose file does not exist, which is correct: there
+  // was nothing to digest, and a missing digest withholds.
+  const digest = digestSpecFile([filing.repo], parsed.target);
+  const stamp = digest ? ` ${formatSpecDigest(digest)}` : "";
+
   // A vacuous run is filed, not refused. Refusing would throw away the one fact
   // worth having — that this test's spec has never been written — and leave the
   // node looking un-run, which is a different and less actionable state. Filed
@@ -548,7 +570,7 @@ export function verifyInstrument(vaultDir: string, filing: VerifyFiling): Verify
   // node that the box could not answer rather than that the code failed.
   if (run.observation === "no-spec" || run.observation === "unavailable") {
     const on = filing.on ?? new Date().toISOString().slice(0, 10);
-    const line = `- ${on} **${run.observation}** (exit ${run.exitCode ?? "none"}) \`${parsed.command}\` — ${run.excerpt}`;
+    const line = `- ${on} **${run.observation}** (exit ${run.exitCode ?? "none"}) \`${parsed.command}\` — ${run.excerpt}${stamp}`;
     vault.appendUnderSection(filing.test, INSTRUMENT_LOG_HEADING, line);
     return { line, run, instrument: parsed, transitioned: false };
   }
@@ -570,7 +592,7 @@ export function verifyInstrument(vaultDir: string, filing: VerifyFiling): Verify
 
   const on = filing.on ?? new Date().toISOString().slice(0, 10);
   const line =
-    `- ${on} **${run.observation}** (exit ${run.exitCode ?? "none"}) \`${parsed.command}\` — ${run.excerpt}`;
+    `- ${on} **${run.observation}** (exit ${run.exitCode ?? "none"}) \`${parsed.command}\` — ${run.excerpt}${stamp}`;
   // The heading travels as its own argument, which is the position the content
   // guard does not scan — that asymmetry is this path's exclusivity (ost/headings.ts).
   vault.appendUnderSection(filing.test, INSTRUMENT_LOG_HEADING, line);
