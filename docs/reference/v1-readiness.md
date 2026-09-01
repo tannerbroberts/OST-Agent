@@ -3204,12 +3204,37 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,764 tests across 351 files, verified 2026-09-01 (`npx vitest run`
-> reports 4,756 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,814 tests across 352 files, verified 2026-09-01 (`npx vitest run`
+> reports 4,806 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-09-01 finished at 4,756 across
-> the 350 files it collects, in 309 s. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-09-01 finished at 4,806 across
+> the 351 files it collects. Wall clock is reported as a range because it was measured
+> twice on the same machine and the same commit and came back **207 s and 341 s** — a 1.6×
+> spread with no code between the two runs, which is worth knowing before anyone reads a
+> single timing as a regression. The file added since the previous line is
+> `test/friction/path-guess-hit-rate.test.ts` — the instrument for "Replay the corpus to
+> count how many correct path guesses the guard would have taxed", the assumption test
+> beneath "Require a path to have been observed this session before a command may address
+> it" (`src/telemetry/path-guess-hit-rate.ts`). It came out **refuted**, and by an order of
+> magnitude: replaying a look-before-you-address guard over 1,219 session transcripts and
+> 60,472 calls, it would have blocked 17,427 first-contact path-taking calls to save 143
+> wrong guesses — 0.8% against a pre-committed bar of 20%, 121 correct addresses taxed for
+> every save, and none of the four recounts rescues it (best case 6.7%, on the arithmetic
+> that credits the guard with every failure of any kind plus every call whose result never
+> came back). Two findings the node did not carry. **The guard has no bootstrap**: 6,484 of
+> the calls it would refuse — 37% — are themselves the looking its own refusal message names
+> (`ls`, `find`, `grep`, `git`), so a session's first listing addresses a directory nothing
+> has observed yet, the listing never runs, and nothing is ever observed; the node names
+> only an exemption for creating a file that does not exist yet. And **the cost it argued
+> against is twenty-five times what it claimed**: it puts the read-before-write handshake at
+> "roughly twenty collisions across eleven sessions … the most frequent friction event the
+> product has ever observed about itself", where the raw record holds 509 — the price of
+> that handshake on *one* surface, which this solution proposes to widen to every
+> path-taking call. The corpus does not say the mechanism is worthless, and the fixture
+> commits its own counter-example rather than hiding it: `agent-abf938e2353ceae33`, a
+> subagent told about a vault in prose it never listed, comes out at 62%. It says the
+> mechanism cannot be charged to every call. The line before it was
 > `test/mcp/mutation-response-dropped-sections-recoverable.test.ts` — the instrument for
 > "Check every dropped section is reported with enough to restore it", the assumption test
 > beneath "Report what a write changed, so a silent loss stops being silent"

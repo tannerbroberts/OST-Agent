@@ -1,0 +1,19 @@
+{
+ "projectsRoot": "/Users/tanner/.claude/projects",
+ "transcriptsFound": 1220,
+ "transcriptsNested": 390,
+ "excludedSessions": [
+  "38e379cb-7b7b-42e3-a5c7-f52d0603c9a2"
+ ],
+ "sessionsRead": 1219,
+ "calls": 60472,
+ "bar": 0.2,
+ "maxErrorChars": 800,
+ "maxCommandChars": 600,
+ "firstContactFiltered": 17427,
+ "firstContactUnfiltered": 17427,
+ "wrongGuessesFiltered": 143,
+ "wrongGuessesUnfiltered": 143,
+ "observationTokensFiltered": 60522,
+ "observationTokensUnfiltered": 210119
+}
