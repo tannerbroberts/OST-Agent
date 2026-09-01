@@ -3204,12 +3204,26 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,706 tests across 348 files, verified 2026-09-01 (`npx vitest run`
-> reports 4,698 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,734 tests across 349 files, verified 2026-09-01 (`npx vitest run`
+> reports 4,726 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-09-01 finished at 4,698 across
-> the 347 files it collects, in 176 s. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-09-01 finished at 4,726 across
+> the 348 files it collects, in 177 s. The file added since the previous line is
+> `test/loop/replayable-step-share.test.ts` — the instrument for "Count how many recorded
+> steps are safely replayable at all", the assumption test beneath "Replay a recorded failure
+> in its recorded context on demand" (`src/loop/replayable.ts`). It came back **refuted**:
+> 44.9% of the 619 steps this vault recorded in the thirty days to 2026-09-01 clear a
+> read-only allowlist committed before the corpus was cut, against a pre-committed 60% bar,
+> and every weekly sub-window lands between 37% and 50%. The rule's breadth is not what
+> refused them — the ledger holds exactly two distinct commands over thirty days,
+> `ost-agent check` (278, all cleared) and `claude -p` (341, all refused), so granting every
+> non-`claude` command for free still lands at 44.9%. The number that decides the row is
+> sharper still: of the 63 commands that actually ran and exited non-zero — a recorded
+> *failure*, the thing replay exists for — **zero** are replayable, and the 19 replayable
+> non-zero exits are all `refused: "spend-ceiling"` steps that never spawned anything. Per
+> the solution node's own text that redirects the row to its sibling, "Snapshot the resolved
+> environment, but only for the step that failed". The line before it was
 > `test/instruments/permit-rearm.test.ts` — the instrument for "Replacing an instrument
 > preserves the old command and re-arms the permit if it is restored" (`src/ost/rearm.ts`):
 > restoring a displaced command re-arms the observations it earned only while the spec file

@@ -98,6 +98,25 @@ const KNOWN_UNREACHABLE: Record<string, string> = {
   "src/loop/credentialedSteps.ts":
     "built and tested; parked pending a decision to build the reorder itself, which this assumption test did not clear",
   /*
+   * The fixed read-only allowlist behind "Count how many recorded steps are
+   * safely replayable at all", the assumption test beneath "Replay a recorded
+   * failure in its recorded context on demand". Same shape as
+   * `credentialedSteps.ts` directly above, and parked for the same reason: it
+   * is the census a red instrument asked for, not the replay itself.
+   *
+   * The census came back refuted, and decisively — 44.9% of this vault's 619
+   * recorded steps over thirty days clear the rule against a pre-committed 60%
+   * bar, and of the 63 commands that actually ran and failed, zero do
+   * (`test/loop/replayable-step-share.test.ts`). Wiring a replay executor to
+   * this classifier would be building the surface for a solution the evidence
+   * just redirected to its sibling. It comes off if the ledger's step
+   * population ever changes shape enough to clear the bar, and goes when the
+   * node is deferred to "Snapshot the resolved environment, but only for the
+   * step that failed".
+   */
+  "src/loop/replayable.ts":
+    "built and tested; parked because its own census refuted the assumption that would have justified building the replay",
+  /*
    * The early-push cadence: replay the recorded 2026-07-26 collision with
    * skeleton pushes at an interval and measure when git's non-fast-forward
    * rejection first arrives. Its instrument is green — a 30-minute cadence

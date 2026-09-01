@@ -194,6 +194,14 @@ const PURE_MODULES = [
   // `test/loop/credentialed-step-independence.test.ts` is read by the test, not
   // by this module.
   "credentialedSteps.ts",
+  // Applies a committed allowlist of read-only verbs to a step's argv and folds
+  // a corpus of them into a share — pure string work over whatever the caller
+  // hands in. That it opens nothing is load-bearing here rather than incidental:
+  // the assumption test this rule serves says the allowlist must be fixed before
+  // the distribution is looked at, and a module with no way to read a ledger
+  // cannot have been fitted to one. `test/loop/replayable-step-share.test.ts`
+  // asserts the absence of an `fs` import for exactly that reason.
+  "replayable.ts",
   // Reconstructs an executable invocation (cwd + argv) from a `LoopStepRecord`
   // and filters/sorts a `LoopRunRecord[]` the caller hands in — both pure
   // functions over already-parsed records. It opens no file itself; the corpus
