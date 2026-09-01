@@ -3,8 +3,8 @@
   "version": "0.23.0",
   "artifact": {
     "path": "dist/ost-agent.mjs",
-    "bytes": 2758366,
-    "sha256": "ac8c39cc761f722473a9e28dc8d374dc8e58dc86480c0cd971a113dc3484eb7c"
+    "bytes": 2763508,
+    "sha256": "9b2726a3be7a442f27a5f94d1d0a3b693c3f8f1591ba8bf3853f3420faeeaa23"
   },
   "capabilities": [
     {
@@ -434,6 +434,11 @@
     },
     {
       "name": "symbols",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "threshold-refusal-census",
       "surface": "cli-command",
       "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
     },

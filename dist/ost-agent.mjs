@@ -45739,7 +45739,8 @@ ${test.body ?? ""}`;
       return {
         lane: CAUTIOUS_LANE,
         why: `names an outside person: "${hit[0]}" \u2014 "${sentence}"`,
-        sentence
+        sentence,
+        phrase: hit[0]
       };
     }
   }
@@ -49051,6 +49052,95 @@ function retractNode(vaultDir, filing) {
   const line = `- ${on} **retracted** (by ${by}) \u2014 ${why}`;
   vault.appendUnderSection(filing.node, RETRACTION_HEADING, line, "human");
   return line;
+}
+
+// src/ost/refusal-census.ts
+var REFUSAL_READINGS = ["flag", "strict"];
+var REFUSED_KINDS = {
+  flag: ["instruction", "absent"],
+  strict: ["instruction", "absent", "prose"]
+};
+function wouldRefuse(kind, reading) {
+  return REFUSED_KINDS[reading].includes(kind);
+}
+var FALSE_REFUSAL_BAR = 0.05;
+function misreadAllowance(blocked) {
+  return Math.floor(blocked * FALSE_REFUSAL_BAR);
+}
+function bearingOnTheBar(blocked) {
+  if (blocked === 0) {
+    return `nothing is blocked, so the ${FALSE_REFUSAL_BAR * 100}% bar has nothing to judge and cannot be cleared here`;
+  }
+  return `at ${FALSE_REFUSAL_BAR * 100}% at most ${misreadAllowance(blocked)} may be a misread`;
+}
+function refusalFor(reading) {
+  const found = reading.kind === "absent" ? "it carries no pre-commitment at all" : reading.kind === "instruction" ? `its pre-commitment is still an instruction to pick a bar \u2014 "${reading.asked}"` : `its pre-commitment states no bar anything could come out short of \u2014 "${reading.asked}"`;
+  return `a result needs a threshold that was fixed before the run, and "${reading.title}" cannot supply one: ${found}. A result recorded against a bar nobody fixed cannot come out a failure, so it is not evidence. Fix the bar on the node and file again.`;
+}
+function censusRefusals(tree, reading) {
+  const readings = [];
+  const awaiting = /* @__PURE__ */ new Set();
+  for (const node2 of tree) {
+    if (node2.layer !== "AssumptionTest") continue;
+    readings.push({ title: node2.title, kind: thresholdKindOf(node2), asked: askedOf(node2) });
+    if (!hasRecordedResult(node2)) awaiting.add(node2.title);
+  }
+  const byKind = { bound: 0, instruction: 0, prose: 0, absent: 0 };
+  for (const r2 of readings) byKind[r2.kind] += 1;
+  const blocked = readings.filter((r2) => wouldRefuse(r2.kind, reading)).map((r2) => ({
+    test: r2.title,
+    kind: r2.kind,
+    asked: r2.asked,
+    awaitingResult: awaiting.has(r2.title),
+    refusal: refusalFor(r2)
+  }));
+  return {
+    reading,
+    tests: readings.length,
+    awaitingResult: awaiting.size,
+    blocked,
+    blockedShare: readings.length === 0 ? 0 : blocked.length / readings.length,
+    byKind
+  };
+}
+function censusOfTree(tree) {
+  return Object.fromEntries(REFUSAL_READINGS.map((r2) => [r2, censusRefusals(tree, r2)]));
+}
+function formatRefusalCensus(label2, both) {
+  const any = both.flag;
+  const lines = [
+    `${label2} \u2014 filings a refuse-an-unfixed-threshold rule would have blocked:`,
+    `  ${any.tests} assumption test(s)  (fixed ${any.byKind.bound}, stated in words ${any.byKind.prose}, still an instruction ${any.byKind.instruction}, none written ${any.byKind.absent})`,
+    `  ${any.awaitingResult} of them have never recorded a result \u2014 those are the next filings.`
+  ];
+  for (const reading of REFUSAL_READINGS) {
+    const c3 = both[reading];
+    const pct11 = c3.tests === 0 ? "\u2014" : `${Math.round(c3.blockedShare * 1e3) / 10}%`;
+    const next = c3.blocked.filter((b2) => b2.awaitingResult).length;
+    lines.push(
+      `  ${reading.padEnd(7)} (refuses ${REFUSED_KINDS[reading].join(", ")})  ${String(c3.blocked.length).padStart(4)}/${String(c3.tests).padEnd(4)} blocked (${pct11}), ${next} of them never run; ${bearingOnTheBar(c3.blocked.length)}`
+    );
+  }
+  return lines.join("\n");
+}
+function formatReviewWorksheet(label2, census) {
+  const lines = [
+    `${label2} \u2014 ${census.blocked.length} filing(s) to judge, under the "${census.reading}" reading.`,
+    "",
+    "For each, from the node text alone: is this genuinely not a commitment, or did the",
+    `classifier misread a real pre-commitment? ${bearingOnTheBar(census.blocked.length)}.`,
+    ""
+  ];
+  if (census.blocked.length === 0) {
+    lines.push("  Nothing is blocked under this reading, so there is nothing to judge.");
+    return lines.join("\n");
+  }
+  census.blocked.forEach((b2, i2) => {
+    lines.push(`${String(i2 + 1).padStart(4)}. ${b2.test}${b2.awaitingResult ? "" : "  (already has a result)"}`);
+    lines.push(`      reads: ${b2.asked ?? "\u2014 no pre-commitment paragraph found \u2014"}`);
+    lines.push("      verdict (not a commitment / misread): ");
+  });
+  return lines.join("\n");
 }
 
 // src/ost/outcome-signal.ts
@@ -69071,6 +69161,24 @@ program2.command("retract").description("take a node out of the live tree withou
 program2.command("debt").description("what each solution owes in evidence before anyone builds it (no model needed)").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
   const ctx = buildPassContext(opts.vault);
   console.log(renderDebt(ctx.vault.readTree()));
+});
+program2.command("threshold-refusal-census").description(
+  "how many result filings a refusal-on-unfixed-threshold rule would have blocked, under each of the two readings this repo already holds (no model needed)"
+).option("--vault <dir>", VAULT_OPTION_HELP).option(
+  "--worksheet <reading>",
+  `print the blocked list to judge, verdicts withheld (${REFUSAL_READINGS.join(" | ")})`
+).action((opts) => {
+  const vault = path85.resolve(opts.vault);
+  const both = censusOfTree(new Vault(vault, { create: false }).readTree());
+  console.log(formatRefusalCensus(path85.basename(vault), both));
+  if (opts.worksheet === void 0) return;
+  if (!REFUSAL_READINGS.includes(opts.worksheet)) {
+    console.error(`ost-agent: "${opts.worksheet}" is not a reading \u2014 use one of: ${REFUSAL_READINGS.join(", ")}`);
+    process.exitCode = 1;
+    return;
+  }
+  console.log("");
+  console.log(formatReviewWorksheet(path85.basename(vault), both[opts.worksheet]));
 });
 program2.command("critic").description("attack the tree: for each claim that outruns its backing, the strongest case it is wrong and what would settle it (no model needed)").option("--vault <dir>", VAULT_OPTION_HELP).option("--annotate", "write each objection under its node's ## Issues (add-only; a charge lands once, not once per pass)").action((opts) => {
   const ctx = buildPassContext(opts.vault);
