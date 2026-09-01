@@ -3204,15 +3204,40 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,825 tests across 353 files, verified 2026-09-01 (`npx vitest run`
-> reports 4,817 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,862 tests across 354 files, verified 2026-09-01 (`npx vitest run`
+> reports 4,854 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-09-01 finished at 4,817 across
-> the 352 files it collects. Wall clock is reported as a range because it was measured
-> twice on the same machine and the same commit and came back **207 s and 341 s** — a 1.6×
-> spread with no code between the two runs, which is worth knowing before anyone reads a
-> single timing as a regression. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-09-01 finished at 4,854 across
+> the 353 files it collects. Wall clock is reported as a range because it keeps coming back
+> as one: the previous line measured the same commit twice at **207 s and 341 s**, and this
+> line's two runs came back at **210 s and 394 s** — a 1.9× spread with no code between them,
+> which is worth knowing before anyone reads a single timing as a regression. The file added since the previous line is
+> `test/runner/path-root-coverage.test.ts` — the instrument for "Check how many past failed
+> paths fall inside a small set of nameable roots", the assumption test beneath "Resolve
+> every path against a declared root, so a wrong prefix cannot be constructed"
+> (`src/runner/path-roots.ts`). How the question is read decides the answer, and that is the
+> finding: of sixteen recounts over the 131 named path failures in 1,219 transcripts, five
+> clear the 80% bar and **every one of them is carried by a circularity**. Counting `home` as
+> a root scores 95.4% while preventing nothing — `~/dev/ost-agent-meta` and
+> `~/ost-agent-meta` are both under it, and that pair *is* the mistake at issue — and 96 of
+> the 131 failed paths were written *relative*, which under a project root derived from the
+> directory they resolve against are covered **96 of 96 by construction**. Strip both and it
+> is **40.0%, 14 of the 35 failures that carry a head at all**. Three findings the node did
+> not carry. **Coverage points the wrong way**: a failure that lands inside a declared root
+> is one whose prefix was already right (`src/ost/set-outcome.ts` for
+> `src/runner/set-outcome.ts` is wrong in the middle), so the class a root actually prevents
+> is 1 of 35 on a two-segment tail and 10 of 35 on a one-segment tail — three genuine head
+> errors in 131 failures when those ten are read by hand, and one of the three names a root
+> the four-name vocabulary does not carry. **The control runs backwards**: the roots cover
+> 68.2% of the paths that *worked* and 40.0% of the ones that failed, so the failures are
+> concentrated outside the named territory rather than inside it. And **`project` is a
+> binding, not a name**: on a machine holding five repositories, binding it machine-wide
+> instead of per run drops coverage to 47.3%, and this repository's own build passes run from
+> the vault with their work in the code repository — a two-root run neither derivation
+> serves, which argues for handing roots to a run and against any fixed table of them. One
+> thing the cut had to fix first: 24% of all calls open with `cd`, and not honouring it
+> manufactured five of the seven head errors the first cut reported. The line before it was
 > `test/guards/mutation-detects-self-derivation.test.ts` — the instrument for "Mutate the
 > manifest server name and require the three prefix guards to go red", the assumption test
 > beneath "Require every guard to demonstrate it can fail, by mutating the thing it claims

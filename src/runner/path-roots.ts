@@ -1,0 +1,823 @@
+/**
+ * The declared root vocabulary — a run is handed a few named places and asks for
+ * things relative to those names instead of assembling absolute paths itself —
+ * and the census that measures how much of this machine's recorded path failure
+ * a vocabulary that small could ever have covered.
+ *
+ * The candidate this measures: "Resolve every path against a declared root, so a
+ * wrong prefix cannot be constructed". A caller asks for the vault's inbox, not
+ * for a string beginning `/Users/tanner/`; the prefix is supplied once, correctly,
+ * by whatever knows it. The failures it is aimed at are this product's own passes
+ * assembling a head they had no business assembling —
+ * `/Users/tanner/dev/ost-agent-meta` for `/Users/tanner/ost-agent-meta`, a segment
+ * wrong in the part the caller invented and right in the part it actually meant.
+ *
+ * The assumption test beneath it fixed the bar before anything was counted, and
+ * fixed the vocabulary with it: **a declared root vocabulary of at most four names
+ * covers at least 80% of the paths that actually failed**, the four being the ones
+ * the node itself named — project, vault, logs, home. Coverage is the whole test
+ * rather than a proxy for it, because anything outside the named roots is
+ * constructed by hand exactly as before: a root set that covers half the failures
+ * halves the benefit and keeps all of the machinery.
+ *
+ * ## The rule is committed here, before the corpus is cut
+ *
+ * Nothing in this file reads a file, and the four names come from the node's own
+ * text rather than from the record — a vocabulary chosen after seeing which
+ * prefixes failed would score against the sample it was fitted to and look
+ * identical to one that was not. {@link PATH_ROOT_RULE} carries the bar, the
+ * ceiling on how many names may be declared, and the three readings the census
+ * refuses to choose between.
+ *
+ * ## `home` is a container, not a root, and the census says so both ways
+ *
+ * On a single-operator machine every path worth having begins `/Users/tanner`, so
+ * a vocabulary that counts `home` as a root scores near 100% while preventing
+ * nothing: `~/dev/ost-agent-meta` and `~/ost-agent-meta` are both under it, which
+ * is precisely the mistake the solution exists to make unconstructible. That is
+ * why {@link Containment} is a reading rather than a decision — the census reports
+ * `specific` (project, vault, logs) beside `with-home` and publishes whether the
+ * choice moved the verdict, instead of quietly taking the number that flatters the
+ * solution.
+ *
+ * ## `project` is a binding, not a name
+ *
+ * The same argument applies once a machine holds more than one repository. This
+ * one holds five, so "the project" resolves to a different directory in every
+ * session, and {@link Vocabulary} recounts the whole census both ways: `per-session`
+ * binds `project` to the directory the call was actually issued from, and `fixed`
+ * binds it to this product's own repository the way a machine-wide vocabulary
+ * would have to.
+ *
+ * ## What a count out of this cannot settle
+ *
+ * Green here would say only that a small vocabulary *reaches* the places that
+ * failed. It says nothing about the failure the node itself calls the more
+ * dangerous one — a root pointing somewhere wrong produces confident, uniform,
+ * wrong paths everywhere at once, and no coverage number would show it. And every
+ * path counted here was reached for by a run that had **no** root vocabulary, so
+ * the corpus cannot say how the habit changes once one exists.
+ *
+ * ## Where this is parked
+ *
+ * No product surface resolves a path through {@link resolveUnderRoot} yet, and
+ * that is deliberate rather than unfinished: this module is the census a red
+ * instrument asked for, not a decision to route every path in the product through
+ * a vocabulary the census just found covers 40% of the failures that carry a head.
+ * Its live caller is `scripts/harvest-path-root-corpus.ts`, which cuts the corpus
+ * and prints the verdict at cut time — a caller that actually executes it, on the
+ * same footing as `src/ost/unblock-leverage.ts` and the unknown-context census
+ * (`test/release/module-reachability.test.ts`). It gets wired when the vault
+ * decides to hand roots to a run, and goes when the node is deferred.
+ */
+import path from "node:path";
+import {
+  classifyPathFailure,
+  clip,
+  MAX_COMMAND_CHARS,
+  MAX_ERROR_CHARS,
+  subjectOf,
+  type PathFailureClass,
+} from "../telemetry/path-failure-attribution.js";
+import { GUESS_RULE, pathsInCommand, normalizePath } from "../telemetry/path-guess-hit-rate.js";
+import type { TranscriptSession } from "../telemetry/preflight.js";
+
+/** The four names the node declared, in the order it declared them. */
+export const ROOT_NAMES = ["project", "vault", "logs", "home"] as const;
+
+export type RootName = (typeof ROOT_NAMES)[number];
+
+/**
+ * Whether `home` is allowed to count as a root.
+ *
+ * `specific` is the reading in which a root does work: it supplies a prefix the
+ * caller could otherwise have got wrong. `with-home` is the vocabulary exactly as
+ * the node named it, kept because dropping a name the node chose would be fitting
+ * the test to the answer.
+ */
+export type Containment = "specific" | "with-home";
+
+/**
+ * What to do with a path that was written relative.
+ *
+ * `recorded-cwd` resolves it against the working directory the transcript entry
+ * carried; `as-written` refuses to resolve it at all and counts it as uncovered.
+ * The second is the conservative convention this repository already runs under —
+ * a record needing a judgement counts as a failure of the rule rather than a pass
+ * — and the first exists because the judgement here is not a judgement: the
+ * directory is on the record.
+ */
+export type Resolution = "recorded-cwd" | "as-written";
+
+/** Whether `project` is bound per run or fixed machine-wide. */
+export type Vocabulary = "per-session" | "fixed";
+
+/**
+ * Which failed paths the count is taken over.
+ *
+ * `all` is the node's own population — every path that failed. `constructed-head`
+ * keeps only the paths that *carry* a head, which is the population the mechanism
+ * can act on at all: a path written relative has no prefix, so the mistake the
+ * solution prevents was not available to make. Counting a relative path as covered
+ * is worse than uninformative under `per-session`, where the project root is
+ * derived from the very working directory the path resolves against and coverage
+ * is therefore true by construction — see {@link PathRootCensus.relativeCovered},
+ * which asserts that circularity rather than leaving it to be noticed.
+ */
+export type Population = "all" | "constructed-head";
+
+/**
+ * The bar, the ceiling on the vocabulary, and the readings — all fixed before any
+ * path was counted.
+ */
+export const PATH_ROOT_RULE = {
+  /** At least this share of failed paths must fall under the declared roots. */
+  bar: 0.8,
+  /** The node's ceiling on how many names may be declared. */
+  maxRoots: 4,
+  containments: ["specific", "with-home"] as Containment[],
+  resolutions: ["recorded-cwd", "as-written"] as Resolution[],
+  vocabularies: ["per-session", "fixed"] as Vocabulary[],
+  populations: ["all", "constructed-head"] as Population[],
+  /**
+   * How many trailing segments must match for a failed path and a successful one
+   * to count as the same target reached for under two different heads. One segment
+   * is a bare filename and coincides across repositories constantly; two is the
+   * shortest tail that carries a directory with it. Both are counted — see
+   * {@link PathRootCensus.headErrors}.
+   */
+  headErrorTailSegments: 2,
+  /**
+   * Which failure shapes are about a path at all. The same three the sibling
+   * census counts as savable, for the same reason: a `denied-path` names a path
+   * that *exists*, so a root vocabulary neither causes it nor prevents it.
+   * Counted separately rather than dropped silently — see
+   * {@link PathRootCensus.deniedPaths}.
+   */
+  countedClasses: ["missing-path", "no-matches", "not-a-repo"] as PathFailureClass[],
+  /**
+   * An error message names its subject in prose, and prose sometimes hands back a
+   * program name or a command-line flag where a path should be. A subject is kept
+   * only if it looks like a path under the sibling census's rule — a separator in
+   * it, or a bare filename with an extension this machine's work actually uses.
+   */
+  notAPathWord: GUESS_RULE.notAPathWord,
+  bareFileName: GUESS_RULE.bareFileName,
+  /**
+   * `D=/private/tmp/scratch` is a shell assignment, not an address. The word is
+   * path-shaped after the `=` and the sibling census's word rule lets it through,
+   * where it lands in the corpus as a relative path, gets resolved against the
+   * working directory, and manufactures a location no run ever addressed. Found by
+   * reading the head-error matches this census produced on its first cut: five of
+   * seven were an assignment word or a `cd` the resolver had not honoured.
+   */
+  assignmentWord: /^[A-Za-z_][A-Za-z0-9_]*=/,
+} as const;
+
+/**
+ * Where the named places are on the machine this corpus came from.
+ *
+ * Fixed rather than read, for the reason the sibling census fixes `HOME`: a replay
+ * has to give the same answer on a different machine next year. `logs` is the
+ * directory this product's own loops write to, named in the observation tokens of
+ * the corpus itself (`~/Library/Logs/ost-meta-loop.log`).
+ */
+export const OPERATOR_LAYOUT = {
+  home: "/Users/tanner",
+  vault: "/Users/tanner/ost-agent-meta",
+  logs: "/Users/tanner/Library/Logs",
+  /** This product's own repository — what `fixed` binds `project` to. */
+  project: "/Users/tanner/dev/OST-Agent",
+  /**
+   * Directories that hold projects rather than being one. A session whose cwd is
+   * `<container>/<name>/…` belongs to the project `<container>/<name>`; a session
+   * launched anywhere else is its own project.
+   */
+  projectContainers: ["/Users/tanner/dev"],
+} as const;
+
+/** One vocabulary instance: every declared name bound to an absolute directory. */
+export type RootVocabulary = Record<RootName, string>;
+
+/** Why a path could not be built from a root. Each is a refusal, never a guess. */
+export type RootRefusal = "unknown-root" | "absolute-tail" | "escapes-root" | "too-many-roots";
+
+/** A call that tried to construct a path the vocabulary does not permit. */
+export class RootError extends Error {
+  constructor(
+    readonly refusal: RootRefusal,
+    message: string,
+  ) {
+    super(message);
+    this.name = "RootError";
+  }
+}
+
+/**
+ * Bind the four names to four directories.
+ *
+ * Rejects a vocabulary that is not four absolute paths, because a root given a
+ * relative path is the failure mode the node warns about — one wrong root
+ * produces confident, uniform, wrong paths everywhere at once.
+ */
+export function declareRoots(bindings: Record<string, string>): RootVocabulary {
+  const vocab = {} as RootVocabulary;
+  const names = Object.keys(bindings);
+  if (names.length > PATH_ROOT_RULE.maxRoots) {
+    throw new RootError(
+      "too-many-roots",
+      `a vocabulary may declare at most ${PATH_ROOT_RULE.maxRoots} roots, got ${names.length}`,
+    );
+  }
+  for (const name of names) {
+    if (!(ROOT_NAMES as readonly string[]).includes(name)) {
+      throw new RootError("unknown-root", `no root is called "${name}" — the vocabulary is ${ROOT_NAMES.join(", ")}`);
+    }
+    const dir = bindings[name];
+    if (!dir.startsWith("/")) {
+      throw new RootError("absolute-tail", `root "${name}" must be an absolute directory, got "${dir}"`);
+    }
+    vocab[name as RootName] = normalizePath(path.normalize(dir));
+  }
+  return vocab;
+}
+
+/**
+ * The mechanism itself: ask for a place by name and a tail, and get back a path
+ * whose head you did not write.
+ *
+ * Three refusals, and they are the whole guarantee. An unknown name cannot be
+ * silently treated as a directory; a tail that is already absolute is a caller
+ * assembling the head anyway; and a tail that climbs out of its root with `..` is
+ * the same thing spelled differently.
+ */
+export function resolveUnderRoot(vocab: RootVocabulary, root: string, tail: string): string {
+  const base = vocab[root as RootName];
+  if (base === undefined) {
+    throw new RootError("unknown-root", `no root is called "${root}" — declared roots are ${Object.keys(vocab).join(", ")}`);
+  }
+  if (tail.startsWith("/") || tail.startsWith("~")) {
+    throw new RootError("absolute-tail", `"${tail}" already carries a head; ask for a tail relative to "${root}"`);
+  }
+  const resolved = normalizePath(path.normalize(path.join(base, tail)));
+  if (!isUnder(base, resolved)) {
+    throw new RootError("escapes-root", `"${tail}" climbs out of root "${root}" (${base})`);
+  }
+  return resolved;
+}
+
+/** Is `p` at or under `base`? Segment-wise, so `/a/bc` is not under `/a/b`. */
+export function isUnder(base: string, p: string): boolean {
+  return p === base || p.startsWith(base.endsWith("/") ? base : base + "/");
+}
+
+/**
+ * Which declared root contains this absolute path, or `null` for none.
+ *
+ * The deepest root wins, so a path inside the vault is charged to `vault` rather
+ * than to `home` — otherwise the container would absorb every path on the machine
+ * and the byRoot breakdown would say nothing.
+ */
+export function rootContaining(vocab: RootVocabulary, abs: string, containment: Containment): RootName | null {
+  let best: RootName | null = null;
+  for (const name of ROOT_NAMES) {
+    if (containment === "specific" && name === "home") continue;
+    const base = vocab[name];
+    if (base === undefined) continue;
+    if (!isUnder(base, abs)) continue;
+    if (best === null || base.length > vocab[best].length) best = name;
+  }
+  return best;
+}
+
+/** The project a session belongs to, read off the directory it was launched in. */
+export function projectRootFor(cwd: string, layout = OPERATOR_LAYOUT): string {
+  const normalized = normalizePath(path.normalize(cwd || layout.home));
+  for (const container of layout.projectContainers) {
+    if (normalized === container) return container;
+    if (isUnder(container, normalized)) {
+      const first = normalized.slice(container.length + 1).split("/")[0];
+      return `${container}/${first}`;
+    }
+  }
+  return normalized;
+}
+
+/** The vocabulary a given call would have been handed, under one reading. */
+export function vocabularyFor(cwd: string, mode: Vocabulary, layout = OPERATOR_LAYOUT): RootVocabulary {
+  return declareRoots({
+    project: mode === "per-session" ? projectRootFor(cwd, layout) : layout.project,
+    vault: layout.vault,
+    logs: layout.logs,
+    home: layout.home,
+  });
+}
+
+/**
+ * Make an addressed path absolute, or say it cannot be.
+ *
+ * `null` is a finding rather than a gap: a path written relative carries no head
+ * at all, so the mistake the solution prevents was not available to make, and
+ * whether it falls under a root is a question about the working directory rather
+ * than about the path.
+ */
+export function resolveAddressed(addressed: string, cwd: string, resolution: Resolution): string | null {
+  if (addressed.startsWith("/")) return normalizePath(path.normalize(addressed));
+  if (resolution === "as-written") return null;
+  if (!cwd) return null;
+  return normalizePath(path.normalize(path.resolve(cwd, addressed)));
+}
+
+/** Does this subject read as a path at all, or is it a flag the prose caught? */
+export function readsAsPath(subject: string): boolean {
+  if (!subject) return false;
+  if (PATH_ROOT_RULE.assignmentWord.test(subject)) return false;
+  if (PATH_ROOT_RULE.notAPathWord.some((re) => re.test(subject))) return false;
+  return subject.includes("/") || PATH_ROOT_RULE.bareFileName.test(subject);
+}
+
+/**
+ * Where a shell command actually ran.
+ *
+ * The transcript's `cwd` is the session's working directory, and a command that
+ * begins `cd /somewhere &&` runs the rest of itself elsewhere. Honouring that is
+ * not a nicety: this repository's own build passes run from the vault and `cd` to
+ * the code repository in the same command, so without it every relative path they
+ * address resolves into the vault — which invents a wrong prefix for exactly the
+ * runs this census is about, and then reads it back as evidence of one.
+ *
+ * Only a `cd` at the head of the command is honoured. A `cd` in the middle of a
+ * pipeline changes the directory for part of the command only, and guessing which
+ * part would put paths in the corpus that no run addressed.
+ */
+export function effectiveCwd(cwd: string, command: string): string {
+  if (!command) return cwd;
+  const first = command.split(/&&|\|\||[;\n|]/)[0].trim();
+  const match = /^cd\s+("[^"]*"|'[^']*'|[^\s;&|]+)/.exec(first);
+  if (!match) return cwd;
+  let dir = match[1].replace(/^["']|["']$/g, "");
+  if (!dir) return cwd;
+  if (dir.startsWith("~/") || dir === "~") dir = OPERATOR_LAYOUT.home + dir.slice(1);
+  if (!dir.startsWith("/")) {
+    if (!cwd) return cwd;
+    dir = path.resolve(cwd, dir);
+  }
+  return normalizePath(path.normalize(dir));
+}
+
+// ── the record ───────────────────────────────────────────────────────────────
+
+/** One path a call addressed, with the directory it was addressed from. */
+export interface AddressedPath {
+  session: string;
+  /** The working directory the transcript entry carried. Empty if it carried none. */
+  cwd: string;
+  tool: string;
+  /** The path as the record has it — absolute or relative, never resolved here. */
+  addressed: string;
+}
+
+/** One failed path: what the error message said was not there, and which shape it was. */
+export interface FailedPath extends AddressedPath {
+  cls: PathFailureClass;
+  /** Clipped failure text, so a reader can disagree with the classification. */
+  error: string;
+  /** Clipped `Bash` command, empty for every other tool. */
+  command: string;
+}
+
+/** What a read of the raw transcripts found, with everything it could not use. */
+export interface AddressedRecord {
+  failures: FailedPath[];
+  successes: AddressedPath[];
+  sessions: number;
+  calls: number;
+  errors: number;
+  /** Path-shaped failures whose message named nothing — `File does not exist.` */
+  unnamed: number;
+  /** Named subjects that were a flag or a program name rather than a path. */
+  notAPath: number;
+  /** Path-shaped failures excluded by class: the path was there, the grant was not. */
+  deniedPaths: number;
+  /** Calls whose command opened with `cd`, so the session's directory was not where it ran. */
+  cdAdjusted: number;
+}
+
+/**
+ * Lift every addressed path out of raw session transcripts, failures and
+ * successes alike.
+ *
+ * The working directory comes from the transcript entry that carried the call.
+ * That field is why this census can ask its question at all: the sibling
+ * path-guess corpus records that resolving a relative path "needs a working
+ * directory the transcript does not record", and the transcript does record one —
+ * on every entry, under `cwd`. See this census's `PROVENANCE.md`.
+ *
+ * Nothing is filtered by tool or by session. Which subjects are a path, which
+ * failure shapes count, and what a root covers are all decided by
+ * {@link PATH_ROOT_RULE} and by the census below, where they can be argued with.
+ */
+export function readAddressedPaths(sessions: TranscriptSession[]): AddressedRecord {
+  const failures: FailedPath[] = [];
+  const successes: AddressedPath[] = [];
+  let calls = 0;
+  let errors = 0;
+  let unnamed = 0;
+  let notAPath = 0;
+  let deniedPaths = 0;
+  let cdAdjusted = 0;
+
+  for (const session of sessions) {
+    const byId = new Map<string, { tool: string; command: string; declaredPath: string; cwd: string }>();
+    for (const raw of session.jsonl.split("\n")) {
+      const trimmed = raw.trim();
+      if (!trimmed) continue;
+      let entry: Record<string, unknown>;
+      try {
+        entry = JSON.parse(trimmed) as Record<string, unknown>;
+      } catch {
+        continue; // a corrupt line costs one entry, never the session
+      }
+      const cwd = typeof entry.cwd === "string" ? entry.cwd : "";
+      const message = entry.message as Record<string, unknown> | undefined;
+      const content = message?.content;
+      if (!Array.isArray(content)) continue;
+
+      for (const block of content as Record<string, unknown>[]) {
+        if (block.type === "tool_use" && typeof block.id === "string") {
+          calls++;
+          const tool = String(block.name ?? "");
+          const input = (block.input ?? {}) as Record<string, unknown>;
+          const field = GUESS_RULE.declaredPathFields[tool];
+          const declared = field && typeof input[field] === "string" ? (input[field] as string) : "";
+          const command = typeof input.command === "string" ? clip(input.command, MAX_COMMAND_CHARS) : "";
+          // A command that opens with `cd` ran somewhere other than the session's
+          // directory, and this repository's own build passes do exactly that.
+          const ran = effectiveCwd(cwd, command);
+          if (ran !== cwd) cdAdjusted++;
+          byId.set(block.id, { tool, command, declaredPath: declared, cwd: ran });
+        }
+        if (block.type !== "tool_result") continue;
+        const call = byId.get(String(block.tool_use_id ?? ""));
+        if (!call) continue;
+        if (block.is_error === true) {
+          errors++;
+          const error = clip(resultText(block.content), MAX_ERROR_CHARS);
+          const cls = classifyPathFailure(error);
+          if (cls === null) continue;
+          if (!(PATH_ROOT_RULE.countedClasses as readonly PathFailureClass[]).includes(cls)) {
+            deniedPaths++;
+            continue;
+          }
+          const subject = subjectOf(error);
+          if (subject === null) {
+            unnamed++;
+            continue;
+          }
+          const named = normalizePath(subject);
+          if (!readsAsPath(named)) {
+            notAPath++;
+            continue;
+          }
+          failures.push({ session: session.id, cwd: call.cwd, tool: call.tool, addressed: named, cls, error, command: call.command });
+          continue;
+        }
+        // A call that came back without `is_error` addressed its path successfully.
+        for (const addressed of addressedBy(call)) {
+          successes.push({ session: session.id, cwd: call.cwd, tool: call.tool, addressed });
+        }
+      }
+    }
+  }
+  return { failures, successes, sessions: sessions.length, calls, errors, unnamed, notAPath, deniedPaths, cdAdjusted };
+}
+
+/** Every path a call addressed: the declared field, or the words of its command. */
+function addressedBy(call: { tool: string; command: string; declaredPath: string }): string[] {
+  if (call.declaredPath) return [normalizePath(call.declaredPath)];
+  if (call.tool === "Bash" && call.command) return pathsInCommand(call.command).filter(readsAsPath);
+  return [];
+}
+
+/** Tool results carry either a string or a list of content blocks. */
+function resultText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((b) => (b && typeof b === "object" && "text" in b ? String((b as { text: unknown }).text) : ""))
+      .join(" ");
+  }
+  return "";
+}
+
+// ── the census ───────────────────────────────────────────────────────────────
+
+/** One full recount under one (containment, resolution, vocabulary, population) choice. */
+export interface CoverageReading {
+  containment: Containment;
+  resolution: Resolution;
+  vocabulary: Vocabulary;
+  population: Population;
+  /** Every path in the population. The denominator, always. */
+  total: number;
+  /** Paths that fall at or under a declared root. */
+  covered: number;
+  /** Paths that resolved to somewhere no declared root reaches. */
+  outside: number;
+  /** Paths that could not be resolved at all, counted as uncovered. */
+  unresolvable: number;
+  share: number;
+  byRoot: Record<RootName, number>;
+  meetsBar: boolean;
+}
+
+/**
+ * How many failures were wrong in the head a root would have supplied, rather
+ * than in the tail the caller still writes by hand.
+ *
+ * This is the number the coverage share cannot see, and it runs the *opposite*
+ * way: a failed path that falls inside a declared root is one whose prefix was
+ * already right, so the root would have supplied exactly what the caller already
+ * had. The class the node describes — "the tail was right and the caller had no
+ * business constructing the head" — is a path that landed outside every root
+ * while the thing it was reaching for sits inside one.
+ */
+export interface HeadErrorCount {
+  /** Failures with a head at all, absolute as written. The denominator here. */
+  constructedHeads: number;
+  /** Of those, the ones whose tail is reached successfully from under a declared root. */
+  headErrors: number;
+  /** The same count requiring only a single trailing segment to match. */
+  headErrorsLooseTail: number;
+  /** The failed paths counted, so a reader can disagree with each one. */
+  examples: string[];
+  /** The looser count's matches, which include coincidences across repositories. */
+  looseExamples: string[];
+}
+
+/** The whole count, both groups, every reading. */
+export interface PathRootCensus {
+  sessions: number;
+  calls: number;
+  errors: number;
+  /** The group that decides the row: paths that actually failed. */
+  failures: CoverageReading[];
+  /** The comparison group the assumption test asked for: paths that worked. */
+  successes: CoverageReading[];
+  unnamed: number;
+  notAPath: number;
+  deniedPaths: number;
+  cdAdjusted: number;
+  /**
+   * Does the answer to "does it clear the bar" depend on which reading you take?
+   * Published on the report's face, because a census whose verdict is an artefact
+   * of one of its own judgement calls must say so rather than pick.
+   */
+  readingDecides: boolean;
+  /**
+   * The node's own words, counted literally: every failed path, all four names,
+   * the recorded working directory. This is what "green" was defined as.
+   */
+  literal: CoverageReading;
+  /**
+   * The reading in which a root does work: only paths that carry a head, and only
+   * roots that are not the container every path on the machine is already inside.
+   */
+  headline: CoverageReading;
+  /** Relative failures, and how many of them the `per-session` binding covers by construction. */
+  relativeCovered: { relative: number; covered: number };
+  headErrors: HeadErrorCount;
+  meetsBar: boolean;
+  literalMeetsBar: boolean;
+}
+
+/** Does this path carry a head the caller had to construct? */
+export function hasConstructedHead(p: AddressedPath): boolean {
+  return p.addressed.startsWith("/");
+}
+
+/** Count one group under one reading. */
+export function coverageUnder(
+  paths: AddressedPath[],
+  containment: Containment,
+  resolution: Resolution,
+  vocabulary: Vocabulary,
+  population: Population,
+  layout = OPERATOR_LAYOUT,
+): CoverageReading {
+  const byRoot: Record<RootName, number> = { project: 0, vault: 0, logs: 0, home: 0 };
+  const counted = population === "all" ? paths : paths.filter(hasConstructedHead);
+  let covered = 0;
+  let outside = 0;
+  let unresolvable = 0;
+  for (const p of counted) {
+    const abs = resolveAddressed(p.addressed, p.cwd, resolution);
+    if (abs === null) {
+      unresolvable++;
+      continue;
+    }
+    const root = rootContaining(vocabularyFor(p.cwd, vocabulary, layout), abs, containment);
+    if (root === null) {
+      outside++;
+      continue;
+    }
+    covered++;
+    byRoot[root]++;
+  }
+  const total = counted.length;
+  const share = total === 0 ? 0 : covered / total;
+  return {
+    containment,
+    resolution,
+    vocabulary,
+    population,
+    total,
+    covered,
+    outside,
+    unresolvable,
+    share,
+    byRoot,
+    meetsBar: share >= PATH_ROOT_RULE.bar,
+  };
+}
+
+/** The last `n` segments of a path, or `null` if it does not have that many. */
+function tailOf(p: string, n: number): string | null {
+  const segments = p.split("/").filter(Boolean);
+  if (segments.length < n) return null;
+  return segments.slice(-n).join("/");
+}
+
+/**
+ * Count the failures a correct root would actually have prevented.
+ *
+ * A failed path is a head error when the same tail was reached *successfully*
+ * from under a declared root, under a different head — the run knew the tail and
+ * got the prefix wrong, which is the one thing a declared root supplies. Nothing
+ * here infers intent: both paths are on the record, and the tail match is the
+ * evidence that they were reaching for the same thing.
+ *
+ * It is deliberately generous. A tail coincidence across two repositories counts,
+ * and `headErrorsLooseTail` is more generous still. Both are upper bounds on the
+ * class the solution prevents.
+ */
+export function headErrorCount(
+  failures: AddressedPath[],
+  successes: AddressedPath[],
+  containment: Containment = "specific",
+  vocabulary: Vocabulary = "per-session",
+  layout = OPERATOR_LAYOUT,
+): HeadErrorCount {
+  const rooted = new Map<number, Map<string, string>>();
+  for (const n of [1, PATH_ROOT_RULE.headErrorTailSegments]) {
+    rooted.set(n, new Map());
+  }
+  for (const s of successes) {
+    const abs = resolveAddressed(s.addressed, s.cwd, "recorded-cwd");
+    if (abs === null) continue;
+    if (rootContaining(vocabularyFor(s.cwd, vocabulary, layout), abs, containment) === null) continue;
+    for (const [n, index] of rooted) {
+      const tail = tailOf(abs, n);
+      if (tail !== null && !index.has(tail)) index.set(tail, abs);
+    }
+  }
+
+  const constructed = failures.filter(hasConstructedHead);
+  const examples: string[] = [];
+  const looseExamples: string[] = [];
+  let headErrors = 0;
+  let loose = 0;
+  for (const f of constructed) {
+    const abs = resolveAddressed(f.addressed, f.cwd, "recorded-cwd");
+    if (abs === null) continue;
+    const strictTail = tailOf(abs, PATH_ROOT_RULE.headErrorTailSegments);
+    const looseTail = tailOf(abs, 1);
+    const strictHit = strictTail === null ? undefined : rooted.get(PATH_ROOT_RULE.headErrorTailSegments)!.get(strictTail);
+    const looseHit = looseTail === null ? undefined : rooted.get(1)!.get(looseTail);
+    if (strictHit !== undefined && strictHit !== abs) {
+      headErrors++;
+      examples.push(`${abs} → ${strictHit}`);
+    }
+    if (looseHit !== undefined && looseHit !== abs) {
+      loose++;
+      looseExamples.push(`${abs} → ${looseHit}`);
+    }
+  }
+  return { constructedHeads: constructed.length, headErrors, headErrorsLooseTail: loose, examples, looseExamples };
+}
+
+/**
+ * The census.
+ *
+ * Two readings are named on the report rather than one. `literal` is the node's
+ * own definition of green — every failed path, all four names — and `headline` is
+ * the reading in which a root does work: only the paths that carry a head the
+ * caller had to construct, and only the roots that are not the container every
+ * path on this machine already sits inside. Every combination is counted in full
+ * beside them, and {@link PathRootCensus.readingDecides} says whether the choice
+ * mattered.
+ */
+export function pathRootCoverage(record: AddressedRecord, layout = OPERATOR_LAYOUT): PathRootCensus {
+  const readings = (paths: AddressedPath[]): CoverageReading[] => {
+    const out: CoverageReading[] = [];
+    for (const containment of PATH_ROOT_RULE.containments) {
+      for (const resolution of PATH_ROOT_RULE.resolutions) {
+        for (const vocabulary of PATH_ROOT_RULE.vocabularies) {
+          for (const population of PATH_ROOT_RULE.populations) {
+            out.push(coverageUnder(paths, containment, resolution, vocabulary, population, layout));
+          }
+        }
+      }
+    }
+    return out;
+  };
+  const failures = readings(record.failures);
+  const successes = readings(record.successes);
+  const literal = readingOf(failures, "with-home", "recorded-cwd", "per-session", "all");
+  const headline = readingOf(failures, "specific", "recorded-cwd", "per-session", "constructed-head");
+  const relative = record.failures.filter((f) => !hasConstructedHead(f));
+  const relativeCovered = relative.filter((f) => {
+    const abs = resolveAddressed(f.addressed, f.cwd, "recorded-cwd");
+    return abs !== null && rootContaining(vocabularyFor(f.cwd, "per-session", layout), abs, "specific") !== null;
+  }).length;
+  const verdicts = new Set(failures.map((r) => r.meetsBar));
+  return {
+    sessions: record.sessions,
+    calls: record.calls,
+    errors: record.errors,
+    failures,
+    successes,
+    unnamed: record.unnamed,
+    notAPath: record.notAPath,
+    deniedPaths: record.deniedPaths,
+    cdAdjusted: record.cdAdjusted,
+    readingDecides: verdicts.size > 1,
+    literal,
+    headline,
+    relativeCovered: { relative: relative.length, covered: relativeCovered },
+    headErrors: headErrorCount(record.failures, record.successes, "specific", "per-session", layout),
+    meetsBar: headline.meetsBar,
+    literalMeetsBar: literal.meetsBar,
+  };
+}
+
+/** Find one reading in a census, for a reader who wants a specific recount. */
+export function readingOf(
+  readings: CoverageReading[],
+  containment: Containment,
+  resolution: Resolution,
+  vocabulary: Vocabulary,
+  population: Population,
+): CoverageReading {
+  const found = readings.find(
+    (r) =>
+      r.containment === containment &&
+      r.resolution === resolution &&
+      r.vocabulary === vocabulary &&
+      r.population === population,
+  );
+  if (!found) throw new Error(`no reading for ${containment}/${resolution}/${vocabulary}/${population}`);
+  return found;
+}
+
+const pct = (n: number): string => `${(n * 100).toFixed(1)}%`;
+
+/** The census as a table, verdict first — the shape a reader can disagree with. */
+export function formatPathRootCensus(census: PathRootCensus): string {
+  const lines: string[] = [];
+  lines.push(
+    `path-root coverage: ${census.meetsBar ? "MEETS" : "MISSES"} the ${pct(PATH_ROOT_RULE.bar)} bar where a root does work — ` +
+      `${pct(census.headline.share)} of ${census.headline.total} failed paths that carry a head`,
+  );
+  lines.push(
+    `read literally (all four names, every failed path) it ${census.literalMeetsBar ? "MEETS" : "MISSES"} it: ` +
+      `${pct(census.literal.share)} of ${census.literal.total}`,
+  );
+  lines.push(
+    `read from ${census.sessions} sessions, ${census.calls} calls, ${census.errors} failures ` +
+      `(${census.unnamed} named nothing, ${census.notAPath} named a flag, ${census.deniedPaths} were denials); ` +
+      `${census.cdAdjusted} calls ran somewhere other than the session's directory`,
+  );
+  lines.push(`readings ${census.readingDecides ? "DISAGREE" : "agree"} about the bar`);
+  lines.push(
+    `${census.relativeCovered.covered}/${census.relativeCovered.relative} relative failures are covered by construction ` +
+      `(the project root is derived from the directory they resolve against)`,
+  );
+  lines.push(
+    `head errors — the class a root prevents: ${census.headErrors.headErrors} of ${census.headErrors.constructedHeads} ` +
+      `constructed heads (${census.headErrors.headErrorsLooseTail} on a one-segment tail)`,
+  );
+  for (const group of [
+    { label: "failed", readings: census.failures },
+    { label: "worked", readings: census.successes },
+  ]) {
+    for (const r of group.readings) {
+      lines.push(
+        `  ${group.label} ${r.containment}/${r.resolution}/${r.vocabulary}/${r.population}: ` +
+          `${pct(r.share)} (${r.covered}/${r.total}, ${r.outside} outside, ${r.unresolvable} unresolvable) ` +
+          `project ${r.byRoot.project} vault ${r.byRoot.vault} logs ${r.byRoot.logs} home ${r.byRoot.home}`,
+      );
+    }
+  }
+  return lines.join("\n");
+}
