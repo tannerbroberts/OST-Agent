@@ -10,6 +10,7 @@
  * than a Zod-bound one, so the tool schemas do not couple us to a specific Zod
  * major version — or, now that the API-key runner is gone, to any model SDK.
  */
+import fs from "node:fs";
 import path from "node:path";
 import { tool } from "./tool.js";
 import { gitCommit, gitPush, pushTargetFor } from "../git/safe-git.js";
@@ -26,6 +27,7 @@ import { MAX_KILL_HORIZON_DAYS, parseKillCondition, parseKillDate } from "../ost
 import { classifyUnknown, hasNonEmptySection } from "../knowledge/unknowns.js";
 import { titlesMatch } from "../ost/sanitize.js";
 import { Vault } from "../ost/vault.js";
+import { attachRestorePaths, censusOfWrite, priorBlobRef, renderWriteReport } from "../ost/write-report.js";
 import { computeNextWork, readEvidenceBody } from "../mcp/next-work.js";
 import { readNodeBody } from "../mcp/node-body.js";
 import { createReadReceipts, type ReadReceipts } from "./read-receipts.js";
@@ -830,6 +832,53 @@ export interface RemoteConfig {
   url?: string;
 }
 
+/**
+ * Run a write to one node's body and answer with what it did to that body's
+ * structure, not only that it happened.
+ *
+ * The 2026-08-05 loss was expensive because `edited the body of "X"` was the
+ * answer whether the write preserved everything or destroyed four `## History`
+ * entries. Every tool that can change a node's sections goes through here, so the
+ * two cases stop looking alike: the response carries a census of kept, replaced,
+ * added and dropped sections, and a dropped one arrives with the text (or the git
+ * ref) needed to put it back. See {@link ../ost/write-report.ts} for why the census
+ * is computed from the file on both sides of the write rather than from the
+ * caller's arguments — it is the only shape that covers a loss nobody anticipated.
+ *
+ * Reading the before-state is best-effort and never the thing that fails a call: a
+ * title that resolves nowhere, a file that is not there yet, an unreadable path all
+ * fall through to an empty `before`, and `mutate()` then produces whatever refusal
+ * the tool would have produced anyway. A report is worth nothing if composing it
+ * can change which calls succeed.
+ */
+function reportingWrite(vault: Vault, dir: string, title: string, mutate: () => string): string {
+  let beforeBody = "";
+  let beforeFile: string | undefined;
+  let file: string | undefined;
+  try {
+    file = vault.pathFor(title);
+    if (fs.existsSync(file)) {
+      beforeFile = fs.readFileSync(file, "utf8");
+      beforeBody = vault.read(title).body;
+    }
+  } catch {
+    // Nothing to compare against. The write itself decides whether this call lives.
+  }
+
+  const summary = mutate();
+
+  let afterBody = "";
+  try {
+    if (vault.has(title)) afterBody = vault.read(title).body;
+  } catch {
+    // Same posture on the way out: an unreadable node after a successful write is
+    // reported as everything having been dropped, which is the honest reading.
+  }
+
+  const ref = file !== undefined && beforeFile !== undefined ? priorBlobRef(dir, file, beforeFile) : undefined;
+  return `${summary}\n\n${renderWriteReport(attachRestorePaths(censusOfWrite(beforeBody, afterBody), ref), title)}`;
+}
+
 export interface ToolContext {
   vault: Vault;
   /** Vault directory (git working tree). */
@@ -1382,10 +1431,11 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         },
         required: ["title", "section"],
       },
-      run: async (input: { title: string; section: string }) => {
-        vault.appendToNode(input.title, input.section);
-        return `appended to "${input.title}"`;
-      },
+      run: async (input: { title: string; section: string }) =>
+        reportingWrite(vault, dir, input.title, () => {
+          vault.appendToNode(input.title, input.section);
+          return `appended to "${input.title}"`;
+        }),
     }),
 
     tool({
@@ -1657,10 +1707,11 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         },
         required: ["title", "issue"],
       },
-      run: async (input: { title: string; issue: string }) => {
-        vault.annotate(input.title, input.issue);
-        return `annotated "${input.title}"`;
-      },
+      run: async (input: { title: string; issue: string }) =>
+        reportingWrite(vault, dir, input.title, () => {
+          vault.annotate(input.title, input.issue);
+          return `annotated "${input.title}"`;
+        }),
     }),
 
     tool({
@@ -1688,7 +1739,7 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
       name: "ost_edit_node",
       reversibility: "costly",
       description:
-        "Replace a node's prose. Costly to reverse — the previous wording leaves the file and survives only in git. Use to sharpen a framing, fold in what a duplicate said, or cut prose that has gone stale; use `ost_append_to_node` when you are ADDING to a node rather than rewriting it. `prose` is the body WITHOUT any reserved section: the node's existing `## Results`, `## Uncovered`, `## Instrument Log` and `## History` blocks are reattached verbatim and are not yours to write or to drop. Every OTHER `## Section` the node currently holds is ordinary prose, so a rewrite that omits one deletes it — and this refuses that unless you meant it: account for each stored section either by including its heading in `prose` or by naming it in `dropping`, and one in neither is refused BY NAME before anything is written. Read the node first (`ost_read_tree({ node })`) and the accounting costs you nothing; skip the read and the refusal tells you what you missed. Frontmatter is untouched — status, evidence, lane and instrument each have their own tool because each records a typed transition.",
+        "Replace a node's prose. Costly to reverse — the previous wording leaves the file and survives only in git. Use to sharpen a framing, fold in what a duplicate said, or cut prose that has gone stale; use `ost_append_to_node` when you are ADDING to a node rather than rewriting it. `prose` is the body WITHOUT any reserved section: the node's existing `## Results`, `## Uncovered`, `## Instrument Log` and `## History` blocks are reattached verbatim and are not yours to write or to drop. Every OTHER `## Section` the node currently holds is ordinary prose, so a rewrite that omits one deletes it — and this refuses that unless you meant it: account for each stored section either by including its heading in `prose` or by naming it in `dropping`, and one in neither is refused BY NAME before anything is written. Read the node first (`ost_read_tree({ node })`) and the accounting costs you nothing; skip the read and the refusal tells you what you missed. Frontmatter is untouched — status, evidence, lane and instrument each have their own tool because each records a typed transition. The response says what the write did to the node's structure — which `## Sections` it kept, replaced, added and DROPPED — read off the file on both sides of the write rather than off your arguments, so a loss nobody anticipated is still reported. `dropped` is always there, empty when nothing went, and each entry arrives with the section's prior text and a `git show` ref, so a drop you did not mean can be pasted straight back.",
       inputSchema: {
         type: "object",
         additionalProperties: false,
@@ -1705,10 +1756,11 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         },
         required: ["title", "prose", "why"],
       },
-      run: async (input: { title: string; prose: string; why: string; dropping?: string[] }) => {
-        vault.editProse(input.title, input.prose, input.why, input.dropping ?? []);
-        return `edited the body of "${input.title}"`;
-      },
+      run: async (input: { title: string; prose: string; why: string; dropping?: string[] }) =>
+        reportingWrite(vault, dir, input.title, () => {
+          vault.editProse(input.title, input.prose, input.why, input.dropping ?? []);
+          return `edited the body of "${input.title}"`;
+        }),
     }),
 
     tool({
@@ -1743,8 +1795,15 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         vault.assertFoldable(input.from, input.into);
         assertMergeAllowed(vault, input.from, input.into);
         assertSurvivorRead(readReceipts, input.into);
-        vault.mergeNodesByPatch(input.from, input.into, { contribution: input.contribution, why: input.why });
-        return `merged "${input.from}" into "${input.into}" and deleted its file`;
+        // The census is of the SURVIVOR. The loser's file is deleted whole, which
+        // is a bigger loss than any section drop and one this report deliberately
+        // does not restate — `git show` is the recovery the tool's own description
+        // names, and a census that listed the loser's sections as "dropped" would
+        // read as an accident rather than the thing the caller asked for.
+        return reportingWrite(vault, dir, input.into, () => {
+          vault.mergeNodesByPatch(input.from, input.into, { contribution: input.contribution, why: input.why });
+          return `merged "${input.from}" into "${input.into}" and deleted its file`;
+        });
       },
     }),
 

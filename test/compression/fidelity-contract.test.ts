@@ -73,6 +73,14 @@ import {
   MAX_IDS_SHOWN,
 } from "../../src/telemetry/friction-surface.js";
 import { formatRecurrenceReplay, recurrenceReplay } from "../../src/telemetry/friction-recurrence.js";
+import {
+  attachRestorePaths,
+  censusOfWrite,
+  droppedIsRestorable,
+  MAX_INLINE_DROPPED_TEXT,
+  MAX_LISTED_SECTIONS,
+  renderWriteReport,
+} from "../../src/ost/write-report.js";
 
 /**
  * The three fields `fileFriction` now demands. Spread into filings whose subject is
@@ -266,6 +274,7 @@ const DRIVEN_SURFACES = [
   "next-work sweep",
   "ruleset proposal bound",
   "tree read",
+  "write-report section census",
 ] as const;
 
 /** Big enough that the sweep truncates and the tree read overflows nothing — see each control. */
@@ -640,5 +649,46 @@ describe("fidelity — the behavioral surfaces preserve their declared reads", (
     expect(bigReport).toContain(`of the records read, ${MAX_IDS_SHOWN + 12} held no failing call at all`);
     expect(bigReport).toContain("… and 12 more");
     expect(bigReport).toContain("22 session(s), 22 event(s)");
+  });
+
+  test("write-report section census: `dropped` is never capped, and a clipped quote keeps its way back", () => {
+    // The decision this bound serves is "do I have to go and check what my own
+    // write cost me". Two of the three declared reads are about what may NOT be
+    // shortened, so both are driven as the asymmetry they are: the informational
+    // lists are capped and say so, and the bucket a caller must act on is not.
+    const section = (name: string, text: string): string => [`## ${name}`, "", text].join("\n");
+    const before = [
+      "the claim",
+      ...Array.from({ length: MAX_LISTED_SECTIONS + 4 }, (_, i) => section(`Kept ${i}`, `content ${i}`)),
+      ...Array.from({ length: MAX_LISTED_SECTIONS + 3 }, (_, i) => section(`Gone ${i}`, `losing ${i}`)),
+    ].join("\n\n");
+    const after = [
+      "the claim",
+      ...Array.from({ length: MAX_LISTED_SECTIONS + 4 }, (_, i) => section(`Kept ${i}`, `content ${i}`)),
+    ].join("\n\n");
+
+    const rendered = renderWriteReport(censusOfWrite(before, after), "A node");
+    // Capped where the list is informational, and it says how many it is not naming.
+    expect(rendered).toMatch(new RegExp(`kept:[^;]*and ${4} more`));
+    // NOT capped where the list is actionable: every dropped heading is named, and
+    // the last one — the one a cap would eat — is named with its text beside it.
+    for (let i = 0; i < MAX_LISTED_SECTIONS + 3; i++) expect(rendered, `\`## Gone ${i}\` was hidden`).toContain(`## Gone ${i}`);
+    expect(rendered).toContain(`losing ${MAX_LISTED_SECTIONS + 2}`);
+    expect(rendered).not.toMatch(/dropped:[^\n]*more/);
+
+    // And the third read: a quote clipped to fit is only ever clipped when a ref
+    // carries the rest, and it says how much it left out.
+    const huge = section("Ledger", "z".repeat(MAX_INLINE_DROPPED_TEXT * 2));
+    const census = censusOfWrite(["the claim", huge].join("\n\n"), "the claim");
+    const withRef = attachRestorePaths(census, "git show deadbee:A node.md");
+    expect(withRef.dropped.every(droppedIsRestorable)).toBe(true);
+    expect(renderWriteReport(withRef, "A node")).toMatch(/more character\(s\) not shown/);
+
+    // Control — no ref, so nothing is clipped and the entry is still restorable
+    // from the response alone. This is the case where saving bytes would cost the
+    // caller the only copy they were ever handed.
+    const withoutRef = attachRestorePaths(census, undefined);
+    expect(withoutRef.dropped.every(droppedIsRestorable)).toBe(true);
+    expect(renderWriteReport(withoutRef, "A node")).toContain("z".repeat(MAX_INLINE_DROPPED_TEXT * 2));
   });
 });

@@ -3204,12 +3204,32 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,749 tests across 350 files, verified 2026-09-01 (`npx vitest run`
-> reports 4,741 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,764 tests across 351 files, verified 2026-09-01 (`npx vitest run`
+> reports 4,756 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-09-01 finished at 4,741 across
-> the 349 files it collects, in 220 s. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-09-01 finished at 4,756 across
+> the 350 files it collects, in 309 s. The file added since the previous line is
+> `test/mcp/mutation-response-dropped-sections-recoverable.test.ts` — the instrument for
+> "Check every dropped section is reported with enough to restore it", the assumption test
+> beneath "Report what a write changed, so a silent loss stops being silent"
+> (`src/ost/write-report.ts`). Every write to a node body now answers with a census of what
+> it did to that body's `## Sections` — kept, replaced, added, dropped — computed from the
+> file on both sides of the write rather than from the caller's arguments, with `dropped`
+> present and empty on a lossless write so absent is distinguishable from none, and each
+> dropped entry carrying the section's prior text and a `git show <sha>:<path>` ref. Two
+> things the build turned up that the node did not say. The ref cannot be spelled `HEAD`:
+> every mutating MCP call commits, so by the time the caller reads the response `HEAD` is
+> the write that did the damage — it pins the sha read before the write, and withholds the
+> ref entirely when the committed blob is not what the write replaced. And the census is
+> only worth its name because it reads the file: a report derived from `prose` and
+> `dropping` could describe exactly the drops the sibling guard already refuses, which is
+> the set this solution exists to be wider than. Two harnesses caught the new module
+> unprompted and both were right to — `test/runner/suite-result-consumer-census.test.ts`
+> (a new `node:child_process` door, git-only, proven so) and
+> `test/compression/fidelity-contract.test.ts` (two unregistered caps; one of them,
+> originally named `INLINE_DROPPED_TEXT_LIMIT`, evaded that census's `MAX_*` grep entirely
+> and was renamed to be caught). The line before it was
 > `test/ost/writing-version-recoverable.test.ts` — the instrument for "Check whether the
 > writing version is recoverable from vault state at all", the assumption test beneath
 > "Report the accounting change explicitly instead of folding it into the counts"
