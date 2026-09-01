@@ -194,6 +194,7 @@ import {
   formatAccountingMigration,
   migrateAccounting,
 } from "../ost/accounting-reconstruction.js";
+import { formatWritingVersion } from "../ost/writing-version.js";
 import { findRenameShapedBreaks } from "../git/rename-topology.js";
 import { liveRenameRepairs } from "../ost/rename-repair.js";
 import { readPendingAskQueue } from "../ost/pending-asks.js";
@@ -754,6 +755,13 @@ async function migrateAccountingCommand(dir: string, write: boolean): Promise<vo
         : "  NOT committed — git saw nothing to commit, so nothing durable records that this ran",
     );
   }
+
+  // Who wrote this state, printed before the counts. A number that moved says
+  // nothing until a reader is told which two builds produced the two answers —
+  // and this says "unresolved, and here is the dead stamp I found" rather than
+  // naming a build it cannot stand behind.
+  console.log("");
+  console.log(formatWritingVersion(dir, { asOf: new Date().toISOString() }));
 
   const drift = accountingDrift(dir, tree);
   if (drift.comparable) {
