@@ -28,6 +28,15 @@
  * idempotent. The assumption test's threshold encodes the same choice — zero
  * overstatement tolerated, understatement by one step tolerated rarely.
  *
+ * **{@link JournalIntent} is the one line written forward of its event, and it
+ * does not weaken that.** It says a step is about to be attempted, never that
+ * it happened, and no reader counts it as completion — a step is done when its
+ * {@link JournalStep} line exists and at no other moment. What it buys is the
+ * region a restart has to think about: with completion alone, "never started"
+ * and "started, outcome unknown" are the same silence, and a resumer facing
+ * silence must either re-run everything or trust that re-running is free. See
+ * `resume.ts`, which turns the pair into a skip/verify/run decision per step.
+ *
  * Writes are unguarded for the same reason as `health.ts`: the journal lives
  * in the same directory as `runs.jsonl`, so a directory that can hold the
  * ledger can hold this, and a firing that cannot record must not pretend it
@@ -48,6 +57,30 @@ export interface JournalOpen {
 }
 
 /**
+ * A step is ABOUT to be attempted. The one line in this file that is written
+ * before the thing it names has happened, and the exception is the point:
+ * everything else here is a claim a reader acts on, and this is a claim about
+ * what a *dead* process was in the middle of.
+ *
+ * It never lies in the direction that matters. A reader that takes an `intent`
+ * with no matching `step` as "this step completed" would be reading an
+ * overstatement — so no reader does. {@link resumeState} reports it as
+ * `inFlight`: the work that may or may not have landed, and the only region of
+ * the run a restart has to look at the vault to settle. Without it a restart
+ * cannot tell "never started" from "started and unknown", which is the
+ * distinction that decides whether re-running is free or duplicates something.
+ */
+export interface JournalIntent {
+  kind: "intent";
+  runId: string;
+  /** Stable across restarts — it names the effect, not the attempt. See `resume.ts`. */
+  stepId: string;
+  phase: string;
+  command: string;
+  at: string;
+}
+
+/**
  * A step's command ran to completion and this is what it produced. Appended
  * only after the exit code is in hand — never before the command runs.
  */
@@ -56,6 +89,13 @@ export interface JournalStep {
   runId: string;
   phase: string;
   command: string;
+  /**
+   * The identity a restart matches against, present when the step was run
+   * through the resumable runner. Absent on every step recorded by a caller
+   * that named no identity, which reads as "this step cannot be skipped on a
+   * replay" rather than as a step that never happened.
+   */
+  stepId?: string;
   /** Where the command ran, when the recorder knew — same field, same reason as `LoopStepRecord.cwd`. */
   cwd?: string;
   exit: number;
@@ -81,9 +121,9 @@ export interface JournalCrash {
   at: string;
 }
 
-export type JournalEntry = JournalOpen | JournalStep | JournalSeal | JournalCrash;
+export type JournalEntry = JournalOpen | JournalIntent | JournalStep | JournalSeal | JournalCrash;
 
-const KINDS = new Set<JournalEntry["kind"]>(["open", "step", "seal", "crash"]);
+const KINDS = new Set<JournalEntry["kind"]>(["open", "intent", "step", "seal", "crash"]);
 
 export function journalPath(dir: string): string {
   return path.join(requireLoopStateDir(dir), "journal.jsonl");
