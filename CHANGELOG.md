@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+- **Setup can now look at the workspace it finds instead of asserting there isn't one — and
+  the useful half of that turned out to be the refusals.** `ost-agent reconcile-workspace`
+  classifies whatever is at a fixed workspace path into one of twelve states and returns a
+  verdict for each: reuse a clean worktree already on the wanted branch, move a clean one
+  that is on another branch, create an absent one, prune a registration whose directory is
+  gone, clear an empty directory — and refuse everything else, by name, touching nothing.
+  The partition is fixed in `RECONCILE_RULE` and the invariant is computed rather than
+  claimed: no state holding uncommitted or in-progress work is replaceable. Two findings
+  came out of building it. **The state that broke the observed run is not one of the eight
+  the node enumerated**: `/tmp/ost-main` was the carcass of a pruned worktree — checkout on
+  disk, `.git/worktrees/` entry gone — which is the mirror of the "stale registration" the
+  list does name, and it is refused rather than repaired, because `git status` cannot run
+  there and `git worktree repair` will not resurrect it. **The `ln: node_modules: File
+  exists` half of that same failure was still live**: `prepareWorkspace` tested its link
+  with `fs.existsSync`, which follows symlinks, so a link left dangling by a shared tree
+  that moved read as absent and the `symlinkSync` after it threw `EEXIST`. It now compares
+  the link itself and repoints it, and never touches a real installed `node_modules`.
+  `test/runner/workspace-reconcile-states.test.ts` builds every state against a real
+  repository. What none of it settles, said out loud: a live run mid-build and a dead run's
+  leftovers are byte-identical to inspection, so every *reuse* verdict is safe only while no
+  second run is live.
+
 - **Restoring a displaced instrument no longer hands back a permit earned against a spec
   file that has since changed.** The finding came before the fix and inverts what the work
   was: re-arming was *already* the behaviour. An observation is recognised by the command

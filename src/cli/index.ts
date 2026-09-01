@@ -77,6 +77,7 @@ import { diagnoseSetup, formatSetupDiagnosis } from "../config/setup-check.js";
 import { ailingChannels, allChannels, channelHealth, FRICTION_CHANNEL_PATH, renderChannels } from "../adapters/channels.js";
 import { initVault } from "../runner/init.js";
 import { prepareWorkspace } from "../runner/workspace.js";
+import { formatReconcileOutcome, reconcileWorkspace } from "../runner/workspace-reconcile.js";
 import {
   buildSymbolIndex,
   formatMemberLookup,
@@ -3557,6 +3558,28 @@ program
       );
       process.exitCode = 1;
     }
+  });
+
+program
+  .command("reconcile-workspace")
+  .description(
+    "look at whatever is already at a fixed workspace path and say what setup may do about it — reuse it, move it " +
+      "to the wanted branch, create it, or refuse because it holds work no history could give back (report-only " +
+      "without --apply)",
+  )
+  .requiredOption("--dir <path>", "the fixed path setup wants a workspace at")
+  .requiredOption("--branch <name>", "the branch the run wants checked out there")
+  .option("-r, --repo <dir>", "the repository whose worktree list is authoritative", ".")
+  .option("--apply", "carry the verdict out when it is one that destroys nothing; never on a refusal")
+  .action(async (opts: { dir: string; branch: string; repo: string; apply?: boolean }) => {
+    const outcome = await reconcileWorkspace(
+      { repoDir: path.resolve(opts.repo), dir: path.resolve(opts.dir), branch: opts.branch },
+      { apply: opts.apply === true },
+    );
+    console.log(formatReconcileOutcome(outcome));
+    // A refusal and a failed action are both "the run may not use this path", and
+    // a caller that reads only the exit code must not confuse either with success.
+    if (outcome.verdict === "refuse" || outcome.error) process.exitCode = 1;
   });
 
 program
