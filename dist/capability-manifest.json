@@ -3,8 +3,8 @@
   "version": "0.23.0",
   "artifact": {
     "path": "dist/ost-agent.mjs",
-    "bytes": 2799110,
-    "sha256": "24a1f54e872bbdd2e54f4f1db644876e995066ccc1cae1313ce749fa82c487c9"
+    "bytes": 2810810,
+    "sha256": "aebe1d2396ae518461ab6ca4fd474998536fd97fc3566e1babb07c2413dba545"
   },
   "capabilities": [
     {
@@ -311,6 +311,11 @@
       "name": "propose-rule",
       "surface": "cli-command",
       "fingerprint": "523de43b581635cd40476b9f063a9b9067757d0b693694f5def202cdf07d89a7"
+    },
+    {
+      "name": "reconcile-workspace",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
     },
     {
       "name": "reflection",

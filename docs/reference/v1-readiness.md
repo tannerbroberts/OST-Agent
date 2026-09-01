@@ -3204,10 +3204,11 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,937 tests across 360 files, verified 2026-09-01 (`npx vitest run`
-> collects 359 of the files and finished green at 4,937 in **491 s**; the same suite on the
-> same branch took **248 s** an hour earlier with less competing load, and an earlier run on
-> this machine with a foreground game at 44% of CPU took **959 s** and
+> *Today:* **met** — 4,964 tests across 361 files, verified 2026-09-01 (`npx vitest run`
+> collects 360 of the files and finished green at 4,964 in **406 s**; the same suite on the
+> same machine, with the same content, measured **237 s** twenty minutes earlier, and **491 s**
+> and **248 s** earlier the same day; an
+> earlier run with a foreground game at 44% of CPU took **959 s** and
 > failed eight tests on wall clock alone, every one of them green run by itself).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured
@@ -3215,7 +3216,39 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > coming back as one: the same commit has measured **207 s and 341 s**, then **210 s and
 > 394 s**, then **223 s and 413 s** — a 1.9× spread with no code between them, which is worth
 > knowing before anyone reads a single timing as a regression. The file added since the
-> previous line is `test/release/timed-check-isolation-share.test.ts` — the instrument for
+> previous line is `test/runner/workspace-reconcile-states.test.ts` — the instrument for "Put
+> a worktree into each dirty state and check the reconciler's verdict on every one", the
+> assumption test beneath "Setup reconciles the workspace it finds instead of assuming there
+> isn't one" (`src/runner/workspace-reconcile.ts`, wired as `ost-agent reconcile-workspace`).
+> It clears the bar the node pre-committed — every enumerated state receives a verdict, and no
+> state holding uncommitted or in-progress work is classed replaceable — with twelve states
+> built for real against a real repository (real `git worktree add`, a real stopped rebase)
+> and the safe/must-not-touch partition typed out in the test file rather than imported from
+> the module, so agreeing with the implementation is not available to it; two mutations
+> (making the dirty state replaceable, and reading dirtiness before the operation that causes
+> it) each turn it red. Three findings the node did not carry. **The state the observed
+> failure was actually in is not among the eight the assumption enumerates**: per
+> `test/runner/unconditional-scaffold-init.test.ts`, `/tmp/ost-main` was the carcass of a
+> pruned worktree — a checkout on disk whose `.git/worktrees/` entry is gone, the mirror
+> image of the "stale registration" the list does name — and it is refused rather than
+> repaired, because with the administrative directory gone `git status` cannot run there and
+> nothing can say whether the files hold uncommitted work; `git worktree repair` does not
+> resurrect it either, answering `error: unable to locate repository` against git 2.50.1.
+> **"Repair or replace it" is almost entirely repair once the safety clause is enforced**:
+> exactly two of the twelve states authorise destroying anything (an empty directory, and a
+> registration whose directory is already gone), and neither can lose a byte, so what the
+> candidate actually delivers is idempotent reuse plus a named refusal — not a setup that
+> clears what it finds. **The other half of the observed failure was still live in shipped
+> code**: `prepareWorkspace` (`src/runner/workspace.ts`) tested its `node_modules` link with
+> `fs.existsSync`, which follows symlinks, so a link left dangling by a shared tree that moved
+> read as *absent* and the `symlinkSync` after it threw `EEXIST` — `ln: …/node_modules: File
+> exists`, the exact observed error, surviving the per-run-workspace change that was supposed
+> to have retired it; it now compares the link itself and repoints it, never touching a real
+> installed directory. What a green run does not settle is what the node excluded in advance:
+> a live run mid-build and a dead run's leftovers are byte-identical to filesystem inspection,
+> so every reuse verdict is safe only while no second run is live — which is the sibling
+> leasing candidate's premise, not this one's. The line before it was
+> `test/release/timed-check-isolation-share.test.ts` — the instrument for
 > "Count how many timed checks would run somewhere that cannot guarantee isolation", the
 > assumption test beneath "Run the timed check under isolation, or do not let it fail the
 > build at all" (`src/release/timed-check-isolation.ts`,
