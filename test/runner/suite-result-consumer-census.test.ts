@@ -26,7 +26,10 @@
  *   1. The ship gate — `runGates` reads `status === 0` on `npx vitest run`, and
  *      the merge to main turns on it.
  *   2. The instrument observation — `runInstrument` maps exit 0 to green, and a
- *      green is a spent build permit.
+ *      green is a spent build permit. Since 2026-08-31 the same conversion also
+ *      decides whether a write boundary may ACCEPT a candidate instrument at
+ *      all, which adds two readers to the channel and no sixth channel: the
+ *      conversion still happens in exactly one function.
  *   3. The loop's own build check — `loop step` records the phase command's
  *      exit, and `computeVerdict` reads any non-zero step as unhealthy.
  *   4. GitHub CI — the `npm test` step's exit is the job's whole verdict.
@@ -117,15 +120,33 @@ const CENSUS: readonly Consumer[] = [
   {
     name: "the instrument observation",
     anchors: [
-      { file: "src/ost/instrument.ts", reads: /if \(exitCode === 0\) \{/ },
+      // The read moved into `classifyRun` on 2026-08-31, when the conversion was
+      // split out of the spawn so it could be exercised against recorded runner
+      // output. Same read, one function further in; the anchor follows it,
+      // exactly as this census's own failure message instructs.
+      { file: "src/ost/instrument.ts", reads: /if \(r\.status === 0\) \{/ },
       // This channel already reads PAST the boolean — `no-spec` is decided by
       // inspecting output, not the exit code — which is the existence proof for
       // the whole migration: one consumer was taught to read a richer result
       // and nothing downstream broke, because everything downstream reads
-      // `InstrumentRun` through the one function.
+      // `InstrumentRun` through the one function. It now reads past it twice:
+      // `unavailable` separates a broken environment from a failing repository.
       { file: "src/ost/instrument.ts", reads: /no test files found/i },
     ],
-    migration: ["src/ost/instrument.ts", "src/eval/buildable.ts", "src/cli/index.ts"],
+    // Two files joined on 2026-08-31, and neither is a new channel. The red-now
+    // write guard runs a candidate instrument before a boundary accepts it, so
+    // `security/tools.ts` reads an `InstrumentRun` and `ost/red-now.ts` sorts one
+    // into a verdict — both through `runInstrument`, which is still the only
+    // place an exit status becomes an observation. A migration to the richer
+    // shape teaches four files instead of three; it does not have a sixth
+    // conversion to find.
+    migration: [
+      "src/ost/instrument.ts",
+      "src/ost/red-now.ts",
+      "src/eval/buildable.ts",
+      "src/security/tools.ts",
+      "src/cli/index.ts",
+    ],
     lockstepWith: [],
   },
   {
@@ -362,14 +383,24 @@ describe("each channel's verdict shape has a closed reader set — the single-ch
     ]);
   });
 
-  test("instrument observations are read only by the permit and the one CLI filing door", () => {
+  test("instrument observations are read only by the permit, the write guard and the one CLI filing door", () => {
     // `InstrumentRun` is minted by `runInstrument` and read by `confirmPermit`;
-    // the only filing path is `verifyInstrument`, reached from the CLI alone.
-    // An MCP tool that could read or file one would be a second door, and the
-    // census's count would be wrong the day it opened.
+    // the only FILING path is `verifyInstrument`, reached from the CLI alone.
+    //
+    // On 2026-08-31 an MCP tool joined the reader set, which the previous
+    // version of this comment named as the thing that would make the census
+    // wrong. It does not, and the distinction is worth stating because it is the
+    // whole basis of the count: `ost_set_instrument` and `ost_create_node` READ
+    // a run — the red-now guard runs a candidate command and refuses one that
+    // already passes — and neither of them FILES one. The second assertion below
+    // is what holds that line: `verifyInstrument` is still reachable only from
+    // the CLI, so nothing an agent can call appends to an instrument log. A tool
+    // that could would be a second door, and then the count really would be wrong.
     expect(filesMatching(/\b(InstrumentRun|runInstrument)\b/)).toEqual([
       path.join("eval", "buildable.ts"),
       path.join("ost", "instrument.ts"),
+      path.join("ost", "red-now.ts"),
+      path.join("security", "tools.ts"),
     ]);
     expect(filesMatching(/\bverifyInstrument\b/)).toEqual([
       path.join("cli", "index.ts"),

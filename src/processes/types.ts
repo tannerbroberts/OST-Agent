@@ -93,4 +93,10 @@ export interface PassContext {
   };
   /** Local product repo roots the agent may read (config `product.repos`). */
   productRepos?: readonly string[];
+  /**
+   * May a write boundary RUN a candidate instrument before accepting it (config
+   * `instruments.runOnWrite`)? Off unless the operator turned it on — see
+   * `ost/red-now.ts` for why that default is a decision rather than caution.
+   */
+  runInstrumentsOnWrite?: boolean;
 }

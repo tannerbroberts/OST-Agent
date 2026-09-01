@@ -224,6 +224,14 @@ export function confirmPermit(
   const observed = run(parsed, repoDir);
   if (observed.observation === "red") return permit;
 
+  // A run that measured nothing refutes nothing, so the recorded red stands.
+  // This is the permissive direction and it is chosen deliberately: the
+  // alternative is that an uninstalled dependency on whichever box happens to be
+  // asking silently withdraws a permit the repository still earns — a broken
+  // machine reading as a change of verdict about the code, which is the exact
+  // confusion `unavailable` was split out of `red` to end.
+  if (observed.observation === "unavailable") return permit;
+
   // Fail-closed on a vacuous red, and this is the direction that matters most on
   // a tree with history. A permit minted before `no-spec` existed reads `**red**`
   // in an append-only log that must not be rewritten, so the recorded line cannot

@@ -3204,12 +3204,22 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,599 tests across 341 files, verified 2026-08-31 (`npx vitest run`
-> reports 4,591 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,619 tests across 342 files, verified 2026-08-31 (`npx vitest run`
+> reports 4,611 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,591 across
-> the 340 files it collects, in 356 s. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,611 across
+> the 341 files it collects, in 356 s. The file added since the previous line is
+> `test/mcp/instrument-red-now-guard.test.ts` — the instrument for "Refuse an instrument that
+> passes on arrival" (`src/ost/red-now.ts`, `security/tools.ts:redNowRefusal`): where an
+> operator granted it (`instruments.runOnWrite`, off by default) the write boundary now RUNS
+> a candidate instrument and sorts the result four ways rather than two — accept a red about
+> behaviour, refuse one that already passes, and decline separately on a spec that collected
+> nothing and on a run that never reached the spec. Every case replays recorded output from a
+> real `npx vitest run` (`test/fixtures/instrument-red-now/`), and that capture is what found
+> the defect underneath it: vitest reports an existing-but-empty spec as `No test suite found
+> in file …`, which `collectedNothing` did not match, so a file that cannot fail was being
+> classified `red`. The line before it was
 > `test/mcp/edit-node-unacknowledged-section-guard.test.ts` — the instrument for "Refuse a
 > rewrite that would drop a section the caller never accounted for"
 > (`src/ost/section-accounting.ts`): a rewrite must reproduce every `## Section` the node

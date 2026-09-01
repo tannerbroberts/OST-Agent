@@ -435,5 +435,6 @@ export function buildPassContext(vaultDir: string, opts: BuildPassContextOptions
       }),
     },
     productRepos: config.product.repos,
+    runInstrumentsOnWrite: config.instruments.runOnWrite,
   };
 }

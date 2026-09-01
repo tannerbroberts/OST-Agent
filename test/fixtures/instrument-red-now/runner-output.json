@@ -1,0 +1,54 @@
+{
+  "assertion-fails": {
+    "why": "a spec asserting 2 + 2 === 5 — a collected spec whose assertion failed",
+    "target": "test/tmpfx/asserts.test.ts",
+    "status": 1,
+    "stdout": "\n RUN  v2.1.9 /Users/tanner/dev/OST-Agent\n\n ❯ test/tmpfx/asserts.test.ts (1 test | 1 failed) 3ms\n   × behaviour that does not exist yet 3ms\n     → expected 4 to be 5 // Object.is equality\n\n Test Files  1 failed (1)\n      Tests  1 failed (1)\n   Start at  18:42:50\n   Duration  270ms (transform 11ms, setup 0ms, collect 7ms, tests 3ms, environment 0ms, prepare 46ms)\n\n",
+    "stderr": "⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  test/tmpfx/asserts.test.ts > behaviour that does not exist yet\nAssertionError: expected 4 to be 5 // Object.is equality\n\n- Expected\n+ Received\n\n- 5\n+ 4\n\n ❯ test/tmpfx/asserts.test.ts:3:17\n      1| import { test, expect } from \"vitest\";\n      2| test(\"behaviour that does not exist yet\", () => {\n      3|   expect(2 + 2).toBe(5);\n       |                 ^\n      4| });\n      5| \n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n"
+  },
+  "unbuilt-local-module": {
+    "why": "a spec importing ../../src/not-built-yet.js — the solution own module is missing, the commonest honest test-first red",
+    "target": "test/tmpfx/missing-local.test.ts",
+    "status": 1,
+    "stdout": "\n RUN  v2.1.9 /Users/tanner/dev/OST-Agent\n\n ❯ test/tmpfx/missing-local.test.ts (0 test)\n\n Test Files  1 failed (1)\n      Tests  no tests\n   Start at  18:42:50\n   Duration  257ms (transform 18ms, setup 0ms, collect 0ms, tests 0ms, environment 0ms, prepare 43ms)\n\n",
+    "stderr": "⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  test/tmpfx/missing-local.test.ts [ test/tmpfx/missing-local.test.ts ]\nError: Failed to load url ../../src/not-built-yet.js (resolved id: ../../src/not-built-yet.js) in /Users/tanner/dev/OST-Agent/test/tmpfx/missing-local.test.ts. Does the file exist?\n ❯ loadAndTransform node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51969:17\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n"
+  },
+  "empty-spec": {
+    "why": "a spec file containing no test case — collected, and nothing in it can fail",
+    "target": "test/tmpfx/empty.test.ts",
+    "status": 1,
+    "stdout": "\n RUN  v2.1.9 /Users/tanner/dev/OST-Agent\n\n ❯ test/tmpfx/empty.test.ts (0 test)\n\n Test Files  1 failed (1)\n      Tests  no tests\n   Start at  18:42:51\n   Duration  256ms (transform 10ms, setup 0ms, collect 4ms, tests 0ms, environment 0ms, prepare 33ms)\n\n",
+    "stderr": "⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  test/tmpfx/empty.test.ts [ test/tmpfx/empty.test.ts ]\nError: No test suite found in file /Users/tanner/dev/OST-Agent/test/tmpfx/empty.test.ts\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n"
+  },
+  "missing-package": {
+    "why": "a spec importing totally-missing-package — a dependency of the box, not of the repository",
+    "target": "test/tmpfx/missing-dep.test.ts",
+    "status": 1,
+    "stdout": "\n RUN  v2.1.9 /Users/tanner/dev/OST-Agent\n\n ❯ test/tmpfx/missing-dep.test.ts (0 test)\n\n Test Files  1 failed (1)\n      Tests  no tests\n   Start at  18:42:51\n   Duration  269ms (transform 15ms, setup 0ms, collect 0ms, tests 0ms, environment 0ms, prepare 32ms)\n\n",
+    "stderr": "⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  test/tmpfx/missing-dep.test.ts [ test/tmpfx/missing-dep.test.ts ]\nError: Failed to load url totally-missing-package (resolved id: totally-missing-package) in /Users/tanner/dev/OST-Agent/test/tmpfx/missing-dep.test.ts. Does the file exist?\n ❯ loadAndTransform node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51969:17\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n"
+  },
+  "passes": {
+    "why": "a spec asserting 1 === 1 — green on arrival, the case the write guard refuses",
+    "target": "test/tmpfx/passes.test.ts",
+    "status": 0,
+    "stdout": "\n RUN  v2.1.9 /Users/tanner/dev/OST-Agent\n\n ✓ test/tmpfx/passes.test.ts (1 test) 1ms\n\n Test Files  1 passed (1)\n      Tests  1 passed (1)\n   Start at  18:42:52\n   Duration  262ms (transform 11ms, setup 0ms, collect 7ms, tests 1ms, environment 0ms, prepare 34ms)\n\n",
+    "stderr": ""
+  },
+  "runner-absent": {
+    "why": "npx with an empty cache and no network, in a directory with no local vitest — no runner was produced",
+    "target": "test/x.test.ts",
+    "status": 1,
+    "stdout": "",
+    "stderr": "npm error code ENOTCACHED\nnpm error request to https://registry.npmjs.org/vitest failed: cache mode is 'only-if-cached' but no cached response is available.\nnpm error A complete log of this run can be found in: /tmp/ost-npmcache-4ts72B/_logs/2026-08-31T23_43_16_977Z-debug-0.log\n"
+  },
+  "spawn-failed": {
+    "why": "a binary that does not exist — the process never started",
+    "target": "test/x.test.ts",
+    "status": null,
+    "stdout": "",
+    "stderr": "",
+    "error": {
+      "message": "spawnSync npx-that-is-not-installed ENOENT"
+    }
+  }
+}
