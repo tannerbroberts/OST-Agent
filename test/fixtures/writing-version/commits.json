@@ -1,0 +1,2005 @@
+{
+  "vault": "ost-agent-meta",
+  "commits": [
+    {
+      "sha": "752c124cfa5e99d4e7fe0194f2c3ca4dd769635b",
+      "at": "2026-09-01T03:43:49-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "6344321be0cb2bc7",
+        ".ost-agent/state/friction.json": "eb9cdc8749768716",
+        ".ost-agent/state/inbox.json": "93bd289f779ab40b",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "02c6544f338ad832",
+        ".ost-agent/state/usage.json": "4eee07a16911d9d0"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40706,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "d6f9b7eaf7311d9d7986d54e4f767d1fefe7fd7b",
+      "at": "2026-09-01T03:43:02-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "6344321be0cb2bc7",
+        ".ost-agent/state/friction.json": "eb9cdc8749768716",
+        ".ost-agent/state/inbox.json": "93bd289f779ab40b",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "02c6544f338ad832",
+        ".ost-agent/state/usage.json": "4eee07a16911d9d0"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40706,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "8753d1239ff23d7240abea4c3b53c61c1d3750c1",
+      "at": "2026-09-01T03:42:56-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "bb8451bd702d5bbd",
+        ".ost-agent/state/friction.json": "1242ca6d806d0254",
+        ".ost-agent/state/inbox.json": "5878ad63e5f2f0b0",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "9d51d7571b674068",
+        ".ost-agent/state/usage.json": "e5677d38d98b233e"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40706,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "9ecf8ef086079df57dbef8fcd2dd427c7aaf8005",
+      "at": "2026-09-01T03:37:17-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "bb8451bd702d5bbd",
+        ".ost-agent/state/friction.json": "1242ca6d806d0254",
+        ".ost-agent/state/inbox.json": "5878ad63e5f2f0b0",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "9d51d7571b674068",
+        ".ost-agent/state/usage.json": "e5677d38d98b233e"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40706,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "59a27d2909565b45cf68e1bd1128aa18bfe23938",
+      "at": "2026-09-01T02:53:58-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "89113821e1a6c31a",
+        ".ost-agent/state/friction.json": "9dbada385e9042ef",
+        ".ost-agent/state/inbox.json": "ab25bd0b5f873311",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "4dd0dd62bc43f4c2",
+        ".ost-agent/state/usage.json": "17689873c5605098"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40602,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "217288ecf2dbff8af5f0203fe5709afe36c7623f",
+      "at": "2026-09-01T02:36:00-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "89113821e1a6c31a",
+        ".ost-agent/state/friction.json": "9dbada385e9042ef",
+        ".ost-agent/state/inbox.json": "ab25bd0b5f873311",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "4dd0dd62bc43f4c2",
+        ".ost-agent/state/usage.json": "17689873c5605098"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40602,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "fad97c406e3f33abc33567b3221d7206ca13124e",
+      "at": "2026-09-01T02:35:22-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "89113821e1a6c31a",
+        ".ost-agent/state/friction.json": "9dbada385e9042ef",
+        ".ost-agent/state/inbox.json": "ab25bd0b5f873311",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "4dd0dd62bc43f4c2",
+        ".ost-agent/state/usage.json": "17689873c5605098"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40602,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "d81871a55a1572c8d30dba746b61fb98b5f5968b",
+      "at": "2026-09-01T02:34:41-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "68de791248e53779",
+        ".ost-agent/state/friction.json": "7e46424568df209b",
+        ".ost-agent/state/inbox.json": "b645decfbbd0c3e0",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "cd4ae59bf1b1a144",
+        ".ost-agent/state/usage.json": "d15a8474a408693e"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40602,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "7242ef958d582ae4e76018e6c5aac79b41dcf38e",
+      "at": "2026-09-01T02:34:28-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "68de791248e53779",
+        ".ost-agent/state/friction.json": "7e46424568df209b",
+        ".ost-agent/state/inbox.json": "b645decfbbd0c3e0",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "cd4ae59bf1b1a144",
+        ".ost-agent/state/usage.json": "d15a8474a408693e"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40602,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "4ef5201ae6d1e4fcd5f2375514795626818dde04",
+      "at": "2026-09-01T02:34:18-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "68de791248e53779",
+        ".ost-agent/state/friction.json": "7e46424568df209b",
+        ".ost-agent/state/inbox.json": "b645decfbbd0c3e0",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "cd4ae59bf1b1a144",
+        ".ost-agent/state/usage.json": "d15a8474a408693e"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40602,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "b8f06d640afea79324aa292a5a22913694d0fd96",
+      "at": "2026-09-01T02:34:01-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "68de791248e53779",
+        ".ost-agent/state/friction.json": "7e46424568df209b",
+        ".ost-agent/state/inbox.json": "b645decfbbd0c3e0",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "cd4ae59bf1b1a144",
+        ".ost-agent/state/usage.json": "d15a8474a408693e"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40602,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "fd31ebf5e6552a5c517f0b266b248c94c82a6ddc",
+      "at": "2026-09-01T02:33:50-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "68de791248e53779",
+        ".ost-agent/state/friction.json": "7e46424568df209b",
+        ".ost-agent/state/inbox.json": "b645decfbbd0c3e0",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "cd4ae59bf1b1a144",
+        ".ost-agent/state/usage.json": "d15a8474a408693e"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40602,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "f02664b54d42cda5656cc8381477fef3151c7868",
+      "at": "2026-09-01T02:33:20-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "68de791248e53779",
+        ".ost-agent/state/friction.json": "7e46424568df209b",
+        ".ost-agent/state/inbox.json": "b645decfbbd0c3e0",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "cd4ae59bf1b1a144",
+        ".ost-agent/state/usage.json": "d15a8474a408693e"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40602,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "9d1e84ad4d7b1ed68339a3dfb108c16112c7b844",
+      "at": "2026-09-01T02:33:06-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "68de791248e53779",
+        ".ost-agent/state/friction.json": "7e46424568df209b",
+        ".ost-agent/state/inbox.json": "b645decfbbd0c3e0",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "cd4ae59bf1b1a144",
+        ".ost-agent/state/usage.json": "d15a8474a408693e"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40602,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "103e288228fad254ccddaaa0e33051f44bcd7e26",
+      "at": "2026-09-01T02:32:41-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "68de791248e53779",
+        ".ost-agent/state/friction.json": "7e46424568df209b",
+        ".ost-agent/state/inbox.json": "b645decfbbd0c3e0",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "cd4ae59bf1b1a144",
+        ".ost-agent/state/usage.json": "d15a8474a408693e"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40602,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "6c3ec6ae6dfb812dcefc83a99a79b8949106bf0e",
+      "at": "2026-09-01T02:32:19-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "68de791248e53779",
+        ".ost-agent/state/friction.json": "7e46424568df209b",
+        ".ost-agent/state/inbox.json": "b645decfbbd0c3e0",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "cd4ae59bf1b1a144",
+        ".ost-agent/state/usage.json": "d15a8474a408693e"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40602,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "84723387d02eb1c4a78844d260cbfa66ce71d3c7",
+      "at": "2026-09-01T02:31:37-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "68de791248e53779",
+        ".ost-agent/state/friction.json": "7e46424568df209b",
+        ".ost-agent/state/inbox.json": "b645decfbbd0c3e0",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "cd4ae59bf1b1a144",
+        ".ost-agent/state/usage.json": "d15a8474a408693e"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40602,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "17bd2f31995eac7a8c50d078b8c7083629b21c15",
+      "at": "2026-09-01T02:27:51-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "68de791248e53779",
+        ".ost-agent/state/friction.json": "7e46424568df209b",
+        ".ost-agent/state/inbox.json": "b645decfbbd0c3e0",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "cd4ae59bf1b1a144",
+        ".ost-agent/state/usage.json": "d15a8474a408693e"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40602,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "aa7963180a8e92df71bd126f86d63061a7b9b5d3",
+      "at": "2026-09-01T01:46:52-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "df94ce3cf928b008",
+        ".ost-agent/state/friction.json": "c85e044ad34962a3",
+        ".ost-agent/state/inbox.json": "5dcc928a24d4d317",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "89849051a7d7fad4",
+        ".ost-agent/state/usage.json": "ef64e7787048063d"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40498,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "9bf1375fa500dec43fa96c1daad31346b9bb2df3",
+      "at": "2026-09-01T01:28:51-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "df94ce3cf928b008",
+        ".ost-agent/state/friction.json": "c85e044ad34962a3",
+        ".ost-agent/state/inbox.json": "5dcc928a24d4d317",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "89849051a7d7fad4",
+        ".ost-agent/state/usage.json": "ef64e7787048063d"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40498,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "0bd26a5bdc9c9ce4fa98680f2c22b1474acbe36d",
+      "at": "2026-09-01T01:26:10-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "df94ce3cf928b008",
+        ".ost-agent/state/friction.json": "c85e044ad34962a3",
+        ".ost-agent/state/inbox.json": "5dcc928a24d4d317",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "89849051a7d7fad4",
+        ".ost-agent/state/usage.json": "ef64e7787048063d"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40498,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "550288b7477a4cb42628f85a0c33f7b9df91b00f",
+      "at": "2026-09-01T01:26:05-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "99a59588b1737e8b",
+        ".ost-agent/state/friction.json": "36f57633d9c1f120",
+        ".ost-agent/state/inbox.json": "77b1d306e7d4751b",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "67305a602e4fd852",
+        ".ost-agent/state/usage.json": "a45b030712d31896"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40498,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "98e59f02243f1e976aab46036ccc6e79786dcd6d",
+      "at": "2026-09-01T01:21:29-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "99a59588b1737e8b",
+        ".ost-agent/state/friction.json": "36f57633d9c1f120",
+        ".ost-agent/state/inbox.json": "77b1d306e7d4751b",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "67305a602e4fd852",
+        ".ost-agent/state/usage.json": "a45b030712d31896"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40498,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "5954256bb7b439593e09efc1bd072302572d144d",
+      "at": "2026-09-01T00:39:16-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "e6b476de7b4de821",
+        ".ost-agent/state/friction.json": "9d9f210af8872b07",
+        ".ost-agent/state/inbox.json": "bda2c93ef1837b20",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "22813b4706dc39b2",
+        ".ost-agent/state/usage.json": "cc952c1d4e1b83df"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40394,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "f7060e38f67d5085506d185b062d45ae25609512",
+      "at": "2026-09-01T00:20:27-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "e6b476de7b4de821",
+        ".ost-agent/state/friction.json": "9d9f210af8872b07",
+        ".ost-agent/state/inbox.json": "bda2c93ef1837b20",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "22813b4706dc39b2",
+        ".ost-agent/state/usage.json": "cc952c1d4e1b83df"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40394,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "4d78e09114f515d2da3dcc5b40f0d4efeda18e5b",
+      "at": "2026-09-01T00:19:53-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "e6b476de7b4de821",
+        ".ost-agent/state/friction.json": "9d9f210af8872b07",
+        ".ost-agent/state/inbox.json": "bda2c93ef1837b20",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "22813b4706dc39b2",
+        ".ost-agent/state/usage.json": "cc952c1d4e1b83df"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40394,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "b6d68d7ef78149ac6eddfe9577f00003d636f466",
+      "at": "2026-09-01T00:19:44-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "904a63ba28e30234",
+        ".ost-agent/state/friction.json": "82acb575abb6dcd0",
+        ".ost-agent/state/inbox.json": "cd390d050a00922b",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "69d3b1b38e363de6",
+        ".ost-agent/state/usage.json": "6a24a3296a4343d1"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40394,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "713f09caf7d8d7194c711d79788bfc90795022ff",
+      "at": "2026-09-01T00:13:41-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "904a63ba28e30234",
+        ".ost-agent/state/friction.json": "82acb575abb6dcd0",
+        ".ost-agent/state/inbox.json": "cd390d050a00922b",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "69d3b1b38e363de6",
+        ".ost-agent/state/usage.json": "6a24a3296a4343d1"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40394,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "1f8c3f541e22c2f394a0fbb523c7582c671b77e5",
+      "at": "2026-08-31T23:31:03-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "9b68b930225b296d",
+        ".ost-agent/state/friction.json": "b9ea57d8d7847311",
+        ".ost-agent/state/inbox.json": "05cf1814eecdcdd8",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "1d98551439ea3816",
+        ".ost-agent/state/usage.json": "552b5dd5815ca042"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40238,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "45f0beb579eb01bb785bc0c4a660eb2d3dae007c",
+      "at": "2026-08-31T23:12:02-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "9b68b930225b296d",
+        ".ost-agent/state/friction.json": "b9ea57d8d7847311",
+        ".ost-agent/state/inbox.json": "05cf1814eecdcdd8",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "1d98551439ea3816",
+        ".ost-agent/state/usage.json": "552b5dd5815ca042"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40238,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "1f8ee39560af129564a05d136a95320282ae265d",
+      "at": "2026-08-31T23:11:59-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "393a3739c00637ca",
+        ".ost-agent/state/friction.json": "b33218b8cb8fc6b5",
+        ".ost-agent/state/inbox.json": "50dc72b68b84f15d",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "ce4a7d80b3ed659c",
+        ".ost-agent/state/usage.json": "6a57bdc678e8e5cc"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40238,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "cd72f161faf38fd1033f9666757398458a726333",
+      "at": "2026-08-31T23:10:15-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "393a3739c00637ca",
+        ".ost-agent/state/friction.json": "b33218b8cb8fc6b5",
+        ".ost-agent/state/inbox.json": "50dc72b68b84f15d",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "ce4a7d80b3ed659c",
+        ".ost-agent/state/usage.json": "6a57bdc678e8e5cc"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40238,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "3d42b7ede5d128397ef9676a20fe68e3ea91299e",
+      "at": "2026-08-31T23:07:25-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "393a3739c00637ca",
+        ".ost-agent/state/friction.json": "b33218b8cb8fc6b5",
+        ".ost-agent/state/inbox.json": "50dc72b68b84f15d",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "ce4a7d80b3ed659c",
+        ".ost-agent/state/usage.json": "6a57bdc678e8e5cc"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40238,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "47f1b210e4c1232279c1c1ea5daf02d0fad3c195",
+      "at": "2026-08-31T22:50:58-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "fc2c053a0377b023",
+        ".ost-agent/state/friction.json": "f5a01fb03bbe2d3f",
+        ".ost-agent/state/inbox.json": "e72085d7a46cdf9d",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "f08bbd57a0368c2b",
+        ".ost-agent/state/usage.json": "d99553a51007515c"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40186,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "b3a88897661091d963b39d42acee618de88aa928",
+      "at": "2026-08-31T22:05:45-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "fc2c053a0377b023",
+        ".ost-agent/state/friction.json": "f5a01fb03bbe2d3f",
+        ".ost-agent/state/inbox.json": "e72085d7a46cdf9d",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "f08bbd57a0368c2b",
+        ".ost-agent/state/usage.json": "d99553a51007515c"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40186,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "042144455cfb12410fcb304e889007918528b933",
+      "at": "2026-08-31T22:05:36-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "64ecaf8b59f37bec",
+        ".ost-agent/state/friction.json": "04714f9a9ab69d28",
+        ".ost-agent/state/inbox.json": "0889382dfc6414af",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "7b29488c35ec17ba",
+        ".ost-agent/state/usage.json": "d2dbae3ba9dd108a"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40186,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "ce2d50bcfb2b900d3a6a942a2108a9bdd2246cb9",
+      "at": "2026-08-31T22:05:30-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "64ecaf8b59f37bec",
+        ".ost-agent/state/friction.json": "04714f9a9ab69d28",
+        ".ost-agent/state/inbox.json": "0889382dfc6414af",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "7b29488c35ec17ba",
+        ".ost-agent/state/usage.json": "d2dbae3ba9dd108a"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40186,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "f22346ba9ed8cb5a38c51e812e7ef930551db196",
+      "at": "2026-08-31T21:58:31-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "64ecaf8b59f37bec",
+        ".ost-agent/state/friction.json": "04714f9a9ab69d28",
+        ".ost-agent/state/inbox.json": "0889382dfc6414af",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "7b29488c35ec17ba",
+        ".ost-agent/state/usage.json": "d2dbae3ba9dd108a"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40186,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "158a62c7d0bce51a803443299d18d074f249cdd1",
+      "at": "2026-08-31T21:15:46-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "751e2a4ec1957a99",
+        ".ost-agent/state/friction.json": "edfffe6dcc3e8ee1",
+        ".ost-agent/state/inbox.json": "983bc1b13868fad1",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "5abdc1c153424966",
+        ".ost-agent/state/usage.json": "74b8df8c5a141ab9"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40082,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "4f102772fb4c8d16a5b0399e68d7ed9dfcdb635d",
+      "at": "2026-08-31T20:58:04-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "751e2a4ec1957a99",
+        ".ost-agent/state/friction.json": "edfffe6dcc3e8ee1",
+        ".ost-agent/state/inbox.json": "983bc1b13868fad1",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "5abdc1c153424966",
+        ".ost-agent/state/usage.json": "74b8df8c5a141ab9"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40082,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "f4dbfe146d1d03de5891ed78cdaff739ffd184f8",
+      "at": "2026-08-31T20:56:50-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "751e2a4ec1957a99",
+        ".ost-agent/state/friction.json": "edfffe6dcc3e8ee1",
+        ".ost-agent/state/inbox.json": "983bc1b13868fad1",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "5abdc1c153424966",
+        ".ost-agent/state/usage.json": "74b8df8c5a141ab9"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40082,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "b7b4ad85280cf3f90a4c05cfe4c137ba8af70a42",
+      "at": "2026-08-31T20:56:40-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "29d9b2aba22c6665",
+        ".ost-agent/state/friction.json": "e5f7af4760f0c84e",
+        ".ost-agent/state/inbox.json": "1bfdd3d103dd784b",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "b532d4d1debe0751",
+        ".ost-agent/state/usage.json": "e97ef1064c641572"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40082,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "d97730868b45f711397433409559e295285a0908",
+      "at": "2026-08-31T20:54:18-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "29d9b2aba22c6665",
+        ".ost-agent/state/friction.json": "e5f7af4760f0c84e",
+        ".ost-agent/state/inbox.json": "1bfdd3d103dd784b",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "b532d4d1debe0751",
+        ".ost-agent/state/usage.json": "e97ef1064c641572"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40082,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "59fe5169da8a2caa21fc599db5ca34cb3361dcd1",
+      "at": "2026-08-31T20:54:03-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "29d9b2aba22c6665",
+        ".ost-agent/state/friction.json": "e5f7af4760f0c84e",
+        ".ost-agent/state/inbox.json": "1bfdd3d103dd784b",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "b532d4d1debe0751",
+        ".ost-agent/state/usage.json": "e97ef1064c641572"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40082,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "b47e3dbc0042e3c06308c3da2edcc5de70699ff3",
+      "at": "2026-08-31T20:50:03-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "29d9b2aba22c6665",
+        ".ost-agent/state/friction.json": "e5f7af4760f0c84e",
+        ".ost-agent/state/inbox.json": "1bfdd3d103dd784b",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "b532d4d1debe0751",
+        ".ost-agent/state/usage.json": "e97ef1064c641572"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 40082,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "0e352399d3994981f05029bd55026259936088cb",
+      "at": "2026-08-31T20:06:22-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "47cca51fa07b0b41",
+        ".ost-agent/state/friction.json": "2960b221c0057c7e",
+        ".ost-agent/state/inbox.json": "587a65e3cde4bab4",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "690ba72f9c57d00a",
+        ".ost-agent/state/usage.json": "7cdc829232628cab"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39978,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "a25e3cd759923837159f484f6f0aadfd3da3c6eb",
+      "at": "2026-08-31T19:48:23-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "47cca51fa07b0b41",
+        ".ost-agent/state/friction.json": "2960b221c0057c7e",
+        ".ost-agent/state/inbox.json": "587a65e3cde4bab4",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "690ba72f9c57d00a",
+        ".ost-agent/state/usage.json": "7cdc829232628cab"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39978,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "1277927a5e57523110cf5009890ae6d8eaec0a60",
+      "at": "2026-08-31T19:48:21-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "6dcefde4cfd5f916",
+        ".ost-agent/state/friction.json": "bc2d45a62e763ec3",
+        ".ost-agent/state/inbox.json": "9d7d0678edabf37d",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "4baad27febc188ea",
+        ".ost-agent/state/usage.json": "f0c884f58cb1ebed"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39978,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "358db30617ea123ff8a9b6e56b09c4f15cf4d9a6",
+      "at": "2026-08-31T19:48:15-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "6dcefde4cfd5f916",
+        ".ost-agent/state/friction.json": "bc2d45a62e763ec3",
+        ".ost-agent/state/inbox.json": "9d7d0678edabf37d",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "4baad27febc188ea",
+        ".ost-agent/state/usage.json": "f0c884f58cb1ebed"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39978,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "3030c6dd16e27e35abca650b9e175c4c3f212950",
+      "at": "2026-08-31T19:48:09-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "6dcefde4cfd5f916",
+        ".ost-agent/state/friction.json": "bc2d45a62e763ec3",
+        ".ost-agent/state/inbox.json": "9d7d0678edabf37d",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "4baad27febc188ea",
+        ".ost-agent/state/usage.json": "f0c884f58cb1ebed"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39978,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "145bb274361f34d3914c58992c0578036625eb6d",
+      "at": "2026-08-31T19:48:00-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "6dcefde4cfd5f916",
+        ".ost-agent/state/friction.json": "bc2d45a62e763ec3",
+        ".ost-agent/state/inbox.json": "9d7d0678edabf37d",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "4baad27febc188ea",
+        ".ost-agent/state/usage.json": "f0c884f58cb1ebed"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39978,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "5388f994adff99e5a243f3a68083cee0711fd0f8",
+      "at": "2026-08-31T19:47:43-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "6dcefde4cfd5f916",
+        ".ost-agent/state/friction.json": "bc2d45a62e763ec3",
+        ".ost-agent/state/inbox.json": "9d7d0678edabf37d",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "4baad27febc188ea",
+        ".ost-agent/state/usage.json": "f0c884f58cb1ebed"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39978,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "8bfacd2d7743626c5fb40c60567918075adcbf36",
+      "at": "2026-08-31T19:47:21-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "6dcefde4cfd5f916",
+        ".ost-agent/state/friction.json": "bc2d45a62e763ec3",
+        ".ost-agent/state/inbox.json": "9d7d0678edabf37d",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "4baad27febc188ea",
+        ".ost-agent/state/usage.json": "f0c884f58cb1ebed"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39978,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "a4237bb1c397500dfce62a86181b4c8614102c23",
+      "at": "2026-08-31T19:47:05-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "6dcefde4cfd5f916",
+        ".ost-agent/state/friction.json": "bc2d45a62e763ec3",
+        ".ost-agent/state/inbox.json": "9d7d0678edabf37d",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "4baad27febc188ea",
+        ".ost-agent/state/usage.json": "f0c884f58cb1ebed"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39978,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "90bc20e5998bf87857f2ff67516a487713f29131",
+      "at": "2026-08-31T19:46:29-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "6dcefde4cfd5f916",
+        ".ost-agent/state/friction.json": "bc2d45a62e763ec3",
+        ".ost-agent/state/inbox.json": "9d7d0678edabf37d",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "4baad27febc188ea",
+        ".ost-agent/state/usage.json": "f0c884f58cb1ebed"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39978,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "d59059bbc75539096c31612d01d95e7e36f19ded",
+      "at": "2026-08-31T19:46:14-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "6dcefde4cfd5f916",
+        ".ost-agent/state/friction.json": "bc2d45a62e763ec3",
+        ".ost-agent/state/inbox.json": "9d7d0678edabf37d",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "4baad27febc188ea",
+        ".ost-agent/state/usage.json": "f0c884f58cb1ebed"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39978,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "a31636a7193535e5d0180b6ab55a20fbaa06e455",
+      "at": "2026-08-31T19:45:54-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "6dcefde4cfd5f916",
+        ".ost-agent/state/friction.json": "bc2d45a62e763ec3",
+        ".ost-agent/state/inbox.json": "9d7d0678edabf37d",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "4baad27febc188ea",
+        ".ost-agent/state/usage.json": "f0c884f58cb1ebed"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39978,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "e106b84c53fc63df43f4d9d1d34ff3e3294658d8",
+      "at": "2026-08-31T19:45:33-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "6dcefde4cfd5f916",
+        ".ost-agent/state/friction.json": "bc2d45a62e763ec3",
+        ".ost-agent/state/inbox.json": "9d7d0678edabf37d",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "4baad27febc188ea",
+        ".ost-agent/state/usage.json": "f0c884f58cb1ebed"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39978,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "d08950546b439c12a3ac923bc9b2a927f4680c05",
+      "at": "2026-08-31T19:45:13-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "6dcefde4cfd5f916",
+        ".ost-agent/state/friction.json": "bc2d45a62e763ec3",
+        ".ost-agent/state/inbox.json": "9d7d0678edabf37d",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "4baad27febc188ea",
+        ".ost-agent/state/usage.json": "f0c884f58cb1ebed"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39978,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "e964f7e97cc55363ef2efbbdad52d306fadae365",
+      "at": "2026-08-31T19:44:17-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "6dcefde4cfd5f916",
+        ".ost-agent/state/friction.json": "bc2d45a62e763ec3",
+        ".ost-agent/state/inbox.json": "9d7d0678edabf37d",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "4baad27febc188ea",
+        ".ost-agent/state/usage.json": "f0c884f58cb1ebed"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39978,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "3dc486724f97805820b44404409c8d10056a6463",
+      "at": "2026-08-31T19:44:14-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "8973c41aa9a6e46c",
+        ".ost-agent/state/friction.json": "f98afa23da7a2ba8",
+        ".ost-agent/state/inbox.json": "23b6875961dccba5",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "e7040ac6c73d692e",
+        ".ost-agent/state/usage.json": "1c8083799dd80d10"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39978,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "bf38e2d989a4194df3809183ec854bc794317a5f",
+      "at": "2026-08-31T19:43:42-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "8973c41aa9a6e46c",
+        ".ost-agent/state/friction.json": "f98afa23da7a2ba8",
+        ".ost-agent/state/inbox.json": "23b6875961dccba5",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "e7040ac6c73d692e",
+        ".ost-agent/state/usage.json": "1c8083799dd80d10"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39978,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "eecffa5489c2af1ef694c0d5938b33eb284f38fb",
+      "at": "2026-08-31T19:43:32-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "8973c41aa9a6e46c",
+        ".ost-agent/state/friction.json": "f98afa23da7a2ba8",
+        ".ost-agent/state/inbox.json": "23b6875961dccba5",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "e7040ac6c73d692e",
+        ".ost-agent/state/usage.json": "1c8083799dd80d10"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39978,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "c1ba5dad2dd2d7209ed9c1132e234f121b3006e8",
+      "at": "2026-08-31T19:39:31-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "8973c41aa9a6e46c",
+        ".ost-agent/state/friction.json": "f98afa23da7a2ba8",
+        ".ost-agent/state/inbox.json": "23b6875961dccba5",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "e7040ac6c73d692e",
+        ".ost-agent/state/usage.json": "1c8083799dd80d10"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39978,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "f71c623b31b9bf79aa2fbd7710437165da6c6ef9",
+      "at": "2026-08-31T19:07:12-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "8cead4a9411f4d4b",
+        ".ost-agent/state/friction.json": "a7d3b1a622dc6763",
+        ".ost-agent/state/inbox.json": "37395ffb8ab3bd7f",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "afb39e15428fa625",
+        ".ost-agent/state/usage.json": "fdebc70967fe71c4"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39822,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "14c445bd4f3ea5604a3c3bc7660c55fc066470a5",
+      "at": "2026-08-31T18:37:50-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "8cead4a9411f4d4b",
+        ".ost-agent/state/friction.json": "a7d3b1a622dc6763",
+        ".ost-agent/state/inbox.json": "37395ffb8ab3bd7f",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "afb39e15428fa625",
+        ".ost-agent/state/usage.json": "fdebc70967fe71c4"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39822,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "f535047f13ae9bb165fb6b1ccd0c8796a0037761",
+      "at": "2026-08-31T18:37:48-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "06aad1bed3426903",
+        ".ost-agent/state/friction.json": "ec247a4383e1fa3b",
+        ".ost-agent/state/inbox.json": "68353b964210bc38",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "97955282d8e46470",
+        ".ost-agent/state/usage.json": "4757dc54a200ee0b"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39822,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "9c0602140c2495ab7a820639aefd11b47ec09f4d",
+      "at": "2026-08-31T18:33:51-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "06aad1bed3426903",
+        ".ost-agent/state/friction.json": "ec247a4383e1fa3b",
+        ".ost-agent/state/inbox.json": "68353b964210bc38",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "97955282d8e46470",
+        ".ost-agent/state/usage.json": "4757dc54a200ee0b"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39822,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "58abe7829e2498e6917c69c0a21c089a8a38da1d",
+      "at": "2026-08-31T18:32:11-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "2237440e90c84cd5",
+        ".ost-agent/state/friction.json": "692d01b92cd95d88",
+        ".ost-agent/state/inbox.json": "1e664db4bb82af79",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "aace74dee0451b4c",
+        ".ost-agent/state/usage.json": "595e208681439575"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39666,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "a37ec3bedd95f3365dd57a49e3908c442816afc0",
+      "at": "2026-08-31T18:11:05-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "2237440e90c84cd5",
+        ".ost-agent/state/friction.json": "692d01b92cd95d88",
+        ".ost-agent/state/inbox.json": "1e664db4bb82af79",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "aace74dee0451b4c",
+        ".ost-agent/state/usage.json": "595e208681439575"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39666,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "3b64e0ebb7adc151275ab7b1b6f836d86640c480",
+      "at": "2026-08-31T17:29:35-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "2237440e90c84cd5",
+        ".ost-agent/state/friction.json": "692d01b92cd95d88",
+        ".ost-agent/state/inbox.json": "1e664db4bb82af79",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "aace74dee0451b4c",
+        ".ost-agent/state/usage.json": "595e208681439575"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39666,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "8a55d4aac6d8da40655d30d4166c70c8d1946e29",
+      "at": "2026-08-31T16:53:38-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "2237440e90c84cd5",
+        ".ost-agent/state/friction.json": "692d01b92cd95d88",
+        ".ost-agent/state/inbox.json": "1e664db4bb82af79",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "aace74dee0451b4c",
+        ".ost-agent/state/usage.json": "595e208681439575"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39666,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "f7341b5aab8c39a75c328a745e2ebe908fcb01fb",
+      "at": "2026-08-31T16:19:05-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "2237440e90c84cd5",
+        ".ost-agent/state/friction.json": "692d01b92cd95d88",
+        ".ost-agent/state/inbox.json": "1e664db4bb82af79",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "aace74dee0451b4c",
+        ".ost-agent/state/usage.json": "595e208681439575"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39666,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "8ed7c88ae058bf61d2dfca6cdccf28da0f68b33a",
+      "at": "2026-08-31T16:16:27-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "2237440e90c84cd5",
+        ".ost-agent/state/friction.json": "692d01b92cd95d88",
+        ".ost-agent/state/inbox.json": "1e664db4bb82af79",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "aace74dee0451b4c",
+        ".ost-agent/state/usage.json": "595e208681439575"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39666,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "cd211536b2254a586c2d71ef47778b15351bcbf0",
+      "at": "2026-08-31T16:15:19-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "0b6cf8364312d0ca",
+        ".ost-agent/state/friction.json": "a7775e1bf9a0469c",
+        ".ost-agent/state/inbox.json": "4823b900473c7e22",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "b8396b36c275b549",
+        ".ost-agent/state/usage.json": "fc227aed6ca64d9e"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39666,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "a83ffe6da1ff41cddefaa53b0723e45146ea868d",
+      "at": "2026-08-31T16:10:32-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "0b6cf8364312d0ca",
+        ".ost-agent/state/friction.json": "a7775e1bf9a0469c",
+        ".ost-agent/state/inbox.json": "4823b900473c7e22",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "b8396b36c275b549",
+        ".ost-agent/state/usage.json": "fc227aed6ca64d9e"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39666,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "7e05d57ecdd5373bd05121f98f367a7f3d719c74",
+      "at": "2026-08-31T15:58:10-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "c34b9696753cd600",
+        ".ost-agent/state/friction.json": "0d21d5b2c602737b",
+        ".ost-agent/state/inbox.json": "039d3900f3fcdbf9",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "b764e6434b353f87",
+        ".ost-agent/state/usage.json": "f78fdda024b06a8c"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39614,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "d51258611c89748f4060739dba04e5f0460ae43f",
+      "at": "2026-08-31T15:07:49-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "c34b9696753cd600",
+        ".ost-agent/state/friction.json": "0d21d5b2c602737b",
+        ".ost-agent/state/inbox.json": "039d3900f3fcdbf9",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "b764e6434b353f87",
+        ".ost-agent/state/usage.json": "f78fdda024b06a8c"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39614,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "c789cb5f6f196affeb174c184e430cadeb94eacb",
+      "at": "2026-08-31T15:07:36-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "75780979ec35d616",
+        ".ost-agent/state/friction.json": "4b758755158fe94c",
+        ".ost-agent/state/inbox.json": "04fab668cba0b7b4",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "4ed5fb76e151d1fe",
+        ".ost-agent/state/usage.json": "35106a4d2d4a17d8"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39562,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "2f23c27f2805e12054fa0fe826ad33dcb1b1f014",
+      "at": "2026-08-31T15:07:00-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "75780979ec35d616",
+        ".ost-agent/state/friction.json": "4b758755158fe94c",
+        ".ost-agent/state/inbox.json": "04fab668cba0b7b4",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "4ed5fb76e151d1fe",
+        ".ost-agent/state/usage.json": "35106a4d2d4a17d8"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39562,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "4f58cf258bd7ec84c2e0d298fe9ecb5597e26577",
+      "at": "2026-08-31T15:05:12-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "75780979ec35d616",
+        ".ost-agent/state/friction.json": "4b758755158fe94c",
+        ".ost-agent/state/inbox.json": "04fab668cba0b7b4",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "4ed5fb76e151d1fe",
+        ".ost-agent/state/usage.json": "35106a4d2d4a17d8"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39562,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "dd30377dce6d2f85966726aa9472b8bee70b5240",
+      "at": "2026-08-31T15:00:20-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "75780979ec35d616",
+        ".ost-agent/state/friction.json": "4b758755158fe94c",
+        ".ost-agent/state/inbox.json": "04fab668cba0b7b4",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "4ed5fb76e151d1fe",
+        ".ost-agent/state/usage.json": "35106a4d2d4a17d8"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39562,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "5e74dde408e872b3d455b817c82eae2cf8798c40",
+      "at": "2026-08-31T14:30:36-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "c6b3707f0dbc7d3c",
+        ".ost-agent/state/friction.json": "902eca586b5b8999",
+        ".ost-agent/state/inbox.json": "d59b622f533af163",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "9468f0ec90206a4d",
+        ".ost-agent/state/usage.json": "060366340d22575a"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39458,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "bcd5040ccb40b09fd08072e529419f1deb3caff7",
+      "at": "2026-08-31T13:58:47-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "c6b3707f0dbc7d3c",
+        ".ost-agent/state/friction.json": "902eca586b5b8999",
+        ".ost-agent/state/inbox.json": "d59b622f533af163",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "9468f0ec90206a4d",
+        ".ost-agent/state/usage.json": "060366340d22575a"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39458,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "82c492bbf568e3179a492c807aeaca5ca4e64ea2",
+      "at": "2026-08-31T13:57:05-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "c6b3707f0dbc7d3c",
+        ".ost-agent/state/friction.json": "902eca586b5b8999",
+        ".ost-agent/state/inbox.json": "d59b622f533af163",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "9468f0ec90206a4d",
+        ".ost-agent/state/usage.json": "060366340d22575a"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39458,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "80ae111ce6fa415b6828b1686416fba707e7d2c1",
+      "at": "2026-08-31T13:57:00-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "e8e07a5b50f987d0",
+        ".ost-agent/state/friction.json": "a8849c8c4b76762e",
+        ".ost-agent/state/inbox.json": "d1260dbfbf80a654",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "f4f669c54f4cfc34",
+        ".ost-agent/state/usage.json": "dd9915a177d72160"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39458,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "250aac31df13c8366878ad5bb977dbeccc19503d",
+      "at": "2026-08-31T13:53:08-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "e8e07a5b50f987d0",
+        ".ost-agent/state/friction.json": "a8849c8c4b76762e",
+        ".ost-agent/state/inbox.json": "d1260dbfbf80a654",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "f4f669c54f4cfc34",
+        ".ost-agent/state/usage.json": "dd9915a177d72160"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39458,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "f38c20834d1471bfecf0df6a3c2f643858b7a12b",
+      "at": "2026-08-31T13:37:35-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "8f14e57d2ef9f3ee",
+        ".ost-agent/state/friction.json": "4db1bc4a6c899235",
+        ".ost-agent/state/inbox.json": "05a7e12bb0a7fcfd",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "dfe4fbdfaa503bdb",
+        ".ost-agent/state/usage.json": "f491fd41d4efbb39"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39406,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "2c5f4b7faf53402872ac0540674ad42935556579",
+      "at": "2026-08-31T12:57:59-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "8f14e57d2ef9f3ee",
+        ".ost-agent/state/friction.json": "4db1bc4a6c899235",
+        ".ost-agent/state/inbox.json": "05a7e12bb0a7fcfd",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "dfe4fbdfaa503bdb",
+        ".ost-agent/state/usage.json": "f491fd41d4efbb39"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39406,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "6ab6841120aa3db2d207770c40beda0c6ac5f1f4",
+      "at": "2026-08-31T12:51:09-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "8f14e57d2ef9f3ee",
+        ".ost-agent/state/friction.json": "4db1bc4a6c899235",
+        ".ost-agent/state/inbox.json": "05a7e12bb0a7fcfd",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "dfe4fbdfaa503bdb",
+        ".ost-agent/state/usage.json": "f491fd41d4efbb39"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39406,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "7f31aff67e07e0e3994c22ee7e9fe4d8436b19e1",
+      "at": "2026-08-31T12:51:07-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "c34ca0cf14f46ffc",
+        ".ost-agent/state/friction.json": "85de9fb03c6196f8",
+        ".ost-agent/state/inbox.json": "655ad9a0d8bdb78b",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "07cb96bdaa6747a1",
+        ".ost-agent/state/usage.json": "bc21d5f312308cd1"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39406,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "e9d6edd8326e3bf294843b51c3fee094ef03834a",
+      "at": "2026-08-31T12:50:44-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "c34ca0cf14f46ffc",
+        ".ost-agent/state/friction.json": "85de9fb03c6196f8",
+        ".ost-agent/state/inbox.json": "655ad9a0d8bdb78b",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "07cb96bdaa6747a1",
+        ".ost-agent/state/usage.json": "bc21d5f312308cd1"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39406,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "11a507ba25b089b63cc6c0471fc1c73aebbc49de",
+      "at": "2026-08-31T12:47:00-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "c34ca0cf14f46ffc",
+        ".ost-agent/state/friction.json": "85de9fb03c6196f8",
+        ".ost-agent/state/inbox.json": "655ad9a0d8bdb78b",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "07cb96bdaa6747a1",
+        ".ost-agent/state/usage.json": "bc21d5f312308cd1"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39406,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "de2356d6f665a08cee299f9e43f2e383b14a416c",
+      "at": "2026-08-31T12:06:43-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "ff0da5a08e6376d5",
+        ".ost-agent/state/friction.json": "7e26b842dd0bc37d",
+        ".ost-agent/state/inbox.json": "ef018596984f1528",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "6498ac9b1b55479d",
+        ".ost-agent/state/usage.json": "a60250d7d51ec455"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39250,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "30553a9ccdc27bcbd50b64bc2c91b9cd5d17a73e",
+      "at": "2026-08-31T11:47:57-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "ff0da5a08e6376d5",
+        ".ost-agent/state/friction.json": "7e26b842dd0bc37d",
+        ".ost-agent/state/inbox.json": "ef018596984f1528",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "6498ac9b1b55479d",
+        ".ost-agent/state/usage.json": "a60250d7d51ec455"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39250,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "61cfa7c6405270d75491a9971bccc1740ac79bb4",
+      "at": "2026-08-31T11:45:01-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "ff0da5a08e6376d5",
+        ".ost-agent/state/friction.json": "7e26b842dd0bc37d",
+        ".ost-agent/state/inbox.json": "ef018596984f1528",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "6498ac9b1b55479d",
+        ".ost-agent/state/usage.json": "a60250d7d51ec455"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39250,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "3f6e0a93096d7538420beb8022a3d6553901d312",
+      "at": "2026-08-31T11:44:52-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "9390d7c80aa8e995",
+        ".ost-agent/state/friction.json": "e17691caeca3a269",
+        ".ost-agent/state/inbox.json": "8edb8f1befa9bff3",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "1f466c5fccc4de62",
+        ".ost-agent/state/usage.json": "1dd1ad494bd2d733"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39250,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "ba8d6bf5882706f9448b67186799f9ef74cae6bf",
+      "at": "2026-08-31T11:44:46-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "9390d7c80aa8e995",
+        ".ost-agent/state/friction.json": "e17691caeca3a269",
+        ".ost-agent/state/inbox.json": "8edb8f1befa9bff3",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "1f466c5fccc4de62",
+        ".ost-agent/state/usage.json": "1dd1ad494bd2d733"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39250,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "803a066153d8dbff743e4fc531e5450b197c0ed3",
+      "at": "2026-08-31T11:44:43-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "9390d7c80aa8e995",
+        ".ost-agent/state/friction.json": "e17691caeca3a269",
+        ".ost-agent/state/inbox.json": "8edb8f1befa9bff3",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "1f466c5fccc4de62",
+        ".ost-agent/state/usage.json": "1dd1ad494bd2d733"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39250,
+          "namesAVersion": false
+        }
+      ]
+    },
+    {
+      "sha": "06ce9c5019270d47dbb9bedb1d2b4bbbdb58efbb",
+      "at": "2026-08-31T11:44:28-05:00",
+      "files": {
+        ".ost-agent/health/runs.jsonl": "a25c0e5e9c91f2dc",
+        ".ost-agent/state/deposit.json": "9390d7c80aa8e995",
+        ".ost-agent/state/friction.json": "e17691caeca3a269",
+        ".ost-agent/state/inbox.json": "8edb8f1befa9bff3",
+        ".ost-agent/state/mapped.json": "2ffa6b55dce792c0",
+        ".ost-agent/state/retrospective.json": "1f466c5fccc4de62",
+        ".ost-agent/state/usage.json": "1dd1ad494bd2d733"
+      },
+      "oversize": [
+        {
+          "path": ".ost-agent/state/transcript.json",
+          "bytes": 39250,
+          "namesAVersion": false
+        }
+      ]
+    }
+  ]
+}

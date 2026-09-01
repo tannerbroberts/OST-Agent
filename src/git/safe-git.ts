@@ -20,6 +20,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { simpleGit, type SimpleGit } from "simple-git";
 import { assertNoStagedConflictMarkers, ensurePreCommitHook } from "./conflict-guard.js";
+import { stampWritingVersion } from "../ost/writing-version.js";
 
 export interface CommitResult {
   sha: string;
@@ -61,6 +62,14 @@ export async function gitInitIfAbsent(dir: string): Promise<boolean> {
  * commit will hold, and it throws rather than returning a `committed: false`: a
  * clean tree is a legitimate no-op the caller reports, a staged conflict marker
  * is a mistake nobody should be able to skim past.
+ *
+ * **It is also where the writing version is stamped**, for the same reason the
+ * hook is re-asserted here: this is the one door every mutation goes through, so
+ * a stamp wired in anywhere else is a stamp that is missing from whichever call
+ * site is added next. It runs before staging so the stamp lands in the commit it
+ * describes, and it writes at most twice a day
+ * (`STAMP_REFRESH_AFTER_MS`) so the clean-tree no-op above stays a no-op instead
+ * of becoming a commit carrying nothing but a moved timestamp.
  */
 export async function gitCommit(dir: string, message: string): Promise<CommitResult> {
   const g = git(dir);
@@ -68,6 +77,12 @@ export async function gitCommit(dir: string, message: string): Promise<CommitRes
   // or one cloned fresh, has no hooks. Idempotent, and never overwrites a hook
   // this project did not write.
   ensurePreCommitHook(path.resolve(dir));
+  // Only in a vault. `gitCommit` takes a directory, and creating `.ost-agent/`
+  // in whatever else is handed to it would be this product writing outside the
+  // one place it is allowed to write.
+  if (fs.existsSync(path.join(dir, ".ost-agent"))) {
+    stampWritingVersion(dir, { now: new Date().toISOString() });
+  }
   await g.add(["-A"]);
   const status = await g.status();
   if (status.isClean()) {

@@ -237,9 +237,15 @@ describe("a fresh empty directory", () => {
     // What remains is directories only — git does not track them, so a revert
     // cannot remove them. Named here so the "empty tree" above is read
     // correctly: no bytes, not no entries.
+    //
+    // This named `.ost-agent/state` until the writing-version stamp put a
+    // tracked file in it. A directory git itself created while checking a file
+    // out, git also prunes when the revert removes that file — so `state` is now
+    // cleaned up and the example had to move to one that is still only ever
+    // `mkdir`ed. The property is unchanged; the directory that demonstrates it is not.
     const remaining = emptyDirs(dir);
     expect(remaining.length).toBeGreaterThan(0);
-    expect(remaining).toContain(".ost-agent/state");
+    expect(remaining).toContain(".ost-agent/evidence");
     for (const d of remaining) expect(fs.readdirSync(path.join(dir, d)).filter((n) => fs.statSync(path.join(dir, d, n)).isFile())).toEqual([]);
   });
 });

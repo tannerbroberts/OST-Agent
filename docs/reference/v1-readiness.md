@@ -3204,12 +3204,29 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,734 tests across 349 files, verified 2026-09-01 (`npx vitest run`
-> reports 4,726 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,749 tests across 350 files, verified 2026-09-01 (`npx vitest run`
+> reports 4,741 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-09-01 finished at 4,726 across
-> the 348 files it collects, in 177 s. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-09-01 finished at 4,741 across
+> the 349 files it collects, in 220 s. The file added since the previous line is
+> `test/ost/writing-version-recoverable.test.ts` — the instrument for "Check whether the
+> writing version is recoverable from vault state at all", the assumption test beneath
+> "Report the accounting change explicitly instead of folding it into the counts"
+> (`src/ost/writing-version.ts`). Against a vault this product stamps it comes back **met**:
+> 96 of the last 100 states resolve to the build that actually wrote them, the four misses
+> being the pre-stamp prefix the node's threshold makes room for. Against real history it
+> comes back **zero**. `test/fixtures/writing-version/` holds the last 100 states of this
+> repository's own meta-vault and not one is recoverable: the single machine-written version
+> signal those states carry, `.ost-agent/health/runs.jsonl`, last recorded `cliVersion 0.21.0`
+> on 2026-07-27 and is byte-identical across all hundred — 35 days and two minor releases
+> stale, because the loop writing it stopped and nothing looked. A resolver without a
+> freshness clause would have answered `0.21.0` a hundred times and been wrong a hundred
+> times, which is why that clause is the load-bearing part rather than a refinement. A second
+> measurement taken while building it: `VERSION` has read `0.23.0` since 2026-07-28 across
+> 205 merged pull requests, several of which moved what counts as done — so the stamp carries
+> an accounting fingerprint beside the version, and `legacy-fallback.ts`'s `droppedIn:
+> "0.26.0"` is a deadline a frozen version will never reach. The line before it was
 > `test/loop/replayable-step-share.test.ts` — the instrument for "Count how many recorded
 > steps are safely replayable at all", the assumption test beneath "Replay a recorded failure
 > in its recorded context on demand" (`src/loop/replayable.ts`). It came back **refuted**:
