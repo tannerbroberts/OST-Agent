@@ -251,6 +251,37 @@ const KNOWN_UNREACHABLE: Record<string, string> = {
 };
 
 /*
+ * `src/telemetry/step-context.ts`, `src/telemetry/unknown-context-census.ts` and
+ * `src/git/follow-up-sight.ts` are deliberately NOT on this register either, for
+ * the same reason and by the same route as `unblock-leverage.ts` below.
+ *
+ * They are the predicate, the census and the git read behind "Measure how much
+ * signal a refuse-on-unknown-context rule would delete"
+ * (`test/telemetry/unknown-context-refusal-cost.test.ts`), and no product surface
+ * consults any of them — the count came back **zero, for the reason that closes
+ * the candidate rather than the one that ships it.** Over the ledger `readRuns`
+ * actually opens (347 runs, 625 steps, 82 of them failures) not one step is
+ * missing `cwd` or `argv`, so the refusal would delete nothing. It cannot:
+ * `loop step` is the only writer of a step record and it captures `process.cwd()`
+ * and the argv unconditionally before it spawns. A precondition on a door that
+ * cannot be opened is not a cheap safety net; it is a no-op, and the node's own
+ * rule refuses to read a verdict off a rule that never fired. The one corpus in
+ * this vault where it bites is the working-tree `.ost-agent/health/runs.jsonl`
+ * that nothing reads any more — 21 of 30 refused, and the refused set contains
+ * the wrong-directory failure that produced the friction note the whole branch
+ * grew from.
+ *
+ * The first draft of this file listed all three here as parked. The walk
+ * disagreed, and it was right: `scripts/harvest-unknown-context-corpus.ts` cuts
+ * the committed corpus, and everything `scripts/` imports is an entry point.
+ * Rather than thin the import to earn the entries, the script runs the census it
+ * cuts for and prints the price at cut time — so all three have a caller that
+ * actually executes them, and where they are parked is recorded in their own
+ * headers and in `test/fixtures/unknown-context-price/PROVENANCE.md`, which is
+ * where a reader of the finding will be.
+ */
+
+/*
  * `src/ost/unblock-leverage.ts` is deliberately NOT on this register, and the
  * reason is the trap this criterion warns about rather than an oversight.
  *

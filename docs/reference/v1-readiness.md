@@ -3204,12 +3204,37 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,641 tests across 344 files, verified 2026-08-31 (`npx vitest run`
-> reports 4,633 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,674 tests across 345 files, verified 2026-08-31 (`npx vitest run`
+> reports 4,666 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,633 across
-> the 343 files it collects, in 313 s. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,666 across
+> the 344 files it collects, in 259 s. The file added since the previous line is
+> `test/telemetry/unknown-context-refusal-cost.test.ts` — the instrument for "Measure how
+> much signal a refuse-on-unknown-context rule would delete"
+> (`src/telemetry/step-context.ts`, `src/telemetry/unknown-context-census.ts`,
+> `src/git/follow-up-sight.ts`): the price of "Refuse to record a step whose context could
+> not be determined", replayed over the health ledger `readRuns` actually opens
+> (`<vault>/.git/ost-agent/runs.jsonl`). **The answer is zero, and not the way the node
+> hoped.** Across 347 runs and 625 recorded steps — 82 of them failures — not one step is
+> missing `cwd` or `argv`, so the refusal would delete nothing. It cannot: `loop step` is
+> the only writer of a step record and it captures `process.cwd()` and the argv
+> unconditionally before it spawns, which is the sibling solution "Every recorded step
+> carries the directory and argv it actually ran with" (`src/loop/replay.ts`, recorded two
+> entries below) having already shipped. So the rate clause clears at 0% and the second
+> clause — none of the refused set a failure somebody acted on — has no subject at all; the
+> census reports `undecidable` rather than `cleared`, because a rate read off a rule that
+> never fired is exactly what the node's own text refuses. The one corpus in this vault
+> where the rule bites is the working-tree `.ost-agent/health/runs.jsonl` that nothing has
+> read since the state directory moved into `.git`: **21 of 30 refused, and the refused set
+> contains the 2026-07-27 wrong-directory failure that produced the friction note this whole
+> branch of the tree grew from** — acted on by a corrected re-run 63 s later and the commit
+> that filed the note 17 min later. Both corpora are committed
+> (`test/fixtures/unknown-context-price/`) with the cut in `PROVENANCE.md` and re-runnable
+> by `scripts/harvest-unknown-context-corpus.ts`. No bar is asserted mechanically: the
+> threshold is a claim about a recorded world, and an instrument whose route to green runs
+> through rewriting its own corpus must not gate the suite. `appendStep` is deliberately
+> untouched and no surface consults the predicate. The line before it was
 > `test/ost/unfixed-threshold-refusal-census.test.ts` — the instrument for "Replay all
 > existing tests to count how many a refusal would have blocked"
 > (`src/ost/refusal-census.ts`, `ost-agent threshold-refusal-census`): the dry run beneath
