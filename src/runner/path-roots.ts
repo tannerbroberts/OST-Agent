@@ -57,6 +57,18 @@
  * wrong paths everywhere at once, and no coverage number would show it. And every
  * path counted here was reached for by a run that had **no** root vocabulary, so
  * the corpus cannot say how the habit changes once one exists.
+ *
+ * ## Where this is parked
+ *
+ * No product surface resolves a path through {@link resolveUnderRoot} yet, and
+ * that is deliberate rather than unfinished: this module is the census a red
+ * instrument asked for, not a decision to route every path in the product through
+ * a vocabulary the census just found covers 40% of the failures that carry a head.
+ * Its live caller is `scripts/harvest-path-root-corpus.ts`, which cuts the corpus
+ * and prints the verdict at cut time — a caller that actually executes it, on the
+ * same footing as `src/ost/unblock-leverage.ts` and the unknown-context census
+ * (`test/release/module-reachability.test.ts`). It gets wired when the vault
+ * decides to hand roots to a run, and goes when the node is deferred.
  */
 import path from "node:path";
 import {
@@ -101,6 +113,20 @@ export type Resolution = "recorded-cwd" | "as-written";
 export type Vocabulary = "per-session" | "fixed";
 
 /**
+ * Which failed paths the count is taken over.
+ *
+ * `all` is the node's own population — every path that failed. `constructed-head`
+ * keeps only the paths that *carry* a head, which is the population the mechanism
+ * can act on at all: a path written relative has no prefix, so the mistake the
+ * solution prevents was not available to make. Counting a relative path as covered
+ * is worse than uninformative under `per-session`, where the project root is
+ * derived from the very working directory the path resolves against and coverage
+ * is therefore true by construction — see {@link PathRootCensus.relativeCovered},
+ * which asserts that circularity rather than leaving it to be noticed.
+ */
+export type Population = "all" | "constructed-head";
+
+/**
  * The bar, the ceiling on the vocabulary, and the readings — all fixed before any
  * path was counted.
  */
@@ -112,6 +138,15 @@ export const PATH_ROOT_RULE = {
   containments: ["specific", "with-home"] as Containment[],
   resolutions: ["recorded-cwd", "as-written"] as Resolution[],
   vocabularies: ["per-session", "fixed"] as Vocabulary[],
+  populations: ["all", "constructed-head"] as Population[],
+  /**
+   * How many trailing segments must match for a failed path and a successful one
+   * to count as the same target reached for under two different heads. One segment
+   * is a bare filename and coincides across repositories constantly; two is the
+   * shortest tail that carries a directory with it. Both are counted — see
+   * {@link PathRootCensus.headErrors}.
+   */
+  headErrorTailSegments: 2,
   /**
    * Which failure shapes are about a path at all. The same three the sibling
    * census counts as savable, for the same reason: a `denied-path` names a path
@@ -128,6 +163,15 @@ export const PATH_ROOT_RULE = {
    */
   notAPathWord: GUESS_RULE.notAPathWord,
   bareFileName: GUESS_RULE.bareFileName,
+  /**
+   * `D=/private/tmp/scratch` is a shell assignment, not an address. The word is
+   * path-shaped after the `=` and the sibling census's word rule lets it through,
+   * where it lands in the corpus as a relative path, gets resolved against the
+   * working directory, and manufactures a location no run ever addressed. Found by
+   * reading the head-error matches this census produced on its first cut: five of
+   * seven were an assignment word or a `cd` the resolver had not honoured.
+   */
+  assignmentWord: /^[A-Za-z_][A-Za-z0-9_]*=/,
 } as const;
 
 /**
@@ -287,8 +331,38 @@ export function resolveAddressed(addressed: string, cwd: string, resolution: Res
 /** Does this subject read as a path at all, or is it a flag the prose caught? */
 export function readsAsPath(subject: string): boolean {
   if (!subject) return false;
+  if (PATH_ROOT_RULE.assignmentWord.test(subject)) return false;
   if (PATH_ROOT_RULE.notAPathWord.some((re) => re.test(subject))) return false;
   return subject.includes("/") || PATH_ROOT_RULE.bareFileName.test(subject);
+}
+
+/**
+ * Where a shell command actually ran.
+ *
+ * The transcript's `cwd` is the session's working directory, and a command that
+ * begins `cd /somewhere &&` runs the rest of itself elsewhere. Honouring that is
+ * not a nicety: this repository's own build passes run from the vault and `cd` to
+ * the code repository in the same command, so without it every relative path they
+ * address resolves into the vault — which invents a wrong prefix for exactly the
+ * runs this census is about, and then reads it back as evidence of one.
+ *
+ * Only a `cd` at the head of the command is honoured. A `cd` in the middle of a
+ * pipeline changes the directory for part of the command only, and guessing which
+ * part would put paths in the corpus that no run addressed.
+ */
+export function effectiveCwd(cwd: string, command: string): string {
+  if (!command) return cwd;
+  const first = command.split(/&&|\|\||[;\n|]/)[0].trim();
+  const match = /^cd\s+("[^"]*"|'[^']*'|[^\s;&|]+)/.exec(first);
+  if (!match) return cwd;
+  let dir = match[1].replace(/^["']|["']$/g, "");
+  if (!dir) return cwd;
+  if (dir.startsWith("~/") || dir === "~") dir = OPERATOR_LAYOUT.home + dir.slice(1);
+  if (!dir.startsWith("/")) {
+    if (!cwd) return cwd;
+    dir = path.resolve(cwd, dir);
+  }
+  return normalizePath(path.normalize(dir));
 }
 
 // ── the record ───────────────────────────────────────────────────────────────
@@ -325,6 +399,8 @@ export interface AddressedRecord {
   notAPath: number;
   /** Path-shaped failures excluded by class: the path was there, the grant was not. */
   deniedPaths: number;
+  /** Calls whose command opened with `cd`, so the session's directory was not where it ran. */
+  cdAdjusted: number;
 }
 
 /**
@@ -349,6 +425,7 @@ export function readAddressedPaths(sessions: TranscriptSession[]): AddressedReco
   let unnamed = 0;
   let notAPath = 0;
   let deniedPaths = 0;
+  let cdAdjusted = 0;
 
   for (const session of sessions) {
     const byId = new Map<string, { tool: string; command: string; declaredPath: string; cwd: string }>();
@@ -373,12 +450,12 @@ export function readAddressedPaths(sessions: TranscriptSession[]): AddressedReco
           const input = (block.input ?? {}) as Record<string, unknown>;
           const field = GUESS_RULE.declaredPathFields[tool];
           const declared = field && typeof input[field] === "string" ? (input[field] as string) : "";
-          byId.set(block.id, {
-            tool,
-            command: typeof input.command === "string" ? clip(input.command, MAX_COMMAND_CHARS) : "",
-            declaredPath: declared,
-            cwd,
-          });
+          const command = typeof input.command === "string" ? clip(input.command, MAX_COMMAND_CHARS) : "";
+          // A command that opens with `cd` ran somewhere other than the session's
+          // directory, and this repository's own build passes do exactly that.
+          const ran = effectiveCwd(cwd, command);
+          if (ran !== cwd) cdAdjusted++;
+          byId.set(block.id, { tool, command, declaredPath: declared, cwd: ran });
         }
         if (block.type !== "tool_result") continue;
         const call = byId.get(String(block.tool_use_id ?? ""));
@@ -412,7 +489,7 @@ export function readAddressedPaths(sessions: TranscriptSession[]): AddressedReco
       }
     }
   }
-  return { failures, successes, sessions: sessions.length, calls, errors, unnamed, notAPath, deniedPaths };
+  return { failures, successes, sessions: sessions.length, calls, errors, unnamed, notAPath, deniedPaths, cdAdjusted };
 }
 
 /** Every path a call addressed: the declared field, or the words of its command. */
@@ -435,11 +512,12 @@ function resultText(content: unknown): string {
 
 // ── the census ───────────────────────────────────────────────────────────────
 
-/** One full recount under one (containment, resolution, vocabulary) choice. */
+/** One full recount under one (containment, resolution, vocabulary, population) choice. */
 export interface CoverageReading {
   containment: Containment;
   resolution: Resolution;
   vocabulary: Vocabulary;
+  population: Population;
   /** Every path in the population. The denominator, always. */
   total: number;
   /** Paths that fall at or under a declared root. */
@@ -453,42 +531,86 @@ export interface CoverageReading {
   meetsBar: boolean;
 }
 
-/** The whole count, both populations, every reading. */
+/**
+ * How many failures were wrong in the head a root would have supplied, rather
+ * than in the tail the caller still writes by hand.
+ *
+ * This is the number the coverage share cannot see, and it runs the *opposite*
+ * way: a failed path that falls inside a declared root is one whose prefix was
+ * already right, so the root would have supplied exactly what the caller already
+ * had. The class the node describes — "the tail was right and the caller had no
+ * business constructing the head" — is a path that landed outside every root
+ * while the thing it was reaching for sits inside one.
+ */
+export interface HeadErrorCount {
+  /** Failures with a head at all, absolute as written. The denominator here. */
+  constructedHeads: number;
+  /** Of those, the ones whose tail is reached successfully from under a declared root. */
+  headErrors: number;
+  /** The same count requiring only a single trailing segment to match. */
+  headErrorsLooseTail: number;
+  /** The failed paths counted, so a reader can disagree with each one. */
+  examples: string[];
+  /** The looser count's matches, which include coincidences across repositories. */
+  looseExamples: string[];
+}
+
+/** The whole count, both groups, every reading. */
 export interface PathRootCensus {
   sessions: number;
   calls: number;
   errors: number;
-  /** The population that decides the row: paths that actually failed. */
+  /** The group that decides the row: paths that actually failed. */
   failures: CoverageReading[];
   /** The comparison group the assumption test asked for: paths that worked. */
   successes: CoverageReading[];
   unnamed: number;
   notAPath: number;
   deniedPaths: number;
+  cdAdjusted: number;
   /**
    * Does the answer to "does it clear the bar" depend on which reading you take?
    * Published on the report's face, because a census whose verdict is an artefact
    * of one of its own judgement calls must say so rather than pick.
    */
   readingDecides: boolean;
-  /** The reading this census reports as its headline, and why it is that one. */
+  /**
+   * The node's own words, counted literally: every failed path, all four names,
+   * the recorded working directory. This is what "green" was defined as.
+   */
+  literal: CoverageReading;
+  /**
+   * The reading in which a root does work: only paths that carry a head, and only
+   * roots that are not the container every path on the machine is already inside.
+   */
   headline: CoverageReading;
+  /** Relative failures, and how many of them the `per-session` binding covers by construction. */
+  relativeCovered: { relative: number; covered: number };
+  headErrors: HeadErrorCount;
   meetsBar: boolean;
+  literalMeetsBar: boolean;
 }
 
-/** Count one population under one reading. */
+/** Does this path carry a head the caller had to construct? */
+export function hasConstructedHead(p: AddressedPath): boolean {
+  return p.addressed.startsWith("/");
+}
+
+/** Count one group under one reading. */
 export function coverageUnder(
   paths: AddressedPath[],
   containment: Containment,
   resolution: Resolution,
   vocabulary: Vocabulary,
+  population: Population,
   layout = OPERATOR_LAYOUT,
 ): CoverageReading {
   const byRoot: Record<RootName, number> = { project: 0, vault: 0, logs: 0, home: 0 };
+  const counted = population === "all" ? paths : paths.filter(hasConstructedHead);
   let covered = 0;
   let outside = 0;
   let unresolvable = 0;
-  for (const p of paths) {
+  for (const p of counted) {
     const abs = resolveAddressed(p.addressed, p.cwd, resolution);
     if (abs === null) {
       unresolvable++;
@@ -502,12 +624,13 @@ export function coverageUnder(
     covered++;
     byRoot[root]++;
   }
-  const total = paths.length;
+  const total = counted.length;
   const share = total === 0 ? 0 : covered / total;
   return {
     containment,
     resolution,
     vocabulary,
+    population,
     total,
     covered,
     outside,
@@ -518,15 +641,81 @@ export function coverageUnder(
   };
 }
 
+/** The last `n` segments of a path, or `null` if it does not have that many. */
+function tailOf(p: string, n: number): string | null {
+  const segments = p.split("/").filter(Boolean);
+  if (segments.length < n) return null;
+  return segments.slice(-n).join("/");
+}
+
+/**
+ * Count the failures a correct root would actually have prevented.
+ *
+ * A failed path is a head error when the same tail was reached *successfully*
+ * from under a declared root, under a different head — the run knew the tail and
+ * got the prefix wrong, which is the one thing a declared root supplies. Nothing
+ * here infers intent: both paths are on the record, and the tail match is the
+ * evidence that they were reaching for the same thing.
+ *
+ * It is deliberately generous. A tail coincidence across two repositories counts,
+ * and `headErrorsLooseTail` is more generous still. Both are upper bounds on the
+ * class the solution prevents.
+ */
+export function headErrorCount(
+  failures: AddressedPath[],
+  successes: AddressedPath[],
+  containment: Containment = "specific",
+  vocabulary: Vocabulary = "per-session",
+  layout = OPERATOR_LAYOUT,
+): HeadErrorCount {
+  const rooted = new Map<number, Map<string, string>>();
+  for (const n of [1, PATH_ROOT_RULE.headErrorTailSegments]) {
+    rooted.set(n, new Map());
+  }
+  for (const s of successes) {
+    const abs = resolveAddressed(s.addressed, s.cwd, "recorded-cwd");
+    if (abs === null) continue;
+    if (rootContaining(vocabularyFor(s.cwd, vocabulary, layout), abs, containment) === null) continue;
+    for (const [n, index] of rooted) {
+      const tail = tailOf(abs, n);
+      if (tail !== null && !index.has(tail)) index.set(tail, abs);
+    }
+  }
+
+  const constructed = failures.filter(hasConstructedHead);
+  const examples: string[] = [];
+  const looseExamples: string[] = [];
+  let headErrors = 0;
+  let loose = 0;
+  for (const f of constructed) {
+    const abs = resolveAddressed(f.addressed, f.cwd, "recorded-cwd");
+    if (abs === null) continue;
+    const strictTail = tailOf(abs, PATH_ROOT_RULE.headErrorTailSegments);
+    const looseTail = tailOf(abs, 1);
+    const strictHit = strictTail === null ? undefined : rooted.get(PATH_ROOT_RULE.headErrorTailSegments)!.get(strictTail);
+    const looseHit = looseTail === null ? undefined : rooted.get(1)!.get(looseTail);
+    if (strictHit !== undefined && strictHit !== abs) {
+      headErrors++;
+      examples.push(`${abs} → ${strictHit}`);
+    }
+    if (looseHit !== undefined && looseHit !== abs) {
+      loose++;
+      looseExamples.push(`${abs} → ${looseHit}`);
+    }
+  }
+  return { constructedHeads: constructed.length, headErrors, headErrorsLooseTail: loose, examples, looseExamples };
+}
+
 /**
  * The census.
  *
- * The headline reading is `specific` / `recorded-cwd` / `per-session`: home
- * excluded because a container that holds everything prevents nothing, the
- * recorded working directory used because it is on the record rather than
- * invented, and `project` bound per session because a machine holding five
- * repositories has no single one. Every other reading is counted in full beside
- * it, and {@link PathRootCensus.readingDecides} says whether the choice mattered.
+ * Two readings are named on the report rather than one. `literal` is the node's
+ * own definition of green — every failed path, all four names — and `headline` is
+ * the reading in which a root does work: only the paths that carry a head the
+ * caller had to construct, and only the roots that are not the container every
+ * path on this machine already sits inside. Every combination is counted in full
+ * beside them, and {@link PathRootCensus.readingDecides} says whether the choice
+ * mattered.
  */
 export function pathRootCoverage(record: AddressedRecord, layout = OPERATOR_LAYOUT): PathRootCensus {
   const readings = (paths: AddressedPath[]): CoverageReading[] => {
@@ -534,7 +723,9 @@ export function pathRootCoverage(record: AddressedRecord, layout = OPERATOR_LAYO
     for (const containment of PATH_ROOT_RULE.containments) {
       for (const resolution of PATH_ROOT_RULE.resolutions) {
         for (const vocabulary of PATH_ROOT_RULE.vocabularies) {
-          out.push(coverageUnder(paths, containment, resolution, vocabulary, layout));
+          for (const population of PATH_ROOT_RULE.populations) {
+            out.push(coverageUnder(paths, containment, resolution, vocabulary, population, layout));
+          }
         }
       }
     }
@@ -542,9 +733,13 @@ export function pathRootCoverage(record: AddressedRecord, layout = OPERATOR_LAYO
   };
   const failures = readings(record.failures);
   const successes = readings(record.successes);
-  const headline = failures.find(
-    (r) => r.containment === "specific" && r.resolution === "recorded-cwd" && r.vocabulary === "per-session",
-  )!;
+  const literal = readingOf(failures, "with-home", "recorded-cwd", "per-session", "all");
+  const headline = readingOf(failures, "specific", "recorded-cwd", "per-session", "constructed-head");
+  const relative = record.failures.filter((f) => !hasConstructedHead(f));
+  const relativeCovered = relative.filter((f) => {
+    const abs = resolveAddressed(f.addressed, f.cwd, "recorded-cwd");
+    return abs !== null && rootContaining(vocabularyFor(f.cwd, "per-session", layout), abs, "specific") !== null;
+  }).length;
   const verdicts = new Set(failures.map((r) => r.meetsBar));
   return {
     sessions: record.sessions,
@@ -555,9 +750,14 @@ export function pathRootCoverage(record: AddressedRecord, layout = OPERATOR_LAYO
     unnamed: record.unnamed,
     notAPath: record.notAPath,
     deniedPaths: record.deniedPaths,
+    cdAdjusted: record.cdAdjusted,
     readingDecides: verdicts.size > 1,
+    literal,
     headline,
+    relativeCovered: { relative: relative.length, covered: relativeCovered },
+    headErrors: headErrorCount(record.failures, record.successes, "specific", "per-session", layout),
     meetsBar: headline.meetsBar,
+    literalMeetsBar: literal.meetsBar,
   };
 }
 
@@ -567,11 +767,16 @@ export function readingOf(
   containment: Containment,
   resolution: Resolution,
   vocabulary: Vocabulary,
+  population: Population,
 ): CoverageReading {
   const found = readings.find(
-    (r) => r.containment === containment && r.resolution === resolution && r.vocabulary === vocabulary,
+    (r) =>
+      r.containment === containment &&
+      r.resolution === resolution &&
+      r.vocabulary === vocabulary &&
+      r.population === population,
   );
-  if (!found) throw new Error(`no reading for ${containment}/${resolution}/${vocabulary}`);
+  if (!found) throw new Error(`no reading for ${containment}/${resolution}/${vocabulary}/${population}`);
   return found;
 }
 
@@ -581,21 +786,34 @@ const pct = (n: number): string => `${(n * 100).toFixed(1)}%`;
 export function formatPathRootCensus(census: PathRootCensus): string {
   const lines: string[] = [];
   lines.push(
-    `path-root coverage: ${census.meetsBar ? "MEETS" : "MISSES"} the ${pct(PATH_ROOT_RULE.bar)} bar — ` +
-      `${pct(census.headline.share)} of ${census.headline.total} failed paths under ${PATH_ROOT_RULE.maxRoots} roots`,
+    `path-root coverage: ${census.meetsBar ? "MEETS" : "MISSES"} the ${pct(PATH_ROOT_RULE.bar)} bar where a root does work — ` +
+      `${pct(census.headline.share)} of ${census.headline.total} failed paths that carry a head`,
+  );
+  lines.push(
+    `read literally (all four names, every failed path) it ${census.literalMeetsBar ? "MEETS" : "MISSES"} it: ` +
+      `${pct(census.literal.share)} of ${census.literal.total}`,
   );
   lines.push(
     `read from ${census.sessions} sessions, ${census.calls} calls, ${census.errors} failures ` +
-      `(${census.unnamed} named nothing, ${census.notAPath} named a flag, ${census.deniedPaths} were denials)`,
+      `(${census.unnamed} named nothing, ${census.notAPath} named a flag, ${census.deniedPaths} were denials); ` +
+      `${census.cdAdjusted} calls ran somewhere other than the session's directory`,
   );
   lines.push(`readings ${census.readingDecides ? "DISAGREE" : "agree"} about the bar`);
+  lines.push(
+    `${census.relativeCovered.covered}/${census.relativeCovered.relative} relative failures are covered by construction ` +
+      `(the project root is derived from the directory they resolve against)`,
+  );
+  lines.push(
+    `head errors — the class a root prevents: ${census.headErrors.headErrors} of ${census.headErrors.constructedHeads} ` +
+      `constructed heads (${census.headErrors.headErrorsLooseTail} on a one-segment tail)`,
+  );
   for (const group of [
     { label: "failed", readings: census.failures },
     { label: "worked", readings: census.successes },
   ]) {
     for (const r of group.readings) {
       lines.push(
-        `  ${group.label} ${r.containment}/${r.resolution}/${r.vocabulary}: ` +
+        `  ${group.label} ${r.containment}/${r.resolution}/${r.vocabulary}/${r.population}: ` +
           `${pct(r.share)} (${r.covered}/${r.total}, ${r.outside} outside, ${r.unresolvable} unresolvable) ` +
           `project ${r.byRoot.project} vault ${r.byRoot.vault} logs ${r.byRoot.logs} home ${r.byRoot.home}`,
       );
