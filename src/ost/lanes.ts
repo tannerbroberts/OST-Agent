@@ -351,6 +351,13 @@ export interface LaneSuggestion {
   why: string;
   /** The whole sentence the triggering phrase sits in — never just the phrase. */
   sentence: string;
+  /**
+   * The matched marker on its own, as it appears in `sentence`. Carried
+   * separately because `why` wraps it in prose, and a caller checking whether
+   * the sentence *qualifies* the marker needs to know where the marker sits —
+   * see `src/knowledge/clarity.ts`, whose negation check is positional.
+   */
+  phrase: string;
 }
 
 /**
@@ -372,6 +379,7 @@ export function suggestCaution(test: OstNode): LaneSuggestion | undefined {
         lane: CAUTIOUS_LANE,
         why: `names an outside person: "${hit[0]}" — "${sentence}"`,
         sentence,
+        phrase: hit[0],
       };
     }
   }

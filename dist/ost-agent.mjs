@@ -45739,7 +45739,8 @@ ${test.body ?? ""}`;
       return {
         lane: CAUTIOUS_LANE,
         why: `names an outside person: "${hit[0]}" \u2014 "${sentence}"`,
-        sentence
+        sentence,
+        phrase: hit[0]
       };
     }
   }

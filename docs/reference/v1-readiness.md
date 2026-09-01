@@ -3204,12 +3204,21 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,619 tests across 342 files, verified 2026-08-31 (`npx vitest run`
-> reports 4,611 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,628 tests across 343 files, verified 2026-08-31 (`npx vitest run`
+> reports 4,620 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,611 across
-> the 341 files it collects, in 356 s. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,620 across
+> the 342 files it collects, in 235 s. The file added since the previous line is
+> `test/knowledge/refuse-when-unclear-suppression.test.ts` — the instrument for "Count how
+> many of this vault's recommendations would go silent under a refuse-when-unclear rule"
+> (`src/knowledge/clarity.ts`, `src/ost/recommendation-census.ts`): the rule that refuses to
+> recommend when a source cannot be read into exactly one answer, replayed over the three
+> surfaces a vault renders and counted per surface rather than pooled. On `ost-agent-meta` it
+> costs prose-lane 0 of 105, caution-hint 29 of 119 and hygiene 0 of 12 — every surface past
+> the 70% the node fixed before the count was run. Both modules sit on the
+> `module-reachability` debt register on purpose: the assumption test asked for a price, not
+> an adoption. The line before it was
 > `test/mcp/instrument-red-now-guard.test.ts` — the instrument for "Refuse an instrument that
 > passes on arrival" (`src/ost/red-now.ts`, `security/tools.ts:redNowRefusal`): where an
 > operator granted it (`instruments.runOnWrite`, off by default) the write boundary now RUNS

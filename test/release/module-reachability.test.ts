@@ -221,6 +221,33 @@ const KNOWN_UNREACHABLE: Record<string, string> = {
    */
   "src/telemetry/quarantine-expiry.ts":
     "built and tested; parked because its own sweep refuted the period the mechanism would need, and nothing here holds a quarantine list to expire",
+  /*
+   * The refuse-when-unclear rule and the counter that prices it — a decider that
+   * says whether a source reads into exactly one answer, and a replay of it over
+   * the recommendation surfaces a vault already renders
+   * (`test/knowledge/refuse-when-unclear-suppression.test.ts`).
+   *
+   * They are unwired because the assumption test that cleared them says so in as
+   * many words: "No new code beyond the counter; no node is written; nothing is
+   * classified." The permit was a cost measurement, and it came back inside the
+   * bar — prose-lane 105/105, caution-hint 90/119, hygiene 12/12 on
+   * `ost-agent-meta`, all past the 70% the node fixed in advance. Passing the
+   * cost test is not being chosen: the node's own siblings ("Every
+   * machine-selected quote carries the sentence it was cut from", "Mark what the
+   * machine chose differently from what a human wrote") answer the same
+   * opportunity a different way, none has been compared against the others, and
+   * the test states plainly that the count says nothing about whether the
+   * suppressed recommendations were the wrong ones. Wiring the refusal into
+   * `lanes`/`next_work` on the strength of an affordability number would be
+   * answering a product question with a commit.
+   *
+   * They come off when the vault picks this sibling over the others and a surface
+   * adopts `readSource`, or go when the solution is deferred.
+   */
+  "src/knowledge/clarity.ts":
+    "built and tested; parked pending the vault's choice between this and its sibling solutions, which the cost count does not settle",
+  "src/ost/recommendation-census.ts":
+    "built and tested; parked with the rule it prices — the assumption test asked for a count, not an adoption",
 };
 
 /*
