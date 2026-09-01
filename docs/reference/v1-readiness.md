@@ -3204,16 +3204,35 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,869 tests across 355 files, verified 2026-09-01 (`npx vitest run`
-> reports 4,861 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,886 tests across 358 files, verified 2026-09-01 (`npx vitest run`
+> collects 357 of the files and finished green at 4,886 in **321 s**).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
-> directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-09-01 finished at 4,861 across
-> the 354 files it collects. Wall clock is reported as a range because it keeps coming back
-> as one: the same commit has measured **207 s and 341 s**, then **210 s and 394 s**, and this
-> line's two runs came back at **223 s and 413 s** — a 1.9× spread with no code between them,
-> and the widest yet, which is worth knowing before anyone reads a single timing as a
-> regression. The file added since the previous line is
+> directory and fails this document if the two disagree. The **test** count is measured
+> rather than derived, from that same run. Wall clock is reported as a range because it keeps
+> coming back as one: the same commit has measured **207 s and 341 s**, then **210 s and
+> 394 s**, then **223 s and 413 s** — a 1.9× spread with no code between them, which is worth
+> knowing before anyone reads a single timing as a regression. The three files added since the
+> previous line are `test/loop/kill-restart-idempotence.test.ts` — the instrument for
+> "Kill-at-random-points restart test", the assumption test beneath "Resumable append-only
+> process journal" — with `test/loop/resume.test.ts` and `test/fs/atomic-write.test.ts` under
+> it (`src/loop/resume.ts`, `src/fs/atomic-write.ts`). It came out **20 of 20 against a bar
+> that is 20 of 20**: a real pass is killed at every one of the twenty instants it has and
+> restarted, and each restart leaves a vault that passes the invariants, holds each node once
+> with its appended section present exactly once, has no unparseable file, and holds no lock.
+> Three findings the node did not carry. **The pass had to be able to ask the vault, not only
+> the journal**: `journal.ts` records a step *after* it completes, so the last step of an
+> interrupted run is systematically unrecorded, and a resumer reading the journal alone
+> re-runs it — six of the twenty points land in exactly that window, and before
+> `src/loop/resume.ts` every one of them either duplicated an appended section or threw "node
+> already exists". **The threshold's "no partial nodes" clause was not reachable by the test
+> that names it**: a seeded kill can only land between operations, and 64MB through
+> `writeFileSync` reaches the page cache in 23 ms, so no kill-at-a-point harness can land
+> inside a byte write. The property is now true by construction — every node write stages to a
+> temporary file and renames it into place — and checked by inode rather than by racing it.
+> **Twenty enumerated points beat twenty seeded draws here**: the pass exposes exactly twenty
+> interior instants, so the test takes all of them, which removes the seed from the argument;
+> what it does not remove is the node's own caveat that twenty points are the moments an
+> author imagined. The line before it was
 > `test/release/registry-propagation-lag.test.ts` — the instrument for "Replay the last ten
 > releases and count how many a pull-at-start instance would have received", the assumption
 > test beneath "Resolve the newest published version at pass start and refuse to run silently
