@@ -34,6 +34,7 @@ import {
   MINIMAL_SETTINGS,
   PLUGIN_KEY,
 } from "../../src/config/setup-check.js";
+import { renderVaultDeclaration, runningServerArtifact } from "../../src/config/vault-declaration.js";
 
 /** The project directory a session opens — rebuilt per case. */
 let project: string;
@@ -155,5 +156,48 @@ describe("the remaining ways the canonical file can fail", () => {
     expect(d.ok).toBe(false);
     expect(d.gap).toBe("plugin-disabled");
     expectNamesFileAndLine(formatSetupDiagnosis(d));
+  });
+});
+
+/**
+ * The second route to the same tools, and the reason this check had to learn
+ * about it: a directory carrying its own `.mcp.json` launches the server with no
+ * plugin and no `enabledPlugins` line anywhere. Told to add one, an operator
+ * would be adding a *second* copy of a server they already have — the false
+ * accusation this check's own header says it must never produce.
+ */
+describe("a directory that declares its own tool server", () => {
+  /** A declaration naming an artefact that is really on disk. */
+  function declare(artifact: string): void {
+    fs.writeFileSync(path.join(project, ".mcp.json"), renderVaultDeclaration(artifact));
+  }
+
+  test("is not accused of a missing settings file — it carries its own tools", () => {
+    declare(runningServerArtifact() as string);
+    const d = diagnoseSetup(project);
+    expect(d.ok).toBe(true);
+    expect(d.gap).toBeNull();
+    expect(d.enabledBy).toBe(path.join(project, ".mcp.json"));
+    // And the report says which of the two routes answered, because they are
+    // different facts: one follows the directory, the other follows the vault.
+    expect(formatSetupDiagnosis(d)).toMatch(/declares the ost-agent server itself/);
+  });
+
+  test("a declaration naming an artefact that is not on disk is NOT called OK", () => {
+    // The false-OK mirror image: present configuration, absent tools, and a
+    // check that says the setup is fine is exactly as expensive as one that
+    // says a correct setup is broken.
+    declare(path.join(project, ".ost-agent", "bin", "ost-agent.mjs"));
+    const d = diagnoseSetup(project);
+    expect(d.ok).toBe(false);
+    expect(d.gap).toBe("settings-file-missing");
+  });
+
+  test("a declaration for some other server enables nothing here", () => {
+    fs.writeFileSync(
+      path.join(project, ".mcp.json"),
+      JSON.stringify({ mcpServers: { "some-other-tool": { command: "node", args: ["x.mjs"] } } }),
+    );
+    expect(diagnoseSetup(project).ok).toBe(false);
   });
 });

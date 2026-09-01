@@ -74,6 +74,7 @@ import { Command } from "commander";
 import { buildPassContext } from "../runner/context.js";
 import { loadConfig, readConfig } from "../config/load.js";
 import { diagnoseSetup, formatSetupDiagnosis } from "../config/setup-check.js";
+import { describeVaultDeclaredLoad, loadVaultDeclaredTools } from "../mcp/vault-declared.js";
 import { ailingChannels, allChannels, channelHealth, FRICTION_CHANNEL_PATH, renderChannels } from "../adapters/channels.js";
 import { initVault } from "../runner/init.js";
 import { prepareWorkspace } from "../runner/workspace.js";
@@ -412,6 +413,26 @@ program
         break;
       case "skipped":
         console.log(`  ⚠ tools: NOT enabled automatically — ${r.toolEnabling.reason}`);
+        break;
+    }
+    // Reported separately from `toolEnabling` because they answer different
+    // questions: that one is "does the project you have open launch the tools",
+    // this one is "does the vault carry them". An operator who moves the vault
+    // only keeps the second.
+    switch (r.toolDeclaration.status) {
+      case "written":
+        console.log(
+          `  declaration: ${r.toolDeclaration.file} — this vault now declares its own tool server` +
+            (r.toolDeclaration.carried
+              ? " and carries the copy it names, so it keeps its tools on any machine"
+              : `, naming ${r.toolDeclaration.server} on this machine`),
+        );
+        break;
+      case "already-declared":
+        console.log(`  declaration: already present (${r.toolDeclaration.file})`);
+        break;
+      case "skipped":
+        console.log(`  ⚠ declaration: NOT written — ${r.toolDeclaration.reason}`);
         break;
     }
     // The absolute path off `initVault`, not a path re-derived here: the folder the
@@ -893,6 +914,15 @@ program
     const userSettings = path.join(os.homedir(), ".claude", "settings.json");
     const d = diagnoseSetup(project, { extraSettingsFiles: [userSettings] });
     console.log(formatSetupDiagnosis(d));
+    // The second route, reported whenever the directory has anything to say
+    // about it: a `.mcp.json` the directory carries launches the server with no
+    // plugin at all. Said out loud even when the plugin route already answered,
+    // because a declaration that is present and broken otherwise gets diagnosed
+    // as the *settings* file being missing — true, and not the useful fact.
+    const declared = loadVaultDeclaredTools(project);
+    if (declared.ok || fs.existsSync(declared.file)) {
+      console.log(`\n${declared.ok ? "OK — " : "⚠ "}${describeVaultDeclaredLoad(declared)}`);
+    }
     if (!d.ok) process.exitCode = 1;
   });
 
