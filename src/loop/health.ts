@@ -414,8 +414,17 @@ export function stampFallback(dir: string, fallback: FallbackRecord): LoopRunRec
  * blind. It sits below the step and phase checks for the same reason `degraded`
  * does: a red step is a failure this one has nothing to add to.
  */
-/** Whether a step's own exit code, not the run's derived verdict, was non-zero. */
-export function stepFailed(step: LoopStepRecord): boolean {
+/**
+ * Whether a step's own exit code, not the run's derived verdict, was non-zero.
+ *
+ * Typed on the one field it reads rather than on {@link LoopStepRecord}, so a
+ * reader holding a step from anywhere — a fixture, a replayed line, a projection
+ * of the ledger — asks this rather than writing `exit !== 0` a second time.
+ * `test/runner/suite-result-consumer-census.test.ts` counts the files that
+ * compare a step exit to zero, and a second definition is exactly the drift it
+ * exists to catch.
+ */
+export function stepFailed(step: { readonly exit: number }): boolean {
   return step.exit !== 0;
 }
 
