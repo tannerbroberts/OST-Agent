@@ -18,6 +18,13 @@ import { buildPassContext } from "./context.js";
 import { INIT_TRACE_TOOL, drainCreatedNodeFiles, recordUsageEvent, usageLogPath } from "../telemetry/usage.js";
 import { diagnoseSetup } from "../config/setup-check.js";
 import { mergeEnablingConfig } from "../config/settings-merge.js";
+import {
+  declaredServerPath,
+  readVaultDeclaration,
+  renderVaultDeclaration,
+  runningServerArtifact,
+  vaultDeclarationPath,
+} from "../config/vault-declaration.js";
 
 /**
  * Write the event that lets the trace be read as a denominator (W2, W3).
@@ -111,6 +118,8 @@ export interface InitResult {
   channelProblems: string[];
   /** What happened when `init` tried to make the vault's tools launch on their own. */
   toolEnabling: ToolEnablingOutcome;
+  /** What happened when `init` tried to make the vault carry its own tool server. */
+  toolDeclaration: ToolDeclarationOutcome;
 }
 
 export type ToolEnablingOutcome =
@@ -120,6 +129,63 @@ export type ToolEnablingOutcome =
   | { status: "enabled"; file: string }
   /** Left the file untouched, and why. */
   | { status: "skipped"; reason: string };
+
+export type ToolDeclarationOutcome =
+  /**
+   * Wrote `<vault>/.mcp.json`. `carried` is whether it names a copy of the server
+   * the vault holds (portable to any machine) or the artefact on this one.
+   */
+  | { status: "written"; file: string; server: string; carried: boolean }
+  /** The vault already declares a usable server — never rewritten. */
+  | { status: "already-declared"; file: string }
+  /** Left it alone, and why. */
+  | { status: "skipped"; reason: string };
+
+/**
+ * Make the vault carry its own tool server, so moving or copying it does not
+ * leave the tools behind.
+ *
+ * The sibling fix above this one — writing `enabledPlugins` into the vault's
+ * `.claude/settings.json` — closes the observed failure but keeps the shape that
+ * produced it: the thing that launches the tools is a *project* setting, and the
+ * project is whichever directory the session opened. This writes the other half,
+ * a `.mcp.json` at the vault root that names the server and binds it to
+ * `${CLAUDE_PROJECT_DIR}`. Both are written; they are not alternatives, because
+ * an operator whose project already enables the plugin should not have a second
+ * server show up, and one whose project does not should still get tools.
+ *
+ * Three refusals, each of which would otherwise produce a file that fails at
+ * launch rather than at setup — the failure mode this whole line of work exists
+ * to stop being silent:
+ *
+ *   - **Never overwrites.** A declaration already at the vault root is the
+ *     operator's, possibly hand-edited, possibly naming a different install.
+ *   - **Never names an artefact that is not there.** `declaredServerPath`
+ *     returns `null` when it cannot find one, and a `null` is reported rather
+ *     than guessed around.
+ *   - **Never touches a file it could not parse.** A `.mcp.json` that exists and
+ *     is malformed is reported with the reason, because it may be declaring
+ *     other servers the operator cares about more than this one.
+ */
+function writeToolDeclaration(abs: string): ToolDeclarationOutcome {
+  const file = vaultDeclarationPath(abs);
+  const existing = readVaultDeclaration(abs);
+  if (existing.status === "found") return { status: "already-declared", file };
+  if (existing.status === "problem" && fs.existsSync(file)) {
+    return { status: "skipped", reason: `${file} exists and ${existing.reason} — not overwriting a file this vault already carries` };
+  }
+
+  const server = declaredServerPath(abs, runningServerArtifact());
+  if (!server) {
+    return {
+      status: "skipped",
+      reason: `no ost-agent.mjs found to name — a declaration pointing at an artefact that is not on disk fails at launch instead of here`,
+    };
+  }
+
+  fs.writeFileSync(file, renderVaultDeclaration(server.path), "utf8");
+  return { status: "written", file, server: server.path, carried: server.carried };
+}
 
 /**
  * Make opening this vault enough to get its tools, by writing the same
@@ -242,6 +308,7 @@ export async function initVault(dir: string, outcome: string, outcomeTitle?: str
   // Before the commit below, so a freshly-created vault's very first commit
   // is the one that makes its own tools launch — no second, invisible step.
   const toolEnabling = writeToolEnablingConfig(abs);
+  const toolDeclaration = writeToolDeclaration(abs);
 
   let outcomeCreated = false;
   if (!ctx.vault.has(rootTitle)) {
@@ -285,6 +352,7 @@ export async function initVault(dir: string, outcome: string, outcomeTitle?: str
     inboxConfined,
     channelProblems: resolved.problems,
     toolEnabling,
+    toolDeclaration,
     ...(gitignored ? { gitignored } : {}),
   };
 }

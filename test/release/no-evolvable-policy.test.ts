@@ -441,6 +441,18 @@ describe("the unattended surface writes no policy into the vault", () => {
     expect(fs.readFileSync(settingsFile).equals(original)).toBe(true);
   }, SURFACE_TIMEOUT_MS);
 
+  test("the tool-server declaration `init` wrote is unchanged, byte for byte", async () => {
+    // `.mcp.json` is the same bucket again, and it earns its own pin rather than
+    // riding on the exemption below: it is the file that says which server runs
+    // against this vault, so a surface that could edit it could change what
+    // operates on the tree from inside the tree. `writeToolDeclaration` is called
+    // only from `initVault`, and this is the surface-side half of that claim.
+    const declaration = path.join(dir, ".mcp.json");
+    const original = fs.readFileSync(declaration);
+    await exerciseSurface();
+    expect(fs.readFileSync(declaration).equals(original)).toBe(true);
+  }, SURFACE_TIMEOUT_MS);
+
   test("nothing it wrote is a policy file, anywhere in the vault", async () => {
     const { after } = await exerciseSurface();
     const policy = after.filter((rel) => rel !== CONFIG_FILENAME && POLICY_SHAPED.test(path.basename(rel)));
@@ -453,15 +465,18 @@ describe("the unattended surface writes no policy into the vault", () => {
     // unwritable rather than merely unwritten — a new kind of file has to be a
     // deliberate change to this test.
     //
-    // `.claude/settings.json` is the one other exception, in the same bucket
-    // as `CONFIG_FILENAME`: `init` writes it (the fix for the four toolless
-    // scheduled passes — `setup-check.ts`), never the unattended MCP surface,
-    // and the test above pins that it is never rewritten once exercised.
+    // `.claude/settings.json` and `.mcp.json` are the two other exceptions, in
+    // the same bucket as `CONFIG_FILENAME`: `init` writes both (the two answers
+    // to the four toolless scheduled passes — enable the plugin for the project,
+    // and have the vault declare its own server), never the unattended MCP
+    // surface, and the two tests above pin that neither is rewritten once
+    // exercised.
     const { after } = await exerciseSurface();
     const stray = after.filter((rel) => {
       if (rel.startsWith(".ost-agent/")) return false;
       if (rel === CONFIG_FILENAME) return false;
       if (rel === path.join(".claude", "settings.json")) return false;
+      if (rel === ".mcp.json") return false;
       return path.dirname(rel) !== "." || !rel.endsWith(".md");
     });
     expect(stray).toEqual([]);

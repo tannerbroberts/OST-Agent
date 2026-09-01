@@ -16,6 +16,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { VAULT_DECLARATION_FILENAME, usableVaultDeclaration } from "./vault-declaration.js";
 
 /** The key Claude Code looks up: `<plugin>@<marketplace>`, both `ost-agent`. */
 export const PLUGIN_KEY = "ost-agent@ost-agent";
@@ -113,6 +114,18 @@ export function diagnoseSetup(
   const enabledBy = candidates.find(enables);
   if (enabledBy) return { ...base, ok: true, gap: null, enabledBy };
 
+  // A directory that carries its own `.mcp.json` launches the server directly,
+  // with no plugin and no `enabledPlugins` line anywhere. That path is the whole
+  // point of the vault carrying its tools, and a check that still reported
+  // "MISSING FILE" for it would be the false alarm this function must never
+  // produce — telling an operator to add a line that would enable a *second*
+  // copy of a server they already have.
+  // Usable, not merely present: a declaration naming an artefact that is not on
+  // disk produces exactly the silence this check exists to break, so calling it
+  // OK would be the false alarm's mirror image and just as expensive.
+  const declared = usableVaultDeclaration(projectDir);
+  if (declared.ok) return { ...base, ok: true, gap: null, enabledBy: declared.file };
+
   // Nothing enables the plugin. Say which of the four ways the canonical file
   // is failing to, so the report is a fix rather than a verdict.
   if (!fs.existsSync(canonical)) return { ...base, ok: false, gap: "settings-file-missing" };
@@ -135,6 +148,18 @@ export function diagnoseSetup(
  */
 export function formatSetupDiagnosis(d: SetupDiagnosis): string {
   if (d.ok) {
+    // Two ways to be right, and they are not the same fact: the plugin route is
+    // a setting in a project that may or may not be the vault, the declaration
+    // route is the vault carrying its own server. Saying which one answered is
+    // the difference between "these tools follow this directory" and "these
+    // tools follow this vault wherever it goes".
+    if (d.enabledBy?.endsWith(VAULT_DECLARATION_FILENAME)) {
+      return [
+        `OK — ${d.enabledBy} declares the ost-agent server itself.`,
+        "This directory carries its own tools: no plugin, no enabledPlugins line, and",
+        "nothing to re-do if it is moved or copied somewhere else.",
+      ].join("\n");
+    }
     return [
       `OK — ${d.enabledBy} enables ${PLUGIN_KEY}.`,
       "A session opened on this project launches the vault's tools.",

@@ -3204,10 +3204,13 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,964 tests across 361 files, verified 2026-09-01 (`npx vitest run`
-> collects 360 of the files and finished green at 4,964 in **406 s**; the same suite on the
-> same machine, with the same content, measured **237 s** twenty minutes earlier, and **491 s**
-> and **248 s** earlier the same day; an
+> *Today:* **met** — 4,976 tests across 362 files, verified 2026-09-01 (`npx vitest run`
+> collects 361 of the files and finished green at 4,976 in **478 s**; the same suite on the
+> same machine, with the same content, measured **416 s**, **406 s**, **237 s**, **491 s**
+> and **248 s** earlier the same day — and the 416 s run failed
+> `test/telemetry/work-units-vs-elapsed.test.ts` on a ratio spread of 5.5 against a bar of 4,
+> which the 478 s run and an isolated run both pass: its measured section is `ost_next_work`
+> alone, and the file added in this batch touches only fixture setup outside that window; an
 > earlier run with a foreground game at 44% of CPU took **959 s** and
 > failed eight tests on wall clock alone, every one of them green run by itself).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
@@ -3216,7 +3219,35 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > coming back as one: the same commit has measured **207 s and 341 s**, then **210 s and
 > 394 s**, then **223 s and 413 s** — a 1.9× spread with no code between them, which is worth
 > knowing before anyone reads a single timing as a regression. The file added since the
-> previous line is `test/runner/workspace-reconcile-states.test.ts` — the instrument for "Put
+> previous line is `test/mcp/vault-declared-tool-load.test.ts` — the instrument for "Try to
+> load the tools from inside the vault directory at all", the assumption test beneath "Ship
+> the vault and its tools as one unit, so there is no second step to miss"
+> (`src/config/vault-declaration.ts`, `src/mcp/vault-declared.ts`, written by `initVault`).
+> It clears the bar the node pre-committed — a vault opened from an unrelated working
+> directory yields its tools — from both ends: the surface is resolved in process with
+> `process.chdir` set to a directory with no relationship to the vault, and the command the
+> vault's own `.mcp.json` names is then **spawned** from that same unrelated cwd with
+> `OST_VAULT` stripped from the child's environment, so nothing but the declaration can be
+> supplying the answer; both come back with all 23 `ost_*` tools, and a write through each
+> lands in the declared vault rather than the cwd. Three findings the node did not carry.
+> **The feasibility question came back yes, but for the `.mcp.json` mechanism rather than the
+> plugin one** — the node's premise was that this "may simply not be possible within the
+> host's plugin model", and it is not: `enabledPlugins` is a *project* setting and no
+> packaging changes that. The answer is a different mechanism the node did not name, the
+> project-scoped server declaration, which is why this lands beside the existing
+> `.claude/settings.json` fix rather than replacing it. **A vault carrying its own
+> declaration can be more broken than one carrying none**: a declaration naming an artefact
+> that is not on disk produces exactly the observed silence — present configuration, absent
+> tools — so `usableVaultDeclaration` checks the named artefact exists and `diagnoseSetup`
+> refuses to call a parse-only declaration OK, which is the false-OK mirror of the false
+> accusation that check already forbids. **The "one unit" is not one unit yet**: nothing
+> copies the 2.7 MB artefact into the vault, so a declaration written on this machine names
+> an absolute path and stops working the moment the vault is carried to another one. The load
+> path already prefers a vault-carried copy at `.ost-agent/bin/ost-agent.mjs` when one is
+> there; putting one there is the packaging decision the node explicitly excluded, and what
+> green here does NOT settle — along with the upgrade story for a vault carrying its own
+> server and whether an operator wants their vault to be executable at all. The line before
+> it was `test/runner/workspace-reconcile-states.test.ts` — the instrument for "Put
 > a worktree into each dirty state and check the reconciler's verdict on every one", the
 > assumption test beneath "Setup reconciles the workspace it finds instead of assuming there
 > isn't one" (`src/runner/workspace-reconcile.ts`, wired as `ost-agent reconcile-workspace`).

@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- **A vault now carries its own tool server, so opening it is enough — and the feasibility
+  answer came back yes for a mechanism the node had not named.** `init` writes `.mcp.json`
+  at the vault root declaring the `ost-agent` server and binding it to `${CLAUDE_PROJECT_DIR}`;
+  `readVaultDeclaration` resolves every path in it against the declaration's own directory,
+  never `process.cwd()`, so the tools follow the vault rather than the directory a session
+  happened to open. `ost-agent setup-check` reports the route, and a copy of a vault serves
+  the copy. Three findings came out of building it. **The premise under the candidate was
+  wrong in a useful way**: the node asked whether "the host's plugin model will load a tool
+  server declared from within the vault itself", and it will not — `enabledPlugins` is a
+  project setting and no packaging changes that. The answer is the project-scoped server
+  declaration instead, which is why this lands *beside* the existing `.claude/settings.json`
+  fix rather than replacing it. **A vault carrying a broken declaration is worse off than
+  one carrying none**: a declaration naming an artefact that is not on disk reproduces the
+  exact silence — present configuration, absent tools — that cost four scheduled passes, so
+  the artefact's existence is checked and `diagnoseSetup` will not call a merely-parseable
+  declaration OK. **It is not one unit yet**: nothing copies the 2.7 MB artefact into the
+  vault, so a declaration written here names an absolute path and stops working the moment
+  the vault moves to another machine. The load path already prefers a vault-carried copy at
+  `.ost-agent/bin/ost-agent.mjs`; putting one there is the packaging decision the assumption
+  test deliberately excluded.
+
 - **Setup can now look at the workspace it finds instead of asserting there isn't one — and
   the useful half of that turned out to be the refusals.** `ost-agent reconcile-workspace`
   classifies whatever is at a fixed workspace path into one of twelve states and returns a
