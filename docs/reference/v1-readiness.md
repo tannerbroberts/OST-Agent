@@ -3204,15 +3204,40 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,862 tests across 354 files, verified 2026-09-01 (`npx vitest run`
-> reports 4,854 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,869 tests across 355 files, verified 2026-09-01 (`npx vitest run`
+> reports 4,861 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-09-01 finished at 4,854 across
-> the 353 files it collects. Wall clock is reported as a range because it keeps coming back
-> as one: the previous line measured the same commit twice at **207 s and 341 s**, and this
-> line's two runs came back at **210 s and 394 s** — a 1.9× spread with no code between them,
-> which is worth knowing before anyone reads a single timing as a regression. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-09-01 finished at 4,861 across
+> the 354 files it collects. Wall clock is reported as a range because it keeps coming back
+> as one: the same commit has measured **207 s and 341 s**, then **210 s and 394 s**, and this
+> line's two runs came back at **223 s and 413 s** — a 1.9× spread with no code between them,
+> and the widest yet, which is worth knowing before anyone reads a single timing as a
+> regression. The file added since the previous line is
+> `test/release/registry-propagation-lag.test.ts` — the instrument for "Replay the last ten
+> releases and count how many a pull-at-start instance would have received", the assumption
+> test beneath "Resolve the newest published version at pass start and refuse to run silently
+> on a stale one" (`test/fixtures/release-propagation-lag/`,
+> `scripts/harvest-release-propagation-corpus.ts`). It came out **supported on the window the
+> node fixed and false in the present**, and the gap between those two is the finding. Nine of
+> the last ten versions cut on `main` were resolvable from the registry within 24 hours —
+> within *three minutes*, median 98 s — clearing a bar of 8 of 10. Three findings the node did
+> not carry. **The window decides the verdict**: over the whole 25-bump history the rate is 13
+> of 25, 52% against the same 80% bar, because the ten-release window lands entirely inside
+> one two-day burst (2026-07-26 → 2026-07-27) when publishing worked. **The window misses the
+> node's own witness by two**: the assumption test's prose cited v0.10.0–v0.13.0 sitting
+> unpublished on `main` while `@latest` resolved 0.9.0, and that stretch is real and sits at
+> positions 12–15 — the node fixed a window that excludes the counter-evidence it named.
+> **The path no longer exists**: all fourteen versions the registry ever carried were
+> withdrawn wholesale at 2026-07-28T16:29:34.971Z, so `GET registry.npmjs.org/ost-agent`
+> answers 200 with zero live versions; 0.23.0, the newest release in the scored window and
+> still the local version, was committed four minutes and forty-two seconds *after* that
+> withdrawal; `main` has moved 382 commits since the last publish; and `package.json` is
+> `private`, with `RELEASING.md:20` stating there is no publish step and no npm package. A
+> pull-at-start mechanism resolves nothing here today, and the blocker is a publish credential
+> and a release discipline — upstream of any instance-side pull, and a different opportunity
+> from the one this solution sits under. Cost is ~1 s of suite time over a committed corpus.
+> The line before it was
 > `test/runner/path-root-coverage.test.ts` — the instrument for "Check how many past failed
 > paths fall inside a small set of nameable roots", the assumption test beneath "Resolve
 > every path against a declared root, so a wrong prefix cannot be constructed"
