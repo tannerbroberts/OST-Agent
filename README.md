@@ -511,7 +511,7 @@ unattended/scheduled operation — an external cron or GitHub Actions job invoki
 >
 > | | |
 > |---|---|
-> | **Vault** | `init` · `set-outcome` · `status` · `rollup` · `lineage` · `check` |
+> | **Vault** | `init` · `set-outcome` · `status` · `rollup` · `tree-view` · `lineage` · `check` |
 > | **Human-only verdicts** | `result` · `promote` · `retract` · `lane` · `lanes` |
 > | **What is owed** | `debt` · `gate` · `stranded` · `channels` |
 > | **Build permits** | `verify` · `buildable` |

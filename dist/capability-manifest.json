@@ -3,8 +3,8 @@
   "version": "0.23.0",
   "artifact": {
     "path": "dist/ost-agent.mjs",
-    "bytes": 2764389,
-    "sha256": "004eea5e4f0719cfc76794d63fd22bc5695111e6a067787e123ccb8bf3abf21f"
+    "bytes": 2778385,
+    "sha256": "f289682d13c48e2885451c3d4df918ce438ab6fa4dd41ba970187204008d00f5"
   },
   "capabilities": [
     {
@@ -451,6 +451,11 @@
       "name": "tournament",
       "surface": "cli-command",
       "fingerprint": "f02ed678e3f2bdcd9c8a56dd106f8d06d883fa6cd4e2cd3a8fdf601a05eccc2a"
+    },
+    {
+      "name": "tree-view",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
     },
     {
       "name": "usage-consent",

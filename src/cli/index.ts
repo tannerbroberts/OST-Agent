@@ -93,6 +93,8 @@ import { BUILD_CHECK_EXIT, formatBuildCheck, inheritedTreeBuildCheck } from "../
 import { RELEASE_KEY_PATH, renderVerdict, verifyRelease } from "../release/capability-manifest.js";
 import { findReleaseRoot, loadRelease } from "../release/capability-surface.js";
 import { renderRollup, rollupTree } from "../eval/rollup.js";
+import { DEFAULT_DEPTH, diffSinceVisit, renderTreeView } from "../eval/tree-view.js";
+import { DEFAULT_READER, lastVisit, recordVisit } from "../ost/visit.js";
 import { evidenceActors } from "../knowledge/actor-trust.js";
 import { legacyFallbackCensus, renderLegacyFallbackCensus } from "../ost/legacy-fallback.js";
 import { renderRoutes, routesFor } from "../ost/routes.js";
@@ -2662,6 +2664,35 @@ program
       return;
     }
     console.log(renderReflectionGauge(binding));
+  });
+
+program
+  .command("tree-view")
+  .description(
+    "the tree drawn outcome-first, led by exactly what changed since this reader last looked (records the visit " +
+      "unless --no-record)",
+  )
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option("--as <reader>", `whose visit this is — one record per reader (default: ${DEFAULT_READER})`, DEFAULT_READER)
+  .option("--depth <n>", `how many levels beneath the Outcome to draw (default: ${DEFAULT_DEPTH})`)
+  .option("--no-record", "look without moving this reader's marker — the next visit still diffs from the old one")
+  .action((opts: { vault: string; as: string; depth?: string; record: boolean }) => {
+    const ctx = buildPassContext(opts.vault);
+    const tree = ctx.vault.readTree();
+    const depth = opts.depth === undefined ? undefined : Number(opts.depth);
+    if (depth !== undefined && (!Number.isInteger(depth) || depth < 1)) {
+      console.error(`--depth takes a whole number of levels, at least 1 — got "${opts.depth}"`);
+      process.exitCode = 1;
+      return;
+    }
+    // Read the marker BEFORE writing the new one: the diff a reader gets is
+    // against where they were when they opened this, and a visit recorded first
+    // would diff the tree against itself and report a quiet, wrong "nothing
+    // moved" on every single view.
+    const previous = lastVisit(ctx.dir, opts.as);
+    const diff = diffSinceVisit(tree, previous, opts.as);
+    console.log(renderTreeView(tree, diff, { depth, recording: opts.record }));
+    if (opts.record) recordVisit(ctx.dir, opts.as, tree, new Date().toISOString());
   });
 
 program

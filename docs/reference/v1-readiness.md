@@ -3204,12 +3204,31 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,685 tests across 346 files, verified 2026-08-31 (`npx vitest run`
-> reports 4,677 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,696 tests across 347 files, verified 2026-09-01 (`npx vitest run`
+> reports 4,688 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,677 across
-> the 345 files it collects, in 192 s. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-09-01 finished at 4,688 across
+> the 346 files it collects, in 182 s. The file added since the previous line is
+> `test/cli/tree-view-diff-since-last-visit.test.ts` — the instrument for "A per-visit diff of
+> the tree can be computed from the vault alone" (`src/ost/visit.ts`, `src/eval/tree-view.ts`,
+> `ost-agent tree-view`): the feasibility half of "Rendered tree view with diff since last
+> visit", separated from the reader-measured half that four earlier passes correctly refused
+> to instrument. The diff is computed from the vault's own `## History` lines rather than from
+> the filesystem, which is what lets a merge report as **one** event instead of one deletion
+> plus N unrelated edits — and those N are exactly the false positives the node's bar (zero)
+> names: a node whose only change is a link repointed at the survivor, or an edge gained to a
+> node created in the same interval, is attached to the event that caused it and never listed
+> as a change of its own. What a green here does **not** settle is the reason the solution
+> exists — whether a reader is oriented faster — which is measured by a person and stays with
+> the assumption beside it. Two things the node did not carry. Its stated trade-off, that
+> "tree visualisations get unreadable as the opportunity space grows", is not a *size* problem
+> at the depth a reader opens: this vault's 1,606 nodes render in 18 KB and 143 lines in
+> 0.6 s, a third of the 48 KB `eval/render.ts` fixes as a render budget — so whatever makes
+> the view hard to read, it is not its length. And the assumption's first named failure mode —
+> that there may be no durable place to record when a particular reader last looked — needed
+> nothing new: the vault's own sidecar answers it (`<vault>/.ost-agent/visits/<reader>.json`),
+> which is why a fresh clone carries the visits with it. The line before it was
 > `test/release/push-first-blocked-census.test.ts` — the instrument for "Count how many past
 > releases a push-first rule would have blocked" (`src/release/push-first.ts`), the
 > adoptability figure beneath "Refuse to release from history that has not been pushed".
