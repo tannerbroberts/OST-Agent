@@ -3204,13 +3204,37 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,674 tests across 345 files, verified 2026-08-31 (`npx vitest run`
-> reports 4,666 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,685 tests across 346 files, verified 2026-08-31 (`npx vitest run`
+> reports 4,677 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,666 across
-> the 344 files it collects, in 259 s. The file added since the previous line is
-> `test/telemetry/unknown-context-refusal-cost.test.ts` — the instrument for "Measure how
+> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,677 across
+> the 345 files it collects, in 192 s. The file added since the previous line is
+> `test/release/push-first-blocked-census.test.ts` — the instrument for "Count how many past
+> releases a push-first rule would have blocked" (`src/release/push-first.ts`), the
+> adoptability figure beneath "Refuse to release from history that has not been pushed".
+> Every release this project ever cut is replayed against the precondition, reconstructed
+> from the clone's `origin/main` reflog: **3 of 24 refused on divergence the history can
+> prove — and all three were cut by the human, none by the loop.** That inverts the worry
+> the assumption test was written for, which was that a strict push-first rule "makes the
+> credential holder mandatory for every release": the loop's seventeen releases clear it
+> untouched, because the loop already releases from a tree it had just pulled. Two further
+> findings the candidate did not carry. First, the rule's cost is set by an implementation
+> detail the candidate costed away as "a `git rev-list --left-right --count` and a refusal":
+> `origin/main` is a *local* ref, and the same rule reading it without fetching refuses
+> **15 of 24 instead of 3** — a 5× swing from the fetch alone, which is why
+> `checkPushFirst` takes freshness as an input and cannot return an allow without it.
+> Second, the 2026-07-26 near-collision has an unfiled precedent: **v0.4.0** was cut from
+> `7c3f4c0`, a commit whose own subject is "merge: reunite the two development lines" —
+> seven local commits released unpushed, two days earlier. Half the history (12 of 24) is
+> **indeterminate** and reported as its own bucket rather than rounded into either answer —
+> git records no push times, so releases the loop cut from a checkout this clone only
+> learned about by fetching cannot be settled either way. The node's pre-committed
+> threshold — *≥50% of refusals judged genuinely problematic* — is deliberately **not**
+> asserted: it needs a person, one of the three (v0.23.0, a branch release) is the
+> legitimate case the candidate concedes it forbids, and a green run on the arithmetic read
+> as a validated candidate is the failure this document exists to prevent. The line before
+> it was `test/telemetry/unknown-context-refusal-cost.test.ts` — the instrument for "Measure how
 > much signal a refuse-on-unknown-context rule would delete"
 > (`src/telemetry/step-context.ts`, `src/telemetry/unknown-context-census.ts`,
 > `src/git/follow-up-sight.ts`): the price of "Refuse to record a step whose context could

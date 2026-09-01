@@ -40,6 +40,7 @@
  */
 import { spawnSync } from "node:child_process";
 import { CONDITIONAL_GATES, CORE_GATES, type Gate } from "./gates.declared.js";
+import type { ReleaseSyncState } from "./push-first.js";
 
 // What the gates COVER is declared in `gates.declared.ts` and nothing else lives
 // there, so a change to a gate's scope is a commit touching one file. Re-exported
@@ -65,6 +66,13 @@ export interface BranchState {
   readonly dirty: boolean;
   /** Commits this branch has that the default branch does not. */
   readonly ahead: number;
+  /**
+   * How the branch stands against the remote default branch, as classified by
+   * {@link ./push-first.ts}. Optional because most callers only need `ahead`;
+   * what it adds is the one value `ahead` cannot express — `"unknown"`, for a
+   * comparison that did not complete. Absent means the caller did not ask.
+   */
+  readonly syncState?: ReleaseSyncState;
 }
 
 /**
@@ -118,7 +126,16 @@ export function shipRefusals(state: BranchState): string[] {
       "refusing to ship with uncommitted changes: the gates would measure a working tree that is not what merges. Commit or stash first.",
     );
   }
-  if (state.ahead === 0 && state.branch !== state.defaultBranch) {
+  if (state.syncState === "unknown") {
+    // A comparison that did not run is not a branch with nothing on it. This
+    // used to arrive here as `ahead: 0` and got reported as "nothing to merge",
+    // which sends the reader looking for missing commits instead of for the
+    // missing remote-tracking ref that actually caused it.
+    reasons.push(
+      `refusing to ship "${state.branch}": could not compare it against origin/${state.defaultBranch}. ` +
+        "That is not the same as having nothing to merge — the check that would have said did not run.",
+    );
+  } else if (state.ahead === 0 && state.branch !== state.defaultBranch) {
     reasons.push(
       `refusing to ship "${state.branch}": it has no commits that ${state.defaultBranch} does not already have. There is nothing to merge.`,
     );

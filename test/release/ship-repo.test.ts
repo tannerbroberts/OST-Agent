@@ -214,3 +214,39 @@ describe("the mergeability race, which is not a check poll", () => {
     expect(outcome.summary).toContain("not shipped");
   });
 });
+
+describe("reading the branch against origin, and what an unreadable comparison says", () => {
+  test("a comparison that will not run refuses as itself, and never as an empty branch", () => {
+    // `git rev-list ... origin/main...HEAD` exits non-zero when there is no
+    // remote-tracking ref at all. That answer used to be caught and turned into
+    // `ahead: 0`, which the refusal then reported as "nothing to merge" — a
+    // sentence about commits, describing a missing ref.
+    const { run, calls } = harness({
+      "git rev-list --left-right --count origin/main...HEAD": {
+        status: 128,
+        output: "fatal: ambiguous argument 'origin/main...HEAD': unknown revision\n",
+      },
+    });
+    const outcome = ship({ repo: "/repo", run });
+
+    expect(outcome.shipped).toBe(false);
+    expect(outcome.refusals).toHaveLength(1);
+    expect(outcome.refusals[0]).toContain("could not compare");
+    expect(outcome.refusals[0]).not.toMatch(/There is nothing to merge\.$/);
+    // It refuses before anything is measured, so no gate ran and nothing merged.
+    expect(calls).not.toContain("npx tsc --noEmit");
+    expect(calls.some((c) => c.startsWith("gh pr merge"))).toBe(false);
+  });
+
+  test("output that is not two counts is unreadable, not agreement", () => {
+    // A `git` that exits 0 while printing something else must not be read as
+    // "0 behind, 0 ahead" — the same fail-open the exit-laundering rule refuses.
+    const { run } = harness({
+      "git rev-list --left-right --count origin/main...HEAD": { status: 0, output: "warning: something\n" },
+    });
+    const outcome = ship({ repo: "/repo", run });
+
+    expect(outcome.shipped).toBe(false);
+    expect(outcome.refusals.join(" ")).toContain("could not compare");
+  });
+});

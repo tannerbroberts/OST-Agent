@@ -21,6 +21,7 @@
  */
 import { spawnSync } from "node:child_process";
 import { branchCoverageRefusals } from "./gate-coverage.js";
+import { classifySync, parseDivergence, type Divergence } from "./push-first.js";
 import {
   allGates,
   gatesFor,
@@ -87,15 +88,20 @@ export function readBranchState(repo: string, defaultBranch: string, run: Runner
   // `ahead` is counted against the REMOTE default branch, because that is what
   // the merge target actually is. A stale local `main` would otherwise report a
   // branch as having work it has already landed.
-  let ahead = 0;
+  //
+  // The counts go through `push-first.ts` rather than through `Number(...)` so
+  // that a read which did not complete stays distinguishable from one that
+  // reported zero. Both used to land here as `ahead: 0`, and the refusal that
+  // followed said "nothing to merge" about a comparison that never ran.
+  let counts: Divergence | null = null;
   try {
-    const counts = git(repo, ["rev-list", "--left-right", "--count", `origin/${defaultBranch}...HEAD`], run);
-    ahead = Number(counts.split(/\s+/)[1] ?? 0);
+    counts = parseDivergence(git(repo, ["rev-list", "--left-right", "--count", `origin/${defaultBranch}...HEAD`], run));
   } catch {
-    // No remote-tracking ref yet. Nothing to compare against, so nothing to
-    // claim: leave ahead at 0 and let the refusal name it.
+    // No remote-tracking ref, no `origin`, or a git that would not run. Left
+    // null on purpose — `classifySync` turns that into `"unknown"`.
   }
-  return { branch, defaultBranch, dirty, ahead };
+  const syncState = classifySync(counts);
+  return { branch, defaultBranch, dirty, ahead: counts?.ahead ?? 0, syncState };
 }
 
 export interface ShipOptions {
