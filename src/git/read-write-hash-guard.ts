@@ -27,6 +27,7 @@
 import fs from "node:fs";
 import { createHash } from "node:crypto";
 import { renderSite, siteAtLine } from "../fs/current-text.js";
+import { temporaryWritePath } from "../fs/atomic-write.js";
 
 export interface ReadWithHash {
   readonly content: string;
@@ -64,7 +65,11 @@ export function readWithHash(filePath: string): ReadWithHash {
  *
  * Throws {@link DriftError} on mismatch, naming what drifted rather than
  * leaving the caller to guess. Never partially writes: the drift check runs
- * before the write, so a refusal leaves the file exactly as it was found.
+ * before the write, so a refusal leaves the file exactly as it was found — and
+ * the write itself is staged and renamed, so neither does a kill halfway
+ * through it. This is the vault's second node-file write door (`editProse`,
+ * `src/ost/vault.ts`), and it gets the atomicity the first one has for the same
+ * reason: see {@link ../fs/atomic-write.ts}.
  */
 export function writeWithHash(filePath: string, newContent: string, read: ReadWithHash): void {
   const currentContent = fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf8") : "";
@@ -75,7 +80,9 @@ export function writeWithHash(filePath: string, newContent: string, read: ReadWi
       currentTextAtDrift(read.content, currentContent, filePath);
     throw new DriftError(filePath, read.hash, currentHash, whatDrifted);
   }
-  fs.writeFileSync(filePath, newContent, "utf8");
+  const staged = temporaryWritePath(filePath);
+  fs.writeFileSync(staged, newContent, "utf8");
+  fs.renameSync(staged, filePath);
 }
 
 /**
