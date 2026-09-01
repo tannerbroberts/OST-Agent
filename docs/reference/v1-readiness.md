@@ -3204,12 +3204,27 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,628 tests across 343 files, verified 2026-08-31 (`npx vitest run`
-> reports 4,620 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,641 tests across 344 files, verified 2026-08-31 (`npx vitest run`
+> reports 4,633 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,620 across
-> the 342 files it collects, in 235 s. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-08-31 finished at 4,633 across
+> the 343 files it collects, in 313 s. The file added since the previous line is
+> `test/ost/unfixed-threshold-refusal-census.test.ts` — the instrument for "Replay all
+> existing tests to count how many a refusal would have blocked"
+> (`src/ost/refusal-census.ts`, `ost-agent threshold-refusal-census`): the dry run beneath
+> "Refuse to record a result against a threshold that was never fixed", which replays the
+> threshold classifier over every assumption test in a vault and lists the filings a refusal
+> at the `ost-agent result` write boundary would have stopped. Counted under **both** lines
+> this repository draws — `flag` (what `debt` calls unfixed) and `strict` (what `rollup` and
+> `confirmPermit` do) — because those two consumers already disagree about `prose` and a
+> single number would hide it. On `ost-agent-meta`: **0 of 497 blocked under the reading the
+> solution node names**, 72 of 497 (14.5%) under the strict one, and 497 of 497 assumption
+> tests have never recorded a result at all. The node's pre-committed bar is a
+> *false-refusal rate* judged by a person off the printed worksheet, so no bar is asserted
+> mechanically; what is asserted is that a rate over an empty set is reported as undefined
+> rather than as 0% cleared. `recordResult` is deliberately untouched and a test pins that.
+> The line before it was
 > `test/knowledge/refuse-when-unclear-suppression.test.ts` — the instrument for "Count how
 > many of this vault's recommendations would go silent under a refuse-when-unclear rule"
 > (`src/knowledge/clarity.ts`, `src/ost/recommendation-census.ts`): the rule that refuses to

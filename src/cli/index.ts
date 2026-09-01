@@ -101,6 +101,13 @@ import { lineageOf, renderLineage } from "../eval/lineage.js";
 import { reflectionBinding, renderReflectionGauge } from "../loop/reflection.js";
 import { BELIEVABILITY_LADDER, type RungId } from "../knowledge/believability.js";
 import { promoteNode, recordResult, retractNode, VERDICTS, type Verdict } from "../ost/results.js";
+import {
+  censusOfTree as censusRefusalsOfTree,
+  formatRefusalCensus,
+  formatReviewWorksheet,
+  REFUSAL_READINGS,
+  type RefusalReading,
+} from "../ost/refusal-census.js";
 import { recordOutcomeSignal, SIGNAL_VERDICTS, type SignalVerdict } from "../ost/outcome-signal.js";
 import { verifyInstrument } from "../ost/instrument.js";
 import { titlesMatch } from "../ost/sanitize.js";
@@ -982,6 +989,44 @@ program
   .action((opts: { vault: string }) => {
     const ctx = buildPassContext(opts.vault);
     console.log(renderDebt(ctx.vault.readTree()));
+  });
+
+/**
+ * The dry run beneath "Refuse to record a result against a threshold that was
+ * never fixed" — what the refusal would cost, before it exists.
+ *
+ * Report only, and deliberately a command rather than a library nobody can reach:
+ * the assumption test's verdict is a person's, made by reading the blocked list
+ * and judging each entry, so a census a human cannot run is a census that answers
+ * nothing. `--worksheet` prints that list with the classifier's verdict withheld,
+ * because the reviewer is meant to check the classifier rather than ratify it.
+ *
+ * Nothing here refuses a filing. `ost-agent result` is untouched, and the node's
+ * own sequencing says it stays that way until somebody has recorded a result under
+ * the current rules.
+ */
+program
+  .command("threshold-refusal-census")
+  .description(
+    "how many result filings a refusal-on-unfixed-threshold rule would have blocked, under each of the two readings this repo already holds (no model needed)",
+  )
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option(
+    "--worksheet <reading>",
+    `print the blocked list to judge, verdicts withheld (${REFUSAL_READINGS.join(" | ")})`,
+  )
+  .action((opts: { vault: string; worksheet?: string }) => {
+    const vault = path.resolve(opts.vault);
+    const both = censusRefusalsOfTree(new Vault(vault, { create: false }).readTree());
+    console.log(formatRefusalCensus(path.basename(vault), both));
+    if (opts.worksheet === undefined) return;
+    if (!REFUSAL_READINGS.includes(opts.worksheet as RefusalReading)) {
+      console.error(`ost-agent: "${opts.worksheet}" is not a reading — use one of: ${REFUSAL_READINGS.join(", ")}`);
+      process.exitCode = 1;
+      return;
+    }
+    console.log("");
+    console.log(formatReviewWorksheet(path.basename(vault), both[opts.worksheet as RefusalReading]));
   });
 
 program
