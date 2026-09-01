@@ -3204,16 +3204,62 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,869 tests across 355 files, verified 2026-09-01 (`npx vitest run`
-> reports 4,861 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,908 tests across 359 files, verified 2026-09-01 (`npx vitest run`
+> collects 358 of the files and finished green at 4,908 in **292 s**; an earlier run of this
+> same branch, on the same machine with a foreground game at 44% of CPU, took **959 s** and
+> failed eight tests on wall clock alone, every one of them green run by itself).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
-> directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-09-01 finished at 4,861 across
-> the 354 files it collects. Wall clock is reported as a range because it keeps coming back
-> as one: the same commit has measured **207 s and 341 s**, then **210 s and 394 s**, and this
-> line's two runs came back at **223 s and 413 s** — a 1.9× spread with no code between them,
-> and the widest yet, which is worth knowing before anyone reads a single timing as a
-> regression. The file added since the previous line is
+> directory and fails this document if the two disagree. The **test** count is measured
+> rather than derived, from that same run. Wall clock is reported as a range because it keeps
+> coming back as one: the same commit has measured **207 s and 341 s**, then **210 s and
+> 394 s**, then **223 s and 413 s** — a 1.9× spread with no code between them, which is worth
+> knowing before anyone reads a single timing as a regression. The file added since the
+> previous line is `test/release/timed-check-isolation-share.test.ts` — the instrument for
+> "Count how many timed checks would run somewhere that cannot guarantee isolation", the
+> assumption test beneath "Run the timed check under isolation, or do not let it fail the
+> build at all" (`src/release/timed-check-isolation.ts`,
+> `src/release/timed-checks.declared.ts`, `test/fixtures/timed-check-runs/`,
+> `scripts/harvest-timed-check-run-corpus.ts`). It came out **REFUTED at 34.0%** against a
+> bar of 50%: of 11,939 timed-check executions this project recorded in the thirty days to
+> 2026-09-01, 4,059 are on a GitHub-hosted runner and 7,880 are on the operator's laptop.
+> Every weekly sub-window lands between 30.2% and 36.5%, the reading is 34.5% over
+> whole-suite runs alone and 17.2% per invocation, and the corpus is an upper bound — the
+> runs it cannot see (terminal runs, `ost-agent ship`'s own gate) are all laptop runs. Three
+> findings the node did not carry. **One of its four locations does not exist**: the census
+> was designed around laptop, CI, scheduled pass and contributor machine, and the record
+> holds zero runs on a contributor's machine, because this project has one contributor.
+> **The isolation this repository already has points the wrong way**:
+> `test/eval/calibration-ratio-stability.test.ts` is the one check pulled out of the
+> parallel suite, it ran 11 times in the window, and all 11 were on the laptop — CI runs
+> `npm test` and nothing else, so the mechanism moved a check out of contention and out of
+> the only isolable location at the same time. **The subject is bigger than the checks that
+> assert on time**: `testTimeout: 20000` in `vitest.config.ts` is an absolute wall-clock bar
+> over all 4,908 tests, and the run that verified this census took 959 s against the range
+> above with a foreground game at 44% of CPU — six tests in
+> `test/ost/vault-merge-conflict-census.test.ts`, which times nothing, failed on that
+> timeout, and `test/loop/inherited-tree-build-check.test.ts` failed its 30-second bound at
+> 38.264 s, then took 1.775 s run alone. The line before it was
+> `test/loop/kill-restart-idempotence.test.ts` — the instrument for
+> "Kill-at-random-points restart test", the assumption test beneath "Resumable append-only
+> process journal" — with `test/loop/resume.test.ts` and `test/fs/atomic-write.test.ts` under
+> it (`src/loop/resume.ts`, `src/fs/atomic-write.ts`). It came out **20 of 20 against a bar
+> that is 20 of 20**: a real pass is killed at every one of the twenty instants it has and
+> restarted, and each restart leaves a vault that passes the invariants, holds each node once
+> with its appended section present exactly once, has no unparseable file, and holds no lock.
+> Three findings the node did not carry. **The pass had to be able to ask the vault, not only
+> the journal**: `journal.ts` records a step *after* it completes, so the last step of an
+> interrupted run is systematically unrecorded, and a resumer reading the journal alone
+> re-runs it — six of the twenty points land in exactly that window, and before
+> `src/loop/resume.ts` every one of them either duplicated an appended section or threw "node
+> already exists". **The threshold's "no partial nodes" clause was not reachable by the test
+> that names it**: a seeded kill can only land between operations, and 64MB through
+> `writeFileSync` reaches the page cache in 23 ms, so no kill-at-a-point harness can land
+> inside a byte write. The property is now true by construction — every node write stages to a
+> temporary file and renames it into place — and checked by inode rather than by racing it.
+> **Twenty enumerated points beat twenty seeded draws here**: the pass exposes exactly twenty
+> interior instants, so the test takes all of them, which removes the seed from the argument;
+> what it does not remove is the node's own caveat that twenty points are the moments an
+> author imagined. The line before it was
 > `test/release/registry-propagation-lag.test.ts` — the instrument for "Replay the last ten
 > releases and count how many a pull-at-start instance would have received", the assumption
 > test beneath "Resolve the newest published version at pass start and refuse to run silently

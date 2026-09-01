@@ -76,6 +76,16 @@ export type LoopVerdict = "healthy" | "unhealthy" | "no-op" | "crashed" | "degra
 export interface LoopStepRecord {
   phase: string;
   /**
+   * What this step DOES, named so a restart can recognise it — supplied by the
+   * resumable runner (`resume.ts`) and absent everywhere else.
+   *
+   * Distinct from `phase`, which names where in a firing the step sits and is
+   * reused across runs by design (`pass`, `check`). Two firings both have a
+   * `pass`; only one of them has `append:Alpha#3`, and skipping the second on
+   * the strength of the first is how a resumer loses work.
+   */
+  stepId?: string;
+  /**
    * The command as one display string — `argv.join(" ")`. Lossy by
    * construction (it cannot tell one spaced argument from two), and kept
    * because it is what a human reads the ledger for.
@@ -359,9 +369,39 @@ export function appendStep(dir: string, step: Omit<LoopStepRecord, "at">): LoopR
     runId: open.runId,
     phase: step.phase,
     command: step.command,
+    ...(step.stepId ? { stepId: step.stepId } : {}),
     ...(step.cwd ? { cwd: step.cwd } : {}),
     exit: step.exit,
     at,
+  });
+  return open;
+}
+
+/**
+ * Record that a step is about to be attempted — the intent half of the pair
+ * `resume.ts` reads.
+ *
+ * Journal only. The open-run marker is deliberately not touched: it is
+ * rewritten wholesale on every change, so a marker carrying attempts as well as
+ * completions would be a marker that can lose a completion and keep the attempt
+ * — precisely the overstatement the journal's whole design refuses. The ledger
+ * records what a firing DID; what it was in the middle of when it died is a
+ * fact about the interruption, and it lives in the append-only file that
+ * survives one.
+ *
+ * Requires an open run for the same reason `appendStep` does: an intent naming
+ * no run is an intent no restart can scope, and a resumer that adopted it would
+ * be replaying a step from a firing that already sealed.
+ */
+export function noteStepIntent(dir: string, intent: { stepId: string; phase: string; command: string }): LoopRunRecord {
+  const open = requireOpenRun(dir);
+  appendJournal(dir, {
+    kind: "intent",
+    runId: open.runId,
+    stepId: intent.stepId,
+    phase: intent.phase,
+    command: intent.command,
+    at: new Date().toISOString(),
   });
   return open;
 }

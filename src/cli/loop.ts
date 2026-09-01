@@ -42,6 +42,7 @@ import { lastNodeTouchedSince } from "../telemetry/node-touch.js";
 import { fallbackBanner, fallbackRefusalReport, runFallback } from "../loop/fallback.js";
 import { appendStep, readOpenRun, readRuns, sealRun, startRun, sweepCrashed } from "../loop/health.js";
 import { detectHandEdits, renderDriftReport } from "../git/hand-edit-detector.js";
+import { resumeState, resumeSummary } from "../loop/resume.js";
 import { readRunHistory, reconstructRuns, renderRunHistory } from "../loop/run-boundary.js";
 import { observeToolSurface } from "../loop/tool-surface-record.js";
 import {
@@ -919,6 +920,14 @@ export function registerLoopCommands(program: Command): void {
       // gate that fired at this point would leave both to be unwound; the wrapper
       // that wants to skip a quiet firing asks `loop stop` before any of that.
       const stopCondition = observeStopCondition(opts.vault);
+      // What the last firing left unfinished, read from the journal BEFORE this
+      // run opens — `startRun` sweeps the crashed marker, and the reading has to
+      // be of what this firing inherited rather than of what it has already
+      // tidied. Nothing is enforced on it; it is the sentence a run that died at
+      // hour two owes the person who comes back at hour eight, and the vault
+      // records the day there was none ("a backgrounded session leaves no marker
+      // of what it finished versus abandoned", 2026-07-24).
+      const inherited = resumeState(opts.vault);
       const opened = startRun(opts.vault, {
         loopVersion: VERSION,
         cliVersion: VERSION,
@@ -930,6 +939,10 @@ export function registerLoopCommands(program: Command): void {
       });
       stampFiringLock(opts.vault, lock.record, opened.runId);
       console.log(`loop run ${opened.runId} open`);
+      // On stderr and only when there is something to say: a firing that follows
+      // a clean seal inherits nothing, and a line saying so every time is a line
+      // nobody reads by the third one.
+      if (inherited.interrupted) console.error(resumeSummary(inherited));
       for (const line of goalContractReport(goal)) console.log(line);
       // Said at the top of the firing, on stderr when it holds, because the pass
       // about to run is entitled to know it is being held to this. A rule enforced

@@ -431,6 +431,15 @@ const OFF_GATE_DECIDER_MODULES: Record<string, string> = {
   // appended to enough, refuse every build pass on the vault.
   "reserve.ts":
     "the discovery reserve — decides whether a BUILD pass may spend the shared pool, not whether a firing may",
+  // The resumer reads the journal and decides, per step, whether a restart runs
+  // it, verifies it, or skips it. That is none of F1–F4's questions — they ask
+  // whether a firing may happen at all, this asks what is left of one that
+  // already did — so filing it under a Gate F criterion would attribute it to a
+  // verdict it does not compute. It takes the class's obligation instead: the
+  // journal is enumerated below (and, independently, under the health verdict),
+  // because a journal the unattended surface could append to would let a pass
+  // skip work by claiming it finished it.
+  "resume.ts": "the resumer — decides whether a killed run's step is re-run, not whether a firing may",
 };
 
 /**
@@ -458,6 +467,11 @@ const OFF_GATE_DECIDER_PATHS = (v: string): string[] => [
   dispatchLedgerPath(v)!,
   parityLedgerPath(v)!,
   buildPassesPath(v)!,
+  // The resumer's input. Also enumerated under the health verdict, and listed
+  // twice on purpose: the two classes prove different things about it, and a
+  // future change that took the journal off the health list would otherwise take
+  // it off this one silently.
+  journalPath(v),
 ];
 
 /**
@@ -482,9 +496,17 @@ function sampleCheckout(): string {
  * a reporter or a reader has to be shown to read *something*, and a module filed
  * as PURE must be shown to read nothing, which a git read would violate exactly
  * as an `fs` read does.
+ *
+ * `readJournal` is the arm after it, and the first that is a call into a sibling
+ * module rather than into a library. `resume.ts` opens no file in its own text;
+ * it reads `journal.jsonl` through the module that owns that file, and a class
+ * system that scored it "pure" for having no `fs.` of its own would be reporting
+ * the import graph rather than the reads. The arm makes the PURE assertion
+ * strictly stricter — a module that starts reading the journal can no longer sit
+ * in that class quietly — which is the direction this regex may move.
  */
 const FS_READ =
-  /\bfs\.(readFileSync|readdirSync|existsSync|statSync|lstatSync|realpathSync|openSync)\b|\bspawnSync\b|\bexecFileSync\b|\bsimpleGit\b/;
+  /\bfs\.(readFileSync|readdirSync|existsSync|statSync|lstatSync|realpathSync|openSync)\b|\bspawnSync\b|\bexecFileSync\b|\bsimpleGit\b|\breadJournal\b/;
 
 describe("1 — the enumeration covers every module that can become a decider input", () => {
   const loopDir = path.join(repoRoot, "src/loop");

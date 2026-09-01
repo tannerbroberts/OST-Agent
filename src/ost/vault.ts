@@ -46,6 +46,7 @@ import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
 import { nearestName } from "../fs/near-miss.js";
+import { temporaryWritePath } from "../fs/atomic-write.js";
 import { TRACED_NODE_FIELDS, noteNodeFileCreated, noteNodeFileWritten } from "../telemetry/usage.js";
 import {
   AGENT_IDEATED_TAG,
@@ -547,10 +548,20 @@ export class Vault {
    * was just read by the method calling this anyway — and it is the only way to
    * know what the bytes held, since the caller hands over a rendered string and no
    * longer has the original.
+   *
+   * **Staged and renamed rather than written in place.** `writeFileSync` truncates
+   * first and writes after, so a process killed between those two leaves a node
+   * file shorter than either version — the half-written state the resumable-journal
+   * work exists to make impossible. The rename is atomic within the directory, so a
+   * reader sees the old bytes or the new ones and a kill costs a temporary file that
+   * {@link ../fs/atomic-write.ts}'s sweeper collects. See that module for what this
+   * does not buy (durability across a power cut).
    */
   private writeNodeFile(filePath: string, contents: string): void {
     const before = fs.existsSync(filePath) ? tracedFields(fs.readFileSync(filePath, "utf8")) : [];
-    fs.writeFileSync(filePath, contents, "utf8");
+    const staged = temporaryWritePath(filePath);
+    fs.writeFileSync(staged, contents, "utf8");
+    fs.renameSync(staged, filePath);
     reportNodeWrite(filePath, before, contents);
   }
 
