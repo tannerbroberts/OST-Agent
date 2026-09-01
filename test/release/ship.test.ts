@@ -102,8 +102,21 @@ describe("what refuses before any gate runs", () => {
   });
 
   test("a branch with nothing to merge refuses", () => {
-    const reasons = shipRefusals({ ...base, ahead: 0 });
+    const reasons = shipRefusals({ ...base, ahead: 0, syncState: "in-sync" });
     expect(reasons.join(" ")).toContain("nothing to merge");
+  });
+
+  test("a comparison that did not run refuses as itself, not as an empty branch", () => {
+    // Both used to arrive here as `ahead: 0`: a branch genuinely level with
+    // `main`, and a `git rev-list` that never completed because there was no
+    // remote-tracking ref. Reported identically, the second sends the reader
+    // looking for missing commits instead of for the missing ref.
+    const reasons = shipRefusals({ ...base, ahead: 0, syncState: "unknown" });
+    expect(reasons).toHaveLength(1);
+    expect(reasons[0]).toContain("could not compare");
+    // The two are mutually exclusive: the empty-branch refusal is the one this
+    // replaces, not one it is reported alongside.
+    expect(reasons[0]).not.toMatch(/There is nothing to merge\.$/);
   });
 
   test("every reason is reported at once, not just the first", () => {

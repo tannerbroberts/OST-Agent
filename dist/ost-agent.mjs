@@ -47790,6 +47790,23 @@ function branchCoverageRefusals(repo, defaultBranch, run) {
   return reasons;
 }
 
+// src/release/push-first.ts
+function parseDivergence(raw) {
+  const parts = raw.trim().split(/\s+/);
+  if (parts.length !== 2) return null;
+  const [behind, ahead] = parts.map(Number);
+  if (!Number.isInteger(behind) || !Number.isInteger(ahead)) return null;
+  if (behind < 0 || ahead < 0) return null;
+  return { behind, ahead };
+}
+function classifySync(counts) {
+  if (!counts) return "unknown";
+  if (counts.ahead > 0 && counts.behind > 0) return "diverged";
+  if (counts.ahead > 0) return "ahead";
+  if (counts.behind > 0) return "behind";
+  return "in-sync";
+}
+
 // src/release/ship.ts
 import { spawnSync as spawnSync3 } from "node:child_process";
 function gatesFor(changed) {
@@ -47816,7 +47833,11 @@ function shipRefusals(state) {
       "refusing to ship with uncommitted changes: the gates would measure a working tree that is not what merges. Commit or stash first."
     );
   }
-  if (state.ahead === 0 && state.branch !== state.defaultBranch) {
+  if (state.syncState === "unknown") {
+    reasons.push(
+      `refusing to ship "${state.branch}": could not compare it against origin/${state.defaultBranch}. That is not the same as having nothing to merge \u2014 the check that would have said did not run.`
+    );
+  } else if (state.ahead === 0 && state.branch !== state.defaultBranch) {
     reasons.push(
       `refusing to ship "${state.branch}": it has no commits that ${state.defaultBranch} does not already have. There is nothing to merge.`
     );
@@ -47881,13 +47902,13 @@ ${tail(output, 10)}`);
 function readBranchState(repo, defaultBranch, run = realRunner) {
   const branch = git2(repo, ["rev-parse", "--abbrev-ref", "HEAD"], run);
   const dirty = git2(repo, ["status", "--porcelain"], run).length > 0;
-  let ahead = 0;
+  let counts = null;
   try {
-    const counts = git2(repo, ["rev-list", "--left-right", "--count", `origin/${defaultBranch}...HEAD`], run);
-    ahead = Number(counts.split(/\s+/)[1] ?? 0);
+    counts = parseDivergence(git2(repo, ["rev-list", "--left-right", "--count", `origin/${defaultBranch}...HEAD`], run));
   } catch {
   }
-  return { branch, defaultBranch, dirty, ahead };
+  const syncState = classifySync(counts);
+  return { branch, defaultBranch, dirty, ahead: counts?.ahead ?? 0, syncState };
 }
 function syncWithDefault(repo, defaultBranch, run, log) {
   const fetch = run(["git", "fetch", "origin", defaultBranch], repo);
