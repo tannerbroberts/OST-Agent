@@ -16,8 +16,9 @@ import { gitCommit, gitPush, pushTargetFor } from "../git/safe-git.js";
 import { AGENT_IDEATED_TAG, type NodeStatus, type OstNode } from "../ost/node.js";
 import type { QuarantinedNode } from "../ost/quarantine.js";
 import { BELIEVABILITY_LADDER, isRung, rungRank, type RungId } from "../knowledge/believability.js";
-import { isInstrument, parseInstrument } from "../knowledge/instruments.js";
-import { specResolves } from "../ost/instrument.js";
+import { isInstrument, parseInstrument, type ParsedInstrument } from "../knowledge/instruments.js";
+import { runInstrument, specResolves, type SpawnRunner } from "../ost/instrument.js";
+import { ruleOnCandidate } from "../ost/red-now.js";
 import { createInstrumentRation, rationRefusal, type InstrumentRation } from "../ost/rationing.js";
 import { parseThresholdField, thresholdKindOf } from "../eval/coverage.js";
 import { MAX_KILL_HORIZON_DAYS, parseKillCondition, parseKillDate } from "../ost/kill-criteria.js";
@@ -130,6 +131,47 @@ function unresolvedSpecRefusal(repos: readonly string[], target: string): string
     `test's \`threshold\` — a bound threshold still hands the builder a definition of done, so it may name a ` +
     `spec that is yet to be written.`
   );
+}
+
+/**
+ * Run a candidate instrument and refuse it unless it is red about behaviour.
+ *
+ * Shared by both write boundaries for the same reason `specResolves` is: a
+ * second door into the `instrument` field is a second place a command that
+ * measures nothing gets minted. Returns the refusal, or `undefined` when the
+ * command may be written.
+ *
+ * Two silences, and neither is an acceptance of the command — they are places
+ * this guard has nothing to say:
+ *
+ * - **The operator did not grant execution.** The boundary keeps taking the
+ *   author's word, exactly as it did before. The guard cannot catch what it is
+ *   not allowed to run, which is the stated cost of the default in
+ *   {@link ../config/schema.ts}.
+ * - **No product repo is configured.** There is no repository to be red about.
+ *
+ * `waiveNoSpec` carries the one escape this repo has watched work: a test with a
+ * pre-committed bar may name a spec nobody has written yet, because the bar is
+ * the definition of done and the file will be one of the things built. It waives
+ * the `no-spec` decline and nothing else — a command that PASSES is refused
+ * whatever the threshold says, since a bound bar is no reason to record a
+ * prediction that was already true.
+ */
+function redNowRefusal(
+  ctx: ToolContext,
+  title: string,
+  parsed: ParsedInstrument,
+  waiveNoSpec: boolean,
+): string | undefined {
+  const grant = ctx.instrumentExecution;
+  const repos = ctx.productRepos ?? [];
+  if (!grant || repos.length === 0) return undefined;
+  // The repo the spec lives in, or — when it lives in none — the first, so the
+  // run reports `no-spec` about a real root rather than being skipped.
+  const repo = repos.find((r) => specResolves([r], parsed.target)) ?? repos[0]!;
+  const run = runInstrument(parsed, repo, { ...(grant.spawn ? { spawn: grant.spawn } : {}) });
+  if (run.observation === "no-spec" && waiveNoSpec) return undefined;
+  return ruleOnCandidate(run, title, parsed.command).refusal;
 }
 
 /**
@@ -842,6 +884,17 @@ export interface ToolContext {
   readReceipts?: ReadReceipts;
   /** Local product repo roots the agent may read (config `product.repos`). */
   productRepos?: readonly string[];
+  /**
+   * The grant that lets a write boundary RUN a candidate instrument before
+   * accepting it (config `instruments.runOnWrite`). Present means granted;
+   * absent means the boundary keeps taking the red-now property on the author's
+   * word, which is where it has always been. See {@link ../ost/red-now.ts}.
+   *
+   * `spawn` is for specs only: it replays recorded runner output through the
+   * real classifier, so a suite can check the sort without starting a process.
+   * Production surfaces pass `{}`.
+   */
+  instrumentExecution?: { spawn?: SpawnRunner };
   /** The full pass context, needed by the tools that report on the whole vault. */
   passContext?: PassContext;
   /**
@@ -1112,12 +1165,15 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
           // read the threshold/body the caller is proposing, exactly as it will
           // read them once written.
           const repos = ctx.productRepos ?? [];
-          if (repos.length > 0 && !specResolves(repos, parsed.target)) {
-            const draft = { title: input.title, layer: "AssumptionTest", body: input.body, threshold: input.threshold, tags: [], links: [] } as OstNode;
-            if (thresholdKindOf(draft) !== "bound") {
-              throw new Error(`"${input.title}" cannot carry that instrument: ${unresolvedSpecRefusal(repos, parsed.target)}`);
-            }
+          const draft = { title: input.title, layer: "AssumptionTest", body: input.body, threshold: input.threshold, tags: [], links: [] } as OstNode;
+          const bound = thresholdKindOf(draft) === "bound";
+          if (repos.length > 0 && !specResolves(repos, parsed.target) && !bound) {
+            throw new Error(`"${input.title}" cannot carry that instrument: ${unresolvedSpecRefusal(repos, parsed.target)}`);
           }
+          // And, where the operator granted it, the command has to actually be
+          // red — the property the field claims and the shape check cannot see.
+          const notRed = redNowRefusal(ctx, input.title, parsed, bound);
+          if (notRed) throw new Error(notRed);
         }
         // A new Solution must say, now, what would end it.
         //
@@ -1466,9 +1522,16 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         // test carrying a bound threshold (the bar is a definition of done the
         // builder can work to, so a new spec path is legitimate under it).
         const repos = ctx.productRepos ?? [];
-        if (repos.length > 0 && !specResolves(repos, parsed.target) && thresholdKindOf(node) !== "bound") {
+        const bound = thresholdKindOf(node) === "bound";
+        if (repos.length > 0 && !specResolves(repos, parsed.target) && !bound) {
           throw new Error(`cannot set that instrument on "${input.test}": ${unresolvedSpecRefusal(repos, parsed.target)}`);
         }
+        // And then the property the shape check cannot see: the command has to
+        // be red about behaviour, TODAY, which is answerable only by running it.
+        // Where the operator granted execution, this is where the tool stops
+        // taking the author's word for the one thing an instrument is for.
+        const notRed = redNowRefusal(ctx, input.test, parsed, bound);
+        if (notRed) throw new Error(notRed);
         // The ration, charged last so that a call which was going to be refused
         // for any other reason does not spend the pass's allowance on nothing.
         //

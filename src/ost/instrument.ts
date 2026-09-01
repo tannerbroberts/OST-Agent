@@ -55,8 +55,17 @@ import { Vault } from "./vault.js";
  * A command that exits non-zero because the runner found nothing to collect has
  * not measured the behaviour — it has measured the absence of a file. Both look
  * like "exit 1" and only one of them is a test.
+ *
+ * `unavailable` is the fourth, and it separates the *repository* failing from
+ * the *environment* failing. A spec that could not be loaded because a package
+ * is not installed, a runner npx could not produce, a run killed by a timeout —
+ * each exits non-zero without any assertion in the spec having been reached. The
+ * exit code is identical to a real red and it answers a different question, so
+ * folding it into `red` mints permits out of broken machines. Kept apart from
+ * `no-spec` because the two suggest different work: `no-spec` says write the
+ * spec, `unavailable` says fix the box.
  */
-export type Observation = "red" | "green" | "no-spec";
+export type Observation = "red" | "green" | "no-spec" | "unavailable";
 
 export interface InstrumentRun {
   observation: Observation;
@@ -82,6 +91,12 @@ export interface RunInstrumentOptions {
    * one run and should not wait for two.
    */
   rerunOnRed?: boolean;
+  /**
+   * How the command is executed. Defaults to a real `npx` spawn; a spec passes a
+   * recording so the four-way sort in {@link classifyRun} is exercised for real
+   * while the process is not. Nothing in production sets this.
+   */
+  spawn?: SpawnRunner;
 }
 
 /**
@@ -111,7 +126,155 @@ export interface RunInstrumentOptions {
  * real red, and the commonest honest one in test-first work.
  */
 function collectedNothing(output: string): boolean {
-  return /no test files found/i.test(output);
+  // Two spellings, and the second was found by running the case rather than by
+  // reading the runner's source. Vitest 2.1.9 says "No test files found" when the
+  // *filter matched no file at all* — a path outside the `include` glob, or one
+  // that is not there. A file that IS collected and holds no test case says
+  // something else entirely: "No test suite found in file <path>", reported as a
+  // failed suite. The paragraph above claimed the empty-spec case was covered
+  // here; until this line it was classified `red`, which is the vacuous red this
+  // whole distinction exists to refuse. Captured output for both is in
+  // `test/fixtures/instrument-red-now/`.
+  return /no test files found/i.test(output) || /no test suite found in file/i.test(output);
+}
+
+/**
+ * A bare package specifier — `vitest`, `@scope/pkg` — as opposed to a path.
+ *
+ * This one character is the whole of the distinction below, so it is named:
+ * `../src/thing.js` is a module of the repository under test, and `some-package`
+ * is a thing the environment was supposed to have installed.
+ */
+function isBareSpecifier(specifier: string): boolean {
+  return specifier.length > 0 && !specifier.startsWith(".") && !specifier.startsWith("/");
+}
+
+/**
+ * Did this run fail because the environment could not produce a measurement,
+ * rather than because the repository failed one?
+ *
+ * **The line drawn here is bare-versus-relative, and it is drawn that way to
+ * keep test-first work red.** A spec that throws on import because it imports a
+ * module the solution has not created yet is the commonest honest red there is,
+ * and {@link runInstrument}'s contract has always said so. But the runner
+ * reports both kinds of missing import in one sentence:
+ *
+ *     Failed to load url ../../src/not-built-yet.js (resolved id: …) in …
+ *     Failed to load url totally-missing-package (resolved id: …) in …
+ *
+ * The first is the solution's own module and the red is about this repository.
+ * The second is a dependency nobody installed and the red is about this box —
+ * swap the spec's every assertion and it stays exactly as red. So the specifier
+ * decides: a path is a red, a package name is an absence of measurement.
+ *
+ * Deliberately narrow in the same direction as {@link collectedNothing}, and the
+ * direction is worth stating because it is not the safe one at every caller: an
+ * environment failure this misses reads as a genuine red, which understates
+ * breakage for the observation log and *over-accepts* at the write boundary
+ * ({@link ./red-now.ts}). Widening it is the opposite risk — a real red misread
+ * as a broken box silently drops a permit the builder had earned — and the
+ * patterns below are therefore only ones observed coming out of the runner, each
+ * with a captured sample under `test/fixtures/instrument-red-now/`.
+ */
+function environmentBroke(output: string): string | undefined {
+  // npx could not produce the runner at all: the command never reached a spec.
+  // Three spellings, all captured rather than guessed — npm declines to install
+  // without a TTY to say yes to, npm cannot reach the registry, and the older
+  // wording. `npm error code E…` is the family that covers the second: an
+  // offline box answers ENOTCACHED, an unreachable one ENETUNREACH, a typo E404,
+  // and all of them mean the same thing here.
+  if (
+    /npx canceled due to missing packages/i.test(output) ||
+    /could not determine executable to run/i.test(output) ||
+    /npm (?:error|ERR!) code E[A-Z]+/.test(output)
+  ) {
+    return "the test runner could not be resolved — npx produced no `vitest` to run, so no spec was executed";
+  }
+  for (const [, specifier] of output.matchAll(/Failed to load url (\S+) \(resolved id:/g)) {
+    if (isBareSpecifier(specifier)) {
+      return `\`${specifier}\` is not installed — the spec could not be loaded, so none of its assertions ran`;
+    }
+  }
+  for (const [, specifier] of output.matchAll(/Cannot find package '([^']+)'/g)) {
+    if (isBareSpecifier(specifier)) {
+      return `\`${specifier}\` is not installed — the spec could not be loaded, so none of its assertions ran`;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * One completed process, in the shape {@link classifyRun} reads.
+ *
+ * Named as its own type so the classification can be exercised against captured
+ * output from a real runner without a spawn: the fixtures under
+ * `test/fixtures/instrument-red-now/` are recordings of this struct, and the
+ * code that reads them in a spec is the same code that reads a live process.
+ */
+export interface SpawnedRun {
+  status: number | null;
+  stdout: string;
+  stderr: string;
+  /** Set when the process never ran, or was killed — a missing binary, a timeout. */
+  error?: { message: string };
+}
+
+/** How a command is executed. Injectable so a spec can replay a recording. */
+export type SpawnRunner = (argv: readonly string[], cwd: string) => SpawnedRun;
+
+const spawnThroughNpx: SpawnRunner = (argv, cwd) => {
+  const run = spawnSync("npx", [...argv], {
+    cwd,
+    encoding: "utf8",
+    // A spec suite that hangs would otherwise hang the loop that called it.
+    timeout: 10 * 60_000,
+    maxBuffer: 32 * 1024 * 1024,
+  });
+  return {
+    status: run.status,
+    stdout: run.stdout ?? "",
+    stderr: run.stderr ?? "",
+    ...(run.error ? { error: { message: run.error.message } } : {}),
+  };
+};
+
+/**
+ * Read one finished process as an observation. Pure, so the four-way sort is
+ * checkable against recorded output rather than only against a live box.
+ *
+ * The order of the branches is the argument: anything that says the process did
+ * not complete outranks its exit code, a zero exit is unambiguous, and the two
+ * "exited non-zero without measuring anything" cases are separated before the
+ * remaining non-zero exit is allowed to mean `red`.
+ */
+export function classifyRun(target: string, r: SpawnedRun): { observation: Observation; exitCode: number | null; excerpt: string } {
+  const output = `${r.stdout}\n${r.stderr}`;
+  // The process did not finish: spawn failed, or the timeout killed it. Either
+  // way nothing in the spec was reached, and `status` is meaningless.
+  if (r.error) {
+    return { observation: "unavailable", exitCode: r.status, excerpt: r.error.message.slice(0, 200) };
+  }
+  if (r.status === 0) {
+    return { observation: "green", exitCode: 0, excerpt: firstMeaningfulLine(output) };
+  }
+  if (r.status === null) {
+    return { observation: "unavailable", exitCode: null, excerpt: "the runner was killed before it reported — nothing was measured" };
+  }
+  // The file is there but the runner still collected nothing from it — a path
+  // outside the suite's `include`, or a spec with no case in it. Non-zero, and
+  // still not a measurement.
+  if (collectedNothing(output)) {
+    return {
+      observation: "no-spec",
+      exitCode: r.status,
+      excerpt: `${target} collected no test cases — nothing in it can fail, so nothing was measured`,
+    };
+  }
+  const broke = environmentBroke(output);
+  if (broke) {
+    return { observation: "unavailable", exitCode: r.status, excerpt: broke };
+  }
+  return { observation: "red", exitCode: r.status, excerpt: firstMeaningfulLine(output) };
 }
 
 /**
@@ -233,33 +396,12 @@ export function specResolves(repos: readonly string[], target: string): boolean 
 function spawnOnce(
   instrument: ParsedInstrument,
   repoDir: string,
+  spawn: SpawnRunner,
 ): { observation: Observation; exitCode: number | null; excerpt: string; elapsedMs: number } {
   const started = Date.now();
-  const run = spawnSync("npx", instrument.argv, {
-    cwd: path.resolve(repoDir),
-    encoding: "utf8",
-    // A spec suite that hangs would otherwise hang the loop that called it.
-    timeout: 10 * 60_000,
-    maxBuffer: 32 * 1024 * 1024,
-  });
+  const run = spawn(instrument.argv, path.resolve(repoDir));
   const elapsedMs = Date.now() - started;
-
-  const exitCode = run.status;
-  const output = `${run.stdout ?? ""}\n${run.stderr ?? ""}`;
-  if (exitCode === 0) {
-    return { observation: "green", exitCode, excerpt: firstMeaningfulLine(output, run.error?.message), elapsedMs };
-  }
-  // The file is there but the runner still collected nothing from it — an empty
-  // spec, or one whose cases are all skipped. Non-zero, and still not a measurement.
-  if (collectedNothing(output)) {
-    return {
-      observation: "no-spec",
-      exitCode,
-      excerpt: `${instrument.target} collected no test cases — nothing in it can fail, so nothing was measured`,
-      elapsedMs,
-    };
-  }
-  return { observation: "red", exitCode, excerpt: firstMeaningfulLine(output, run.error?.message), elapsedMs };
+  return { ...classifyRun(instrument.target, run), elapsedMs };
 }
 
 /**
@@ -300,14 +442,17 @@ export function runInstrument(
     };
   }
 
-  const { elapsedMs, ...first } = spawnOnce(instrument, repoDir);
+  const spawn = options.spawn ?? spawnThroughNpx;
+  const { elapsedMs, ...first } = spawnOnce(instrument, repoDir, spawn);
   if (first.observation !== "red" || !options.rerunOnRed) return first;
 
-  const second = spawnOnce(instrument, repoDir);
+  const second = spawnOnce(instrument, repoDir, spawn);
   // A second run that collects nothing is not a disagreement about the
   // behaviour — the spec vanished or the runner broke between the two, and
-  // reading that as "passed on the re-run" would acquit on an absence.
-  if (second.observation === "no-spec") return first;
+  // reading that as "passed on the re-run" would acquit on an absence. An
+  // `unavailable` second run is the same case wearing the other marker: the box
+  // stopped being able to answer, which is not the spec changing its mind.
+  if (second.observation === "no-spec" || second.observation === "unavailable") return first;
 
   const attribution = attributeRerun(
     { failed: true, elapsedMs },
@@ -395,9 +540,15 @@ export function verifyInstrument(vaultDir: string, filing: VerifyFiling): Verify
   // spec. The message says what to do rather than what went wrong, because
   // writing that spec IS the work: a failing assertion is the definition of done
   // a builder can act on, and a missing file is not.
-  if (run.observation === "no-spec") {
+  //
+  // An `unavailable` run is filed on the same terms and for a sharper reason: it
+  // is the one outcome that says nothing whatever about this repository. Recorded
+  // under its own marker it mints no permit (`observedRed` matches `**red**` and
+  // nothing else), stays in the verification queue, and tells whoever reads the
+  // node that the box could not answer rather than that the code failed.
+  if (run.observation === "no-spec" || run.observation === "unavailable") {
     const on = filing.on ?? new Date().toISOString().slice(0, 10);
-    const line = `- ${on} **no-spec** (exit ${run.exitCode ?? "none"}) \`${parsed.command}\` — ${run.excerpt}`;
+    const line = `- ${on} **${run.observation}** (exit ${run.exitCode ?? "none"}) \`${parsed.command}\` — ${run.excerpt}`;
     vault.appendUnderSection(filing.test, INSTRUMENT_LOG_HEADING, line);
     return { line, run, instrument: parsed, transitioned: false };
   }

@@ -87,6 +87,9 @@ export function ostToolOptions(ctx: PassContext, surface: string): Parameters<ty
     surface,
     web: ctx.web,
     productRepos: ctx.productRepos,
+    // The grant only; how to spawn is `buildOstTools`' default. A surface that
+    // passed a runner in here would be a surface that could decide what runs.
+    instrumentExecution: ctx.runInstrumentsOnWrite ? {} : undefined,
     passContext: ctx,
     configProblem: ctx.configProblem,
   };

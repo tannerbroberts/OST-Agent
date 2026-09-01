@@ -263,6 +263,28 @@ const ProductSchema = z
   .default({ repos: [] });
 
 /**
+ * Whether a write boundary may RUN a candidate instrument before accepting it.
+ *
+ * Off by default, and the default is the decision rather than an oversight.
+ * Executing a command as part of a tool call is the one capability
+ * `CONTRIBUTING.md` names as out of bounds ("never add a tool that … shells
+ * out"), and while {@link ../ost/red-now.ts} argues the bound version of it is
+ * narrower than the ban was written for — one spec file, argv, no interpreter, a
+ * command the agent could already get run by writing it into the vault — an
+ * argument is not a mandate. What this product is willing to be is the
+ * operator's call, so the operator makes it, in their own file, once.
+ *
+ * With it off the boundary keeps today's behaviour exactly: shape, resolution
+ * and the author's word. That is a real cost, stated here rather than hidden —
+ * the guard cannot catch what it is not allowed to run.
+ */
+const InstrumentsSchema = z
+  .object({
+    runOnWrite: z.boolean().default(false),
+  })
+  .default({ runOnWrite: false });
+
+/**
  * How many candidate solutions an opportunity needs before `ost_next_work`
  * stops calling it under-served.
  *
@@ -538,6 +560,7 @@ export const ConfigSchema = z.object({
   surfaces: SurfacesSchema,
   web: WebSchema,
   product: ProductSchema,
+  instruments: InstrumentsSchema,
   discovery: DiscoverySchema,
   evidence: EvidenceSchema,
   loop: LoopSchema,
@@ -651,6 +674,13 @@ web:
 
 product:
   repos: []                 # local repo paths the agent may READ (read-only) to ground ideas in what the product is
+
+instruments:
+  runOnWrite: false         # run a candidate instrument before accepting it, and refuse one that already PASSES.
+                            # OFF by default because it means a tool call spawns a process, which is the one
+                            # capability this project's CONTRIBUTING.md rules out — narrowed here to a command the
+                            # allowlist already accepted (one spec file, argv, no shell), but still your call.
+                            # Leave it off and the red-now property is taken on the author's word, as it is today.
 
 processes:
   P3_ideate:

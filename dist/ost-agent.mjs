@@ -31274,6 +31274,9 @@ var WebSchema = external_exports.object({
 var ProductSchema = external_exports.object({
   repos: external_exports.array(external_exports.string()).default([])
 }).default({ repos: [] });
+var InstrumentsSchema = external_exports.object({
+  runOnWrite: external_exports.boolean().default(false)
+}).default({ runOnWrite: false });
 var DEFAULT_MIN_SOLUTIONS_PER_OPPORTUNITY = 3;
 var ProcessSchema = external_exports.object({
   minSolutionsPerOpportunity: external_exports.number().int().positive().default(DEFAULT_MIN_SOLUTIONS_PER_OPPORTUNITY)
@@ -31398,6 +31401,7 @@ var ConfigSchema = external_exports.object({
   surfaces: SurfacesSchema,
   web: WebSchema,
   product: ProductSchema,
+  instruments: InstrumentsSchema,
   discovery: DiscoverySchema,
   evidence: EvidenceSchema,
   loop: LoopSchema,
@@ -31483,6 +31487,13 @@ web:
 
 product:
   repos: []                 # local repo paths the agent may READ (read-only) to ground ideas in what the product is
+
+instruments:
+  runOnWrite: false         # run a candidate instrument before accepting it, and refuse one that already PASSES.
+                            # OFF by default because it means a tool call spawns a process, which is the one
+                            # capability this project's CONTRIBUTING.md rules out \u2014 narrowed here to a command the
+                            # allowlist already accepted (one spec file, argv, no shell), but still your call.
+                            # Leave it off and the red-now property is taken on the author's word, as it is today.
 
 processes:
   P3_ideate:
@@ -42496,7 +42507,8 @@ function buildPassContext(vaultDir, opts = {}) {
         refillPerHour: config2.web.lookupRefillPerHour
       })
     },
-    productRepos: config2.product.repos
+    productRepos: config2.product.repos,
+    runInstrumentsOnWrite: config2.instruments.runOnWrite
   };
 }
 
@@ -46381,7 +46393,66 @@ function testAnswersForShippedSolution(tree, testTitle) {
 
 // src/ost/instrument.ts
 function collectedNothing(output) {
-  return /no test files found/i.test(output);
+  return /no test files found/i.test(output) || /no test suite found in file/i.test(output);
+}
+function isBareSpecifier(specifier) {
+  return specifier.length > 0 && !specifier.startsWith(".") && !specifier.startsWith("/");
+}
+function environmentBroke(output) {
+  if (/npx canceled due to missing packages/i.test(output) || /could not determine executable to run/i.test(output) || /npm (?:error|ERR!) code E[A-Z]+/.test(output)) {
+    return "the test runner could not be resolved \u2014 npx produced no `vitest` to run, so no spec was executed";
+  }
+  for (const [, specifier] of output.matchAll(/Failed to load url (\S+) \(resolved id:/g)) {
+    if (isBareSpecifier(specifier)) {
+      return `\`${specifier}\` is not installed \u2014 the spec could not be loaded, so none of its assertions ran`;
+    }
+  }
+  for (const [, specifier] of output.matchAll(/Cannot find package '([^']+)'/g)) {
+    if (isBareSpecifier(specifier)) {
+      return `\`${specifier}\` is not installed \u2014 the spec could not be loaded, so none of its assertions ran`;
+    }
+  }
+  return void 0;
+}
+var spawnThroughNpx = (argv, cwd) => {
+  const run = spawnSync2("npx", [...argv], {
+    cwd,
+    encoding: "utf8",
+    // A spec suite that hangs would otherwise hang the loop that called it.
+    timeout: 10 * 6e4,
+    maxBuffer: 32 * 1024 * 1024
+  });
+  return {
+    status: run.status,
+    stdout: run.stdout ?? "",
+    stderr: run.stderr ?? "",
+    ...run.error ? { error: { message: run.error.message } } : {}
+  };
+};
+function classifyRun(target, r2) {
+  const output = `${r2.stdout}
+${r2.stderr}`;
+  if (r2.error) {
+    return { observation: "unavailable", exitCode: r2.status, excerpt: r2.error.message.slice(0, 200) };
+  }
+  if (r2.status === 0) {
+    return { observation: "green", exitCode: 0, excerpt: firstMeaningfulLine(output) };
+  }
+  if (r2.status === null) {
+    return { observation: "unavailable", exitCode: null, excerpt: "the runner was killed before it reported \u2014 nothing was measured" };
+  }
+  if (collectedNothing(output)) {
+    return {
+      observation: "no-spec",
+      exitCode: r2.status,
+      excerpt: `${target} collected no test cases \u2014 nothing in it can fail, so nothing was measured`
+    };
+  }
+  const broke = environmentBroke(output);
+  if (broke) {
+    return { observation: "unavailable", exitCode: r2.status, excerpt: broke };
+  }
+  return { observation: "red", exitCode: r2.status, excerpt: firstMeaningfulLine(output) };
 }
 function sightCensus(tree) {
   const carriers = tree.filter((n) => n.layer === "AssumptionTest" && typeof n.instrument === "string");
@@ -46419,31 +46490,11 @@ function instrumentLog(node2) {
 function specResolves(repos, target) {
   return repos.some((repo) => existsSync(path28.resolve(repo, target)));
 }
-function spawnOnce(instrument, repoDir) {
+function spawnOnce(instrument, repoDir, spawn4) {
   const started = Date.now();
-  const run = spawnSync2("npx", instrument.argv, {
-    cwd: path28.resolve(repoDir),
-    encoding: "utf8",
-    // A spec suite that hangs would otherwise hang the loop that called it.
-    timeout: 10 * 6e4,
-    maxBuffer: 32 * 1024 * 1024
-  });
+  const run = spawn4(instrument.argv, path28.resolve(repoDir));
   const elapsedMs = Date.now() - started;
-  const exitCode = run.status;
-  const output = `${run.stdout ?? ""}
-${run.stderr ?? ""}`;
-  if (exitCode === 0) {
-    return { observation: "green", exitCode, excerpt: firstMeaningfulLine(output, run.error?.message), elapsedMs };
-  }
-  if (collectedNothing(output)) {
-    return {
-      observation: "no-spec",
-      exitCode,
-      excerpt: `${instrument.target} collected no test cases \u2014 nothing in it can fail, so nothing was measured`,
-      elapsedMs
-    };
-  }
-  return { observation: "red", exitCode, excerpt: firstMeaningfulLine(output, run.error?.message), elapsedMs };
+  return { ...classifyRun(instrument.target, run), elapsedMs };
 }
 function runInstrument(instrument, repoDir, options2 = {}) {
   const target = path28.resolve(repoDir, instrument.target);
@@ -46454,10 +46505,11 @@ function runInstrument(instrument, repoDir, options2 = {}) {
       excerpt: `${instrument.target} does not exist \u2014 no spec was collected, so nothing was measured`
     };
   }
-  const { elapsedMs, ...first2 } = spawnOnce(instrument, repoDir);
+  const spawn4 = options2.spawn ?? spawnThroughNpx;
+  const { elapsedMs, ...first2 } = spawnOnce(instrument, repoDir, spawn4);
   if (first2.observation !== "red" || !options2.rerunOnRed) return first2;
-  const second = spawnOnce(instrument, repoDir);
-  if (second.observation === "no-spec") return first2;
+  const second = spawnOnce(instrument, repoDir, spawn4);
+  if (second.observation === "no-spec" || second.observation === "unavailable") return first2;
   const attribution = attributeRerun(
     { failed: true, elapsedMs },
     { failed: second.observation === "red", elapsedMs: second.elapsedMs }
@@ -46485,9 +46537,9 @@ function verifyInstrument(vaultDir, filing) {
   }
   const run = runInstrument(parsed, filing.repo, { rerunOnRed: true });
   const alreadyRed = observedRed(node2);
-  if (run.observation === "no-spec") {
+  if (run.observation === "no-spec" || run.observation === "unavailable") {
     const on2 = filing.on ?? (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-    const line2 = `- ${on2} **no-spec** (exit ${run.exitCode ?? "none"}) \`${parsed.command}\` \u2014 ${run.excerpt}`;
+    const line2 = `- ${on2} **${run.observation}** (exit ${run.exitCode ?? "none"}) \`${parsed.command}\` \u2014 ${run.excerpt}`;
     vault.appendUnderSection(filing.test, INSTRUMENT_LOG_HEADING, line2);
     return { line: line2, run, instrument: parsed, transitioned: false };
   }
@@ -46703,6 +46755,7 @@ function confirmPermit(permit, repoDir, run = runInstrument) {
   if (!isInstrument(parsed)) return permit;
   const observed = run(parsed, repoDir);
   if (observed.observation === "red") return permit;
+  if (observed.observation === "unavailable") return permit;
   if (observed.observation === "no-spec") {
     if (permit.thresholdBound) return permit;
     return {
@@ -51601,6 +51654,27 @@ function tool(spec) {
   };
 }
 
+// src/ost/red-now.ts
+function ruleOnCandidate(run, title, command) {
+  if (run.observation === "red") return { verdict: "accepted" };
+  if (run.observation === "green") {
+    return {
+      verdict: "already-built",
+      refusal: `refusing to attach \`${command}\` to "${title}": it PASSES against the repository right now (exit ${run.exitCode ?? "0"}). An instrument that is green before anything was built cannot fail, so it measures nothing and hands a builder no definition of done \u2014 it would make the test look answered while answering nothing. If the behaviour is already there, that is a fact about the solution and belongs in its \`status\` (\`ost_set_status\`), not in a command pretending to predict it. If it is not, point this at the assertion that fails today.`
+    };
+  }
+  if (run.observation === "no-spec") {
+    return {
+      verdict: "declined",
+      refusal: `refusing to attach \`${command}\` to "${title}": the command exits non-zero, but no spec was collected (${run.excerpt}). That is not a red about behaviour \u2014 every question written on that filename is equally red, and an empty spec would turn it green. Write the failing spec, then attach the command that fails on its assertion.`
+    };
+  }
+  return {
+    verdict: "declined",
+    refusal: `refusing to attach \`${command}\` to "${title}": the command exits non-zero, but the run never reached the spec (${run.excerpt}). This repository has not said anything about the behaviour \u2014 the environment failed to ask it. Nothing is written, because a red recorded from a broken box would be indistinguishable from a prediction the code refuted. Fix the environment and make the call again.`
+  };
+}
+
 // src/ost/rationing.ts
 var INSTRUMENT_FLOOR = 5;
 var INSTRUMENTS_PER_RESULT = 3;
@@ -51732,7 +51806,7 @@ function classifySubject(subject) {
   if (read === 0) return "totally-blind";
   return read < offered ? "partly-blind" : "full";
 }
-function classifyRun(run) {
+function classifyRun2(run) {
   if (!run.subject) return "unrecorded";
   const { offered, read } = run.subject;
   if (!Number.isFinite(offered) || !Number.isFinite(read) || offered < 0 || read < 0 || read > offered) {
@@ -51748,7 +51822,7 @@ function blindnessCensus(runs) {
   let unreadable = 0;
   for (const run of runs) {
     if (run.unreadable) unreadable++;
-    switch (classifyRun(run)) {
+    switch (classifyRun2(run)) {
       case "full":
         full++;
         break;
@@ -54083,6 +54157,15 @@ function unresolvedSpecRefusal(repos, target) {
   const checked = repos.map((r2) => path39.basename(r2)).join(", ");
   return `\`${target}\` does not exist in the configured product repo${repos.length === 1 ? "" : "s"} (${checked}), so its red would say a file is missing rather than that any behaviour is \u2014 every question written on that filename is equally red, and an empty spec would turn it green. Two ways out, and either is a real fix: name a spec that exists and whose assertions go red for this behaviour, or pre-commit a fixed bar in the test's \`threshold\` \u2014 a bound threshold still hands the builder a definition of done, so it may name a spec that is yet to be written.`;
 }
+function redNowRefusal(ctx, title, parsed, waiveNoSpec) {
+  const grant = ctx.instrumentExecution;
+  const repos = ctx.productRepos ?? [];
+  if (!grant || repos.length === 0) return void 0;
+  const repo = repos.find((r2) => specResolves([r2], parsed.target)) ?? repos[0];
+  const run = runInstrument(parsed, repo, { ...grant.spawn ? { spawn: grant.spawn } : {} });
+  if (run.observation === "no-spec" && waiveNoSpec) return void 0;
+  return ruleOnCandidate(run, title, parsed.command).refusal;
+}
 var MAX_TITLE_DISPLAY_LENGTH = 80;
 var MAX_TITLES_LISTED = 20;
 var TITLE_CONTROL_CHARS = new RegExp("[\\u0000-\\u001F\\u007F]+", "g");
@@ -54421,12 +54504,13 @@ Either fix a bar in the field ("at least 5 of 20 book a kickoff", ">= 2 incident
             );
           }
           const repos = ctx.productRepos ?? [];
-          if (repos.length > 0 && !specResolves(repos, parsed.target)) {
-            const draft = { title: input.title, layer: "AssumptionTest", body: input.body, threshold: input.threshold, tags: [], links: [] };
-            if (thresholdKindOf(draft) !== "bound") {
-              throw new Error(`"${input.title}" cannot carry that instrument: ${unresolvedSpecRefusal(repos, parsed.target)}`);
-            }
+          const draft = { title: input.title, layer: "AssumptionTest", body: input.body, threshold: input.threshold, tags: [], links: [] };
+          const bound = thresholdKindOf(draft) === "bound";
+          if (repos.length > 0 && !specResolves(repos, parsed.target) && !bound) {
+            throw new Error(`"${input.title}" cannot carry that instrument: ${unresolvedSpecRefusal(repos, parsed.target)}`);
           }
+          const notRed = redNowRefusal(ctx, input.title, parsed, bound);
+          if (notRed) throw new Error(notRed);
         }
         const killFieldOwner = "Solution";
         for (const [name, value] of [["killIf", input.killIf], ["killBy", input.killBy]]) {
@@ -54633,9 +54717,12 @@ A person outside the building is the measurement here: ${input.humansRequired.tr
           );
         }
         const repos = ctx.productRepos ?? [];
-        if (repos.length > 0 && !specResolves(repos, parsed.target) && thresholdKindOf(node2) !== "bound") {
+        const bound = thresholdKindOf(node2) === "bound";
+        if (repos.length > 0 && !specResolves(repos, parsed.target) && !bound) {
           throw new Error(`cannot set that instrument on "${input.test}": ${unresolvedSpecRefusal(repos, parsed.target)}`);
         }
+        const notRed = redNowRefusal(ctx, input.test, parsed, bound);
+        if (notRed) throw new Error(notRed);
         if (!existing && !instrumentRation.take()) {
           throw new Error(rationRefusal(input.test, instrumentRation));
         }
@@ -55639,6 +55726,9 @@ function ostToolOptions(ctx, surface) {
     surface,
     web: ctx.web,
     productRepos: ctx.productRepos,
+    // The grant only; how to spawn is `buildOstTools`' default. A surface that
+    // passed a runner in here would be a surface that could decide what runs.
+    instrumentExecution: ctx.runInstrumentsOnWrite ? {} : void 0,
     passContext: ctx,
     configProblem: ctx.configProblem
   };
