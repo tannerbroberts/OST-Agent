@@ -1,0 +1,199 @@
+{
+  "package": "ost-agent",
+  "head": "a6c045627c2deba877f8f274974e9f8da2eb7cb8",
+  "localVersion": "0.23.0",
+  "localPrivate": true,
+  "commitsSinceLastPublish": 382,
+  "registry": {
+    "status": 200,
+    "created": "2026-07-24T15:49:42.875Z",
+    "modified": "2026-07-28T16:29:34.971Z",
+    "published": {
+      "0.1.0": "2026-07-24T15:49:43.206Z",
+      "0.1.3": "2026-07-24T18:13:11.686Z",
+      "0.4.0": "2026-07-25T02:11:08.904Z",
+      "0.9.0": "2026-07-26T00:50:56.500Z",
+      "0.14.0": "2026-07-26T19:44:56.834Z",
+      "0.15.0": "2026-07-26T19:52:35.489Z",
+      "0.16.0": "2026-07-26T20:59:49.988Z",
+      "0.17.0": "2026-07-26T21:25:08.265Z",
+      "0.18.0": "2026-07-27T00:56:48.260Z",
+      "0.19.0": "2026-07-27T02:16:14.686Z",
+      "0.19.1": "2026-07-27T02:28:27.616Z",
+      "0.20.0": "2026-07-27T06:08:17.787Z",
+      "0.21.0": "2026-07-27T11:15:14.234Z",
+      "0.22.0": "2026-07-27T15:59:45.725Z"
+    },
+    "unpublished": {
+      "time": "2026-07-28T16:29:34.971Z",
+      "versions": [
+        "0.1.0",
+        "0.1.3",
+        "0.14.0",
+        "0.15.0",
+        "0.16.0",
+        "0.17.0",
+        "0.18.0",
+        "0.19.0",
+        "0.19.1",
+        "0.20.0",
+        "0.21.0",
+        "0.22.0",
+        "0.4.0",
+        "0.9.0"
+      ]
+    }
+  },
+  "bumps": [
+    {
+      "version": "0.23.0",
+      "commit": "dd673e4300ec35c6e5d548b266ca0b5c981c5d95",
+      "committedAt": "2026-07-28T16:34:17.000Z",
+      "subject": "docs(genome): write down which policies may breed, and prove the default is today"
+    },
+    {
+      "version": "0.22.0",
+      "commit": "df5288a4b62bb9acf38a5c5787d7ed797637038e",
+      "committedAt": "2026-07-27T15:58:07.000Z",
+      "subject": "release: v0.22.0 — every count states the denominator it was taken over"
+    },
+    {
+      "version": "0.21.0",
+      "commit": "87164d6112fe0f55b79ec0362624d08d47675cbb",
+      "committedAt": "2026-07-27T11:13:27.000Z",
+      "subject": "release: v0.21.0 — the recorder learns it can be lied to"
+    },
+    {
+      "version": "0.20.0",
+      "commit": "54b45edc0dba7ebfb908997dee36ce661bac85ac",
+      "committedAt": "2026-07-27T06:06:36.000Z",
+      "subject": "release: v0.20.0 — the checks were asked to prove they can fail"
+    },
+    {
+      "version": "0.19.1",
+      "commit": "2f4ef3e86c38ccafcbafafa6eba77961ae8667e5",
+      "committedAt": "2026-07-27T02:27:10.000Z",
+      "subject": "release: v0.19.1 — the plugin version that never moved"
+    },
+    {
+      "version": "0.19.0",
+      "commit": "a10e75f318e69ccd5fa82039b12f4c4e8b79cff6",
+      "committedAt": "2026-07-27T02:13:16.000Z",
+      "subject": "release: v0.19.0 — the first minute is served, not refused"
+    },
+    {
+      "version": "0.18.0",
+      "commit": "4f0ab1ee58f46d618b18d2e0c2422f0d796562ab",
+      "committedAt": "2026-07-27T00:55:27.000Z",
+      "subject": "release: v0.18.0 — the schema checked the call, and nothing checked the value"
+    },
+    {
+      "version": "0.17.0",
+      "commit": "ac3db05e694ac4d4d61e0946eab62733f52564af",
+      "committedAt": "2026-07-26T21:23:38.000Z",
+      "subject": "release: v0.17.0 — the allowlist said which tool may run, and nothing said with what"
+    },
+    {
+      "version": "0.16.0",
+      "commit": "d1442c3869d2cfb0eea33ffab712a5b0b52dcd85",
+      "committedAt": "2026-07-26T20:58:18.000Z",
+      "subject": "release: v0.16.0 — a lane declared twice is a check failure, and a fragment was never a declaration"
+    },
+    {
+      "version": "0.15.0",
+      "commit": "6a20798dac4c126c227a29b1bd341b06266026b5",
+      "committedAt": "2026-07-26T19:50:48.000Z",
+      "subject": "release: v0.15.0 — the lane a test already declared, and a release path a pass can actually take"
+    },
+    {
+      "version": "0.14.0",
+      "commit": "49580d28f0559ffdd8d1d0bfb1c648003cf7ac21",
+      "committedAt": "2026-07-26T16:09:42.000Z",
+      "subject": "release: v0.14.0 — a firing's verdict is computed from what the CLI watched, not from what it says"
+    },
+    {
+      "version": "0.13.0",
+      "commit": "1790775d7dc6915bca859fdda838b897ff0a6528",
+      "committedAt": "2026-07-26T10:53:30.000Z",
+      "subject": "release: v0.13.0 — refuse a wikilink a wrapped paragraph broke in two"
+    },
+    {
+      "version": "0.12.0",
+      "commit": "d3efbbd82226345bf112d593b4edd0bb94aa0546",
+      "committedAt": "2026-07-26T05:52:36.000Z",
+      "subject": "release: v0.12.0 — the first run gets a door with a name on it"
+    },
+    {
+      "version": "0.11.0",
+      "commit": "86b6ff4a87b401d840c1845fabbeb7d6dfcb13dd",
+      "committedAt": "2026-07-26T02:32:32.000Z",
+      "subject": "release: v0.11.0 — the first run answers with a command instead of a wall"
+    },
+    {
+      "version": "0.10.0",
+      "commit": "019780f557f26ec330c5e4aaed7de46f1237e0bd",
+      "committedAt": "2026-07-26T00:51:44.000Z",
+      "subject": "release: v0.10.0 — name the threshold that is still an instruction to choose one"
+    },
+    {
+      "version": "0.9.0",
+      "commit": "d9ace23caa35f245d09f72a98ea6e86669996d86",
+      "committedAt": "2026-07-25T21:12:57.000Z",
+      "subject": "release: v0.9.0 — give the uncovered statement somewhere to be checked"
+    },
+    {
+      "version": "0.8.0",
+      "commit": "d9ed3ac97f54e8af49484002fc026d01ed22bdcf",
+      "committedAt": "2026-07-25T15:53:05.000Z",
+      "subject": "feat(coverage): a result must say what it does not cover"
+    },
+    {
+      "version": "0.7.0",
+      "commit": "b317508a2cc61e737d2ddbb104b2dc9e7809a804",
+      "committedAt": "2026-07-25T11:07:56.000Z",
+      "subject": "feat(lanes): give the agent the restrictive half of lane triage, and only that"
+    },
+    {
+      "version": "0.6.0",
+      "commit": "7f8de06cc7e152db1462b908091d20d38228eb37",
+      "committedAt": "2026-07-25T05:53:29.000Z",
+      "subject": "feat(lanes): assumption tests declare what they cost a person"
+    },
+    {
+      "version": "0.5.0",
+      "commit": "f091b04ce8b9ea549cba4c2569011205c75c60b7",
+      "committedAt": "2026-07-25T04:51:22.000Z",
+      "subject": "feat(runner): a failed pass exits nonzero and status leads with the failure"
+    },
+    {
+      "version": "0.4.0",
+      "commit": "3475ded57b622dee916413ee8df64ddd798e0a28",
+      "committedAt": "2026-07-25T02:09:53.000Z",
+      "subject": "release: v0.4.0"
+    },
+    {
+      "version": "0.1.3",
+      "commit": "9600ea09081526c63530f91048403fa1f423bb28",
+      "committedAt": "2026-07-24T18:12:27.000Z",
+      "subject": "fix(git): seed a repo-local identity on init; release 0.1.3"
+    },
+    {
+      "version": "0.1.2",
+      "commit": "f85862eacde1fba12d98168fbea16b68a5b73ef1",
+      "committedAt": "2026-07-24T18:05:13.000Z",
+      "subject": "release: 0.1.2"
+    },
+    {
+      "version": "0.1.1",
+      "commit": "2ed003fdd383c3170c067f4dd665cd2711fd1cc6",
+      "committedAt": "2026-07-24T16:58:21.000Z",
+      "subject": "fix(next-work): derive mapped evidence from node source; release 0.1.1"
+    },
+    {
+      "version": "0.1.0",
+      "commit": "68fabbb74f767d399d7f1c4d5611ac46e058bbff",
+      "committedAt": "2026-07-22T18:25:42.000Z",
+      "subject": "Scaffold TypeScript project; correct runtime to API SDK Tool Runner"
+    }
+  ]
+}
