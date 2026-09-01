@@ -1,0 +1,312 @@
+{
+ "projectsRoot": "/Users/tanner/.claude/projects",
+ "upstreamFile": "test/fixtures/path-failure-attribution/failures.jsonl",
+ "upstreamFailures": 719,
+ "transcriptsRead": 1224,
+ "toolCalls": 61064,
+ "uninitialisedRepoFailures": 6,
+ "failureDirs": [
+  "/Users/tanner/dev/apple-epoch-primes",
+  "/Users/tanner/dev/ost-benchmarks",
+  "/tmp/ost-main",
+  "/tmp/ost-npm-archive"
+ ],
+ "sessionsMissingFromDisk": [
+  "748498c4-31fb-4110-9012-464c441a463f",
+  "agent-a022e255367d9bdf0"
+ ],
+ "prose": [
+  {
+   "session": "a84e477b-bbdf-4766-9b75-596fab2912fc",
+   "command": "answer to a one-segment typo was `run ost-agent init first` — advice to build"
+  }
+ ],
+ "targets": [
+  {
+   "dir": "/private/tmp/claude-501/-Users-tanner-dev-OST-Agent/42dcb7b4-f01b-40bc-a211-ed4a44a74fd3/scratchpad/demo",
+   "command": "node /Users/tanner/dev/OST-Agent/dist/ost-agent.mjs init demo --outcome \"Teams ship what discovery actually learned\" 2>&1",
+   "session": "42dcb7b4-f01b-40bc-a211-ed4a44a74fd3"
+  },
+  {
+   "dir": "/tmp/ostchk/vault",
+   "command": "node /Users/tanner/dev/OST-Agent/dist/ost-agent.mjs init /tmp/ostchk/vault --outcome \"x\" --title Root >/dev/null 2>&1",
+   "session": "agent-a3ecdac6e90b44a85"
+  },
+  {
+   "dir": null,
+   "command": "node /Users/tanner/dev/OST-Agent/dist/ost-agent.mjs init $V --outcome \"Keep the old vault working\" --title Root >/dev/null",
+   "session": "agent-aa6b3fdedff5c8380",
+   "unresolved": "target is a shell variable or substitution: $V"
+  },
+  {
+   "dir": null,
+   "command": "node dist/ost-agent.mjs init \"$d/vault\" --outcome \"test outcome\" 2>&1",
+   "session": "08e10880-12b1-4ceb-ba62-4af146617e03",
+   "unresolved": "target is a shell variable or substitution: $d/vault"
+  },
+  {
+   "dir": "/tmp/ost-probe",
+   "command": "node /Users/tanner/dev/OST-Agent/dist/ost-agent.mjs init --outcome \"Reach ten thousand daily active users\" --title \"Retention\" --vault . >/dev/null 2>&1",
+   "session": "134bad7e-e818-467a-9e79-b57a1ea08795"
+  },
+  {
+   "dir": "/tmp/ost-probe",
+   "command": "node /Users/tanner/dev/OST-Agent/dist/ost-agent.mjs init /tmp/ost-probe --outcome \"Reach ten thousand daily active users\" --title \"Retention\" 2>&1",
+   "session": "134bad7e-e818-467a-9e79-b57a1ea08795"
+  },
+  {
+   "dir": "/tmp/ost-probe2",
+   "command": "node /Users/tanner/dev/OST-Agent/dist/ost-agent.mjs init /tmp/ost-probe2 --outcome \"Reach ten thousand daily active users\" --title \"Retention\" >/dev/null 2>&1",
+   "session": "134bad7e-e818-467a-9e79-b57a1ea08795"
+  },
+  {
+   "dir": "/tmp/kl-vault",
+   "command": "node /Users/tanner/dev/OST-Agent/dist/ost-agent.mjs init kl-vault --outcome \"Operators keep the tree\" >/dev/null 2>&1",
+   "session": "14fafc72-bb22-460a-b1d0-95f335a888e5"
+  },
+  {
+   "dir": "/tmp/wv-demo",
+   "command": "node /Users/tanner/dev/OST-Agent/dist/ost-agent.mjs init --vault /tmp/wv-demo --outcome \"Reach 10,000 daily active users\" --opportunity \"Retention\" 2>&1",
+   "session": "1cab514a-2768-400e-8ee0-93389b3891e0"
+  },
+  {
+   "dir": "/tmp/wv-demo",
+   "command": "node /Users/tanner/dev/OST-Agent/dist/ost-agent.mjs init /tmp/wv-demo -o \"Reach 10,000 daily active users\" 2>&1",
+   "session": "1cab514a-2768-400e-8ee0-93389b3891e0"
+  },
+  {
+   "dir": "/tmp/ost-oneq",
+   "command": "node dist/ost-agent.mjs init /tmp/ost-oneq --outcome \"Help freelance designers get paid on time\" 2>&1",
+   "session": "20d3f9af-7d1b-4f4d-9f8f-fe3755ea5a1c"
+  },
+  {
+   "dir": null,
+   "command": "node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init <folder> --outcome \"<their words>\"",
+   "session": "20d3f9af-7d1b-4f4d-9f8f-fe3755ea5a1c",
+   "unresolved": "target is documentation placeholder text: <folder>"
+  },
+  {
+   "dir": null,
+   "command": "node ${CLAUDE_PLUGIN_ROOT}/dist/ost-agent.mjs init <folder> --outcome \"<their words>\"",
+   "session": "20d3f9af-7d1b-4f4d-9f8f-fe3755ea5a1c",
+   "unresolved": "target is documentation placeholder text: <folder>"
+  },
+  {
+   "dir": "/tmp/ledger-smoke",
+   "command": "node /Users/tanner/dev/OST-Agent/dist/ost-agent.mjs init ledger-smoke --outcome \"Smoke\" >/dev/null 2>&1",
+   "session": "498751d4-2786-4308-b09b-eae35c119ee6"
+  },
+  {
+   "dir": "/tmp/ackprobe",
+   "command": "node /Users/tanner/dev/OST-Agent/dist/ost-agent.mjs init --outcome \"Retention\" --mandate \"Reach ten thousand DAU\" --vault /tmp/ackprobe 2>&1",
+   "session": "8fb2c38d-74ae-4d04-b9ff-ff806a6abc33"
+  },
+  {
+   "dir": "/tmp/ackprobe",
+   "command": "node /Users/tanner/dev/OST-Agent/dist/ost-agent.mjs init /tmp/ackprobe --outcome \"Reach ten thousand daily active users\" --title \"Retention\" 2>&1",
+   "session": "8fb2c38d-74ae-4d04-b9ff-ff806a6abc33"
+  },
+  {
+   "dir": null,
+   "command": "env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin HOME=\"$D/home\" node dist/ost-agent.mjs init \"$D/v\" 2>&1",
+   "session": "c91baa0f-c57b-457b-be78-fe67ace0e1f2",
+   "unresolved": "target is a shell variable or substitution: $D/v"
+  },
+  {
+   "dir": null,
+   "command": "env -i PATH=\"$(dirname $NODE):/usr/bin:/bin\" HOME=\"$D/home\" \"$NODE\" dist/ost-agent.mjs init \"$D/v\" 2>&1",
+   "session": "c91baa0f-c57b-457b-be78-fe67ace0e1f2",
+   "unresolved": "target is a shell variable or substitution: $D/v"
+  },
+  {
+   "dir": "/tmp/ost-proposal-smoke",
+   "command": "node /Users/tanner/dev/OST-Agent/dist/ost-agent.mjs init --outcome \"Smoke test outcome\" --vault . >/dev/null 2>&1",
+   "session": "e3a7ecde-0fc0-4cd7-b14e-1bbbf5821ff3"
+  }
+ ],
+ "trees": [
+  {
+   "dir": "/Users/tanner/dev/OST-Agent",
+   "reads": 2774
+  },
+  {
+   "dir": "/Users/tanner/ost-agent-meta",
+   "reads": 92
+  },
+  {
+   "dir": "/Users/tanner/dev/tetrix-game-monorepo",
+   "reads": 50
+  },
+  {
+   "dir": "/Users/tanner/dev/pentagram",
+   "reads": 37
+  },
+  {
+   "dir": "/Users/tanner/dev/chaotic-nature",
+   "reads": 35
+  },
+  {
+   "dir": "/Users/tanner/dev/pentagram/.claude/worktrees/chaos-ui-windowed-client",
+   "reads": 32
+  },
+  {
+   "dir": "/Users/tanner/dev/OST-Agent/.worktrees/run-tool-surface",
+   "reads": 10
+  },
+  {
+   "dir": "/Users/tanner/dev/tetrix-game-monorepo/apps/frontend",
+   "reads": 10
+  },
+  {
+   "dir": "/Users/tanner/.claude/plugins/marketplaces/ost-agent",
+   "reads": 9
+  },
+  {
+   "dir": "/Users/tanner/dev/pentagram/.claude/worktrees/action-recipe-system",
+   "reads": 9
+  },
+  {
+   "dir": "/private/tmp/claude-501/-Users-tanner-dev-tetrix-game-monorepo/6f5da7f9-1dfc-4766-809a-a4c5f6929101/scratchpad/awesome",
+   "reads": 6
+  },
+  {
+   "dir": "/Users/tanner/dev/OST-Agent/.claude/worktrees/discovery-eyes",
+   "reads": 6
+  },
+  {
+   "dir": "/tmp/vm-probe/peerA",
+   "reads": 5
+  },
+  {
+   "dir": "/Users/tanner/dev/apple-epoch-primes",
+   "reads": 5
+  },
+  {
+   "dir": "/Users/tanner/dev/pentagram/.claude/worktrees/test-review",
+   "reads": 5
+  },
+  {
+   "dir": "/tmp/ost-revert-probe",
+   "reads": 4
+  },
+  {
+   "dir": "/tmp/vm-probe/s1",
+   "reads": 4
+  },
+  {
+   "dir": "/tmp/adp",
+   "reads": 3
+  },
+  {
+   "dir": "/tmp/ni-probe/dn",
+   "reads": 3
+  },
+  {
+   "dir": "/tmp/meta-copy",
+   "reads": 2
+  },
+  {
+   "dir": "/private/tmp/claude-501/-Users-tanner-dev-OST-Agent/89ac8277-29ce-4d80-827e-cefea0bebabf/scratchpad/head-check",
+   "reads": 1
+  },
+  {
+   "dir": "/private/tmp/claude-501/-Users-tanner-dev-pentagram/b56af838-785e-437c-a0eb-97e50b3c8e3a/scratchpad/arc-probe",
+   "reads": 1
+  },
+  {
+   "dir": "/private/tmp/claude-501/-Users-tanner-dev-tetrix-game-monorepo/6f5da7f9-1dfc-4766-809a-a4c5f6929101/scratchpad/dsh",
+   "reads": 1
+  },
+  {
+   "dir": "/tmp/commit-bench4",
+   "reads": 1
+  },
+  {
+   "dir": "/tmp/d5probe/vault",
+   "reads": 1
+  },
+  {
+   "dir": "/tmp/ghp",
+   "reads": 1
+  },
+  {
+   "dir": "/tmp/ghp2",
+   "reads": 1
+  },
+  {
+   "dir": "/tmp/ost-base",
+   "reads": 1
+  },
+  {
+   "dir": "/tmp/ost-probe",
+   "reads": 1
+  },
+  {
+   "dir": "/Users/tanner/.claude/projects/-Users-tanner-dev-tetrix-game-monorepo/memory",
+   "reads": 1
+  },
+  {
+   "dir": "/Users/tanner/dev/tetrix-game-monorepo/.claude/worktrees/campaign-clear-feedback",
+   "reads": 1
+  },
+  {
+   "dir": "/Users/tanner/dev/tetrix-game-monorepo/.claude/worktrees/campaign-numerator-rules",
+   "reads": 1
+  },
+  {
+   "dir": "/Users/tanner/dev/tetrix-game-monorepo/.claude/worktrees/lightning-bomb-explainers",
+   "reads": 1
+  }
+ ],
+ "worktreesAdded": [
+  "/Users/tanner/dev/OST-Agent-loop-status",
+  "/Users/tanner/dev/OST-Agent/.worktrees/run-tool-surface",
+  "/private/tmp/claude-501/-Users-tanner-dev-OST-Agent/89ac8277-29ce-4d80-827e-cefea0bebabf/scratchpad/head-check",
+  "/private/tmp/claude-501/-Users-tanner-dev-pentagram/b56af838-785e-437c-a0eb-97e50b3c8e3a/scratchpad/arc-probe",
+  "/tmp/ost-0810",
+  "/tmp/ost-agent-main-check",
+  "/tmp/ost-at-main",
+  "/tmp/ost-base",
+  "/tmp/ost-baseline",
+  "/tmp/ost-branch-check",
+  "/tmp/ost-main",
+  "/tmp/ost-main-attrib",
+  "/tmp/ost-main-baseline",
+  "/tmp/ost-main-check",
+  "/tmp/ost-readiness-wt",
+  "/tmp/ost-z3-base",
+  "/tmp/pre-exemption-check"
+ ],
+ "evidence": [
+  {
+   "dir": "/Users/tanner/dev/apple-epoch-primes",
+   "creator": {
+    "session": "35566d8b-a635-49b1-acc8-6bfbeeb134e7",
+    "tool": "Write",
+    "command": "/Users/tanner/dev/apple-epoch-primes/index.mjs"
+   },
+   "byScaffolder": false
+  },
+  {
+   "dir": "/Users/tanner/dev/ost-benchmarks",
+   "creator": null,
+   "byScaffolder": false,
+   "absent": "transcript-gone"
+  },
+  {
+   "dir": "/tmp/ost-main",
+   "creator": {
+    "session": "0f940e60-26f9-459a-ace4-5af5ce438e2b",
+    "tool": "Bash",
+    "command": "cd /Users/tanner/dev/OST-Agent && git worktree add /tmp/ost-main main 2>&1 | tail -2 && ln -s /Users/tanner/dev/OST-Agent/node_modules /tmp/ost-main/node_modules && echo linked"
+   },
+   "byScaffolder": false
+  },
+  {
+   "dir": "/tmp/ost-npm-archive",
+   "creator": null,
+   "byScaffolder": false,
+   "absent": "transcript-gone"
+  }
+ ]
+}

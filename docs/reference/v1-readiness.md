@@ -3204,9 +3204,10 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,908 tests across 359 files, verified 2026-09-01 (`npx vitest run`
-> collects 358 of the files and finished green at 4,908 in **292 s**; an earlier run of this
-> same branch, on the same machine with a foreground game at 44% of CPU, took **959 s** and
+> *Today:* **met** — 4,937 tests across 360 files, verified 2026-09-01 (`npx vitest run`
+> collects 359 of the files and finished green at 4,937 in **491 s**; the same suite on the
+> same branch took **248 s** an hour earlier with less competing load, and an earlier run on
+> this machine with a foreground game at 44% of CPU took **959 s** and
 > failed eight tests on wall clock alone, every one of them green run by itself).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured

@@ -1,0 +1,50 @@
+[
+ {
+  "session": "35566d8b-a635-49b1-acc8-6bfbeeb134e7",
+  "tool": "Bash",
+  "command": "cd /Users/tanner/dev/apple-epoch-primes && ls -la && echo \"--- git ---\" && git log --oneline | head -10 && git status --short",
+  "error": "Exit code 128 total 64 drwxr-xr-x@ 5 tanner staff 160 Aug 4 13:54 . drwxr-xr-x 14 tanner staff 448 Aug 4 13:08 .. -rwxr-xr-x@ 1 tanner staff 17769 Aug 4 13:54 index.mjs -rw-r--r--@ 1 tanner staff 316 Aug 4 13:10 package.json -rw-r--r--@ 1 tanner staff 4863 Aug 4 13:30 README.md --- git --- fatal: not a git repository (or any of the parent directories): .git fatal: not a git repository (or any of the parent directories): .git",
+  "dir": "/Users/tanner/dev/apple-epoch-primes",
+  "occurrences": 2
+ },
+ {
+  "session": "748498c4-31fb-4110-9012-464c441a463f",
+  "tool": "Bash",
+  "command": "cd /Users/tanner/dev/ost-benchmarks && ls -la && git log --oneline -5 && find . -maxdepth 2 -name \"*.md\" | head -20",
+  "error": "Exit code 128 total 0 drwxr-xr-x@ 4 tanner staff 128 Jul 28 15:32 . drwxr-xr-x 15 tanner staff 480 Jul 28 15:32 .. drwxr-xr-x@ 3 tanner staff 96 Jul 28 15:32 bin drwxr-xr-x@ 5 tanner staff 160 Jul 28 15:32 vaults fatal: not a git repository (or any of the parent directories): .git",
+  "dir": "/Users/tanner/dev/ost-benchmarks",
+  "occurrences": 1
+ },
+ {
+  "session": "agent-a022e255367d9bdf0",
+  "tool": "Bash",
+  "command": "cd /tmp/ost-npm-archive && ls -l *.tgz && echo \"---\" && git log -1 --oneline",
+  "error": "Exit code 128 -rw-r--r--@ 1 tanner wheel 179458 Jul 27 12:33 ost-agent-0.20.0.tgz -rw-r--r--@ 1 tanner wheel 183957 Jul 27 12:33 ost-agent-0.21.0.tgz -rw-r--r--@ 1 tanner wheel 188959 Jul 27 12:33 ost-agent-0.22.0.tgz --- fatal: not a git repository (or any of the parent directories): .git",
+  "dir": "/tmp/ost-npm-archive",
+  "occurrences": 1
+ },
+ {
+  "session": "9a406570-323c-453a-b4ca-a29b4aa01f18",
+  "tool": "Bash",
+  "command": "cd /Users/tanner/dev/apple-epoch-primes && ls -la && echo \"--- git ---\" && git log --oneline | head -10 && git status --short",
+  "error": "Exit code 128 total 64 drwxr-xr-x@ 5 tanner staff 160 Aug 4 13:54 . drwxr-xr-x 14 tanner staff 448 Aug 4 13:08 .. -rwxr-xr-x@ 1 tanner staff 17769 Aug 4 13:54 index.mjs -rw-r--r--@ 1 tanner staff 316 Aug 4 13:10 package.json -rw-r--r--@ 1 tanner staff 4863 Aug 4 13:30 README.md --- git --- fatal: not a git repository (or any of the parent directories): .git fatal: not a git repository (or any of the parent directories): .git",
+  "dir": "/Users/tanner/dev/apple-epoch-primes",
+  "occurrences": 2
+ },
+ {
+  "session": "ac007b7b-ac18-4a19-94f1-cb5f3c93ca42",
+  "tool": "Bash",
+  "command": "cd /Users/tanner/dev/apple-epoch-primes && ls -la && echo \"--- git ---\" && git status --short 2>&1 | head -20 && git log --oneline -5 2>&1",
+  "error": "Exit code 128 total 40 drwxr-xr-x@ 5 tanner staff 160 Aug 4 13:11 . drwxr-xr-x 14 tanner staff 448 Aug 4 13:08 .. -rwxr-xr-x@ 1 tanner staff 8374 Aug 4 13:10 index.mjs -rw-r--r--@ 1 tanner staff 316 Aug 4 13:10 package.json -rw-r--r--@ 1 tanner staff 2848 Aug 4 13:11 README.md --- git --- fatal: not a git repository (or any of the parent directories): .git fatal: not a git repository (or any of the parent directories): .git",
+  "dir": "/Users/tanner/dev/apple-epoch-primes",
+  "occurrences": 2
+ },
+ {
+  "session": "0f940e60-26f9-459a-ace4-5af5ce438e2b",
+  "tool": "Bash",
+  "command": "cd /tmp/ost-main && git log --oneline -1 && git status --short | head",
+  "error": "Exit code 128 fatal: not a git repository (or any of the parent directories): .git",
+  "dir": "/tmp/ost-main",
+  "occurrences": 1
+ }
+]
