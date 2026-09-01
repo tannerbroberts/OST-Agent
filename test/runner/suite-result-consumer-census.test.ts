@@ -176,7 +176,11 @@ const CENSUS: readonly Consumer[] = [
 ];
 
 describe("the consumer set, enumerated and held there", () => {
-  test("every subprocess door under src/ is one of eight files, and only three of them can run a suite", () => {
+  // The title said "eight files" while the list beneath it held ten — the count
+  // drifted as doors joined and the sentence did not. Stated as the list's own
+  // length now: a title maintained by hand is the drift this census exists to
+  // prevent, pointed at itself.
+  test("every subprocess door under src/ is one of the eleven files enumerated here, and only three of them can run a suite", () => {
     // A suite verdict enters this codebase through a spawned process, so the
     // spawners bound the firsthand consumers. Exact, like the retraction
     // census's pin: a new spawner is an argument someone makes in a diff —
@@ -224,6 +228,15 @@ describe("the consumer set, enumerated and held there", () => {
     // only caller-supplied part. A non-zero exit is thrown as "the probe could
     // not read the artefact", which fails the release check closed rather than
     // becoming a pass/fail verdict about something that ran. Asserted below.
+    // `ost/write-report.ts` joined on 2026-09-01: a mutating tool now reports
+    // which `## Sections` its write dropped, and a dropped section is worth
+    // little without a way back to it — so the report offers a `git show
+    // <sha>:<path>` ref beside the prior text, which means resolving the sha and
+    // checking the blob actually matches what was replaced. Provably git-only,
+    // same argument as `loop/state.ts` below: every spawn names "git" as a
+    // literal. It reads `.status`, and only ever to WITHHOLD the ref — a
+    // non-zero git exit means "no repository, or the file is not there",
+    // never a verdict about something that ran.
     const doors = sources()
       .filter((f) => f.text.includes('"node:child_process"'))
       .map((f) => f.rel)
@@ -234,6 +247,7 @@ describe("the consumer set, enumerated and held there", () => {
       path.join("git", "conflict-guard.ts"),
       path.join("loop", "state.ts"),
       path.join("ost", "instrument.ts"),
+      path.join("ost", "write-report.ts"),
       path.join("release", "capability-surface.ts"),
       path.join("release", "ship-repo.ts"),
       path.join("release", "ship.ts"),
@@ -279,6 +293,15 @@ describe("the consumer set, enumerated and held there", () => {
     const gitSpawns = state.match(/spawnSync\("git"/g) ?? [];
     expect(spawns.length).toBeGreaterThan(0);
     expect(gitSpawns.length).toBe(spawns.length);
+
+    // `ost/write-report.ts` by the same proof: every spawn names "git" as a
+    // literal, and both argvs are this file's own hardcoded subcommands with
+    // only a sha and a vault-relative path interpolated into them.
+    const report = readRepo("src/ost/write-report.ts");
+    const reportSpawns = report.match(/spawnSync\(/g) ?? [];
+    const reportGitSpawns = report.match(/spawnSync\("git"/g) ?? [];
+    expect(reportSpawns.length).toBeGreaterThan(0);
+    expect(reportGitSpawns.length).toBe(reportSpawns.length);
 
     // `git/conflict-guard.ts` is provably git-only by the same argument: its
     // one spawn point always names "git" as a literal, and every argv it

@@ -583,6 +583,20 @@ export const COMPRESSION_SURFACES = [
     drops: "prose-note",
     proof: "declaration",
   },
+  {
+    name: "write-report section census",
+    module: "src/ost/write-report.ts",
+    caps: ["MAX_LISTED_SECTIONS", "MAX_INLINE_DROPPED_TEXT"],
+    kind: "bounded-output",
+    decision: "whether the caller who just wrote a node has to go and check what the write cost them",
+    reads: [
+      "the `dropped` bucket is never capped — it is the one a caller must act on, and hiding an entry to stay short is the silence the surface exists to remove",
+      "a capped kept/replaced/added list says how many more it is not naming",
+      "every dropped entry stays restorable: the inline quote is only clipped when a git ref carries the rest, and a clip says how many characters it left out",
+    ],
+    drops: "prose-note",
+    proof: "behavioral",
+  },
 ] as const satisfies readonly CompressionSurface[];
 
 /** The registry, keyed by surface name. Built once; the census test asserts uniqueness. */

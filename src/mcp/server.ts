@@ -212,6 +212,28 @@ function provenanceSuffix(vault: PassContext["vault"], title: string | undefined
 }
 
 /**
+ * The commit message a mutating tool's response becomes: subject from the first
+ * line, everything else into the body.
+ *
+ * A tool response used to be one line, so `mcp: <tool> — <text> (source: …)` was a
+ * subject. Several are now multi-line — `ost_flag_humans_required` carries the
+ * announcement it wants posted, and every write to a node body carries the census
+ * of what it changed (`../ost/write-report.ts`) — and interpolating one whole into
+ * a subject puts the provenance suffix on the LAST line of the message, where
+ * `../git/hand-edit-detector.ts` and `../loop/pass-shape.ts` (both of which read
+ * subjects) cannot see it.
+ *
+ * So the subject keeps its shape and the rest becomes the commit body, which is
+ * where a dropped section's prior text belongs anyway: git ends up holding the
+ * recovery text as well as the file it came out of.
+ */
+export function commitMessageFor(name: string, text: string, provenance: string): string {
+  const [subject, ...rest] = text.split("\n");
+  const body = rest.join("\n").trim();
+  return `mcp: ${name} — ${subject.trim()}${provenance}${body === "" ? "" : `\n\n${body}`}`;
+}
+
+/**
  * The attribution marker a call declares, if any.
  *
  * Reads the optional `unknown` property the attributable tools declare (see
@@ -306,7 +328,7 @@ async function handleOstCall(
     let text = typeof out === "string" ? out : JSON.stringify(out);
     if (MUTATING.has(name)) {
       const provenance = provenanceSuffix(ctx.vault, referencedNodeTitle(name, args));
-      const commit = await enqueueCommit(ctx.dir, `mcp: ${name} — ${text}${provenance}`);
+      const commit = await enqueueCommit(ctx.dir, commitMessageFor(name, text, provenance));
       text += commit.committed ? `\ncommitted ${commit.sha.slice(0, 8)}` : `\n(no changes to commit)`;
     }
     return { content: [{ type: "text", text }] };
