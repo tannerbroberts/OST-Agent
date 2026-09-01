@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+- **Restoring a displaced instrument no longer hands back a permit earned against a spec
+  file that has since changed.** The finding came before the fix and inverts what the work
+  was: re-arming was *already* the behaviour. An observation is recognised by the command
+  it names, `currentObservations` keeps the log lines matching the command the node declares
+  today, and that filter is symmetric — so putting a command back byte-for-byte revived its
+  old reds silently, unconditionally, and with nothing written down to say it had happened.
+  Measured against this repository, not assumed: swap a command away and back and the permit
+  clears, is withdrawn, and clears again with no other change. That is the un-clearing rule
+  defeated by a string comparison, because the command names a *path* and says nothing about
+  the file's contents. So each recorded observation now carries a digest of the spec file it
+  measured, a restore records the digest of that file as it stands at that moment, and the
+  permit re-arms only when the two agree. A mismatch — or an unreadable file, or an
+  observation recorded before digests existed — **withholds** it, and the restore says so in
+  its response and writes the count into the node's `## History` rather than doing it
+  quietly. The withheld lines stay in the log, because a run that happened, happened; the
+  way back is `ost-agent verify`, whose fresh observation sits past the withholding.
+  `test/instruments/permit-rearm.test.ts` pins both directions with the same call against
+  two repositories differing in one file's contents. **What this costs, said out loud:**
+  every red in an existing vault predates the digest, so the first restore of any of them is
+  refused and has to be re-measured. That is the fail-closed direction on purpose — "cannot
+  show what it measured" and "measured something else" license the same amount of building,
+  which is none.
+
 - **A rewrite that would drop a section you never accounted for is now refused, by name.**
   `ost_edit_node` replaces a node's prose wholesale, so any `## Section` the caller did not
   reproduce was deleted — with no error, no warning, and the same success string a lossless

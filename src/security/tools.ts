@@ -18,6 +18,7 @@ import type { QuarantinedNode } from "../ost/quarantine.js";
 import { BELIEVABILITY_LADDER, isRung, rungRank, type RungId } from "../knowledge/believability.js";
 import { isInstrument, parseInstrument, type ParsedInstrument } from "../knowledge/instruments.js";
 import { runInstrument, specResolves, type SpawnRunner } from "../ost/instrument.js";
+import { digestSpecFile, rearmRuling } from "../ost/rearm.js";
 import { ruleOnCandidate } from "../ost/red-now.js";
 import { createInstrumentRation, rationRefusal, type InstrumentRation } from "../ost/rationing.js";
 import { parseThresholdField, thresholdKindOf } from "../eval/coverage.js";
@@ -1549,10 +1550,20 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         // parameter and never will: a pass that could claim `grounded` while
         // blind would reintroduce the exact indistinguishability the flag
         // exists to end.
-        const line = vault.setInstrument(input.test, parsed.command, why, repoSight(repos));
+        //
+        // The re-arm ruling is taken in the same breath and for the same reason.
+        // Putting back a command this test has carried before revives the
+        // observations it earned — the log is append-only and the filter that
+        // recognises them is a string match — so the restore has to say whether
+        // the spec file is still the one they measured. Only the repository can
+        // answer that, so it is settled here and written into the History line.
+        const ruling = rearmRuling(node, parsed.command, digestSpecFile(repos, parsed.target));
+        const line = vault.setInstrument(input.test, parsed.command, why, repoSight(repos), ruling.clause);
         return (
           `instrument of "${input.test}" set: ${line}\n` +
-          `This is not a build permit. Nothing is buildable until \`ost-agent verify\` watches this command fail.`
+          (ruling.restoring
+            ? ruling.reason
+            : `This is not a build permit. Nothing is buildable until \`ost-agent verify\` watches this command fail.`)
         );
       },
     }),

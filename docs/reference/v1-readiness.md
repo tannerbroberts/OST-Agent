@@ -3204,12 +3204,24 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,696 tests across 347 files, verified 2026-09-01 (`npx vitest run`
-> reports 4,688 of them; the other 8 are the contended calibration file described below).
+> *Today:* **met** — 4,706 tests across 348 files, verified 2026-09-01 (`npx vitest run`
+> reports 4,698 of them; the other 8 are the contended calibration file described below).
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured this
-> time rather than derived: a full `npx vitest run` on 2026-09-01 finished at 4,688 across
-> the 346 files it collects, in 182 s. The file added since the previous line is
+> time rather than derived: a full `npx vitest run` on 2026-09-01 finished at 4,698 across
+> the 347 files it collects, in 176 s. The file added since the previous line is
+> `test/instruments/permit-rearm.test.ts` — the instrument for "Replacing an instrument
+> preserves the old command and re-arms the permit if it is restored" (`src/ost/rearm.ts`):
+> restoring a displaced command re-arms the observations it earned only while the spec file
+> it measured is byte-identical to the one on disk. Measured while building it, and it
+> changed what the work was: the string-keyed re-arm was **already** the behaviour, because
+> `currentObservations` filters an append-only log by the command the node names today and
+> that filter is symmetric — so every restore had been reviving its old reds silently and
+> unconditionally, which is the un-clearing rule defeated by a string comparison. What was
+> built is therefore the refusal, not the re-arm: each observation now records a digest of
+> the spec file it measured, a restore records the digest of the file at that moment, and a
+> mismatch — or an observation from before digests existed — withholds the permit until
+> `ost-agent verify` earns it again. The line before it was
 > `test/cli/tree-view-diff-since-last-visit.test.ts` — the instrument for "A per-visit diff of
 > the tree can be computed from the vault alone" (`src/ost/visit.ts`, `src/eval/tree-view.ts`,
 > `ost-agent tree-view`): the feasibility half of "Rendered tree view with diff since last
