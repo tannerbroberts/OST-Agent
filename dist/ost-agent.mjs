@@ -54671,8 +54671,30 @@ function endOfString(source, start) {
       i2 += 2;
       continue;
     }
+    if (quote === "`" && c3 === "$" && source[i2 + 1] === "{") {
+      i2 = endOfInterpolation(source, i2 + 1);
+      continue;
+    }
     if (c3 === quote) return i2 + 1;
     if (c3 === "\n" && quote !== "`") return i2;
+    i2++;
+  }
+  return source.length;
+}
+function endOfInterpolation(source, start) {
+  let depth = 0;
+  let i2 = start;
+  while (i2 < source.length) {
+    const c3 = source[i2];
+    if (c3 === '"' || c3 === "'" || c3 === "`") {
+      i2 = endOfString(source, i2);
+      continue;
+    }
+    if (c3 === "{") depth++;
+    else if (c3 === "}") {
+      depth--;
+      if (depth === 0) return i2 + 1;
+    }
     i2++;
   }
   return source.length;
