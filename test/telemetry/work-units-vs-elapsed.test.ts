@@ -225,7 +225,13 @@ test(
     // ordinary machine load.
     const ratios = points.map((p) => p.ms / p.workUnits);
     const spread = Math.max(...ratios) / Math.max(Math.min(...ratios), 1e-9);
-    expect(spread, `ms/workUnit ratios were ${ratios.map((x) => x.toFixed(4)).join(", ")}`).toBeLessThan(4);
+    // The failure message carries the measurement, not just the derived number.
+    // Two failures of this clause on 2026-09-02 were only diagnosable by pairing
+    // the ratios back to the elapsed times that produced them, which the message
+    // did not print — 0.0400 and 0.2933 at the same size on two runs of the same
+    // commit is a fact about 6 ms versus 44 ms, and unreadable without them.
+    const detail = points.map((p) => `${p.size}: ${p.ms}-${p.slowestMs}ms → ${(p.ms / p.workUnits).toFixed(4)}`).join(", ");
+    expect(spread, `ms/workUnit by size (fastest-slowest of ${5} rounds): ${detail}`).toBeLessThan(4);
   },
   120_000,
 );

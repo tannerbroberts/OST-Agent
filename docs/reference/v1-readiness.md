@@ -3221,20 +3221,48 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,240 tests across 376 files, verified 2026-09-02 (`npx vitest run`
-> finished green at 5,240 in **552 s** with nothing else running on the box). Three earlier
-> runs the same session are worth recording, because between them they name the load pattern
-> rather than a regression: **1,233 s** and **1,144 s** while a second `vitest` and a `tsc`
-> shared the machine, and **586 s** clean. Each failed a *different* set of wall-clock and
-> timeout-bounded tests, and every one of them passed run by itself with large margins —
-> `test/ost/vault-merge-conflict-census.test.ts` timed out at 20 s and takes 2.4–2.6 s alone,
-> `test/loop/inherited-tree-build-check.test.ts` reported 50.1 s against its 30 s bound and
-> takes 1.8 s alone, and `test/loop/work-source-census.test.ts` missed a 10 s `fs.watch`
-> deadline and takes 357 ms alone, three times out of three. Different victims per run with
-> 8–28× headroom in isolation is nondeterminism under worker contention, not a defect in any
-> of the three; what it costs is that a green suite here needs an otherwise idle machine, and
-> the tree carries that under "A test that failed because the machine was busy looks exactly
-> like one that failed because I broke something". The file added is
+> *Today:* **met** — 5,267 tests across 377 files, verified 2026-09-02 (`npx vitest run`
+> finished green at **325 s** with nothing else running on the box). Four further runs the
+> same session are worth recording, because between them they name the load pattern rather
+> than a regression, and this time **one of them was taken at the base commit**: three on the
+> branch (**514 s**, **565 s**, **550 s**) and one on `main` in a clean worktree (**593 s**).
+> The branch runs failed `test/telemetry/work-units-vs-elapsed.test.ts` twice and
+> `test/loop/work-source-census.test.ts` once; the run on unmodified `main` failed
+> `work-source-census` **and** `test/mcp/wall-clock-budget.test.ts` (`ost_next_work` at
+> 2,316 ms against its 2,000 ms budget). Never the same set twice, a red set at the base
+> commit as well as at the tip, and all three pass run together in isolation in 10.7 s —
+> `work-units-vs-elapsed` at 9.3 s against a 120 s bound, `wall-clock-budget` at 8.6 s,
+> `work-source-census`'s watcher at 379 ms against a 10 s deadline. The two
+> `work-units-vs-elapsed` failures are the clearest reading: same commit, ratios of 0.0400
+> and 0.2933 at the *same* fixture size on two runs, which is 6 ms versus 44 ms on a
+> millisecond clock — the small end of the size range is being measured at its resolution
+> under contention, while 1,200/2,400/4,800 held to 207/275 ms, 406/413 ms and 944/998 ms
+> across both. Its assertion message now prints the elapsed times beside the ratios, because
+> neither failure was diagnosable from the derived numbers alone. Different victims per run,
+> a red baseline, and 8–28× headroom in isolation is nondeterminism under worker contention,
+> not a defect in any of them; what it costs is that a green suite here needs an otherwise
+> idle machine, and the tree carries that under "A test that failed because the machine was
+> busy looks exactly like one that failed because I broke something". Three earlier runs on
+> 2026-08-06 showed the same shape — **1,233 s** and **1,144 s** while a second `vitest` and
+> a `tsc` shared the machine, and **586 s** clean, each with a different victim. The file
+> added is `test/runner/scaffold-manifest-coverage.test.ts`, the feasibility census behind
+> "The scaffolder writes a manifest of what it did and did not initialise", plus the manifest
+> itself in `src/runner/scaffold-manifest.ts`. Its assumption test fixed the bar before
+> anything was counted — at least 3 of the 4 captured exit-128 failures happened in a
+> directory this tool scaffolded — and it came out **refuted at the floor: 0 of 4**. Green
+> means the count was taken, and `census.headline.meetsBar` is asserted `false` by name so an
+> exit code cannot be read as the assumption holding. Three things the build found that the
+> node did not say. The one reading that clears the threshold is the reading under which the
+> mechanism cannot exist: count any directory a tool call brought into being and it is
+> exactly 3 of 4, all three in a folder a coding agent's `Write` of `index.mjs` created, where
+> no scaffolder ever ran and so no manifest was ever going to be on disk. The node's own
+> motivating example, `git: false`, is unproducible by this scaffolder — `initVault` calls
+> `gitInitIfAbsent` unconditionally, so a manifest here can say "I initialised it" or "it was
+> already a repository" and never "this is not a repository", which is the one claim the
+> parent opportunity is about. And five of the manifest's eight claims carry `probeCost:
+> "stat"`, including that one, so "the writer pays once and every reader benefits" buys a
+> reader a single `existsSync` on the question that actually failed. The file added before
+> that is
 > `test/preflight/workspace-inventory-fits-and-covers.test.ts`, the fit-and-coverage census
 > behind "The run is handed the workspace layout at startup, before it composes anything".
 > Its assumption test fixed both halves of the bar before anything was generated — under
