@@ -35,7 +35,7 @@
  *    mechanical enough to be a build failure, and explicitly not the whole
  *    question.
  */
-import { classifyProvenance, rungRank, type RungId } from "../knowledge/believability.js";
+import { BELIEVABILITY_LADDER, classifyProvenance, rungRank, type RungId } from "../knowledge/believability.js";
 import { byTitle } from "../processes/tree.js";
 import type { OstNode } from "../ost/node.js";
 import { hasRecordedResult } from "./evidence-debt.js";
@@ -122,6 +122,45 @@ export function unearnedRung(n: OstNode, index: ReadonlyMap<string, OstNode>): U
 }
 
 /**
+ * The clause every rung refusal carries: the value that WOULD have been accepted.
+ *
+ * Both rung refusals on this surface already ended with a sentence like this —
+ * `rungRefusal` for the measurement pair, `standingRefusal` for the channel
+ * ceiling — written independently, four days apart, in the same words by
+ * coincidence rather than by construction. That coincidence is not something to
+ * rest a measurement on. {@link namedAcceptableRung} reads this clause back out
+ * of a refusal so the reflex census can tell "the caller was told the answer"
+ * from "the caller was told no", and a reword that broke the pairing would not
+ * fail anything — the census would simply find nothing and report a clean sheet.
+ * A false clean is the worst reading a census can produce, so the sentence and
+ * its reader live here as one unit, and `test/telemetry/rung-suggestion-reflex.test.ts`
+ * holds every refusal on the surface to the round trip.
+ *
+ * "or lower" is part of the suggestion rather than decoration: a caller told only
+ * the ceiling learns one legal value, and a caller told the ceiling *and* that
+ * everything under it is free learns the whole remaining choice — which is the
+ * difference between informing a judgement and replacing it.
+ */
+export function acceptableRungClause(supported: RungId): string {
+  return `declare '${supported}' or lower (demotion is never gated)`;
+}
+
+/**
+ * The rung a refusal named as acceptable, or null when it named none.
+ *
+ * Case-insensitive on the verb alone, because the clause begins a sentence in one
+ * refusal and continues one in the other. Nothing else about the wording is
+ * matched loosely: a census that guessed at the shape of the sentence it reads
+ * would drift out of agreement with the sentence that is written.
+ */
+export function namedAcceptableRung(message: string): RungId | null {
+  const m = /\bdeclare '([a-z]+)' or lower\b/i.exec(message);
+  if (!m) return null;
+  const rung = m[1];
+  return BELIEVABILITY_LADDER.some((r) => r.id === rung) ? (rung as RungId) : null;
+}
+
+/**
  * The same verdict, addressed to the caller being refused rather than to the
  * reader being informed (B3).
  *
@@ -135,10 +174,10 @@ export function unearnedRung(n: OstNode, index: ReadonlyMap<string, OstNode>): U
 export function rungRefusal(u: UnearnedRung): string {
   const ways =
     u.declared === "money"
-      ? `declare '${u.supported}' or lower (demotion is never gated), or have a human record a result — ` +
+      ? `${acceptableRungClause(u.supported)}, or have a human record a result — ` +
         `ost-agent result "<test>" -v <verdict> -n "<what happened>" -b "<who ran it>" -u "<what it did not cover>" — ` +
         `on this node or on a test one level beneath it`
-      : `declare '${u.supported}' or lower (demotion is never gated), have a human record a result, or cite ` +
+      : `${acceptableRungClause(u.supported)}, have a human record a result, or cite ` +
         `provenance that IS a recording (source: TRANSCRIPT:…). Note that \`source\` is settable only at ` +
         `ost_create_node — on a node that already exists, the rung is the route`;
   return (

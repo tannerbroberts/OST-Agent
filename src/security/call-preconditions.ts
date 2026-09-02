@@ -71,7 +71,7 @@ import { BELIEVABILITY_LADDER, isRung, rungRank, type RungId } from "../knowledg
 import { INSTRUMENT_FORMS, isInstrument, parseInstrument } from "../knowledge/instruments.js";
 import { hasNonEmptySection } from "../knowledge/unknowns.js";
 import { parseThresholdField, thresholdKindOf } from "../eval/coverage.js";
-import { MEASUREMENT_RUNGS, unearnedRung } from "../eval/rungs.js";
+import { acceptableRungClause, MEASUREMENT_RUNGS, unearnedRung } from "../eval/rungs.js";
 import { MAX_KILL_HORIZON_DAYS, parseKillCondition, parseKillDate } from "../ost/kill-criteria.js";
 import { RESERVED_HEADINGS, reservedHeadingIn } from "../ost/headings.js";
 import { accountForSections } from "../ost/section-accounting.js";
@@ -390,9 +390,15 @@ export const CALL_PRECONDITIONS: readonly CallPrecondition[] = Object.freeze([
       if (!key || key.kind === "unattributed") return null;
       const earned = rungOf(facts.trustLedger, key);
       if (rungRank(declared) >= rungRank(earned)) return null;
+      // The clause naming what WOULD have worked is the point of a preflight
+      // refusal rather than a courtesy on it. Stating the ceiling as a fact
+      // ("has earned 'assertion'") and stopping there leaves the caller to
+      // infer the legal move; `acceptableRungClause` states it, in the same
+      // words the write-boundary refusal uses, from the same function.
       return (
         `"${str(input, "title") ?? ""}" cannot declare '${declared}': it cites ${keyString(key)}, which has earned ` +
-        `'${earned}' — and '${facts.trustCeilings[key.kind]}' is the ceiling for a ${key.kind}.`
+        `'${earned}' — and '${facts.trustCeilings[key.kind]}' is the ceiling for a ${key.kind}. ` +
+        `${acceptableRungClause(earned)}.`
       );
     },
   },
@@ -603,7 +609,10 @@ export const CALL_PRECONDITIONS: readonly CallPrecondition[] = Object.freeze([
         body: str(input, "body") ?? existing?.body ?? "",
       } as OstNode;
       const verdict = unearnedRung(draft, facts.nodesByTitle);
-      return verdict ? `cannot declare '${verdict.declared}': what it points at supports '${verdict.supported}'` : null;
+      return verdict
+        ? `cannot declare '${verdict.declared}': what it points at supports '${verdict.supported}' — ` +
+            `${acceptableRungClause(verdict.supported)}`
+        : null;
     },
   },
   {
