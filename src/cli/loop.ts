@@ -43,6 +43,7 @@ import { fallbackBanner, fallbackRefusalReport, runFallback } from "../loop/fall
 import { appendStep, readOpenRun, readRuns, sealRun, startRun, sweepCrashed } from "../loop/health.js";
 import { detectHandEdits, renderDriftReport } from "../git/hand-edit-detector.js";
 import { resumeState, resumeSummary } from "../loop/resume.js";
+import { pendingHandoff, renderHandoff } from "../loop/handoff.js";
 import { readRunHistory, reconstructRuns, renderRunHistory } from "../loop/run-boundary.js";
 import { observeToolSurface } from "../loop/tool-surface-record.js";
 import { renderWorkSourceCensus, workSourceCensus } from "../loop/work-sources.js";
@@ -1156,6 +1157,33 @@ export function registerLoopCommands(program: Command): void {
           return;
         }
       }
+    });
+
+  loop
+    .command("handoff")
+    .description("show the pass that ended at a wait, and the command that wakes the next one (read-only)")
+    .option("--vault <dir>", VAULT_OPTION_HELP)
+    .option("--resume <command>", "the command that starts the next pass, to be run once the check finishes")
+    .action((opts: { vault: string; resume?: string }) => {
+      /*
+       * A REPORTER over `handoff.jsonl`, and the operator's half of ending a pass
+       * at the wait.
+       *
+       * `loop sources` says what could WAKE a sleeping loop. This says what is
+       * asleep and what would wake THIS one — the condition the parked pass named,
+       * rendered through the `await` shim so the line can be run as written rather
+       * than translated first.
+       *
+       * Never sets a non-zero exit code and takes nothing up: reading a handoff
+       * and claiming it are different acts, and a reporter that retired the record
+       * would mean an operator could not look at a parked pass twice.
+       */
+      const record = pendingHandoff(opts.vault);
+      if (record === null) {
+        console.log("handoff: none — no pass ended at a wait in this vault.");
+        return;
+      }
+      for (const line of renderHandoff(record, opts.resume)) console.log(line);
     });
 
   loop

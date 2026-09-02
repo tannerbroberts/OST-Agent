@@ -159,10 +159,19 @@ export const SYMBOL_INDEX_CASES = {
  * close an interface. `commentFree` blanks only comments, so type text lifted out of it
  * keeps its string-literal unions (`surface?: "mcp" | "cli-tool"`) intact.
  *
- * The known limit: a template literal containing a nested backtick inside `${…}` ends
- * the scan early. That is the same construct CLAUDE.md records as this repository's one
- * repeated parser mistake, it does not occur in `src/`, and the failure is a truncated
- * member list rather than a wrong presence verdict.
+ * A template's `${…}` is code rather than text, so {@link endOfString} hands it to
+ * {@link endOfInterpolation} and resumes after the matching `}`. That is not a nicety:
+ * this file previously stopped a template at the first backtick inside an
+ * interpolation, and the first module in `src/` to write one — an error message
+ * building `` `\`${key}\`` `` — desynchronised the scan for the rest of the file and
+ * lost fourteen exports. The header used to call that a truncated member list; it is a
+ * FALSE ABSENCE, which is the one answer `test/runner/symbol-index.test.ts` says this
+ * index must never give, and the parity test caught it on the commit that introduced
+ * the construct.
+ *
+ * The limit that remains: a regex literal inside an interpolation whose body holds an
+ * unbalanced brace or quote. Nothing in `src/` writes one, and unlike the case above the
+ * parity test is watching for it.
  */
 function blank(source: string): { structural: string; commentFree: string } {
   const structural = [...source];
@@ -226,9 +235,43 @@ function endOfString(source: string, start: number): number {
       i += 2;
       continue;
     }
+    // `${…}` inside a template is code, and a backtick in there opens a NESTED
+    // template rather than closing this one. Skipping to the matching `}` is what
+    // keeps the scan in phase; see this section's header for what happens when it
+    // does not.
+    if (quote === "`" && c === "$" && source[i + 1] === "{") {
+      i = endOfInterpolation(source, i + 1);
+      continue;
+    }
     if (c === quote) return i + 1;
     // A non-template string does not span lines; bail rather than swallow the file.
     if (c === "\n" && quote !== "`") return i;
+    i++;
+  }
+  return source.length;
+}
+
+/**
+ * Index just past the `}` that closes the interpolation whose `{` is at `start`.
+ *
+ * Braces are counted and strings inside are delegated back to {@link endOfString},
+ * so `` `${a ? `${b}` : "}"}` `` is walked correctly: the nested template and the
+ * `"}"` are both consumed as strings and neither moves the depth counter.
+ */
+function endOfInterpolation(source: string, start: number): number {
+  let depth = 0;
+  let i = start;
+  while (i < source.length) {
+    const c = source[i];
+    if (c === '"' || c === "'" || c === "`") {
+      i = endOfString(source, i);
+      continue;
+    }
+    if (c === "{") depth++;
+    else if (c === "}") {
+      depth--;
+      if (depth === 0) return i + 1;
+    }
     i++;
   }
   return source.length;

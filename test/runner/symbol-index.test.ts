@@ -176,6 +176,33 @@ describe("what an exported declaration contributes to the surface", () => {
     expect(indexModule("m.ts", source).exports.map((e) => e.name)).toEqual(["real"]);
   });
 
+  test("a backtick inside `${…}` closes the nested template, not the outer one", () => {
+    // The construct that desynchronised this scan for the rest of a file: an error
+    // message quoting its keys. Everything after it read as absent, and a false
+    // absence is the one answer this index must not give. Pinned here as well as by
+    // the parity run below, because that run only catches it while some module in
+    // `src/` happens to contain the construct.
+    const source = [
+      "export function gap(keys: string[]): string {",
+      "  return `needs ${keys.map((k) => `\\`${k}\\``).join(', ')} — and the record lacks them`;",
+      "}",
+      "export interface AfterTheTemplate { seen: boolean }",
+    ].join("\n");
+    const mod = indexModule("m.ts", source);
+
+    expect(mod.exports.map((e) => e.name)).toEqual(["gap", "AfterTheTemplate"]);
+    expect(mod.exports[1].members.map((m) => m.name)).toEqual(["seen"]);
+  });
+
+  test("a brace or backtick inside an interpolation's own string does not end it early", () => {
+    const source = [
+      "export const closing = `${cond ? `{` : '}'} tail`;",
+      "export interface StillHere { ok: boolean }",
+    ].join("\n");
+
+    expect(indexModule("m.ts", source).exports.map((e) => e.name)).toEqual(["closing", "StillHere"]);
+  });
+
   test("an export nested inside a block is not a module export", () => {
     const source = "declare global {\n  export interface Window { ost: string }\n}\nexport const K = 1;";
     expect(indexModule("m.ts", source).exports.map((e) => e.name)).toEqual(["K"]);

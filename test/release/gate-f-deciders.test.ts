@@ -52,6 +52,7 @@ import { scopePath } from "../../src/loop/scope.js";
 import { openRunPath, runsPath } from "../../src/loop/health.js";
 import { buildPassesPath } from "../../src/loop/reserve.js";
 import { journalPath } from "../../src/loop/journal.js";
+import { handoffPath } from "../../src/loop/handoff.js";
 import { firingLockPath } from "../../src/loop/lock.js";
 import { loopStateDir } from "../../src/loop/state.js";
 import { announcedPath, appliedPath } from "../../src/loop/updates.js";
@@ -462,6 +463,17 @@ const OFF_GATE_DECIDER_MODULES: Record<string, string> = {
   // because a journal the unattended surface could append to would let a pass
   // skip work by claiming it finished it.
   "resume.ts": "the resumer — decides whether a killed run's step is re-run, not whether a firing may",
+  // The handoff record is `resume.ts`'s sibling and takes the class for the same
+  // reason. It decides what a pass woken by a finished check does NEXT — which
+  // step, holding which facts — and none of that is one of F1–F4's questions, so
+  // filing it under a Gate F criterion would attribute it to a verdict it does not
+  // compute. Its obligation is the sharper half: a handoff the unattended surface
+  // could append to would let a pass be resumed into a step it never reached,
+  // holding facts nobody recorded — forge the `pr` it is holding and the next pass
+  // merges somebody else's branch. `.git/ost-agent/` is what makes that
+  // unreachable, and listing the path below is what makes a future move out of it
+  // fail the build rather than quietly handing the agent its own next action.
+  "handoff.ts": "the handoff record — decides what a woken pass does next, not whether a firing may",
 };
 
 /**
@@ -489,6 +501,10 @@ const OFF_GATE_DECIDER_PATHS = (v: string): string[] => [
   dispatchLedgerPath(v)!,
   parityLedgerPath(v)!,
   buildPassesPath(v)!,
+  // What a parked pass is resumed from. Unlike the journal it is not enumerated
+  // anywhere else, so this line is the only thing standing between it and a
+  // working-tree location that `git add -A` would sweep into a commit.
+  handoffPath(v),
   // The resumer's input. Also enumerated under the health verdict, and listed
   // twice on purpose: the two classes prove different things about it, and a
   // future change that took the journal off the health list would otherwise take
