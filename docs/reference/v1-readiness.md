@@ -3230,8 +3230,11 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > **11.1 s** and **13.9 s**, and `npx tsc --noEmit` — what the first of them actually measures
 > — takes **10.2 s** at this commit. Three times the wall clock for the same tree, with the
 > victims clearing in isolation, is contention rather than a regression this batch introduced.
-> An earlier run finished green at 5,240 in **552 s** with nothing else on the box. Three
-> earlier
+> A fourth run of the same commit, taken when the box had quietened, came back **fully green
+> at 5,292 in 587 s** — three runs, three different victims, then none. The load was measured
+> rather than assumed: 18.6 on ten cores, with a game and `fseventsd` between them holding
+> most of the machine. An earlier run finished green at 5,240 in **552 s** with nothing else
+> on the box. Three earlier
 > runs the same session are worth recording, because between them they name the load pattern
 > rather than a regression: **1,233 s** and **1,144 s** while a second `vitest` and a `tsc`
 > shared the machine, and **586 s** clean. Each failed a *different* set of wall-clock and
