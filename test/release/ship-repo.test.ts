@@ -139,6 +139,10 @@ describe("nothing merges on an unearned green", () => {
       "git cat-file -s HEAD:SKILL.md": { status: 128, output: "fatal: Not a valid object name" },
       "git cat-file -s HEAD:.claude/skills/opportunity-solution-tree/SKILL.md": { status: 0, output: "39538\n" },
       "git cat-file -s HEAD:.claude/workflows/skeleton.js": { status: 0, output: "4973\n" },
+      // Every artefact `gen:skill` writes needs a size here: one this harness
+      // cannot answer makes the whole subject unobservable, the scope check
+      // stands down, and this test would pass for the opposite reason.
+      "git cat-file -s HEAD:docs/reference/workflow-grammar.md": { status: 0, output: "8226\n" },
     });
     const outcome = ship({ repo: "/repo", run });
 

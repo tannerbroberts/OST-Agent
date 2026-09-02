@@ -47,13 +47,15 @@ export const BUNDLE_ARTIFACTS: readonly string[] = ["dist/ost-agent.mjs", "dist/
 /**
  * What `npm run gen:skill` writes, and therefore what skill-drift is set against.
  *
- * Both, because `scripts/gen-skill.ts` writes both: `SKILL_PATH` and
- * `WORKFLOW_SKELETON_PATH`. `GENERATED_ARTIFACT` in `gates.declared.ts` names
- * neither — it names `SKILL.md`, a path that does not exist in this repository.
+ * All three, because `scripts/gen-skill.ts` writes all three: `SKILL_PATH`,
+ * `WORKFLOW_SKELETON_PATH` and `WORKFLOW_GRAMMAR_PATH`. `GENERATED_ARTIFACT` in
+ * `gates.declared.ts` names none of them — it names `SKILL.md`, a path that does
+ * not exist in this repository.
  */
 export const SKILL_ARTIFACTS: readonly string[] = [
   ".claude/skills/opportunity-solution-tree/SKILL.md",
   ".claude/workflows/skeleton.js",
+  "docs/reference/workflow-grammar.md",
 ];
 
 /** Artefacts a generator gate was set against, by gate name. */
