@@ -3221,8 +3221,14 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,106 tests across 369 files, verified 2026-09-02 (`npx vitest run`
-> finished green at 5,106 in **216 s**; the same suite on the same machine measured **268 s**,
+> *Today:* **met** — 5,135 tests across 371 files, verified 2026-09-02 (`npx vitest run`
+> finished green at 5,135 in **221 s**; the file added that day is
+> `test/ost/event-log-projection.test.ts`, the corpus that replays this vault's whole git
+> history as events and asks whether folding that log back reproduces the tree. The file
+> added earlier the same day is `test/security/derived-deny-rule.test.ts`, the corpus that
+> says a deny rule derived from this workspace's own refusals refuses no legitimate use of
+> the same verb. The same suite
+> on the same machine measured **289 s**, **268 s**,
 > **225 s** and **211 s** earlier the same session, and **338 s**, **372 s**, **227 s**, **232 s**, **260 s**,
 > **478 s**,
 > **416 s**, **406 s**, **237 s**, **491 s** and **248 s** on the previous day — and the
