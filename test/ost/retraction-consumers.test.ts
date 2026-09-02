@@ -56,6 +56,7 @@ import { computeNextWork } from "../../src/mcp/next-work.js";
 import { readNodeBody } from "../../src/mcp/node-body.js";
 import { MCP_TOOL_NAMES } from "../../src/mcp/server.js";
 import { formatCensus, isRetractedNode, retractionReason } from "../../src/ost/census.js";
+import { deferredCauses } from "../../src/ost/deferral.js";
 import { RESERVED_HEADINGS, RETRACTION_HEADING, declaresHeading } from "../../src/ost/headings.js";
 import { triageLanes } from "../../src/ost/lanes.js";
 import type { OstNode } from "../../src/ost/node.js";
@@ -161,7 +162,7 @@ describe("the consumer set, enumerated and held there", () => {
     return out;
   }
 
-  test("every module that reads nodes is one of eleven, and the audit's bar is 12", () => {
+  test("every module that reads nodes is one of twelve, and the audit's bar is 12", () => {
     const readers = sources()
       .filter((f) => f.rel !== path.join("ost", "vault.ts"))
       .filter((f) => /\.(readTree|readTreeCensus|readLiveTree)\(/.test(f.text))
@@ -226,11 +227,32 @@ describe("the consumer set, enumerated and held there", () => {
     // inherits is correct for the same reason it is inert. The gate that runs on
     // every write does not read the tree at all after the first resolution; it
     // reads that one node's file.
+    //
+    // `ost/deferral.ts` is the twelfth, and it is the first reader whose SUBJECT
+    // is retirement, so the argument has to run the other way round. It groups
+    // what killed the ideas this tree abandoned, which means it deliberately does
+    // NOT pass `excludeRetired` — a `deferred` node is the thing it counts, and
+    // filtering it out would leave the census measuring nothing. That is safe for
+    // the reason `withoutRetiredNodes` states: `deferred` is one agent call, so
+    // it must never empty a GATE's denominator, and this is not a gate — it
+    // computes a number for a human to record with `ost-agent result` and its
+    // exit code is deliberately independent of the threshold's verdict.
+    //
+    // Retraction and the archive it treats completely differently, and correctly:
+    // both are withheld from `nodes` unconditionally by the read, so this module
+    // never sees a retracted BODY at all. What it reads is `TreeCensus.retired`,
+    // which is the census's own list of names and reasons — the retracting
+    // human's words, already published there for exactly this kind of naming. A
+    // retirement therefore enters the tally as a row with a route and a reason
+    // and never as prose, so nothing this file prints can put a retracted claim
+    // back into circulation. Asserted below ("the deferral census counts a
+    // retracted node without reading its body").
     expect(readers).toEqual([
       path.join("cli", "index.ts"),
       path.join("mcp", "bootstrap.ts"),
       path.join("mcp", "next-work.ts"),
       path.join("mcp", "node-body.ts"),
+      path.join("ost", "deferral.ts"),
       path.join("ost", "instrument.ts"),
       path.join("ost", "outcome-signal.ts"),
       path.join("ost", "ranked-ledger.ts"),
@@ -425,6 +447,30 @@ describe("a retracted node is in no count, scan, gate or rollup", () => {
     const after = strandedEvidenceCensus([dir]);
     expect(after.attachable).toEqual([]);
     expect(after.homeless.map((i) => i.id)).toEqual(["TRANSCRIPT:only-cited-by-the-regretted-node"]);
+  });
+
+  test("the deferral census counts a retracted node without reading its body", () => {
+    const before = deferredCauses(dir, vault.readTreeCensus());
+    expect(before.retired).toEqual([]);
+
+    retract(REGRETTED, "the belief underneath it was refuted by a later replay");
+
+    // Counted — a retraction is one of the three ways an idea dies here, and a
+    // census of deaths that skipped it would report the survivors' causes as more
+    // concentrated than the record supports.
+    const after = deferredCauses(dir, vault.readTreeCensus());
+    expect(after.retired.map((r) => ({ title: r.title, route: r.route, cause: r.cause }))).toEqual([
+      { title: REGRETTED, route: "retraction", cause: "refuted" },
+    ]);
+
+    // And counted from the retraction line alone. The node's own prose is still
+    // on disk and must not reach the census: this module's subject is retirement,
+    // so it is the one reader that could plausibly have justified serving a
+    // withheld body, and it does not.
+    const body = fs.readFileSync(path.join(dir, fileNameForTitle(REGRETTED)), "utf8");
+    expect(body).toContain("prose for");
+    expect(after.retired[0].basis).not.toContain("prose for");
+    expect(after.retired[0].basis).toContain("refuted by a later replay");
   });
 
   test("lane triage — a retracted test is not in an unattended pass's backlog", () => {

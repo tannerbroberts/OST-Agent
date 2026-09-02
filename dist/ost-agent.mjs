@@ -56775,10 +56775,10 @@ function formatRefusalCensus(label2, both) {
   ];
   for (const reading of REFUSAL_READINGS) {
     const c3 = both[reading];
-    const pct10 = c3.tests === 0 ? "\u2014" : `${Math.round(c3.blockedShare * 1e3) / 10}%`;
+    const pct11 = c3.tests === 0 ? "\u2014" : `${Math.round(c3.blockedShare * 1e3) / 10}%`;
     const next = c3.blocked.filter((b2) => b2.awaitingResult).length;
     lines.push(
-      `  ${reading.padEnd(7)} (refuses ${REFUSED_KINDS[reading].join(", ")})  ${String(c3.blocked.length).padStart(4)}/${String(c3.tests).padEnd(4)} blocked (${pct10}), ${next} of them never run; ${bearingOnTheBar(c3.blocked.length)}`
+      `  ${reading.padEnd(7)} (refuses ${REFUSED_KINDS[reading].join(", ")})  ${String(c3.blocked.length).padStart(4)}/${String(c3.tests).padEnd(4)} blocked (${pct11}), ${next} of them never run; ${bearingOnTheBar(c3.blocked.length)}`
     );
   }
   return lines.join("\n");
@@ -57652,6 +57652,206 @@ function formatStrandedCensus(census) {
   lines.push("");
   lines.push(
     "Citation in prose is the discriminator, not whether an item carries a customer need \u2014 a judgment no count can take. Read `citedBy` before believing either half."
+  );
+  return lines.join("\n");
+}
+
+// src/ost/deferral.ts
+var DEFERRAL_CAUSES = ["superseded", "refuted", "decided", "duplicate", "unclassified"];
+var CAUSE_PATTERNS = {
+  // "Deferred means superseded by those two, not abandoned" — a node split into
+  // successors that carry its design forward.
+  superseded: /\bsupersede|\bsplit\b|\breplaced by\b|\bsuccessor/i,
+  // "Deferring per the evidence"; "this designed-to-fail assertion". A run
+  // happened and it went against the node.
+  refuted: /\brefut|\bfalsif|\bdisprov|\bdesigned-to-fail\b|\bper the evidence\b/i,
+  // "ANSWERED BY FOUNDER DECISION"; "the nearest status to 'closed by decision'".
+  // Nobody measured anything; somebody with the mandate said no.
+  decided: /\bdecision\b|\bdecided\b|\bfounder\b|\bout of scope\b|\bwon't do\b/i,
+  // "self-flagged near-duplicate of sibling"; "Human-authorized merge".
+  duplicate: /\bduplicate\b|\bmerged? into\b|\bmerge\b|\bredundant\b/i
+};
+var CONTROL_CHARS2 = new RegExp("[\\u0000-\\u001F\\u007F]+", "g");
+function flattenBasis(text2) {
+  return text2.replace(CONTROL_CHARS2, " ").replace(/\s+/g, " ").trim();
+}
+var DEFAULT_LAYERS = ["Solution"];
+var DEFAULT_SAMPLE_REQUIRED = 15;
+var DEFAULT_SHARE_REQUIRED = 0.5;
+var TOP_N = 3;
+function classifyCause(basis) {
+  if (!basis.trim()) return "unclassified";
+  for (const cause of DEFERRAL_CAUSES) {
+    const pattern = CAUSE_PATTERNS[cause];
+    if (pattern?.test(basis)) return cause;
+  }
+  return "unclassified";
+}
+function deferralHistoryEntry(node2) {
+  const entries = entriesUnder(node2.body ?? "", HISTORY_HEADING);
+  const transitions = entries.filter((e) => /\bstatus:.*(?:→|->)\s*deferred\b/i.test(e));
+  return transitions.length ? transitions[transitions.length - 1] : "";
+}
+function fromStatus(vault, node2) {
+  const entry = deferralHistoryEntry(node2);
+  return {
+    vault,
+    title: node2.title,
+    layer: node2.layer,
+    route: "status",
+    cause: classifyCause(entry),
+    basis: flattenBasis(entry)
+  };
+}
+function titleOfDrop(file) {
+  return file.replace(new RegExp(`^${ARCHIVE_DIRNAME}/`), "").replace(/\.md$/i, "");
+}
+function deferredCauses(vault, census) {
+  const retired = census.nodes.filter(isRetiredNode).map((n) => fromStatus(vault, n));
+  for (const drop of census.retired) {
+    const isRetraction = /^retracted\b/i.test(drop.reason);
+    retired.push({
+      vault,
+      title: titleOfDrop(drop.file),
+      layer: "Unknown",
+      route: isRetraction ? "retraction" : "archive",
+      cause: isRetraction ? classifyCause(drop.reason) : "unclassified",
+      basis: isRetraction ? flattenBasis(drop.reason) : ""
+    });
+  }
+  const read = census.nodes.length + census.retired.length;
+  const unreadable = [...census.unreadable.map((d) => d.file), ...census.quarantined.map((q2) => q2.file)];
+  return {
+    vault,
+    examined: read,
+    subject: { offered: read + unreadable.length, read },
+    unreadable,
+    retired
+  };
+}
+function flattestTopThreeShare(sample3, causes = DEFERRAL_CAUSES.length) {
+  if (sample3 <= 0 || causes <= 0) return 0;
+  const base = Math.floor(sample3 / causes);
+  const remainder = sample3 % causes;
+  let top = 0;
+  for (let i2 = 0; i2 < Math.min(TOP_N, causes); i2++) top += i2 < remainder ? base + 1 : base;
+  return Math.min(top, sample3) / sample3;
+}
+function tallyCauses(inScope, opts = {}) {
+  const sampleRequired = opts.sampleRequired ?? DEFAULT_SAMPLE_REQUIRED;
+  const shareRequired = opts.shareRequired ?? DEFAULT_SHARE_REQUIRED;
+  const counts = /* @__PURE__ */ new Map();
+  for (const cause of DEFERRAL_CAUSES) counts.set(cause, 0);
+  for (const row of inScope) counts.set(row.cause, (counts.get(row.cause) ?? 0) + 1);
+  const tally = DEFERRAL_CAUSES.map((cause) => ({ cause, count: counts.get(cause) ?? 0 })).sort(
+    (a, b2) => b2.count - a.count || DEFERRAL_CAUSES.indexOf(a.cause) - DEFERRAL_CAUSES.indexOf(b2.cause)
+  );
+  const sample3 = inScope.length;
+  const topThree = tally.slice(0, TOP_N).reduce((n, t2) => n + t2.count, 0);
+  const topThreeShare = sample3 > 0 ? topThree / sample3 : 0;
+  const sampleHolds = sample3 >= sampleRequired;
+  const shareHolds = sample3 > 0 && topThreeShare >= shareRequired;
+  const flattest = flattestTopThreeShare(sampleRequired);
+  return {
+    tally,
+    verdict: {
+      sample: sample3,
+      sampleRequired,
+      sampleHolds,
+      topThree,
+      topThreeShare,
+      shareRequired,
+      shareHolds,
+      holds: sampleHolds && shareHolds,
+      flattestTopThreeShare: flattest,
+      concentrationDiscriminates: flattest < shareRequired
+    }
+  };
+}
+function deferralCensus(dirs, opts = {}) {
+  const vaults = dirs.map((dir) => deferredCauses(dir, new Vault(dir, { create: false }).readTreeCensus()));
+  return summariseDeferrals(vaults, opts);
+}
+function summariseDeferrals(vaults, opts = {}) {
+  const layers = new Set(opts.layers ?? DEFAULT_LAYERS);
+  const retired = vaults.flatMap((v) => v.retired);
+  const inScope = retired.filter((r2) => layers.has(r2.layer));
+  const subject = {
+    offered: vaults.reduce((n, v) => n + v.subject.offered, 0),
+    read: vaults.reduce((n, v) => n + v.subject.read, 0)
+  };
+  const { tally, verdict } = tallyCauses(inScope, opts);
+  return {
+    vaults: [...vaults],
+    examined: vaults.reduce((n, v) => n + v.examined, 0),
+    retired,
+    inScope,
+    tally,
+    subject,
+    blindness: classifySubject(subject),
+    verdict
+  };
+}
+function pct3(share) {
+  return `${Math.round(share * 100)}%`;
+}
+function formatDeferralCensus(census, opts = {}) {
+  const layers = opts.layers ?? DEFAULT_LAYERS;
+  const v = census.verdict;
+  const lines = [];
+  if (census.blindness === "totally-blind") {
+    lines.push(
+      `Deferral causes: BLIND \u2014 read 0 of ${census.subject.offered} node(s) across ${census.vaults.length} vault(s). This is not a clean census; nothing was examined.`
+    );
+    for (const vault of census.vaults) {
+      lines.push(`  ${vault.vault}: read ${vault.subject.read} of ${vault.subject.offered} offered`);
+    }
+    lines.push("");
+    lines.push("A sweep with an empty subject is a failure, not a pass. Check that each path above is a vault.");
+    return lines.join("\n");
+  }
+  lines.push(
+    `Deferral causes: ${v.holds ? "THRESHOLD MET" : "THRESHOLD NOT MET"} \u2014 ${v.sample} retired ${layers.join("/")} node(s) of a required ${v.sampleRequired} (${v.sampleHolds ? "met" : "short by " + (v.sampleRequired - v.sample)}), top ${TOP_N} cause(s) ${pct3(v.topThreeShare)} of a required ${pct3(v.shareRequired)} (${v.shareHolds ? "met" : "not met"}).`
+  );
+  lines.push(
+    `  taken over ${census.examined} node(s) across ${census.vaults.length} vault(s); ${census.retired.length} retirement(s) found in all, ${v.sample} in scope.`
+  );
+  for (const vault of census.vaults) {
+    lines.push(`  ${vault.vault}: ${vault.retired.length} retired of ${vault.examined} examined`);
+  }
+  if (census.blindness === "partly-blind") {
+    const shortfall = census.subject.offered - census.subject.read;
+    lines.push(
+      `  \u26A0 partly blind: ${shortfall} node file(s) present could not be read or classified, so every count above is over ${census.subject.read} of ${census.subject.offered}. A file this reader cannot parse may be a retirement it cannot count.`
+    );
+    for (const vault of census.vaults) {
+      for (const name of vault.unreadable) lines.push(`    unreadable: ${vault.vault}/${name}`);
+    }
+  }
+  lines.push("");
+  lines.push(`Causes over the ${v.sample} node(s) in scope:`);
+  for (const t2 of census.tally) lines.push(`  ${t2.cause.padEnd(13)} ${t2.count}`);
+  lines.push("");
+  if (!v.concentrationDiscriminates) {
+    lines.push(
+      `\u26A0 The concentration clause cannot come out a failure at this bar. Spread as evenly as ${DEFERRAL_CAUSES.length} cause(s) allow, a sample of ${v.sampleRequired} still puts ${pct3(v.flattestTopThreeShare)} in its top ${TOP_N} \u2014 above the ${pct3(v.shareRequired)} required. A vault whose every death had its own reason would read as concentrated. The sample-size clause is carrying this threshold on its own; only a human may move the bar or widen the vocabulary.`
+    );
+  } else {
+    lines.push(
+      `The concentration clause discriminates: the flattest distribution ${DEFERRAL_CAUSES.length} cause(s) allow puts ${pct3(v.flattestTopThreeShare)} in its top ${TOP_N}, below the ${pct3(v.shareRequired)} required.`
+    );
+  }
+  lines.push("");
+  lines.push(`Every retirement found (${census.retired.length}), with the words its cause was read off:`);
+  if (!census.retired.length) lines.push("  (none)");
+  for (const row of census.retired) {
+    const scope = layers.includes(row.layer) ? "" : " [out of scope]";
+    lines.push(`  ${row.cause} \u2014 ${row.title} (${row.layer}, ${row.route})${scope}`);
+    lines.push(`    ${row.basis || "no reason recorded"}`);
+  }
+  lines.push("");
+  lines.push(
+    "A cause here is the cause somebody WROTE DOWN, matched by keyword against a vocabulary fitted to this vault's first retirements \u2014 not the cause that operated. Read the basis line under each row before believing any bucket, and record the verdict with `ost-agent result`, which is a human's call."
   );
   return lines.join("\n");
 }
@@ -58692,7 +58892,7 @@ function searchSubjects(requests, opts = {}) {
 }
 
 // src/security/tainted.ts
-var CONTROL_CHARS2 = new RegExp("[\\u0000-\\u001F\\u007F]");
+var CONTROL_CHARS3 = new RegExp("[\\u0000-\\u001F\\u007F]");
 var CONTROL_CHARS_GLOBAL = new RegExp("[\\u0000-\\u001F\\u007F]", "g");
 var GLOB_SYNTAX = /[\\*?{},]/g;
 var TreeText = class _TreeText {
@@ -58763,7 +58963,7 @@ var TreeText = class _TreeText {
     if (value === "." || value === ".." || value.includes("..")) {
       return { ok: false, reason: `${this.#describe()} contains a traversal, so the path it builds may leave ${root}` };
     }
-    if (CONTROL_CHARS2.test(value)) {
+    if (CONTROL_CHARS3.test(value)) {
       return { ok: false, reason: `${this.#describe()} contains a control character, so it does not name one line or one file` };
     }
     const sep = root.endsWith("/") ? "" : "/";
@@ -59876,7 +60076,7 @@ function readTranscriptSessions(dir) {
   }
   return sessions;
 }
-function pct3(share) {
+function pct4(share) {
   return `${Math.round(share * 100)}%`;
 }
 function formatPreflightCensus(census) {
@@ -59887,7 +60087,7 @@ function formatPreflightCensus(census) {
     );
   } else {
     lines.push(
-      `Preflight uncertainty: ${census.uncertain} of ${census.readable} readable failure(s) (${pct3(census.share ?? 0)}) came from a caller already showing doubt; ${census.confident} showed none.`
+      `Preflight uncertainty: ${census.uncertain} of ${census.readable} readable failure(s) (${pct4(census.share ?? 0)}) came from a caller already showing doubt; ${census.confident} showed none.`
     );
   }
   lines.push(
@@ -60594,7 +60794,7 @@ function readTreeTitles(vaultDir) {
   }
   return names.filter((n) => n.endsWith(".md")).map((n) => n.replace(/\.md$/, "")).sort();
 }
-function pct4(share) {
+function pct5(share) {
   return share === null ? "\u2014" : `${Math.round(share * 100)}%`;
 }
 function formatSearchLiteralityCensus(census) {
@@ -60605,7 +60805,7 @@ function formatSearchLiteralityCensus(census) {
     );
   } else {
     lines.push(
-      `Search literality: ${census.treeLiteral} of ${census.treeDerived} tree-derived argument(s) (${pct4(census.share)}) are expressible as literal lookups; the bar is ${pct4(census.bar)}.`
+      `Search literality: ${census.treeLiteral} of ${census.treeDerived} tree-derived argument(s) (${pct5(census.share)}) are expressible as literal lookups; the bar is ${pct5(census.bar)}.`
     );
   }
   lines.push(
@@ -60621,17 +60821,17 @@ function formatSearchLiteralityCensus(census) {
   lines.push("  How literal counts, rung by rung:");
   for (const reading of census.readings) {
     lines.push(
-      `    ${reading.treeLiteral}/${reading.treeDerived} (${pct4(reading.share)}) ${reading.meetsBar ? "meets" : "MISSES"} the bar \u2014 ${reading.name}`
+      `    ${reading.treeLiteral}/${reading.treeDerived} (${pct5(reading.share)}) ${reading.meetsBar ? "meets" : "MISSES"} the bar \u2014 ${reading.name}`
     );
   }
   lines.push("  How much text makes an argument tree-derived:");
   for (const rung of census.provenanceLadder) {
     lines.push(
-      `    \u2265${rung.minMatchChars} chars: ${rung.treeLiteral}/${rung.treeDerived} (${pct4(rung.share)}) ${rung.meetsBar ? "meets" : "MISSES"} the bar`
+      `    \u2265${rung.minMatchChars} chars: ${rung.treeLiteral}/${rung.treeDerived} (${pct5(rung.share)}) ${rung.meetsBar ? "meets" : "MISSES"} the bar`
     );
   }
   lines.push(
-    census.ruleDecides ? `  Rule: THE RULE DECIDES THIS. The rungs above do not agree about the ${pct4(census.bar)} bar, so the verdict is as much a property of where "literal" was drawn as of the searches.` : `  Rule: stable \u2014 every rung above reaches the same verdict against the ${pct4(census.bar)} bar.`
+    census.ruleDecides ? `  Rule: THE RULE DECIDES THIS. The rungs above do not agree about the ${pct5(census.bar)} bar, so the verdict is as much a property of where "literal" was drawn as of the searches.` : `  Rule: stable \u2014 every rung above reaches the same verdict against the ${pct5(census.bar)} bar.`
   );
   const treePatterns = census.classified.filter((c3) => c3.provenance === "tree" && c3.literality === "pattern");
   lines.push("");
@@ -60938,7 +61138,7 @@ function pathFailureCensus(failures, meta) {
     bySubjectRoot
   };
 }
-function pct5(share) {
+function pct6(share) {
   return `${Math.round(share * 1e3) / 10}%`;
 }
 function formatPathFailureCensus(census) {
@@ -60951,13 +61151,13 @@ function formatPathFailureCensus(census) {
   }
   const verdict = census.meetsBar ? "CLEARS" : "REFUTED";
   lines.push(
-    `Path-failure attribution: ${verdict} \u2014 ${census.owned} of ${census.pathShaped} path-shaped failure(s) (${pct5(census.share ?? 0)}) arrived through a tool this repository controls, against a pre-committed bar of ${pct5(ATTRIBUTION_RULE.bar)}.`
+    `Path-failure attribution: ${verdict} \u2014 ${census.owned} of ${census.pathShaped} path-shaped failure(s) (${pct6(census.share ?? 0)}) arrived through a tool this repository controls, against a pre-committed bar of ${pct6(ATTRIBUTION_RULE.bar)}.`
   );
   lines.push(
     `Read from ${census.sessionsRead} session(s): ${census.calls} tool call(s), ${census.errors} failure(s), ${census.unread} unpaired and counted neither way.`
   );
   lines.push(
-    `Generous bound \u2014 crediting every call where any segment was ours: ${census.ownedUpperBound}/${census.pathShaped} (${pct5(census.shareUpperBound ?? 0)}).` + (census.boundDecides ? " THE BOUND DECIDES THIS." : "")
+    `Generous bound \u2014 crediting every call where any segment was ours: ${census.ownedUpperBound}/${census.pathShaped} (${pct6(census.shareUpperBound ?? 0)}).` + (census.boundDecides ? " THE BOUND DECIDES THIS." : "")
   );
   lines.push("");
   lines.push("By shape:");
@@ -60967,7 +61167,7 @@ function formatPathFailureCensus(census) {
   lines.push("");
   for (const r2 of census.readings) {
     lines.push(
-      `  ${r2.name.padEnd(28)} ${r2.owned}/${r2.pathShaped} (${pct5(r2.share ?? 0)}) \u2014 ${r2.meetsBar ? "clears" : "below"} the bar`
+      `  ${r2.name.padEnd(28)} ${r2.owned}/${r2.pathShaped} (${pct6(r2.share ?? 0)}) \u2014 ${r2.meetsBar ? "clears" : "below"} the bar`
     );
   }
   if (census.permissionDecides) lines.push("  THE PERMISSION-DENIAL READING DECIDES THIS.");
@@ -60982,7 +61182,7 @@ function formatPathFailureCensus(census) {
   );
   for (const ex of census.excludedByRule) {
     lines.push(
-      `Shape not counted \u2014 ${ex.name}: ${ex.n} more failure(s). Counting them all AND crediting every one to this repository would give ${pct5(ex.shareIfCountedAndOwned)}, ${ex.shareIfCountedAndOwned >= ATTRIBUTION_RULE.bar ? "which clears the bar" : "which still does not clear the bar"}.`
+      `Shape not counted \u2014 ${ex.name}: ${ex.n} more failure(s). Counting them all AND crediting every one to this repository would give ${pct6(ex.shareIfCountedAndOwned)}, ${ex.shareIfCountedAndOwned >= ATTRIBUTION_RULE.bar ? "which clears the bar" : "which still does not clear the bar"}.`
     );
   }
   return lines.join("\n");
@@ -61697,7 +61897,7 @@ function logOnlyFrictionRecall(derived, known, window2) {
     meetsPatternsFloor: derivedRecurring.length >= LOG_ONLY_FRICTION_RULE.patternsFloor
   };
 }
-function pct6(share) {
+function pct7(share) {
   return `${Math.round(share * 100)}%`;
 }
 function label(c3) {
@@ -61727,11 +61927,11 @@ function formatLogOnlyFrictionRecall(census) {
     lines.push("Recall: the transcript channel recorded no recurring class in this window, so there is none to take.");
   } else {
     lines.push(
-      `Recall: ${census.recovered}/${census.verdicts.length} (${pct6(census.recall)}) of the recurring classes the transcript channel found are recoverable from the trace alone.`
+      `Recall: ${census.recovered}/${census.verdicts.length} (${pct7(census.recall)}) of the recurring classes the transcript channel found are recoverable from the trace alone.`
     );
     if (census.inScopeRecall !== null) {
       lines.push(
-        `  In scope: ${census.recovered}/${census.recovered + census.missedInScope.length} (${pct6(census.inScopeRecall)}) counting only classes on a tool the trace can ever record.`
+        `  In scope: ${census.recovered}/${census.recovered + census.missedInScope.length} (${pct7(census.inScopeRecall)}) counting only classes on a tool the trace can ever record.`
       );
     }
     for (const v of census.missedInScope) {
@@ -62826,7 +63026,7 @@ function refusalCoverageCensus(failures, manifest) {
     meetsBar: verdict.meetsBar
   };
 }
-function pct7(share) {
+function pct8(share) {
   return `${Math.round(share * 100)}%`;
 }
 function formatRefusalCoverageCensus(census) {
@@ -62839,17 +63039,17 @@ function formatRefusalCoverageCensus(census) {
     return lines.join("\n");
   }
   lines.push(
-    `Reach: ${census.reach.inReach.length} of ${total} refusal class(es) (${pct7(census.reach.share)}) were refused by a tool whose schema this repository holds. The rest are outside any generator running here, whatever a schema could express in principle.`
+    `Reach: ${census.reach.inReach.length} of ${total} refusal class(es) (${pct8(census.reach.share)}) were refused by a tool whose schema this repository holds. The rest are outside any generator running here, whatever a schema could express in principle.`
   );
   lines.push(
-    `Coverage: ${census.verdict.named.length} of ${total} class(es) (${pct7(census.verdict.share)}) could have been named by a schema-derived manifest, against a bar of ${pct7(REFUSAL_RULE.bar)} \u2014 ${census.meetsBar ? "MET" : "REFUTED"}. Weighted by how often each class actually bit: ${pct7(census.verdict.weightedShare)} of ${census.classes.reduce((n, c3) => n + c3.occurrences, 0)} refusals.`
+    `Coverage: ${census.verdict.named.length} of ${total} class(es) (${pct8(census.verdict.share)}) could have been named by a schema-derived manifest, against a bar of ${pct8(REFUSAL_RULE.bar)} \u2014 ${census.meetsBar ? "MET" : "REFUTED"}. Weighted by how often each class actually bit: ${pct8(census.verdict.weightedShare)} of ${census.classes.reduce((n, c3) => n + c3.occurrences, 0)} refusals.`
   );
   lines.push(`  (the verdict is taken on the '${census.verdict.name}' reading \u2014 the widest that can come out false)`);
   lines.push("");
   lines.push("Readings, widest last:");
   for (const reading of census.readings) {
     lines.push(
-      `  ${reading.name}: ${reading.named.length}/${total} (${pct7(reading.share)}), weighted ${pct7(reading.weightedShare)}` + (reading.vacuous ? " \u2014 VACUOUS: admits every class, so it settles nothing" : "")
+      `  ${reading.name}: ${reading.named.length}/${total} (${pct8(reading.share)}), weighted ${pct8(reading.weightedShare)}` + (reading.vacuous ? " \u2014 VACUOUS: admits every class, so it settles nothing" : "")
     );
   }
   lines.push("");
@@ -63521,7 +63721,7 @@ function refusalPreconditionCensus(corpus) {
     flatShare: tallies.length === 0 ? 0 : tallies.filter((t2) => t2.expressibility === "fully").length / tallies.length
   };
 }
-var pct8 = (n) => `${Math.round(n * 100)}%`;
+var pct9 = (n) => `${Math.round(n * 100)}%`;
 function formatRefusalPreconditionCensus(c3) {
   const out = [];
   out.push(`Refusal-precondition coverage \u2014 ${c3.total} refusal(s) this tool's own calls actually hit`);
@@ -63530,11 +63730,11 @@ function formatRefusalPreconditionCensus(c3) {
       `  READ THIS FIRST: ${c3.largestIncident.events} of ${c3.total} are one cluster \u2014 ${c3.largestIncident.tool}/${c3.largestIncident.class} on ${c3.largestIncident.day}. That is one caller in one sitting recorded ${c3.largestIncident.events} times, not ${c3.largestIncident.events} independent needs.`
     );
     out.push(
-      `  collapsed to one, the share is ${pct8(c3.shareWithoutLargestIncident)} (${c3.meetsBarWithoutLargestIncident ? "still clears" : "does NOT clear"} the ${pct8(c3.bar)} bar)`
+      `  collapsed to one, the share is ${pct9(c3.shareWithoutLargestIncident)} (${c3.meetsBarWithoutLargestIncident ? "still clears" : "does NOT clear"} the ${pct9(c3.bar)} bar)`
     );
   }
   out.push(
-    `  fully expressible ${c3.fullyExpressible}/${c3.total} = ${pct8(c3.share)} (bar ${pct8(c3.bar)} \u2014 ${c3.meetsBar ? "MET" : "NOT met"})`
+    `  fully expressible ${c3.fullyExpressible}/${c3.total} = ${pct9(c3.share)} (bar ${pct9(c3.bar)} \u2014 ${c3.meetsBar ? "MET" : "NOT met"})`
   );
   out.push(`  checkable only against state this tool does not own: ${c3.caveated}`);
   if (c3.unreadable > 0) {
@@ -63543,7 +63743,7 @@ function formatRefusalPreconditionCensus(c3) {
     );
   }
   if (c3.unclassified > 0) out.push(`  ${c3.unclassified} refusal(s) no class matched`);
-  out.push(`  flat over classes rather than events: ${pct8(c3.flatShare)} (control, not the answer)`);
+  out.push(`  flat over classes rather than events: ${pct9(c3.flatShare)} (control, not the answer)`);
   out.push("");
   for (const t2 of c3.tallies) {
     out.push(
@@ -63988,7 +64188,7 @@ function rankUsageRefusals(rows) {
   }
   return [...counts.entries()].map(([cls, occurrences]) => ({ cls, occurrences }));
 }
-var pct9 = (n) => `${Math.round(n * 1e3) / 10}%`;
+var pct10 = (n) => `${Math.round(n * 1e3) / 10}%`;
 function formatRefusalAbsorptionCensus(c3) {
   const out = [];
   out.push(
@@ -64001,7 +64201,7 @@ function formatRefusalAbsorptionCensus(c3) {
   }
   const mine = c3.byIssuer["this-repository"];
   const theirs = c3.byIssuer["another-surface"];
-  const share = (n) => pct9(c3.topOccurrences === 0 ? 0 : n / c3.topOccurrences);
+  const share = (n) => pct10(c3.topOccurrences === 0 ? 0 : n / c3.topOccurrences);
   out.push(
     `  of the ${c3.topOccurrences} refusal(s) the top ${c3.top.length} account for, this repository issued ${mine.occurrences} (${share(mine.occurrences)}) across ${mine.classes} class(es). A surface it cannot change issued ${theirs.occurrences} (${share(theirs.occurrences)}) across ${theirs.classes}` + (theirs.occurrences > 0 ? ". Nothing this repository ships can absorb the second number." : ".")
   );
@@ -64009,7 +64209,7 @@ function formatRefusalAbsorptionCensus(c3) {
   out.push("");
   for (const r2 of c3.readings) {
     out.push(
-      `  ${r2.name.padEnd(20)} ${r2.safe.length}/${c3.top.length} class(es) ${r2.meetsCountBar ? "clears" : "below"} the ${ABSORPTION_RULE.bar.classes}-class half, ${r2.covered}/${c3.refusals} refusal(s) = ${pct9(r2.coverage)} ${r2.meetsCoverageBar ? "clears" : "below"} the ${pct9(ABSORPTION_RULE.bar.coverage)} half \u2014 ${r2.meetsBar ? "MET" : "NOT MET"}`
+      `  ${r2.name.padEnd(20)} ${r2.safe.length}/${c3.top.length} class(es) ${r2.meetsCountBar ? "clears" : "below"} the ${ABSORPTION_RULE.bar.classes}-class half, ${r2.covered}/${c3.refusals} refusal(s) = ${pct10(r2.coverage)} ${r2.meetsCoverageBar ? "clears" : "below"} the ${pct10(ABSORPTION_RULE.bar.coverage)} half \u2014 ${r2.meetsBar ? "MET" : "NOT MET"}`
     );
     out.push(`      admits: ${r2.admits}`);
     out.push(`      safe: ${r2.safe.join(", ") || "(none)"}`);
@@ -71455,6 +71655,38 @@ program2.command("stranded").description("evidence no node cites, split into wha
     console.error(`(this run was not recorded: ${e instanceof Error ? e.message : String(e)})`);
   }
   const text2 = formatStrandedCensus(census);
+  if (blind) {
+    console.error(text2);
+    process.exitCode = 1;
+    return;
+  }
+  console.log(text2);
+});
+program2.command("deferrals").description(
+  "what killed the ideas this tree already abandoned, grouped by cause, with the recorded words each verdict was read off"
+).option("--vault <dir>", VAULT_OPTION_HELP).option("--also <dir>", "another vault to include in the same census (repeatable)", collect, []).option(
+  "--layer <name>",
+  "which layer the threshold's sample is drawn from (repeatable; default: Solution, the word the threshold uses)",
+  collect,
+  []
+).option("--sample <n>", "the sample-size clause (default: 15)", (v) => Number(v)).option("--share <fraction>", "the concentration clause, as a fraction (default: 0.5)", (v) => Number(v)).action((opts) => {
+  const dirs = [opts.vault, ...opts.also].map((d) => path93.resolve(d));
+  const layers = opts.layer.length ? opts.layer : void 0;
+  const settings = { layers, sampleRequired: opts.sample, shareRequired: opts.share };
+  const census = deferralCensus(dirs, settings);
+  const blind = census.blindness === "totally-blind";
+  try {
+    recordSweepRun(dirs[0], {
+      sweep: "deferrals",
+      at: (/* @__PURE__ */ new Date()).toISOString(),
+      subject: census.subject,
+      findings: census.retired.length,
+      outcome: blind ? "blind" : census.retired.length > 0 ? "findings" : "clean"
+    });
+  } catch (e) {
+    console.error(`(this run was not recorded: ${e instanceof Error ? e.message : String(e)})`);
+  }
+  const text2 = formatDeferralCensus(census, settings);
   if (blind) {
     console.error(text2);
     process.exitCode = 1;

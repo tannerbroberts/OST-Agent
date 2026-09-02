@@ -28,6 +28,7 @@
  *   ost-agent buildable ["<solution>"]        is it defined well enough to build, and against what command?
  *   ost-agent buildable "<s>" --repo DIR      …and is the recorded red still red, or was the ticket spent?
  *   ost-agent stranded [--also DIR]           evidence no node cites, split by which fix would clear it
+ *   ost-agent deferrals [--also DIR]          what killed the ideas already abandoned, grouped, each row with its own words
  *   ost-agent actors [--vault DIR]            today's sweep split by who may act on it, and what nobody may act on at all
  *   ost-agent kill-list [--vault DIR]         every live solution whose kill date has passed, with the condition a person now reads
  *   ost-agent search "<glob>" [--vault DIR]   grep the node bodies; a subject it could not read is never a zero
@@ -127,6 +128,8 @@ import { renderTournament, runTournament } from "../eval/tournament.js";
 import { renderCanary, runCanary, type CanaryProcess } from "../eval/canary.js";
 import { formatCensus, reconcileWithGit, reconcileWithUsage, recordCensusFiring } from "../ost/census.js";
 import { formatStrandedCensus, strandedEvidenceCensus } from "../ost/stranded.js";
+import { deferralCensus, formatDeferralCensus } from "../ost/deferral.js";
+import type { Layer } from "../ost/node.js";
 import { formatActorPartition, partitionSweepByActor } from "../ost/actor-partition.js";
 import { formatKillCriteriaCensus, killCriteriaCensus } from "../ost/kill-criteria.js";
 import { censusPeerMerge, formatMergeCensus } from "../ost/vault-merge.js";
@@ -1925,6 +1928,59 @@ program
       return;
     }
     console.log(text);
+  });
+
+program
+  .command("deferrals")
+  .description(
+    "what killed the ideas this tree already abandoned, grouped by cause, with the recorded words each verdict was read off",
+  )
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option("--also <dir>", "another vault to include in the same census (repeatable)", collect, [])
+  .option(
+    "--layer <name>",
+    "which layer the threshold's sample is drawn from (repeatable; default: Solution, the word the threshold uses)",
+    collect,
+    [],
+  )
+  .option("--sample <n>", "the sample-size clause (default: 15)", (v: string) => Number(v))
+  .option("--share <fraction>", "the concentration clause, as a fraction (default: 0.5)", (v: string) => Number(v))
+  .action((opts: { vault: string; also: string[]; layer: string[]; sample?: number; share?: number }) => {
+    // Not `buildPassContext`, on `stranded`'s precedent: this reads more than one
+    // vault, and the extra ones are typed on the command line by a person asking a
+    // question about them. A context per vault would create any path that was
+    // mistyped, which is the one outcome a census must not have.
+    const dirs = [opts.vault, ...opts.also].map((d) => path.resolve(d));
+    const layers = opts.layer.length ? (opts.layer as Layer[]) : undefined;
+    const settings = { layers, sampleRequired: opts.sample, shareRequired: opts.share };
+    const census = deferralCensus(dirs, settings);
+    const blind = census.blindness === "totally-blind";
+    // Recorded blind or not, for the reason `stranded` states: a ledger written
+    // only on the good runs cannot tell anyone later how many runs saw nothing.
+    try {
+      recordSweepRun(dirs[0], {
+        sweep: "deferrals",
+        at: new Date().toISOString(),
+        subject: census.subject,
+        findings: census.retired.length,
+        outcome: blind ? "blind" : census.retired.length > 0 ? "findings" : "clean",
+      });
+    } catch (e) {
+      console.error(`(this run was not recorded: ${e instanceof Error ? e.message : String(e)})`);
+    }
+    const text = formatDeferralCensus(census, settings);
+    if (blind) {
+      console.error(text);
+      process.exitCode = 1;
+      return;
+    }
+    console.log(text);
+    // The threshold's verdict is NOT the exit code, and the difference matters
+    // here more than anywhere else this pattern is used: an unmet threshold is
+    // this census's expected reading in a young vault, and exiting non-zero on it
+    // would turn "the tree has not abandoned enough ideas yet" into a broken
+    // command. What the census produces is a number; recording the assumption's
+    // result against it stays `ost-agent result`, which is a human's call.
   });
 
 program
