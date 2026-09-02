@@ -3221,9 +3221,31 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,204 tests across 375 files, verified 2026-09-02 (`npx vitest run`
-> finished at 5,204 in **492 s** with one assertion red, D1's own file count — the one this
-> batch's new file moved, and the one this line closes. The file added is
+> *Today:* **met** — 5,240 tests across 376 files, verified 2026-09-02 (`npx vitest run`
+> finished at 5,240 in **1,144 s** with eight assertions red, and every one of them green run
+> by itself: D1's own file count — the one this batch's new file moved, and the one this line
+> closes — plus `test/ost/vault-merge-conflict-census.test.ts` (six tests timing out at 20 s,
+> 2.4–2.6 s each in isolation) and `test/loop/inherited-tree-build-check.test.ts` (50.1 s
+> against its 30 s bound, 1.8 s in isolation). Both are the load pattern this line already
+> records below and neither is a regression: the run overlapped a second `vitest` and a `tsc`
+> on the same box, and the isolated numbers are 8× and 27× faster. The file added is
+> `test/preflight/workspace-inventory-fits-and-covers.test.ts`, the fit-and-coverage census
+> behind "The run is handed the workspace layout at startup, before it composes anything".
+> Its assumption test fixed both halves of the bar before anything was generated — under
+> 4,000 estimated tokens **and** naming the parent directory of every path that failed in the
+> captured corpus — and it came out **fits and does not cover**: 1,413 tokens against the
+> budget, 23 of 41 (56%) of the failures that named a path. Green means the count was taken,
+> and `census.meetsBar` is asserted `false` by name so an exit code cannot be read as the
+> assumption holding. Three things the build found that the node did not say. Not one
+> coverage miss is a directory cut for size, so the fit/coverage tension the node predicted
+> never arrives and no budget buys the coverage back — the census re-takes the verdict at
+> 1,000 and 10,000 to show it. Twenty-one of the twenty-three hits are credit the parent-
+> directory proxy grants for free: twelve resolve to `.`, which every inventory names by
+> construction, and eleven name a path sitting in the workspace right now, so the layout was
+> never the fact the run had wrong. And a git worktree nested under the workspace is a second
+> copy of it — describing one cost 65 directories and 932 tokens, 42% of the whole inventory,
+> so the generator now stops at any directory holding its own `.git` and names it as a
+> boundary. The file added before that is
 > `test/ost/next-work-leaf-redirect.test.ts`, which pins the descent from a short category to
 > the leaves beneath it: the queue reports the leaf it wants served and names the heading it
 > stands in for (`redirectedFrom`), never the category, on which a solution cannot legitimately
