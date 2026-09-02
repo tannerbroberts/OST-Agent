@@ -3204,10 +3204,11 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 4,976 tests across 362 files, verified 2026-09-01 (`npx vitest run`
-> collects 361 of the files and finished green at 4,976 in **478 s**; the same suite on the
-> same machine, with the same content, measured **416 s**, **406 s**, **237 s**, **491 s**
-> and **248 s** earlier the same day — and the 416 s run failed
+> *Today:* **met** — 5,019 tests across 363 files, verified 2026-09-01 (`npx vitest run`
+> collects 362 of the files and finished green at 5,019 in **473 s**; the same suite on the
+> same machine measured **260 s** minutes earlier with this very line stale, and **478 s**,
+> **416 s**, **406 s**, **237 s**, **491 s** and **248 s** earlier the same day — and the
+> 416 s run failed
 > `test/telemetry/work-units-vs-elapsed.test.ts` on a ratio spread of 5.5 against a bar of 4,
 > which the 478 s run and an isolated run both pass: its measured section is `ost_next_work`
 > alone, and the file added in this batch touches only fixture setup outside that window; an
@@ -3219,7 +3220,35 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > coming back as one: the same commit has measured **207 s and 341 s**, then **210 s and
 > 394 s**, then **223 s and 413 s** — a 1.9× spread with no code between them, which is worth
 > knowing before anyone reads a single timing as a regression. The file added since the
-> previous line is `test/mcp/vault-declared-tool-load.test.ts` — the instrument for "Try to
+> previous line is `test/telemetry/failure-context-coverage.test.ts` — the instrument for
+> "Check past failures against the snapshot fields before building the snapshot", the
+> assumption test beneath "Snapshot the resolved environment, but only for the step that
+> failed" (`src/telemetry/failure-context.ts`, cut by
+> `scripts/harvest-failure-context-corpus.ts`). It is the first instrument in this document
+> that **refutes** the node it was written under, which is what the node asked it to be able
+> to do: *the point of running this before building the snapshot is that it can stop the
+> build.* The pre-committed bar is 7 of the 10 most recent recorded failures fully explained
+> by working directory, resolved argv, tool versions and git SHA alone; the measured result
+> over the meta vault's loop ledger is **0 of 10**, and the snapshot was therefore not built.
+> Seven of the ten terminate in the host suspending mid-response, one in an upstream 529, one
+> in the account's weekly limit, and one has no surviving record and is scored `unread` rather
+> than counted either way. The control corpus — the two 2026-07-27 failures somebody fixed by
+> changing a directory, the founding case for the branch — comes out 2 of 2 explained, so the
+> classifier demonstrably fires. Three findings the node did not carry. **The failure class
+> the fields were designed for no longer occurs**: all 63 non-refused failures in the ledger
+> are one `pass`-phase `claude -p` exiting 1, and the wrong-directory class has not recurred
+> since the sibling "Every recorded step carries the directory and argv it actually ran with"
+> shipped and made `loop step` stamp `cwd` and `argv` unconditionally. **The recorded `cwd`
+> would not have separated even the founding case from its own fix**: both fixes inserted
+> `cd <repo> &&` *inside* the `bash -c` payload, and `loop step` stamps the directory it
+> spawned from rather than the one the shell then moved to, so the failing build and its
+> passing re-run 73 seconds later carry the same recorded `cwd`. **The git SHA looks like it
+> explains everything and explains nothing**: ten distinct commits over ten failures and 299
+> more over the successes, sharing none, which is a statement about cardinality in any ledger
+> at all — `discriminate` reports that as `uninformative` rather than as explanatory. What
+> green here does NOT settle is desirability, per the node: whether an operator would trust
+> an enriched record enough to stop re-running a failure by hand. The line before it was
+> `test/mcp/vault-declared-tool-load.test.ts` — the instrument for "Try to
 > load the tools from inside the vault directory at all", the assumption test beneath "Ship
 > the vault and its tools as one unit, so there is no second step to miss"
 > (`src/config/vault-declaration.ts`, `src/mcp/vault-declared.ts`, written by `initVault`).
@@ -3246,8 +3275,8 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > path already prefers a vault-carried copy at `.ost-agent/bin/ost-agent.mjs` when one is
 > there; putting one there is the packaging decision the node explicitly excluded, and what
 > green here does NOT settle — along with the upgrade story for a vault carrying its own
-> server and whether an operator wants their vault to be executable at all. The line before
-> it was `test/runner/workspace-reconcile-states.test.ts` — the instrument for "Put
+> server and whether an operator wants their vault to be executable at all. And before that,
+> `test/runner/workspace-reconcile-states.test.ts` — the instrument for "Put
 > a worktree into each dirty state and check the reconciler's verdict on every one", the
 > assumption test beneath "Setup reconciles the workspace it finds instead of assuming there
 > isn't one" (`src/runner/workspace-reconcile.ts`, wired as `ost-agent reconcile-workspace`).
