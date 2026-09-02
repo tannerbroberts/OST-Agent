@@ -3,8 +3,8 @@
   "version": "0.23.0",
   "artifact": {
     "path": "dist/ost-agent.mjs",
-    "bytes": 2884499,
-    "sha256": "83d59cb9bd9b17135ee4d237a198624b9a278e22e150b35efa34fd8f3bf5a67f"
+    "bytes": 2893462,
+    "sha256": "c45c04068ea5a697a714afeba4d01c92e8be599932e57320090e6210e5746035"
   },
   "capabilities": [
     {
@@ -164,6 +164,11 @@
     },
     {
       "name": "friction-recurrence",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "friction-signatures",
       "surface": "cli-command",
       "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
     },

@@ -178,6 +178,9 @@ import {
   formatRecurrenceReplay, readRecurrenceRecords, RECURRENCE_RULE, recurrenceReplay,
 } from "../telemetry/friction-recurrence.js";
 import {
+  formatSignatureGrouping, groupBySignature, occurrencesOf,
+} from "../adapters/friction-signature.js";
+import {
   formatRefusalCoverageCensus, refusalCoverageCensus,
 } from "../telemetry/refusal-coverage.js";
 import {
@@ -2546,6 +2549,37 @@ program
     if (records.length === 0 || (judgement.length > 0 && replay.missing.length === judgement.length)) {
       process.exitCode = 1;
     }
+  });
+
+program
+  .command("friction-signatures")
+  .description(
+    "the friction queue with identical shapes folded into one row carrying a count — " +
+      "how many rows a pass would actually read, and what exact-string grouping would have left instead",
+  )
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option("--top <n>", "how many rows to print, largest first; the rest are counted, never dropped (default 10)")
+  .action((opts: { vault: string; top?: string }) => {
+    // Not `buildPassContext`, on `friction-recurrence`'s precedent: this reads a
+    // folder and answers a question about it, and a Vault handle would create the
+    // directory a mistyped path names.
+    const vault = path.resolve(opts.vault);
+    const records = readFrictionRecords(evidenceDirOf(vault));
+
+    const top = opts.top === undefined ? undefined : Number(opts.top);
+    if (top !== undefined && (!Number.isInteger(top) || top < 1)) {
+      console.error(`--top must be a whole number of rows, at least 1. Got: ${opts.top}`);
+      process.exitCode = 1;
+      return;
+    }
+
+    const grouping = groupBySignature(records.flatMap(occurrencesOf));
+    console.log(formatSignatureGrouping(grouping, { top }));
+    // Reading no harvested record, or reading records that held no failing call at
+    // all, is not "the queue is clear" — it is a sweep that could not read its
+    // subject, and an automation has to learn that through the exit code rather
+    // than off a report whose first line says 0 rows.
+    if (records.length === 0 || grouping.occurrences === 0) process.exitCode = 1;
   });
 
 program

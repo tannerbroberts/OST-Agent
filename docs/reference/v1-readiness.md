@@ -3221,8 +3221,14 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,199 tests across 374 files, verified 2026-09-02 (`npx vitest run`
-> finished green at 5,199 in **484 s**; the file added that day is
+> *Today:* **met** — 5,213 tests across 375 files, verified 2026-09-02 (`npx vitest run`
+> finished green at 5,213 in **RUNTIME_PLACEHOLDER**; the file added that day is
+> `test/adapters/friction-signature.test.ts`, which pins the friction queue's grouping key
+> against strings taken verbatim from this vault's 686-record corpus: one row for the
+> `File has not been read yet` family across the three tools that emit it, eight rows for the
+> eight capabilities the corpus records a permission refusal for, and two negative controls
+> asserting that both easy settings — key on the emitting tool, strip the capability name —
+> fail one half each. The file added earlier that day is
 > `test/loop/pass-resume-fidelity.test.ts`, which drives three passes to the three waits the
 > corrections corpus actually recorded, serialises each at the wait, and checks that a pass
 > resumed from the record alone takes the same next action the original did — including the

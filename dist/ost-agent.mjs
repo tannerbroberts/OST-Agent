@@ -13124,9 +13124,9 @@ var require_dumper = __commonJS({
     }
     function blockHeader(string3, indentPerLevel) {
       var indentIndicator = needIndentIndicator(string3) ? String(indentPerLevel) : "";
-      var clip7 = string3[string3.length - 1] === "\n";
-      var keep = clip7 && (string3[string3.length - 2] === "\n" || string3 === "\n");
-      var chomp = keep ? "+" : clip7 ? "" : "-";
+      var clip8 = string3[string3.length - 1] === "\n";
+      var keep = clip8 && (string3[string3.length - 2] === "\n" || string3 === "\n");
+      var chomp = keep ? "+" : clip8 ? "" : "-";
       return indentIndicator + chomp + "\n";
     }
     function dropEndingNewline(string3) {
@@ -50376,6 +50376,20 @@ var COMPRESSION_SURFACES = [
     proof: "behavioral"
   },
   {
+    name: "friction-signature queue rows",
+    module: "src/adapters/friction-signature.ts",
+    caps: ["MAX_SESSIONS_SHOWN", "MAX_EXAMPLE_CHARS", "DEFAULT_MAX_ROWS"],
+    kind: "bounded-output",
+    decision: "how many rows of friction a pass reads, once identical shapes are folded into one row with a count",
+    reads: [
+      "a row's count and session count are the group's own, never the length of the list the row printed",
+      "the rows the --top cap hid are counted, with the events inside them, so a capped report cannot read as the whole queue",
+      "the exact-string row count is printed beside the grouped one, so folding can never be mistaken for deduplication"
+    ],
+    drops: "dropped-count",
+    proof: "declaration"
+  },
+  {
     name: "hand-exclusion command clip",
     module: "src/telemetry/hand-exclusion.ts",
     caps: ["MAX_COMMAND_CHARS"],
@@ -62744,6 +62758,167 @@ function formatRecurrenceReplay(replay) {
   return lines.join("\n");
 }
 
+// src/adapters/friction-signature.ts
+var FRICTION_SIGNATURE_RULE = {
+  /**
+   * Whether the emitting tool is part of the key. Only for a serialised payload,
+   * which cannot name its own subject — see {@link isPayload} and the module
+   * comment. For printed text it is not, and that is the decision the whole rule
+   * turns on.
+   */
+  keyIncludesEmittingTool: "only for payload details",
+  /**
+   * The corpus this was fixed over: `.ost-agent/evidence/` in the OST-Agent meta
+   * vault on 2026-09-02, 686 harvested records.
+   *
+   * Recorded so a later reading can tell "the rule changed" from "the corpus
+   * grew". The candidate's own census, taken 2026-08-28 over 458 records, is
+   * already out of date by these numbers and was wrong about their split — it
+   * reported 209 permission-denial events as the `to use X` wording, where the
+   * majority of that family is the `read from <path>` wording instead.
+   */
+  corpus: {
+    records: 686,
+    /**
+     * What the shipped setting reads off that corpus: 2473 friction events fold
+     * into 608 rows, where exact-string grouping leaves 785. The compression is
+     * concentrated, not spread — the top row alone is 545 events.
+     */
+    events: 2473,
+    rows: 608,
+    identityRows: 785,
+    /** `File has not been read yet` — the largest single shape, across 271 records. */
+    readBeforeWriteEvents: 545,
+    /** Emitting tools that produce it: `Edit`, `Write`, and one event naming none. */
+    readBeforeWriteTools: 3,
+    /** `requested permissions to use <capability>` — 95 events, 8 distinct capabilities. */
+    capabilityDenialEvents: 95,
+    capabilityDenialNames: 8,
+    /** `requested permissions to read from <path>` — 154 events, one shape. */
+    pathDenialEvents: 154,
+    /**
+     * `retry` events whose serialised input is the empty object `{}` — 582 across
+     * 251 records, from 5 distinct tools. The row that forced {@link isPayload}:
+     * without the exception this is the corpus's largest group and it is five
+     * different observations wearing one string.
+     */
+    emptyPayloadRetries: 582,
+    emptyPayloadRetryTools: 5
+  },
+  /**
+   * The clause this module refuses. Named rather than omitted, because a queue
+   * that printed `545×` beside one line would read as a measured need.
+   */
+  refuses: "whether a group corresponds to a need \u2014 the count says how often a string came back, never how much it cost or whether anyone wants it fixed"
+};
+var HARNESS_WRAPPER2 = /<\/?tool_use_error>/g;
+var EXIT_CODE_PREFIX2 = /^\s*Exit code \d+\s*(?:…|\.\.\.)?\s*/i;
+var URL3 = /https?:\/\/\S+/g;
+var UUID2 = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+function redactToken(token) {
+  if (/[/*~]/.test(token) || token.startsWith(".") || token.includes("\\")) return "<path>";
+  return token.replace(/\d+/g, "<n>");
+}
+function normaliseRefusal(detail2) {
+  const stripped = detail2.replace(HARNESS_WRAPPER2, " ").replace(URL3, "<url>").replace(UUID2, "<id>").replace(EXIT_CODE_PREFIX2, " ").trim();
+  return stripped.split(/\s+/).filter(Boolean).map(redactToken).join(" ").toLowerCase();
+}
+function isPayload(detail2) {
+  const trimmed2 = detail2.trimStart();
+  return trimmed2.startsWith("{") || trimmed2.startsWith("[");
+}
+function frictionSignature(event) {
+  const body = normaliseRefusal(event.detail);
+  return isPayload(event.detail) ? `${event.kind}|${event.tool}|${body}` : `${event.kind}|${body}`;
+}
+function groupBySignature(occurrences) {
+  const buckets = /* @__PURE__ */ new Map();
+  const identity = /* @__PURE__ */ new Set();
+  for (const occurrence of occurrences) {
+    identity.add(`${occurrence.kind}|${occurrence.detail.trim().toLowerCase()}`);
+    const signature = frictionSignature(occurrence);
+    let bucket2 = buckets.get(signature);
+    if (!bucket2) {
+      bucket2 = {
+        kind: occurrence.kind,
+        template: normaliseRefusal(occurrence.detail),
+        count: 0,
+        sessions: /* @__PURE__ */ new Set(),
+        tools: /* @__PURE__ */ new Set(),
+        details: /* @__PURE__ */ new Set(),
+        example: occurrence.detail
+      };
+      buckets.set(signature, bucket2);
+    }
+    bucket2.count++;
+    bucket2.sessions.add(occurrence.session);
+    if (occurrence.tool) bucket2.tools.add(occurrence.tool);
+    bucket2.details.add(occurrence.detail);
+  }
+  const groups = [...buckets.entries()].map(([signature, b2]) => ({
+    signature,
+    kind: b2.kind,
+    template: b2.template,
+    count: b2.count,
+    sessions: [...b2.sessions].sort(),
+    tools: [...b2.tools].sort(),
+    distinctDetails: b2.details.size,
+    example: b2.example
+  })).sort((a, b2) => b2.count - a.count || b2.sessions.length - a.sessions.length || (a.signature < b2.signature ? -1 : 1));
+  return {
+    occurrences: occurrences.length,
+    groups,
+    rows: groups.length,
+    repeated: groups.filter((g) => g.count > 1),
+    identityRows: identity.size
+  };
+}
+function occurrencesOf(record2) {
+  return record2.events.map((e) => ({ kind: e.kind, tool: e.tool, detail: e.detail, session: record2.id }));
+}
+var MAX_SESSIONS_SHOWN = 4;
+var MAX_EXAMPLE_CHARS = 120;
+var DEFAULT_MAX_ROWS = 10;
+function clip7(text2, max) {
+  return text2.length > max ? `${text2.slice(0, max)}\u2026` : text2;
+}
+function sessionList(sessions) {
+  if (sessions.length <= MAX_SESSIONS_SHOWN) return sessions.join(", ");
+  return `${sessions.slice(0, MAX_SESSIONS_SHOWN).join(", ")} \u2026 and ${sessions.length - MAX_SESSIONS_SHOWN} more`;
+}
+function formatSignatureGroup(group) {
+  const tools = group.tools.length ? group.tools.join(", ") : "(unnamed)";
+  const strings = group.distinctDetails === 1 ? "1 distinct string" : `${group.distinctDetails} distinct strings`;
+  return `  ${group.count}\xD7 across ${group.sessions.length} session(s), ${strings} \u2014 ${group.kind} \xB7 ${tools}
+    "${clip7(group.example, MAX_EXAMPLE_CHARS)}"
+    seen in: ${sessionList(group.sessions)}`;
+}
+function formatSignatureGrouping(grouping, opts = {}) {
+  const top = opts.top ?? DEFAULT_MAX_ROWS;
+  const lines = [];
+  lines.push(
+    `Read: ${grouping.occurrences} friction event(s) \u2192 ${grouping.rows} row(s), ${grouping.repeated.length} of them holding more than one occurrence. 0 discarded.`
+  );
+  if (grouping.rows === 0) {
+    lines.push("Rows: (none) \u2014 no friction event was read.");
+  } else {
+    const shown2 = grouping.groups.slice(0, top);
+    lines.push(`Rows (largest first${grouping.rows > shown2.length ? `, showing ${shown2.length} of ${grouping.rows}` : ""}):`);
+    for (const group of shown2) lines.push(formatSignatureGroup(group));
+    if (grouping.rows > shown2.length) {
+      const hidden = grouping.groups.slice(shown2.length);
+      lines.push(
+        `  \u2026 and ${hidden.length} more row(s) holding ${hidden.reduce((n, g) => n + g.count, 0)} event(s). Nothing is dropped by this cap; raise --top to read them.`
+      );
+    }
+  }
+  lines.push(
+    `Grouping, not deduplication: exact-string grouping over the same events would leave ${grouping.identityRows} row(s), and would split every shape whose repeats differ by a path, an id or a number.`
+  );
+  lines.push(`Not settled: ${FRICTION_SIGNATURE_RULE.refuses}.`);
+  return lines.join("\n");
+}
+
 // src/security/preflight-manifest.ts
 var MANIFEST_RULE = {
   /**
@@ -72779,6 +72954,21 @@ program2.command("friction-recurrence").description(
   if (records.length === 0 || judgement.length > 0 && replay.missing.length === judgement.length) {
     process.exitCode = 1;
   }
+});
+program2.command("friction-signatures").description(
+  "the friction queue with identical shapes folded into one row carrying a count \u2014 how many rows a pass would actually read, and what exact-string grouping would have left instead"
+).option("--vault <dir>", VAULT_OPTION_HELP).option("--top <n>", "how many rows to print, largest first; the rest are counted, never dropped (default 10)").action((opts) => {
+  const vault = path96.resolve(opts.vault);
+  const records = readFrictionRecords(evidenceDirOf(vault));
+  const top = opts.top === void 0 ? void 0 : Number(opts.top);
+  if (top !== void 0 && (!Number.isInteger(top) || top < 1)) {
+    console.error(`--top must be a whole number of rows, at least 1. Got: ${opts.top}`);
+    process.exitCode = 1;
+    return;
+  }
+  const grouping = groupBySignature(records.flatMap(occurrencesOf));
+  console.log(formatSignatureGrouping(grouping, { top }));
+  if (records.length === 0 || grouping.occurrences === 0) process.exitCode = 1;
 });
 program2.command("path-failures").description("how many of the path failures a pass hit arrived through a tool this repository controls \u2014 the census behind improving the first failure").option("--vault <dir>", VAULT_OPTION_HELP).option(
   "--transcripts <dir>",
