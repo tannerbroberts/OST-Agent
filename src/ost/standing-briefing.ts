@@ -92,8 +92,14 @@ export function composeStandingBriefing(tree: readonly OstNode[], today: string)
     lines.push(
       `The tree holds ${rollup.totals.nodes} nodes — ${rollup.totals.opportunities} opportunities, ` +
         `${rollup.totals.solutions} solutions, ${rollup.totals.tests} tests — filed under ` +
-        `${rollup.buckets.length} top-level need(s). Of the ${instrumented.length} test(s) that name a ` +
-        `runnable definition of done, ${green.length} currently pass; ` +
+        `${rollup.buckets.length} top-level need(s). ` +
+        // Execution first, for the reason `renderRollup` now puts it first: the
+        // readiness sentence that used to stand here alone reports the one
+        // dimension an unattended pass can move, and a cold reader met it as the
+        // whole of where the tree stands.
+        `**${rollup.execution.executed} of ${rollup.totals.tests} test(s) carry a result somebody recorded.** ` +
+        `Separately, of the ${instrumented.length} test(s) that name a runnable definition of done, ` +
+        `${green.length} currently pass — readiness, and not an answer to what any of them asks; ` +
         `${tests.filter((t) => t.status === "validated").length} test(s) stand validated by a human.`,
     );
   }

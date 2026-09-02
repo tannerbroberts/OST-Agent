@@ -55669,6 +55669,17 @@ function rollUpBucket(bucket2, index, stamps) {
     weakestRung: weakest(nodes.map((n) => n.evidence))
   };
 }
+function executionCensus(tree) {
+  const tests = tree.filter((n) => n.layer === "AssumptionTest");
+  const instrumented = tests.filter((t2) => nodeInstrument(t2) !== void 0);
+  return {
+    tests: tests.length,
+    executed: tests.filter(hasRecordedResult).length,
+    refuted: tests.filter((t2) => recordedVerdict(t2) === "refuted").length,
+    instrumented: instrumented.length,
+    green: instrumented.filter(observedGreen).length
+  };
+}
 function rollupTree(tree, stamps) {
   const index = byTitle([...tree]);
   const outcome = tree.find((n) => n.layer === "Outcome") ?? null;
@@ -55692,11 +55703,15 @@ function rollupTree(tree, stamps) {
       solutions: tree.filter((n) => n.layer === "Solution").length,
       tests: tree.filter((n) => n.layer === "AssumptionTest").length
     },
+    execution: executionCensus(tree),
     authorship: authorshipCensus(tree)
   };
 }
-function pct(part, whole) {
-  return whole === 0 ? "\u2014" : `${Math.round(part / whole * 100)}%`;
+function executionClause(b2) {
+  return `executed ${b2.tested} of ${b2.tests}${b2.refuted > 0 ? ` (${b2.refuted} refuted)` : ""}`;
+}
+function readinessClause(b2) {
+  return `ready to run ${b2.instrumented} of ${b2.tests} (${b2.green} observed green)`;
 }
 function support(b2) {
   if (b2.actors === null) return `${b2.corroborators} source(s) from unestablished actors`;
@@ -55726,12 +55741,28 @@ function authorshipLines(c3) {
   }
   return lines;
 }
+function executionLines(e) {
+  if (e.tests === 0) return [];
+  const lines = [
+    `Executed: ${e.executed} of ${e.tests} test(s) carry a result somebody recorded${e.refuted > 0 ? ` (${e.refuted} refuted)` : ""} \u2014 the only count here that moves when a question is answered`
+  ];
+  lines.push(
+    `  Readiness, kept separate: ${e.instrumented} of ${e.tests} name a runnable command, ${e.green} of those observed green \u2014 real work, and not an answer to anything`
+  );
+  if (e.executed === 0) {
+    lines.push(
+      `  not one test in this tree has been executed, so nothing below is a build percentage \u2014 every automated hand can only raise readiness, and recording a result is a human's \`ost-agent result\``
+    );
+  }
+  return lines;
+}
 function renderRollup(rollup) {
   const lines = [];
   lines.push(`Outcome: ${rollup.outcome ?? "(none \u2014 this vault has no root)"}`);
   lines.push(
     `Tree: ${rollup.totals.nodes} nodes \u2014 ${rollup.totals.opportunities} opportunity, ${rollup.totals.solutions} solution, ${rollup.totals.tests} test`
   );
+  lines.push(...executionLines(rollup.execution));
   lines.push(...authorshipLines(rollup.authorship));
   lines.push("");
   if (rollup.buckets.length === 0) {
@@ -55741,7 +55772,7 @@ function renderRollup(rollup) {
     for (const b2 of rollup.buckets) {
       lines.push(`  ${b2.title}`);
       lines.push(
-        `    ${b2.opportunities} opportunity, ${b2.solutions} solution, ${b2.tests} test \u2014 built ${pct(b2.green, b2.instrumented)} (${b2.green}/${b2.instrumented} runnable), tested ${b2.tested}${b2.refuted > 0 ? ` (${b2.refuted} refuted)` : ""}, ${support(b2)}, rests on ${b2.weakestRung ?? "nothing declared"}`
+        `    ${b2.opportunities} opportunity, ${b2.solutions} solution, ${b2.tests} test \u2014 ${executionClause(b2)}, ${readinessClause(b2)}, ${support(b2)}, rests on ${b2.weakestRung ?? "nothing declared"}`
       );
       const warning = actorWarning(b2);
       if (warning !== "") lines.push(warning);
@@ -56431,14 +56462,14 @@ function drawReviewSample(census, opts) {
     unreadable: census.unreadable
   };
 }
-function pct2(fraction) {
+function pct(fraction) {
   const n = fraction * 100;
   return `${Number.isInteger(n) ? n : n.toFixed(1)}%`;
 }
 function formatReviewSample(sample3) {
   const lines = [];
   lines.push(
-    `Review sample \u2014 ${sample3.drawn.length} of ${sample3.reviewable} reviewable node(s) (${pct2(sample3.fraction)} asks for ${sample3.target}), seed ${JSON.stringify(sample3.seed)}`
+    `Review sample \u2014 ${sample3.drawn.length} of ${sample3.reviewable} reviewable node(s) (${pct(sample3.fraction)} asks for ${sample3.target}), seed ${JSON.stringify(sample3.seed)}`
   );
   lines.push(`Reproduce this exact draw: ost-agent review-sample --seed ${JSON.stringify(sample3.seed)}`);
   lines.push("");
@@ -56458,7 +56489,7 @@ function formatReviewSample(sample3) {
   );
   if (sample3.overflow > 0) {
     lines.push(
-      `  The draw is ${sample3.overflow} above the ${pct2(sample3.fraction)} target: there are more cells than that fraction has nodes, and one per cell is what "every bucket and every layer" costs.`
+      `  The draw is ${sample3.overflow} above the ${pct(sample3.fraction)} target: there are more cells than that fraction has nodes, and one per cell is what "every bucket and every layer" costs.`
     );
   }
   if (sample3.multiHomed > 0) {
@@ -56735,10 +56766,10 @@ function formatRefusalCensus(label2, both) {
   ];
   for (const reading of REFUSAL_READINGS) {
     const c3 = both[reading];
-    const pct11 = c3.tests === 0 ? "\u2014" : `${Math.round(c3.blockedShare * 1e3) / 10}%`;
+    const pct10 = c3.tests === 0 ? "\u2014" : `${Math.round(c3.blockedShare * 1e3) / 10}%`;
     const next = c3.blocked.filter((b2) => b2.awaitingResult).length;
     lines.push(
-      `  ${reading.padEnd(7)} (refuses ${REFUSED_KINDS[reading].join(", ")})  ${String(c3.blocked.length).padStart(4)}/${String(c3.tests).padEnd(4)} blocked (${pct11}), ${next} of them never run; ${bearingOnTheBar(c3.blocked.length)}`
+      `  ${reading.padEnd(7)} (refuses ${REFUSED_KINDS[reading].join(", ")})  ${String(c3.blocked.length).padStart(4)}/${String(c3.tests).padEnd(4)} blocked (${pct10}), ${next} of them never run; ${bearingOnTheBar(c3.blocked.length)}`
     );
   }
   return lines.join("\n");
@@ -57087,17 +57118,17 @@ function scoreTree(tree) {
   const weakest2 = dimensions.reduce((w, d) => d.value < w.value ? d : w).dimension;
   return { subject: { offered: tree.length, read: nodes.length }, dimensions, score, weakest: weakest2 };
 }
-var pct3 = (value) => `${Math.round(value * 100)}%`;
+var pct2 = (value) => `${Math.round(value * 100)}%`;
 function renderScore(report) {
   const { offered, read } = report.subject;
   if (read === 0) {
     return `score: BLIND \u2014 read 0 of ${offered} node(s), so no score exists.`;
   }
   const lines = [];
-  lines.push(`score: ${pct3(report.score)} over ${read} node(s); weakest dimension ${report.weakest}.`);
+  lines.push(`score: ${pct2(report.score)} over ${read} node(s); weakest dimension ${report.weakest}.`);
   for (const d of report.dimensions) {
     const population = d.of === 0 ? "nothing to read \u2014 scores 0" : `${d.inOrder} of ${d.of} in order`;
-    lines.push(`  ${d.dimension.padEnd(11)} ${pct3(d.value).padStart(4)}  (${population})`);
+    lines.push(`  ${d.dimension.padEnd(11)} ${pct2(d.value).padStart(4)}  (${population})`);
     for (const title of d.failing) lines.push(`    - ${title}`);
   }
   return lines.join("\n");
@@ -59836,7 +59867,7 @@ function readTranscriptSessions(dir) {
   }
   return sessions;
 }
-function pct4(share) {
+function pct3(share) {
   return `${Math.round(share * 100)}%`;
 }
 function formatPreflightCensus(census) {
@@ -59847,7 +59878,7 @@ function formatPreflightCensus(census) {
     );
   } else {
     lines.push(
-      `Preflight uncertainty: ${census.uncertain} of ${census.readable} readable failure(s) (${pct4(census.share ?? 0)}) came from a caller already showing doubt; ${census.confident} showed none.`
+      `Preflight uncertainty: ${census.uncertain} of ${census.readable} readable failure(s) (${pct3(census.share ?? 0)}) came from a caller already showing doubt; ${census.confident} showed none.`
     );
   }
   lines.push(
@@ -60554,7 +60585,7 @@ function readTreeTitles(vaultDir) {
   }
   return names.filter((n) => n.endsWith(".md")).map((n) => n.replace(/\.md$/, "")).sort();
 }
-function pct5(share) {
+function pct4(share) {
   return share === null ? "\u2014" : `${Math.round(share * 100)}%`;
 }
 function formatSearchLiteralityCensus(census) {
@@ -60565,7 +60596,7 @@ function formatSearchLiteralityCensus(census) {
     );
   } else {
     lines.push(
-      `Search literality: ${census.treeLiteral} of ${census.treeDerived} tree-derived argument(s) (${pct5(census.share)}) are expressible as literal lookups; the bar is ${pct5(census.bar)}.`
+      `Search literality: ${census.treeLiteral} of ${census.treeDerived} tree-derived argument(s) (${pct4(census.share)}) are expressible as literal lookups; the bar is ${pct4(census.bar)}.`
     );
   }
   lines.push(
@@ -60581,17 +60612,17 @@ function formatSearchLiteralityCensus(census) {
   lines.push("  How literal counts, rung by rung:");
   for (const reading of census.readings) {
     lines.push(
-      `    ${reading.treeLiteral}/${reading.treeDerived} (${pct5(reading.share)}) ${reading.meetsBar ? "meets" : "MISSES"} the bar \u2014 ${reading.name}`
+      `    ${reading.treeLiteral}/${reading.treeDerived} (${pct4(reading.share)}) ${reading.meetsBar ? "meets" : "MISSES"} the bar \u2014 ${reading.name}`
     );
   }
   lines.push("  How much text makes an argument tree-derived:");
   for (const rung of census.provenanceLadder) {
     lines.push(
-      `    \u2265${rung.minMatchChars} chars: ${rung.treeLiteral}/${rung.treeDerived} (${pct5(rung.share)}) ${rung.meetsBar ? "meets" : "MISSES"} the bar`
+      `    \u2265${rung.minMatchChars} chars: ${rung.treeLiteral}/${rung.treeDerived} (${pct4(rung.share)}) ${rung.meetsBar ? "meets" : "MISSES"} the bar`
     );
   }
   lines.push(
-    census.ruleDecides ? `  Rule: THE RULE DECIDES THIS. The rungs above do not agree about the ${pct5(census.bar)} bar, so the verdict is as much a property of where "literal" was drawn as of the searches.` : `  Rule: stable \u2014 every rung above reaches the same verdict against the ${pct5(census.bar)} bar.`
+    census.ruleDecides ? `  Rule: THE RULE DECIDES THIS. The rungs above do not agree about the ${pct4(census.bar)} bar, so the verdict is as much a property of where "literal" was drawn as of the searches.` : `  Rule: stable \u2014 every rung above reaches the same verdict against the ${pct4(census.bar)} bar.`
   );
   const treePatterns = census.classified.filter((c3) => c3.provenance === "tree" && c3.literality === "pattern");
   lines.push("");
@@ -60898,7 +60929,7 @@ function pathFailureCensus(failures, meta) {
     bySubjectRoot
   };
 }
-function pct6(share) {
+function pct5(share) {
   return `${Math.round(share * 1e3) / 10}%`;
 }
 function formatPathFailureCensus(census) {
@@ -60911,13 +60942,13 @@ function formatPathFailureCensus(census) {
   }
   const verdict = census.meetsBar ? "CLEARS" : "REFUTED";
   lines.push(
-    `Path-failure attribution: ${verdict} \u2014 ${census.owned} of ${census.pathShaped} path-shaped failure(s) (${pct6(census.share ?? 0)}) arrived through a tool this repository controls, against a pre-committed bar of ${pct6(ATTRIBUTION_RULE.bar)}.`
+    `Path-failure attribution: ${verdict} \u2014 ${census.owned} of ${census.pathShaped} path-shaped failure(s) (${pct5(census.share ?? 0)}) arrived through a tool this repository controls, against a pre-committed bar of ${pct5(ATTRIBUTION_RULE.bar)}.`
   );
   lines.push(
     `Read from ${census.sessionsRead} session(s): ${census.calls} tool call(s), ${census.errors} failure(s), ${census.unread} unpaired and counted neither way.`
   );
   lines.push(
-    `Generous bound \u2014 crediting every call where any segment was ours: ${census.ownedUpperBound}/${census.pathShaped} (${pct6(census.shareUpperBound ?? 0)}).` + (census.boundDecides ? " THE BOUND DECIDES THIS." : "")
+    `Generous bound \u2014 crediting every call where any segment was ours: ${census.ownedUpperBound}/${census.pathShaped} (${pct5(census.shareUpperBound ?? 0)}).` + (census.boundDecides ? " THE BOUND DECIDES THIS." : "")
   );
   lines.push("");
   lines.push("By shape:");
@@ -60927,7 +60958,7 @@ function formatPathFailureCensus(census) {
   lines.push("");
   for (const r2 of census.readings) {
     lines.push(
-      `  ${r2.name.padEnd(28)} ${r2.owned}/${r2.pathShaped} (${pct6(r2.share ?? 0)}) \u2014 ${r2.meetsBar ? "clears" : "below"} the bar`
+      `  ${r2.name.padEnd(28)} ${r2.owned}/${r2.pathShaped} (${pct5(r2.share ?? 0)}) \u2014 ${r2.meetsBar ? "clears" : "below"} the bar`
     );
   }
   if (census.permissionDecides) lines.push("  THE PERMISSION-DENIAL READING DECIDES THIS.");
@@ -60942,7 +60973,7 @@ function formatPathFailureCensus(census) {
   );
   for (const ex of census.excludedByRule) {
     lines.push(
-      `Shape not counted \u2014 ${ex.name}: ${ex.n} more failure(s). Counting them all AND crediting every one to this repository would give ${pct6(ex.shareIfCountedAndOwned)}, ${ex.shareIfCountedAndOwned >= ATTRIBUTION_RULE.bar ? "which clears the bar" : "which still does not clear the bar"}.`
+      `Shape not counted \u2014 ${ex.name}: ${ex.n} more failure(s). Counting them all AND crediting every one to this repository would give ${pct5(ex.shareIfCountedAndOwned)}, ${ex.shareIfCountedAndOwned >= ATTRIBUTION_RULE.bar ? "which clears the bar" : "which still does not clear the bar"}.`
     );
   }
   return lines.join("\n");
@@ -61657,7 +61688,7 @@ function logOnlyFrictionRecall(derived, known, window2) {
     meetsPatternsFloor: derivedRecurring.length >= LOG_ONLY_FRICTION_RULE.patternsFloor
   };
 }
-function pct7(share) {
+function pct6(share) {
   return `${Math.round(share * 100)}%`;
 }
 function label(c3) {
@@ -61687,11 +61718,11 @@ function formatLogOnlyFrictionRecall(census) {
     lines.push("Recall: the transcript channel recorded no recurring class in this window, so there is none to take.");
   } else {
     lines.push(
-      `Recall: ${census.recovered}/${census.verdicts.length} (${pct7(census.recall)}) of the recurring classes the transcript channel found are recoverable from the trace alone.`
+      `Recall: ${census.recovered}/${census.verdicts.length} (${pct6(census.recall)}) of the recurring classes the transcript channel found are recoverable from the trace alone.`
     );
     if (census.inScopeRecall !== null) {
       lines.push(
-        `  In scope: ${census.recovered}/${census.recovered + census.missedInScope.length} (${pct7(census.inScopeRecall)}) counting only classes on a tool the trace can ever record.`
+        `  In scope: ${census.recovered}/${census.recovered + census.missedInScope.length} (${pct6(census.inScopeRecall)}) counting only classes on a tool the trace can ever record.`
       );
     }
     for (const v of census.missedInScope) {
@@ -62786,7 +62817,7 @@ function refusalCoverageCensus(failures, manifest) {
     meetsBar: verdict.meetsBar
   };
 }
-function pct8(share) {
+function pct7(share) {
   return `${Math.round(share * 100)}%`;
 }
 function formatRefusalCoverageCensus(census) {
@@ -62799,17 +62830,17 @@ function formatRefusalCoverageCensus(census) {
     return lines.join("\n");
   }
   lines.push(
-    `Reach: ${census.reach.inReach.length} of ${total} refusal class(es) (${pct8(census.reach.share)}) were refused by a tool whose schema this repository holds. The rest are outside any generator running here, whatever a schema could express in principle.`
+    `Reach: ${census.reach.inReach.length} of ${total} refusal class(es) (${pct7(census.reach.share)}) were refused by a tool whose schema this repository holds. The rest are outside any generator running here, whatever a schema could express in principle.`
   );
   lines.push(
-    `Coverage: ${census.verdict.named.length} of ${total} class(es) (${pct8(census.verdict.share)}) could have been named by a schema-derived manifest, against a bar of ${pct8(REFUSAL_RULE.bar)} \u2014 ${census.meetsBar ? "MET" : "REFUTED"}. Weighted by how often each class actually bit: ${pct8(census.verdict.weightedShare)} of ${census.classes.reduce((n, c3) => n + c3.occurrences, 0)} refusals.`
+    `Coverage: ${census.verdict.named.length} of ${total} class(es) (${pct7(census.verdict.share)}) could have been named by a schema-derived manifest, against a bar of ${pct7(REFUSAL_RULE.bar)} \u2014 ${census.meetsBar ? "MET" : "REFUTED"}. Weighted by how often each class actually bit: ${pct7(census.verdict.weightedShare)} of ${census.classes.reduce((n, c3) => n + c3.occurrences, 0)} refusals.`
   );
   lines.push(`  (the verdict is taken on the '${census.verdict.name}' reading \u2014 the widest that can come out false)`);
   lines.push("");
   lines.push("Readings, widest last:");
   for (const reading of census.readings) {
     lines.push(
-      `  ${reading.name}: ${reading.named.length}/${total} (${pct8(reading.share)}), weighted ${pct8(reading.weightedShare)}` + (reading.vacuous ? " \u2014 VACUOUS: admits every class, so it settles nothing" : "")
+      `  ${reading.name}: ${reading.named.length}/${total} (${pct7(reading.share)}), weighted ${pct7(reading.weightedShare)}` + (reading.vacuous ? " \u2014 VACUOUS: admits every class, so it settles nothing" : "")
     );
   }
   lines.push("");
@@ -63481,7 +63512,7 @@ function refusalPreconditionCensus(corpus) {
     flatShare: tallies.length === 0 ? 0 : tallies.filter((t2) => t2.expressibility === "fully").length / tallies.length
   };
 }
-var pct9 = (n) => `${Math.round(n * 100)}%`;
+var pct8 = (n) => `${Math.round(n * 100)}%`;
 function formatRefusalPreconditionCensus(c3) {
   const out = [];
   out.push(`Refusal-precondition coverage \u2014 ${c3.total} refusal(s) this tool's own calls actually hit`);
@@ -63490,11 +63521,11 @@ function formatRefusalPreconditionCensus(c3) {
       `  READ THIS FIRST: ${c3.largestIncident.events} of ${c3.total} are one cluster \u2014 ${c3.largestIncident.tool}/${c3.largestIncident.class} on ${c3.largestIncident.day}. That is one caller in one sitting recorded ${c3.largestIncident.events} times, not ${c3.largestIncident.events} independent needs.`
     );
     out.push(
-      `  collapsed to one, the share is ${pct9(c3.shareWithoutLargestIncident)} (${c3.meetsBarWithoutLargestIncident ? "still clears" : "does NOT clear"} the ${pct9(c3.bar)} bar)`
+      `  collapsed to one, the share is ${pct8(c3.shareWithoutLargestIncident)} (${c3.meetsBarWithoutLargestIncident ? "still clears" : "does NOT clear"} the ${pct8(c3.bar)} bar)`
     );
   }
   out.push(
-    `  fully expressible ${c3.fullyExpressible}/${c3.total} = ${pct9(c3.share)} (bar ${pct9(c3.bar)} \u2014 ${c3.meetsBar ? "MET" : "NOT met"})`
+    `  fully expressible ${c3.fullyExpressible}/${c3.total} = ${pct8(c3.share)} (bar ${pct8(c3.bar)} \u2014 ${c3.meetsBar ? "MET" : "NOT met"})`
   );
   out.push(`  checkable only against state this tool does not own: ${c3.caveated}`);
   if (c3.unreadable > 0) {
@@ -63503,7 +63534,7 @@ function formatRefusalPreconditionCensus(c3) {
     );
   }
   if (c3.unclassified > 0) out.push(`  ${c3.unclassified} refusal(s) no class matched`);
-  out.push(`  flat over classes rather than events: ${pct9(c3.flatShare)} (control, not the answer)`);
+  out.push(`  flat over classes rather than events: ${pct8(c3.flatShare)} (control, not the answer)`);
   out.push("");
   for (const t2 of c3.tallies) {
     out.push(
@@ -63948,7 +63979,7 @@ function rankUsageRefusals(rows) {
   }
   return [...counts.entries()].map(([cls, occurrences]) => ({ cls, occurrences }));
 }
-var pct10 = (n) => `${Math.round(n * 1e3) / 10}%`;
+var pct9 = (n) => `${Math.round(n * 1e3) / 10}%`;
 function formatRefusalAbsorptionCensus(c3) {
   const out = [];
   out.push(
@@ -63961,7 +63992,7 @@ function formatRefusalAbsorptionCensus(c3) {
   }
   const mine = c3.byIssuer["this-repository"];
   const theirs = c3.byIssuer["another-surface"];
-  const share = (n) => pct10(c3.topOccurrences === 0 ? 0 : n / c3.topOccurrences);
+  const share = (n) => pct9(c3.topOccurrences === 0 ? 0 : n / c3.topOccurrences);
   out.push(
     `  of the ${c3.topOccurrences} refusal(s) the top ${c3.top.length} account for, this repository issued ${mine.occurrences} (${share(mine.occurrences)}) across ${mine.classes} class(es). A surface it cannot change issued ${theirs.occurrences} (${share(theirs.occurrences)}) across ${theirs.classes}` + (theirs.occurrences > 0 ? ". Nothing this repository ships can absorb the second number." : ".")
   );
@@ -63969,7 +64000,7 @@ function formatRefusalAbsorptionCensus(c3) {
   out.push("");
   for (const r2 of c3.readings) {
     out.push(
-      `  ${r2.name.padEnd(20)} ${r2.safe.length}/${c3.top.length} class(es) ${r2.meetsCountBar ? "clears" : "below"} the ${ABSORPTION_RULE.bar.classes}-class half, ${r2.covered}/${c3.refusals} refusal(s) = ${pct10(r2.coverage)} ${r2.meetsCoverageBar ? "clears" : "below"} the ${pct10(ABSORPTION_RULE.bar.coverage)} half \u2014 ${r2.meetsBar ? "MET" : "NOT MET"}`
+      `  ${r2.name.padEnd(20)} ${r2.safe.length}/${c3.top.length} class(es) ${r2.meetsCountBar ? "clears" : "below"} the ${ABSORPTION_RULE.bar.classes}-class half, ${r2.covered}/${c3.refusals} refusal(s) = ${pct9(r2.coverage)} ${r2.meetsCoverageBar ? "clears" : "below"} the ${pct9(ABSORPTION_RULE.bar.coverage)} half \u2014 ${r2.meetsBar ? "MET" : "NOT MET"}`
     );
     out.push(`      admits: ${r2.admits}`);
     out.push(`      safe: ${r2.safe.join(", ") || "(none)"}`);
@@ -67813,7 +67844,7 @@ function composeStandingBriefing(tree, today) {
     lines.push(`The outcome is **${rollup.outcome}**.`);
     lines.push("");
     lines.push(
-      `The tree holds ${rollup.totals.nodes} nodes \u2014 ${rollup.totals.opportunities} opportunities, ${rollup.totals.solutions} solutions, ${rollup.totals.tests} tests \u2014 filed under ${rollup.buckets.length} top-level need(s). Of the ${instrumented.length} test(s) that name a runnable definition of done, ${green.length} currently pass; ${tests.filter((t2) => t2.status === "validated").length} test(s) stand validated by a human.`
+      `The tree holds ${rollup.totals.nodes} nodes \u2014 ${rollup.totals.opportunities} opportunities, ${rollup.totals.solutions} solutions, ${rollup.totals.tests} tests \u2014 filed under ${rollup.buckets.length} top-level need(s). **${rollup.execution.executed} of ${rollup.totals.tests} test(s) carry a result somebody recorded.** Separately, of the ${instrumented.length} test(s) that name a runnable definition of done, ${green.length} currently pass \u2014 readiness, and not an answer to what any of them asks; ${tests.filter((t2) => t2.status === "validated").length} test(s) stand validated by a human.`
     );
   }
   lines.push("");
