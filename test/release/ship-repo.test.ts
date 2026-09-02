@@ -110,6 +110,57 @@ describe("nothing merges on an unearned green", () => {
     expect(calls.some((c) => c.startsWith("gh pr merge"))).toBe(false);
   });
 
+  test("the bundle gate is asked about every artefact the bundler writes, not just the one named", () => {
+    // `npm run bundle` regenerates dist/ost-agent.mjs AND dist/capability-manifest.json.
+    // `GENERATED_ARTIFACT` names only the first, so a stale manifest used to
+    // pass here while failing in CI — the gate was asked about less than it was
+    // set against, with nothing edited to make that happen.
+    const { run, calls } = harness({
+      "git diff --name-only origin/main...HEAD": { status: 0, output: "src/ost/search.ts\n" },
+      "git status --porcelain -- dist/capability-manifest.json": {
+        status: 0,
+        output: " M dist/capability-manifest.json\n",
+      },
+    });
+    const outcome = ship({ repo: "/repo", run });
+
+    expect(outcome.shipped).toBe(false);
+    expect(outcome.summary).toContain("bundle-drift");
+    expect(calls).toContain("git checkout -- dist/capability-manifest.json");
+  });
+
+  test("a generator gate whose artefact is not in HEAD cannot pass on an empty subject", () => {
+    // The skill-drift shape: `GENERATED_ARTIFACT` names `SKILL.md`, and the
+    // generator writes `.claude/skills/opportunity-solution-tree/SKILL.md`. A
+    // `git status` on a path that does not exist exits 0 with no output, so the
+    // drift check reads "clean" off a file that was never there.
+    const { run } = harness({
+      "git diff --name-only origin/main...HEAD": { status: 0, output: "src/knowledge/ruleset.ts\n" },
+      "git cat-file -s HEAD:SKILL.md": { status: 128, output: "fatal: Not a valid object name" },
+      "git cat-file -s HEAD:.claude/skills/opportunity-solution-tree/SKILL.md": { status: 0, output: "39538\n" },
+      "git cat-file -s HEAD:.claude/workflows/skeleton.js": { status: 0, output: "4973\n" },
+    });
+    const outcome = ship({ repo: "/repo", run });
+
+    expect(outcome.shipped).toBe(false);
+    const excerpt = outcome.gateRuns.map((r) => r.excerpt).join(" ");
+    expect(excerpt).toContain("SKILL.md was taken in and nothing happened inside it");
+    expect(excerpt).toMatch(/do not narrow what it was set against/i);
+  });
+
+  test("a runner that cannot answer the size question refuses nothing", () => {
+    // An unobserved subject is not a small one. The default harness answers
+    // `git cat-file -s` with an empty string, which is not a size, so the scope
+    // check stands down rather than convicting a measurement that never ran.
+    const { run } = harness({
+      "git diff --name-only origin/main...HEAD": { status: 0, output: "src/ost/search.ts\n" },
+    });
+    const outcome = ship({ repo: "/repo", dryRun: true, run });
+
+    expect(outcome.gateRuns.every((r) => r.passed)).toBe(true);
+    expect(outcome.summary).toContain("would have merged");
+  });
+
   test("a dry run clears every gate and still does not merge", () => {
     const { run, calls } = harness();
     const outcome = ship({ repo: "/repo", dryRun: true, run });

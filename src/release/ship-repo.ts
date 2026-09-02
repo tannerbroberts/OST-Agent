@@ -21,6 +21,8 @@
  */
 import { spawnSync } from "node:child_process";
 import { branchCoverageRefusals } from "./gate-coverage.js";
+import { artifactSubject, committedSize, scopeRefusals } from "./gate-scope.js";
+import { DECLARED_ARTIFACTS, declaredScope } from "./gate-scope.declared.js";
 import { classifySync, parseDivergence, type Divergence } from "./push-first.js";
 import {
   allGates,
@@ -146,20 +148,61 @@ function syncWithDefault(repo: string, defaultBranch: string, run: Runner, log: 
 }
 
 /**
- * Check that a regenerated artifact matches what is committed.
+ * Every artefact a generator gate is asked about.
+ *
+ * The union of what `gates.declared.ts` names and what the gate's declared scope
+ * was set against, because a gate may only ever be asked about MORE than either
+ * source says. The union is also why widening this is safe for an agent to do:
+ * it can add a comparison, never remove one, and removing one is what
+ * `gate-coverage.ts` refuses.
+ *
+ * Only the generator gates have artefacts. `tsc` and `vitest` declare scopes
+ * too, and theirs are not sets of committed files — asking this about them would
+ * be reading a type-check's coverage off `git status`.
+ */
+function artifactsFor(gateName: string): string[] {
+  const named = GENERATED_ARTIFACT[gateName];
+  const declared = DECLARED_ARTIFACTS[gateName];
+  if (!named && !declared) return [];
+  return [...new Set([...(named ? [named] : []), ...(declared ?? [])])];
+}
+
+/**
+ * Check that every artifact a generator gate regenerates matches what is
+ * committed, and that the gate was asked about all of them.
  *
  * The generator has already run as the gate itself, so this reads the working
  * tree afterwards. On drift the file is restored, because the alternative is a
  * loop that leaves the repository dirty every time it refuses — and a dirty tree
  * is what the next pass's own preconditions refuse on.
+ *
+ * **Why the scope check comes after the drift check.** A stale artefact is the
+ * concrete, actionable answer and it makes the gate red on its own; a subject
+ * smaller than the scope only matters for a gate that would otherwise have
+ * *passed*, which is what "refuses to pass a smaller one" says. So drift is
+ * reported first and the scope refusal catches the green.
  */
 function artifactDrift(repo: string, gateName: string, run: Runner): string | undefined {
-  const artifact = GENERATED_ARTIFACT[gateName];
-  if (!artifact) return undefined;
-  const status = run(["git", "status", "--porcelain", "--", artifact], repo);
-  if (status.status !== 0 || status.output.trim().length === 0) return undefined;
-  run(["git", "checkout", "--", artifact], repo);
-  return `${artifact} is stale — regenerating it changed the committed file. Run the generator and commit the result.`;
+  const artifacts = artifactsFor(gateName);
+  if (artifacts.length === 0) return undefined;
+
+  const stale: string[] = [];
+  for (const artifact of artifacts) {
+    const status = run(["git", "status", "--porcelain", "--", artifact], repo);
+    if (status.status !== 0 || status.output.trim().length === 0) continue;
+    run(["git", "checkout", "--", artifact], repo);
+    stale.push(artifact);
+  }
+  if (stale.length > 0) {
+    return `${stale.join(", ")} stale — regenerating changed the committed file. Run the generator and commit the result.`;
+  }
+
+  const scope = declaredScope(gateName);
+  if (!scope) return undefined;
+  const subject = artifactSubject(gateName, DECLARED_ARTIFACTS[gateName] ?? [], artifacts, committedSize(repo, run));
+  // A subject that could not be read is not a small one. Nothing is refused on
+  // a measurement that did not happen — see `artifactSubject`.
+  return subject ? scopeRefusals(scope, subject)[0] : undefined;
 }
 
 /**
