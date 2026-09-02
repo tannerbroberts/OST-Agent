@@ -123,6 +123,43 @@ export function commitSubjectsSince(vaultDir: string, sinceSha: string | undefin
 }
 
 /**
+ * When every commit since `sinceISO` was authored, ascending, in epoch
+ * milliseconds — the progress marks a still-open run leaves behind while it is
+ * working (`src/loop/liveness.ts` explains why those, and not journal lines,
+ * are what make a stall detectable).
+ *
+ * Undefined rather than `[]` when the log cannot be read, and the distinction is
+ * load-bearing here in a way it is not for {@link commitSubjectsSince}: a caller
+ * that read "no commits" out of "git is missing" would measure a silence the run
+ * never had and report a healthy pass as stalled. Times, not shas — the detector
+ * reads only *when* something happened.
+ *
+ * Committer dates (`%cI`), not author dates, and the pair has to agree: `--since`
+ * filters on the committer date, so formatting the author date would let a
+ * rebased or amended commit be selected by one clock and timestamped by another.
+ * Two commits in the meta vault's 3,877 already have the two disagreeing. It is
+ * also the right one on the merits — the detector asks when work *landed*, which
+ * is when the commit object was written. `scripts/harvest-stall-definition-corpus.ts`
+ * reads the same field, so the live reading and the replayed one are the same
+ * measurement.
+ *
+ * Read-only, like its neighbours: `log` cannot change a byte.
+ */
+export function commitTimesSince(vaultDir: string, sinceISO: string): number[] | undefined {
+  const r = spawnSync("git", ["log", `--since=${sinceISO}`, "--format=%cI"], {
+    cwd: path.resolve(vaultDir),
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  if (r.status !== 0) return undefined;
+  return (r.stdout ?? "")
+    .split("\n")
+    .map((line) => Date.parse(line.trim()))
+    .filter((ms) => Number.isFinite(ms))
+    .sort((a, b) => a - b);
+}
+
+/**
  * What `git status --porcelain` says about the vault, in the three shapes a
  * caller has to treat differently.
  *

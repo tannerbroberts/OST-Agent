@@ -46579,6 +46579,15 @@ function commitSubjectsSince(vaultDir, sinceSha) {
   if (r2.status !== 0) return void 0;
   return (r2.stdout ?? "").split("\n").filter((line) => line.trim().length > 0);
 }
+function commitTimesSince(vaultDir, sinceISO) {
+  const r2 = spawnSync3("git", ["log", `--since=${sinceISO}`, "--format=%cI"], {
+    cwd: path28.resolve(vaultDir),
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"]
+  });
+  if (r2.status !== 0) return void 0;
+  return (r2.stdout ?? "").split("\n").map((line) => Date.parse(line.trim())).filter((ms2) => Number.isFinite(ms2)).sort((a, b2) => a - b2);
+}
 function workingTreeStatus(vaultDir) {
   const r2 = spawnSync3("git", ["status", "--porcelain"], {
     cwd: path28.resolve(vaultDir),
@@ -69372,6 +69381,62 @@ function shortfallReport(s) {
   ];
 }
 
+// src/loop/liveness.ts
+var PROGRESS_SILENCE_BUDGET_MS = 120 * 6e4;
+function lastProgressAtMs(run, nowMs) {
+  let last2 = run.startedAtMs;
+  for (const mark of run.marks) {
+    if (mark.atMs > nowMs) break;
+    if (mark.atMs > last2) last2 = mark.atMs;
+  }
+  return last2;
+}
+function assessRunLiveness(run, nowMs, budgetMs = PROGRESS_SILENCE_BUDGET_MS) {
+  if (run.sealedAtMs !== void 0 && run.sealedAtMs <= nowMs) {
+    return {
+      state: "sealed",
+      silenceMs: 0,
+      lastProgressAtMs: run.sealedAtMs,
+      budgetMs,
+      reason: `sealed at ${new Date(run.sealedAtMs).toISOString()} \u2014 finished, not stuck`
+    };
+  }
+  const last2 = lastProgressAtMs(run, nowMs);
+  const silenceMs = Math.max(0, nowMs - last2);
+  const minutes = (ms2) => (ms2 / 6e4).toFixed(0);
+  if (silenceMs > budgetMs) {
+    return {
+      state: "stalled",
+      silenceMs,
+      lastProgressAtMs: last2,
+      budgetMs,
+      reason: `${run.runId} has produced nothing for ${minutes(silenceMs)} minute(s) (budget ${minutes(budgetMs)}) \u2014 last sign of progress ${new Date(last2).toISOString()}. It holds the lock and is spending the schedule. This is a report, not a kill: no run in the recorded sample was ever observed to stall, so the threshold is calibrated against healthy runs only.`
+    };
+  }
+  return {
+    state: "alive",
+    silenceMs,
+    lastProgressAtMs: last2,
+    budgetMs,
+    reason: `${minutes(silenceMs)} minute(s) since the last sign of progress (stalls at ${minutes(budgetMs)})`
+  };
+}
+function observeOpenRun(open2, journal, commitTimesMs) {
+  const startedAtMs = Date.parse(open2.startedAt);
+  if (!Number.isFinite(startedAtMs)) return null;
+  const marks2 = [];
+  for (const entry of journal) {
+    if (entry.runId !== open2.runId) continue;
+    const atMs = Date.parse(entry.at);
+    if (Number.isFinite(atMs) && atMs >= startedAtMs) marks2.push({ kind: "journal", atMs });
+  }
+  for (const atMs of commitTimesMs) {
+    if (Number.isFinite(atMs) && atMs >= startedAtMs) marks2.push({ kind: "commit", atMs });
+  }
+  marks2.sort((a, b2) => a.atMs - b2.atMs);
+  return { runId: open2.runId, startedAtMs, marks: marks2 };
+}
+
 // src/loop/stall.ts
 var STALL_STREAK_THRESHOLD = 3;
 function assessStall(runs, threshold = STALL_STREAK_THRESHOLD) {
@@ -70393,6 +70458,17 @@ function registerLoopCommands(program3) {
     }
     const stall = assessStall(runs);
     if (stall.stalled) console.log(`stalled: ${stall.reason}`);
+    const openRun = readOpenRun(opts.vault);
+    if (openRun) {
+      const commitTimes = commitTimesSince(opts.vault, openRun.startedAt);
+      const observed = commitTimes === void 0 ? null : observeOpenRun(openRun, readJournal(opts.vault), commitTimes);
+      if (observed === null) {
+        console.log(`open-run: unknown \u2014 ${openRun.runId} is open and its progress could not be measured`);
+      } else {
+        const liveness = assessRunLiveness(observed, now);
+        console.log(`open-run: ${liveness.state} \u2014 ${liveness.reason}`);
+      }
+    }
     const ceiling = ceilingOf(opts.vault, config2.loop?.spend);
     const spend = checkCeiling(
       ceiling,

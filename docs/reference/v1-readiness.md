@@ -3221,24 +3221,55 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,047 tests across 366 files, verified 2026-09-01 (`npx vitest run`
-> collects 365 of the files and finished green at 5,047 in **338 s**; the same suite on the
-> same machine measured **372 s** and **227 s** earlier the same day, and **232 s**,
-> **260 s**, **478 s**,
-> **416 s**, **406 s**, **237 s**, **491 s** and **248 s** earlier the same day — and the
+> *Today:* **met** — 5,060 tests across 367 files, verified 2026-09-02 (`npx vitest run`
+> finished green at 5,060 in **225 s**; the same suite on the same machine measured **211 s**
+> earlier the same session, and **338 s**, **372 s**, **227 s**, **232 s**, **260 s**,
+> **478 s**,
+> **416 s**, **406 s**, **237 s**, **491 s** and **248 s** on the previous day — and the
 > 416 s run failed
 > `test/telemetry/work-units-vs-elapsed.test.ts` on a ratio spread of 5.5 against a bar of 4,
 > which the 478 s run and an isolated run both pass: its measured section is `ost_next_work`
-> alone, and the file added in this batch touches only fixture setup outside that window; an
+> alone, and the file added in that batch touched only fixture setup outside that window; an
 > earlier run with a foreground game at 44% of CPU took **959 s** and
 > failed eight tests on wall clock alone, every one of them green run by itself).
+> The first of this session's two runs failed
+> `test/telemetry/same-run-baseline-ratio.test.ts` at a ratio of 51.5 against a bound of 40,
+> and the second passed it, as did three isolated runs of that file. Same diagnosis as the
+> 416 s run above and reached the same way rather than assumed: the subject is
+> `computeNextWork`, the batch's changes are `src/loop/liveness.ts` (new, imported only by
+> `src/cli/loop.ts` and its own test), one added export in `src/loop/state.ts`, and one
+> reporter line in `loop health` — none on that call's path, and none of them adds work
+> inside the timed window. The bound was calibrated at 14.5–23 across idle, three-spinner and
+> full-suite ambient load, so 51.5 is outside the load this file was built to absorb, not a
+> shift in what it measures.
 > The **file** count is measured — `test/release/readiness-counts.test.ts` counts the
 > directory and fails this document if the two disagree. The **test** count is measured
 > rather than derived, from that same run. Wall clock is reported as a range because it keeps
 > coming back as one: the same commit has measured **207 s and 341 s**, then **210 s and
 > 394 s**, then **223 s and 413 s** — a 1.9× spread with no code between them, which is worth
 > knowing before anyone reads a single timing as a regression. The file added since the
-> previous line is `test/ost/rollup-execution-first.test.ts` — the instrument for "Check the
+> previous line is `test/loop/stall-definition-replay.test.ts` — the instrument for "Replay
+> historical runs against a stall definition", the assumption test beneath "Supervisor
+> heartbeat with automatic restart" (`src/loop/liveness.ts`, printed by `ost-agent loop
+> health`). It replays a candidate definition of progress over all 369 firings the meta vault
+> has recorded and holds it to the node's pre-committed confusion matrix. The two halves of
+> that matrix are not equally measurable and the file says so rather than averaging them:
+> zero false alarms is settled against the 282 firings that demonstrably moved the tree, at
+> every instant of every one of their lives; **every known stall detected has an empty
+> positive set**, because the corpus contains no `crashed` verdict, no `crash` journal line
+> and no unsealed run — nothing has ever been observed to stall here. That zero is pinned as
+> an assertion so the first real stall to land in the record fails the build. Detection is
+> therefore measured against reconstructed deaths of real runs, which is weaker, and
+> `liveness.ts` is classified pure in `test/release/gate-f-deciders.test.ts` and reaches no
+> exit code for that reason: it reports, and nothing restarts on it. The finding the node did
+> not contain is that journal lines alone cannot carry any such definition — a firing writes
+> nothing between `open` and the `step` line its pass exits on, so the longest silence in a
+> tree-moving firing is 244.6 min against 316.9 for one that failed, two populations a
+> threshold cannot separate. Folding in commits, which land during the pass, drops the first
+> to 95.3 against 230.5 and is what makes the measurement possible at all. It also fixes the
+> floor on detection latency at 95 minutes, since that is how long a healthy firing has gone
+> producing nothing observable. See `test/fixtures/stall-definition/PROVENANCE.md`. The file
+> added in the batch before this one is `test/ost/rollup-execution-first.test.ts` — the instrument for "Check the
 > rollup reports readiness and execution as separate numbers, with neither called built", the
 > assumption test beneath "Stop counting an unrun test as progress, and report execution as
 > the only number that moves" (`src/eval/rollup.ts`, read by `ost-agent rollup` and by

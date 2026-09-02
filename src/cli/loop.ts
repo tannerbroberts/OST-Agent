@@ -66,6 +66,8 @@ import {
 import { announceUpdate, applyAtCheckpoint, subscriptionOf, updateStatusLine } from "../loop/updates.js";
 import { observeSenses, senseCensusReport } from "../loop/senses.js";
 import { computeShortfall, declareScope, shortfallReport } from "../loop/scope.js";
+import { readJournal } from "../loop/journal.js";
+import { assessRunLiveness, observeOpenRun } from "../loop/liveness.js";
 import { assessStall } from "../loop/stall.js";
 import {
   countEvidence,
@@ -85,7 +87,7 @@ import {
   type PassKind,
 } from "../loop/reserve.js";
 import { formatQuestionBudget, measureInterruptions, type QuestionBudget } from "../loop/questions.js";
-import { commitSubjectsSince, gitHead, workingTreeStatus, type VaultTreeStatus } from "../loop/state.js";
+import { commitSubjectsSince, commitTimesSince, gitHead, workingTreeStatus, type VaultTreeStatus } from "../loop/state.js";
 import { VERSION } from "../index.js";
 import { VAULT_OPTION_HELP } from "./vault-option.js";
 
@@ -1245,6 +1247,30 @@ export function registerLoopCommands(program: Command): void {
 
       const stall = assessStall(runs);
       if (stall.stalled) console.log(`stalled: ${stall.reason}`);
+
+      // The other stall, and the one the line above cannot see. `assessStall`
+      // folds *sealed* firings; a run that opened and never came back is absent
+      // from that fold entirely, and every other line in this report describes it
+      // exactly as it describes a healthy run doing real work — "unsealed", forty
+      // minutes old. This is the answer to "is it still running?" the solution
+      // node asks for, and it is a report: nothing here restarts anything,
+      // because the corpus this threshold was calibrated against contains no
+      // observed stall to have measured a restart's sensitivity on. See
+      // src/loop/liveness.ts.
+      const openRun = readOpenRun(opts.vault);
+      if (openRun) {
+        const commitTimes = commitTimesSince(opts.vault, openRun.startedAt);
+        // An unreadable git log or an unparseable start would each make the run
+        // look silent for its whole life. A measurement that could not be taken
+        // says so rather than resolving to the alarming answer.
+        const observed = commitTimes === undefined ? null : observeOpenRun(openRun, readJournal(opts.vault), commitTimes);
+        if (observed === null) {
+          console.log(`open-run: unknown — ${openRun.runId} is open and its progress could not be measured`);
+        } else {
+          const liveness = assessRunLiveness(observed, now);
+          console.log(`open-run: ${liveness.state} — ${liveness.reason}`);
+        }
+      }
 
       const ceiling = ceilingOf(opts.vault, config.loop?.spend);
       const spend = checkCeiling(

@@ -168,6 +168,15 @@ const PURE_MODULES = [
   // test, and cut by `scripts/harvest-pass-shape-corpus.ts`, not by this module.
   "pass-shape.ts",
   "stall.ts",
+  // `stall.ts`'s within-run sibling, and pure for the same reason and one more.
+  // It folds progress marks — journal times and commit times — into "alive" or
+  // "stalled" over whatever the caller hands in; the two readers that produce
+  // those marks are `journal.ts` and `state.ts`, both already enumerated. It is
+  // also deliberately not a decider: it moves no verdict and touches no exit
+  // code, because the corpus it was calibrated on contains no observed stall,
+  // and a threshold with no measured sensitivity must not be able to refuse a
+  // firing. `loop health` prints it and nothing else consumes it.
+  "liveness.ts",
   "authority-contract.ts",
   "early-push.ts",
   // Scores a pass's stated intent and a list of history entries against the

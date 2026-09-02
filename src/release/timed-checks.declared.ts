@@ -227,6 +227,11 @@ export const CLOCK_READING_TESTS: readonly DeclaredTimedCheck[] = [
     why: "builds a cutoff one millisecond in the future so nothing is filtered by time",
   },
   {
+    file: "test/loop/stall-definition-replay.test.ts",
+    kind: "clock-fixture",
+    why: "every instant is an offset read off the recorded corpus — no clock is read, and the verdict is the same at any speed",
+  },
+  {
     file: "test/loop/wait-primitive-affordance.test.ts",
     kind: "gating-wall-clock",
     statistic: "absolute-budget",
