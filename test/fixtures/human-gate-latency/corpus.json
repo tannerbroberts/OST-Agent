@@ -1,0 +1,1937 @@
+{
+  "asOf": "2026-09-02T10:04:30.249Z",
+  "repoHead": "94ac1c1e706f86b2916f91030b5b7f5d459aae34",
+  "vaultHead": "e0d9facef950241d0de74bde3f643bffc15b1e50",
+  "vaultCommits": 3918,
+  "resultsHeadingCommits": 0,
+  "assumptionTests": 503,
+  "draftEstimates": {
+    ".ost-agent/drafts/compute-docket-2026-07-24.md": "3 minutes."
+  },
+  "gates": [
+    {
+      "kind": "release",
+      "subject": "0.23.0",
+      "readyAt": "2026-07-28T16:34:17.000Z",
+      "actedAt": null,
+      "note": "never tagged (dd673e43)"
+    },
+    {
+      "kind": "release",
+      "subject": "0.22.0",
+      "readyAt": "2026-07-27T15:58:07.000Z",
+      "actedAt": null,
+      "note": "never tagged (df5288a4)"
+    },
+    {
+      "kind": "release",
+      "subject": "0.21.0",
+      "readyAt": "2026-07-27T11:13:27.000Z",
+      "actedAt": null,
+      "note": "never tagged (87164d61)"
+    },
+    {
+      "kind": "release",
+      "subject": "0.20.0",
+      "readyAt": "2026-07-27T06:06:36.000Z",
+      "actedAt": null,
+      "note": "never tagged (54b45edc)"
+    },
+    {
+      "kind": "release",
+      "subject": "0.19.1",
+      "readyAt": "2026-07-27T02:27:10.000Z",
+      "actedAt": "2026-07-27T02:27:10.000Z",
+      "actedAtIsLowerBound": true,
+      "note": "tagged v0.19.1 (lightweight; no tagger date)"
+    },
+    {
+      "kind": "release",
+      "subject": "0.19.0",
+      "readyAt": "2026-07-27T02:13:16.000Z",
+      "actedAt": "2026-07-27T02:13:16.000Z",
+      "actedAtIsLowerBound": true,
+      "note": "tagged v0.19.0 (lightweight; no tagger date)"
+    },
+    {
+      "kind": "release",
+      "subject": "0.18.0",
+      "readyAt": "2026-07-27T00:55:27.000Z",
+      "actedAt": "2026-07-27T00:55:27.000Z",
+      "actedAtIsLowerBound": true,
+      "note": "tagged v0.18.0 (lightweight; no tagger date)"
+    },
+    {
+      "kind": "release",
+      "subject": "0.17.0",
+      "readyAt": "2026-07-26T21:23:38.000Z",
+      "actedAt": null,
+      "note": "never tagged (ac3db05e)"
+    },
+    {
+      "kind": "release",
+      "subject": "0.16.0",
+      "readyAt": "2026-07-26T20:58:18.000Z",
+      "actedAt": null,
+      "note": "never tagged (d1442c38)"
+    },
+    {
+      "kind": "release",
+      "subject": "0.15.0",
+      "readyAt": "2026-07-26T19:50:48.000Z",
+      "actedAt": null,
+      "note": "never tagged (6a20798d)"
+    },
+    {
+      "kind": "release",
+      "subject": "0.14.0",
+      "readyAt": "2026-07-26T16:09:42.000Z",
+      "actedAt": null,
+      "note": "never tagged (49580d28)"
+    },
+    {
+      "kind": "release",
+      "subject": "0.13.0",
+      "readyAt": "2026-07-26T10:53:30.000Z",
+      "actedAt": null,
+      "note": "never tagged (1790775d)"
+    },
+    {
+      "kind": "release",
+      "subject": "0.12.0",
+      "readyAt": "2026-07-26T05:52:36.000Z",
+      "actedAt": null,
+      "note": "never tagged (d3efbbd8)"
+    },
+    {
+      "kind": "release",
+      "subject": "0.11.0",
+      "readyAt": "2026-07-26T02:32:32.000Z",
+      "actedAt": null,
+      "note": "never tagged (86b6ff4a)"
+    },
+    {
+      "kind": "release",
+      "subject": "0.10.0",
+      "readyAt": "2026-07-26T00:51:44.000Z",
+      "actedAt": null,
+      "note": "never tagged (019780f5)"
+    },
+    {
+      "kind": "release",
+      "subject": "0.9.0",
+      "readyAt": "2026-07-25T21:12:57.000Z",
+      "actedAt": null,
+      "note": "never tagged (d9ace23c)"
+    },
+    {
+      "kind": "release",
+      "subject": "0.8.0",
+      "readyAt": "2026-07-25T15:53:05.000Z",
+      "actedAt": null,
+      "note": "never tagged (d9ed3ac9)"
+    },
+    {
+      "kind": "release",
+      "subject": "0.7.0",
+      "readyAt": "2026-07-25T11:07:56.000Z",
+      "actedAt": null,
+      "note": "never tagged (b317508a)"
+    },
+    {
+      "kind": "release",
+      "subject": "0.6.0",
+      "readyAt": "2026-07-25T05:53:29.000Z",
+      "actedAt": null,
+      "note": "never tagged (7f8de06c)"
+    },
+    {
+      "kind": "release",
+      "subject": "0.5.0",
+      "readyAt": "2026-07-25T04:51:22.000Z",
+      "actedAt": null,
+      "note": "never tagged (f091b04c)"
+    },
+    {
+      "kind": "release",
+      "subject": "0.4.0",
+      "readyAt": "2026-07-25T02:09:53.000Z",
+      "actedAt": "2026-07-25T02:09:53.000Z",
+      "actedAtIsLowerBound": true,
+      "note": "tagged v0.4.0 (lightweight; no tagger date)"
+    },
+    {
+      "kind": "release",
+      "subject": "0.1.3",
+      "readyAt": "2026-07-24T18:12:27.000Z",
+      "actedAt": "2026-07-24T18:12:27.000Z",
+      "actedAtIsLowerBound": true,
+      "note": "tagged v0.1.3 (lightweight; no tagger date)"
+    },
+    {
+      "kind": "release",
+      "subject": "0.1.2",
+      "readyAt": "2026-07-24T18:05:13.000Z",
+      "actedAt": null,
+      "note": "never tagged (f85862ea)"
+    },
+    {
+      "kind": "release",
+      "subject": "0.1.1",
+      "readyAt": "2026-07-24T16:58:21.000Z",
+      "actedAt": "2026-07-24T16:58:21.000Z",
+      "actedAtIsLowerBound": true,
+      "note": "tagged v0.1.1 (lightweight; no tagger date)"
+    },
+    {
+      "kind": "release",
+      "subject": "0.1.0",
+      "readyAt": "2026-07-22T18:25:42.000Z",
+      "actedAt": null,
+      "note": "never tagged (68fabbb7)"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "A fleet instance reaches the inbox with no new credential, and its provenance survives the trip",
+      "readyAt": "2026-08-20T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "A load-independent gate keeps its verdict when the machine is saturated",
+      "readyAt": "2026-09-02T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "A novel item survives the age-out that buries its neighbours",
+      "readyAt": "2026-08-12T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "A re-armed permit is refused when the spec file changed underneath it",
+      "readyAt": "2026-09-01T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "A wrapped pre-commitment lead-in is read, so the absent count stops being a formatting artefact",
+      "readyAt": "2026-08-20T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Acceptance rate of five self-drafted ruleset changes",
+      "readyAt": "2026-08-12T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Add the hook and check whether the commit paths a run actually uses all pass through it",
+      "readyAt": "2026-08-04T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Add the pointer file and count how many tools actually look for it unprompted",
+      "readyAt": "2026-08-04T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Ask five operators whether they would put their secret in a broker that acts for a run",
+      "readyAt": "2026-08-05T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Attach thirty self-observations to one node and require the rung not to move",
+      "readyAt": "2026-08-22T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Audit both vault histories for rename-shaped link breaks",
+      "readyAt": "2026-08-18T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Audit every consumer of the tree for whether it would honour a retraction flag",
+      "readyAt": "2026-08-04T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Audit every shipped solution against the repository before trusting the exclusion",
+      "readyAt": "2026-08-11T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Blind-judge what could have continued, before reading the answer that was given",
+      "readyAt": "2026-08-10T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Blind-rate a model's reading of five already-harvested sessions",
+      "readyAt": "2026-08-06T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Blind-rate ten dry-run web findings for whether they bear on an open assumption",
+      "readyAt": "2026-08-16T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Blind-rate ten records as typo or friction and compare against the recovery rule",
+      "readyAt": "2026-08-19T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Blind-review a pass's acknowledge-or-map calls on the seven stranded items",
+      "readyAt": "2026-08-22T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Break one pass on purpose and check cron notices within a cycle",
+      "readyAt": "2026-08-27T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Build the queue from asks already outstanding and see whether the operator empties it once",
+      "readyAt": "2026-08-11T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Can a pass tell a human edit from its own, using only git",
+      "readyAt": "2026-08-31T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Can riskiest-assumption-tested be judged mechanically",
+      "readyAt": "2026-08-20T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Census every consumer that reads a suite result as a pass-or-fail boolean",
+      "readyAt": "2026-08-10T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Census the recorded searches and split them by whether their argument came from the tree",
+      "readyAt": "2026-08-06T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Change a journalled file underneath a replacement and require the failure to name staleness, not a missing string",
+      "readyAt": "2026-08-17T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Check a derived deny rule against legitimate uses of the same verb it was derived from",
+      "readyAt": "2026-09-02T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Check every dropped section is reported with enough to restore it",
+      "readyAt": "2026-09-01T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Check how many past failed paths fall inside a small set of nameable roots",
+      "readyAt": "2026-09-01T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Check how often the caller knew to be uncertain before the call that failed",
+      "readyAt": "2026-08-04T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Check past failures against the snapshot fields before building the snapshot",
+      "readyAt": "2026-09-02T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Check that a recorded exit code cannot clear a gate or masquerade as a result",
+      "readyAt": "2026-08-11T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Check the deferred nodes for whether what killed them repeats by category",
+      "readyAt": "2026-09-02T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Check the guard refuses an unaccounted-for section drop and permits an acknowledged one",
+      "readyAt": "2026-08-31T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Check the handed-back skeleton parses clean against the same parser that accepts submissions",
+      "readyAt": "2026-08-21T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Check the instrument allowance holds at the floor while no result has ever been recorded",
+      "readyAt": "2026-08-31T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Check the rollup reports readiness and execution as separate numbers, with neither called built",
+      "readyAt": "2026-09-02T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Check three past pass notes for the wrong turn they left out",
+      "readyAt": "2026-08-19T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Check transcript-derived call parity against the in-band trace for one session",
+      "readyAt": "2026-08-11T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Check whether a toolless session can even run the tool check",
+      "readyAt": "2026-08-11T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Check whether initialising only tool-created directories still covers every captured failure",
+      "readyAt": "2026-09-01T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Check whether isolation correctly acquits a flake and convicts a real regression",
+      "readyAt": "2026-08-31T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Check whether the near-miss text would have supplied the correction",
+      "readyAt": "2026-08-23T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Check whether the threshold field gets a bound or just the same wrapped prose",
+      "readyAt": "2026-08-23T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Check whether the writing version is recoverable from vault state at all",
+      "readyAt": "2026-09-01T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Classify the steps of ten past runs as credentialed or not, and see how much work sits upstream",
+      "readyAt": "2026-08-18T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Compare the scheduler's view of the environment against the run's",
+      "readyAt": "2026-08-21T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Compute the unblock-count distribution over this vault and require it to be non-flat",
+      "readyAt": "2026-08-31T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Compute the unblocking order and compare it against what the builder actually picked up",
+      "readyAt": "2026-08-29T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Count how many of the captured failures were a dropped intention rather than a wrong name",
+      "readyAt": "2026-08-23T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Count how many of this vault's recommendations would go silent under a refuse-when-unclear rule",
+      "readyAt": "2026-09-01T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Count how many open assumptions in this tree could be moved by anything public at all",
+      "readyAt": "2026-08-30T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Count how many past releases a push-first rule would have blocked",
+      "readyAt": "2026-09-01T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Count how many recorded steps are safely replayable at all",
+      "readyAt": "2026-09-01T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Count how many timed checks would run somewhere that cannot guarantee isolation",
+      "readyAt": "2026-09-01T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Count how many underserved opportunities have a solution somewhere beneath them",
+      "readyAt": "2026-08-12T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Count how many vault conflicts are mechanical, to see what a human-only rule would actually cost",
+      "readyAt": "2026-08-26T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Count how much of the committed record could name a capability at all",
+      "readyAt": "2026-08-04T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Count how much of the tree a recorded decision could actually order",
+      "readyAt": "2026-08-31T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Count past gate narrowings and judge how many were reasonable",
+      "readyAt": "2026-08-29T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Count stranded evidence items across both vaults that only a Context node could home",
+      "readyAt": "2026-08-04T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Count the distinct credential forms in play and how often each changed in a year",
+      "readyAt": "2026-08-11T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Count the distinct test files ever hand-excluded across the captured sessions",
+      "readyAt": "2026-08-10T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Count what share of observed path failures came through this product's own tools",
+      "readyAt": "2026-08-10T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Crash a run holding the lock and time how long the vault stays unusable",
+      "readyAt": "2026-08-29T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Critic pass rated for actionability",
+      "readyAt": "2026-08-12T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Declare a required tool set and check a pass refuses before doing any work",
+      "readyAt": "2026-08-07T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Declare each bounded surface's decision-fields contract and mechanically verify the bounded output preserves it",
+      "readyAt": "2026-08-11T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Degrade five passes on purpose and count how many admit it",
+      "readyAt": "2026-08-05T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Dismiss ten records and require every one to be attributable and reversible",
+      "readyAt": "2026-08-31T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Do blind parallel ideators produce more distinct candidates than one agent asked for three",
+      "readyAt": "2026-08-22T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Do candidates carrying kill criteria actually get killed within two weeks",
+      "readyAt": "2026-08-30T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Do provenance markers still get read once they are on everything",
+      "readyAt": "2026-08-23T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Do six cold artefacts show a test beating a verdict draft",
+      "readyAt": "2026-08-22T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Do the three reflection questions catch a builder misunderstanding the pass output missed",
+      "readyAt": "2026-08-20T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Do written contribution estimates survive one month of real movement",
+      "readyAt": "2026-08-18T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Do written reasons get challenged, or only read",
+      "readyAt": "2026-08-11T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Does a briefing node change which node a builder actually opens first",
+      "readyAt": "2026-08-11T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Does a first-run branch actually get a stranger to a working vault",
+      "readyAt": "2026-08-06T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Does a named-dimension constraint raise distinctness without lowering candidate quality",
+      "readyAt": "2026-08-20T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Does a quarantined node make the agent notice the hole in its tree",
+      "readyAt": "2026-08-31T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Does a stated denominator catch a drop nobody predicted",
+      "readyAt": "2026-08-19T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Does an operator notice a bad write when the tool echoes the line back",
+      "readyAt": "2026-08-18T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Does cheapest-disconfirmer ordering eliminate more candidates per hour spent",
+      "readyAt": "2026-08-17T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Draft the corrections file from past refusals and check whether it would have fitted in context",
+      "readyAt": "2026-08-31T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Draft the decision classes from the older half of the stops and test them on the newer half",
+      "readyAt": "2026-08-11T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Draft the workspace map and check how many past failed lookups it would have answered",
+      "readyAt": "2026-08-21T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Edit a node holding five sections, supply two, and check the other three survive intact",
+      "readyAt": "2026-08-17T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Enumerate the hosts this tool runs under and check which expose a delegable capability",
+      "readyAt": "2026-08-12T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Estimate charting cost for three past goals and check the estimates against what happened",
+      "readyAt": "2026-08-18T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Every pass records the outcome text it ran against, and a changed outcome is visible as a change",
+      "readyAt": "2026-08-22T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Every quoting surface renders the whole sentence, not just the detector that already does",
+      "readyAt": "2026-08-20T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Every solution in the current backlog has an existing spec that could go red for it",
+      "readyAt": "2026-08-12T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Feed every search path a malformed pattern and require the total to say two were unread",
+      "readyAt": "2026-08-06T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Feed the guard three reds and one green and require it to sort them",
+      "readyAt": "2026-09-01T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Filing corroboration clears the item and moves no rung",
+      "readyAt": "2026-08-12T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Filter the queue on shipped and count what is still unsatisfiable",
+      "readyAt": "2026-08-18T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Five-pass count of self-filed friction events",
+      "readyAt": "2026-08-22T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Generate near-miss suggestions for past failures and count how many point at the right thing",
+      "readyAt": "2026-08-05T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Hand-fill the manifest and count how many of the top five priorities move",
+      "readyAt": "2026-08-05T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Have a blind reader sort ten shortfall reports into justified and evasive",
+      "readyAt": "2026-08-17T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Have a human review a pass's acknowledgements and count how many were avoidance",
+      "readyAt": "2026-08-12T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Have an unattended pass resolve ten seeded merge conflicts and grade every resolution",
+      "readyAt": "2026-08-18T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Have the operator answer questions about their own tree from the briefing alone",
+      "readyAt": "2026-08-11T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Have three independent judges nominate for ten solutions and see whether they agree with each other",
+      "readyAt": "2026-08-12T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Have two independent readers name the work in one briefing paragraph and compare the identities",
+      "readyAt": "2026-08-07T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Have two people independently label a full sweep's items as actionable or not, and compare",
+      "readyAt": "2026-08-31T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Interrupt a pass mid-plan with an outside write and see what state its accepted writes leave",
+      "readyAt": "2026-08-18T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Invoke the allowlist generator from inside a session and require it to refuse",
+      "readyAt": "2026-08-06T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Kill ten runs at random points and check what the journal's last line claims",
+      "readyAt": "2026-08-11T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Kill-at-random-points restart test",
+      "readyAt": "2026-09-01T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Labelled-vs-unlabelled branch comparison",
+      "readyAt": "2026-08-17T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Leave the real goal at the root for a quarter and count what actually laddered up to it",
+      "readyAt": "2026-08-22T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "List in two directories and measure installs against how far the listing was scrolled",
+      "readyAt": "2026-08-17T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "List what a detection probe would touch and have someone say whether they consent to each",
+      "readyAt": "2026-08-18T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Load the ingest channel at ten times observed peak and check provenance survives",
+      "readyAt": "2026-08-16T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Load the machine deliberately and check that the calibration ratio holds while the raw number does not",
+      "readyAt": "2026-08-21T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Load this vault's own config and require the check to name product.repos as absent",
+      "readyAt": "2026-08-20T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Maintain a sweep from returned deltas alone across a full pass and compare against a fresh read",
+      "readyAt": "2026-08-18T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Measure how much signal a refuse-on-unknown-context rule would delete",
+      "readyAt": "2026-09-01T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Measure what fraction of recorded refusals a schema-derived manifest could have named",
+      "readyAt": "2026-08-10T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Measure whether the permitted wait is actually more expensive to write than the blocked one",
+      "readyAt": "2026-08-28T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Measure whether work count actually tracks elapsed time across vault sizes",
+      "readyAt": "2026-08-16T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Merge the enabling config into five real project settings files and check nothing was lost",
+      "readyAt": "2026-08-18T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Merge two real vaults as a dry run and count the conflicts a person has to settle",
+      "readyAt": "2026-08-22T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Mutate the manifest server name and require the three prefix guards to go red",
+      "readyAt": "2026-09-01T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Offer the deposit prompt and count who comes back a second time unasked",
+      "readyAt": "2026-08-12T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Paired ideation run with and without the ledger",
+      "readyAt": "2026-08-16T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Paper test of the confidence roll-up rule",
+      "readyAt": "2026-08-17T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Paper-classify the existing commit history as structure versus commentary",
+      "readyAt": "2026-08-22T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Paper-map prerequisite pairs among the sixty existing tests",
+      "readyAt": "2026-08-30T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Partition today's sweep by actor and see whether the unattended share is reachable",
+      "readyAt": "2026-09-02T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Pin three surfaces in config and check a profile expresses what actually differs",
+      "readyAt": "2026-08-28T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Point the body read at the sidecar and at a node holding results, and require both to be refused or labelled",
+      "readyAt": "2026-08-10T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Produce three routes for one live branch and have a reader rank them without seeing the labels",
+      "readyAt": "2026-08-28T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Push a skeleton commit on a cadence against the replayed timeline and record when rejection first arrives",
+      "readyAt": "2026-08-11T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Put a worktree into each dirty state and check the reconciler's verdict on every one",
+      "readyAt": "2026-09-01T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Put two vaults on one machine and see whether the upward search picks the right one",
+      "readyAt": "2026-08-12T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Rank each session's questions by consequence and check whether the first ones asked were the important ones",
+      "readyAt": "2026-08-05T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Re-run every stored probe in CI and require its recorded literal to still agree",
+      "readyAt": "2026-08-07T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Read back four weeks of spend and judge how much bought something worth having",
+      "readyAt": "2026-08-11T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Read past re-reads and judge how many caught something the caller did not already know",
+      "readyAt": "2026-08-28T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Rebuild the symbol index at the commit that failed, and check it would have named the right symbol",
+      "readyAt": "2026-08-21T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Recompute two past passes' queues from git and compare against what those passes reported",
+      "readyAt": "2026-08-18T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Reconstruct the old accounting on a copy and see if it agrees",
+      "readyAt": "2026-08-23T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Refuse a source that names no record, at write time rather than at sweep time",
+      "readyAt": "2026-08-20T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Render the tree across a recorded visit and require the second render to name exactly what changed",
+      "readyAt": "2026-09-01T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay a denied call and a tool error and check they land as different records",
+      "readyAt": "2026-08-20T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay all 29 records through the surface rule and see what it keeps",
+      "readyAt": "2026-08-29T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay all existing tests to count how many a refusal would have blocked",
+      "readyAt": "2026-09-01T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay both flakes and one planted regression against the ratio",
+      "readyAt": "2026-08-17T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay captured sessions to count how often a hash guard would refuse a good write",
+      "readyAt": "2026-08-17T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay every past release against a registry-derived number",
+      "readyAt": "2026-08-18T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay five known blockers and check whether mining would have named each before it cost a pass",
+      "readyAt": "2026-08-17T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay historical runs against a stall definition",
+      "readyAt": "2026-09-02T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay one week of raw events against five questions the rollup cannot answer",
+      "readyAt": "2026-08-31T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay past sweeps to see how many were blind all the way rather than partly",
+      "readyAt": "2026-08-05T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay past sweeps to see what an ageing rule would have moved to the backlog",
+      "readyAt": "2026-08-22T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay recorded perf failures with the pair alone and check whether they separate",
+      "readyAt": "2026-08-10T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay the captured environment failures against a fixed set of state questions",
+      "readyAt": "2026-08-29T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay the collision session and measure how many steps stood between the movement and the stale write",
+      "readyAt": "2026-08-07T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay the collision timeline and check what a start-of-build scan could have seen at 00 47Z",
+      "readyAt": "2026-08-29T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay the corpus to count how many correct path guesses the guard would have taxed",
+      "readyAt": "2026-09-01T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay the four toolless passes and see whether the check names the right file",
+      "readyAt": "2026-08-11T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay the hard-fix session's trace against its known defects",
+      "readyAt": "2026-08-23T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay the last ten releases and count how many a pull-at-start instance would have received",
+      "readyAt": "2026-09-01T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay the last three tightenings and see whether the grandfathered backlog ever cleared",
+      "readyAt": "2026-08-26T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay the recorded flake timeline to see whether any single expiry period would have helped",
+      "readyAt": "2026-08-31T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay the routing record and count how many work classes ever reached more than one collaborator",
+      "readyAt": "2026-08-17T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay the same 29 records through the recurrence rule and count what files",
+      "readyAt": "2026-08-31T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay the seven refusals and check the ledger surfaces every one before a call is composed",
+      "readyAt": "2026-08-06T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay the stored measurements and check whether they came from comparable conditions",
+      "readyAt": "2026-08-17T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay the two recorded rejections and check the run could act on the operator's own words",
+      "readyAt": "2026-08-20T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay the two titles that broke ripgrep through every path that reaches a command",
+      "readyAt": "2026-08-06T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay this vault's whole git history as events and see if the projection matches",
+      "readyAt": "2026-09-02T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Replay two hundred commits and count what a dead-end scan flags",
+      "readyAt": "2026-08-18T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Require a shipped solution to be asked for an observation and not for a red command",
+      "readyAt": "2026-08-12T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Require every size-capped tool to answer a size probe without materialising its payload",
+      "readyAt": "2026-08-20T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Resolve the declared tool list against the settings allowlist and name every gap, including path-scoped ones",
+      "readyAt": "2026-08-06T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Run a bash 3.2 linter over every helper and count what it flags and what it misses",
+      "readyAt": "2026-08-22T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Run a pass with one sense unconfigured and require its closing report to say which",
+      "readyAt": "2026-08-10T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Run five passes with the blocking wait and count refusals against the polling record",
+      "readyAt": "2026-08-28T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Run the preflight over recorded working-tree states and count the clean sessions it would have refused",
+      "readyAt": "2026-08-18T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Run the same merges through both shapes and require identical edges, sections and refusals",
+      "readyAt": "2026-08-23T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Run the signature over the real 65 and check the singleton survives",
+      "readyAt": "2026-08-17T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Satisfy the guard with a bare fetch that discards the body, and require the merge to go through",
+      "readyAt": "2026-08-31T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Score the provenance census against the three guards it was invented to catch",
+      "readyAt": "2026-08-17T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Seed a shipped solution with no instrument and require the work list to omit it",
+      "readyAt": "2026-08-20T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Send one notification per block for two weeks and count how many the operator acts on",
+      "readyAt": "2026-08-12T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Set the non-interactive flags and check whether the tools that stalled actually honour them",
+      "readyAt": "2026-08-27T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Set up a per-run workspace and count what it reinstalls against the warm shared one",
+      "readyAt": "2026-08-18T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Sort the observed prompts into safe-to-default and must-stop, and see whether a rule separates them",
+      "readyAt": "2026-08-18T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Sort the seven questions by reversal cost and count how many were safe to default",
+      "readyAt": "2026-08-16T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Sort the top refusal classes into safe-to-absorb and load-bearing, and count each",
+      "readyAt": "2026-08-31T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Take a week of this vault's refusals and check whether any leaks content when quoted",
+      "readyAt": "2026-08-18T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Take ten past blocked runs and measure how much work sat independent of the block",
+      "readyAt": "2026-08-17T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Take the harvested commands and count how many genuinely need a shell to do their work",
+      "readyAt": "2026-08-11T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Take the last ten regretted writes and check whether each could have been refused mechanically",
+      "readyAt": "2026-08-20T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Test audit that no tool outside the allowlist is ever registered",
+      "readyAt": "2026-08-12T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Test can an ambient agent drive a pass at API-driver quality",
+      "readyAt": "2026-08-12T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Test can users complete first run without providing a key",
+      "readyAt": "2026-08-29T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Test do operators actually replay the audit trail to regain trust",
+      "readyAt": "2026-08-12T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Test does a 10 percent sample estimate whole-tree quality",
+      "readyAt": "2026-08-22T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Test does a published manifest increase operator trust",
+      "readyAt": "2026-08-31T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Test does a supervised dry run raise willingness to enable cron",
+      "readyAt": "2026-08-21T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Test does an independent judge raise trust over self-report",
+      "readyAt": "2026-08-22T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Test does git auto-init and one-command revert work everywhere",
+      "readyAt": "2026-08-21T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Test does the golden set discriminate good trees from bad",
+      "readyAt": "2026-08-21T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Test does the LLM judge agree with human faithfulness ratings",
+      "readyAt": "2026-08-22T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Test does the red-team harness catch known injection attacks",
+      "readyAt": "2026-08-30T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Test is a bundled local model good enough for a pass",
+      "readyAt": "2026-08-17T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Test is mirror staleness acceptable versus live reads",
+      "readyAt": "2026-08-23T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Test is read-only GET access enough to gather needed evidence",
+      "readyAt": "2026-08-22T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "The category exemption does not silence a childless gap",
+      "readyAt": "2026-08-10T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "The CLI fallback reaches the same vault, and refuses the write half",
+      "readyAt": "2026-08-20T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "The fallback is bounded by the version boundary and goes inert at a stated release",
+      "readyAt": "2026-08-22T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "The overwrite refusal names the command at risk and still lets a correction through",
+      "readyAt": "2026-08-16T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "The row renders four factor values and emits no composite number anywhere",
+      "readyAt": "2026-08-20T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "The run record names the tools it had and the ones it expected and did not get",
+      "readyAt": "2026-08-20T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "The sight flag is set from the grant table and cannot be set by the caller",
+      "readyAt": "2026-08-12T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Thirty-day log sample for existing signal",
+      "readyAt": "2026-08-23T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Three reserved discovery passes rated for usefulness",
+      "readyAt": "2026-08-30T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Three-week digest engagement run",
+      "readyAt": "2026-08-31T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Time the build check against how often a run would actually have found a broken tree",
+      "readyAt": "2026-08-10T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Time the resource questions once and count answers the vault could not already recover",
+      "readyAt": "2026-08-20T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Timed side-by-side judgement of canary output",
+      "readyAt": "2026-08-17T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Try every agent write path to record the outcome as met, and require each one to refuse",
+      "readyAt": "2026-08-31T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Try to bound five past runs within the commit history without being told where they started",
+      "readyAt": "2026-08-31T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Try to confirm a tool surface without invoking any of it",
+      "readyAt": "2026-08-18T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Try to derive the seven questions from the premise alone, before reading the session",
+      "readyAt": "2026-08-18T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Try to express every refusal this tool can issue as a precondition, and count the ones that resist",
+      "readyAt": "2026-08-31T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Try to express the scope of five existing gates and see which ones resist it",
+      "readyAt": "2026-09-02T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Try to load the tools from inside the vault directory at all",
+      "readyAt": "2026-09-01T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Try to reproduce ten recorded failures from the record alone",
+      "readyAt": "2026-08-20T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Twenty-question grounding check for answer faithfulness",
+      "readyAt": "2026-08-16T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Will operators consent to shipping raw usage from their own vault",
+      "readyAt": "2026-08-29T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Would an operator accept an elimination they initially disagreed with once shown the evidence",
+      "readyAt": "2026-08-17T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Would an operator adopt an outside-sourced candidate into their consideration set",
+      "readyAt": "2026-08-30T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Would operators enable an update channel that can change an unattended agent",
+      "readyAt": "2026-08-10T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Write four real suppression conditions and check each evaluates without judgement",
+      "readyAt": "2026-08-12T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Write manifests for the existing helpers and check whether they catch the failures already seen",
+      "readyAt": "2026-08-22T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Write one adapter against the messiest source and time how long it stays working",
+      "readyAt": "2026-08-10T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Write one disposition of each of the three kinds through a single ledger schema",
+      "readyAt": "2026-08-07T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Write the gap as an unknown and see whether a Format can be stated for it at all",
+      "readyAt": "2026-08-18T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "result-filing",
+      "subject": "Write the migration for one past tightening and have a reader check it changed nothing's meaning",
+      "readyAt": "2026-08-11T00:00:00.000Z",
+      "actedAt": null,
+      "note": "ready at the first green observation on its own instrument"
+    },
+    {
+      "kind": "verdict-draft",
+      "subject": "Replay the three recorded failed runs through the journal-alert rule on paper",
+      "readyAt": "2026-07-25T02:35:27.000Z",
+      "actedAt": null,
+      "note": "paste-ready in .ost-agent/drafts/compute-docket-2026-07-24.md"
+    },
+    {
+      "kind": "verdict-draft",
+      "subject": "Audit both vault histories for rename-shaped link breaks",
+      "readyAt": "2026-07-25T02:35:27.000Z",
+      "actedAt": null,
+      "note": "paste-ready in .ost-agent/drafts/compute-docket-2026-07-24.md"
+    },
+    {
+      "kind": "verdict-draft",
+      "subject": "Count stranded evidence items across both vaults that only a Context node could home",
+      "readyAt": "2026-07-25T02:35:27.000Z",
+      "actedAt": null,
+      "note": "paste-ready in .ost-agent/drafts/compute-docket-2026-07-24.md"
+    },
+    {
+      "kind": "verdict-draft",
+      "subject": "Run the compute-only backlog today and count decisive verdict drafts",
+      "readyAt": "2026-07-25T02:35:27.000Z",
+      "actedAt": null,
+      "note": "paste-ready in .ost-agent/drafts/compute-docket-2026-07-24.md"
+    },
+    {
+      "kind": "verdict-draft",
+      "subject": "Does refusing a newline inside a wiki-link catch breaks nothing else catches",
+      "readyAt": "2026-07-26T11:09:25.000Z",
+      "actedAt": null,
+      "note": "paste-ready in .ost-agent/drafts/compute-docket-2026-07-24.md"
+    }
+  ]
+}
