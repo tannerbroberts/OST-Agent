@@ -57605,6 +57605,313 @@ function formatStrandedCensus(census) {
   return lines.join("\n");
 }
 
+// src/ost/actor-partition.ts
+var SWEEP_ACTORS = ["unattended", "attended", "human-only", "nobody"];
+var PARTITIONED_LISTS = Object.freeze([
+  "unmappedEvidence",
+  "underservedOpportunities",
+  "solutionsMissingAssumptions",
+  "solutionsMissingInstruments",
+  "solutionsAwaitingObservation",
+  "assumptionWork",
+  "outstandingAsks",
+  "hygieneIssues",
+  "openUnknowns",
+  "quarantined"
+]);
+var OUT_OF_REACH_LISTS = Object.freeze(["agedOutEvidence", "truncated"]);
+var NOT_PARTITIONED_LISTS = Object.freeze([
+  "retiredFromDuplicateScan",
+  "withheldByDisposition",
+  "suppressedByCondition"
+]);
+var NON_LIST_FIELDS = Object.freeze(["framing", "done", "summary", "scope"]);
+var DONE_BLOCKING_LISTS = Object.freeze([
+  "unmappedEvidence",
+  "underservedOpportunities",
+  "solutionsMissingAssumptions",
+  "solutionsMissingInstruments",
+  "hygieneIssues"
+]);
+function everyTestBeyondCompute(solution, index) {
+  const tests = resolveTestsUnderSolution(solution, index);
+  if (tests.length === 0) return false;
+  return tests.every((t2) => t2.test.lane === CAUTIOUS_LANE);
+}
+function partitionSweepByActor(work, tree) {
+  const index = new Map(tree.map((n) => [n.title, n]));
+  const items = [];
+  const push = (list2, item, actor, clearedBy, reason) => {
+    items.push({ list: list2, item, actor, clearedBy, reason });
+  };
+  for (const e of work.unmappedEvidence) {
+    const citers = tree.filter((n) => quotesEvidenceId(n.body, e.id)).map((n) => n.title);
+    if (citers.length > 0) {
+      push(
+        "unmappedEvidence",
+        e.id,
+        "nobody",
+        null,
+        `"${citers[0]}"${citers.length > 1 ? ` (+${citers.length - 1} more)` : ""} already quotes ${e.id} in its prose, so the reading has been taken and recorded. Mapped-ness is derived from frontmatter \`source\` alone and \`source\` is settable only at creation, so no verb on any surface marks this item mapped \u2014 the only call that would is a second node repeating the first.`
+      );
+      continue;
+    }
+    push(
+      "unmappedEvidence",
+      e.id,
+      "unattended",
+      `ost_create_node({ source: "${e.id}" })`,
+      "no node cites this record in frontmatter or in prose, so mapping it is a node nobody has written yet."
+    );
+  }
+  for (const o2 of work.underservedOpportunities) {
+    push(
+      "underservedOpportunities",
+      o2.title,
+      "unattended",
+      "ost_create_node (#Solution)",
+      `has ${o2.solutions} of ${o2.needed} solution(s); ideating candidates is the agent surface's own work.`
+    );
+  }
+  for (const s of work.solutionsMissingAssumptions) {
+    push(
+      "solutionsMissingAssumptions",
+      s.title,
+      "unattended",
+      "ost_create_node (#AssumptionTest)",
+      "surfacing what a solution assumes is written, not measured, so the pass can do it unattended."
+    );
+  }
+  for (const title of work.solutionsMissingInstruments) {
+    const solution = index.get(title);
+    if (solution && everyTestBeyondCompute(solution, index)) {
+      push(
+        "solutionsMissingInstruments",
+        title,
+        "human-only",
+        `ost-agent lane "<test>" --set compute-only`,
+        `every test beneath it is labelled ${CAUTIOUS_LANE}, and ost_set_instrument refuses that combination \u2014 so no unattended pass can clear this entry however many times it is listed. Only the permissive lane call moves it, and there is deliberately no agent tool for that direction.`
+      );
+      continue;
+    }
+    push(
+      "solutionsMissingInstruments",
+      title,
+      "unattended",
+      "ost_set_instrument",
+      "at least one test beneath it can carry a command, so the pass can declare one."
+    );
+  }
+  for (const title of work.solutionsAwaitingObservation) {
+    push(
+      "solutionsAwaitingObservation",
+      title,
+      "attended",
+      "ost-agent verify",
+      "the question is mechanical but filing an observation is CLI-only, so a person has to be at the keyboard."
+    );
+  }
+  for (const t2 of work.assumptionWork.runnable) {
+    push(
+      "assumptionWork.runnable",
+      t2,
+      "attended",
+      `ost-agent result "${t2}"`,
+      "compute-only, so the run costs nobody anything \u2014 but recording the verdict is off every tool surface."
+    );
+  }
+  for (const t2 of work.assumptionWork.awaitingOneCommand) {
+    push(
+      "assumptionWork.awaitingOneCommand",
+      t2,
+      "attended",
+      `ost-agent result "${t2}"`,
+      "compute can prepare the whole verdict; the human's part is one pre-filled command."
+    );
+  }
+  for (const t2 of work.assumptionWork.blockedOnPermission) {
+    push(
+      "assumptionWork.blockedOnPermission",
+      t2,
+      "human-only",
+      "the credential or consent, then ost-agent result",
+      "the work is finished and what is missing is a permission nobody delegated."
+    );
+  }
+  for (const t2 of work.assumptionWork.needsHumans) {
+    push(
+      "assumptionWork.needsHumans",
+      t2,
+      "human-only",
+      `ost-agent result "${t2}"`,
+      `labelled ${CAUTIOUS_LANE} (or unlabelled, which fails closed to it) \u2014 a person outside the building is the measurement.`
+    );
+  }
+  for (const b2 of work.assumptionWork.blockedOnPrerequisite) {
+    push(
+      "assumptionWork.blockedOnPrerequisite",
+      b2.test,
+      "nobody",
+      null,
+      `waiting on ${b2.waitingOn.map((w) => `"${w}"`).join(", ")} \u2014 until that has a recorded result this test produces a number nobody can read, whatever lane it is in. The route out is the prerequisite, not this entry.`
+    );
+  }
+  for (const a of work.outstandingAsks) {
+    push(
+      "outstandingAsks",
+      a.test,
+      "human-only",
+      a.command,
+      a.ageDays === null ? "an ask with no date on record \u2014 asked before the ledger existed, or by a route it never saw." : `asked ${a.ageDays} day(s) ago and still unanswered.`
+    );
+  }
+  for (const h2 of work.hygieneIssues) {
+    push(
+      "hygieneIssues",
+      h2.title,
+      "unattended",
+      "ost_annotate",
+      `${h2.rule}: annotating is the one clear path and the agent surface holds it.`
+    );
+  }
+  for (const u of work.openUnknowns) {
+    push(
+      "openUnknowns",
+      u.title,
+      "unattended",
+      "ost_append_to_node",
+      u.gaps.length ? `${u.klass}; the contract is missing ${u.gaps.join(", ")} \u2014 sections a pass writes rather than measures.` : `${u.klass}; the contract is declared and exploring it is the pass's own work.`
+    );
+  }
+  for (const q2 of work.quarantined) {
+    push(
+      "quarantined",
+      q2.title,
+      "human-only",
+      "an editor, by hand",
+      `carries \`type: ${q2.unrecognizedType}\`, which no reader classifies. No allowlisted tool can rewrite a \`type:\`, so no surface reaches this${q2.children.length ? ` \u2014 and ${q2.children.length} node(s) beneath it are dark until it is fixed` : ""}.`
+    );
+  }
+  const outOfReach = [];
+  for (const t2 of work.truncated) {
+    if (t2.hidden <= 0) continue;
+    outOfReach.push({
+      list: t2.list,
+      count: t2.hidden,
+      why: `the sweep listed ${t2.shown} of ${t2.total}; the other ${t2.hidden} were never handed over, so nobody can be assigned them.`
+    });
+  }
+  if (work.agedOutEvidence.count > 0) {
+    outOfReach.push({
+      list: "agedOutEvidence",
+      count: work.agedOutEvidence.count,
+      why: `still unmapped and still on disk, reported as a count rather than as rows (oldest captured ${work.agedOutEvidence.oldest}).`
+    });
+  }
+  const notPartitioned = [
+    {
+      list: "retiredFromDuplicateScan",
+      count: work.retiredFromDuplicateScan.length,
+      why: "retired nodes, disclosed so the duplicate scan's denominator is visible. Not outstanding work."
+    },
+    {
+      list: "withheldByDisposition",
+      count: work.withheldByDisposition.length,
+      why: "settled by a named person's assertion. Somebody acted; reversing it is `ost-agent dispose --reopen`."
+    },
+    {
+      list: "suppressedByCondition",
+      count: work.suppressedByCondition.length,
+      why: "declined against a machine-checkable condition that still holds; the item returns by itself when it flips."
+    }
+  ];
+  const hidden = outOfReach.reduce((n, r2) => n + r2.count, 0);
+  const subject = { offered: items.length + hidden, read: items.length };
+  return {
+    items,
+    unattended: items.filter((i2) => i2.actor === "unattended"),
+    attended: items.filter((i2) => i2.actor === "attended"),
+    humanOnly: items.filter((i2) => i2.actor === "human-only"),
+    nobody: items.filter((i2) => i2.actor === "nobody"),
+    subject,
+    reach: hidden > 0 ? "partial" : "complete",
+    outOfReach,
+    notPartitioned
+  };
+}
+function shareOf(partition, actor) {
+  switch (actor) {
+    case "unattended":
+      return partition.unattended;
+    case "attended":
+      return partition.attended;
+    case "human-only":
+      return partition.humanOnly;
+    case "nobody":
+      return partition.nobody;
+  }
+}
+function doneForActor(partition, actor) {
+  const blocking = new Set(DONE_BLOCKING_LISTS);
+  const outstanding = shareOf(partition, actor).filter((i2) => blocking.has(i2.list)).length;
+  const short = partition.outOfReach.filter((r2) => blocking.has(r2.list) || r2.list === "agedOutEvidence");
+  if (short.length > 0) {
+    return {
+      actor,
+      done: false,
+      outstanding,
+      notComputable: `${short.reduce((n, r2) => n + r2.count, 0)} done-blocking item(s) were counted by the sweep and not listed (${short.map((r2) => `${r2.list} +${r2.count}`).join(", ")}), so no actor's share is complete and no per-actor \`done\` can be taken off this response.`
+    };
+  }
+  return { actor, done: outstanding === 0, outstanding, notComputable: null };
+}
+var ACTOR_LABELS = {
+  unattended: "An unattended pass may clear",
+  attended: "An attended session may clear",
+  "human-only": "Only a person may clear",
+  nobody: "NOBODY MAY ACT"
+};
+function formatActorPartition(partition) {
+  const lines = [];
+  lines.push(
+    `Sweep by actor: ${partition.items.length} outstanding item(s) \u2014 ${partition.unattended.length} unattended, ${partition.attended.length} attended, ${partition.humanOnly.length} human-only, ${partition.nobody.length} nobody.`
+  );
+  if (partition.reach === "partial") {
+    lines.push(
+      `  \u26A0 partial: the sweep counted ${partition.subject.offered} row(s) and handed over ${partition.subject.read}. Every count above is over what was listed, and no per-actor \`done\` can be taken off it.`
+    );
+    for (const r2 of partition.outOfReach) lines.push(`    ${r2.list} +${r2.count} \u2014 ${r2.why}`);
+  }
+  for (const actor of SWEEP_ACTORS) {
+    if (actor === "nobody") continue;
+    const share = shareOf(partition, actor);
+    const verdict = doneForActor(partition, actor);
+    lines.push("");
+    lines.push(
+      `${ACTOR_LABELS[actor]} (${share.length}) \u2014 ${verdict.notComputable ? "done: not computable" : verdict.done ? "done" : `${verdict.outstanding} done-blocking`}`
+    );
+    if (!share.length) lines.push("  (none)");
+    for (const i2 of share) lines.push(`  ${i2.list}: ${i2.item} \u2192 ${i2.clearedBy}`);
+  }
+  lines.push("");
+  lines.push(`${ACTOR_LABELS.nobody} (${partition.nobody.length}) \u2014 the finding this split exists to take.`);
+  if (!partition.nobody.length) {
+    lines.push("  (none) \u2014 every outstanding item is in somebody's reach.");
+  }
+  for (const i2 of partition.nobody) {
+    lines.push(`  ${i2.list}: ${i2.item}`);
+    lines.push(`    ${i2.reason}`);
+  }
+  lines.push("");
+  lines.push("Outside the subject, because it is disclosure rather than outstanding work:");
+  for (const n of partition.notPartitioned) lines.push(`  ${n.list} (${n.count}) \u2014 ${n.why}`);
+  lines.push("");
+  lines.push(
+    "A reason here says no verb reaches the item, never that the reason is a good one \u2014 that reading is a human's, and this report only asserts one is present."
+  );
+  return lines.join("\n");
+}
+
 // src/ost/vault-merge.ts
 var import_gray_matter4 = __toESM(require_gray_matter(), 1);
 import fs48 from "node:fs";
@@ -60152,7 +60459,7 @@ function readSearchArguments(sessions, options2) {
   }
   return { args, unread: unread2, calls };
 }
-function shareOf(literal3, derived) {
+function shareOf2(literal3, derived) {
   return derived ? literal3 / derived : null;
 }
 function searchLiteralityCensus(args, treeText, extra) {
@@ -60168,7 +60475,7 @@ function searchLiteralityCensus(args, treeText, extra) {
   const treeLiteral = tree.filter((c3) => isLiteral(c3, HEADLINE_CLASSES)).length;
   const readings = LITERALITY_RULE.readings.map((reading) => {
     const literal3 = tree.filter((c3) => isLiteral(c3, reading.classes)).length;
-    const share2 = shareOf(literal3, tree.length);
+    const share2 = shareOf2(literal3, tree.length);
     return {
       name: reading.name,
       classes: [...reading.classes],
@@ -60184,7 +60491,7 @@ function searchLiteralityCensus(args, treeText, extra) {
       return classifyProvenance2(runs, treeText, minMatchChars).provenance === "tree";
     });
     const literal3 = rung.filter((c3) => isLiteral(c3, HEADLINE_CLASSES)).length;
-    const share2 = shareOf(literal3, rung.length);
+    const share2 = shareOf2(literal3, rung.length);
     return {
       minMatchChars,
       treeDerived: rung.length,
@@ -60201,7 +60508,7 @@ function searchLiteralityCensus(args, treeText, extra) {
     pattern: 0
   };
   for (const c3 of classified) byLiterality[c3.literality]++;
-  const share = shareOf(treeLiteral, tree.length);
+  const share = shareOf2(treeLiteral, tree.length);
   const meetsBar = share !== null && share >= LITERALITY_RULE.bar;
   const verdicts = /* @__PURE__ */ new Set([...readings.map((r2) => r2.meetsBar), ...provenanceLadder.map((r2) => r2.meetsBar)]);
   return {
@@ -71036,6 +71343,32 @@ program2.command("stranded").description("evidence no node cites, split into wha
     return;
   }
   console.log(text2);
+});
+program2.command("actors").description(
+  "today's sweep split by who may act on it \u2014 an unattended pass, an attended session, a person, or nobody \u2014 with the fourth bucket's reasons printed in full"
+).option("--vault <dir>", VAULT_OPTION_HELP).option("--min <n>", "the solution minimum the under-served reading uses (default: the vault's P3_ideate setting)", (v) => Number(v)).option(
+  "--limit <n>",
+  "cap each sweep list at n rows, as the MCP surface does \u2014 the default is uncapped, and a capped run cannot answer `done` for anybody",
+  (v) => Number(v),
+  Number.MAX_SAFE_INTEGER
+).action((opts) => {
+  const dir = path93.resolve(opts.vault);
+  const vault = new Vault(dir, { create: false });
+  const { config: config2, problem } = readConfig(dir);
+  if (problem) console.error(`(reading the whole tree unscoped: ${problem})`);
+  const work = computeNextWork(
+    vault,
+    dir,
+    opts.min ?? config2.processes["P3_ideate"]?.minSolutionsPerOpportunity ?? 3,
+    void 0,
+    config2.discovery?.target ?? void 0,
+    config2.evidence?.ageOutDays ?? void 0,
+    opts.limit,
+    config2.evidence?.staleAfterDays ?? void 0
+  );
+  const partition = partitionSweepByActor(work, vault.readTree());
+  console.log(formatActorPartition(partition));
+  if (partition.nobody.length > 0) process.exitCode = 1;
 });
 program2.command("kill-list").description("every live solution whose pre-committed kill date has passed, with the condition a person now reads").option("--vault <dir>", VAULT_OPTION_HELP).option("--as-of <date>", "take the reading against this day (YYYY-MM-DD) instead of today").action((opts) => {
   const ctx = buildPassContext(opts.vault);

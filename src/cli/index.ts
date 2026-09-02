@@ -28,6 +28,7 @@
  *   ost-agent buildable ["<solution>"]        is it defined well enough to build, and against what command?
  *   ost-agent buildable "<s>" --repo DIR      …and is the recorded red still red, or was the ticket spent?
  *   ost-agent stranded [--also DIR]           evidence no node cites, split by which fix would clear it
+ *   ost-agent actors [--vault DIR]            today's sweep split by who may act on it, and what nobody may act on at all
  *   ost-agent kill-list [--vault DIR]         every live solution whose kill date has passed, with the condition a person now reads
  *   ost-agent search "<glob>" [--vault DIR]   grep the node bodies; a subject it could not read is never a zero
  *   ost-agent capability [--repo DIR]         what each builder can do, read off the commits already written
@@ -126,6 +127,7 @@ import { renderTournament, runTournament } from "../eval/tournament.js";
 import { renderCanary, runCanary, type CanaryProcess } from "../eval/canary.js";
 import { formatCensus, reconcileWithGit, reconcileWithUsage, recordCensusFiring } from "../ost/census.js";
 import { formatStrandedCensus, strandedEvidenceCensus } from "../ost/stranded.js";
+import { formatActorPartition, partitionSweepByActor } from "../ost/actor-partition.js";
 import { formatKillCriteriaCensus, killCriteriaCensus } from "../ost/kill-criteria.js";
 import { censusPeerMerge, formatMergeCensus } from "../ost/vault-merge.js";
 import { blindnessCensus, formatBlindnessCensus, readSweepRuns, recordSweepRun } from "../ost/sweep.js";
@@ -1923,6 +1925,61 @@ program
       return;
     }
     console.log(text);
+  });
+
+program
+  .command("actors")
+  .description(
+    "today's sweep split by who may act on it — an unattended pass, an attended session, a person, or nobody — with the fourth bucket's reasons printed in full",
+  )
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option("--min <n>", "the solution minimum the under-served reading uses (default: the vault's P3_ideate setting)", (v: string) => Number(v))
+  .option(
+    "--limit <n>",
+    "cap each sweep list at n rows, as the MCP surface does — the default is uncapped, and a capped run cannot answer `done` for anybody",
+    (v: string) => Number(v),
+    Number.MAX_SAFE_INTEGER,
+  )
+  .action((opts: { vault: string; min?: number; limit: number }) => {
+    // Not `buildPassContext`, on `stranded`'s precedent: this answers a question
+    // about a vault and a writable handle would create the directory a mistyped
+    // path names. The config is still READ, though, because every knob below
+    // changes what `ost_next_work` counts as outstanding: a target scopes the
+    // sweep, an age-out buries evidence, a minimum decides who is under-served.
+    // A split taken over a different sweep than the tool serves would be two
+    // answers to "what is outstanding" that can disagree, which is the failure
+    // this vault has paid for more than once.
+    const dir = path.resolve(opts.vault);
+    const vault = new Vault(dir, { create: false });
+    const { config, problem } = readConfig(dir);
+    if (problem) console.error(`(reading the whole tree unscoped: ${problem})`);
+    // UNCAPPED by default, and that is the whole reason this reading exists as a
+    // command rather than as a field on the tool response. `MAX_ITEMS_PER_LIST`
+    // bounds an MCP response, which is a real constraint there and none at all
+    // here; and a partition sees ROWS, so a capped sweep leaves every actor's
+    // share a window. Taken against this repo's own meta vault on 2026-09-01 the
+    // capped form handed over 110 of 1,197 rows — 91% of the outstanding work
+    // absent from a split whose entire purpose is telling an actor what is
+    // theirs. `--limit` reproduces the narrower view on purpose.
+    const work = computeNextWork(
+      vault,
+      dir,
+      opts.min ?? config.processes["P3_ideate"]?.minSolutionsPerOpportunity ?? 3,
+      undefined,
+      config.discovery?.target ?? undefined,
+      config.evidence?.ageOutDays ?? undefined,
+      opts.limit,
+      config.evidence?.staleAfterDays ?? undefined,
+    );
+    const partition = partitionSweepByActor(work, vault.readTree());
+    console.log(formatActorPartition(partition));
+    // Non-zero on the finding, and on the finding only. A sweep nobody can
+    // finish is the thing this reading exists to surface, and an operator
+    // scripting it should not have to parse prose to learn there was one. A
+    // partial reach is reported in the text and does not fail the command:
+    // the cap is the sweep's, and reporting it as this command's error would
+    // move a known display limit into a channel that reads as a defect.
+    if (partition.nobody.length > 0) process.exitCode = 1;
   });
 
 program
