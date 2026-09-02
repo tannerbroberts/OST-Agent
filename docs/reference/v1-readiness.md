@@ -2951,6 +2951,23 @@ at 10,000 nodes.**
 > quadratic moves one. **That is a change to what a criterion records when it is
 > closed, not a cleverer reading of what it already says** — no criterion in this
 > document records a control today, this one included.
+>
+> **This criterion now has a second, load-independent instrument (2026-09-01).**
+> `test/gate/operation-budget.test.ts` states the same sentence in work performed
+> rather than in time: `fileRead ≤ one per node file`, `directoryScan ≤ 1`, and a
+> ceiling on the near-duplicate scan's comparisons, counted at the `fs` call sites
+> and at the one scoring function through `src/telemetry/operation-budget.ts`. On
+> this fixture `ost_next_work` performs exactly 10,000 file reads, 1 listing and
+> 49,298 comparisons; the pre-Z3 all-pairs scan performs 17,991,001. Those numbers
+> are byte-identical on an idle box and against `os.cpus().length` forked CPU
+> spinners, which is asserted rather than argued, and two regressed conditions are
+> asserted red under both — so the new gate cannot have bought its stability by
+> becoming unfailable. **The wall-clock pin stays**, because 2,000 ms is a latency
+> a person experiences and an operation budget is blind to a regression that makes
+> each operation slower without changing how many there are. What the pair gives
+> that neither gave alone is the reading the 08-06 week did not have: two verdicts
+> from the same criterion, one of which load cannot move, so a red on the timed one
+> beside a green on the counted one is contention and a red on both is the code.
 
 **Z4 — Retired nodes leave the denominator.**
 > *Check:* assert `readTreeCensus` supports a status/archive filter and that the
@@ -3204,9 +3221,10 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,034 tests across 364 files, verified 2026-09-01 (`npx vitest run`
-> collects 363 of the files and finished green at 5,034 in **232 s**; the same suite on the
-> same machine measured **260 s** minutes earlier with this very line stale, and **478 s**,
+> *Today:* **met** — 5,037 tests across 365 files, verified 2026-09-01 (`npx vitest run`
+> collects 364 of the files and finished green at 5,037 in **372 s**; the same suite on the
+> same machine measured **227 s** minutes earlier with this very line stale, and **232 s**,
+> **260 s**, **478 s**,
 > **416 s**, **406 s**, **237 s**, **491 s** and **248 s** earlier the same day — and the
 > 416 s run failed
 > `test/telemetry/work-units-vs-elapsed.test.ts` on a ratio spread of 5.5 against a bar of 4,
@@ -3220,7 +3238,31 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > coming back as one: the same commit has measured **207 s and 341 s**, then **210 s and
 > 394 s**, then **223 s and 413 s** — a 1.9× spread with no code between them, which is worth
 > knowing before anyone reads a single timing as a regression. The file added since the
-> previous line is `test/ost/sweep-actor-partition.test.ts` — the instrument for "Partition
+> previous line is `test/gate/operation-budget.test.ts` — the instrument for "A
+> load-independent gate keeps its verdict when the machine is saturated", the assumption test
+> beneath "State timing gates as work completed rather than wall-clock, so a busy machine
+> cannot fail one" (`src/telemetry/operation-budget.ts`, counted at the `fs` call sites in
+> `src/ost/vault.ts` and at the one scoring function in `src/ost/dedupe.ts`). It restates Z3's
+> criterion (line 2879), whose wall-clock form flaked twice in consecutive scheduled passes at
+> 2004 ms and 2280 ms against a 2,000 ms bar, as a budget in
+> operations: one file read per node file, one root listing, and a ceiling on the
+> near-duplicate scan's comparisons. Every condition runs twice, idle and against
+> `os.cpus().length` forked CPU spinners, and two of the conditions are deliberately regressed
+> (the pre-Z3 all-pairs scan at 258,121 comparisons against the indexed scan's 319; a second
+> pass over the node set, which `computeNextWork` documents it does not make) so that
+> load-independence cannot have been bought by making the gate unfailable. What green here
+> does NOT settle, and the file says so: an operation budget is blind to a regression that
+> makes each operation slower without changing how many there are, which is why
+> `test/mcp/wall-clock-budget.test.ts` stays and stays wall-clock. Two further limits are
+> findings rather than design. The seam counts only the call sites it was wired into — the two
+> vault read paths and the one scoring function — so a regression that reads files by another
+> route is invisible to it, and the counter is now a single point of failure for every gate
+> built on it (the unit test at the top of the file is what holds that down). And the file
+> forks spinners inside the ordinary suite, where `test/eval/calibration-ratio-stability.test.ts`
+> takes a `SUITE_EXCLUSIONS` entry instead; that list is human-only by
+> `src/release/gate-coverage.ts`, so this file is not on it and two full-suite runs are the
+> only evidence that its ~1 s of load does not convict a neighbour. Before it came
+> `test/ost/sweep-actor-partition.test.ts` — the instrument for "Partition
 > today's sweep by actor and see whether the unattended share is reachable", the assumption
 > test beneath "Split the outstanding list by who may act on it, and report only this actor's
 > share" (`src/ost/actor-partition.ts`, read by `ost-agent actors`). It pins the node's own

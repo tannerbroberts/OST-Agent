@@ -15,6 +15,19 @@
  * this laptop before it noticed anything on its own. Both, because a ratio with
  * no absolute bound can drift upward forever and an absolute bound on a fast
  * machine can hide an order of magnitude.
+ *
+ * **This gate stays wall-clock on purpose, and is marked as such.** It went red
+ * on two consecutive scheduled passes — 2004 ms and 2280 ms inside the full
+ * suite, both passing with 18 seconds of margin re-run alone seconds later — and
+ * the answer to that is not to loosen `BUDGET_MS`. The same criterion now has a
+ * second instrument, `test/gate/operation-budget.test.ts`, which states it in
+ * operations performed (file reads, directory listings, title comparisons) and
+ * therefore cannot be failed by load at all. This one is kept because 2,000 ms
+ * is a latency a person experiences, and an operation budget is blind to a
+ * regression that makes each operation slower without changing how many there
+ * are. Read the two together: red here beside green there is contention; red on
+ * both is the code. `src/release/timed-checks.declared.ts` is where the set of
+ * gates that can still be failed by a busy machine is enumerated.
  */
 import fs from "node:fs";
 import os from "node:os";

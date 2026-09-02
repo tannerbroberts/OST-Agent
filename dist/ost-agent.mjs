@@ -13642,12 +13642,12 @@ var require_stringify2 = __commonJS({
         throw new TypeError('expected "' + language + '.stringify" to be a function');
       }
       data = Object.assign({}, file.data, data);
-      const open = opts.delimiters[0];
+      const open2 = opts.delimiters[0];
       const close = opts.delimiters[1];
       const matter5 = engine.stringify(data, options2).trim();
       let buf = "";
       if (matter5 !== "{}") {
-        buf = newline(open) + newline(matter5) + newline(close);
+        buf = newline(open2) + newline(matter5) + newline(close);
       }
       if (typeof file.excerpt === "string" && file.excerpt !== "") {
         if (str4.indexOf(file.excerpt.trim()) === -1) {
@@ -13771,18 +13771,18 @@ var require_gray_matter = __commonJS({
     }
     function parseMatter(file, options2) {
       const opts = defaults(options2);
-      const open = opts.delimiters[0];
+      const open2 = opts.delimiters[0];
       const close = "\n" + opts.delimiters[1];
       let str4 = file.content;
       if (opts.language) {
         file.language = opts.language;
       }
-      const openLen = open.length;
-      if (!utils.startsWith(str4, open, openLen)) {
+      const openLen = open2.length;
+      if (!utils.startsWith(str4, open2, openLen)) {
         excerpt(file, opts);
         return file;
       }
-      if (str4.charAt(openLen) === open.slice(-1)) {
+      if (str4.charAt(openLen) === open2.slice(-1)) {
         return file;
       }
       str4 = str4.slice(openLen);
@@ -13838,9 +13838,9 @@ var require_gray_matter = __commonJS({
     };
     matter5.language = function(str4, options2) {
       const opts = defaults(options2);
-      const open = opts.delimiters[0];
+      const open2 = opts.delimiters[0];
       if (matter5.test(str4)) {
-        str4 = str4.slice(open.length);
+        str4 = str4.slice(open2.length);
       }
       const language = str4.slice(0, str4.search(/\r?\n/));
       return {
@@ -33793,6 +33793,13 @@ var HttpActionsClient = class {
 import fs16 from "node:fs";
 import path14 from "node:path";
 
+// src/telemetry/operation-budget.ts
+var open = [];
+function countOperation(kind, n = 1) {
+  if (open.length === 0) return;
+  for (const counts of open) counts[kind] += n;
+}
+
 // src/fs/atomic-write.ts
 import path9 from "node:path";
 var TEMP_WRITE_SUFFIX = ".ost-tmp";
@@ -40711,6 +40718,7 @@ var Vault = class {
    * forge is a retirement every gate may honour. See {@link isRetractedNode}.
    */
   readTreeCensus(opts = {}) {
+    countOperation("directoryScan");
     const entries = fs16.readdirSync(this.root, { withFileTypes: true });
     const nodes = [];
     const seenFiles = [];
@@ -40723,6 +40731,7 @@ var Vault = class {
       seenFiles.push(e.name);
       let raw;
       try {
+        countOperation("fileRead");
         raw = fs16.readFileSync(path14.join(this.root, e.name), "utf8");
       } catch (err) {
         unreadable.push({ file: e.name, reason: `could not be read: ${err.message}` });
@@ -40788,6 +40797,7 @@ var Vault = class {
   read(title) {
     const p2 = this.nodePath(title);
     if (!fs16.existsSync(p2)) throw this.noSuchNode(title);
+    countOperation("fileRead");
     return deserialize(title, fs16.readFileSync(p2, "utf8"));
   }
   /**
@@ -47579,6 +47589,7 @@ function tokensOf(s) {
   );
 }
 function jaccard(ta, tb, a, b2) {
+  countOperation("titleComparison");
   if (ta.size === 0 || tb.size === 0) return a.trim().toLowerCase() === b2.trim().toLowerCase() ? 1 : 0;
   const [small, large] = ta.size <= tb.size ? [ta, tb] : [tb, ta];
   let inter = 0;
@@ -50823,14 +50834,14 @@ function appendAttention(lines, ctx, tree) {
   const rollup = computeAttention(tree, ctx.dir, {});
   let satisfied = 0;
   let abandoned = 0;
-  let open = 0;
+  let open2 = 0;
   for (const bucket2 of Object.values(rollup.byClass)) {
     satisfied += bucket2.satisfied;
     abandoned += bucket2.abandoned;
-    open += bucket2.open;
+    open2 += bucket2.open;
   }
   lines.push(
-    `Attention: ${rollup.unknowns.length} unknown(s) \u2014 satisfied ${satisfied}, abandoned ${abandoned}, open ${open}`
+    `Attention: ${rollup.unknowns.length} unknown(s) \u2014 satisfied ${satisfied}, abandoned ${abandoned}, open ${open2}`
   );
   for (const [klass, bucket2] of Object.entries(rollup.byClass)) {
     if (bucket2.count === 0) continue;
@@ -54736,9 +54747,9 @@ function topLevelExports(structural) {
   }
   return starts;
 }
-function matchBrace(structural, open) {
+function matchBrace(structural, open2) {
   let depth = 0;
-  for (let i2 = open; i2 < structural.length; i2++) {
+  for (let i2 = open2; i2 < structural.length; i2++) {
     if (structural[i2] === "{") depth++;
     else if (structural[i2] === "}") {
       depth--;
@@ -54797,9 +54808,9 @@ function memberChunks(structuralBody) {
 var MEMBER_HEAD = new RegExp(
   `^(?:(?:public|private|protected|declare|abstract|static|override|async|get|set)\\s+)*(readonly\\s+)?(\\[[^\\]]*\\]|"[^"]*"|'[^']*'|#?${IDENT})(\\?)?\\s*(!)?\\s*([:(<=]|$)`
 );
-function parseMembers(structural, commentFree, open, close) {
-  const structuralBody = structural.slice(open + 1, close);
-  const textBody = commentFree.slice(open + 1, close);
+function parseMembers(structural, commentFree, open2, close) {
+  const structuralBody = structural.slice(open2 + 1, close);
+  const textBody = commentFree.slice(open2 + 1, close);
   const members = [];
   for (const { start, end } of memberChunks(structuralBody)) {
     const structuralChunk = structuralBody.slice(start, end).trim();
@@ -54850,26 +54861,26 @@ function indexModule(modulePath, source) {
       const kindWord = decl[3].replace(/\s+/g, " ");
       const kind = kindWord === "const enum" ? "enum" : kindWord === "module" ? "namespace" : kindWord;
       const name = decl[4];
-      let open = -1;
+      let open2 = -1;
       if (kind === "interface" || kind === "class" || kind === "enum" || kind === "namespace") {
-        open = structural.indexOf("{", start + decl[0].length - name.length);
+        open2 = structural.indexOf("{", start + decl[0].length - name.length);
       } else if (kind === "type") {
         const eq = structural.indexOf("=", start);
         const semi = structural.indexOf(";", start);
         if (eq >= 0 && (semi < 0 || eq < semi)) {
           const after = /\S/.exec(structural.slice(eq + 1));
-          if (after && after[0] === "{") open = eq + 1 + (after.index ?? 0);
+          if (after && after[0] === "{") open2 = eq + 1 + (after.index ?? 0);
         }
       } else if (kind === "const" || kind === "let" || kind === "var") {
         const eq = structural.indexOf("=", start);
         const semi = structural.indexOf(";", start);
         if (eq >= 0 && (semi < 0 || eq < semi)) {
           const after = /\S/.exec(structural.slice(eq + 1));
-          if (after && after[0] === "{") open = eq + 1 + (after.index ?? 0);
+          if (after && after[0] === "{") open2 = eq + 1 + (after.index ?? 0);
         }
       }
-      const close = open >= 0 ? matchBrace(structural, open) : -1;
-      const headEnd = open >= 0 ? open : Math.min(structural.length, start + decl[0].length);
+      const close = open2 >= 0 ? matchBrace(structural, open2) : -1;
+      const headEnd = open2 >= 0 ? open2 : Math.min(structural.length, start + decl[0].length);
       const head = oneLine3(commentFree.slice(start, headEnd));
       exports2.push({
         name,
@@ -54877,7 +54888,7 @@ function indexModule(modulePath, source) {
         line,
         async: decl[2] !== void 0,
         signature: signatureOf(kind, commentFree, structural, start, decl[0].length, head),
-        members: open >= 0 && close > open ? parseMembers(structural, commentFree, open, close) : [],
+        members: open2 >= 0 && close > open2 ? parseMembers(structural, commentFree, open2, close) : [],
         extends: supertypes(head)
       });
       continue;
@@ -54928,11 +54939,11 @@ function indexModule(modulePath, source) {
 }
 function signatureOf(kind, commentFree, structural, start, declLength, head) {
   if (kind !== "function") return head;
-  const open = structural.indexOf("(", start + declLength - 1);
-  if (open < 0) return head;
+  const open2 = structural.indexOf("(", start + declLength - 1);
+  if (open2 < 0) return head;
   let depth = 0;
   let close = -1;
-  for (let i2 = open; i2 < structural.length; i2++) {
+  for (let i2 = open2; i2 < structural.length; i2++) {
     if (structural[i2] === "(") depth++;
     else if (structural[i2] === ")") {
       depth--;
@@ -60166,17 +60177,17 @@ function containsCore(glob) {
 }
 function expandGlob(glob) {
   const branchCore = (part) => part.split("").some((c3) => GLOB_SYNTAX2.includes(c3)) ? containsCore(part) : part;
-  const open = glob.indexOf("{");
-  if (open === -1) {
+  const open2 = glob.indexOf("{");
+  if (open2 === -1) {
     const core = branchCore(glob);
     return core === null ? null : [core];
   }
-  const close = glob.indexOf("}", open);
+  const close = glob.indexOf("}", open2);
   if (close === -1) return null;
-  const head = glob.slice(0, open);
+  const head = glob.slice(0, open2);
   const tail2 = glob.slice(close + 1);
   if (/[?[\]]/.test(head) || /[?[\]]/.test(tail2)) return null;
-  const parts = glob.slice(open + 1, close).split(",");
+  const parts = glob.slice(open2 + 1, close).split(",");
   const rest = expandGlob(tail2);
   if (rest === null) return null;
   const out = [];
@@ -64804,9 +64815,9 @@ function readOpenRun(dir) {
 function sweepCrashed(dir) {
   const p2 = openRunPath(dir);
   if (!fs64.existsSync(p2)) return null;
-  const open = readOpenRun(dir);
+  const open2 = readOpenRun(dir);
   const now = (/* @__PURE__ */ new Date()).toISOString();
-  const crashed = open ? { ...open, endedAt: now, verdict: "crashed" } : {
+  const crashed = open2 ? { ...open2, endedAt: now, verdict: "crashed" } : {
     runId: nextRunId(now),
     startedAt: now,
     endedAt: now,
@@ -64848,18 +64859,18 @@ function startRun(dir, meta) {
   return run;
 }
 function requireOpenRun(dir) {
-  const open = readOpenRun(dir);
-  if (!open) throw new Error(`no open loop run in ${dir} \u2014 run \`ost-agent loop start\` first`);
-  return open;
+  const open2 = readOpenRun(dir);
+  if (!open2) throw new Error(`no open loop run in ${dir} \u2014 run \`ost-agent loop start\` first`);
+  return open2;
 }
 function appendStep(dir, step) {
-  const open = requireOpenRun(dir);
+  const open2 = requireOpenRun(dir);
   const at = (/* @__PURE__ */ new Date()).toISOString();
-  open.steps.push({ ...step, at });
-  fs64.writeFileSync(openRunPath(dir), JSON.stringify(open, null, 2));
+  open2.steps.push({ ...step, at });
+  fs64.writeFileSync(openRunPath(dir), JSON.stringify(open2, null, 2));
   appendJournal(dir, {
     kind: "step",
-    runId: open.runId,
+    runId: open2.runId,
     phase: step.phase,
     command: step.command,
     ...step.stepId ? { stepId: step.stepId } : {},
@@ -64867,11 +64878,11 @@ function appendStep(dir, step) {
     exit: step.exit,
     at
   });
-  return open;
+  return open2;
 }
 function stampFallback(dir, fallback) {
-  const open = requireOpenRun(dir);
-  const stamped = { ...open, fallback };
+  const open2 = requireOpenRun(dir);
+  const stamped = { ...open2, fallback };
   fs64.writeFileSync(openRunPath(dir), JSON.stringify(stamped, null, 2));
   return stamped;
 }
@@ -64888,12 +64899,12 @@ function computeVerdict(run) {
   return "healthy";
 }
 function sealRun(dir, meta = {}) {
-  const open = requireOpenRun(dir);
+  const open2 = requireOpenRun(dir);
   const withHead = {
-    ...open,
+    ...open2,
     ...meta.headAfter ? { headAfter: meta.headAfter } : {},
-    ...meta.goal && open.goal ? { goal: meta.goal } : {},
-    ...meta.stopCondition && open.stopCondition ? { stopCondition: { ...open.stopCondition, closed: meta.stopCondition } } : {},
+    ...meta.goal && open2.goal ? { goal: meta.goal } : {},
+    ...meta.stopCondition && open2.stopCondition ? { stopCondition: { ...open2.stopCondition, closed: meta.stopCondition } } : {},
     // Stamped before the verdict is computed, so the verdict is derived from the
     // same list the record carries — a reader can always re-run `computeVerdict`
     // over a sealed line and get the verdict it was sealed with.
@@ -68144,10 +68155,10 @@ async function runFallback(vaultDir, asked = [], now = () => /* @__PURE__ */ new
   if (refused.length > 0) return { kind: "refused", refused };
   const verbs = [];
   for (const r2 of resolutions) if (r2.ok && !verbs.includes(r2.verb)) verbs.push(r2.verb);
-  const open = readOpenRun(vaultDir);
-  if (!open) return { kind: "no-open-run" };
-  if (open.fallback) return { kind: "already-fell-back", record: open.fallback };
-  const passToolCalls = countToolCallsSince(vaultDir, open.startedAt);
+  const open2 = readOpenRun(vaultDir);
+  if (!open2) return { kind: "no-open-run" };
+  if (open2.fallback) return { kind: "already-fell-back", record: open2.fallback };
+  const passToolCalls = countToolCallsSince(vaultDir, open2.startedAt);
   if (passToolCalls > 0) return { kind: "not-needed", passToolCalls };
   const readiness = vaultReadiness({ dir: vaultDir });
   if (!readiness.ready) return { kind: "vault-not-ready", message: readiness.message };
@@ -70227,14 +70238,14 @@ function registerLoopCommands(program3) {
   loop.command("scope").description(
     "declare this run's intended scope, once, before its first step \u2014 the record `loop seal --attempted` diffs against"
   ).argument("<statement>", "what this run set out to do, in its own words").option("--vault <dir>", VAULT_OPTION_HELP).action((statement, opts) => {
-    const open = readOpenRun(opts.vault);
-    if (!open) {
+    const open2 = readOpenRun(opts.vault);
+    if (!open2) {
       console.error("not declared: no open loop run \u2014 run `ost-agent loop start` first.");
       process.exitCode = 1;
       return;
     }
     try {
-      const declared = declareScope(opts.vault, open, statement);
+      const declared = declareScope(opts.vault, open2, statement);
       console.log(`scope declared for run ${declared.runId}: ${declared.statement}`);
     } catch (e) {
       console.error(`not declared: ${e instanceof Error ? e.message : String(e)}`);
@@ -70248,13 +70259,13 @@ function registerLoopCommands(program3) {
       process.exitCode = 2;
       return;
     }
-    const open = readOpenRun(opts.vault);
-    if (open?.ceiling) {
+    const open2 = readOpenRun(opts.vault);
+    if (open2?.ceiling) {
       const halt = checkCeiling(
-        open.ceiling,
-        measureFiring(open.ceiling.sessionsDir, {
+        open2.ceiling,
+        measureFiring(open2.ceiling.sessionsDir, {
           vaultDir: opts.vault,
-          sinceMs: Date.now() - open.ceiling.windowHours * HOUR_MS2
+          sinceMs: Date.now() - open2.ceiling.windowHours * HOUR_MS2
         })
       );
       if (!halt.ok) {
@@ -70375,15 +70386,15 @@ function registerLoopCommands(program3) {
     "--attempted <statement>",
     "what this run actually attempted, in its own words \u2014 diffed against `loop scope`'s frozen declaration, if one was made"
   ).option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
-    const open = readOpenRun(opts.vault);
-    const degradations = open ? observeDegradation(opts.vault, open) : [];
-    const senses = open ? observeSenses(opts.vault, open) : [];
-    const shortfall = open && opts.attempted !== void 0 ? computeShortfall(opts.vault, open.runId, opts.attempted) : null;
-    const goal = open?.goal ? closeGoalContract(open.goal.opened, observeGoal(opts.vault)) : void 0;
-    const stopCondition = open?.stopCondition ? {
+    const open2 = readOpenRun(opts.vault);
+    const degradations = open2 ? observeDegradation(opts.vault, open2) : [];
+    const senses = open2 ? observeSenses(opts.vault, open2) : [];
+    const shortfall = open2 && opts.attempted !== void 0 ? computeShortfall(opts.vault, open2.runId, opts.attempted) : null;
+    const goal = open2?.goal ? closeGoalContract(open2.goal.opened, observeGoal(opts.vault)) : void 0;
+    const stopCondition = open2?.stopCondition ? {
       evidenceAtSeal: countEvidence(opts.vault),
       ...(() => {
-        const shape = observePassShape(commitSubjectsSince(opts.vault, open.headBefore));
+        const shape = observePassShape(commitSubjectsSince(opts.vault, open2.headBefore));
         return shape ? { shape } : {};
       })()
     } : void 0;

@@ -46,6 +46,7 @@ import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
 import { nearestName } from "../fs/near-miss.js";
+import { countOperation } from "../telemetry/operation-budget.js";
 import { temporaryWritePath } from "../fs/atomic-write.js";
 import { TRACED_NODE_FIELDS, noteNodeFileCreated, noteNodeFileWritten } from "../telemetry/usage.js";
 import {
@@ -402,6 +403,7 @@ export class Vault {
    * forge is a retirement every gate may honour. See {@link isRetractedNode}.
    */
   readTreeCensus(opts: { excludeRetired?: boolean } = {}): TreeCensus {
+    countOperation("directoryScan");
     const entries = fs.readdirSync(this.root, { withFileTypes: true });
     const nodes: OstNode[] = [];
     const seenFiles: string[] = [];
@@ -422,6 +424,10 @@ export class Vault {
 
       let raw: string;
       try {
+        // Counted at the call site, not inferred from `entries.length` — an
+        // operation budget derived from a separate walk is a number that can
+        // drift away from the reads it claims to describe.
+        countOperation("fileRead");
         raw = fs.readFileSync(path.join(this.root, e.name), "utf8");
       } catch (err) {
         unreadable.push({ file: e.name, reason: `could not be read: ${(err as Error).message}` });
@@ -530,6 +536,7 @@ export class Vault {
   read(title: string): OstNode {
     const p = this.nodePath(title);
     if (!fs.existsSync(p)) throw this.noSuchNode(title);
+    countOperation("fileRead");
     return deserialize(title, fs.readFileSync(p, "utf8"));
   }
 
