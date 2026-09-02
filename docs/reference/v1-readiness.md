@@ -3221,8 +3221,15 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,292 tests across 377 files, verified 2026-09-02. This batch's own run
-> is another instance of the load pattern below rather than a counter-example to it: the suite
+> *Today:* **met** — 5,317 tests across 378 files, verified 2026-09-02. This batch's own run
+> took **353 s** and came back green on everything except `test/loop/work-source-census.test.ts`,
+> which missed the same 10 s `fs.watch` deadline already recorded below and passes alone in
+> **3.1 s**. That is the fourth run in which that file is a contention victim and the fourth in
+> which it clears in isolation with two orders of magnitude of headroom; it has never once been
+> a defect, and this batch touches nothing it watches. A second full run of the same tree
+> settled it rather than leaving it asserted: **5,317 in 595 s, fully green**, that file
+> included. The batch before it is another instance
+> of the same load pattern rather than a counter-example to it: that suite
 > took **1,018 s** and missed two wall-clock bounds — the real-`tsc` check in
 > `test/loop/inherited-tree-build-check.test.ts` at **39.7 s** against its 30 s bound, and
 > `test/adapters/ingest-backpressure-provenance.test.ts` at **32.7 s** against its 25 s — on a
@@ -3247,6 +3254,21 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > of the three; what it costs is that a green suite here needs an otherwise idle machine, and
 > the tree carries that under "A test that failed because the machine was busy looks exactly
 > like one that failed because I broke something". The file added is
+> `test/preflight/auto-satisfy-preserves-staleness-guard.test.ts`, the instrument for
+> "Auto-satisfy a read-before-write, then change the file underneath and require the write to
+> still refuse", beneath "The surface satisfies a precondition it could have satisfied itself".
+> The build made the solution's own claim narrower and the tree should hear it: of the 24
+> preconditions this surface enforces, **exactly one** clears the bar for automatic discharge
+> (a property name a typo's distance from exactly one the schema accepts), and the refusal the
+> parent opportunity actually counted — read-before-write, twenty occurrences in eleven
+> sessions — is one of the ones that may never be discharged, because performing that read
+> deletes the staleness check rather than satisfying it. What the build also found is that the
+> staleness check *did not exist* on this surface: `ost_merge_nodes` required a read of the
+> survivor and recorded only that one happened, so a survivor edited between the read and the
+> merge was already an uninformed write with nothing watching. Receipts now carry a digest of
+> the file as served, `security/tools.ts:assertSurvivorUnchanged` refuses on any movement, and
+> `call-preconditions.ts` publishes `survivor-body-unchanged` beside it so the publication
+> cannot say yes where the tool says no. The file added before that is
 > `test/skill/published-grammar.test.ts`, the instrument for "Check the accepted grammar is
 > retrievable without submitting anything, and names every rejected construct", beneath "The
 > surface publishes its accepted grammar where a composer can read it before writing".

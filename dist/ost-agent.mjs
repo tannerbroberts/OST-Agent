@@ -44749,6 +44749,7 @@ init_types();
 // src/security/tools.ts
 import fs38 from "node:fs";
 import path39 from "node:path";
+import { createHash as createHash6 } from "node:crypto";
 
 // src/knowledge/reversibility.ts
 var REVERSIBILITY = [
@@ -49320,18 +49321,22 @@ function nodeBody(node2) {
 
 // src/security/read-receipts.ts
 function createReadReceipts() {
-  const seen = /* @__PURE__ */ new Set();
+  const seen = /* @__PURE__ */ new Map();
   return {
-    record(title) {
+    record(title, stamp4) {
       const key2 = canonicalTitle(title);
-      if (key2) seen.add(key2);
+      if (key2) seen.set(key2, stamp4);
     },
     wasRead(title) {
       const key2 = canonicalTitle(title);
       return key2 !== null && seen.has(key2);
     },
+    stampFor(title) {
+      const key2 = canonicalTitle(title);
+      return key2 === null ? void 0 : seen.get(key2);
+    },
     titles() {
-      return [...seen];
+      return [...seen.keys()];
     }
   };
 }
@@ -51125,6 +51130,23 @@ function assertSurvivorRead(receipts, into) {
     `refusing to merge into "${displaySafeTitle(into)}": this session has not read its body, so the contribution you composed cannot be "only what the loser says that the survivor does not" \u2014 nothing here knows what the survivor already says. Call ost_read_tree({ node: "${displaySafeTitle(into)}" }) first, then retry this merge unchanged if the contribution still adds something. Nothing was written. (This checks that the body was SERVED, not that you read it \u2014 a fetch you discard satisfies it. The check is cheap; the reading is the part that matters, and only you can do it.)`
   );
 }
+function bodyStamp(vault, title) {
+  try {
+    return createHash6("sha256").update(fs38.readFileSync(vault.pathFor(title))).digest("hex").slice(0, 16);
+  } catch {
+    return void 0;
+  }
+}
+function assertSurvivorUnchanged(vault, receipts, into) {
+  const served = receipts.stampFor(into);
+  if (served === void 0 && !receipts.wasRead(into)) return;
+  const now = bodyStamp(vault, into);
+  if (served !== void 0 && now !== void 0 && served === now) return;
+  const title = displaySafeTitle(into);
+  throw new Error(
+    `refusing to merge into "${title}": its file has changed since this session was served its body, so the contribution you composed was measured against prose that is no longer there \u2014 "only what the loser says that the survivor does not" cannot be true of a body you have not seen. This fires whoever moved it, including an earlier write of your own in this same session (a second merge into one survivor costs a second read, because the first merge is now part of what the survivor says). Call ost_read_tree({ node: "${title}" }) again, re-read the contribution against what comes back, and retry \u2014 dropping it if the survivor now says it. Nothing was written. (The surface will not do this read for you: the read is what makes this detectable, so performing it on your behalf would delete the check rather than satisfy it.)`
+  );
+}
 var ATTRIBUTABLE_TOOLS = [
   "ost_create_node",
   "ost_append_to_node",
@@ -51268,7 +51290,7 @@ function buildOstTools(ctx, allowedNames) {
       run: async (input) => {
         if (input.node !== void 0) {
           const body = readNodeBody(vault, input.node);
-          readReceipts.record(body.title);
+          readReceipts.record(body.title, bodyStamp(vault, body.title) ?? "");
           return JSON.stringify(body, null, 2);
         }
         const census = vault.readTreeCensus();
@@ -51772,6 +51794,7 @@ ${instruction}`;
         vault.assertFoldable(input.from, input.into);
         assertMergeAllowed(vault, input.from, input.into);
         assertSurvivorRead(readReceipts, input.into);
+        assertSurvivorUnchanged(vault, readReceipts, input.into);
         return reportingWrite(vault, dir, input.into, () => {
           vault.mergeNodesByPatch(input.from, input.into, { contribution: input.contribution, why: input.why });
           return `merged "${input.from}" into "${input.into}" and deleted its file`;
@@ -52261,6 +52284,211 @@ function describe2(value) {
   return `${typeof value} (${JSON.stringify(value)})`;
 }
 
+// src/security/auto-satisfy.ts
+var DISCHARGE = Object.freeze([
+  // ── the one that clears all three conditions ───────────────────────────────
+  {
+    id: "closed-parameter-set",
+    verdict: "auto",
+    detectionDuty: null,
+    because: "held (the schema names every accepted property), unique (repaired only when exactly one accepted property is a typo's distance away and the caller did not also supply it), and nothing downstream reads whether the caller spelled a property correctly."
+  },
+  // ── the handshake this work exists to argue about ──────────────────────────
+  {
+    id: "survivor-body-read",
+    verdict: "refuse",
+    detectionDuty: "The receipt is the only record of WHICH body the caller composed against. Discharging it mints a receipt stamped with the body as it is now, which is what makes a survivor that moved under the caller undetectable \u2014 the exact trade the assumption beneath this work says is worse than the friction it removes.",
+    because: "fails no-detection-duty."
+  },
+  {
+    id: "survivor-body-unchanged",
+    verdict: "refuse",
+    detectionDuty: "This IS the detection. Re-reading on the caller's behalf would make the two stamps agree by construction and the check vacuous.",
+    because: "fails no-detection-duty."
+  },
+  // ── claims about state the surface does not hold ───────────────────────────
+  {
+    id: "node-exists",
+    verdict: "refuse",
+    detectionDuty: "A title that does not resolve is usually a caller working from a stale listing. Silently steering it to the nearest node would write to whichever node the typo happened to land near.",
+    because: "fails unique \u2014 `ost_read_tree`'s own miss already offers a suggestion the caller may accept or reject."
+  },
+  {
+    id: "parent-exists",
+    verdict: "refuse",
+    detectionDuty: "Same as node-exists: a missing parent is a caller pointing at a tree it has not read.",
+    because: "fails held \u2014 creating the parent would invent a node nobody wrote."
+  },
+  {
+    id: "product-repo-configured",
+    verdict: "refuse",
+    detectionDuty: "The operator has not said where the product is. Nothing the surface holds could answer that.",
+    because: "fails held."
+  },
+  {
+    id: "instrument-spec-resolves",
+    verdict: "refuse",
+    detectionDuty: "A spec file that does not exist is what a red instrument on a buildable test looks like, and the tool already waives this where the threshold is bound. Creating the file would be authoring the measurement.",
+    because: "fails held."
+  },
+  {
+    id: "repo-path-exists",
+    verdict: "refuse",
+    detectionDuty: "A path in a checkout this surface does not own; the branch under construction moves it.",
+    because: "fails held."
+  },
+  {
+    id: "write-succeeds-on-disk",
+    verdict: "refuse",
+    detectionDuty: "A full disk or a concurrent writer is not a precondition anything can discharge in advance.",
+    because: "fails held \u2014 there is no answer before the call."
+  },
+  {
+    id: "remote-lookup-returns-something",
+    verdict: "refuse",
+    detectionDuty: "Whether a host is up is state outside this process.",
+    because: "fails held \u2014 there is no answer before the call."
+  },
+  // ── rules with more than one honest repair ─────────────────────────────────
+  {
+    id: "layer-may-attach",
+    verdict: "refuse",
+    detectionDuty: "An edge the hierarchy forbids is usually a caller that has the two nodes' kinds backwards. Repointing it would decide which of them was wrong.",
+    because: "fails unique."
+  },
+  {
+    id: "field-belongs-to-layer",
+    verdict: "refuse",
+    detectionDuty: "A `threshold` on a Solution is either the wrong field or the wrong layer. Dropping the field and changing the layer are different nodes.",
+    because: "fails unique."
+  },
+  {
+    id: "title-is-a-filename",
+    verdict: "refuse",
+    detectionDuty: "The sanitizer that makes a stored title safe is forgiving by design; applied to a title the caller CHOSE, that forgiveness is a rename nobody asked for.",
+    because: "fails unique."
+  },
+  {
+    id: "sections-accounted-for",
+    verdict: "refuse",
+    detectionDuty: "An unaccounted section is prose about to disappear. Choosing between reproducing it and dropping it is the entire judgement the rule exists to force.",
+    because: "fails unique, and it is the one rule here whose discharge would be destructive."
+  },
+  {
+    id: "no-reserved-heading-in-content",
+    verdict: "refuse",
+    detectionDuty: "A reserved heading inside free text is a caller about to author a measurement. Stripping it would leave the surrounding prose claiming a result that is no longer there.",
+    because: "fails unique."
+  },
+  {
+    id: "threshold-fixes-a-bar",
+    verdict: "refuse",
+    detectionDuty: "A threshold with no comparator is a test that cannot come out a failure \u2014 the defect this tree names in its own rollup. Inventing the bar would be inventing the finding.",
+    because: "fails held."
+  },
+  {
+    id: "instrument-is-a-spec-file",
+    verdict: "refuse",
+    detectionDuty: "A command that does not parse is a command nobody has run. Repairing it would attach an instrument whose red nobody has seen.",
+    because: "fails held \u2014 the surface cannot know what the caller meant to measure."
+  },
+  {
+    id: "solution-states-its-kill-criteria",
+    verdict: "refuse",
+    detectionDuty: "A kill condition supplied by the surface is one nobody committed to, which is how a tree fills with candidates nothing can end.",
+    because: "fails held."
+  },
+  {
+    id: "unknown-states-its-format",
+    verdict: "refuse",
+    detectionDuty: "The format is the stopping condition. Only the author knows what an answer would look like.",
+    because: "fails held."
+  },
+  // ── checks whose whole value is that the caller had to satisfy them ────────
+  {
+    id: "evidence-class-declared",
+    verdict: "refuse",
+    detectionDuty: "The rung is the author's own statement of how much is known. A default supplied by the surface would be a claim with no one behind it.",
+    because: "fails no-detection-duty."
+  },
+  {
+    id: "within-source-standing",
+    verdict: "refuse",
+    detectionDuty: "A rung above what the source has earned is the node overstating itself. Quietly demoting it publishes a node whose author still believes it says more than it does.",
+    because: "fails no-detection-duty, and fails unique \u2014 demote, or bring better provenance."
+  },
+  {
+    id: "unearned-measurement-rung",
+    verdict: "refuse",
+    detectionDuty: "Same claim, one rung up: 'observed' asserts a measurement happened. Only a recorded result can discharge it.",
+    because: "fails no-detection-duty."
+  },
+  {
+    id: "status-is-agent-settable",
+    verdict: "refuse",
+    detectionDuty: "'validated' is a human's word. A surface that supplied it would be the agent grading itself.",
+    because: "fails no-detection-duty."
+  },
+  {
+    id: "outcome-achievement-needs-an-external-signal",
+    verdict: "refuse",
+    detectionDuty: "The one gate nothing beneath it can catch. Discharging it is the definition of grading your own homework.",
+    because: "fails no-detection-duty."
+  },
+  {
+    id: "humans-required-takes-no-instrument",
+    verdict: "refuse",
+    detectionDuty: "A person is the measurement. There is no command to supply, and supplying one would let a machine answer a question labelled for a human.",
+    because: "fails held."
+  }
+]);
+function dischargeOf(id) {
+  return DISCHARGE.find((d) => d.id === id);
+}
+function mayAutoSatisfy(id) {
+  return dischargeOf(id)?.verdict === "auto";
+}
+function createDischargeLedger() {
+  const entries = [];
+  return {
+    record(d) {
+      entries.push(d);
+    },
+    entries() {
+      return entries;
+    }
+  };
+}
+function autoSatisfyInput(tool2, schema, input) {
+  if (!mayAutoSatisfy("closed-parameter-set")) return { input, discharges: [] };
+  if (!schema || schema.additionalProperties !== false || !schema.properties) return { input, discharges: [] };
+  if (!input || typeof input !== "object" || Array.isArray(input)) return { input, discharges: [] };
+  const supplied = input;
+  const accepted = Object.keys(schema.properties);
+  const unexpected = Object.keys(supplied).filter((k2) => !accepted.includes(k2));
+  if (unexpected.length === 0) return { input, discharges: [] };
+  const repaired = { ...supplied };
+  const discharges = [];
+  for (const key2 of unexpected) {
+    const free = accepted.filter((a) => supplied[a] === void 0);
+    const target = nearestName(key2, free);
+    if (target === void 0) continue;
+    if (validateToolInput(schema.properties[target], supplied[key2], target).length > 0) continue;
+    delete repaired[key2];
+    repaired[target] = supplied[key2];
+    discharges.push({
+      tool: tool2,
+      precondition: "closed-parameter-set",
+      did: `read \`${key2}\` as \`${target}\` \u2014 one accepted property is a typo's distance from it and you did not supply that one`
+    });
+  }
+  return discharges.length > 0 ? { input: repaired, discharges } : { input, discharges: [] };
+}
+function renderDischarges(discharges) {
+  if (discharges.length === 0) return "";
+  return `(the surface satisfied ${discharges.length === 1 ? "a precondition" : `${discharges.length} preconditions`} for you rather than refusing: ${discharges.map((d) => d.did).join("; ")}. Nothing was guessed \u2014 each repair had exactly one candidate. Compose the corrected form next time and this costs nothing at all.)`;
+}
+
 // src/loop/lock.ts
 import fs39 from "node:fs";
 import os3 from "node:os";
@@ -52694,11 +52922,14 @@ function declaredUnknown(args) {
 function mintSessionId() {
   return `mcp-${randomUUID()}`;
 }
-async function handleOstCall(ctx, byName, name, args, session) {
+async function handleOstCall(ctx, byName, name, rawArgs, session, ledger = createDischargeLedger()) {
   const tool2 = byName.get(name);
   if (!tool2) return unknownTool(name);
   const readiness = vaultReadiness(ctx);
   if (!readiness.ready) return notReadyResult(readiness, name);
+  const satisfied = autoSatisfyInput(name, tool2.inputSchema, rawArgs ?? {});
+  const args = satisfied.input;
+  for (const d of satisfied.discharges) ledger.record(d);
   const problems = validateToolInput(tool2.inputSchema, args ?? {});
   if (problems.length > 0) {
     return {
@@ -52724,10 +52955,16 @@ Nothing was written. Fix the call and retry \u2014 this vault is append-only, so
 committed ${commit.sha.slice(0, 8)}` : `
 (no changes to commit)`;
     }
-    return { content: [{ type: "text", text: text2 }] };
+    return { content: [{ type: "text", text: withDischargeNote(text2, satisfied.discharges) }] };
   } catch (e) {
-    return { content: [{ type: "text", text: e instanceof Error ? e.message : String(e) }], isError: true };
+    const text2 = e instanceof Error ? e.message : String(e);
+    return { content: [{ type: "text", text: withDischargeNote(text2, satisfied.discharges) }], isError: true };
   }
+}
+function withDischargeNote(text2, discharges) {
+  const note = renderDischarges(discharges);
+  return note === "" ? text2 : `${text2}
+${note}`;
 }
 function newServer() {
   return new Server({ name: "ost-agent", version: VERSION }, { capabilities: { tools: {} } });
@@ -52735,6 +52972,7 @@ function newServer() {
 function createLazyOstMcpServer(vaultDir) {
   const dir = path42.resolve(vaultDir);
   const session = mintSessionId();
+  const ledger = createDischargeLedger();
   let live;
   let listingDefs;
   const acquire = () => {
@@ -52771,7 +53009,7 @@ function createLazyOstMcpServer(vaultDir) {
       return { content: [{ type: "text", text: configProblemGuidance(dir, cause) }], isError: true };
     }
     if ("setup" in got) return notReadyResult(got.setup, name);
-    return handleOstCall(got.live.ctx, got.live.byName, name, req.params.arguments ?? {}, session);
+    return handleOstCall(got.live.ctx, got.live.byName, name, req.params.arguments ?? {}, session, ledger);
   });
   return server;
 }
@@ -63779,6 +64017,22 @@ var CALL_PRECONDITIONS = Object.freeze([
     }
   },
   {
+    id: "survivor-body-unchanged",
+    tools: ["ost_merge_nodes"],
+    statement: "`into` must name a node whose file has not changed since this session was served its body. The read is what makes that detectable, which is why the surface will not perform it for you \u2014 see `security/auto-satisfy.ts`.",
+    expressibility: "caveat",
+    caveat: "two moving parts, both outside the snapshot. The caller can clear it with a re-read, and anyone at all \u2014 another pass, a git operation, this session's own earlier merge \u2014 can cause it a moment after the snapshot says the body is current.",
+    enforcedBy: "security/tools.ts:assertSurvivorUnchanged",
+    check: (input, facts) => {
+      const into = str3(input, "into");
+      if (into === void 0) return null;
+      const key2 = canonicalTitle(into);
+      if (key2 === null || !facts.bodiesRead.has(key2)) return null;
+      if (!facts.staleBodies.has(key2)) return null;
+      return `"${into}" has changed since this session read it \u2014 call ost_read_tree({ node: "${into}" }) again and re-measure the contribution against what comes back`;
+    }
+  },
+  {
     id: "repo-path-exists",
     tools: ["ost_read_repo"],
     statement: "`path` must exist inside a configured product repository.",
@@ -63855,6 +64109,17 @@ function publishCallPreconditions(ctx) {
       // session demonstrably read (`ost/sanitize.ts:titlesMatch`).
       bodiesRead: new Set(
         (ctx.readReceipts?.titles() ?? []).map((t2) => canonicalTitle(t2)).filter((t2) => t2 !== null)
+      ),
+      // One stamp per node read, taken now and compared against the stamp the
+      // receipt carries. Same source as the tool's own check — `bodyStamp` is
+      // imported, not restated — so the publication cannot say "fine" where the
+      // merge says "moved".
+      staleBodies: new Set(
+        (ctx.readReceipts?.titles() ?? []).filter((t2) => {
+          const served = ctx.readReceipts?.stampFor(t2);
+          const now = bodyStamp(ctx.vault, t2);
+          return served === void 0 || now === void 0 || served !== now;
+        }).map((t2) => canonicalTitle(t2)).filter((t2) => t2 !== null)
       ),
       productRepos: ctx.productRepos ?? [],
       maxKillHorizonDays: MAX_KILL_HORIZON_DAYS,
@@ -67878,7 +68143,7 @@ function renderDenyRules(file, stateDir2) {
 }
 
 // src/loop/claim.ts
-import { createHash as createHash6 } from "node:crypto";
+import { createHash as createHash7 } from "node:crypto";
 import fs73 from "node:fs";
 import path77 from "node:path";
 var CLAIMS_FILENAME = "work-claims.jsonl";
@@ -67987,10 +68252,10 @@ function identityKey(item, items) {
   }
   let distinctive2 = [...item.terms].filter((t2) => !shared.has(t2));
   if (distinctive2.length < 3) distinctive2 = [...item.terms];
-  return createHash6("sha1").update(distinctive2.sort().join("\0")).digest("hex").slice(0, 16);
+  return createHash7("sha1").update(distinctive2.sort().join("\0")).digest("hex").slice(0, 16);
 }
 function briefingDigest(briefing) {
-  return createHash6("sha1").update(briefing.replace(/\s+/g, " ").trim()).digest("hex").slice(0, 12);
+  return createHash7("sha1").update(briefing.replace(/\s+/g, " ").trim()).digest("hex").slice(0, 12);
 }
 var DEFAULT_MIN_COVERAGE = 0.6;
 var DEFAULT_MIN_MARGIN = 0.15;
@@ -69735,14 +70000,14 @@ function renderWorkSourceCensus(census) {
 }
 
 // src/loop/goal-contract.ts
-import { createHash as createHash7 } from "node:crypto";
+import { createHash as createHash8 } from "node:crypto";
 import fs80 from "node:fs";
 function isGoalUnreadable(o2) {
   return "unknown" in o2;
 }
 var DIGEST_CHARS = 16;
 function goalDigest(text2) {
-  return createHash7("sha256").update(text2, "utf8").digest("hex").slice(0, DIGEST_CHARS);
+  return createHash8("sha256").update(text2, "utf8").digest("hex").slice(0, DIGEST_CHARS);
 }
 function observeGoal(vaultDir, now = Date.now()) {
   const at = new Date(now).toISOString();
