@@ -3222,13 +3222,19 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
 > *Today:* **met** — 5,240 tests across 376 files, verified 2026-09-02 (`npx vitest run`
-> finished at 5,240 in **1,144 s** with eight assertions red, and every one of them green run
-> by itself: D1's own file count — the one this batch's new file moved, and the one this line
-> closes — plus `test/ost/vault-merge-conflict-census.test.ts` (six tests timing out at 20 s,
-> 2.4–2.6 s each in isolation) and `test/loop/inherited-tree-build-check.test.ts` (50.1 s
-> against its 30 s bound, 1.8 s in isolation). Both are the load pattern this line already
-> records below and neither is a regression: the run overlapped a second `vitest` and a `tsc`
-> on the same box, and the isolated numbers are 8× and 27× faster. The file added is
+> finished green at 5,240 in **552 s** with nothing else running on the box). Three earlier
+> runs the same session are worth recording, because between them they name the load pattern
+> rather than a regression: **1,233 s** and **1,144 s** while a second `vitest` and a `tsc`
+> shared the machine, and **586 s** clean. Each failed a *different* set of wall-clock and
+> timeout-bounded tests, and every one of them passed run by itself with large margins —
+> `test/ost/vault-merge-conflict-census.test.ts` timed out at 20 s and takes 2.4–2.6 s alone,
+> `test/loop/inherited-tree-build-check.test.ts` reported 50.1 s against its 30 s bound and
+> takes 1.8 s alone, and `test/loop/work-source-census.test.ts` missed a 10 s `fs.watch`
+> deadline and takes 357 ms alone, three times out of three. Different victims per run with
+> 8–28× headroom in isolation is nondeterminism under worker contention, not a defect in any
+> of the three; what it costs is that a green suite here needs an otherwise idle machine, and
+> the tree carries that under "A test that failed because the machine was busy looks exactly
+> like one that failed because I broke something". The file added is
 > `test/preflight/workspace-inventory-fits-and-covers.test.ts`, the fit-and-coverage census
 > behind "The run is handed the workspace layout at startup, before it composes anything".
 > Its assumption test fixed both halves of the bar before anything was generated — under
