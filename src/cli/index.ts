@@ -47,6 +47,7 @@
  *   ost-agent proposals [--vault DIR]         the review queue: every ruleset proposal and its status
  *   ost-agent proposal "<id>" --accept -b W   decide one pending proposal in one action (humans only)
  *   ost-agent corrections [--state DIR]       refusals this workspace already paid for, for the next session to read
+ *   ost-agent deny [--derive|--revoke ID]     the deny rules derived from this workspace's own corrections — proposed by compute, activated only by a human, removed by one action
  *   ost-agent claim "<work>" --briefing F     take the work before building it, so a second pass sees it is taken
  *   ost-agent next-build [--rewrite F]        the standing Next Build reading at its one address: read it, or supersede it keeping every prior reading
  *   ost-agent ledger [--publish F]            the whole-tree ranked ledger: every rankable node in one order, each row carrying the reason it sits there — a reason that cites nothing is refused a rank
@@ -261,6 +262,10 @@ import {
 } from "../loop/corrections.js";
 import { SHIM_NAME, renderWaitShim } from "../loop/wait.js";
 import {
+  activateDenyRule, deriveDenyRule, judgeCommand, proposeDenyRule, readDenyRules, renderDenyRules,
+  revokeDenyRule,
+} from "../security/derived-deny.js";
+import {
   CLAIM_EXIT, DEFAULT_CLAIM_TTL_HOURS, claimWork, liveClaims, readBriefingFile, releaseClaim,
   renderClaim, renderClaims, resolveWorkItem,
 } from "../loop/claim.js";
@@ -321,6 +326,16 @@ interface CorrectionsOptions {
   record?: boolean;
   /** Print every correction, ignoring the briefing's character budget. */
   full?: boolean;
+  vault: string;
+}
+
+interface DenyOptions {
+  state?: string;
+  derive?: boolean;
+  activate?: string;
+  revoke?: string;
+  check?: string;
+  checkStdin?: boolean;
   vault: string;
 }
 
@@ -3011,6 +3026,121 @@ program
      * bar is the thing they came to see.
      */
     console.log(renderCorrections(readLedger(state), opts.full ? { maxChars: null } : {}));
+  });
+
+program
+  .command("deny")
+  .description(
+    "the deny rules this workspace derived from its own corrections: propose one from the ledger, see what each " +
+      "one is attributed to, check a command against them, or remove one in a single action",
+  )
+  .option("--state <dir>", "where the rules and the ledger live (default: <vault>/.git/ost-agent)")
+  .option("--derive", "propose a rule from every correction in the ledger that states the class it refused")
+  .option("--activate <id>", "make a proposed rule bind (humans only — a session may not narrow its own capability)")
+  .option("--revoke <id>", "remove a rule; the one action that reverses it, and the one every refusal prints")
+  .option("--check <command>", "judge one Bash command against the active rules; exits 2 if it is refused")
+  .option("--check-stdin", "the same check, reading a PreToolUse hook payload on stdin")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((opts: DenyOptions) => {
+    const state = correctionsStateDir(opts);
+    if (state === null) {
+      console.error(
+        "cannot locate the derived-rule file: pass --state <dir>, or point --vault at a git checkout — these rules live under its .git/, never in the working tree.",
+      );
+      process.exitCode = 1;
+      return;
+    }
+
+    if (opts.revoke) {
+      // First, and reachable from anywhere. Loosening is the safe direction, so
+      // nothing here may refuse it — not a missing ledger, not a session marker.
+      const removed = revokeDenyRule(state, opts.revoke);
+      if (removed.ok) console.log(removed.message);
+      else {
+        console.error(removed.message);
+        process.exitCode = 1;
+      }
+      return;
+    }
+
+    if (opts.check !== undefined || opts.checkStdin) {
+      /*
+       * The enforcement path, and the only one a hook calls. Exit 2 is what Claude
+       * Code reads as "block this call and show the reason to the model", so the
+       * denial text is the thing the composer sees — which is why it carries its own
+       * provenance and its own reversal (`src/security/derived-deny.ts`).
+       */
+      let command = opts.check ?? "";
+      if (opts.checkStdin) {
+        try {
+          const payload = JSON.parse(fs.readFileSync(0, "utf8")) as { tool_input?: { command?: unknown } };
+          command = typeof payload.tool_input?.command === "string" ? payload.tool_input.command : "";
+        } catch {
+          // A hook that cannot read its payload lets the call through. A constraint
+          // that fired on a parse error would refuse calls for reasons unrelated to
+          // what it was derived from, which is the one thing it must never do.
+          return;
+        }
+      }
+      const verdict = judgeCommand(readDenyRules(state).rules, command);
+      if (!verdict.denied) return;
+      console.error(verdict.message);
+      process.exitCode = 2;
+      return;
+    }
+
+    if (opts.activate) {
+      const activated = activateDenyRule(state, opts.activate);
+      if (activated.ok) console.log(activated.message);
+      else {
+        console.error(activated.message);
+        process.exitCode = 1;
+      }
+      return;
+    }
+
+    if (opts.derive) {
+      /*
+       * Derivation reads the ledger rather than the transcripts, and that costs the
+       * rule its tightest bound. The ledger keeps ONE example call per correction
+       * (`Correction.attempted`) because its unit is the remedy, so the smallest
+       * duration this can see is the one example that survived dedup rather than the
+       * smallest ever refused — 120s in this machine's ledger, against 25s across the
+       * eight raw sightings. The rule that comes out is therefore too LOOSE, never
+       * too tight, which is the direction to be wrong in. Said out loud rather than
+       * left in a comment, because a bound nobody knows is coarse is a bound somebody
+       * will read as measured.
+       */
+      const ledger = readLedger(state);
+      const derivations = ledger.corrections.map((correction) =>
+        deriveDenyRule({
+          correction,
+          sightings: correction.sessions.map((session) => ({
+            session,
+            attempted: correction.attempted,
+            permitted: correction.permitted,
+            at: correction.lastSeen,
+          })),
+        }),
+      );
+      for (const derivation of derivations) {
+        if (derivation.declined) console.error(derivation.message);
+        else console.log(proposeDenyRule(state, derivation.rule).message);
+      }
+      if (derivations.every((d) => d.declined)) {
+        console.error(
+          `no rule proposed from ${ledger.corrections.length} correction(s). Nothing was narrowed, which is the ` +
+            "outcome to prefer: a class nobody stated is a class this must not invent.",
+        );
+      }
+      console.error(
+        "Bounds derived here come from the one example call the ledger keeps per correction, so they are at " +
+          "least as loose as the smallest refusal ever issued. Read each rule's provenance before activating it.",
+      );
+      return;
+    }
+
+    console.log(renderDenyRules(readDenyRules(state), state));
   });
 
 program
