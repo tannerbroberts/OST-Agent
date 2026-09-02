@@ -83,7 +83,7 @@ import { ALLOWED_TOOL_NAMES, writesTheVault } from "./policy.js";
 import { CAUTIOUS_LANE } from "../knowledge/lanes.js";
 import type { OstNode } from "../ost/node.js";
 import type { Vault } from "../ost/vault.js";
-import { AGENT_SETTABLE_STATUSES, CHILD_HIERARCHY, VALIDATED_REFUSAL } from "./tools.js";
+import { AGENT_SETTABLE_STATUSES, bodyStamp, CHILD_HIERARCHY, VALIDATED_REFUSAL } from "./tools.js";
 
 /** How much of a refusal a caller can decide before making the call. */
 export type Expressibility =
@@ -160,6 +160,18 @@ export interface PublishedFacts {
    * every merge WOULD be refused.
    */
   readonly bodiesRead: ReadonlySet<string>;
+  /**
+   * The subset of {@link bodiesRead} whose file had already MOVED by the time the
+   * snapshot was taken — read by this session, then written by somebody.
+   *
+   * A merge into one of these is refused even though the read happened, which is
+   * the second half of the same handshake (`security/tools.ts:assertSurvivorUnchanged`).
+   * Publishing it separately rather than deducting it from `bodiesRead` is
+   * deliberate: "you never read it" and "what you read is gone" have different
+   * remedies only in tone, and a caller reading the snapshot should see which one
+   * it is about to hit.
+   */
+  readonly staleBodies: ReadonlySet<string>;
   /** Product repositories configured for this vault, absolute. */
   readonly productRepos: readonly string[];
   /** Longest kill horizon a new Solution may name, in days. */
@@ -685,6 +697,27 @@ export const CALL_PRECONDITIONS: readonly CallPrecondition[] = Object.freeze([
     },
   },
   {
+    id: "survivor-body-unchanged",
+    tools: ["ost_merge_nodes"],
+    statement:
+      "`into` must name a node whose file has not changed since this session was served its body. The read is what makes that detectable, which is why the surface will not perform it for you — see `security/auto-satisfy.ts`.",
+    expressibility: "caveat",
+    caveat:
+      "two moving parts, both outside the snapshot. The caller can clear it with a re-read, and anyone at all — another pass, a git operation, this session's own earlier merge — can cause it a moment after the snapshot says the body is current.",
+    enforcedBy: "security/tools.ts:assertSurvivorUnchanged",
+    check: (input, facts) => {
+      const into = str(input, "into");
+      if (into === undefined) return null;
+      const key = canonicalTitle(into);
+      // A node never read is `survivor-body-read`'s refusal. Reporting both would
+      // hand the caller two objections for one call, which is the friction this
+      // module's parent opportunity is about.
+      if (key === null || !facts.bodiesRead.has(key)) return null;
+      if (!facts.staleBodies.has(key)) return null;
+      return `"${into}" has changed since this session read it — call ost_read_tree({ node: "${into}" }) again and re-measure the contribution against what comes back`;
+    },
+  },
+  {
     id: "repo-path-exists",
     tools: ["ost_read_repo"],
     statement: "`path` must exist inside a configured product repository.",
@@ -732,7 +765,7 @@ export interface PublishedPreconditions {
 
 /** What {@link publishCallPreconditions} needs. Deliberately narrow. */
 export interface PublishContext {
-  readonly vault: Pick<Vault, "readTreeCensus">;
+  readonly vault: Pick<Vault, "readTreeCensus" | "pathFor">;
   readonly dir: string;
   readonly productRepos?: readonly string[];
   /** The day the snapshot describes, so a caller can pin it in a test. */
@@ -804,6 +837,20 @@ export function publishCallPreconditions(ctx: PublishContext): PublishedPrecondi
       // session demonstrably read (`ost/sanitize.ts:titlesMatch`).
       bodiesRead: new Set<string>(
         (ctx.readReceipts?.titles() ?? []).map((t) => canonicalTitle(t)).filter((t): t is string => t !== null),
+      ),
+      // One stamp per node read, taken now and compared against the stamp the
+      // receipt carries. Same source as the tool's own check — `bodyStamp` is
+      // imported, not restated — so the publication cannot say "fine" where the
+      // merge says "moved".
+      staleBodies: new Set<string>(
+        (ctx.readReceipts?.titles() ?? [])
+          .filter((t) => {
+            const served = ctx.readReceipts?.stampFor(t);
+            const now = bodyStamp(ctx.vault, t);
+            return served === undefined || now === undefined || served !== now;
+          })
+          .map((t) => canonicalTitle(t))
+          .filter((t): t is string => t !== null),
       ),
       productRepos: ctx.productRepos ?? [],
       maxKillHorizonDays: MAX_KILL_HORIZON_DAYS,

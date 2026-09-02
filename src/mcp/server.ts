@@ -13,6 +13,13 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprot
 import { buildOstTools } from "../security/tools.js";
 import { assertNoDestructiveTool, writesTheVault } from "../security/policy.js";
 import { validateToolInput, type ToolSchema } from "../security/validateToolInput.js";
+import {
+  autoSatisfyInput,
+  createDischargeLedger,
+  renderDischarges,
+  type Discharge,
+  type DischargeLedger,
+} from "../security/auto-satisfy.js";
 import type { PassContext } from "../processes/types.js";
 import { buildPassContext } from "../runner/context.js";
 import { enqueueCommit } from "./commit.js";
@@ -275,8 +282,9 @@ async function handleOstCall(
   ctx: PassContext,
   byName: Map<string, McpToolDef>,
   name: string,
-  args: unknown,
+  rawArgs: unknown,
   session: string,
+  ledger: DischargeLedger = createDischargeLedger(),
 ): Promise<ToolCallResult> {
   const tool = byName.get(name);
   if (!tool) return unknownTool(name);
@@ -285,6 +293,16 @@ async function handleOstCall(
   // happens to throw.
   const readiness = vaultReadiness(ctx);
   if (!readiness.ready) return notReadyResult(readiness, name);
+  // Before the refusal, the one repair the surface is allowed to make for the
+  // caller: a property name a typo's distance from exactly one the schema
+  // accepts, where the caller did not also supply that one. See
+  // `security/auto-satisfy.ts` for the rule and for the far longer list of
+  // preconditions this deliberately does NOT discharge — `ost_merge_nodes`'
+  // read-before-write above all, because performing that read would delete the
+  // staleness check rather than satisfy it.
+  const satisfied = autoSatisfyInput(name, tool.inputSchema as ToolSchema, rawArgs ?? {});
+  const args = satisfied.input;
+  for (const d of satisfied.discharges) ledger.record(d);
   // The allowlist above says which tool may run; this says with what. Without
   // it a constructive tool is destructive in an append-only vault: `ost_annotate`
   // handed `note` instead of the declared `issue` read it as `undefined` and
@@ -331,10 +349,21 @@ async function handleOstCall(
       const commit = await enqueueCommit(ctx.dir, commitMessageFor(name, text, provenance));
       text += commit.committed ? `\ncommitted ${commit.sha.slice(0, 8)}` : `\n(no changes to commit)`;
     }
-    return { content: [{ type: "text", text }] };
+    // Every discharge is named in the response it changed. The objection to
+    // absorbing a refusal is that it absorbs the evidence the caller was
+    // confused; saying so here keeps that evidence in the one place a later
+    // census can read it, which is the transcript.
+    return { content: [{ type: "text", text: withDischargeNote(text, satisfied.discharges) }] };
   } catch (e) {
-    return { content: [{ type: "text", text: e instanceof Error ? e.message : String(e) }], isError: true };
+    const text = e instanceof Error ? e.message : String(e);
+    return { content: [{ type: "text", text: withDischargeNote(text, satisfied.discharges) }], isError: true };
   }
+}
+
+/** Append the discharge note, if there is one, without disturbing the payload above it. */
+function withDischargeNote(text: string, discharges: readonly Discharge[]): string {
+  const note = renderDischarges(discharges);
+  return note === "" ? text : `${text}\n${note}`;
 }
 
 function newServer(): Server {
@@ -345,11 +374,15 @@ export function createOstMcpServer(ctx: PassContext): Server {
   const defs = buildDefs(ctx);
   const byName = new Map(defs.map((d) => [d.name, d]));
   const session = mintSessionId();
+  // One ledger per server, on the same terms as the receipt book the tool set
+  // carries: a server instance IS the session, and a discharge that outlived it
+  // would be counted against a run that did not make the call.
+  const ledger = createDischargeLedger();
 
   const server = newServer();
   server.setRequestHandler(ListToolsRequestSchema, async () => listToolsPayload(defs));
   server.setRequestHandler(CallToolRequestSchema, async (req) =>
-    handleOstCall(ctx, byName, req.params.name, req.params.arguments ?? {}, session),
+    handleOstCall(ctx, byName, req.params.name, req.params.arguments ?? {}, session, ledger),
   );
   return server;
 }
@@ -376,6 +409,8 @@ export function createLazyOstMcpServer(vaultDir: string): Server {
   // belongs to the server, and a vault that was not ready for the first three
   // calls is still the same run as the fourth.
   const session = mintSessionId();
+  /** Same scope as `session`, and for the same reason. */
+  const ledger = createDischargeLedger();
 
   // Built on the first call that finds the vault ready, then cached. Never
   // earlier: the context must load the config `init` wrote, not the bootstrap
@@ -448,7 +483,7 @@ export function createLazyOstMcpServer(vaultDir: string): Server {
       return { content: [{ type: "text", text: configProblemGuidance(dir, cause) }], isError: true };
     }
     if ("setup" in got) return notReadyResult(got.setup, name);
-    return handleOstCall(got.live.ctx, got.live.byName, name, req.params.arguments ?? {}, session);
+    return handleOstCall(got.live.ctx, got.live.byName, name, req.params.arguments ?? {}, session, ledger);
   });
 
   return server;

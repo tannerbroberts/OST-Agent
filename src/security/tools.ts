@@ -12,6 +12,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { tool } from "./tool.js";
 import { gitCommit, gitPush, pushTargetFor } from "../git/safe-git.js";
 import { AGENT_IDEATED_TAG, type NodeStatus, type OstNode } from "../ost/node.js";
@@ -496,6 +497,80 @@ export function assertSurvivorRead(receipts: ReadReceipts, into: string): void {
       `unchanged if the contribution still adds something. Nothing was written. (This checks that the body was ` +
       `SERVED, not that you read it — a fetch you discard satisfies it. The check is cheap; the reading is the part ` +
       `that matters, and only you can do it.)`,
+  );
+}
+
+/**
+ * A digest of the node's file exactly as it stands.
+ *
+ * The FILE, not the served body: `readNodeBody` caps prose at `MAX_BODY_CHARS`
+ * and holds reserved sections aside, so a change past the cap or inside a `##
+ * Results` block would be invisible to a stamp taken over what was displayed. A
+ * merge appends to the file, and every gate reads the file, so the file is the
+ * thing whose movement matters.
+ *
+ * Returns `undefined` when the node cannot be stamped at all — which is not
+ * treated as "unchanged" anywhere; see {@link assertSurvivorUnchanged}.
+ */
+export function bodyStamp(vault: Pick<Vault, "pathFor">, title: string): string | undefined {
+  try {
+    return createHash("sha256").update(fs.readFileSync(vault.pathFor(title))).digest("hex").slice(0, 16);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Refuse a merge into a survivor that moved after this session read it.
+ *
+ * ## Why this exists at all, which is an argument about a different node
+ *
+ * The tree carries a solution — "The surface satisfies a precondition it could
+ * have satisfied itself" — whose obvious first application is this very guard:
+ * `ost_merge_nodes` refuses a caller that has not read the survivor, the surface
+ * could plainly perform that read itself, and the refusal would stop firing. The
+ * assumption beneath it says why that is the wrong trade, and this function is
+ * that argument made executable. Read-before-write is not ceremony. It is the only
+ * thing that makes *modified since read* detectable, and a surface that reads on
+ * the caller's behalf immediately before writing would satisfy the letter of the
+ * precondition while making this check unable to fire — its stamp would be taken
+ * at write time and would agree with itself by construction.
+ *
+ * So {@link ../security/auto-satisfy.ts DISCHARGE} classifies both halves of this
+ * handshake `refuse`, and this is the detection duty that classification names.
+ *
+ * ## What it costs, stated plainly, because it is not free
+ *
+ * Any change to the survivor's file between the read and the merge fires this —
+ * including a change this same session made. Two merges into one survivor now cost
+ * two reads, because after the first the survivor says something the caller has
+ * not seen, and "only what the loser says that the survivor does not" is a clause
+ * evaluated against the body as it now is. The refusal says which case it is, so a
+ * caller is never left guessing whether it raced somebody or tripped over its own
+ * write.
+ *
+ * A missing stamp is treated as stale rather than as fine. A receipt this session
+ * holds with no stamp behind it is a receipt no check can speak to, and the
+ * direction to fail in is the one that costs a read.
+ */
+export function assertSurvivorUnchanged(vault: Pick<Vault, "pathFor">, receipts: ReadReceipts, into: string): void {
+  const served = receipts.stampFor(into);
+  // No receipt at all is `assertSurvivorRead`'s refusal, not this one, and it has
+  // already run. Saying nothing here keeps one rule in one place.
+  if (served === undefined && !receipts.wasRead(into)) return;
+  const now = bodyStamp(vault, into);
+  if (served !== undefined && now !== undefined && served === now) return;
+  const title = displaySafeTitle(into);
+  throw new Error(
+    `refusing to merge into "${title}": its file has changed since this session was served its body, so the ` +
+      `contribution you composed was measured against prose that is no longer there — "only what the loser says ` +
+      `that the survivor does not" cannot be true of a body you have not seen. This fires whoever moved it, ` +
+      `including an earlier write of your own in this same session (a second merge into one survivor costs a ` +
+      `second read, because the first merge is now part of what the survivor says). Call ` +
+      `ost_read_tree({ node: "${title}" }) again, re-read the contribution against what comes back, and retry — ` +
+      `dropping it if the survivor now says it. Nothing was written. (The surface will not do this read for you: ` +
+      `the read is what makes this detectable, so performing it on your behalf would delete the check rather than ` +
+      `satisfy it.)`,
   );
 }
 
@@ -1009,7 +1084,14 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
           // The RESOLVED title, not the caller's spelling: a receipt is minted
           // only for a node the surface actually served, and `readNodeBody`
           // throws before this line on anything it would not serve.
-          readReceipts.record(body.title);
+          //
+          // Stamped with the file as it stands at this instant, so a later merge
+          // can tell "composed against this body" from "composed against a body
+          // that has since moved". An unstampable node gets the empty stamp
+          // rather than none, which `assertSurvivorUnchanged` reads as stale —
+          // the direction that costs a read rather than the one that loses a
+          // check.
+          readReceipts.record(body.title, bodyStamp(vault, body.title) ?? "");
           return JSON.stringify(body, null, 2);
         }
         // ONE census read, for the reason `ost_next_work` states: the node list
@@ -1795,6 +1877,10 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         vault.assertFoldable(input.from, input.into);
         assertMergeAllowed(vault, input.from, input.into);
         assertSurvivorRead(readReceipts, input.into);
+        // Then: was it THIS body that was read? The two are one handshake and
+        // this is its second half — "you have seen it" is worth nothing if what
+        // you saw has since been replaced.
+        assertSurvivorUnchanged(vault, readReceipts, input.into);
         // The census is of the SURVIVOR. The loser's file is deleted whole, which
         // is a bigger loss than any section drop and one this report deliberately
         // does not restate — `git show` is the recovery the tool's own description
