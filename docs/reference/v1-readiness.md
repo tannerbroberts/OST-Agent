@@ -3221,17 +3221,21 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,149 tests across 372 files, verified 2026-09-02 (`npx vitest run`
-> finished green at 5,149 in **319 s**; the file added that day is
+> *Today:* **met** — 5,171 tests across 373 files, verified 2026-09-02 (`npx vitest run`
+> finished green at 5,171 in **377 s**; the file added that day is
+> `test/loop/work-source-census.test.ts`, the census of everything that can put new work in
+> front of a pass — every channel read off the channel layer rather than restated, plus the
+> writes only a person may make — asserting that each names a watchable target and that the
+> target it names is the one a real mutation moves. The file added earlier the same day is
 > `test/release/human-gate-latency.test.ts`, the corpus that pairs a became-ready instant
 > with a human-acted instant for every artefact this project has left waiting on a person,
-> and takes the median. The file added earlier the same day is
+> and takes the median. The file added before that is
 > `test/ost/event-log-projection.test.ts`, the corpus that replays this vault's whole git
-> history as events and asks whether folding that log back reproduces the tree. The file
-> added before that is `test/security/derived-deny-rule.test.ts`, the corpus that
+> history as events and asks whether folding that log back reproduces the tree, and the one
+> before that is `test/security/derived-deny-rule.test.ts`, the corpus that
 > says a deny rule derived from this workspace's own refusals refuses no legitimate use of
 > the same verb. The same suite
-> on the same machine measured **212 s**, **221 s**, **289 s**, **268 s**,
+> on the same machine measured **319 s**, **212 s**, **221 s**, **289 s**, **268 s**,
 > **225 s** and **211 s** earlier the same session, and **338 s**, **372 s**, **227 s**, **232 s**, **260 s**,
 > **478 s**,
 > **416 s**, **406 s**, **237 s**, **491 s** and **248 s** on the previous day — and the

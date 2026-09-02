@@ -383,6 +383,18 @@ const TREE_READER_MODULES: Record<string, string> = {
  * decider imports — a verdict computed from a reconstruction would let a firing
  * certify itself from the commits it just made — and the assertion below is what
  * says so.
+ *
+ * `work-sources.ts` is the eighth and it is `senses.ts`'s mirror: senses
+ * enumerates what a firing could perceive, this enumerates what could give a
+ * firing more work and how each one would wake it. It stats directories and reads
+ * `ost.config.yaml` through `loadConfig` — the second is a decider input three
+ * times over already, the first are drop folders and transcript directories that
+ * decide nothing here. It returns sources and lines, `ost-agent loop sources`
+ * prints them, and no path in it sets an exit code: a source with no affordance
+ * is reported by name rather than turned into a refusal. It must not become a
+ * decider input for the reason the class exists — the folders it stats are
+ * writable by whoever can write that mount, so a firing that could refuse on what
+ * it found there would be refusable by anyone with the drop folder.
  */
 const REPORTER_MODULES = [
   "questions.ts",
@@ -392,6 +404,7 @@ const REPORTER_MODULES = [
   "tool-surface-record.ts",
   "goal-contract.ts",
   "run-boundary.ts",
+  "work-sources.ts",
 ];
 
 /**
