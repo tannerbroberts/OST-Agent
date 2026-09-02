@@ -3221,9 +3221,22 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,204 tests across 375 files, verified 2026-09-02 (`npx vitest run`
-> finished at 5,204 in **492 s** with one assertion red, D1's own file count — the one this
+> *Today:* **met** — 5,239 tests across 376 files, verified 2026-09-02 (`npx vitest run`
+> finished at 5,239 in **293 s** with one assertion red, D1's own file count — the one this
 > batch's new file moved, and the one this line closes. The file added is
+> `test/telemetry/rung-suggestion-reflex.test.ts`, which counts what callers did after a
+> refusal named the rung that would have been accepted: ten rung refusals exist anywhere on
+> this machine, seven were answered by a retry, and all seven took the named rung. Writing
+> it found that the message half of the solution it measures had already shipped — both rung
+> refusals have carried the clause since 2026-07-30, four days before the node saying they
+> did not was written — so what this batch actually changed is the two *preflight* refusals,
+> which stated the ceiling as a fact and never named the acceptable move; the clause now
+> comes from one exported function that the census reads back, so a reword cannot blind it
+> into reporting a clean sheet. Its bar is the one the assumption test fixed in advance, at
+> most 5 of 20, and the file carries the reason a green there is not a verdict: the strictest
+> reading of "grounds it had not cited before" — did the retry cite a source it had not
+> cited — reverses it at 7 of 7, because not one retry changed the field the ceiling is
+> computed from. The file added earlier is
 > `test/ost/next-work-leaf-redirect.test.ts`, which pins the descent from a short category to
 > the leaves beneath it: the queue reports the leaf it wants served and names the heading it
 > stands in for (`redirectedFrom`), never the category, on which a solution cannot legitimately

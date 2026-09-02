@@ -74,7 +74,7 @@ import { renderCheck, renderDebt, renderGate, renderStatus } from "../eval/rende
 import { hasRecordedResult } from "../eval/evidence-debt.js";
 import { declaresHeading, RESULTS_HEADING } from "../ost/headings.js";
 import { checkCorroboration, namedNodes } from "../eval/corroboration.js";
-import { MEASUREMENT_RUNGS, rungRefusal, unearnedRung } from "../eval/rungs.js";
+import { acceptableRungClause, MEASUREMENT_RUNGS, rungRefusal, unearnedRung } from "../eval/rungs.js";
 import { reconcileWithGit, reconcileWithUsage } from "../ost/census.js";
 import { loadCursor, saveCursor, type Actor, type EvidenceItem, type FetchResult } from "../adapters/source.js";
 import { claimsStoredEvidence, resolveClaimedSource, writeEvidence } from "../processes/tree.js";
@@ -640,14 +640,20 @@ function standingCeiling(dir: string, source: string | undefined): { key: ActorK
  * It names the actor, what that actor has earned, and the kind's ceiling, because a
  * refusal that says only "no" leaves the agent unable to tell "this channel has not
  * earned it yet" from "this channel can never earn it".
+ *
+ * The clause naming the value that WOULD have worked comes from
+ * {@link acceptableRungClause} rather than being written here, so this refusal and
+ * `rungRefusal` cannot drift apart — and so the reflex census that reads the
+ * suggestion back out cannot be blinded by a reword on one of the two paths.
  */
 function standingRefusal(title: string, declared: RungId, earned: { key: ActorKey; rung: RungId }): string {
+  const suggestion = acceptableRungClause(earned.rung);
   return (
     `"${title}" cannot declare '${declared}': it cites ${keyString(earned.key)}, which has earned ` +
     `'${earned.rung}' — and '${TRUST_CEILINGS[earned.key.kind]}' is the ceiling for a ${earned.key.kind}. ` +
     `A report is ranked by the channel it arrived on, never by what the report says about itself: neither ` +
     `the note's own frontmatter nor the name it was filed under can lift it. ` +
-    `Declare '${earned.rung}' or lower (demotion is never gated), or let this source earn it — put its claim ` +
+    `${suggestion[0].toUpperCase()}${suggestion.slice(1)}, or let this source earn it — put its claim ` +
     `to an assumption test, have a human record the outcome (ost-agent result "<test>" -v <verdict> ...), then ` +
     `ost_rank_source({kind:"${earned.key.kind}", id:"${earned.key.id}", direction:"corroborated", reason:"corroborated by [[<test>]]"}).`
   );

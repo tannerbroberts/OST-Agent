@@ -47409,8 +47409,11 @@ function unearnedRung(n, index) {
   }
   return null;
 }
+function acceptableRungClause(supported) {
+  return `declare '${supported}' or lower (demotion is never gated)`;
+}
 function rungRefusal(u) {
-  const ways = u.declared === "money" ? `declare '${u.supported}' or lower (demotion is never gated), or have a human record a result \u2014 ost-agent result "<test>" -v <verdict> -n "<what happened>" -b "<who ran it>" -u "<what it did not cover>" \u2014 on this node or on a test one level beneath it` : `declare '${u.supported}' or lower (demotion is never gated), have a human record a result, or cite provenance that IS a recording (source: TRANSCRIPT:\u2026). Note that \`source\` is settable only at ost_create_node \u2014 on a node that already exists, the rung is the route`;
+  const ways = u.declared === "money" ? `${acceptableRungClause(u.supported)}, or have a human record a result \u2014 ost-agent result "<test>" -v <verdict> -n "<what happened>" -b "<who ran it>" -u "<what it did not cover>" \u2014 on this node or on a test one level beneath it` : `${acceptableRungClause(u.supported)}, have a human record a result, or cite provenance that IS a recording (source: TRANSCRIPT:\u2026). Note that \`source\` is settable only at ost_create_node \u2014 on a node that already exists, the rung is the route`;
   return `"${u.node}" cannot declare '${u.declared}': what it points at supports '${u.supported}'. The two measurement rungs assert that something was measured, and no byline confers them. ${ways}.`;
 }
 
@@ -51162,7 +51165,8 @@ function standingCeiling(dir, source) {
   return { key: key2, rung: rungOf(readTrustLedger(dir), key2) };
 }
 function standingRefusal(title, declared, earned) {
-  return `"${title}" cannot declare '${declared}': it cites ${keyString(earned.key)}, which has earned '${earned.rung}' \u2014 and '${TRUST_CEILINGS[earned.key.kind]}' is the ceiling for a ${earned.key.kind}. A report is ranked by the channel it arrived on, never by what the report says about itself: neither the note's own frontmatter nor the name it was filed under can lift it. Declare '${earned.rung}' or lower (demotion is never gated), or let this source earn it \u2014 put its claim to an assumption test, have a human record the outcome (ost-agent result "<test>" -v <verdict> ...), then ost_rank_source({kind:"${earned.key.kind}", id:"${earned.key.id}", direction:"corroborated", reason:"corroborated by [[<test>]]"}).`;
+  const suggestion = acceptableRungClause(earned.rung);
+  return `"${title}" cannot declare '${declared}': it cites ${keyString(earned.key)}, which has earned '${earned.rung}' \u2014 and '${TRUST_CEILINGS[earned.key.kind]}' is the ceiling for a ${earned.key.kind}. A report is ranked by the channel it arrived on, never by what the report says about itself: neither the note's own frontmatter nor the name it was filed under can lift it. ${suggestion[0].toUpperCase()}${suggestion.slice(1)}, or let this source earn it \u2014 put its claim to an assumption test, have a human record the outcome (ost-agent result "<test>" -v <verdict> ...), then ost_rank_source({kind:"${earned.key.kind}", id:"${earned.key.id}", direction:"corroborated", reason:"corroborated by [[<test>]]"}).`;
 }
 function assertWithinStanding(dir, node2, declared) {
   if (MEASUREMENT_RUNGS.includes(declared)) return;
@@ -63520,7 +63524,7 @@ var CALL_PRECONDITIONS = Object.freeze([
       if (!key2 || key2.kind === "unattributed") return null;
       const earned = rungOf(facts.trustLedger, key2);
       if (rungRank(declared) >= rungRank(earned)) return null;
-      return `"${str3(input, "title") ?? ""}" cannot declare '${declared}': it cites ${keyString(key2)}, which has earned '${earned}' \u2014 and '${facts.trustCeilings[key2.kind]}' is the ceiling for a ${key2.kind}.`;
+      return `"${str3(input, "title") ?? ""}" cannot declare '${declared}': it cites ${keyString(key2)}, which has earned '${earned}' \u2014 and '${facts.trustCeilings[key2.kind]}' is the ceiling for a ${key2.kind}. ${acceptableRungClause(earned)}.`;
     }
   },
   {
@@ -63714,7 +63718,7 @@ var CALL_PRECONDITIONS = Object.freeze([
         body: str3(input, "body") ?? existing?.body ?? ""
       };
       const verdict = unearnedRung(draft, facts.nodesByTitle);
-      return verdict ? `cannot declare '${verdict.declared}': what it points at supports '${verdict.supported}'` : null;
+      return verdict ? `cannot declare '${verdict.declared}': what it points at supports '${verdict.supported}' \u2014 ${acceptableRungClause(verdict.supported)}` : null;
     }
   },
   {
