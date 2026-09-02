@@ -3222,7 +3222,7 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
 > *Today:* **met** — 5,213 tests across 375 files, verified 2026-09-02 (`npx vitest run`
-> finished green at 5,213 in **RUNTIME_PLACEHOLDER**; the file added that day is
+> finished green at 5,213 in **469 s**; the file added that day is
 > `test/adapters/friction-signature.test.ts`, which pins the friction queue's grouping key
 > against strings taken verbatim from this vault's 686-record corpus: one row for the
 > `File has not been read yet` family across the three tools that emit it, eight rows for the
@@ -3262,6 +3262,18 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > alone, and the file added in that batch touched only fixture setup outside that window; an
 > earlier run with a foreground game at 44% of CPU took **959 s** and
 > failed eight tests on wall clock alone, every one of them green run by itself).
+> That green run is the first in this workspace for four days, and the reason is worth
+> recording under a criterion whose subject is "the release gates pass": **`main` itself was
+> red at `8058b2e`**, measured rather than inferred — a full run at that commit failed four
+> tests in `test/ost/vault-merge-conflict-census.test.ts` and nothing else. Three timed out
+> at vitest's 20 s default and the fourth reported 7 conflicts needing human judgement over a
+> fixture built to produce 3, which is a bar of 5 breached by a census that had lost its
+> subject. One memoised exchange shared across four tests took its temp vaults from the
+> per-test `tempDir`, so a timeout in the first test ran `afterEach` and deleted the vaults
+> the merge was still reading. Repaired at `b9c102a`: the shared exchange owns directories
+> cleaned in `afterAll`, and the six tests that run a real exchange state a timeout rather
+> than inheriting one. That default had been acting as an unrecorded wall-clock bar on this
+> file since 2026-08-22, and the entry below records the two earlier passes that paid for it.
 > The first of this session's two runs failed
 > `test/telemetry/same-run-baseline-ratio.test.ts` at a ratio of 51.5 against a bound of 40,
 > and the second passed it, as did three isolated runs of that file. Same diagnosis as the
