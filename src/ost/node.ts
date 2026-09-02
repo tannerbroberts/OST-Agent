@@ -265,6 +265,33 @@ function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * The order {@link serialize} writes frontmatter fields in.
+ *
+ * Exported because a projector re-rendering a single field has to know where a
+ * field the node did not carry yet goes (`src/ost/event-log.ts`), and a second
+ * hand-kept copy of this order is how the two would drift.
+ * `test/ost/event-log-projection.test.ts` asserts a fully-populated node
+ * serializes its keys in exactly this order, so a field added to `serialize` and
+ * not to this list fails the suite.
+ */
+export const FRONTMATTER_FIELDS = [
+  "type",
+  "status",
+  "source",
+  "created",
+  "confidence",
+  "evidence",
+  "lane",
+  "threshold",
+  "instrument",
+  "sight",
+  "prerequisites",
+  "killIf",
+  "killBy",
+  "authorship",
+] as const;
+
 /** Render an {@link OstNode} to its Markdown file contents. */
 export function serialize(node: OstNode): string {
   // `string[]` for `prerequisites` alone — the one field here that is a set of
