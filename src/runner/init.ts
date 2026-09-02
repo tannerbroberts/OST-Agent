@@ -18,6 +18,9 @@ import { buildPassContext } from "./context.js";
 import { INIT_TRACE_TOOL, drainCreatedNodeFiles, recordUsageEvent, usageLogPath } from "../telemetry/usage.js";
 import { diagnoseSetup } from "../config/setup-check.js";
 import { mergeEnablingConfig } from "../config/settings-merge.js";
+import { fileNameForTitle } from "../ost/sanitize.js";
+import { VERSION } from "../index.js";
+import { buildScaffoldManifest, writeScaffoldManifest } from "./scaffold-manifest.js";
 import {
   declaredServerPath,
   readVaultDeclaration,
@@ -120,6 +123,16 @@ export interface InitResult {
   toolEnabling: ToolEnablingOutcome;
   /** What happened when `init` tried to make the vault carry its own tool server. */
   toolDeclaration: ToolDeclarationOutcome;
+  /**
+   * The scaffold manifest this run wrote, absolute.
+   *
+   * Every field above it was already computed on the way here and then printed to a
+   * console — the manifest is where the same facts get written down, including the
+   * negative ones (`dependencies-installed: false`, `remote-configured: false`) that
+   * nothing else in the workspace records. See `src/runner/scaffold-manifest.ts` for
+   * what a reader is and is not entitled to conclude from it.
+   */
+  manifestFile: string;
 }
 
 export type ToolEnablingOutcome =
@@ -331,6 +344,38 @@ export async function initVault(dir: string, outcome: string, outcomeTitle?: str
 
   recordInitInTrace(abs);
 
+  // Before the commit, so the manifest is part of the same commit as the thing it
+  // describes. A manifest that lands one commit later is a manifest that is wrong for
+  // the length of that gap, which is the exact failure mode the file exists to avoid.
+  //
+  // `pushTargetFor` rather than `ctx.remote.url` directly: the manifest must say what
+  // this vault will actually do, and a `remote.url` set beside `enabled: false` is a
+  // configured remote nothing pushes to. The claim is about behaviour, not about a key.
+  const manifestTarget = pushTargetFor(ctx.remote);
+  const manifestFile = writeScaffoldManifest(
+    abs,
+    buildScaffoldManifest(
+      abs,
+      {
+        gitInitialized,
+        outcomeCreated,
+        outcomeFile: fileNameForTitle(rootTitle),
+        inboxDir,
+        inboxConfined,
+        remoteUrl: manifestTarget.push ? manifestTarget.remote : null,
+        toolDeclaration: {
+          status: toolDeclaration.status,
+          file: toolDeclaration.status === "skipped" ? vaultDeclarationPath(abs) : toolDeclaration.file,
+        },
+        toolEnabling: {
+          status: toolEnabling.status,
+          file: toolEnabling.status === "enabled" ? toolEnabling.file : diagnoseSetup(abs).file,
+        },
+      },
+      { at: new Date().toISOString(), toolVersion: VERSION },
+    ),
+  );
+
   const commit = await gitCommit(abs, `init: ${outcomeCreated ? `created Outcome "${rootTitle}"` : "no changes"}`);
   // P9: where this goes is `remote.url` in the vault's own config, not the
   // ambient `origin` of the directory init happened to be run in. A vault whose
@@ -353,6 +398,7 @@ export async function initVault(dir: string, outcome: string, outcomeTitle?: str
     channelProblems: resolved.problems,
     toolEnabling,
     toolDeclaration,
+    manifestFile,
     ...(gitignored ? { gitignored } : {}),
   };
 }

@@ -424,6 +424,9 @@ program
     console.log(`Initialized vault at ${r.dir}`);
     console.log(`  git: ${r.gitInitialized ? "initialized" : "already present"}`);
     console.log(`  outcome node: ${r.outcomeCreated ? "created" : "already present"}`);
+    // Everything printed here is also written to the manifest, which is the point of it:
+    // a console is not a place a later run can read state from.
+    console.log(`  manifest: ${r.manifestFile} — what this run did and did NOT set up, for a later reader`);
     switch (r.toolEnabling.status) {
       case "enabled":
         console.log(`  tools: enabled by writing ${r.toolEnabling.file} — opening this vault now launches ost-agent's tools`);
