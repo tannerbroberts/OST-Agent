@@ -13,6 +13,7 @@ import {
   byTitle,
   childrenOfLayer,
   claimsStoredEvidence,
+  leafOpportunitiesBeneath,
   opportunitiesServedBeneath,
   readEvidence,
   testsUnderSolution,
@@ -158,6 +159,47 @@ export interface UnderservedOpportunity {
    * experiment.
    */
   ideation: IdeationArm;
+  /**
+   * The short category opportunities whose descent named THIS leaf — every one
+   * of them above it, not merely the nearest, because each is quiet on account
+   * of this entry and a reader deserves to see which heading they are serving by
+   * working here.
+   *
+   * Empty for an entry no short category reaches, which is the ordinary case for
+   * a need filed directly under a well-served heading. Sorted, so a leaf
+   * reachable from several branches reports the same list every pass — the
+   * ordering question the solution node flagged as open, answered the only way a
+   * response two passes can be diffed allows.
+   */
+  redirectedFrom: string[];
+}
+/**
+ * A short category whose descent to its leaves came back with nothing to do.
+ *
+ * The redirect's whole advantage over exempting categories outright is that a
+ * heading never goes quiet without a reason, and this is the reason. The
+ * descent is *allowed* to find nothing — every leaf beneath may genuinely be at
+ * or above `min` — but "found nothing" and "was never asked" have to be
+ * different observations, or the redirect has bought a traversal and delivered
+ * the exemption's false negative by a longer road.
+ *
+ * Reported, never part of `done`: there is no action this names. A category
+ * cannot be ideated under, so an empty descent is information about the shape of
+ * a branch, not a task. What it may mean — that the heading's own need is
+ * broader than the sum of its leaves and wants a new sub-opportunity — is a
+ * judgement for whoever reads it.
+ */
+export interface EmptyDescent {
+  /** The heading the under-served check found short of direct solutions. */
+  category: string;
+  /** How many leaf opportunities the descent reached. Never capped. */
+  leavesReached: number;
+  /**
+   * A SAMPLE of those leaves, at most {@link MAX_LISTED_CHILDREN}, sorted.
+   * Every one of them is already at or above `min`, or it would have been
+   * redirected to instead of listed here.
+   */
+  leaves: string[];
 }
 export interface BareSolution {
   title: string;
@@ -476,8 +518,23 @@ export interface NextWork {
    * `discovery.target` scope, alongside `unmappedEvidence` itself.
    */
   agedOutEvidence: AgedOutBacklog;
-  /** P3 — opportunities with fewer than `min` candidate solutions. May be capped. */
+  /**
+   * P3 — opportunities with fewer than `min` candidate solutions. May be capped.
+   *
+   * Never a category: a heading short of DIRECT solutions is descended to its
+   * leaves and they are reported in its place (each carrying
+   * {@link UnderservedOpportunity.redirectedFrom}), so every entry here is a
+   * node where "ideate three solutions" is a valid instruction. The one
+   * exception is the exemption's guard — a heading with nothing at all beneath
+   * it stays listed, because a descent into an empty subtree has no leaf to
+   * offer and the gap is real.
+   */
   underservedOpportunities: UnderservedOpportunity[];
+  /**
+   * The short categories whose descent found no under-served leaf. Diagnostic
+   * only and never part of `done` — see {@link EmptyDescent}. May be capped.
+   */
+  emptyDescents: EmptyDescent[];
   /** P4 — solutions with no assumption test surfaced yet. May be capped. */
   solutionsMissingAssumptions: BareSolution[];
   /**
@@ -1323,9 +1380,16 @@ export function computeNextWork(
    *
    * The exemption is counted and named in the summary. A heading that goes
    * quiet without saying so is indistinguishable from a tree that got better.
+   *
+   * What the exemption does NOT do is say where the work went, and that is what
+   * the descent below adds: every short category is walked down to its leaves,
+   * the under-served ones among them are the entries the queue reports in its
+   * place, and a descent that comes back empty is named rather than dropped.
    */
   const servedBeneath = opportunitiesServedBeneath(tree, index);
   const exemptCategories: string[] = [];
+  /** Every short category, exempt or not — the set the descent below walks. */
+  const shortCategories: string[] = [];
 
   const allUnderservedOpportunities: UnderservedOpportunity[] = omitDisposed(
     tree
@@ -1355,12 +1419,17 @@ export function computeNextWork(
             existingSolutions: existing.slice(0, MAX_LISTED_CHILDREN),
             variation,
             ideation: "blind" as IdeationArm,
+            // Filled by the descent below, once the set of entries the queue
+            // actually offers is known — a leaf that is disposed, suppressed or
+            // out of scope is not a leaf any category was redirected to.
+            redirectedFrom: [] as string[],
           },
         };
       })
       .filter(({ entry }) => entry.solutions < min)
       .filter(({ node }) => {
         const isCategory = childrenOfLayer(node, index, "Opportunity").length > 0;
+        if (isCategory) shortCategories.push(node.title);
         if (!isCategory || !servedBeneath.has(node.title)) return true;
         exemptCategories.push(node.title);
         return false;
@@ -1381,6 +1450,58 @@ export function computeNextWork(
     suppressed,
   );
   const scopedUnderserved = excludeByScope(offeredUnderserved, "underservedOpportunities", (o) => o.title);
+
+  /*
+   * The descent, and the one thing it must never do silently.
+   *
+   * A category is never the next thing to do — a solution cannot legitimately
+   * hang on a heading — so a short category is walked down to its leaves and the
+   * under-served ones among them are what the queue reports in its place. Those
+   * entries are already in the list (every Opportunity is scanned); what the
+   * descent adds is the edge, on `redirectedFrom`, so the pass can see which
+   * heading it is serving by working here rather than rediscovering it by hand,
+   * which is what the 2026-08-07 pass had to do with 24 of them.
+   *
+   * Measured against the OFFERED set, not the whole tree, because "this branch
+   * produces work" is a claim about what came back in this response. A leaf
+   * disposed, suppressed or out of scope is not work the pass can take.
+   *
+   * And the descent is allowed to find nothing. What it is not allowed to do is
+   * find nothing quietly: a category whose every leaf is already at or above
+   * `min` falls silent while its own need may be broader than the sum of them,
+   * which is precisely the false negative the cheaper sibling was criticised for.
+   * `emptyDescents` is the difference between the two, and the whole of it.
+   */
+  const leavesBeneath = leafOpportunitiesBeneath(tree, index);
+  const offeredTitles = new Set(scopedUnderserved.map((o) => o.title));
+  const redirectedFrom = new Map<string, string[]>();
+  const allEmptyDescents: EmptyDescent[] = [];
+  for (const category of shortCategories) {
+    // A category the scope excluded was not asked, so it cannot have gone quiet.
+    if (!inScope(category)) continue;
+    const leaves = [...(leavesBeneath.get(category) ?? [])].sort();
+    const wanted = leaves.filter((t) => offeredTitles.has(t));
+    if (wanted.length === 0) {
+      allEmptyDescents.push({
+        category,
+        leavesReached: leaves.length,
+        leaves: leaves.slice(0, MAX_LISTED_CHILDREN),
+      });
+      continue;
+    }
+    for (const leaf of wanted) {
+      const from = redirectedFrom.get(leaf);
+      if (from) from.push(category);
+      else redirectedFrom.set(leaf, [category]);
+    }
+  }
+  // Sorted for the same reason every other list here is: a response two passes
+  // can be diffed is worth more than one that preserves tree order.
+  for (const list of redirectedFrom.values()) list.sort();
+  const annotatedUnderserved = scopedUnderserved.map((o) => ({
+    ...o,
+    redirectedFrom: redirectedFrom.get(o.title) ?? [],
+  }));
 
   const allSolutionsMissingAssumptions: BareSolution[] = omitSuppressed(
     omitDisposed(
@@ -1511,7 +1632,8 @@ export function computeNextWork(
   // a list would read as "that is all there is".
   const truncated: Truncation[] = [];
   const unmappedEvidence = capList(scopedUnmappedEvidence, "unmappedEvidence", truncated, listLimit);
-  const underservedOpportunities = capList(scopedUnderserved, "underservedOpportunities", truncated, listLimit);
+  const underservedOpportunities = capList(annotatedUnderserved, "underservedOpportunities", truncated, listLimit);
+  const emptyDescents = capList(allEmptyDescents, "emptyDescents", truncated, listLimit);
   const solutionsMissingAssumptions = capList(scopedMissingAssumptions, "solutionsMissingAssumptions", truncated, listLimit);
   const allSolutionsMissingInstruments = excludeByScope(
     omitSuppressed(
@@ -1659,6 +1781,21 @@ export function computeNextWork(
       `${exemptCategories.slice(0, MAX_LISTED_CHILDREN).join(", ")}${exemptCategories.length > MAX_LISTED_CHILDREN ? ", …" : ""}. ` +
       "A category whose subtree holds no solution at all is NOT exempt and is still listed above."
     : "";
+  // Where the work a quiet heading was carrying actually went, and the case where
+  // there was none to go anywhere. The exemption note above says a category was
+  // dropped; this one says whether the descent beneath it found anybody to serve.
+  // Silence with a reason is a different response from silence, and this sentence
+  // is the whole difference between this rule and the cheaper one it replaced.
+  const descentNote = allEmptyDescents.length
+    ? ` ${allEmptyDescents.length} short category(ies) descended to their leaves and found none under-served — ` +
+      `no entry above stands in for them: ` +
+      `${allEmptyDescents
+        .slice(0, MAX_LISTED_CHILDREN)
+        .map((d) => `${d.category} (${d.leavesReached} leaf/leaves reached, all at or above ${min})`)
+        .join("; ")}${allEmptyDescents.length > MAX_LISTED_CHILDREN ? ", …" : ""}. ` +
+      "That is an EMPTY DESCENT, not a served branch: if such a heading's own need is broader than the sum of its " +
+      "leaves, the gap is invisible to this count and wants a new sub-opportunity rather than a solution."
+    : "";
   // The excerpt is a cap like any other, so it names what it hid and where the rest
   // is (W7 reconciled with Z2). Counted over the full set, not the shown one, and
   // only in the not-done branch because `done` implies there is no unmapped record
@@ -1788,9 +1925,9 @@ export function computeNextWork(
     quarantineNote +
     (done
       ? scopedOpenUnknowns.length
-        ? `${doneLead} ${scopedOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}`
-        : `${doneLead}${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}`
-      : `${outstandingLead} ${parts.join("; ")}.${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${scopeNote}${truncationNote}${excerptNote}${staleNote}${retirementNote}${agedOutNote}`);
+        ? `${doneLead} ${scopedOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${descentNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}`
+        : `${doneLead}${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${descentNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}`
+      : `${outstandingLead} ${parts.join("; ")}.${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${descentNote}${scopeNote}${truncationNote}${excerptNote}${staleNote}${retirementNote}${agedOutNote}`);
 
   return {
     framing: DATA_FRAME,
@@ -1800,6 +1937,7 @@ export function computeNextWork(
     unmappedEvidence,
     agedOutEvidence,
     underservedOpportunities,
+    emptyDescents,
     solutionsMissingAssumptions,
     solutionsMissingInstruments: solutionsMissingInstrumentsList,
     solutionsAwaitingObservation: solutionsAwaitingObservationList,

@@ -406,6 +406,66 @@ export function opportunitiesServedBeneath(tree: readonly OstNode[], index: Map<
 }
 
 /**
+ * Every Opportunity mapped to the LEAF opportunities beneath it — the
+ * descendants that file no sub-opportunity of their own.
+ *
+ * **Why leaves specifically.** A solution cannot legitimately hang on a
+ * category; the tree's own invariant (`outcome-files-categories`) says a heading
+ * holds sub-opportunities and the specific needs hang beneath it. So when the
+ * queue finds a heading short of solutions, the node it actually wants served is
+ * somewhere down here, and this is the map that says which.
+ *
+ * **Exclusive of the node itself**, so a leaf maps to the empty set. That is the
+ * distinction the caller needs: "no leaf beneath me" and "I am the leaf" are
+ * different facts about a branch and only one of them is a descent.
+ *
+ * **Memoised for the same reason {@link opportunitiesServedBeneath} is** — the
+ * caller asks this of every short category and a fresh subtree walk each time is
+ * quadratic on the 10,000-node shape `test/mcp/wall-clock-budget.test.ts` pins.
+ *
+ * **A cycle terminates rather than recursing**, exactly as in `evidenceExtents`:
+ * a back edge contributes the empty set. What that yields for the nodes ON the
+ * cycle is not a meaningful answer — a node can name itself as its own leaf —
+ * and it is not made to be: `check` reports the cycle, and this map's guarantee
+ * is only that a malformed tree cannot hang the sweep. The caller's failure mode
+ * either way is a diagnostic too many, never a branch that goes quiet.
+ */
+export function leafOpportunitiesBeneath(
+  tree: readonly OstNode[],
+  index: Map<string, OstNode>,
+): Map<string, ReadonlySet<string>> {
+  const settled = new Map<string, ReadonlySet<string>>();
+  const visiting = new Set<string>();
+
+  const walk = (title: string): ReadonlySet<string> => {
+    const done = settled.get(title);
+    if (done) return done;
+    if (visiting.has(title)) return new Set(); // back edge: see the cycle note above
+    const node = index.get(title);
+    if (!node || node.layer !== "Opportunity") return new Set();
+
+    visiting.add(title);
+    const leaves = new Set<string>();
+    for (const link of node.links) {
+      const child = index.get(link); // dangling link — `check` owns reporting that
+      if (child?.layer !== "Opportunity") continue;
+      const beneath = walk(link);
+      // A child with nothing beneath it IS the leaf; otherwise its own leaves are.
+      if (beneath.size === 0) leaves.add(link);
+      else for (const t of beneath) leaves.add(t);
+    }
+    visiting.delete(title);
+
+    settled.set(title, leaves);
+    return leaves;
+  };
+
+  const out = new Map<string, ReadonlySet<string>>();
+  for (const n of tree) if (n.layer === "Opportunity") out.set(n.title, walk(n.title));
+  return out;
+}
+
+/**
  * The AssumptionTests that answer for a Solution — through its Assumptions.
  *
  * **This is the one place the Solution→Assumption→AssumptionTest walk is

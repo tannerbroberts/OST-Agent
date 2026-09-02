@@ -272,6 +272,16 @@ export const OUTSTANDING_NOT_ACTIONABLE: readonly NotActionable[] = [
     count: (w) => trueTotal(w, "quarantined", w.quarantined.length),
   },
   {
+    field: "emptyDescents",
+    why:
+      "a heading the under-served check found short whose leaves are all already served. There is no action here a " +
+      "pass could take: a solution cannot hang on a category, so 'ideate three' is not a legal instruction for one, " +
+      "and the only thing that would close it — deciding the heading's own need is broader than the sum of its " +
+      "leaves and filing a new sub-opportunity — is a judgement about the world rather than a gap in the tree. " +
+      "Reported on every response so the branch is never silent; counted here would idle the loop on a reading.",
+    count: (w) => trueTotal(w, "emptyDescents", w.emptyDescents.length),
+  },
+  {
     field: "retiredFromDuplicateScan",
     why:
       "not work at all: nodes withheld from the duplicate scan because they are retired, reported so a denominator " +
