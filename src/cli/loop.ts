@@ -45,6 +45,7 @@ import { detectHandEdits, renderDriftReport } from "../git/hand-edit-detector.js
 import { resumeState, resumeSummary } from "../loop/resume.js";
 import { readRunHistory, reconstructRuns, renderRunHistory } from "../loop/run-boundary.js";
 import { observeToolSurface } from "../loop/tool-surface-record.js";
+import { renderWorkSourceCensus, workSourceCensus } from "../loop/work-sources.js";
 import {
   closeGoalContract,
   goalContractReport,
@@ -1155,6 +1156,29 @@ export function registerLoopCommands(program: Command): void {
           return;
         }
       }
+    });
+
+  loop
+    .command("sources")
+    .description("every source of new work in this vault, and how each one would wake a sleeping loop (read-only)")
+    .option("--vault <dir>", VAULT_OPTION_HELP)
+    .action((opts: { vault: string }) => {
+      /*
+       * The census a woken loop rests on, as a command rather than as an internal.
+       *
+       * `loop due` answers "may this vault fire now?" from a clock. A loop that
+       * slept on a signal instead would need every source of work to be watchable,
+       * and the failure that costs is silent: one unwatchable source and the loop
+       * sleeps through it while every other reading says it is healthy. That is
+       * cheap to see at enumeration time and invisible at run time, so the
+       * enumeration is what an operator gets to read.
+       *
+       * Never sets a non-zero exit code and decides nothing — a source with no
+       * affordance is reported by name, in the summary line, rather than being
+       * turned into a refusal here.
+       */
+      const config = loadConfig(opts.vault);
+      for (const line of renderWorkSourceCensus(workSourceCensus(opts.vault, config))) console.log(line);
     });
 
   loop

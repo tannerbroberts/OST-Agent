@@ -238,6 +238,11 @@ export const CLOCK_READING_TESTS: readonly DeclaredTimedCheck[] = [
     why: "asserts a blocking wait returned in less than the default poll interval — an `expect()` on elapsed wall clock",
   },
   {
+    file: "test/loop/work-source-census.test.ts",
+    kind: "liveness-timeout",
+    why: "one test registers a real `fs.watch` and polls until it fires with a 10s deadline; the verdict is whether the watcher saw the write at all, and the deadline only bounds the wait",
+  },
+  {
     file: "test/mcp/s1-self-feeding.test.ts",
     kind: "clock-fixture",
     why: "ages inbox items and dates by hours and days",
