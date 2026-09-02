@@ -25,11 +25,15 @@
  *
  * What each figure is read off, so the provenance is legible from here:
  *
- *   - **built** — `## Instrument Log`, written only by `ost-agent verify` from an
- *     exit code it watched. Green over instrumented, so it means "of the runnable
- *     definitions of done beneath this bucket, this many now pass".
- *   - **tested / dissent** — `## Results`, human-only. `refuted` is dissent in the
- *     only form the tree can prove: a run that came back against the claim.
+ *   - **executed / dissent** — `## Results`, human-only. The count of tests whose
+ *     question somebody actually answered, and the only figure here that moves
+ *     when one does. `refuted` is dissent in the only form the tree can prove: a
+ *     run that came back against the claim.
+ *   - **ready to run** — a parseable `instrument:`, and how many of those
+ *     `## Instrument Log` records as green from an exit code `ost-agent verify`
+ *     watched. Real work, and reported as its own quantity rather than folded
+ *     into the one above: a spec that passes is a fact about this repository, not
+ *     an answer to the question the test asks about the world.
  *   - **corroborators** — distinct `source` values, which the ingesting surface
  *     stamps and no node can author for itself.
  *   - **actors** — how many distinct standing rows those sources speak from
@@ -43,6 +47,26 @@
  *     measuring nothing however green it looks.
  *   - **weakest rung** — the ladder's floor across the subtree, because a bucket
  *     is only as believed as its least-supported claim.
+ *
+ * **Why no line says `built` any more, and why execution comes first.** Until
+ * 2026-09-01 each bucket opened with `built 13% (3/24 runnable), tested 0` — a
+ * percentage over instrument coverage, carrying the one word in this vocabulary
+ * that means the work is done, followed by the count of answered questions in
+ * the position a reader skips. Both halves were wrong in the same direction.
+ * Every automated hand that can touch a test can only ever make it more ready to
+ * run: writing the spec, attaching the command and watching the exit code are all
+ * reachable by an unattended pass, while recording a result is a human's
+ * `ost-agent result` and nothing else. So the percentage was the one dimension
+ * that was free to move, and a day spent attaching commands rendered as a day of
+ * progress against a figure — `tested 0` on every bucket, for the life of the
+ * tree — that has never moved at all.
+ *
+ * The fix is accounting, not mechanism: it runs nothing, unblocks nothing, and
+ * after it ships exactly as many tests have been answered as before. What it
+ * refuses is letting the artifact flatter the work. Readiness is kept in full —
+ * it is real work and dropping it would trade one distortion for another — but
+ * it is named readiness, it carries no `built`, and it sits behind the number
+ * that says whether anybody has learned anything.
  */
 import type { Actor } from "../adapters/source.js";
 import { authorshipCensus, type AuthorshipCensus } from "../ost/authorship.js";
@@ -64,7 +88,11 @@ export interface BucketRollup {
   /** Tests naming a runnable command, and how many of those now pass. */
   instrumented: number;
   green: number;
-  /** Tests carrying a human-recorded result, split by what it said. */
+  /**
+   * Tests carrying a human-recorded result, split by what it said — the
+   * bucket's executed count, and the only one of these figures that says a
+   * question got answered rather than prepared.
+   */
   tested: number;
   refuted: number;
   /** Distinct `source` values beneath this bucket — how many recordings it rests on. */
@@ -106,6 +134,19 @@ export interface TreeRollup {
   /** Nodes the Outcome links that are not Opportunities — the shape the migration removes. */
   nonOpportunityChildren: string[];
   totals: { nodes: number; opportunities: number; solutions: number; tests: number };
+  /**
+   * The tree's execution state, counted over the tree rather than summed from
+   * the buckets.
+   *
+   * Summing buckets would be wrong and quietly so: `subtree` is multi-parent
+   * safe on purpose, so a node reachable from two buckets is counted under both,
+   * and adding the rows up would inflate every figure here by however much the
+   * taxonomy overlaps. These are counted once each over `tree`.
+   *
+   * It sits at the top level because the question is about the whole tree: has
+   * this thing answered anything yet, or only got ready to.
+   */
+  execution: { tests: number; executed: number; refuted: number; instrumented: number; green: number };
   /**
    * How much of this tree a person actually wrote.
    *
@@ -208,6 +249,25 @@ function rollUpBucket(bucket: OstNode, index: Map<string, OstNode>, stamps?: Rea
 }
 
 /**
+ * Execution and readiness over the whole tree, each node counted once.
+ *
+ * Same reads as {@link rollUpBucket} performs per bucket, deliberately — one
+ * definition of "executed" for the tree line and the bucket lines, so the two
+ * cannot drift into disagreeing about what the word means.
+ */
+function executionCensus(tree: readonly OstNode[]): TreeRollup["execution"] {
+  const tests = tree.filter((n) => n.layer === "AssumptionTest");
+  const instrumented = tests.filter((t) => nodeInstrument(t) !== undefined);
+  return {
+    tests: tests.length,
+    executed: tests.filter(hasRecordedResult).length,
+    refuted: tests.filter((t) => recordedVerdict(t) === "refuted").length,
+    instrumented: instrumented.length,
+    green: instrumented.filter(observedGreen).length,
+  };
+}
+
+/**
  * `stamps` is `evidenceActors(dir)` — id → the actor the fetching surface stamped.
  *
  * Optional rather than required, and the omission is reported rather than assumed
@@ -248,12 +308,34 @@ export function rollupTree(tree: readonly OstNode[], stamps?: ReadonlyMap<string
       solutions: tree.filter((n) => n.layer === "Solution").length,
       tests: tree.filter((n) => n.layer === "AssumptionTest").length,
     },
+    execution: executionCensus(tree),
     authorship: authorshipCensus(tree),
   };
 }
 
-function pct(part: number, whole: number): string {
-  return whole === 0 ? "—" : `${Math.round((part / whole) * 100)}%`;
+/**
+ * The two clauses every bucket line opens with, in this order and never the
+ * other.
+ *
+ * Split into one function so the ordering is a property of the code rather than
+ * of whoever last edited the template: whatever else the line grows, execution
+ * is emitted before readiness because {@link executionClause} is called before
+ * {@link readinessClause}.
+ */
+function executionClause(b: BucketRollup): string {
+  return `executed ${b.tested} of ${b.tests}${b.refuted > 0 ? ` (${b.refuted} refuted)` : ""}`;
+}
+
+/**
+ * Readiness, whole and unpercentaged.
+ *
+ * Both numbers are kept — instrumenting a test and watching its exit code are
+ * real work, and dropping them to make the point about execution would trade one
+ * distorted line for another. What is gone is the ratio between them wearing the
+ * word `built`.
+ */
+function readinessClause(b: BucketRollup): string {
+  return `ready to run ${b.instrumented} of ${b.tests} (${b.green} observed green)`;
 }
 
 /**
@@ -321,6 +403,34 @@ function authorshipLines(c: AuthorshipCensus): string[] {
 }
 
 /**
+ * The tree's execution state, said before anything else it might be mistaken for.
+ *
+ * Placed above the buckets rather than inside them because it is one fact about
+ * the whole tree and a reader should meet it before the thirty-seven lines that
+ * each look like progress. The second sentence is said only when it is true, and
+ * when it is true it is the most important thing on the page: a tree where
+ * nothing has been executed has learned nothing, however much of it is ready to.
+ */
+function executionLines(e: TreeRollup["execution"]): string[] {
+  if (e.tests === 0) return [];
+  const lines = [
+    `Executed: ${e.executed} of ${e.tests} test(s) carry a result somebody recorded` +
+      `${e.refuted > 0 ? ` (${e.refuted} refuted)` : ""} — the only count here that moves when a question is answered`,
+  ];
+  lines.push(
+    `  Readiness, kept separate: ${e.instrumented} of ${e.tests} name a runnable command, ` +
+      `${e.green} of those observed green — real work, and not an answer to anything`,
+  );
+  if (e.executed === 0) {
+    lines.push(
+      `  not one test in this tree has been executed, so nothing below is a build percentage — ` +
+        `every automated hand can only raise readiness, and recording a result is a human's \`ost-agent result\``,
+    );
+  }
+  return lines;
+}
+
+/**
  * The top-level view, as the thing a loop reads on the way in.
  *
  * One line per bucket, widest signal first, and every number traceable to a
@@ -335,6 +445,7 @@ export function renderRollup(rollup: TreeRollup): string {
     `Tree: ${rollup.totals.nodes} nodes — ${rollup.totals.opportunities} opportunity, ` +
       `${rollup.totals.solutions} solution, ${rollup.totals.tests} test`,
   );
+  lines.push(...executionLines(rollup.execution));
   lines.push(...authorshipLines(rollup.authorship));
   lines.push("");
 
@@ -346,8 +457,7 @@ export function renderRollup(rollup: TreeRollup): string {
       lines.push(`  ${b.title}`);
       lines.push(
         `    ${b.opportunities} opportunity, ${b.solutions} solution, ${b.tests} test` +
-          ` — built ${pct(b.green, b.instrumented)} (${b.green}/${b.instrumented} runnable)` +
-          `, tested ${b.tested}${b.refuted > 0 ? ` (${b.refuted} refuted)` : ""}` +
+          ` — ${executionClause(b)}, ${readinessClause(b)}` +
           `, ${support(b)}, rests on ${b.weakestRung ?? "nothing declared"}`,
       );
       const warning = actorWarning(b);

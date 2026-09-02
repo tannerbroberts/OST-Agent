@@ -50,7 +50,7 @@ describe("rollupTree", () => {
     expect(b.tests).toBe(1);
   });
 
-  test("built is read off the instrument log, not off anything a node claims", () => {
+  test("the green count is read off the instrument log, not off anything a node claims", () => {
     const unbuilt = rollupTree(
       tree({ "Run it on five machines": { instrument: "npx vitest run test/shim.test.ts", body: "prose" } }),
     );
@@ -68,12 +68,13 @@ describe("rollupTree", () => {
     expect(built.buckets[0].green).toBe(1);
   });
 
-  test("a test with no instrument is not counted as unbuilt — it is not runnable at all", () => {
-    // The distinction the percentage depends on. 243 prose-only tests reported as
-    // "0% built" would read as a stalled builder; they are an undefined one.
+  test("a test with no instrument is reported as not ready to run, not as a failure to build", () => {
+    // The distinction the readiness clause depends on. 243 prose-only tests are
+    // not a stalled builder; they are tests nobody has named a command for, and
+    // the line says which of those it is.
     const r = rollupTree(tree());
     expect(r.buckets[0].instrumented).toBe(0);
-    expect(renderRollup(r)).toContain("built — (0/0 runnable)");
+    expect(renderRollup(r)).toContain("ready to run 0 of 1 (0 observed green)");
   });
 
   test("tested and refuted come from the human-only Results section", () => {

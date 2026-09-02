@@ -3221,9 +3221,9 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,037 tests across 365 files, verified 2026-09-01 (`npx vitest run`
-> collects 364 of the files and finished green at 5,037 in **372 s**; the same suite on the
-> same machine measured **227 s** minutes earlier with this very line stale, and **232 s**,
+> *Today:* **met** — 5,047 tests across 366 files, verified 2026-09-01 (`npx vitest run`
+> collects 365 of the files and finished green at 5,047 in **338 s**; the same suite on the
+> same machine measured **372 s** and **227 s** earlier the same day, and **232 s**,
 > **260 s**, **478 s**,
 > **416 s**, **406 s**, **237 s**, **491 s** and **248 s** earlier the same day — and the
 > 416 s run failed
@@ -3238,7 +3238,33 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > coming back as one: the same commit has measured **207 s and 341 s**, then **210 s and
 > 394 s**, then **223 s and 413 s** — a 1.9× spread with no code between them, which is worth
 > knowing before anyone reads a single timing as a regression. The file added since the
-> previous line is `test/gate/operation-budget.test.ts` — the instrument for "A
+> previous line is `test/ost/rollup-execution-first.test.ts` — the instrument for "Check the
+> rollup reports readiness and execution as separate numbers, with neither called built", the
+> assumption test beneath "Stop counting an unrun test as progress, and report execution as
+> the only number that moves" (`src/eval/rollup.ts`, read by `ost-agent rollup` and by
+> `src/ost/standing-briefing.ts`). Every bucket line used to open `built 13% (3/24 runnable),
+> tested 0`: the strongest word this vocabulary has, applied to a ratio over instrument
+> coverage, with the count of questions anybody answered put last as a bare zero. The two
+> halves compound, and that is what the spec pins rather than the rename. Writing a test,
+> attaching a command and watching an exit code are all reachable by an unattended pass;
+> recording a result is a human's `ost-agent result` and nothing else — so the percentage was
+> the one figure free to move, and it moved while `tested 0` held on every bucket in the meta
+> vault for the life of the tree. The load-bearing case is the last in the file: instrument a
+> test, then observe it green, and assert the executed count is still 0 while readiness and
+> the green count both rise. Prominence is asserted as position, because that is what
+> prominence is in a plain-text line a shell script pastes into a prompt. Readiness survives
+> in full and is asserted to — a rollup that bought the honest execution line by dropping the
+> readiness one would trade one distortion for another, and this file fails it for that too.
+> What green here does NOT settle is anything about the world: after it ships exactly as many
+> tests have been executed as before, and whether a stated zero prompts action where a moving
+> percentage did not is a question about a person reading a report that no spec observes.
+> One thing the build found that the node did not say: `runnable` now means two different
+> things in this product's own output, and the rollup was one of the two. `ost_next_work`
+> reports `runnable: 0` for the same tree in which the rollup said `3/24 runnable` — the first
+> is lane permission (`compute-only`, settable only from the CLI), the second was merely a
+> parseable `instrument:`. The rollup's half is retired here in favour of "ready to run",
+> which leaves `runnable` meaning lane permission alone. Before it came
+> `test/gate/operation-budget.test.ts` — the instrument for "A
 > load-independent gate keeps its verdict when the machine is saturated", the assumption test
 > beneath "State timing gates as work completed rather than wall-clock, so a busy machine
 > cannot fail one" (`src/telemetry/operation-budget.ts`, counted at the `fs` call sites in
