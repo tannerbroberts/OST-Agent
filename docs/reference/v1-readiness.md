@@ -3221,9 +3221,9 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,081 tests across 368 files, verified 2026-09-02 (`npx vitest run`
-> finished green at 5,081 in **268 s**; the same suite on the same machine measured **225 s**
-> and **211 s** earlier the same session, and **338 s**, **372 s**, **227 s**, **232 s**, **260 s**,
+> *Today:* **met** — 5,106 tests across 369 files, verified 2026-09-02 (`npx vitest run`
+> finished green at 5,106 in **216 s**; the same suite on the same machine measured **268 s**,
+> **225 s** and **211 s** earlier the same session, and **338 s**, **372 s**, **227 s**, **232 s**, **260 s**,
 > **478 s**,
 > **416 s**, **406 s**, **237 s**, **491 s** and **248 s** on the previous day — and the
 > 416 s run failed
@@ -3248,7 +3248,28 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > coming back as one: the same commit has measured **207 s and 341 s**, then **210 s and
 > 394 s**, then **223 s and 413 s** — a 1.9× spread with no code between them, which is worth
 > knowing before anyone reads a single timing as a regression. The file added since the
-> previous line is `test/loop/stall-definition-replay.test.ts` — the instrument for "Replay
+> previous line is `test/eval/gate-scope-expressibility.test.ts` — the instrument for "Try to
+> express the scope of five existing gates and see which ones resist it", the assumption test
+> beneath "The gate records the capability it was set against, and refuses to pass a smaller
+> one" (`src/release/gate-scope.ts`, `src/release/gate-scope.declared.ts`). Four of the five
+> scopes wrote as programs and one resisted, which is the split the solution node predicted:
+> a gate whose subject is a set of files reduces to two clauses — was it asked about the whole
+> population, and did anything happen inside each member — while the coverage gate's subject
+> is a behaviour ("every route by which a branch could reduce what a gate measures") and
+> cannot be finished without the clause *and any other route*, which no program reads. That
+> clause is committed with `shortfall: null` so the census counts it as the failure it is.
+> **Writing the scopes down found two live shortfalls in D1's own gates**, neither of them an
+> edit anyone made: `ost-agent ship` compared `dist/ost-agent.mjs` and not
+> `dist/capability-manifest.json` (CI checks both), and its skill-drift check watched
+> `SKILL.md` — a path this repository does not have, since the generator writes
+> `.claude/skills/opportunity-solution-tree/SKILL.md` and `.claude/workflows/skeleton.js`.
+> `git status --porcelain -- SKILL.md` exits 0 with empty output, so that gate had no subject
+> and could not go red. `ship` now compares every artefact each generator writes and refuses
+> to *pass* a gate whose subject came out smaller than its declared scope. What is not fixed
+> is the declaration itself: `GENERATED_ARTIFACT` is in `src/release/gates.declared.ts`, which
+> only a human may change (`src/release/gate-coverage.ts`), so the dead `SKILL.md` entry is
+> still there and is now a refusal rather than a silent pass. The file added in the batch
+> before it is `test/loop/stall-definition-replay.test.ts` — the instrument for "Replay
 > historical runs against a stall definition", the assumption test beneath "Supervisor
 > heartbeat with automatic restart" (`src/loop/liveness.ts`, printed by `ost-agent loop
 > health`). It replays a candidate definition of progress over all 369 firings the meta vault

@@ -55229,6 +55229,216 @@ function branchCoverageRefusals(repo, defaultBranch, run) {
   return reasons;
 }
 
+// src/release/gate-scope.ts
+function hollow(subject) {
+  return {
+    gate: subject.gate,
+    eligible: [...subject.eligible],
+    units: subject.units.map((u) => ({ path: u.path, work: 0 }))
+  };
+}
+function scopeShortfall(scope, subject) {
+  const found = [];
+  for (const clause2 of scope.clauses) {
+    if (!clause2.shortfall) continue;
+    for (const missing of clause2.shortfall(subject)) found.push(`${clause2.id}: ${missing}`);
+  }
+  return found;
+}
+function unaskedMembers(subject) {
+  const asked = new Set(subject.units.map((u) => u.path));
+  return subject.eligible.filter((p2) => !asked.has(p2)).map((p2) => `${p2} was never asked about`);
+}
+function hollowMembers(subject) {
+  return subject.units.filter((u) => u.work <= 0).map((u) => `${u.path} was taken in and nothing happened inside it`);
+}
+function expressibility(scope) {
+  const prose = scope.clauses.filter((c3) => !c3.shortfall).map((c3) => c3.id);
+  const evaluable = scope.clauses.length > 0 && prose.length === 0;
+  const satisfiable = scopeShortfall(scope, scope.covering).length === 0;
+  const nonVacuous = scopeShortfall(scope, hollow(scope.covering)).length > 0;
+  const expressible = evaluable && satisfiable && nonVacuous;
+  let why;
+  if (expressible) why = "written as a program, satisfiable, and red when its subject is hollowed";
+  else if (!evaluable && prose.length > 0) why = `needs a clause no program reads: ${prose.join(", ")}`;
+  else if (!evaluable) why = "no clauses \u2014 the coverage could not be written down at all";
+  else if (!satisfiable) why = "no subject can meet it, so it refuses everything rather than the narrowings";
+  else why = "survives hollowing: keep the boundary, empty the inside, and it still reads green";
+  return { gate: scope.gate, evaluable, satisfiable, nonVacuous, expressible, proseClauses: prose, why };
+}
+function scopeRefusals(scope, subject) {
+  if (!expressibility(scope).expressible) return [];
+  const missing = scopeShortfall(scope, subject);
+  if (missing.length === 0) return [];
+  return [
+    `refusing to pass gate "${scope.gate}": it was set against ${scope.why}, and this run was asked about less \u2014 ${missing.join("; ")}. A gate answered about a smaller subject than it was set against reports nothing, the same way a check with an empty subject does. Widen what the gate is asked about; do not narrow what it was set against.`
+  ];
+}
+function committedSize(repo, run) {
+  return (rel) => {
+    const result = run(["git", "cat-file", "-s", `HEAD:${rel}`], repo);
+    if (result.status !== 0) return 0;
+    const size = Number(result.output.trim());
+    return Number.isFinite(size) && result.output.trim().length > 0 ? size : null;
+  };
+}
+function artifactSubject(gate, eligible, examined2, sizeOf) {
+  const units = [];
+  for (const rel of examined2) {
+    const size = sizeOf(rel);
+    if (size === null) return null;
+    units.push({ path: rel, work: size });
+  }
+  return { gate, eligible: [...eligible], units };
+}
+
+// src/release/gate-scope.declared.ts
+var BUNDLE_ARTIFACTS = ["dist/ost-agent.mjs", "dist/capability-manifest.json"];
+var SKILL_ARTIFACTS = [
+  ".claude/skills/opportunity-solution-tree/SKILL.md",
+  ".claude/workflows/skeleton.js"
+];
+var DECLARED_ARTIFACTS = {
+  "bundle-drift": BUNDLE_ARTIFACTS,
+  "skill-drift": SKILL_ARTIFACTS
+};
+var TSC = {
+  gate: "tsc",
+  why: "every module this package ships is type-checked, with diagnostics actually produced for each",
+  unit: "a TypeScript module under src/",
+  work: "lines the checker was allowed to judge \u2014 zero when the file is suppressed",
+  observedFrom: "repository",
+  clauses: [
+    {
+      id: "every-module-compiled",
+      requires: "every src/**/*.ts the tree holds is in what tsc compiled",
+      shortfall: unaskedMembers
+    },
+    {
+      id: "no-suppressed-module",
+      requires: "no compiled module suppresses the checker over its whole body",
+      shortfall: hollowMembers
+    }
+  ],
+  covering: {
+    gate: "tsc",
+    eligible: ["src/index.ts", "src/release/ship.ts", "src/release/gate-scope.ts"],
+    units: [
+      { path: "src/index.ts", work: 12 },
+      { path: "src/release/ship.ts", work: 212 },
+      { path: "src/release/gate-scope.ts", work: 240 }
+    ]
+  }
+};
+var VITEST = {
+  gate: "vitest",
+  why: "every test file in the tree, minus the ones configuration deliberately excludes, actually runs cases",
+  unit: "a test/**/*.test.ts file",
+  work: "test cases executed in that file \u2014 zero for a file collected and entirely skipped",
+  observedFrom: "run-output",
+  clauses: [
+    {
+      id: "every-eligible-file-collected",
+      requires: "every test file not named in SUITE_EXCLUSIONS is in the run",
+      shortfall: unaskedMembers
+    },
+    {
+      id: "no-empty-file",
+      requires: "every collected file executes at least one case",
+      shortfall: hollowMembers
+    }
+  ],
+  covering: {
+    gate: "vitest",
+    eligible: ["test/release/ship.test.ts", "test/eval/gate-scope-expressibility.test.ts"],
+    units: [
+      { path: "test/release/ship.test.ts", work: 20 },
+      { path: "test/eval/gate-scope-expressibility.test.ts", work: 1 }
+    ]
+  }
+};
+var BUNDLE_DRIFT = {
+  gate: "bundle-drift",
+  why: "every committed artefact the bundler regenerates is compared against what it just produced",
+  unit: "a committed artefact of `npm run bundle`",
+  work: "bytes of the artefact that were there to compare",
+  observedFrom: "repository",
+  clauses: [
+    {
+      id: "every-artifact-compared",
+      requires: "both dist/ost-agent.mjs and dist/capability-manifest.json are compared",
+      shortfall: unaskedMembers
+    },
+    {
+      id: "no-empty-artifact",
+      requires: "each compared path is a file with something in it",
+      shortfall: hollowMembers
+    }
+  ],
+  covering: {
+    gate: "bundle-drift",
+    eligible: BUNDLE_ARTIFACTS,
+    units: BUNDLE_ARTIFACTS.map((p2) => ({ path: p2, work: 1 }))
+  }
+};
+var SKILL_DRIFT = {
+  gate: "skill-drift",
+  why: "every committed artefact the skill generator regenerates is compared against what it just produced",
+  unit: "a committed artefact of `npm run gen:skill`",
+  work: "bytes of the artefact that were there to compare",
+  observedFrom: "repository",
+  clauses: [
+    {
+      id: "every-artifact-compared",
+      requires: "both the generated SKILL.md and the generated workflow skeleton are compared",
+      shortfall: unaskedMembers
+    },
+    {
+      id: "no-empty-artifact",
+      requires: "each compared path is a file with something in it",
+      shortfall: hollowMembers
+    }
+  ],
+  covering: {
+    gate: "skill-drift",
+    eligible: SKILL_ARTIFACTS,
+    units: SKILL_ARTIFACTS.map((p2) => ({ path: p2, work: 1 }))
+  }
+};
+var COVERAGE = {
+  gate: "coverage",
+  why: "every route by which a branch could reduce what a gate measures is examined before the gates run",
+  unit: "a route by which coverage can shrink",
+  work: "reductions along that route the check would detect",
+  observedFrom: "unobservable",
+  resists: "the population is a behaviour, not a set of files: a suite is narrowed by a skipped describe, a @ts-nocheck, a deleted assertion or the npm test script, and no list of paths closes that set",
+  clauses: [
+    {
+      id: "declaration-paths-examined",
+      requires: "every commit touching a gate-definition path is read",
+      shortfall: unaskedMembers
+    },
+    {
+      id: "every-other-route",
+      requires: "and any other route by which what a gate measures could shrink \u2014 a skipped test, a suppressed module, a deleted assertion, a rewritten npm script",
+      shortfall: null
+    }
+  ],
+  covering: {
+    gate: "coverage",
+    eligible: ["src/release/gates.declared.ts", "vitest.config.ts", "tsconfig.json"],
+    units: [
+      { path: "src/release/gates.declared.ts", work: 1 },
+      { path: "vitest.config.ts", work: 1 },
+      { path: "tsconfig.json", work: 1 }
+    ]
+  }
+};
+var DECLARED_GATE_SCOPES = [TSC, VITEST, BUNDLE_DRIFT, SKILL_DRIFT, COVERAGE];
+function declaredScope(gate) {
+  return DECLARED_GATE_SCOPES.find((s) => s.gate === gate);
+}
+
 // src/release/push-first.ts
 function parseDivergence(raw) {
   const parts = raw.trim().split(/\s+/);
@@ -55365,13 +55575,29 @@ function syncWithDefault(repo, defaultBranch, run, log) {
   }
   return void 0;
 }
+function artifactsFor(gateName) {
+  const named = GENERATED_ARTIFACT[gateName];
+  const declared = DECLARED_ARTIFACTS[gateName];
+  if (!named && !declared) return [];
+  return [.../* @__PURE__ */ new Set([...named ? [named] : [], ...declared ?? []])];
+}
 function artifactDrift(repo, gateName, run) {
-  const artifact = GENERATED_ARTIFACT[gateName];
-  if (!artifact) return void 0;
-  const status = run(["git", "status", "--porcelain", "--", artifact], repo);
-  if (status.status !== 0 || status.output.trim().length === 0) return void 0;
-  run(["git", "checkout", "--", artifact], repo);
-  return `${artifact} is stale \u2014 regenerating it changed the committed file. Run the generator and commit the result.`;
+  const artifacts = artifactsFor(gateName);
+  if (artifacts.length === 0) return void 0;
+  const stale = [];
+  for (const artifact of artifacts) {
+    const status = run(["git", "status", "--porcelain", "--", artifact], repo);
+    if (status.status !== 0 || status.output.trim().length === 0) continue;
+    run(["git", "checkout", "--", artifact], repo);
+    stale.push(artifact);
+  }
+  if (stale.length > 0) {
+    return `${stale.join(", ")} stale \u2014 regenerating changed the committed file. Run the generator and commit the result.`;
+  }
+  const scope = declaredScope(gateName);
+  if (!scope) return void 0;
+  const subject = artifactSubject(gateName, DECLARED_ARTIFACTS[gateName] ?? [], artifacts, committedSize(repo, run));
+  return subject ? scopeRefusals(scope, subject)[0] : void 0;
 }
 function ship(opts) {
   const { repo, defaultBranch = "main", dryRun = false } = opts;
