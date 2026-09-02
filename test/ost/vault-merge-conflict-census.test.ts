@@ -58,12 +58,26 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, test } from "vitest";
 import { simpleGit } from "simple-git";
 import { censusPeerMerge, settleNodeCollision, type MergeCensus } from "../../src/ost/vault-merge.js";
 
 /** The bar the assumption test fixed. */
 const JUDGEMENT_BAR = 5;
+
+/**
+ * How long one exchange may take before vitest abandons it.
+ *
+ * Stated here rather than left at the framework's 20s default, and it is not a
+ * bar: the bar in this file is {@link JUDGEMENT_BAR}, and nothing here measures
+ * time. The default was acting as an unrecorded wall-clock limit that these
+ * tests — 8–12 s each on an idle machine, a full git merge over sixty colliding
+ * files — crossed whenever the machine was busy, on `main`, three times now
+ * (2026-08-22, 2026-08-28, 2026-09-02). Twice that was repaired by making the
+ * exchange cheaper, which is the right repair and has run out of room; this
+ * says out loud what the file was silently being held to.
+ */
+const EXCHANGE_TIMEOUT_MS = 90_000;
 
 /** Stamped on the `## History` lines a rule writes — never read from the clock. */
 const AT = "2026-08-22";
@@ -76,12 +90,41 @@ function tempDir(prefix: string): string {
   return dir;
 }
 
+/**
+ * Directories the SHARED exchange owns, torn down once when the file is done.
+ *
+ * Separate from {@link temps}, and the separation is the repair for a failure
+ * that cost four tests at once on `main` on 2026-09-02. {@link baselineCensus}
+ * memoises a promise across tests; its directories came from `tempDir`, so they
+ * belonged to whichever test happened to call it first. When that test timed
+ * out, vitest abandoned the await and ran `afterEach` — which deleted the
+ * vaults the merge was still reading. The promise then resolved against a
+ * half-removed scratch and every later test awaited that answer.
+ *
+ * The damage was not the failure, it was the NUMBER: the poisoned census
+ * reported **7** conflicts needing human judgement over a fixture built to
+ * produce exactly 3, so a bar of 5 was breached by a census that had lost its
+ * subject rather than by a merge that was expensive. A sweep that cannot read
+ * its subject must not report a result, and this one reported a worse one.
+ */
+const sharedTemps: string[] = [];
+
+function sharedTempDir(prefix: string): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  sharedTemps.push(dir);
+  return dir;
+}
+
 beforeEach(() => {
   temps = [];
 });
 
 afterEach(() => {
   for (const d of temps) fs.rmSync(d, { recursive: true, force: true });
+});
+
+afterAll(() => {
+  for (const d of sharedTemps) fs.rmSync(d, { recursive: true, force: true });
 });
 
 // ---------------------------------------------------------------------------
@@ -250,10 +293,21 @@ function diverge(seed: FixtureNode[]): { local: FixtureNode[]; peer: FixtureNode
   return { local, peer };
 }
 
-async function runCensus(local: FixtureNode[], peer: FixtureNode[], extra?: Record<string, string>): Promise<MergeCensus> {
-  const localDir = tempDir("ost-vm-local-");
-  const peerDir = tempDir("ost-vm-peer-");
-  const scratch = tempDir("ost-vm-scratch-");
+/**
+ * `mkdir` is injected so a census whose result OUTLIVES the test that asked for
+ * it can own directories the per-test teardown will not remove — see
+ * {@link sharedTemps}. A private census keeps the default and is cleaned up with
+ * the test that ran it.
+ */
+async function runCensus(
+  local: FixtureNode[],
+  peer: FixtureNode[],
+  extra?: Record<string, string>,
+  mkdir: (prefix: string) => string = tempDir,
+): Promise<MergeCensus> {
+  const localDir = mkdir("ost-vm-local-");
+  const peerDir = mkdir("ost-vm-peer-");
+  const scratch = mkdir("ost-vm-scratch-");
   await writeVault(localDir, local, extra);
   await writeVault(peerDir, peer, extra);
   return censusPeerMerge({ localDir, peerDir, scratchDir: scratch, at: AT, peerLabel: "peer" });
@@ -287,7 +341,9 @@ async function runCensus(local: FixtureNode[], peer: FixtureNode[], extra?: Reco
 let plainExchange: Promise<MergeCensus> | undefined;
 function baselineCensus(): Promise<MergeCensus> {
   const { local, peer } = diverge(seedTree());
-  plainExchange ??= runCensus(local, peer);
+  // `sharedTempDir`, never `tempDir`: this promise is awaited by four tests, so
+  // its vaults must survive the teardown of whichever one reached it first.
+  plainExchange ??= runCensus(local, peer, undefined, sharedTempDir);
   return plainExchange;
 }
 
@@ -320,7 +376,7 @@ describe("peer exchange — counting the conflicts a person has to settle", () =
     expect(census.settled.length + census.judgement.length + census.outOfScope.length).toBe(
       census.conflicted.length,
     );
-  });
+  }, EXCHANGE_TIMEOUT_MS);
 
   test("the exchange never writes to either vault", async () => {
     const { local, peer } = diverge(seedTree());
@@ -346,7 +402,7 @@ describe("peer exchange — counting the conflicts a person has to settle", () =
       })),
     );
     expect(after).toEqual(before);
-  });
+  }, EXCHANGE_TIMEOUT_MS);
 
   test("which side ran the exchange does not change the partition", async () => {
     const { local, peer } = diverge(seedTree());
@@ -368,7 +424,7 @@ describe("peer exchange — counting the conflicts a person has to settle", () =
     expect([...theirs.conflicted].sort()).toEqual([...ours.conflicted].sort());
     expect(theirs.judgement.map((j) => j.file).sort()).toEqual(ours.judgement.map((j) => j.file).sort());
     expect(theirs.settled.map((s) => s.file).sort()).toEqual(ours.settled.map((s) => s.file).sort());
-  });
+  }, EXCHANGE_TIMEOUT_MS);
 
   test("state the exchange does not carry is counted and named, never silently dropped", async () => {
     const { local, peer } = diverge(seedTree());
@@ -385,7 +441,7 @@ describe("peer exchange — counting the conflicts a person has to settle", () =
     // It is a conflict, and it is reported as one — just not as a settled one.
     expect(withState.conflicted).toContain(".ost-agent/state/usage.json");
     expect(withState.judgement.length).toBe(census.judgement.length);
-  });
+  }, EXCHANGE_TIMEOUT_MS);
 });
 
 describe("no rule swallows a real disagreement", () => {
@@ -461,7 +517,7 @@ describe("no rule swallows a real disagreement", () => {
     const census = await censusPeerMerge({ localDir, peerDir, scratchDir: scratch, at: AT });
     const call = census.judgement.find((j) => j.file === "ost.config.yaml");
     expect(call?.reasons).toEqual(["not-a-node"]);
-  });
+  }, EXCHANGE_TIMEOUT_MS);
 
   test("prose that only looks the same is not treated as the same", () => {
     // Same length, same shape, one word changed. The citation rule normalises
@@ -547,7 +603,7 @@ describe("every settlement is lossless, and is a node rather than a claim", () =
       expect(s.resolved.body, where).toContain("## History");
       expect(new Set(s.resolved.links).size, where).toBe(s.resolved.links.length);
     }
-  });
+  }, EXCHANGE_TIMEOUT_MS);
 
   test("two files that differ only in bytes are settled under a name of their own", () => {
     // Found on the real pairs, not imagined: two versions of the vault writer
