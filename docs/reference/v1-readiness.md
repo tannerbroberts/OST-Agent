@@ -3221,8 +3221,18 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,171 tests across 373 files, verified 2026-09-02 (`npx vitest run`
-> finished green at 5,171 in **377 s**; the file added that day is
+> *Today:* **met** — 5,199 tests across 374 files, verified 2026-09-02 (`npx vitest run`
+> finished green at 5,199 in **484 s**; the file added that day is
+> `test/loop/pass-resume-fidelity.test.ts`, which drives three passes to the three waits the
+> corrections corpus actually recorded, serialises each at the wait, and checks that a pass
+> resumed from the record alone takes the same next action the original did — including the
+> half that makes green mean something, a demonstration that the comparison catches a resumed
+> pass which silently believes it already merged. Writing it found a live defect in
+> `src/runner/symbol-index.ts`: a template literal nesting a backtick inside `${…}` ended the
+> scan at that point, and the fourteen exports after it read as absent — a false absence,
+> which that index's own parity test calls the one answer it must not give. Fixed, and pinned
+> by two unit tests rather than only by the parity run, which can only catch it while some
+> module in `src/` happens to contain the construct. The file added earlier that day is
 > `test/loop/work-source-census.test.ts`, the census of everything that can put new work in
 > front of a pass — every channel read off the channel layer rather than restated, plus the
 > writes only a person may make — asserting that each names a watchable target and that the
@@ -3235,7 +3245,8 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > before that is `test/security/derived-deny-rule.test.ts`, the corpus that
 > says a deny rule derived from this workspace's own refusals refuses no legitimate use of
 > the same verb. The same suite
-> on the same machine measured **319 s**, **212 s**, **221 s**, **289 s**, **268 s**,
+> on the same machine measured **322 s** with only D1's own file-count assertion red — the
+> one this batch's new file moved — and **319 s**, **212 s**, **221 s**, **289 s**, **268 s**,
 > **225 s** and **211 s** earlier the same session, and **338 s**, **372 s**, **227 s**, **232 s**, **260 s**,
 > **478 s**,
 > **416 s**, **406 s**, **237 s**, **491 s** and **248 s** on the previous day — and the
