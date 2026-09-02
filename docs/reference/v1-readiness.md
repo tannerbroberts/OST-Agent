@@ -3221,8 +3221,19 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,199 tests across 374 files, verified 2026-09-02 (`npx vitest run`
-> finished green at 5,199 in **484 s**; the file added that day is
+> *Today:* **met** — 5,204 tests across 375 files, verified 2026-09-02 (`npx vitest run`
+> finished at 5,204 in **492 s** with one assertion red, D1's own file count — the one this
+> batch's new file moved, and the one this line closes. The file added is
+> `test/ost/next-work-leaf-redirect.test.ts`, which pins the descent from a short category to
+> the leaves beneath it: the queue reports the leaf it wants served and names the heading it
+> stands in for (`redirectedFrom`), never the category, on which a solution cannot legitimately
+> hang. Its bar is the one case that decides whether descending is worth more than the cheaper
+> exemption — a heading whose every leaf is already at or above `min` produces an
+> `emptyDescents` entry naming the empty descent, so silence-with-a-reason is a different
+> response from silence. Writing it surfaced the classification the field shape actually
+> forces: a new `NextWork` field is unclassified work until `src/loop/stop-condition.ts` and
+> `src/ost/actor-partition.ts` both say which bucket it is in, and two committed parity tests
+> fail the build until they do. The file added earlier that day is
 > `test/loop/pass-resume-fidelity.test.ts`, which drives three passes to the three waits the
 > corrections corpus actually recorded, serialises each at the wait, and checks that a pass
 > resumed from the record alone takes the same next action the original did — including the

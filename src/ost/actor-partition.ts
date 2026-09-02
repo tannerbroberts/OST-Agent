@@ -165,6 +165,7 @@ export const OUT_OF_REACH_LISTS: readonly string[] = Object.freeze(["agedOutEvid
 
 /** `NextWork` fields that are disclosure rather than outstanding work. */
 export const NOT_PARTITIONED_LISTS: readonly string[] = Object.freeze([
+  "emptyDescents",
   "retiredFromDuplicateScan",
   "withheldByDisposition",
   "suppressedByCondition",
@@ -481,6 +482,11 @@ export function partitionSweepByActor(work: NextWork, tree: readonly OstNode[]):
   }
 
   const notPartitioned: NotPartitioned[] = [
+    {
+      list: "emptyDescents",
+      count: work.emptyDescents.length,
+      why: "short headings whose leaves are all already served. Reported so the branch is not silent; no actor can ideate on a category.",
+    },
     {
       list: "retiredFromDuplicateScan",
       count: work.retiredFromDuplicateScan.length,
