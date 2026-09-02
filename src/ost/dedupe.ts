@@ -40,6 +40,8 @@
  * find that out (Z2).
  */
 
+import { countOperation } from "../telemetry/operation-budget.js";
+
 const STOPWORDS = new Set([
   "a", "an", "the", "to", "of", "and", "or", "i", "we", "my", "our", "it",
   "is", "are", "be", "for", "in", "on", "want", "need", "with", "that", "this",
@@ -73,8 +75,15 @@ export function tokensOf(s: string): Set<string> {
  * side being empty forces the other to be too whenever the fallback could fire:
  * tokenization lowercases, so two strings equal after `trim().toLowerCase()`
  * produce the same token set. A mixed pair therefore always scores 0.
+ *
+ * This is the one place a pair of titles is ever scored, which is why the
+ * `titleComparison` counter lives here rather than at the call sites: the whole
+ * point of the indexed scan is that it computes far fewer of these than the
+ * all-pairs version did, and a counter that missed a scoring path would report
+ * the saving rather than the work. See `src/telemetry/operation-budget.ts`.
  */
 function jaccard(ta: Set<string>, tb: Set<string>, a: string, b: string): number {
+  countOperation("titleComparison");
   if (ta.size === 0 || tb.size === 0) return a.trim().toLowerCase() === b.trim().toLowerCase() ? 1 : 0;
   // Iterate the smaller set. Same answer, half the lookups on a lopsided pair.
   const [small, large] = ta.size <= tb.size ? [ta, tb] : [tb, ta];

@@ -45,6 +45,17 @@ export type TimedCheckKind =
   | "clock-fixture"
   /** A poll deadline: fails when something never happens, not when it is slow. */
   | "liveness-timeout"
+  /**
+   * The clock is read and printed, and no `expect()` reads the number.
+   *
+   * Distinct from `mentions-only`, which does not read a clock at all, and from
+   * `measured-but-unbounded`, which asserts on the elapsed time and merely sets
+   * no ceiling. Here the elapsed time reaches a human through a failure message
+   * and reaches no assertion, which is the shape "State timing gates as work
+   * completed rather than wall-clock" asks for: report the measurement, decide
+   * on something load cannot move.
+   */
+  | "reported-not-asserted"
   /** The file only talks about the clock — in a comment, or in a string. */
   | "mentions-only";
 
@@ -126,6 +137,12 @@ export const CLOCK_READING_TESTS: readonly DeclaredTimedCheck[] = [
     file: "test/eval/suspect-source.test.ts",
     kind: "mentions-only",
     why: "a comment recording that `appendObservation` takes its clock as an argument, so no clock read reaches the file",
+  },
+  {
+    file: "test/gate/operation-budget.test.ts",
+    kind: "reported-not-asserted",
+    why:
+      "times its idle and saturated legs and puts both figures in the failure message; every `expect()` is on an operation count, so full CPU saturation is applied on purpose and still cannot move the verdict",
   },
   {
     file: "test/git/hand-edit-detector.test.ts",
