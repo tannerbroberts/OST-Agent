@@ -3204,8 +3204,8 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,019 tests across 363 files, verified 2026-09-01 (`npx vitest run`
-> collects 362 of the files and finished green at 5,019 in **473 s**; the same suite on the
+> *Today:* **met** — 5,034 tests across 364 files, verified 2026-09-01 (`npx vitest run`
+> collects 363 of the files and finished green at 5,034 in **232 s**; the same suite on the
 > same machine measured **260 s** minutes earlier with this very line stale, and **478 s**,
 > **416 s**, **406 s**, **237 s**, **491 s** and **248 s** earlier the same day — and the
 > 416 s run failed
@@ -3220,7 +3220,25 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > coming back as one: the same commit has measured **207 s and 341 s**, then **210 s and
 > 394 s**, then **223 s and 413 s** — a 1.9× spread with no code between them, which is worth
 > knowing before anyone reads a single timing as a regression. The file added since the
-> previous line is `test/telemetry/failure-context-coverage.test.ts` — the instrument for
+> previous line is `test/ost/sweep-actor-partition.test.ts` — the instrument for "Partition
+> today's sweep by actor and see whether the unattended share is reachable", the assumption
+> test beneath "Split the outstanding list by who may act on it, and report only this actor's
+> share" (`src/ost/actor-partition.ts`, read by `ost-agent actors`). It pins the node's own
+> threshold — *the nobody-may-act bucket is empty, or every item in it has a named reason* —
+> structurally rather than over one fixture: `actor: "nobody"` and `clearedBy: null` are the
+> same fact by construction, so a fourth-bucket entry with no reason cannot be built. Two of
+> its cases are findings rather than routing, and both are read off the tree instead of
+> asserted: an unmapped evidence record whose id a node's **prose** already quotes belongs to
+> nobody, because mapped-ness is derived from frontmatter `source` alone and `source` is
+> settable only at creation, so the honest act (recording the corroboration where it belongs)
+> never clears it and the act that would is a duplicate node; and a solution every one of
+> whose tests is `humans-required` belongs to a person rather than to the pass, because
+> `ost_set_instrument` refuses that combination — the live defect recorded on "Work my own
+> governance has already gated still shows as outstanding every pass". What green here does
+> NOT settle is the node's own second limit, stated in its body and untouched by this spec: a
+> pass shown only its own share may lose sight of what it is blocked behind, and a loop
+> reporting `done` while the human partition grows unread is a failure no single
+> classification can see. Before it came `test/telemetry/failure-context-coverage.test.ts` — the instrument for
 > "Check past failures against the snapshot fields before building the snapshot", the
 > assumption test beneath "Snapshot the resolved environment, but only for the step that
 > failed" (`src/telemetry/failure-context.ts`, cut by
