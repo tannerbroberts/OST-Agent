@@ -16,7 +16,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { OST_RULESET as R } from "../src/knowledge/ruleset.js";
-import { renderWorkflowSkeleton, skeletonProblems } from "../src/knowledge/workflow-grammar.js";
+import {
+  grammarProblems,
+  renderWorkflowGrammar,
+  renderWorkflowSkeleton,
+  skeletonProblems,
+  WORKFLOW_GRAMMAR_ADDRESS,
+  WORKFLOW_SKELETON_ADDRESS,
+} from "../src/knowledge/workflow-grammar.js";
 import { firstRunSkillSection } from "../src/mcp/setup.js";
 import { MCP_PREFIX } from "./mcp-prefix.js";
 
@@ -30,7 +37,7 @@ export const SETUP_COMMAND_PATH = path.join(COMMANDS_DIR, "ost-setup.md");
  * saved workflows (`.claude/workflows/`), so a composer finds it where the
  * tool looks rather than where a README says.
  */
-export const WORKFLOW_SKELETON_PATH = path.join(REPO, ".claude", "workflows", "skeleton.js");
+export const WORKFLOW_SKELETON_PATH = path.join(REPO, ...WORKFLOW_SKELETON_ADDRESS.split("/"));
 
 /**
  * The skeleton, checked before it is handed over. A skeleton that does not
@@ -49,6 +56,35 @@ export function renderCheckedSkeleton(): string {
     );
   }
   return skeleton;
+}
+
+/**
+ * The published `Workflow` grammar, at an address a composer can read before
+ * writing rather than discover by being refused.
+ *
+ * In `docs/reference/` and not beside the skeleton: the skeleton is at the
+ * address the tool itself looks in for saved workflows, and a markdown file in
+ * that directory is something the tool would try to resolve as one. Both are
+ * named in `CLAUDE.md`, which is the door a composer actually comes through.
+ */
+export const WORKFLOW_GRAMMAR_PATH = path.join(REPO, ...WORKFLOW_GRAMMAR_ADDRESS.split("/"));
+
+/**
+ * The grammar, checked before it is published. A page that names a construct
+ * the parser does not actually reject, or quotes a refusal the parser no longer
+ * issues, teaches a dialect nobody enforces with the authority of documentation
+ * — the failure the opportunity is about, pointed the other way — so the
+ * generator throws rather than writes one.
+ */
+export function renderCheckedGrammar(): string {
+  const grammar = renderWorkflowGrammar();
+  const problems = grammarProblems(grammar);
+  if (problems.length > 0) {
+    throw new Error(
+      `refusing to write ${WORKFLOW_GRAMMAR_ADDRESS} — it is not a complete grammar:\n  - ${problems.join("\n  - ")}`,
+    );
+  }
+  return grammar;
 }
 
 const bullets = (items: readonly string[]) => items.map((s) => `- ${s}`).join("\n");
@@ -373,6 +409,7 @@ function main(): void {
     [SKILL_PATH, renderSkill()],
     [SETUP_COMMAND_PATH, renderSetupCommand()],
     [WORKFLOW_SKELETON_PATH, renderCheckedSkeleton()],
+    [WORKFLOW_GRAMMAR_PATH, renderCheckedGrammar()],
   ];
   for (const [target, content] of outputs) {
     fs.mkdirSync(path.dirname(target), { recursive: true });

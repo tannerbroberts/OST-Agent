@@ -119,7 +119,9 @@ build rather than a silent drift:
 - **Changed `src/knowledge/ruleset.ts`?** Run `npm run gen:skill` and commit the
   regenerated `SKILL.md` (`test/skill/drift.test.ts` holds you to it).
 - **Changed `src/knowledge/workflow-grammar.ts`?** Same command; it also regenerates
-  `.claude/workflows/skeleton.js` (`test/skill/skeleton-validity.test.ts` holds you to it).
+  `.claude/workflows/skeleton.js` (`test/skill/skeleton-validity.test.ts` holds you to it)
+  and `docs/reference/workflow-grammar.md` (`test/skill/published-grammar.test.ts` does the
+  same, and the generator refuses to publish a grammar the parser contradicts).
 
 Leave the working tree clean. An untracked file left behind is a file the next
 auto-committing tool will attribute to itself.
@@ -139,6 +141,13 @@ one, a hundred and seventy lines in. Prose that quotes code goes in a double-quo
 The skeleton shows the legal form; a script that reaches past what it shows is back to
 guessing, which is the limit of a skeleton and the reason the tool's own description is
 still worth reading for the parts you extend.
+
+**For the parts past the skeleton, read `docs/reference/workflow-grammar.md`.** It is the
+accepted grammar written out — every construct the tool offers, every construct it rejects,
+the refusal each rejected one earns, and the two refusals on record — obtainable by reading
+a file, with nothing submitted. It is a reconstruction rather than something the surface
+hands out, and it says so: it can only be checked against refusals the surface has already
+issued.
 
 ## Where the standards for this repo are written down
 

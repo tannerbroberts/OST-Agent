@@ -55380,7 +55380,8 @@ function artifactSubject(gate, eligible, examined2, sizeOf) {
 var BUNDLE_ARTIFACTS = ["dist/ost-agent.mjs", "dist/capability-manifest.json"];
 var SKILL_ARTIFACTS = [
   ".claude/skills/opportunity-solution-tree/SKILL.md",
-  ".claude/workflows/skeleton.js"
+  ".claude/workflows/skeleton.js",
+  "docs/reference/workflow-grammar.md"
 ];
 var DECLARED_ARTIFACTS = {
   "bundle-drift": BUNDLE_ARTIFACTS,

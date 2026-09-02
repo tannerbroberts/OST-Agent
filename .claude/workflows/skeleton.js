@@ -27,6 +27,11 @@ export const meta = {
 //
 // Run by name with no args this script spawns nothing and returns at once, so
 // running it is a free check that it still parses on the live tool.
+//
+// This shows one example of each construct and is silent about everything past
+// them. The full accepted grammar — every construct offered, every construct
+// rejected, and the refusal each one earns — is docs/reference/workflow-grammar.md,
+// which costs a read and no submission.
 // ---------------------------------------------------------------------------
 
 // The body runs in an async context: await is legal at the top level, and so
