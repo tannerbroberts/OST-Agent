@@ -210,6 +210,11 @@ const DECLARATION_ONLY_SURFACES = [
   "deposit metadata clip",
   "dirty-path refusal listing",
   "friction filing clip",
+  // Grown deliberately with the friction queue's signature rows. Every cap here
+  // names what it hid — the `--top` line counts the rows and the events it did
+  // not print, and a row's own count is the group's, never the length of the
+  // session list beside it — so what is undriven is the assertion, not the naming.
+  "friction-signature queue rows",
   "hand-exclusion command clip",
   "ingest report titles",
   // Grown deliberately with the kill-criteria horizon, and it is the cheapest

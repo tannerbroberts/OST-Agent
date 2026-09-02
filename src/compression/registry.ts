@@ -455,6 +455,20 @@ export const COMPRESSION_SURFACES = [
     proof: "behavioral",
   },
   {
+    name: "friction-signature queue rows",
+    module: "src/adapters/friction-signature.ts",
+    caps: ["MAX_SESSIONS_SHOWN", "MAX_EXAMPLE_CHARS", "DEFAULT_MAX_ROWS"],
+    kind: "bounded-output",
+    decision: "how many rows of friction a pass reads, once identical shapes are folded into one row with a count",
+    reads: [
+      "a row's count and session count are the group's own, never the length of the list the row printed",
+      "the rows the --top cap hid are counted, with the events inside them, so a capped report cannot read as the whole queue",
+      "the exact-string row count is printed beside the grouped one, so folding can never be mistaken for deduplication",
+    ],
+    drops: "dropped-count",
+    proof: "declaration",
+  },
+  {
     name: "hand-exclusion command clip",
     module: "src/telemetry/hand-exclusion.ts",
     caps: ["MAX_COMMAND_CHARS"],

@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- **The friction queue folds identical shapes into one row with a count — and the setting
+  that makes that possible is the opposite of the one the candidate described.**
+  `src/adapters/friction-signature.ts` reduces a friction event to a signature and
+  `ost-agent friction-signatures` prints the queue that produces: over this vault's 686
+  harvested records, 2473 events become 608 rows where exact-string grouping leaves 785.
+  The candidate specified the signature as "tool name plus the normalised refusal text",
+  and against the corpus the first clause is wrong: the largest single shape,
+  `File has not been read yet` at 545 events across 271 records, is emitted by `Edit`,
+  `Write` and one event naming no tool at all, so **a key including the emitting tool
+  splits it into three and fails the bar by construction**. The emitting tool is therefore
+  carried on the row and kept out of the key, and what keeps eight withheld capabilities
+  apart is that a refusal names its own subject. Two findings came out of building it.
+  **The bar named a denial that does not exist**: the assumption test asked for
+  `ost_check`, `ost_debt` and `ost_read_repo` kept apart, and `ost_read_repo` is never
+  denied in the corpus — it appears only as a missing-path error, so the third real denial
+  is `ost_status` and the test now holds all eight apart rather than three. **Dropping the
+  tool over-collapses exactly where a message is not a message**: the first run over the
+  whole corpus put its largest row at 582 `retry` events reading `{}`, five different tools
+  folded into one string, because a `retry` detail is serialised *input* and cannot name
+  its subject. A payload keys on its tool; printed text does not.
+
 - **A vault now carries its own tool server, so opening it is enough — and the feasibility
   answer came back yes for a mechanism the node had not named.** `init` writes `.mcp.json`
   at the vault root declaring the `ost-agent` server and binding it to `${CLAUDE_PROJECT_DIR}`;
