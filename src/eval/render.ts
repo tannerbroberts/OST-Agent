@@ -24,6 +24,7 @@ import type { PassContext } from "../processes/types.js";
 import { LAYERS, type OstNode } from "../ost/node.js";
 import { sightCensus } from "../ost/instrument.js";
 import { formatCensus, SUSPECT_SOURCE_RULE, type TreeCensus } from "../ost/census.js";
+import { formatDeclaredRuleset, type RulesetResolution } from "../ost/declared-ruleset.js";
 
 /**
  * How many items any one list in a rendered analysis may show.
@@ -412,11 +413,21 @@ function appendViolationsByRule(lines: string[], violations: readonly Violation[
   return hidden;
 }
 
-export function renderCheck(census: TreeCensus): { text: string; violations: number } {
+/**
+ * @param ruleset Which check ruleset this vault declared. Omitted, the report is
+ * against the latest — the same answer every caller got before the ruleset was
+ * versioned. Supplied, the version is printed ABOVE the verdict, because a clean
+ * `check` says nothing until a reader is told which standard produced it.
+ */
+export function renderCheck(census: TreeCensus, ruleset?: RulesetResolution): { text: string; violations: number } {
   const lines: string[] = [];
   const budget = newBudget();
   let hidden = 0;
-  const violations = checkInvariants(census.nodes, census.quarantined);
+  if (ruleset) {
+    lines.push(formatDeclaredRuleset(ruleset));
+    lines.push("");
+  }
+  const violations = checkInvariants(census.nodes, census.quarantined, { ruleset: ruleset?.version });
   if (violations.length === 0) {
     // "0 violations" over an unstated denominator is the shape of a check that
     // passed because it looked at nothing. State what was checked.

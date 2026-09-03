@@ -203,6 +203,19 @@ import {
   migrateAccounting,
 } from "../ost/accounting-reconstruction.js";
 import { formatWritingVersion } from "../ost/writing-version.js";
+import {
+  declareRuleset,
+  formatDeclaredRuleset,
+  previewAdoption,
+  readDeclaredRuleset,
+  resolveDeclaredRuleset,
+} from "../ost/declared-ruleset.js";
+import {
+  CHECK_RULESET_VERSIONS,
+  LATEST_CHECK_RULESET,
+  versionCost,
+  yearProjection,
+} from "../knowledge/check-ruleset.js";
 import { findRenameShapedBreaks } from "../git/rename-topology.js";
 import { liveRenameRepairs } from "../ost/rename-repair.js";
 import { readPendingAskQueue } from "../ost/pending-asks.js";
@@ -758,9 +771,111 @@ program
     census.independent = await reconcileWithGit(ctx.dir, census);
     census.unexplained = reconcileWithUsage(ctx.dir, census);
     recordCensusFiring(ctx.dir, "check", census, new Date().toISOString());
-    const { text, violations } = renderCheck(census);
+    const { text, violations } = renderCheck(census, resolveDeclaredRuleset(ctx.dir));
     console.log(text);
     if (violations > 0) process.exitCode = 1;
+  });
+
+/**
+ * `ruleset-version` — the third answer to "a rule change lands on finished work".
+ *
+ * `migrate` brings the tree across a tightening; this lets the operator decline
+ * one for now. They pin the version their tree is held to, `check` evaluates
+ * against it, and adopting a newer one is an act they take on a day they choose,
+ * having first been shown exactly what it will cost — which is what `--preview`
+ * prints and what the bare command offers when the tree is behind.
+ *
+ * Adoption is a human's, like every other decision in this product that changes
+ * what a gate means: `--adopt` needs a name on it, and no tool on the MCP surface
+ * can reach any of this.
+ */
+async function rulesetVersionCommand(
+  dir: string,
+  opts: { adopt?: string; preview?: boolean; list?: boolean; by?: string },
+): Promise<void> {
+  const resolution = resolveDeclaredRuleset(dir);
+
+  if (opts.list) {
+    console.log(`Check ruleset versions, oldest first (declared here: ${resolution.version}, latest: ${LATEST_CHECK_RULESET}):`);
+    for (const version of CHECK_RULESET_VERSIONS) {
+      const mark = version.id === resolution.version ? "→" : " ";
+      console.log(`${mark} ${version.id}  (${version.commit})  ${version.summary}`);
+      for (const change of version.changes) {
+        console.log(`      changed in place [${change.flag}]: ${change.rules.join(", ")} — this is the shape that costs a conditional`);
+      }
+    }
+    const projection = yearProjection();
+    console.log("");
+    console.log(
+      `${projection.boundariesObserved} boundary(ies) over the recorded span, of which ${projection.flagsObserved} changed a rule in place. ` +
+        `At that rate a year of tightenings stands at ${projection.conditionals.toFixed(2)} conditional(s) if none is ever retired.`,
+    );
+    return;
+  }
+
+  console.log(formatDeclaredRuleset(resolution));
+
+  if (opts.preview || (!opts.adopt && resolution.behind > 0)) {
+    const vault = new Vault(dir, { create: false });
+    const census = vault.readTreeCensus();
+    const preview = previewAdoption(census.nodes, census.quarantined, resolution.version, LATEST_CHECK_RULESET);
+    console.log("");
+    console.log(`Adopting ${LATEST_CHECK_RULESET} would cross ${preview.crossing.length} tightening(s):`);
+    for (const crossed of preview.crossing) console.log(`  ${crossed.id} — ${crossed.summary}`);
+    if (preview.rulesAdded.length > 0) console.log(`  rules coming into force: ${preview.rulesAdded.join(", ")}`);
+    if (preview.rulesRemoved.length > 0) console.log(`  rules ceasing to apply: ${preview.rulesRemoved.join(", ")}`);
+    console.log("");
+    if (preview.newlyFailing.length === 0) {
+      console.log("Nothing in this tree newly fails. Adoption is free here, today.");
+    } else {
+      console.log(`${preview.newlyFailing.length} node(s) would newly fail:`);
+      for (const violation of preview.newlyFailing) {
+        console.log(`  ✗ [${violation.rule}] ${violation.node ? `"${violation.node}": ` : ""}${violation.detail}`);
+      }
+    }
+    if (preview.noLongerFailing.length > 0) {
+      console.log(`  ${preview.noLongerFailing.length} violation(s) would stop firing.`);
+    }
+    if (!opts.adopt) {
+      console.log("");
+      console.log(`  take it with: ost-agent ruleset-version --adopt ${LATEST_CHECK_RULESET} -b "<you>"`);
+    }
+  }
+
+  if (!opts.adopt) return;
+
+  if (!opts.by) {
+    console.error('an adoption needs a name on it: pass -b "<who>"');
+    process.exitCode = 1;
+    return;
+  }
+  const before = workingTreeStatus(dir);
+  const state = declareRuleset(dir, { version: opts.adopt, by: opts.by, now: new Date().toISOString() });
+  console.log("");
+  console.log(`adopted ${state.current.version} by ${state.current.by} — every check here now runs against it`);
+  const cost = versionCost([state.current.version, LATEST_CHECK_RULESET]);
+  console.log(
+    `  holding this and the latest live costs ${cost.conditionals} conditional(s) in the checking code, ` +
+      `unchanged by how many rules the gap contains (${cost.rulesGatedByLineage.length} of them here)`,
+  );
+  reportFilingCommit(await commitFiling(dir, before, declaredRulesetFile(dir), "ruleset-version"), declaredRulesetFile(dir));
+}
+
+/** The declaration's path, for the commit report. */
+function declaredRulesetFile(dir: string): string {
+  return path.join(dir, ".ost-agent/state/ruleset-version.json");
+}
+
+program
+  .command("ruleset-version")
+  .description("show, preview or adopt the check ruleset version this tree is held to (adoption is a human's, and needs a name)")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option("--list", "list every recorded ruleset version and what moved at it")
+  .option("--preview", "list exactly what would newly fail if this tree adopted the latest")
+  .option("--adopt <id>", "move this tree onto that ruleset version")
+  .option("-b, --by <who>", "who is adopting it — an unattributed adoption cannot be told apart from a fabricated one")
+  .action(async (opts: { vault: string; list?: boolean; preview?: boolean; adopt?: string; by?: string }) => {
+    await rulesetVersionCommand(path.resolve(opts.vault), opts);
   });
 
 /**

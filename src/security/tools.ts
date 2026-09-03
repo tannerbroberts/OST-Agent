@@ -77,6 +77,7 @@ import { declaresHeading, RESULTS_HEADING } from "../ost/headings.js";
 import { checkCorroboration, namedNodes } from "../eval/corroboration.js";
 import { MEASUREMENT_RUNGS, rungRefusal, unearnedRung } from "../eval/rungs.js";
 import { reconcileWithGit, reconcileWithUsage } from "../ost/census.js";
+import { resolveDeclaredRuleset } from "../ost/declared-ruleset.js";
 import { loadCursor, saveCursor, type Actor, type EvidenceItem, type FetchResult } from "../adapters/source.js";
 import { claimsStoredEvidence, resolveClaimedSource, writeEvidence } from "../processes/tree.js";
 import { transcriptDirs } from "../runner/context.js";
@@ -2148,7 +2149,10 @@ export function buildOstTools(ctx: ToolContext, allowedNames?: readonly string[]
         const census = vault.readTreeCensus();
         census.independent = await reconcileWithGit(dir, census);
         census.unexplained = reconcileWithUsage(dir, census);
-        return renderCheck(census).text;
+        // The declared ruleset rides along, so a model reading a clean check is
+        // told which standard produced it. Read-only either way: nothing on this
+        // surface can move the version — adoption is a human's, on the CLI.
+        return renderCheck(census, resolveDeclaredRuleset(dir)).text;
       },
     }),
 

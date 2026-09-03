@@ -3221,7 +3221,29 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,354 tests across 379 files, verified 2026-09-02. **This batch is the
+> *Today:* **met** — 5,369 tests across 380 files, verified 2026-09-03. The file added is
+> `test/knowledge/versioned-rule-cost.test.ts`, the instrument for "Count how many existing
+> rules would need a conditional to support two live versions", beneath "The tree declares
+> which ruleset version it was built under, and checks run against that". A vault now pins
+> the check ruleset it is held to (`.ost-agent/state/ruleset-version.json`), `checkInvariants`
+> evaluates against it, and `ost-agent ruleset-version` shows, previews and adopts — the
+> preview computed by running the gate at both versions rather than by reasoning about the
+> lineage, so it cannot disagree with what it predicts (`src/knowledge/check-ruleset.ts`,
+> `src/ost/declared-ruleset.ts`). **The measurement came out green at both bars and the
+> margin at the second one is 0.75 of a conditional**, which is worth more than the verdict:
+> supporting the current rule set and its predecessor costs **2** conditionals against a bar
+> of 5, supporting all twelve recorded versions at once costs **3**, and the year projection
+> is **19.25** against a bar of 20. That projection is 2 in-place changes over a 40-day span
+> scaled to 365 — one more in-place tightening inside that window and it reads 27. Two things
+> the node did not say. **The number is not per rule, it is per parameter**: the 2026-08-31
+> quarantine boundary moved five rules' verdicts and costs one conditional, because that
+> change was already written as a parameter defaulting to `[]` — for callers, not for
+> versions, so the cheapness is an accident this measurement inherited rather than a property
+> of versioned rules. And **the rate that decides the answer is not the commit rate**: six of
+> the eighteen commits over the span moved no verdict at all, and counting commits would have
+> put the year at 100.
+>
+> Previously 5,354 tests across 379 files, verified 2026-09-02. **That batch is the
 > one where reading a wall-clock gate as contention turned out to be wrong**, and the
 > paragraphs below are the pattern it was wrongly filed under. `test/adapters/ingest-backpressure-provenance.test.ts`
 > had failed four full runs and cleared in isolation every time — the contention signature

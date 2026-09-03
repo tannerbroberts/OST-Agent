@@ -4,11 +4,31 @@
  * These have a truth value regardless of the model: a well-formed Opportunity
  * Solution Tree must satisfy all of them, always. Violations are hard failures.
  * This is the floor beneath the (non-deterministic) faithfulness judge.
+ *
+ * **Which standard "always" means is a version.** These rules have been
+ * tightened eleven times in forty days, and each tightening applied instantly to
+ * every tree that already existed. A vault declares the ruleset version it is
+ * held to ({@link ../ost/declared-ruleset.ts}) and `opts.ruleset` carries it
+ * here; {@link ../knowledge/check-ruleset.ts} is the history and the argument.
+ * Omit it and you get the latest, which is what every caller written before this
+ * existed gets and what an undeclared vault gets.
+ *
+ * There are exactly THREE places below that read that version, and the count is
+ * the point rather than an implementation detail — `versioned-rule-cost.test.ts`
+ * greps this file for them and fails if a fourth appears without being recorded
+ * as a boundary. Two are behavioural flags for the two rules whose verdict ever
+ * changed in place; the third is the single lineage filter at the bottom, which
+ * covers every rule that was ever added or removed.
  */
+import {
+  LATEST_CHECK_RULESET,
+  behaviourLiveIn,
+  rulesLiveIn,
+} from "../knowledge/check-ruleset.js";
 import { BELIEVABILITY_LADDER } from "../knowledge/believability.js";
 import { byTitle } from "../processes/tree.js";
 import { laneConflicts } from "../ost/lanes.js";
-import { wrappedLinkTargets, type OstNode } from "../ost/node.js";
+import { wrappedLinkTargets, type Layer, type OstNode } from "../ost/node.js";
 import { prerequisiteCycles, unknownPrerequisites } from "../ost/prerequisites.js";
 import { quarantinedParents, quarantinedTitles, type QuarantinedNode } from "../ost/quarantine.js";
 import { unearnedRungs } from "./rungs.js";
@@ -27,13 +47,45 @@ export interface Violation {
  * dangling, and a node hanging BENEATH one is quarantined-parent rather than an
  * orphan. Defaults to none, so every caller that has no census behaves exactly
  * as it did.
+ * @param opts.ruleset The check ruleset version this tree declared. Defaults to
+ * the latest, so a caller that knows nothing about versions gets today's
+ * standard — the direction that does not quietly stop checking things.
  */
-export function checkInvariants(tree: OstNode[], quarantined: readonly QuarantinedNode[] = []): Violation[] {
+export function checkInvariants(
+  tree: OstNode[],
+  quarantined: readonly QuarantinedNode[] = [],
+  opts: { ruleset?: string } = {},
+): Violation[] {
+  const ruleset = opts.ruleset ?? LATEST_CHECK_RULESET;
   const v: Violation[] = [];
   const index = byTitle(tree);
   const outcomes = tree.filter((n) => n.layer === "Outcome");
-  const quarantinedTitle = quarantinedTitles(quarantined);
-  const heldBy = quarantinedParents(quarantined);
+
+  /*
+   * Version conditional 1 of 3 — `quarantine-tolerance` (2026-08-31).
+   *
+   * Five rules changed verdict at that boundary and this is the only branch any
+   * of them needs, because the change was already written as a parameter whose
+   * default of `[]` reproduces the older behaviour exactly. Reproducing a
+   * pre-quarantine `check` is therefore a decision about what to pass, taken
+   * once, and not a branch inside `dangling-link`, `opportunity-connected`,
+   * `solution-mapped`, `assumption-mapped` and `test-mapped` separately.
+   */
+  const seen = behaviourLiveIn("quarantine-tolerance", ruleset) ? quarantined : [];
+
+  /*
+   * Version conditional 2 of 3 — `assumption-layer` (2026-08-05).
+   *
+   * The one rule id in this file's whole history that survived a change of
+   * meaning: before the Assumption layer, `assumption-mapped` named an
+   * AssumptionTest under no Solution; after it, an Assumption under no Solution.
+   * The lineage filter cannot express that — the id is live on both sides — so
+   * this is the branch that shape costs.
+   */
+  const assumptionMappedLayer: Layer = behaviourLiveIn("assumption-layer", ruleset) ? "Assumption" : "AssumptionTest";
+
+  const quarantinedTitle = quarantinedTitles(seen);
+  const heldBy = quarantinedParents(seen);
 
   // exactly one root outcome (its mandate lives in the body; identity is the node itself)
   if (outcomes.length !== 1) {
@@ -97,7 +149,7 @@ export function checkInvariants(tree: OstNode[], quarantined: readonly Quarantin
   }
 
   // every Opportunity is reachable from the outcome through Outcome/Opportunity edges
-  const reachable = reachableOpportunities(tree, index, quarantined);
+  const reachable = reachableOpportunities(tree, index, seen);
   for (const n of tree) {
     if (n.layer === "Opportunity" && !reachable.has(n.title)) {
       v.push({ rule: "opportunity-connected", node: n.title, detail: "not connected to the outcome (directly or via a parent opportunity)" });
@@ -151,9 +203,11 @@ export function checkInvariants(tree: OstNode[], quarantined: readonly Quarantin
     }
   }
 
-  // every Assumption sits under at least one Solution
+  // every Assumption sits under at least one Solution — or, under a ruleset
+  // predating the Assumption layer, every AssumptionTest does (see
+  // `assumptionMappedLayer` above; that is the same rule id meaning two things)
   for (const n of tree) {
-    if (n.layer === "Assumption" && !heldByQuarantine(n.title)) {
+    if (n.layer === assumptionMappedLayer && !heldByQuarantine(n.title)) {
       const parents = parentsOf.get(n.title) ?? [];
       if (!parents.some((p) => p.layer === "Solution"))
         v.push({ rule: "assumption-mapped", node: n.title, detail: "not linked under any Solution" });
@@ -335,7 +389,23 @@ export function checkInvariants(tree: OstNode[], quarantined: readonly Quarantin
     }
   }
 
-  return v;
+  /*
+   * Version conditional 3 of 3 — the lineage filter.
+   *
+   * ONE branch covering every rule that was ever added or removed: ten of the
+   * eleven recorded boundaries are that shape, and none of them costs a line in
+   * this file. A rule that was not yet live under the declared ruleset is
+   * computed and then dropped rather than skipped, which costs a little work on
+   * a tree nobody is checking that rule against and buys the property this whole
+   * scheme rests on — that adding a rule is a lineage entry and never a
+   * conditional, so the eleventh tightening costs what the first one did.
+   *
+   * A rule this file can emit that the lineage never records would be filtered
+   * out of every version at once, which is why the instrument asserts the two
+   * sets are equal rather than trusting them to be.
+   */
+  const live = rulesLiveIn(ruleset);
+  return v.filter((violation) => live.has(violation.rule));
 }
 
 /**
