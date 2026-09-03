@@ -14,6 +14,7 @@ import { initVault } from "../../src/runner/init.js";
 import { buildPassContext } from "../../src/runner/context.js";
 import { createLazyOstMcpServer, MCP_TOOL_NAMES } from "../../src/mcp/server.js";
 import { renderCheck, renderDebt, renderGate, renderStatus } from "../../src/eval/render.js";
+import { resolveDeclaredRuleset } from "../../src/ost/declared-ruleset.js";
 
 let dir: string;
 beforeEach(async () => {
@@ -62,7 +63,12 @@ test("ost_check returns exactly what the renderer returns", async () => {
   const client = await connect(dir);
   const res = await call(client, "ost_check");
   expect(res.isError).toBeFalsy();
-  expect(res.content[0].text).toBe(renderCheck(buildPassContext(dir).vault.readTreeCensus()).text);
+  // The declared ruleset is part of what the tool renders, so it is part of what
+  // the renderer is asked for here. The property is unchanged: the tool adds no
+  // wording of its own to the analysis it hands back.
+  expect(res.content[0].text).toBe(
+    renderCheck(buildPassContext(dir).vault.readTreeCensus(), resolveDeclaredRuleset(dir)).text,
+  );
 });
 
 test("ost_debt returns exactly what the renderer returns", async () => {

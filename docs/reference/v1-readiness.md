@@ -3221,14 +3221,53 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,317 tests across 378 files, verified 2026-09-02. This batch's own run
-> took **353 s** and came back green on everything except `test/loop/work-source-census.test.ts`,
-> which missed the same 10 s `fs.watch` deadline already recorded below and passes alone in
-> **3.1 s**. That is the fourth run in which that file is a contention victim and the fourth in
-> which it clears in isolation with two orders of magnitude of headroom; it has never once been
-> a defect, and this batch touches nothing it watches. A second full run of the same tree
-> settled it rather than leaving it asserted: **5,317 in 595 s, fully green**, that file
-> included. The batch before it is another instance
+> *Today:* **met** — 5,369 tests across 380 files, verified 2026-09-03. The file added is
+> `test/knowledge/versioned-rule-cost.test.ts`, the instrument for "Count how many existing
+> rules would need a conditional to support two live versions", beneath "The tree declares
+> which ruleset version it was built under, and checks run against that". A vault now pins
+> the check ruleset it is held to (`.ost-agent/state/ruleset-version.json`), `checkInvariants`
+> evaluates against it, and `ost-agent ruleset-version` shows, previews and adopts — the
+> preview computed by running the gate at both versions rather than by reasoning about the
+> lineage, so it cannot disagree with what it predicts (`src/knowledge/check-ruleset.ts`,
+> `src/ost/declared-ruleset.ts`). **The measurement came out green at both bars and the
+> margin at the second one is 0.75 of a conditional**, which is worth more than the verdict:
+> supporting the current rule set and its predecessor costs **2** conditionals against a bar
+> of 5, supporting all twelve recorded versions at once costs **3**, and the year projection
+> is **19.25** against a bar of 20. That projection is 2 in-place changes over a 40-day span
+> scaled to 365 — one more in-place tightening inside that window and it reads 27. Two things
+> the node did not say. **The number is not per rule, it is per parameter**: the 2026-08-31
+> quarantine boundary moved five rules' verdicts and costs one conditional, because that
+> change was already written as a parameter defaulting to `[]` — for callers, not for
+> versions, so the cheapness is an accident this measurement inherited rather than a property
+> of versioned rules. And **the rate that decides the answer is not the commit rate**: six of
+> the eighteen commits over the span moved no verdict at all, and counting commits would have
+> put the year at 100.
+>
+> Previously 5,354 tests across 379 files, verified 2026-09-02. **That batch is the
+> one where reading a wall-clock gate as contention turned out to be wrong**, and the
+> paragraphs below are the pattern it was wrongly filed under. `test/adapters/ingest-backpressure-provenance.test.ts`
+> had failed four full runs and cleared in isolation every time — the contention signature
+> exactly. Its own header records **3.7 s** isolated for the 2,380-item burst; the isolated
+> number measured here was **9.7 s**. The gate was right and the reading was wrong. Of those
+> 9.7 s, `git commit` was **5.0 s** against a raw `git commit --no-verify` of **61 ms** on the
+> same repository, and inside the pre-commit conflict-marker hook it was not the `git grep`
+> (**175 ms** with all 2,380 pathspecs in one invocation) but the loop assembling them:
+> `for f in $files; do set -- "$@" "$f"; done` rebuilds the whole positional-parameter list
+> every iteration and takes **4.0 s** at that file count. `set -- $files` produces the
+> identical list in **6 ms**. Fixed in `src/git/conflict-guard.ts`; the burst commit goes
+> 5,015 ms → 285 ms and the whole ingest 9,718 ms → **2,963 ms**, back under the number the
+> criterion recorded. The earlier fix in that module was verified by *process count* and never
+> by wall clock, which is how a quadratic loop introduced to feed the new one-shot `git grep`
+> went unmeasured.
+>
+> The one gate still missing on a full run is `test/telemetry/work-units-vs-elapsed.test.ts`,
+> and that one *is* contention, checked rather than assumed: it passes **3 of 3** alone at
+> 13.7–14.5 s, its timed section is `computeNextWork` with no commit in it, and nothing this
+> batch changed is on that path. What moves is the ratio at the *small* end — the smallest
+> vault's elapsed time is a few milliseconds, so a millisecond of scheduler noise swings
+> ms/work-unit and with it the 4× spread bound (observed 4.63 under load, ratios
+> 0.0733–0.3394). This batch's run: **5,354 in 556 s**, that file the only wall-clock miss.
+> The batch before it is another instance
 > of the same load pattern rather than a counter-example to it: that suite
 > took **1,018 s** and missed two wall-clock bounds — the real-`tsc` check in
 > `test/loop/inherited-tree-build-check.test.ts` at **39.7 s** against its 30 s bound, and

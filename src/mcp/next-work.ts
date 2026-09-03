@@ -29,6 +29,7 @@ import {
   type MirrorRead,
 } from "../adapters/mirror.js";
 import { checkInvariants } from "../eval/invariants.js";
+import { resolveDeclaredRuleset } from "../ost/declared-ruleset.js";
 import { scanNearDuplicates } from "../ost/dedupe.js";
 import { EXTENT_RULES, scanExtentOverlap } from "../ost/extent.js";
 import {
@@ -818,6 +819,12 @@ function detectHygiene(
    * that no reader can turn into a node.
    */
   quarantined: readonly QuarantinedNode[] = [],
+  /**
+   * The check ruleset version this vault declared. `done` and `check` have to
+   * read the same standard or they disagree permanently — the thing R4 exists to
+   * prevent — so the declared version travels to both gates or to neither.
+   */
+  ruleset?: string,
 ): { issues: HygieneIssue[]; total: number; excluded: number } {
   const index = byTitle(tree);
 
@@ -863,7 +870,7 @@ function detectHygiene(
   // that names no node of its own gets attached — an issue with no node is an
   // issue no one can annotate, and therefore a wedge.
   const outcome = tree.find((n) => n.layer === "Outcome")?.title;
-  for (const v of checkInvariants(tree, quarantined)) {
+  for (const v of checkInvariants(tree, quarantined, { ruleset })) {
     if (v.rule in NOT_DONE_BLOCKING) continue;
     const title = v.node ?? outcome;
     if (!title) continue; // nothing to hang it on; the parity test is what keeps this unreachable
@@ -1540,6 +1547,7 @@ export function computeNextWork(
     standing,
     inScope,
     census.quarantined,
+    resolveDeclaredRuleset(dir).version,
   );
   if (hygiene.excluded) scopeExcluded.push({ list: "hygieneIssues", count: hygiene.excluded });
 

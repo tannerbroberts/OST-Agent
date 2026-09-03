@@ -3,8 +3,8 @@
   "version": "0.23.0",
   "artifact": {
     "path": "dist/ost-agent.mjs",
-    "bytes": 2902194,
-    "sha256": "da3934eb7504f07c8fe6ce279365852a1837ba8e89f1a42fe182537737cb8d76"
+    "bytes": 2917265,
+    "sha256": "0f402c9fe81d2cf3c07edebcd372f35d79406d5a376235974cbd0ea37625d3bb"
   },
   "capabilities": [
     {
@@ -389,6 +389,11 @@
     },
     {
       "name": "routing-record",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "ruleset-version",
       "surface": "cli-command",
       "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
     },
