@@ -3221,8 +3221,34 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,327 tests across 379 files, verified 2026-09-03: **fully green in 392 s**,
-> `npx tsc --noEmit` exit 0. The three suite times this batch recorded on one machine are
+> *Today:* **met** — 5,341 tests across 380 files, verified 2026-09-03: **green in 380 s**,
+> `npx tsc --noEmit` exit 0. The file added is
+> `test/telemetry/gate-signal-density.test.ts`, the instrument for "Count how buried each of
+> the three firings was before assuming the wording was at fault", beneath "Three gates fired
+> correctly in one session and every one of them read as noise first".
+>
+> **The `fs.watch` assertion fixed in the batch below fired again, and this time the
+> mechanism was measured rather than named.** `test/loop/work-source-census.test.ts > a real
+> watcher, on the real path a human's write takes` failed on the first full-suite run of this
+> batch — ten results recorded into a watched directory over ten seconds, and `fs.watch`
+> delivered nothing — then passed on the second run and on three runs of the file alone. The
+> entry below hardened that test from one write to ten against a delivery loss rate it
+> measured at **3 of 30 (10%) on an idle machine**, and that figure is the thing to compare
+> against. A standalone probe repeating that measurement on this machine today — the same
+> stage-and-rename write into a freshly watched directory, two-second window, thirty trials —
+> got **5 of 30 (17%) with a median delivery latency of 994 ms** quiet, and **17 of 30 (57%),
+> median 1,201 ms**, with the full suite running beside it. The mechanism behind the
+> difference is a named process, not a load average: `fseventsd`, the daemon that delivers
+> every `fs.watch` event on Darwin, has been pinned at **~100% of a core across this
+> machine's 46-day uptime** and stayed there before, during and after the suite. So the
+> hardening's margin was sized against 10% and is being asked to survive 57% in correlated
+> bursts, which is what ten consecutive misses is. **This test now measures `fseventsd`'s
+> health as much as it measures the affordance**, and the drift is in a machine property no
+> amount of writing more results can pin down. Recording it here rather than as contention,
+> because "the box was busy" is the reading this document has twice had to withdraw.
+>
+> Previously 5,327 tests across 379 files, verified 2026-09-03: **fully green in 392 s**,
+> `npx tsc --noEmit` exit 0. The three suite times that batch recorded on one machine are
 > themselves the finding below — **762 s** with four failures, **537 s** with one after the
 > leaked spinners were killed, **392 s** and green after the `fs.watch` assertion was fixed. The
 > file added is
