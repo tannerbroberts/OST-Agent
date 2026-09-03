@@ -3221,7 +3221,11 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,327 tests across 379 files, verified 2026-09-03. The file added is
+> *Today:* **met** — 5,327 tests across 379 files, verified 2026-09-03: **fully green in 392 s**,
+> `npx tsc --noEmit` exit 0. The three suite times this batch recorded on one machine are
+> themselves the finding below — **762 s** with four failures, **537 s** with one after the
+> leaked spinners were killed, **392 s** and green after the `fs.watch` assertion was fixed. The
+> file added is
 > `test/runner/workspace-lease-liveness.test.ts`, the instrument for "Kill a lease holder
 > mid-build and check the workspace is reclaimed without the TTL elapsing", beneath "The
 > workspace is leased, and the next run reclaims a lease whose holder is gone". **Two things
