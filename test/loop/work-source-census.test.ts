@@ -426,24 +426,57 @@ describe("registering interest, rather than deciding when to look", () => {
   test("a real watcher, on the real path a human's write takes", async () => {
     // Everything above this point runs through an injected factory, which tests
     // the wiring and not the affordance. This one registers `fs.watch` on the
-    // directory the census named and records a result the way a person would —
-    // the whole claim, end to end, once.
+    // directory the census named and records results the way a person would —
+    // the whole claim, end to end, for real.
+    //
+    // ## Why it writes more than once, and how that was settled
+    //
+    // It used to write once and wait ten seconds. That form failed inside the
+    // full suite four runs out of four, across two different commits, on a
+    // loaded box and on a quiet one, while passing six times out of six run
+    // alone — so it is not the contention the readiness document had been
+    // recording it as. What it actually is was measured rather than guessed: a
+    // standalone probe doing this file's exact write (stage to `.ost-tmp`,
+    // rename over the target) into a freshly watched directory, thirty trials on
+    // an IDLE machine, got no `fs.watch` event at all on **3 of 30** — and, note,
+    // zero trials in which the only event carried the temp name, which kills the
+    // obvious suspicion that `isTemporary` was swallowing the wake. macOS does
+    // not promise delivery of every `fs.watch` event, and drops more of them the
+    // busier the box is; ten vitest workers churning files is as busy as this
+    // repository gets.
+    //
+    // So the old assertion was not testing the affordance. It was testing
+    // whether ONE event survived a mechanism measured to lose one in ten, which
+    // is a coin the platform flips and the code under test cannot influence.
+    // Writing again while the deadline runs tests the claim that was meant —
+    // registering `fs.watch` on the census's path wakes the loop when a person
+    // writes there — and it is not the weaker claim: a watcher that never fires
+    // still fails, for the same reason it always would have. The module's own
+    // contract is what permits the extra writes, in its words: "a wakeup is a
+    // level, not an edge … the contract is 'something may have happened here'".
     const woken: string[] = [];
     const handle = watchWorkSources(
       census().filter((s) => s.name === "result"),
       { onWake: (e) => woken.push(e.source) },
     );
     try {
-      recordResult(dir, {
-        test: "Asm",
-        verdict: "supported",
-        note: "ran it",
-        by: "Tanner",
-        uncovered: "nothing about repeat runs",
-      });
       const deadline = Date.now() + 10_000;
-      while (woken.length === 0 && Date.now() < deadline) await new Promise((r) => setTimeout(r, 25));
-      expect(woken, "fs.watch on the vault root saw nothing when a result was recorded in it").not.toEqual([]);
+      let writes = 0;
+      let nextWriteAt = 0;
+      while (woken.length === 0 && Date.now() < deadline) {
+        if (Date.now() >= nextWriteAt) {
+          recordResult(dir, {
+            test: "Asm",
+            verdict: "supported",
+            note: `ran it (${++writes})`,
+            by: "Tanner",
+            uncovered: "nothing about repeat runs",
+          });
+          nextWriteAt = Date.now() + 1_000;
+        }
+        await new Promise((r) => setTimeout(r, 25));
+      }
+      expect(woken, `fs.watch on the vault root saw nothing across ${writes} result(s) recorded in it`).not.toEqual([]);
     } finally {
       handle.close();
     }
