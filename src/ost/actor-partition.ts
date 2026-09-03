@@ -166,6 +166,9 @@ export const OUT_OF_REACH_LISTS: readonly string[] = Object.freeze(["agedOutEvid
 /** `NextWork` fields that are disclosure rather than outstanding work. */
 export const NOT_PARTITIONED_LISTS: readonly string[] = Object.freeze([
   "emptyDescents",
+  // Every lopsided category is already a row under `underservedOpportunities`;
+  // this list is the reason it is there, not a second piece of work.
+  "lopsidedCategories",
   "retiredFromDuplicateScan",
   "withheldByDisposition",
   "suppressedByCondition",

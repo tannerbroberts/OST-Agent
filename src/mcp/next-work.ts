@@ -14,8 +14,8 @@ import {
   childrenOfLayer,
   claimsStoredEvidence,
   leafOpportunitiesBeneath,
-  opportunitiesServedBeneath,
   readEvidence,
+  solutionsBeneath,
   testsUnderSolution,
   type EvidenceRecord,
 } from "../processes/tree.js";
@@ -200,6 +200,32 @@ export interface EmptyDescent {
    * redirected to instead of listed here.
    */
   leaves: string[];
+}
+/**
+ * A category with solutions in its subtree and a majority of its leaves
+ * carrying none — kept on the under-served list for its distribution rather
+ * than for its total.
+ *
+ * This is the rolled-up count's own falsifier, made reportable. Counting a
+ * subtree asserts that what sits beneath a heading addresses the heading, and
+ * the case where that is false looks identical in the total: 45 solutions under
+ * one child of five reads as amply served while four fifths of the need has
+ * nothing. Exempting on the total alone would not remove the miscount the
+ * direct count made, it would invert it — and the inverted form is the worse of
+ * the two, because a heading listed once too often is a diagnostic and a heading
+ * silenced is a gap nobody sees again.
+ *
+ * The numbers are here rather than only in the summary so a reader can tell this
+ * apart from a heading that is simply empty: `empty` of `leaves` is the whole
+ * finding, and it says the work wants spreading rather than starting.
+ */
+export interface LopsidedCategory {
+  /** The heading whose subtree total is carried by a minority of its leaves. */
+  category: string;
+  /** How many leaf opportunities sit beneath it. Never capped. */
+  leaves: number;
+  /** How many of those carry no solution at all. Always a strict majority of `leaves`. */
+  empty: number;
 }
 export interface BareSolution {
   title: string;
@@ -524,10 +550,11 @@ export interface NextWork {
    * Never a category: a heading short of DIRECT solutions is descended to its
    * leaves and they are reported in its place (each carrying
    * {@link UnderservedOpportunity.redirectedFrom}), so every entry here is a
-   * node where "ideate three solutions" is a valid instruction. The one
-   * exception is the exemption's guard — a heading with nothing at all beneath
-   * it stays listed, because a descent into an empty subtree has no leaf to
-   * offer and the gap is real.
+   * node where "ideate three solutions" is a valid instruction. The exceptions
+   * are the exemption's two guards — a heading with nothing at all beneath it
+   * stays listed, because a descent into an empty subtree has no leaf to offer
+   * and the gap is real, and so does a heading whose subtree total is carried by
+   * a minority of its leaves (see {@link LopsidedCategory}).
    */
   underservedOpportunities: UnderservedOpportunity[];
   /**
@@ -535,6 +562,12 @@ export interface NextWork {
    * only and never part of `done` — see {@link EmptyDescent}. May be capped.
    */
   emptyDescents: EmptyDescent[];
+  /**
+   * The categories the rolled-up count called served and the distribution
+   * called thin — see {@link LopsidedCategory}. Every one of them is also in
+   * `underservedOpportunities` above; this list is why. May be capped.
+   */
+  lopsidedCategories: LopsidedCategory[];
   /** P4 — solutions with no assumption test surfaced yet. May be capped. */
   solutionsMissingAssumptions: BareSolution[];
   /**
@@ -1371,25 +1404,70 @@ export function computeNextWork(
    * pass to ideate under it, which is the one place a solution does not belong.
    *
    * So an Opportunity that files sub-opportunities is exempt — but only while
-   * something is actually beneath it. The bare structural rule ("has children ⇒
-   * is a category ⇒ never reported") silences a heading whose whole subtree is
-   * empty, and an empty subtree is exactly the gap this list exists to find.
-   * `opportunitiesServedBeneath` is that guard and the whole of it: it asks
-   * whether the subtree is empty, never how full it is, so no threshold is
-   * decided here beyond the `min` the caller already set.
+   * something is actually beneath it, and only while what is beneath it is
+   * spread across the branch rather than piled in one corner of it. Two guards,
+   * and the count that decides both rolls up (`solutionsBeneath`), so the queue
+   * and the rollup printed at the head of the pass read the same tree.
    *
-   * The exemption is counted and named in the summary. A heading that goes
-   * quiet without saying so is indistinguishable from a tree that got better.
+   * **Why the first guard's bar is "nothing at all" and not `min`.** Rolling the
+   * total up and exempting on `total >= min` is what the solution node asked
+   * for, and it cannot be had here: it would list every heading whose whole
+   * subtree holds one or two solutions, and a listed heading is an instruction
+   * to ideate under a category, which is the one place a solution may not hang
+   * (`test/ost/next-work-leaf-redirect.test.ts`). The descent already serves
+   * that shape properly — the short leaves beneath are listed and carry the
+   * heading on `redirectedFrom`. So the total's job here is the second guard,
+   * not the first.
+   *
+   * **The second guard is what rolling up actually bought.** A subtree total
+   * asserts something the direct count never did: that what sits beneath a
+   * heading addresses the heading. `isLopsided` checks that rather than assuming
+   * it — a total carried by a minority of the leaves exempts nothing, because a
+   * heading whose coverage is concentrated in one branch is thin in every
+   * reading but the sum, and the old boolean called exactly that case served.
+   *
+   * Both outcomes are counted and named in the summary. A heading that goes
+   * quiet without saying so is indistinguishable from a tree that got better,
+   * and a heading kept on the list for its distribution rather than its total
+   * is a different instruction from one that is simply empty.
    *
    * What the exemption does NOT do is say where the work went, and that is what
    * the descent below adds: every short category is walked down to its leaves,
    * the under-served ones among them are the entries the queue reports in its
    * place, and a descent that comes back empty is named rather than dropped.
    */
-  const servedBeneath = opportunitiesServedBeneath(tree, index);
+  const rolledUpSolutions = solutionsBeneath(tree, index);
+  const leavesBeneath = leafOpportunitiesBeneath(tree, index);
   const exemptCategories: string[] = [];
   /** Every short category, exempt or not — the set the descent below walks. */
   const shortCategories: string[] = [];
+  /** Categories the rolled-up total called served and the distribution called thin. */
+  const allLopsidedCategories: LopsidedCategory[] = [];
+
+  /**
+   * Whether a category's subtree total is carried by a minority of its leaves.
+   *
+   * The rolled-up count asserts that what sits beneath a heading addresses the
+   * heading. That is usually true and it is exactly what fails here: 45
+   * solutions under one sub-opportunity, four siblings with nothing, and a
+   * total that reads as fifteen times served. Counting alone inverts the
+   * miscount rather than removing it, and the inverted form is worse because
+   * nothing says it happened — so the distribution is read as well as the sum.
+   *
+   * A strict majority, so an even split does not trip it: the rule is meant to
+   * catch a heading whose coverage is concentrated, not one that is merely
+   * uneven. A category whose leaves are all served is never lopsided however
+   * unevenly the solutions are spread among them, because there is no leaf left
+   * with nothing to point at.
+   */
+  const isLopsided = (title: string): { leaves: number; empty: number } | null => {
+    const leaves = [...(leavesBeneath.get(title) ?? [])];
+    // No leaf beneath a node with opportunity children means a cycle, and a
+    // cycle's leaf set is not a meaningful answer (see `leafOpportunitiesBeneath`).
+    if (leaves.length === 0) return null;
+    const empty = leaves.filter((t) => (rolledUpSolutions.get(t) ?? 0) === 0);
+    return empty.length * 2 > leaves.length ? { leaves: leaves.length, empty: empty.length } : null;
+  };
 
   const allUnderservedOpportunities: UnderservedOpportunity[] = omitDisposed(
     tree
@@ -1430,7 +1508,18 @@ export function computeNextWork(
       .filter(({ node }) => {
         const isCategory = childrenOfLayer(node, index, "Opportunity").length > 0;
         if (isCategory) shortCategories.push(node.title);
-        if (!isCategory || !servedBeneath.has(node.title)) return true;
+        if (!isCategory) return true;
+        // The first guard, unchanged in its bar and now read off the rolled-up
+        // total: an empty subtree is the gap this list exists to find, and the
+        // descent has no leaf to offer in its place. The bar stays at "nothing
+        // at all" rather than moving to `min` — see the note above for why the
+        // node that asked for `min` here does not get it.
+        if ((rolledUpSolutions.get(node.title) ?? 0) === 0) return true;
+        const lopsided = isLopsided(node.title);
+        if (lopsided) {
+          allLopsidedCategories.push({ category: node.title, ...lopsided });
+          return true;
+        }
         exemptCategories.push(node.title);
         return false;
       })
@@ -1472,7 +1561,7 @@ export function computeNextWork(
    * which is precisely the false negative the cheaper sibling was criticised for.
    * `emptyDescents` is the difference between the two, and the whole of it.
    */
-  const leavesBeneath = leafOpportunitiesBeneath(tree, index);
+  // `leavesBeneath` is computed once above, where the lopsidedness guard reads it.
   const offeredTitles = new Set(scopedUnderserved.map((o) => o.title));
   const redirectedFrom = new Map<string, string[]>();
   const allEmptyDescents: EmptyDescent[] = [];
@@ -1634,6 +1723,7 @@ export function computeNextWork(
   const unmappedEvidence = capList(scopedUnmappedEvidence, "unmappedEvidence", truncated, listLimit);
   const underservedOpportunities = capList(annotatedUnderserved, "underservedOpportunities", truncated, listLimit);
   const emptyDescents = capList(allEmptyDescents, "emptyDescents", truncated, listLimit);
+  const lopsidedCategories = capList(allLopsidedCategories, "lopsidedCategories", truncated, listLimit);
   const solutionsMissingAssumptions = capList(scopedMissingAssumptions, "solutionsMissingAssumptions", truncated, listLimit);
   const allSolutionsMissingInstruments = excludeByScope(
     omitSuppressed(
@@ -1777,9 +1867,22 @@ export function computeNextWork(
   // list here — five is enough to recognise the shape without putting a thousand
   // headings into one string (Z2).
   const exemptionNote = exemptCategories.length
-    ? ` ${exemptCategories.length} category opportunity(ies) were exempt from the under-served check — they file sub-opportunities and solutions already hang beneath them: ` +
+    ? ` ${exemptCategories.length} category opportunity(ies) were exempt from the under-served check — they file sub-opportunities and solutions roll up from beneath them onto a majority of their leaves: ` +
       `${exemptCategories.slice(0, MAX_LISTED_CHILDREN).join(", ")}${exemptCategories.length > MAX_LISTED_CHILDREN ? ", …" : ""}. ` +
       "A category whose subtree holds no solution at all is NOT exempt and is still listed above."
+    : "";
+  // The rolled-up total's own falsifier, said out loud. Without this sentence a
+  // lopsided heading is indistinguishable from an empty one in the list above,
+  // and the two want opposite work: one wants the branch started, this one wants
+  // the coverage spread across the leaves that have none.
+  const lopsidedNote = allLopsidedCategories.length
+    ? ` ${allLopsidedCategories.length} category opportunity(ies) carry solutions in their subtree and were listed anyway, because a majority of their leaves carry none: ` +
+      `${allLopsidedCategories
+        .slice(0, MAX_LISTED_CHILDREN)
+        .map((c) => `${c.category} (${c.empty} of ${c.leaves} leaf/leaves empty)`)
+        .join("; ")}${allLopsidedCategories.length > MAX_LISTED_CHILDREN ? ", …" : ""}. ` +
+      "The total is not the finding: the subtree is served in one branch and empty in the rest, so the work is under " +
+      "the empty leaves rather than under the heading."
     : "";
   // Where the work a quiet heading was carrying actually went, and the case where
   // there was none to go anywhere. The exemption note above says a category was
@@ -1925,9 +2028,9 @@ export function computeNextWork(
     quarantineNote +
     (done
       ? scopedOpenUnknowns.length
-        ? `${doneLead} ${scopedOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${descentNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}`
-        : `${doneLead}${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${descentNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}`
-      : `${outstandingLead} ${parts.join("; ")}.${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${descentNote}${scopeNote}${truncationNote}${excerptNote}${staleNote}${retirementNote}${agedOutNote}`);
+        ? `${doneLead} ${scopedOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${lopsidedNote}${descentNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}`
+        : `${doneLead}${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${lopsidedNote}${descentNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}`
+      : `${outstandingLead} ${parts.join("; ")}.${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${lopsidedNote}${descentNote}${scopeNote}${truncationNote}${excerptNote}${staleNote}${retirementNote}${agedOutNote}`);
 
   return {
     framing: DATA_FRAME,
@@ -1938,6 +2041,7 @@ export function computeNextWork(
     agedOutEvidence,
     underservedOpportunities,
     emptyDescents,
+    lopsidedCategories,
     solutionsMissingAssumptions,
     solutionsMissingInstruments: solutionsMissingInstrumentsList,
     solutionsAwaitingObservation: solutionsAwaitingObservationList,

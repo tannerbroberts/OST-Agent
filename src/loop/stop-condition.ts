@@ -282,6 +282,16 @@ export const OUTSTANDING_NOT_ACTIONABLE: readonly NotActionable[] = [
     count: (w) => trueTotal(w, "emptyDescents", w.emptyDescents.length),
   },
   {
+    field: "lopsidedCategories",
+    why:
+      "the reason a heading is on the under-served list, not a second thing to do about it. Every entry here is " +
+      "already counted once under `underservedOpportunities`, and the work it points at — the empty leaves beneath " +
+      "the heading — is counted there too, so a term reading this list would count the same gap twice and hold the " +
+      "loop open on arithmetic rather than on anything outstanding. Reported on every response because a heading " +
+      "kept for its distribution and one kept for being empty want opposite work and read identically without it.",
+    count: (w) => trueTotal(w, "lopsidedCategories", w.lopsidedCategories.length),
+  },
+  {
     field: "retiredFromDuplicateScan",
     why:
       "not work at all: nodes withheld from the duplicate scan because they are retired, reported so a denominator " +

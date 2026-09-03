@@ -406,6 +406,64 @@ export function opportunitiesServedBeneath(tree: readonly OstNode[], index: Map<
 }
 
 /**
+ * Every Opportunity mapped to HOW MANY distinct Solutions sit in its subtree —
+ * its own solution children included, and its sub-opportunities' too.
+ *
+ * **Why a count when {@link opportunitiesServedBeneath} already answers the
+ * boolean.** "Is anything beneath this heading" and "is enough beneath it" are
+ * different questions and the exemption needs the second one. A heading holding
+ * one solution under a five-child subtree is served by the boolean and thin by
+ * every reading a person would give it, and the boolean can never say so.
+ *
+ * **Distinct, not summed.** A solution reachable from two sub-opportunities is
+ * one solution, and summing child counts would report it twice — which is the
+ * one direction of error this must not make, because an over-count silences a
+ * heading. So the memo carries the titles and the parent unions them.
+ *
+ * **Memoised for the same reason {@link leafOpportunitiesBeneath} is** — the
+ * caller asks this of every Opportunity in the tree and a fresh subtree walk
+ * each time is quadratic on the 10,000-node shape
+ * `test/mcp/wall-clock-budget.test.ts` pins.
+ *
+ * **A cycle contributes nothing**, exactly as in the boolean: a back edge
+ * returns the empty set, so a node on a cycle can only ever be UNDER-counted.
+ * Under-counting keeps a heading on the under-served list, which is the safe
+ * direction — the failure worth guarding against is a gap that goes quiet.
+ *
+ * Descent is through Opportunity edges only, because a Solution's own children
+ * are Assumptions rather than more solutions. That is the one place this can
+ * differ from `rollup`'s bucket figure, which follows every edge downward.
+ */
+export function solutionsBeneath(tree: readonly OstNode[], index: Map<string, OstNode>): Map<string, number> {
+  const settled = new Map<string, ReadonlySet<string>>();
+  const visiting = new Set<string>();
+
+  const walk = (title: string): ReadonlySet<string> => {
+    const done = settled.get(title);
+    if (done) return done;
+    if (visiting.has(title)) return new Set(); // back edge: see the cycle note above
+    const node = index.get(title);
+    if (!node || node.layer !== "Opportunity") return new Set();
+
+    visiting.add(title);
+    const solutions = new Set<string>();
+    for (const link of node.links) {
+      const child = index.get(link); // dangling link — `check` reports it; this counts what exists
+      if (child?.layer === "Solution") solutions.add(link);
+      else if (child?.layer === "Opportunity") for (const t of walk(link)) solutions.add(t);
+    }
+    visiting.delete(title);
+
+    settled.set(title, solutions);
+    return solutions;
+  };
+
+  const out = new Map<string, number>();
+  for (const n of tree) if (n.layer === "Opportunity") out.set(n.title, walk(n.title).size);
+  return out;
+}
+
+/**
  * Every Opportunity mapped to the LEAF opportunities beneath it — the
  * descendants that file no sub-opportunity of their own.
  *
