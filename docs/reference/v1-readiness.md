@@ -3221,8 +3221,34 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,317 tests across 378 files, verified 2026-09-02. This batch's own run
-> took **353 s** and came back green on everything except `test/loop/work-source-census.test.ts`,
+> *Today:* **met** — 5,321 tests across 379 files, verified 2026-09-03. This batch's own two
+> runs took **632 s** and **635 s** and between them named six red files, of which **two were
+> this batch's and are fixed**: adding `lopsidedCategories` to `NextWork` left it classified
+> nowhere, and `test/loop/stop-condition.test.ts` and `test/ost/sweep-actor-partition.test.ts`
+> are the pair of guards that refuse to let a sweep field belong to no actor and no stop term.
+> They worked exactly as written. The other four are the load pattern this criterion has
+> recorded five times now — `wall-clock-budget` at **2,099 ms** against 2,000,
+> `work-units-vs-elapsed`, `ingest-backpressure-provenance` and `work-source-census` — and
+> this time the diagnosis was measured rather than argued from isolation. `wall-clock-budget`
+> names its own protocol: red beside a green `test/gate/operation-budget.test.ts` is
+> contention, red on both is the code. The operation budget stayed green, and a direct bench
+> of `computeNextWork` over the same 10,000-node fixture, seven samples per side, put this
+> branch at **min 784.5 ms / median 824.1 ms** against `main`'s **792.4 / 821.7** — the
+> rolled-up count replaces one memoised tree walk with another and costs nothing measurable.
+> The verification run after the two fixes came back **5,321 in 667 s with two red**, and both
+> are that same pattern: `work-source-census` missed its 10 s `fs.watch` deadline and takes
+> **1.4 s** alone, `ingest-backpressure-provenance` missed its 25 s bound and takes **15.0 s**
+> alone, and neither reads a line this batch touched. `wall-clock-budget` and
+> `work-units-vs-elapsed`, red on the two runs before it, were green on this one — three runs,
+> three different victim sets, which is the signature the criterion has been naming all along.
+> The file added is `test/ost/next-work-rollup-count.test.ts`, the instrument for "A category
+> whose subtree is full stops being reported as under-served", beneath "The under-served count
+> rolls up through sub-opportunities". **Half of that instrument was already green before the
+> build started** — the category-exemption sibling shipped on 2026-08-11 and had already
+> silenced a full category — so what the build actually bought is the assumption's own
+> falsifier: a heading whose subtree total is carried by a minority of its leaves is no longer
+> exempt, and `lopsidedCategories` says so on every response. The batch before this one took
+> **353 s** and came back green on everything except `test/loop/work-source-census.test.ts`,
 > which missed the same 10 s `fs.watch` deadline already recorded below and passes alone in
 > **3.1 s**. That is the fourth run in which that file is a contention victim and the fourth in
 > which it clears in isolation with two orders of magnitude of headroom; it has never once been
@@ -3253,7 +3279,7 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > 8–28× headroom in isolation is nondeterminism under worker contention, not a defect in any
 > of the three; what it costs is that a green suite here needs an otherwise idle machine, and
 > the tree carries that under "A test that failed because the machine was busy looks exactly
-> like one that failed because I broke something". The file added is
+> like one that failed because I broke something". The file added before that is
 > `test/preflight/auto-satisfy-preserves-staleness-guard.test.ts`, the instrument for
 > "Auto-satisfy a read-before-write, then change the file underneath and require the write to
 > still refuse", beneath "The surface satisfies a precondition it could have satisfied itself".
