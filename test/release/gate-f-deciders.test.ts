@@ -234,6 +234,25 @@ const PURE_MODULES = [
   // it on PATH and a session runs it, so no caller-supplied command ever reaches a
   // spawn inside this repository (`test/runner/suite-result-consumer-census.ts`).
   "wait.ts",
+  // Runs the compute-only assumption-test lane and returns verdict DRAFTS. Filed
+  // pure on this file's own precedent — `prior-art-scan.ts` — and the precedent is
+  // stated rather than leaned on, because this module does cause a process to run.
+  //
+  // What it holds is the judgement: which tests may be run at all
+  // (`runnableByCompute`'s fail-closed rule, plus a refusal to run a test whose
+  // label contradicts its own prose), and how an observation reads as a proposed
+  // verdict. It opens no file, assembles no argv and spawns nothing: the argv is
+  // built in `src/knowledge/instruments.ts` and the spawn lives in
+  // `src/ost/instrument.ts` behind an injectable runner, which is exactly why
+  // "pure" is true of the module here rather than merely true of `FS_READ`.
+  //
+  // Not a decider under any of the classes above, and by a wider margin than most:
+  // it computes no Gate F verdict, carries no exit code, WRITES NOTHING ANYWHERE —
+  // recording a result stays `ost-agent result`, human-only — and only
+  // `cli/index.ts` imports it. Should it ever grow a verdict or an exit code, the
+  // spawn it triggers becomes a decider input and it belongs in a class with the
+  // obligations, not here.
+  "compute-lane.ts",
 ];
 
 /**

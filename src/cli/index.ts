@@ -16,6 +16,7 @@
  *   ost-agent lanes [--vault DIR]             assumption tests by the human minutes they cost
  *   ost-agent lanes --flag-cautious <who>     bulk: humans-required for every test naming an outside person
  *   ost-agent lane "<test>" --set <lane> ...  classify one test into a lane
+ *   ost-agent compute-lane --repo DIR         run the compute-only lane and draft verdicts (records nothing)
  *   ost-agent asks [--vault DIR]              the standing queue of pending asks, aged, with the command that clears each
  *   ost-agent dispose "<subject>" ...        settle one item so no work bucket lists it again (--reopen reverses)
  *   ost-agent dispositions [--vault DIR]     every item currently settled, dated and attributed
@@ -202,6 +203,7 @@ import { Vault } from "../ost/vault.js";
 import { prerequisiteCycles, prerequisiteEdges, unknownPrerequisites, unmetPrerequisites } from "../ost/prerequisites.js";
 import { defaultTranscriptDir } from "../adapters/transcript.js";
 import { cautionBacklog, flagHumansRequired, setLane, suggestCaution, triageLanes } from "../ost/lanes.js";
+import { draftComputeLane, renderComputeLane } from "../loop/compute-lane.js";
 import { formatMigrationReport, migrateEvidenceClass } from "../ost/migrate.js";
 import {
   accountingDrift,
@@ -1330,6 +1332,31 @@ program
       "\nA lane is a judgement, not a measurement. Unclassified never means safe to automate,\n" +
         "and the ⚠ hints only ever point AT a person — the permissive call is always a human's.",
     );
+  });
+
+/*
+ * `compute-lane` — the clause the lane model shipped for and left unbuilt: an
+ * unattended pass runs the tests that cost nobody anything.
+ *
+ * On the CLI rather than the tool surface, and for a different reason than
+ * `lane --set` is. `--set` is off the agent's surface because classifying
+ * permissively is a judgement. This one is off it because it SPAWNS: an
+ * instrument is a real process against a real repository, and the allowlist in
+ * `src/security/policy.ts` holds no tool that shells out. The loop's shell can
+ * still call it unprompted, which is what "ambient" meant here — the pass is
+ * unattended, the capability is not handed to the model.
+ *
+ * Records nothing, deliberately and by construction: it returns drafts, and
+ * `ost-agent result` is still a human's.
+ */
+program
+  .command("compute-lane")
+  .description("run every compute-only assumption test and draft a verdict for each (records nothing)")
+  .requiredOption("-r, --repo <dir>", "the repository the instruments are measured against")
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .action((opts: { repo: string; vault: string }) => {
+    const ctx = buildPassContext(opts.vault);
+    console.log(renderComputeLane(draftComputeLane(ctx.vault.readTree(), { repo: opts.repo })));
   });
 
 program

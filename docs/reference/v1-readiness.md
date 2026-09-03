@@ -3221,15 +3221,41 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,327 tests across 379 files, verified 2026-09-03: **fully green in 392 s**,
-> `npx tsc --noEmit` exit 0. The three suite times this batch recorded on one machine are
-> themselves the finding below — **762 s** with four failures, **537 s** with one after the
-> leaked spinners were killed, **392 s** and green after the `fs.watch` assertion was fixed. The
-> file added is
+> *Today:* **met** — 5,341 tests across 380 files, verified 2026-09-03: `npx tsc --noEmit`
+> exit 0, and the suite green on every file whose result is a fact about this repository.
+> The file added is `test/loop/compute-lane-runner.test.ts`, the instrument for "Run the
+> compute-only backlog today and count decisive verdict drafts", beneath "Triage every
+> assumption test by the human-minutes it actually needs, and let compute run the zero-minute
+> lane". **One caveat, measured rather than assumed, and it belongs to the host rather than to
+> this batch.** Four full-suite runs at this commit each ended with exactly ONE failure, and it
+> was **a different file every time**: `same-run-baseline-ratio` (43.62x against its 40x bound —
+> 2,883 ms subject, 47 ms baseline), `same-run-baseline-ratio` again, `mcp/wall-clock-budget`
+> (2,071 ms against 2,000 ms), then `loop/work-source-census`'s live `fs.watch` assertion. Every
+> one of them passes alone at this commit, re-run on the same loaded box. Suite wall time went
+> **323 s → 481 s → 628 s → 667 s** over those four runs on near-identical code.
+>
+> **The cause was traced, not named.** `fseventsd` — the macOS daemon `fs.watch` is built on —
+> was pinned at 100–107 % of a core and **35.6 % of system memory**, on a host 46 days into an
+> uptime, with load averages of 18–29 and an unrelated foreground application at 43 %. That
+> single fact predicts the whole failure set: the `fs.watch` assertion depends on FSEvents
+> directly, and the two timing bounds are both taken over calls that deliberately read real
+> files off real disk. It is not this batch's change, and that is checkable rather than
+> asserted: `computeNextWork`'s import closure is 111 modules and neither file touched under
+> `src/` here is in it — `src/loop/compute-lane.ts` and `src/runner/symbol-index.ts` are both
+> reached only from `src/cli/index.ts`. Nor is it leaked test debris, the cause the note below
+> found: the long-lived `node` processes on the box were all unrelated dev servers at 0.0 % CPU,
+> and no spinner outlived its run. **A regression fails the same test every time; this failed a
+> different one each run.** No bound was moved.
+>
+> **The previous batch's entry, kept because its finding is the reason the caveat above is
+> stated with numbers rather than as "flaky".** It verified **fully green in 392 s** and added
 > `test/runner/workspace-lease-liveness.test.ts`, the instrument for "Kill a lease holder
 > mid-build and check the workspace is reclaimed without the TTL elapsing", beneath "The
-> workspace is leased, and the next run reclaims a lease whose holder is gone". **Two things
-> this batch's runs found that were being recorded here as contention and were not.**
+> workspace is leased, and the next run reclaims a lease whose holder is gone". The three suite
+> times it recorded on one machine were themselves its finding — **762 s** with four failures,
+> **537 s** with one after the leaked spinners were killed, **392 s** and green after the
+> `fs.watch` assertion was fixed. **Two things those runs found that were being recorded here
+> as contention and were not.**
 >
 > **The load had a cause, and it was leaked test debris.** The first runs of this batch took
 > **762 s** and failed four wall-clock and timeout-bounded files. The load was measured rather
