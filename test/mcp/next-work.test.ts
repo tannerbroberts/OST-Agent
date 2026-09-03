@@ -262,12 +262,13 @@ describe("outstandingAsks (P2) — an ask has an age, and silence is measured by
     expect(work.outstandingAsks).toEqual([
       {
         test: "Checklist audit",
+        instrument: "npx vitest run test/checklist.test.ts",
         askedAt: "2026-01-01T00:00:00.000Z",
         ageDays: 10,
         command: expect.stringContaining('ost-agent result "Checklist audit"'),
       },
     ]);
-    expect(work.assumptionWork.blockedOnPermission).toContain("Checklist audit");
+    expect(work.assumptionWork.blockedOnPermission.map((t) => t.test)).toContain("Checklist audit");
   });
 
   test("a test with no ask on record reports ageDays: null, not 0 — unknown is not fresh", async () => {
@@ -287,6 +288,7 @@ describe("outstandingAsks (P2) — an ask has an age, and silence is measured by
     expect(work.outstandingAsks).toEqual([
       {
         test: "Checklist audit",
+        instrument: "npx vitest run test/checklist.test.ts",
         askedAt: null,
         ageDays: null,
         command: expect.stringContaining('ost-agent result "Checklist audit"'),
@@ -328,6 +330,7 @@ describe("outstandingAsks (P2) — an ask has an age, and silence is measured by
     expect(work.outstandingAsks).toEqual([
       {
         test: "Checklist audit",
+        instrument: "npx vitest run test/checklist.test.ts",
         askedAt: "2026-01-05T00:00:00.000Z",
         ageDays: 3,
         command: expect.stringContaining('ost-agent result "Checklist audit"'),

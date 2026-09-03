@@ -24,6 +24,13 @@ import { runnableByCompute } from "../../src/ost/lanes.js";
 import { LANES, type LaneId } from "../../src/knowledge/lanes.js";
 
 const OUTCOME = "Retention";
+/**
+ * The command the fixture's one test declares. Named rather than inlined because
+ * every bucket assertion below now reads it back: a row names the test AND the
+ * command it already carries, so a pass can tell attachment from replacement
+ * before it calls `ost_set_instrument`.
+ */
+const INSTRUMENT = "npx vitest run test/checklist.test.ts";
 let dir: string;
 
 beforeEach(async () => {
@@ -40,7 +47,7 @@ function withOneTest(lane: LaneId | undefined) {
   // Instrumented so the only thing this fixture can be not-done FOR is the lane
   // question under test. A prose-only test blocks `done` on its own term now,
   // which would make "assumptionWork never blocks done" pass for the wrong reason.
-  v.createNode({ title: "Checklist audit", layer: "AssumptionTest", evidence: "assertion", body: "x", tags: [], links: [], instrument: "npx vitest run test/checklist.test.ts" });
+  v.createNode({ title: "Checklist audit", layer: "AssumptionTest", evidence: "assertion", body: "x", tags: [], links: [], instrument: INSTRUMENT });
   v.linkNodes(OUTCOME, "Users churn after week one");
   v.linkNodes("Users churn after week one", "Onboarding checklist");
   v.linkNodes("Onboarding checklist", "Checklist audit");
@@ -67,7 +74,7 @@ describe("each lane routes its tests into a distinct bucket", () => {
       const v = withOneTest(lane);
       const work = computeNextWork(v, dir, 3);
       const aw = work.assumptionWork;
-      expect(aw[bucket]).toEqual(["Checklist audit"]);
+      expect(aw[bucket]).toEqual([{ test: "Checklist audit", instrument: INSTRUMENT }]);
       // Exactly one bucket holds it — a router, not a broadcast.
       const total = aw.runnable.length + aw.awaitingOneCommand.length + aw.blockedOnPermission.length + aw.needsHumans.length;
       expect(total).toBe(1);
@@ -79,13 +86,13 @@ describe("the runnable bucket is exactly what compute may run", () => {
   test("`runnable` equals runnableByCompute — one definition of 'compute may run this', not two", () => {
     const v = withOneTest("compute-only");
     const work = computeNextWork(v, dir, 3);
-    expect(work.assumptionWork.runnable).toEqual(runnableByCompute(v.readTree()).map((t) => t.title));
+    expect(work.assumptionWork.runnable.map((t) => t.test)).toEqual(runnableByCompute(v.readTree()).map((t) => t.title));
   });
 
   test("an unlabelled test falls to needsHumans — the fail-closed default, never runnable", () => {
     const v = withOneTest(undefined);
     const work = computeNextWork(v, dir, 3);
-    expect(work.assumptionWork.needsHumans).toEqual(["Checklist audit"]);
+    expect(work.assumptionWork.needsHumans).toEqual([{ test: "Checklist audit", instrument: INSTRUMENT }]);
     expect(work.assumptionWork.runnable).toEqual([]);
   });
 });
@@ -98,7 +105,7 @@ describe("assumptionWork never blocks done", () => {
     // blocker — it would wedge every pass forever.
     const v = withOneTest("compute-only");
     const work = computeNextWork(v, dir, 1); // min 1 solution, which the opportunity has
-    expect(work.assumptionWork.runnable).toEqual(["Checklist audit"]);
+    expect(work.assumptionWork.runnable).toEqual([{ test: "Checklist audit", instrument: INSTRUMENT }]);
     expect(work.done).toBe(true);
   });
 

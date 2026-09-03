@@ -88,6 +88,7 @@ describe("an ask raised mid-pass survives into later runs", () => {
     expect(work.outstandingAsks).toEqual([
       {
         test: "Five operators try the checklist",
+        instrument: "npx vitest run test/checklist.test.ts",
         askedAt: T0.toISOString(),
         ageDays: 4,
         command: expect.stringContaining('ost-agent result "Five operators try the checklist"'),
@@ -118,7 +119,7 @@ describe("the queue clears itself — nothing is ever marked answered", () => {
     // Nobody classified it and nobody asked; putting it here would make the
     // queue the second inbox the solution node warns against.
     const work = computeNextWork(buildPassContext(dir).vault, dir, 3, daysLater(1));
-    expect(work.assumptionWork.needsHumans).toContain("Five operators try the checklist");
+    expect(work.assumptionWork.needsHumans.map((t) => t.test)).toContain("Five operators try the checklist");
     expect(work.outstandingAsks).toEqual([]);
   });
 });
