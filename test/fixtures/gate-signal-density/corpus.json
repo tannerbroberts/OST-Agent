@@ -1,0 +1,69 @@
+{
+  "sessionId": "89ac8277-29ce-4d80-827e-cefea0bebabf",
+  "transcriptsRead": 1269,
+  "readerLines": 6554,
+  "readerLinesInOriginal": 6554,
+  "screenRadius": 12,
+  "firings": [
+    {
+      "key": "corrections-ledger-quiet-window",
+      "gate": "test/loop/corrections-ledger.test.ts — the quiet window",
+      "firstReading": "stale fixture, ignore",
+      "actually": "a test asserting the age of the working copy, green only for 30 minutes after checkout",
+      "index": 3336,
+      "linesToNextProse": 203,
+      "strict": {
+        "unrelated": 22,
+        "unrelatedBefore": 12,
+        "unrelatedAfter": 10,
+        "flipRadius": 6
+      },
+      "generous": {
+        "unrelated": 16,
+        "unrelatedBefore": 12,
+        "unrelatedAfter": 4,
+        "flipRadius": 6
+      }
+    },
+    {
+      "key": "wall-clock-budget-z3",
+      "gate": "test/mcp/wall-clock-budget.test.ts — the Z3 budget",
+      "firstReading": "flaky timing test, slow runner",
+      "actually": "a 3x regression: three tree.filter(...)-per-node scans, 44% of CPU",
+      "index": 3842,
+      "linesToNextProse": 14,
+      "strict": {
+        "unrelated": 12,
+        "unrelatedBefore": 11,
+        "unrelatedAfter": 1,
+        "flipRadius": 10
+      },
+      "generous": {
+        "unrelated": 12,
+        "unrelatedBefore": 11,
+        "unrelatedAfter": 1,
+        "flipRadius": 10
+      }
+    },
+    {
+      "key": "commit-enotempty",
+      "gate": "test/mcp/commit.test.ts — ENOTEMPTY on cleanup",
+      "firstReading": "CI flake",
+      "actually": "the fixture deletes a repository while `git gc --auto` is still writing in it",
+      "index": 6312,
+      "linesToNextProse": 2,
+      "strict": {
+        "unrelated": 13,
+        "unrelatedBefore": 12,
+        "unrelatedAfter": 1,
+        "flipRadius": 9
+      },
+      "generous": {
+        "unrelated": 8,
+        "unrelatedBefore": 8,
+        "unrelatedAfter": 0,
+        "flipRadius": 14
+      }
+    }
+  ]
+}

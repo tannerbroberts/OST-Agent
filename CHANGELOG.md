@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+- **The three gates that read as noise were counted rather than argued about, and the
+  wording hypothesis lost.** `src/telemetry/gate-signal-density.ts` measures how much
+  unrelated output stood around a gate's firing in a recorded session, and
+  `test/telemetry/gate-signal-density.test.ts` runs it over the 2026-08-06 session where
+  the Z3 wall-clock budget, the `corrections-ledger` quiet window and `commit.test.ts`'s
+  ENOTEMPTY all fired and all three were first read as environmental. Against the bar a
+  human fixed before anything was measured — fewer than 10 unrelated lines in the
+  surrounding window — the counts are **22, 12 and 13**, so **all three were buried and
+  wording was never the binding constraint**. The remedy the node should carry is
+  placement, not message text. Three things the node did not say came out of the count.
+  **They agree on the verdict and disagree sharply on degree**: the corrections-ledger
+  firing crosses the bar at a window radius of 6, buried by *other gates* — its own report
+  is two lines inside a six-line block naming three different failing test files — while
+  the wall-clock one crosses at 10, buried by *how it arrived*, with eleven of the twelve
+  lines above it Monitor task-notification plumbing. **The distance to the next thing the
+  reader had to decide spans two orders of magnitude** — 203 lines, 14 lines, 2 lines. And
+  **one firing's verdict depends on the attribution rule**: under the generous reading
+  ENOTEMPTY scores 8, under the strict one 13, so both rules are implemented and both are
+  pinned rather than the question being settled by picking the one that answers it. The
+  window size the bar is applied in was the one number the assumption test left open; it is
+  taken as the classic 24-line terminal, the smallest screen anyone reads on and so the cut
+  most favourable to the hypothesis under test, and the whole curve is pinned besides — all
+  three survive the bar together only at a radius of 5 or less, which is not a screen
+  anyone has.
+
 - **A vault now carries its own tool server, so opening it is enough — and the feasibility
   answer came back yes for a mechanism the node had not named.** `init` writes `.mcp.json`
   at the vault root declaring the `ost-agent` server and binding it to `${CLAUDE_PROJECT_DIR}`;
