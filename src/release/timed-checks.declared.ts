@@ -287,6 +287,15 @@ export const CLOCK_READING_TESTS: readonly DeclaredTimedCheck[] = [
     why: "asserts a per-run workspace costs no more than MAX_OVERHEAD times a warm one, both timed in the same process",
   },
   {
+    file: "test/runner/workspace-lease-liveness.test.ts",
+    kind: "reported-not-asserted",
+    why:
+      "times the reclaim of a SIGKILLed holder's workspace and carries the number into the failure message of the " +
+      "assertions that decide the case (`evidence` is `pid-gone`, `assumed` is false); the node's own bar — reclaimed " +
+      "well short of the TTL — is asserted against the INJECTED clock, one second into a sixty-minute TTL, so no " +
+      "machine's speed is under test",
+  },
+  {
     file: "test/skill/skeleton-validity.test.ts",
     kind: "mentions-only",
     why: "`Date.now()` appears inside a string literal that mutates the skeleton to prove the parser rejects it",

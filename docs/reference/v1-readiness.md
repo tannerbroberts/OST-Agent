@@ -3221,8 +3221,23 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,317 tests across 378 files, verified 2026-09-02. This batch's own run
-> took **353 s** and came back green on everything except `test/loop/work-source-census.test.ts`,
+> *Today:* **met** — 5,327 tests across 379 files, verified 2026-09-03. The file added is
+> `test/runner/workspace-lease-liveness.test.ts`, the instrument for "Kill a lease holder
+> mid-build and check the workspace is reclaimed without the TTL elapsing", beneath "The
+> workspace is leased, and the next run reclaims a lease whose holder is gone". This batch's
+> own runs are another instance of the contention pattern recorded below, and one of them was
+> self-inflicted: two full suites overlapped on this box, and the run that did so failed
+> `test/adapters/ingest-backpressure-provenance.test.ts` at **35.1 s** against its 25 s bound —
+> the same file, the same bound, recorded below at **32.7 s** under the same conditions two
+> batches ago. It takes **13.8 s** run alone at this commit, 45% inside its bound, and this
+> batch touches no adapter, no ingest path and no clock it reads. The new instrument is
+> deliberately not a fourth entry on that list: it measures the wall clock of a reclaim and
+> reports the number in a failure message rather than asserting on it, and declares itself
+> `reported-not-asserted` in `src/release/timed-checks.declared.ts`. The bar its node fixed —
+> reclaimed well short of the TTL — is asserted against the *injected* clock instead, one
+> second into a sixty-minute TTL, so the claim under test is the mechanism's and not the
+> machine's. The batch before this one took **353 s**
+> and came back green on everything except `test/loop/work-source-census.test.ts`,
 > which missed the same 10 s `fs.watch` deadline already recorded below and passes alone in
 > **3.1 s**. That is the fourth run in which that file is a contention victim and the fourth in
 > which it clears in isolation with two orders of magnitude of headroom; it has never once been

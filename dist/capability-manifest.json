@@ -3,8 +3,8 @@
   "version": "0.23.0",
   "artifact": {
     "path": "dist/ost-agent.mjs",
-    "bytes": 2902194,
-    "sha256": "da3934eb7504f07c8fe6ce279365852a1837ba8e89f1a42fe182537737cb8d76"
+    "bytes": 2911975,
+    "sha256": "c55065fe7bd469fb1301b93259533e2b17efbdcd665dacaacd98752a56e01da1"
   },
   "capabilities": [
     {
@@ -499,6 +499,11 @@
     },
     {
       "name": "workspace",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "workspace-lease",
       "surface": "cli-command",
       "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
     },

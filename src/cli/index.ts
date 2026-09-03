@@ -83,6 +83,13 @@ import { initVault } from "../runner/init.js";
 import { prepareWorkspace } from "../runner/workspace.js";
 import { formatReconcileOutcome, reconcileWorkspace } from "../runner/workspace-reconcile.js";
 import {
+  acquireWorkspaceLease,
+  formatLeaseOutcome,
+  readWorkspaceLease,
+  releaseWorkspaceLease,
+  touchWorkspaceLease,
+} from "../runner/workspace-lease.js";
+import {
   buildSymbolIndex,
   formatMemberLookup,
   formatNameLookup,
@@ -3854,6 +3861,87 @@ program
     // a caller that reads only the exit code must not confuse either with success.
     if (outcome.verdict === "refuse" || outcome.error) process.exitCode = 1;
   });
+
+program
+  .command("workspace-lease")
+  .description(
+    "take, keep or give back the lease on a shared workspace — a run that finds it held checks whether the holder " +
+      "is still alive rather than waiting out a TTL, and reclaims only from a holder it can see is gone",
+  )
+  .requiredOption("--dir <path>", "the shared workspace path being leased (the lease itself lives at <path>.lease)")
+  .option(
+    "--holder-pid <pid>",
+    "the process that owns the workspace for the length of the run, so its death is observable rather than " +
+      "assumed; without it the TTL is the only rule left",
+  )
+  .option("--run-id <id>", "the run this lease is taken for, recorded so the next arrival can say who it displaced")
+  .option("--ttl-minutes <n>", "how long an UNOBSERVABLE holder may hold before it is assumed dead", "60")
+  .option("--heartbeat-minutes <n>", "the cadence this holder promises to prove it is still working at")
+  .option("--touch", "advance this lease's heartbeat instead of taking one")
+  .option("--release", "give the lease back instead of taking one; only ever releases this run's own claim")
+  .option("--status", "say who holds it and on what evidence, and take nothing")
+  .action(
+    (opts: {
+      dir: string;
+      holderPid?: string;
+      runId?: string;
+      ttlMinutes: string;
+      heartbeatMinutes?: string;
+      touch?: boolean;
+      release?: boolean;
+      status?: boolean;
+    }) => {
+      const dir = path.resolve(opts.dir);
+      if (opts.status === true) {
+        const held = readWorkspaceLease(dir);
+        console.log(held === null ? `no lease on ${dir}` : `${dir} leased by run ${held.runId ?? "(unnamed)"} — ${JSON.stringify(held)}`);
+        return;
+      }
+      if (opts.touch === true) {
+        // A heartbeat that cannot be written is not a failure of the run: it
+        // costs patience — the holder starts looking `suspect` — never safety.
+        if (!touchWorkspaceLease(dir)) {
+          console.error(`workspace-lease: nothing to heartbeat at ${dir} — this run does not hold the workspace`);
+          process.exitCode = 1;
+        }
+        return;
+      }
+      if (opts.release === true) {
+        // Across CLI invocations the in-process claim token is not available —
+        // the process that took the lease exited long ago, which is the whole
+        // reason `--holder-pid` exists. So the identity a shell caller releases
+        // by is the holder pid it named when it acquired, and naming it is
+        // required: a bare `--release` would unlink whatever lease it found,
+        // including the one a *reclaiming* run has just taken.
+        const held = readWorkspaceLease(dir);
+        const claimed = opts.holderPid === undefined ? undefined : Number(opts.holderPid);
+        if (held === null) {
+          console.error(`workspace-lease: nothing to release at ${dir}`);
+          process.exitCode = 1;
+        } else if (claimed === undefined || held.holderPid !== claimed) {
+          console.error(
+            `workspace-lease: refusing to release ${dir} — it is held for pid ${held.holderPid ?? "(unnamed)"}, ` +
+              `and --holder-pid named ${claimed ?? "nothing"}`,
+          );
+          process.exitCode = 1;
+        } else if (!releaseWorkspaceLease(dir, held)) {
+          console.error(`workspace-lease: the lease at ${dir} changed hands while it was being released`);
+          process.exitCode = 1;
+        }
+        return;
+      }
+      const result = acquireWorkspaceLease(dir, {
+        ttlMs: Number(opts.ttlMinutes) * 60_000,
+        ...(opts.holderPid !== undefined ? { holderPid: Number(opts.holderPid) } : {}),
+        ...(opts.heartbeatMinutes !== undefined ? { heartbeatEveryMs: Number(opts.heartbeatMinutes) * 60_000 } : {}),
+        ...(opts.runId !== undefined ? { runId: opts.runId } : {}),
+      });
+      console.log(formatLeaseOutcome(result));
+      // Refused means the workspace is somebody else's, which a caller reading
+      // only the exit code must not mistake for having taken it.
+      if (!result.ok) process.exitCode = 1;
+    },
+  );
 
 program
   .command("symbols")
