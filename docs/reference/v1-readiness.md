@@ -3221,10 +3221,57 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,317 tests across 378 files, verified 2026-09-02. This batch's own run
-> took **353 s** and came back green on everything except `test/loop/work-source-census.test.ts`,
+> *Today:* **met** — 5,327 tests across 379 files, verified 2026-09-03: **fully green in 392 s**,
+> `npx tsc --noEmit` exit 0. The three suite times this batch recorded on one machine are
+> themselves the finding below — **762 s** with four failures, **537 s** with one after the
+> leaked spinners were killed, **392 s** and green after the `fs.watch` assertion was fixed. The
+> file added is
+> `test/runner/workspace-lease-liveness.test.ts`, the instrument for "Kill a lease holder
+> mid-build and check the workspace is reclaimed without the TTL elapsing", beneath "The
+> workspace is leased, and the next run reclaims a lease whose holder is gone". **Two things
+> this batch's runs found that were being recorded here as contention and were not.**
+>
+> **The load had a cause, and it was leaked test debris.** The first runs of this batch took
+> **762 s** and failed four wall-clock and timeout-bounded files. The load was measured rather
+> than assumed and then traced rather than named: twelve orphaned `node /tmp/spin.mjs`
+> processes, reparented to pid 1, had been pinning ~800% CPU for **6 h 50 m** — CPU spinners
+> leaked by an earlier session's hand-rolled contention experiment (not by
+> `test/perf/contention.ts`, whose helper names its file `ost-contention-spinner-<pid>.mjs` and
+> kills its children in a `finally`). Killing them took the same suite to **537 s** and three of
+> the four failures went green on the spot. The entries below that reason from a measured load
+> average — "18.6 on ten cores, with a game and `fseventsd` between them holding most of the
+> machine" — were reading a number without finding what was behind it; at least part of it was
+> this. This is the parent opportunity of the batch's own solution, one level up: a run's
+> leftovers breaking later runs, where the leftover is a *process* rather than a directory and
+> nothing on the tree yet covers that shape.
+>
+> **The `fs.watch` failure is not contention either, and it is now fixed.** The remaining red
+> was `test/loop/work-source-census.test.ts`, recorded below across four batches as a
+> contention victim that "passes alone in 3.1 s". It does pass alone — six times out of six —
+> but it failed **four suite runs out of four**, on a loaded box and on a quiet one, and at
+> `main` as well as on this branch, which is not what contention looks like. A standalone probe
+> replaying that test's exact write (stage to `.ost-tmp`, rename over the target) into a freshly
+> watched directory, thirty trials on an **idle** machine, got no `fs.watch` event at all on
+> **3 of 30** — and zero trials in which the only event carried the temp name, which refutes the
+> obvious suspicion that `isTemporary` was swallowing the wake. macOS does not promise delivery
+> of every `fs.watch` event. The old assertion therefore tested whether one event survived a
+> mechanism that loses one in ten, which is a coin the code under test cannot influence; it now
+> records a result again each second while the same ten-second deadline runs, which tests the
+> affordance the test was named for and still fails outright on a watcher that never fires.
+>
+> The new lease instrument is deliberately not a fifth entry on the timed-check list: it
+> measures the wall clock of a reclaim and reports the number in a failure message rather than
+> asserting on it, and declares itself `reported-not-asserted` in
+> `src/release/timed-checks.declared.ts`. The bar its node fixed — reclaimed well short of the
+> TTL — is asserted against the *injected* clock instead, one second into a sixty-minute TTL, so
+> the claim under test is the mechanism's and not the machine's. `test/adapters/
+> ingest-backpressure-provenance.test.ts` failed once at **35.1 s** against its 25 s bound
+> during the spinner window, matching its **32.7 s** below under the same conditions, and takes
+> **13.8 s** alone at this commit. The batch before this one took **353 s**
+> and came back green on everything except `test/loop/work-source-census.test.ts`,
 > which missed the same 10 s `fs.watch` deadline already recorded below and passes alone in
-> **3.1 s**. That is the fourth run in which that file is a contention victim and the fourth in
+> **3.1 s**. That was called the fourth run in which that file is a contention victim and the
+> fourth in
 > which it clears in isolation with two orders of magnitude of headroom; it has never once been
 > a defect, and this batch touches nothing it watches. A second full run of the same tree
 > settled it rather than leaving it asserted: **5,317 in 595 s, fully green**, that file
