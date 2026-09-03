@@ -3221,13 +3221,20 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,341 tests across 380 files, verified 2026-09-03: `npx tsc --noEmit`
+> *Today:* **met** — 5,353 tests across 381 files, verified 2026-09-03: `npx tsc --noEmit`
 > exit 0, and the suite green on every file whose result is a fact about this repository.
-> The file added is `test/loop/compute-lane-runner.test.ts`, the instrument for "Run the
-> compute-only backlog today and count decisive verdict drafts", beneath "Triage every
-> assumption test by the human-minutes it actually needs, and let compute run the zero-minute
-> lane". **One caveat, measured rather than assumed, and it belongs to the host rather than to
-> this batch.** Four full-suite runs at this commit each ended with exactly ONE failure, and it
+> The file added is `test/runner/incremental-typecheck.test.ts`, the instrument for "Time a
+> single-file check against the whole-project run it would replace", beneath "Typecheck the
+> files just touched, at the moment they are touched". **Its own finding is that half of the
+> bar it was built against was wrong:** the node fixed the whole-project `tsc --noEmit` at
+> "longer than 10 seconds on the same machine" and it takes 1.6–2.1 s here, so the per-edit
+> check is ~1.5x cheaper cold and ~4x warm rather than the order of magnitude assumed — what
+> survives as the argument for moving the check earlier is attribution, not speed. Its first
+> draft also reproduced this entry's oldest caveat first-hand: a flat 2,000 ms ceiling passed
+> alone at 909 ms and failed inside the full suite at 3,194 ms, while the whole-project
+> program in the same process went 1,300 ms → 8,366 ms. The budget is now that number times
+> the contention measured in the same run. **One further caveat, measured rather than assumed,
+> and it belongs to the host rather than to this batch.** Four full-suite runs at this commit each ended with exactly ONE failure, and it
 > was **a different file every time**: `same-run-baseline-ratio` (43.62x against its 40x bound —
 > 2,883 ms subject, 47 ms baseline), `same-run-baseline-ratio` again, `mcp/wall-clock-budget`
 > (2,071 ms against 2,000 ms), then `loop/work-source-census`'s live `fs.watch` assertion. Every
