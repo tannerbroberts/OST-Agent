@@ -167,7 +167,13 @@ describe("the selection is structurally human", () => {
     const nextWork = tools.find((t) => (t as unknown as { name: string }).name === "ost_next_work") as unknown as {
       input_schema: { properties: Record<string, unknown>; additionalProperties: boolean };
     };
-    expect(Object.keys(nextWork.input_schema.properties)).toEqual(["evidence"]);
+    // Pinned as the exact set rather than as "no key called target", because the
+    // hazard is a parameter that scopes the sweep under some other name. Both
+    // entries below narrow WHAT COMES BACK and neither narrows what is looked at:
+    // `evidence` fetches one already-listed record in full, and `since` says the
+    // caller is holding an earlier answer — a miss returns the whole sweep, so
+    // nothing can be scoped away by presenting one.
+    expect(Object.keys(nextWork.input_schema.properties)).toEqual(["evidence", "since"]);
     expect(nextWork.input_schema.additionalProperties).toBe(false);
   });
 });

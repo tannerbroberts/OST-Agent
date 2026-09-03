@@ -41,6 +41,7 @@ import {
 import type { OstNode } from "../ost/node.js";
 import type { QuarantinedNode } from "../ost/quarantine.js";
 import type { Vault } from "../ost/vault.js";
+import { treeVersion } from "../ost/tree-version.js";
 import { classifyUnknown, contractGaps, resolutionState, type UnknownClass } from "../knowledge/unknowns.js";
 import { VARIATION_DIMENSIONS, type VariationAssignment } from "../knowledge/forced-variation.js";
 import { buildIdeationRound, roundAssignments, type IdeationArm } from "../knowledge/blind-ideation.js";
@@ -482,6 +483,43 @@ export interface ScopeAccounting {
   excluded: ScopeExclusion[];
 }
 
+/**
+ * The whole answer to "is the sweep I am holding still current?" when it is —
+ * a few hundred bytes in place of the outstanding list.
+ *
+ * `kind` is a literal rather than an inferred absence, for the reason
+ * {@link TestWork.instrument} is explicitly `null`: a caller telling this apart
+ * from a sweep by noticing `done` is missing would also read a sweep truncated
+ * in transit as "unchanged".
+ */
+export interface UnchangedSweep {
+  framing: string;
+  kind: "unchanged";
+  /**
+   * The version presented, echoed because it still holds. A caller keeps using
+   * it — this is not a new version to store, it is the old one confirmed.
+   */
+  version: string;
+  summary: string;
+}
+
+/**
+ * The response to a `since` that still matches. Phrased as something the caller
+ * can act on, because "unchanged" on its own leaves it to guess whether it
+ * should now re-ask without the version.
+ */
+export function unchangedSweep(version: string): UnchangedSweep {
+  return {
+    framing: DATA_FRAME,
+    kind: "unchanged",
+    version,
+    summary:
+      "Nothing the sweep reads has changed since that version — the outstanding list you are already holding is " +
+      "still current, and asking for it again would return what you have. Keep working from it, and present the " +
+      "same `since` next time you want to check.",
+  };
+}
+
 export interface NextWork {
   /**
    * The data-framing marker for this response as a whole (S4).
@@ -496,6 +534,31 @@ export interface NextWork {
    * framed in place as well.
    */
   framing: string;
+  /**
+   * The tree state this sweep was taken over, as one opaque string
+   * ({@link ../ost/tree-version.ts}). Present on every response, including a
+   * `done` one.
+   *
+   * Hold it and present it back as `ost_next_work({ since })` to ask whether
+   * this list is still current: when nothing the sweep reads has moved, the
+   * answer is an {@link UnchangedSweep} of a few hundred bytes instead of the
+   * whole outstanding list. It does not reduce the number of calls a pass makes
+   * — the confirmation those calls were there to buy is the point, and it stays
+   * bought — it reduces what a confirmation costs.
+   *
+   * **Sampled BEFORE the tree is read, never after**, and the order is
+   * load-bearing rather than incidental. A write landing mid-sweep would
+   * otherwise be inside this version and outside the list beside it, and the
+   * caller would be told a sweep that missed it is current. Sampling first can
+   * only make the version older than the list, which comes out as one
+   * unnecessary re-read — the direction that costs money rather than the one
+   * that costs correctness.
+   *
+   * Opaque, and comparable only for equality against another string from this
+   * same field. It carries the rule that produced it, so a version from a build
+   * that computed it differently reads as "changed" rather than matching by luck.
+   */
+  version: string;
   done: boolean;
   summary: string;
   /**
@@ -1199,7 +1262,14 @@ export function computeNextWork(
   ageOutDays?: number | null,
   listLimit: number = MAX_ITEMS_PER_LIST,
   staleAfterDays?: number | null,
+  sampledVersion?: string,
 ): NextWork {
+  // Sampled BEFORE the tree is read — see `NextWork.version` for why the order
+  // is the whole safety argument. `sampledVersion` lets a caller that already
+  // took this reading (the `since` probe on the tool surface, which took it a
+  // moment ago to decide whether to be here at all) hand it over rather than pay
+  // for a second stat walk that can only be newer than the one below.
+  const version = sampledVersion ?? treeVersion(vault.root, dir);
   // ONE parse. The census is read rather than `readTree()` so the retired
   // accounting Z4 needs comes from the same walk that produced the nodes —
   // a second read would be a second walk, and a second walk can disagree.
@@ -1931,6 +2001,7 @@ export function computeNextWork(
 
   return {
     framing: DATA_FRAME,
+    version,
     done,
     summary,
     scope,

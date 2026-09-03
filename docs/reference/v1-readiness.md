@@ -3221,14 +3221,14 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,317 tests across 378 files, verified 2026-09-02. This batch's own run
-> took **353 s** and came back green on everything except `test/loop/work-source-census.test.ts`,
-> which missed the same 10 s `fs.watch` deadline already recorded below and passes alone in
-> **3.1 s**. That is the fourth run in which that file is a contention victim and the fourth in
-> which it clears in isolation with two orders of magnitude of headroom; it has never once been
-> a defect, and this batch touches nothing it watches. A second full run of the same tree
-> settled it rather than leaving it asserted: **5,317 in 595 s, fully green**, that file
-> included. The batch before it is another instance
+> *Today:* **met** — 5,323 tests across 379 files, verified 2026-09-02. `test/loop/work-source-census.test.ts`
+> missed the same 10 s `fs.watch` deadline a fifth time on a **483 s** run of this batch, and
+> this time it was diagnosed rather than re-recorded: `fs.watch` on macOS is FSEvents, its
+> stream arms asynchronously after the call returns, and it took **4.3 s** to deliver that
+> test's one event on an idle machine. The test staked its verdict on a single event
+> surviving a queue the whole box shares. It now re-issues the write each time round its
+> poll — same 10 s deadline, same verdict — and the four earlier convictions below are
+> instances of that cause rather than of a slow watcher. The batch before it is another instance
 > of the same load pattern rather than a counter-example to it: that suite
 > took **1,018 s** and missed two wall-clock bounds — the real-`tsc` check in
 > `test/loop/inherited-tree-build-check.test.ts` at **39.7 s** against its 30 s bound, and
@@ -3564,8 +3564,12 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > build at all" (`src/release/timed-check-isolation.ts`,
 > `src/release/timed-checks.declared.ts`, `test/fixtures/timed-check-runs/`,
 > `scripts/harvest-timed-check-run-corpus.ts`). It came out **REFUTED at 34.0%** against a
-> bar of 50%: of 11,939 timed-check executions this project recorded in the thirty days to
-> 2026-09-01, 4,059 are on a GitHub-hosted runner and 7,880 are on the operator's laptop.
+> bar of 50%: of 13,250 timed-check executions this project recorded in the thirty days to
+> 2026-09-01, 4,510 are on a GitHub-hosted runner and 8,740 are on the operator's laptop.
+> (Those counts are runs × gating checks, so they rescaled on 2026-09-02 when
+> `test/ost/sweep-version-cost.test.ts` became the eleventh gating check. The share did not
+> move: 4,059/11,939 and 4,510/13,250 are both 34.0%, and the share is what the refutation
+> rests on.)
 > Every weekly sub-window lands between 30.2% and 36.5%, the reading is 34.5% over
 > whole-suite runs alone and 17.2% per invocation, and the corpus is an upper bound — the
 > runs it cannot see (terminal runs, `ost-agent ship`'s own gate) are all laptop runs. Three

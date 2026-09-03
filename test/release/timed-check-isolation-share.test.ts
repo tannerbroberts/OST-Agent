@@ -120,13 +120,13 @@ describe("the census knows what a timed check is", () => {
     expect(GATING_TIMED_CHECKS).toContain("test/loop/inherited-tree-build-check.test.ts");
   });
 
-  test("the gating ten each hold an assertion on something timed", () => {
+  test("the gating eleven each hold an assertion on something timed", () => {
     for (const file of GATING_TIMED_CHECKS) {
       const source = fs.readFileSync(path.join(repoRoot, file), "utf8");
       expect(CLOCK_MENTION_PATTERN.test(source) || DURATION_ASSERTION_PATTERN.test(source)).toBe(true);
       expect(source).toContain("expect(");
     }
-    expect(GATING_TIMED_CHECKS).toHaveLength(10);
+    expect(GATING_TIMED_CHECKS).toHaveLength(11);
   });
 
   test("exactly one gating check is already outside the parallel suite", () => {
@@ -270,8 +270,12 @@ describe("THE ASSUMPTION IS REFUTED", () => {
   const report = isolationShare(corpus.runs, GATING_TIMED_CHECKS);
 
   test("34.0% of timed-check runs happen where isolation could be guaranteed, against a 50% bar", () => {
-    expect(report.total).toBe(11_939);
-    expect(report.isolated).toBe(4059);
+    // Both counts are (runs x gating checks), so adding a gating check rescales
+    // them and leaves the share — the finding — where it was: 4059/11939 and
+    // 4510/13250 are both 34.0%. The verdict below is what this test is for; the
+    // two totals are recorded so a change in either can be read as what it is.
+    expect(report.total).toBe(13_250);
+    expect(report.isolated).toBe(4510);
     expect(report.share).toBeCloseTo(0.34, 2);
     expect(report.share).toBeLessThan(ISOLATION_SHARE_BAR);
     expect(report.clearsBar).toBe(false);
@@ -279,9 +283,9 @@ describe("THE ASSUMPTION IS REFUTED", () => {
 
   test("two thirds of them are on the laptop, and most of that is the unattended loop", () => {
     expect(report.byLocation).toEqual({
-      "ci-github-hosted": 4059,
-      "operator-workstation-unattended": 6566,
-      "operator-workstation-interactive": 1314,
+      "ci-github-hosted": 4510,
+      "operator-workstation-unattended": 7282,
+      "operator-workstation-interactive": 1458,
       "contributor-workstation": 0,
     });
   });

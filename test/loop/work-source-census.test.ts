@@ -434,15 +434,34 @@ describe("registering interest, rather than deciding when to look", () => {
       { onWake: (e) => woken.push(e.source) },
     );
     try {
-      recordResult(dir, {
-        test: "Asm",
-        verdict: "supported",
-        note: "ran it",
-        by: "Tanner",
-        uncovered: "nothing about repeat runs",
-      });
+      // The write is RE-ISSUED while we wait, and that is a fix rather than a
+      // flourish. This file has been convicted on a loaded box five times —
+      // `docs/reference/v1-readiness.md` records four and 2026-09-02 makes five
+      // — while passing alone every time, and the cause is not a watcher that
+      // failed to register: on macOS `fs.watch` is FSEvents, whose stream is
+      // armed asynchronously after this call returns and whose delivery is
+      // coalesced through a queue the whole box shares. It took 4.3 s to deliver
+      // this test's single event on an IDLE machine, measured 2026-09-02. One
+      // write therefore stakes the verdict on one event surviving a queue no
+      // test controls, which is precisely the "failed because the machine was
+      // busy" shape this repository keeps paying for. Writing again each time
+      // round the loop measures delivery from the most recent write rather than
+      // from one made ten seconds ago; the deadline is unchanged and so is the
+      // verdict — did a human's write, through the real path, ever wake it.
+      const write = (): void =>
+        recordResult(dir, {
+          test: "Asm",
+          verdict: "supported",
+          note: "ran it",
+          by: "Tanner",
+          uncovered: "nothing about repeat runs",
+        });
+      write();
       const deadline = Date.now() + 10_000;
-      while (woken.length === 0 && Date.now() < deadline) await new Promise((r) => setTimeout(r, 25));
+      while (woken.length === 0 && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 25));
+        if (woken.length === 0) write();
+      }
       expect(woken, "fs.watch on the vault root saw nothing when a result was recorded in it").not.toEqual([]);
     } finally {
       handle.close();
