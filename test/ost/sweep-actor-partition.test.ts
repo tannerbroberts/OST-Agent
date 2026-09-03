@@ -290,7 +290,7 @@ describe("the split is read off the surfaces, never asserted", () => {
 
   test("a compute-only test is the attended session's, because recording a result is off every tool surface", () => {
     const { work, partition } = sweep();
-    expect(work.assumptionWork.runnable).toContain("The replay reproduces last quarter's cohort exactly");
+    expect(work.assumptionWork.runnable.map((t) => t.test)).toContain("The replay reproduces last quarter's cohort exactly");
     const runnable = rowsFrom(partition, "assumptionWork.runnable");
     expect(runnable.every((r) => r.actor === "attended")).toBe(true);
 

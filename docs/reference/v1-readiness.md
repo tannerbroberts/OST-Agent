@@ -3221,8 +3221,34 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,317 tests across 378 files, verified 2026-09-02. This batch's own run
-> took **353 s** and came back green on everything except `test/loop/work-source-census.test.ts`,
+> *Today:* **met** — 5,321 tests across 379 files, verified 2026-09-02. This batch's own run
+> took **962 s** and missed three wall-clock bounds — `test/mcp/wall-clock-budget.test.ts` at
+> **2,232 ms** against its 2,000 ms budget, `test/loop/inherited-tree-build-check.test.ts` at
+> **37.8 s** against its 30 s, and `test/adapters/ingest-backpressure-provenance.test.ts` at
+> **33.1 s** against its 25 s — with an `npm run bundle` sharing the box for part of it. The
+> last two clear alone at **7.7 s** and **12.7 s**. The first was not re-run and argued about:
+> it measures `computeNextWork`, which is the function this batch changed, so it was profiled
+> instead — fastest-of-5 over the same 10,000-node fixture is **811 ms with this change against
+> 844 ms at the commit before it**. Carrying a per-test field on six lists costs nothing
+> measurable at that scale, which is the wall-clock half of the affordability its own
+> assumption test doubted. A second full run of the same tree with nothing else on the box
+> settled it rather than leaving it asserted: **5,321 in 646 s, fully green**, all three
+> included. The file added is
+> `test/ost/next-work-instrument-visibility.test.ts`, the instrument for "Carrying the
+> instrument field pushes no visible entry out of the sweep", beneath "The sweep reports which
+> tests already carry an instrument, beside the solutions that lack one" — every row naming a
+> test now carries the command that test already declares, or an explicit `null`, read through
+> the same `declaredInstrument` the `ost_set_instrument` overwrite guard reads, so the sweep
+> and the refusal cannot disagree about what "already there" means. **What the build found
+> concerns this document.** Its citations into `src/mcp/next-work.ts` have drifted far past the
+> in-bounds case the citation test warns it cannot catch: `NextWork` is cited at `:52-79` and
+> declared at `:485`, `HYGIENE_ONLY_RULES` at `:223` and declared at `:746`, and the two
+> hygiene functions at `:107-140`/`:141-161` against `:798`/`:984`. All four resolve to real
+> lines, so `test/release/readiness-citations.test.ts` is green on every one; each sends a
+> reader several hundred lines from the evidence it names. That is the B4 failure mode at a
+> scale the bounds check was written assuming would not occur, and it is untouched here — the
+> honest repair is to re-read each claim, not to renumber it. The batch before it ran in
+> **353 s** and came back green on everything except `test/loop/work-source-census.test.ts`,
 > which missed the same 10 s `fs.watch` deadline already recorded below and passes alone in
 > **3.1 s**. That is the fourth run in which that file is a contention victim and the fourth in
 > which it clears in isolation with two orders of magnitude of headroom; it has never once been

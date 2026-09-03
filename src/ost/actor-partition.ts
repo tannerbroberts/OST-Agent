@@ -360,25 +360,25 @@ export function partitionSweepByActor(work: NextWork, tree: readonly OstNode[]):
   for (const t of work.assumptionWork.runnable) {
     push(
       "assumptionWork.runnable",
-      t,
+      t.test,
       "attended",
-      `ost-agent result "${t}"`,
+      `ost-agent result "${t.test}"`,
       "compute-only, so the run costs nobody anything — but recording the verdict is off every tool surface.",
     );
   }
   for (const t of work.assumptionWork.awaitingOneCommand) {
     push(
       "assumptionWork.awaitingOneCommand",
-      t,
+      t.test,
       "attended",
-      `ost-agent result "${t}"`,
+      `ost-agent result "${t.test}"`,
       "compute can prepare the whole verdict; the human's part is one pre-filled command.",
     );
   }
   for (const t of work.assumptionWork.blockedOnPermission) {
     push(
       "assumptionWork.blockedOnPermission",
-      t,
+      t.test,
       "human-only",
       "the credential or consent, then ost-agent result",
       "the work is finished and what is missing is a permission nobody delegated.",
@@ -387,9 +387,9 @@ export function partitionSweepByActor(work: NextWork, tree: readonly OstNode[]):
   for (const t of work.assumptionWork.needsHumans) {
     push(
       "assumptionWork.needsHumans",
-      t,
+      t.test,
       "human-only",
-      `ost-agent result "${t}"`,
+      `ost-agent result "${t.test}"`,
       `labelled ${CAUTIOUS_LANE} (or unlabelled, which fails closed to it) — a person outside the building is ` +
         `the measurement.`,
     );

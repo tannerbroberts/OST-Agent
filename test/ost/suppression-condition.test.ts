@@ -80,6 +80,11 @@ afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
 const index = (): Map<string, OstNode> => new Map(v.readTree().map((n) => [n.title, n]));
 
+/** The titles a lane bucket is offering — each entry is a row, not a bare title. */
+function offered(rows: readonly { test: string }[]): string[] {
+  return rows.map((r) => r.test);
+}
+
 test("decline 1 — a solution declined because it is shipped: suppressed while shipped, offered again when the status flips", () => {
   // The condition is a typed object, and it evaluates to a boolean against the tree alone.
   const condition = parseSuppressionCondition({ holdsWhile: "status-is", node: SHIPPED_SOLUTION, status: "shipped" });
@@ -115,7 +120,7 @@ test("decline 1 — a solution declined because it is shipped: suppressed while 
 test("decline 2 — a test declined because it needs people outside the building: suppressed while the lane says so", () => {
   const condition = parseSuppressionCondition({ holdsWhile: "lane-is", node: HUMANS_TEST, lane: "humans-required" });
   expect(conditionHolds(condition, index())).toBe(true);
-  expect(computeNextWork(v, dir, 1).assumptionWork.needsHumans).toContain(HUMANS_TEST);
+  expect(offered(computeNextWork(v, dir, 1).assumptionWork.needsHumans)).toContain(HUMANS_TEST);
 
   appendSuppression(
     dir,
@@ -123,7 +128,7 @@ test("decline 2 — a test declined because it needs people outside the building
     CLOCK,
   );
   const during = computeNextWork(v, dir, 1);
-  expect(during.assumptionWork.needsHumans).not.toContain(HUMANS_TEST);
+  expect(offered(during.assumptionWork.needsHumans)).not.toContain(HUMANS_TEST);
   expect(during.suppressedByCondition.find((s) => s.subject === HUMANS_TEST)?.list).toBe("assumptionWork.needsHumans");
   // The person's own queue is deliberately not muted by a pass's decline.
   expect(during.outstandingAsks.map((a) => a.test)).toContain(HUMANS_TEST);
@@ -133,26 +138,26 @@ test("decline 2 — a test declined because it needs people outside the building
   v.setLane(HUMANS_TEST, "compute-only");
   expect(conditionHolds(condition, index())).toBe(false);
   const after = computeNextWork(v, dir, 1);
-  expect(after.assumptionWork.runnable).toContain(HUMANS_TEST);
+  expect(offered(after.assumptionWork.runnable)).toContain(HUMANS_TEST);
   expect(after.suppressedByCondition.find((s) => s.subject === HUMANS_TEST)).toBeUndefined();
 });
 
 test("decline 3 — an item declined because the surface lacked the tool to classify it: suppressed while unlabelled, revives on the label", () => {
   const condition = parseSuppressionCondition({ holdsWhile: "lane-unlabelled", node: UNLABELLED_TEST });
   expect(conditionHolds(condition, index())).toBe(true);
-  expect(computeNextWork(v, dir, 1).assumptionWork.needsHumans).toContain(UNLABELLED_TEST);
+  expect(offered(computeNextWork(v, dir, 1).assumptionWork.needsHumans)).toContain(UNLABELLED_TEST);
 
   appendSuppression(
     dir,
     { subject: UNLABELLED_TEST, condition: { holdsWhile: "lane-unlabelled", node: UNLABELLED_TEST }, reason: "ost_flag_humans_required was not granted on this surface; nothing here can label it", by: "unattended-pass" },
     CLOCK,
   );
-  expect(computeNextWork(v, dir, 1).assumptionWork.needsHumans).not.toContain(UNLABELLED_TEST);
+  expect(offered(computeNextWork(v, dir, 1).assumptionWork.needsHumans)).not.toContain(UNLABELLED_TEST);
 
   // Somebody with the tool labels it. The condition flips and the test is offered again.
   v.setLane(UNLABELLED_TEST, "one-command");
   expect(conditionHolds(condition, index())).toBe(false);
-  expect(computeNextWork(v, dir, 1).assumptionWork.awaitingOneCommand).toContain(UNLABELLED_TEST);
+  expect(offered(computeNextWork(v, dir, 1).assumptionWork.awaitingOneCommand)).toContain(UNLABELLED_TEST);
 });
 
 test("decline 4 — an unknown declined for want of a Format: suppressed while the section is missing, revives when it is declared", () => {

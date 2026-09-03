@@ -48,6 +48,7 @@ import { CAUTIOUS_LANE, isLane, type LaneId } from "../knowledge/lanes.js";
 import { hasRecordedResult } from "../eval/evidence-debt.js";
 import { unmetPrerequisites } from "../ost/prerequisites.js";
 import { solutionsAwaitingObservation, solutionsMissingInstruments } from "../eval/buildable.js";
+import { declaredInstrument } from "../ost/instrument.js";
 import { DATA_FRAME, frameData } from "../security/framing.js";
 import { readAskLedger } from "../knowledge/asks.js";
 import { pendingAskQueue } from "../ost/pending-asks.js";
@@ -273,31 +274,70 @@ export interface QuarantinedReport {
  * `ost-agent result`) may go run right now; the unattended pass reads it as
  * information, not as an instruction.
  */
+/**
+ * One assumption test as this response names it: the title, and the command it
+ * already declares.
+ *
+ * **Why the entry is a row rather than a bare title.** These lists were the
+ * queue an instrument-attaching pass worked from, and a title is not enough to
+ * compose the next call with: `ost_set_instrument` does two different jobs —
+ * attach to a test that has none, replace the command on one that has — and the
+ * second deliberately un-clears any build permit the old command earned. On
+ * 2026-08-07 a pass picked a test off this queue by title, believing it
+ * prose-only, and replaced a repository-grounded command with a path invented by
+ * a pass that had never seen the repository. It reverted the swap, could not
+ * revert the permit, and stopped its instrument work as unsafe to perform blind.
+ * Nothing about the write path was wrong; the read simply did not answer the
+ * question the write turns on.
+ */
+export interface TestWork {
+  /** The AssumptionTest's title. */
+  test: string;
+  /**
+   * The command this test already declares, VERBATIM — or `null` when it
+   * declares none.
+   *
+   * **Always present, explicitly `null` when there is nothing**, and that clause
+   * is load-bearing rather than tidy. Every list on this response is capped, so a
+   * field that appeared only when set would be indistinguishable to a reader from
+   * a field dropped for room — which reintroduces exactly the ambiguity this
+   * exists to remove, in a response that is already being cut.
+   *
+   * Read through `declaredInstrument`, the same helper `ost_set_instrument`'s
+   * overwrite guard reads, so a non-null value here and a refusal there are the
+   * same fact. That includes a declaration that does not PARSE: it is not a
+   * runnable instrument, but it is what the author wrote and it is what the write
+   * path refuses on, so reporting it as absent would send a pass to attach and
+   * have the call refuse.
+   */
+  instrument: string | null;
+}
+
 export interface AssumptionWork {
   /**
    * `compute-only`, no result: runs entirely over artifacts already on disk, so a
    * session may go run it now and prepare a verdict. The runnable-test bucket —
    * the one the lane taxonomy decided existed and nothing surfaced.
    */
-  runnable: string[];
+  runnable: TestWork[];
   /**
    * `one-command`, no result: compute can prepare the whole verdict; the human's
    * only part is reading a paragraph and running one pre-filled `ost-agent result`
    * line.
    */
-  awaitingOneCommand: string[];
+  awaitingOneCommand: TestWork[];
   /**
    * `pending-permission`, no result: the work is finished and what is missing is a
    * credential or a consent, not evidence.
    */
-  blockedOnPermission: string[];
+  blockedOnPermission: TestWork[];
   /**
    * `humans-required`, no result — plus every unlabelled test, which lands here by
    * the lanes' fail-closed rule ({@link CAUTIOUS_LANE}): an unclassified test is
    * treated as the most restrictive lane until a human says otherwise. Real people
    * outside the building are in the loop.
    */
-  needsHumans: string[];
+  needsHumans: TestWork[];
   /**
    * No result, and a test it declared as a prerequisite has no result either —
    * blocked by the tree's own ordering rather than by a lane, whatever lane it
@@ -320,9 +360,7 @@ export interface AssumptionWork {
 }
 
 /** One entry of {@link AssumptionWork.blockedOnPrerequisite}. */
-export interface BlockedTest {
-  /** The test that cannot be offered yet. */
-  test: string;
+export interface BlockedTest extends TestWork {
   /**
    * The prerequisites with no recorded result — what to go answer first. Never
    * empty: an entry with nothing outstanding would not be blocked.
@@ -345,9 +383,7 @@ export interface BlockedTest {
  * entry drops out the moment a result is recorded or the test is re-classified
  * `compute-only`, so the queue clears itself; nothing marks asks answered.
  */
-export interface OutstandingAsk {
-  /** Title of the AssumptionTest the ask is about. */
-  test: string;
+export interface OutstandingAsk extends TestWork {
   /** ISO timestamp of the most recent ask on record, or `null` when none is. */
   askedAt: string | null;
   /**
@@ -410,13 +446,16 @@ function disposeAssumptionTests(tree: readonly OstNode[]): AssumptionWork {
   const unmet = unmetPrerequisites(tree);
   for (const t of tree) {
     if (t.layer !== "AssumptionTest" || hasRecordedResult(t)) continue;
+    // Read off the node the routing decision was made on, so a row can never
+    // name one test's title beside another's command.
+    const instrument = declaredInstrument(t);
     const waitingOn = unmet.get(t.title);
     if (waitingOn && waitingOn.length > 0) {
-      work.blockedOnPrerequisite.push({ test: t.title, waitingOn });
+      work.blockedOnPrerequisite.push({ test: t.title, instrument, waitingOn });
       continue;
     }
     const lane: LaneId = t.lane && isLane(t.lane) ? t.lane : CAUTIOUS_LANE;
-    work[DISPOSITION[lane]].push(t.title);
+    work[DISPOSITION[lane]].push({ test: t.title, instrument });
   }
   return work;
 }
@@ -1571,10 +1610,10 @@ export function computeNextWork(
   // to stop paying.
   const dispatchedAssumptionWork = disposeAssumptionTests(tree);
   const allAssumptionWork: AssumptionWork = {
-    runnable: omitSuppressed(dispatchedAssumptionWork.runnable, (t) => t, suppressions, index, "assumptionWork.runnable", suppressed),
-    awaitingOneCommand: omitSuppressed(dispatchedAssumptionWork.awaitingOneCommand, (t) => t, suppressions, index, "assumptionWork.awaitingOneCommand", suppressed),
-    blockedOnPermission: omitSuppressed(dispatchedAssumptionWork.blockedOnPermission, (t) => t, suppressions, index, "assumptionWork.blockedOnPermission", suppressed),
-    needsHumans: omitSuppressed(dispatchedAssumptionWork.needsHumans, (t) => t, suppressions, index, "assumptionWork.needsHumans", suppressed),
+    runnable: omitSuppressed(dispatchedAssumptionWork.runnable, (t) => t.test, suppressions, index, "assumptionWork.runnable", suppressed),
+    awaitingOneCommand: omitSuppressed(dispatchedAssumptionWork.awaitingOneCommand, (t) => t.test, suppressions, index, "assumptionWork.awaitingOneCommand", suppressed),
+    blockedOnPermission: omitSuppressed(dispatchedAssumptionWork.blockedOnPermission, (t) => t.test, suppressions, index, "assumptionWork.blockedOnPermission", suppressed),
+    needsHumans: omitSuppressed(dispatchedAssumptionWork.needsHumans, (t) => t.test, suppressions, index, "assumptionWork.needsHumans", suppressed),
     // Suppressible on the same terms as the four lane queues: a pass that
     // declined a blocked test should not pay to re-decline it every sweep. Keyed
     // by the test's own title, so a suppression written against it reads the same
@@ -1592,10 +1631,10 @@ export function computeNextWork(
     membership === null
       ? allAssumptionWork
       : {
-          runnable: allAssumptionWork.runnable.filter(inScope),
-          awaitingOneCommand: allAssumptionWork.awaitingOneCommand.filter(inScope),
-          blockedOnPermission: allAssumptionWork.blockedOnPermission.filter(inScope),
-          needsHumans: allAssumptionWork.needsHumans.filter(inScope),
+          runnable: allAssumptionWork.runnable.filter((t) => inScope(t.test)),
+          awaitingOneCommand: allAssumptionWork.awaitingOneCommand.filter((t) => inScope(t.test)),
+          blockedOnPermission: allAssumptionWork.blockedOnPermission.filter((t) => inScope(t.test)),
+          needsHumans: allAssumptionWork.needsHumans.filter((t) => inScope(t.test)),
           // Scoped by the BLOCKED test's own membership. A prerequisite may sit
           // in another branch entirely — that cross-branch reach is the whole
           // reason this edge exists — so scoping on the far end would drop a
@@ -1622,9 +1661,16 @@ export function computeNextWork(
   // writes to (`src/ost/lanes.ts`), assembled by the one derivation the CLI's
   // `ost-agent asks` also uses so the two surfaces can never disagree. Oldest
   // first, so a capped display still shows the longest-waiting ask.
+  //
+  // Carries `instrument` like every other row that names a test: an ask queue is
+  // read by a person deciding what to chase, and "this one already runs a
+  // command" is part of that call.
   const allOutstandingAsks: OutstandingAsk[] = pendingAskQueue(tree, readAskLedger(dir), now)
     .filter((a) => inScope(a.test))
-    .map(({ test, askedAt, ageDays, command }) => ({ test, askedAt, ageDays, command }));
+    .map(({ test, askedAt, ageDays, command }) => {
+      const node = index.get(test);
+      return { test, instrument: node ? declaredInstrument(node) : null, askedAt, ageDays, command };
+    });
 
   // Every cap is a display limit, never an amnesty: `done` and every count below
   // are taken over the full sets, and each hidden count is named — both in

@@ -92,6 +92,15 @@ function twoTests(): Vault {
   return v;
 }
 
+/**
+ * The titles a lane bucket is offering. Each entry is a row — the test plus the
+ * command it already declares — and these assertions are about routing, so they
+ * read the title off it rather than restating an instrument in every one.
+ */
+function offered(rows: readonly { test: string }[]): string[] {
+  return rows.map((r) => r.test);
+}
+
 /** What `ost-agent result` writes, standing in for the human's run. */
 function recordResult(v: Vault, test: string): void {
   v.appendUnderSection(test, "## Results", "- 2026-08-30 confirmed (ran by a person) — it held");
@@ -219,19 +228,23 @@ describe("3. the sweep reports a blocked test as blocked instead of offering it"
   test("a compute-only test whose prerequisite has no result leaves `runnable`", () => {
     const v = twoTests();
     // Before the edge: both are on offer, which is what makes the move below real.
-    expect(computeNextWork(v, dir, 1).assumptionWork.runnable.sort()).toEqual([ARRIVALS, SEEDING].sort());
+    expect(offered(computeNextWork(v, dir, 1).assumptionWork.runnable).sort()).toEqual([ARRIVALS, SEEDING].sort());
 
     v.setPrerequisite(SEEDING, ARRIVALS, "by a person — arrivals are the denominator");
     const work = computeNextWork(v, dir, 1);
-    expect(work.assumptionWork.runnable).toEqual([ARRIVALS]);
-    expect(work.assumptionWork.runnable).not.toContain(SEEDING);
+    expect(offered(work.assumptionWork.runnable)).toEqual([ARRIVALS]);
+    expect(offered(work.assumptionWork.runnable)).not.toContain(SEEDING);
   });
 
   test("it is reported as blocked, and the report says what it waits on", () => {
     const v = twoTests();
     v.setPrerequisite(SEEDING, ARRIVALS, "by a person — arrivals are the denominator");
     const work = computeNextWork(v, dir, 1);
-    expect(work.assumptionWork.blockedOnPrerequisite).toEqual([{ test: SEEDING, waitingOn: [ARRIVALS] }]);
+    // The row carries the command SEEDING already declares, like every other row
+    // that names a test — a blocked entry is still one an instrument pass reads.
+    expect(work.assumptionWork.blockedOnPrerequisite).toEqual([
+      { test: SEEDING, instrument: "npx vitest run test/seeding.test.ts", waitingOn: [ARRIVALS] },
+    ]);
     // A count with no name would say a test is blocked without saying by what,
     // which is the one thing an edge exists to say.
     expect(work.summary).toContain(SEEDING);
@@ -242,7 +255,7 @@ describe("3. the sweep reports a blocked test as blocked instead of offering it"
     const v = twoTests();
     v.setPrerequisite(SEEDING, ARRIVALS, "by a person — arrivals first");
     const aw = computeNextWork(v, dir, 1).assumptionWork;
-    const inLanes = [...aw.runnable, ...aw.awaitingOneCommand, ...aw.blockedOnPermission, ...aw.needsHumans];
+    const inLanes = offered([...aw.runnable, ...aw.awaitingOneCommand, ...aw.blockedOnPermission, ...aw.needsHumans]);
     expect(inLanes).not.toContain(SEEDING);
     expect(aw.blockedOnPrerequisite.map((b) => b.test)).toEqual([SEEDING]);
   });
@@ -252,7 +265,7 @@ describe("3. the sweep reports a blocked test as blocked instead of offering it"
     v.setLane(SEEDING, "humans-required", "by test — real people are in the loop");
     v.setPrerequisite(SEEDING, ARRIVALS, "by a person — arrivals first");
     const aw = computeNextWork(v, dir, 1).assumptionWork;
-    expect(aw.needsHumans).not.toContain(SEEDING);
+    expect(offered(aw.needsHumans)).not.toContain(SEEDING);
     expect(aw.blockedOnPrerequisite.map((b) => b.test)).toEqual([SEEDING]);
   });
 
@@ -273,7 +286,7 @@ describe("4. an edge naming nothing orders nothing, and is loud about it", () =>
     fs.writeFileSync(path.join(dir, fileNameForTitle(SEEDING)), serialize(node), "utf8");
 
     const work = computeNextWork(v, dir, 1);
-    expect(work.assumptionWork.runnable).toContain(SEEDING);
+    expect(offered(work.assumptionWork.runnable)).toContain(SEEDING);
     expect(work.assumptionWork.blockedOnPrerequisite).toEqual([]);
     expect(unmetPrerequisites(v.readTree()).has(SEEDING)).toBe(false);
   });
@@ -300,7 +313,7 @@ describe("4. an edge naming nothing orders nothing, and is loud about it", () =>
     expect(unknownPrerequisites(v.readTree())).toEqual([
       { test: SEEDING, prerequisite: SOLUTION, reason: "not-a-test", found: "Solution" },
     ]);
-    expect(computeNextWork(v, dir, 1).assumptionWork.runnable).toContain(SEEDING);
+    expect(offered(computeNextWork(v, dir, 1).assumptionWork.runnable)).toContain(SEEDING);
   });
 
   test("the write path refuses the same two cases up front", () => {
@@ -315,14 +328,14 @@ describe("5. the block clears itself", () => {
   test("recording the prerequisite's result puts the blocked test back on offer", () => {
     const v = twoTests();
     v.setPrerequisite(SEEDING, ARRIVALS, "by a person — arrivals are the denominator");
-    expect(computeNextWork(v, dir, 1).assumptionWork.runnable).toEqual([ARRIVALS]);
+    expect(offered(computeNextWork(v, dir, 1).assumptionWork.runnable)).toEqual([ARRIVALS]);
 
     recordResult(v, ARRIVALS);
 
     const work = computeNextWork(v, dir, 1);
     // Nothing marked it unblocked: the fact changed and the derivation followed.
     expect(work.assumptionWork.blockedOnPrerequisite).toEqual([]);
-    expect(work.assumptionWork.runnable).toEqual([SEEDING]);
+    expect(offered(work.assumptionWork.runnable)).toEqual([SEEDING]);
     // The edge is still on the node — a prerequisite is a standing claim about
     // ordering, not a lock that gets consumed.
     expect(v.read(SEEDING).prerequisites).toEqual([ARRIVALS]);
@@ -352,7 +365,7 @@ describe("5. the block clears itself", () => {
     recordResult(v, ARRIVALS);
 
     const aw = computeNextWork(v, dir, 1).assumptionWork;
-    expect(aw.runnable.sort()).toEqual([SEEDING, THIRD].sort());
+    expect(offered(aw.runnable).sort()).toEqual([SEEDING, THIRD].sort());
     expect(aw.blockedOnPrerequisite).toEqual([]);
   });
 });

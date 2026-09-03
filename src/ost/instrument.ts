@@ -310,6 +310,33 @@ export function nodeInstrument(node: OstNode): ParsedInstrument | undefined {
 }
 
 /**
+ * What a test DECLARES, verbatim — the answer to "does this already carry an
+ * instrument?", which is a different question from {@link nodeInstrument}'s.
+ *
+ * `nodeInstrument` answers "can this be run", so it returns nothing for a
+ * declaration that does not parse. That is the wrong reading for the callers
+ * this exists for: `ost_set_instrument` refuses an overwrite on any non-empty
+ * `instrument:` field, parseable or not, so a reader that reported an
+ * unparseable declaration as *absent* would tell a pass to attach and then have
+ * the write refuse — the same blind attach-vs-replace guess, with an extra round
+ * trip. The guard and the sweep both call this, so the two cannot disagree about
+ * what "already there" means.
+ *
+ * Verbatim and never shortened. Every other string on that response is a label a
+ * reader skims; this one is a COMMAND, and the reason it is served is so a pass
+ * can compare it against the one it was about to write. An abridged command is a
+ * different command.
+ *
+ * `null` rather than `undefined`: it is served on a JSON response, where an
+ * absent field and a field cut for room read alike, and telling those apart is
+ * the whole point of reporting it.
+ */
+export function declaredInstrument(node: OstNode): string | null {
+  const declared = (node.instrument ?? "").trim();
+  return declared === "" ? null : declared;
+}
+
+/**
  * Observations of the command the node names TODAY.
  *
  * Every log line carries the command it ran, in backticks, and this filters on
