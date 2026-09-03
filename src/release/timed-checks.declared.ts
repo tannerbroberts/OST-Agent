@@ -240,7 +240,7 @@ export const CLOCK_READING_TESTS: readonly DeclaredTimedCheck[] = [
   {
     file: "test/loop/work-source-census.test.ts",
     kind: "liveness-timeout",
-    why: "one test registers a real `fs.watch` and polls until it fires with a 10s deadline; the verdict is whether the watcher saw the write at all, and the deadline only bounds the wait",
+    why: "one test registers a real `fs.watch` and polls until it fires with a 10s deadline, re-issuing the write each round so FSEvents delivery latency cannot decide it; the verdict is whether the watcher saw the write at all",
   },
   {
     file: "test/mcp/s1-self-feeding.test.ts",
@@ -263,6 +263,12 @@ export const CLOCK_READING_TESTS: readonly DeclaredTimedCheck[] = [
     kind: "gating-wall-clock",
     statistic: "same-run-ratio",
     why: "asserts the indexed path beats the reference path 20x in the same process, and that the reference is slow enough to measure against",
+  },
+  {
+    file: "test/ost/sweep-version-cost.test.ts",
+    kind: "gating-wall-clock",
+    statistic: "same-run-ratio",
+    why: "the assumption test's own pre-committed bar — a tree-version candidate must cost under 10% of producing the sweep, measured interleaved in the same process and taken as the cheapest reading each series managed",
   },
   {
     file: "test/ost/writing-version-recoverable.test.ts",

@@ -171,8 +171,17 @@ export const NOT_PARTITIONED_LISTS: readonly string[] = Object.freeze([
   "suppressedByCondition",
 ]);
 
-/** `NextWork` fields that are not lists at all — a verdict, a framing, a scope. */
-export const NON_LIST_FIELDS: readonly string[] = Object.freeze(["framing", "done", "summary", "scope"]);
+/**
+ * `NextWork` fields that are not lists at all — a verdict, a framing, a scope, a
+ * version.
+ *
+ * `version` belongs here rather than among the work lists because it names no
+ * work and belongs to no actor: it is the tree state the response was taken
+ * over, and a caller presents it back to ask whether the lists beside it still
+ * hold ({@link ../ost/tree-version.ts}). Partitioning it by who may act on it
+ * would be answering a question it does not ask.
+ */
+export const NON_LIST_FIELDS: readonly string[] = Object.freeze(["framing", "version", "done", "summary", "scope"]);
 
 /**
  * The lists `NextWork.done` is computed over, so a per-actor `done` is the same

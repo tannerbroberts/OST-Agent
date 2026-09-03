@@ -239,7 +239,12 @@ describe("1 — the stop condition is published as data, not as prose", () => {
     // to the loop's stopping question, and for the same reason: two gates that can
     // disagree permanently about what is outstanding are not gates.
     const work = sweep();
-    const bookkeeping = new Set(["framing", "done", "summary", "scope", "truncated"]);
+    // `version` is bookkeeping in the same sense `framing` is: it names no work
+    // and no actor, it says which tree state the lists beside it were taken over
+    // so a caller can ask whether they still hold (`src/ost/tree-version.ts`).
+    // A stop condition computed over it would be firing on the tree changing
+    // rather than on anything being outstanding.
+    const bookkeeping = new Set(["framing", "version", "done", "summary", "scope", "truncated"]);
     const fields = Object.keys(work).filter((k) => !bookkeeping.has(k));
     // `assumptionWork` is a record of five queues rather than one list, and each
     // is classified on its own — a single verdict over the group would hide that
