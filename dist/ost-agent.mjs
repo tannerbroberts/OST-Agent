@@ -55170,12 +55170,31 @@ function endOfString(source, start) {
 function endOfInterpolation(source, start) {
   let depth = 0;
   let i2 = start;
+  let prev = "";
   while (i2 < source.length) {
     const c3 = source[i2];
-    if (c3 === '"' || c3 === "'" || c3 === "`") {
-      i2 = endOfString(source, i2);
+    const d = source[i2 + 1];
+    if (c3 === "/" && d === "/") {
+      while (i2 < source.length && source[i2] !== "\n") i2++;
       continue;
     }
+    if (c3 === "/" && d === "*") {
+      i2 += 2;
+      while (i2 < source.length && !(source[i2] === "*" && source[i2 + 1] === "/")) i2++;
+      i2 = Math.min(source.length, i2 + 2);
+      continue;
+    }
+    if (c3 === '"' || c3 === "'" || c3 === "`") {
+      i2 = endOfString(source, i2);
+      prev = c3;
+      continue;
+    }
+    if (c3 === "/" && isRegexStart(source, i2, prev)) {
+      i2 = endOfRegex(source, i2);
+      prev = "/";
+      continue;
+    }
+    if (!/\s/.test(c3)) prev = c3;
     if (c3 === "{") depth++;
     else if (c3 === "}") {
       depth--;
@@ -65007,6 +65026,116 @@ function formatRefusalAbsorptionCensus(c3) {
   return out.join("\n");
 }
 
+// src/loop/compute-lane.ts
+var VERDICT_OF = {
+  green: "supported",
+  red: "refuted"
+};
+function draftComputeLane(tree, options2) {
+  const conflicted = new Map(laneConflicts(tree).map((c3) => [c3.test, c3]));
+  const drafts = [];
+  const declined = [];
+  for (const test of runnableByCompute(tree)) {
+    const conflict = conflicted.get(test.title);
+    if (conflict) {
+      declined.push({
+        test: test.title,
+        why: `labelled ${conflict.labelled} but its own text says "${conflict.quote}" \u2014 the label is what compute obeys, so running it would be an unattended pass acting on the reading the node itself disputes. Full sentence: "${conflict.sentence}". A human settles which is stale.`
+      });
+      continue;
+    }
+    const instrument = nodeInstrument(test);
+    if (!instrument) {
+      declined.push({
+        test: test.title,
+        why: "declares no runnable instrument, so there is nothing for compute to execute against existing data. The lane says it costs nobody anything; without a command that is a claim rather than a run."
+      });
+      continue;
+    }
+    drafts.push(draftFor(test, instrument, options2));
+  }
+  return {
+    drafts,
+    declined,
+    decisive: drafts.filter((d) => d.verdict).length,
+    kills: drafts.filter((d) => d.verdict === "refuted").length
+  };
+}
+function draftFor(test, instrument, options2) {
+  const run = runInstrument(instrument, options2.repo, { spawn: options2.spawn });
+  const evidence = `${run.observation} (exit ${run.exitCode ?? "none"}) \`${instrument.command}\` \u2014 ${run.excerpt}`;
+  const uncovered = uncoveredBy(test, instrument);
+  const verdict = VERDICT_OF[run.observation];
+  if (!verdict) {
+    return {
+      test: test.title,
+      command: instrument.command,
+      observation: run.observation,
+      evidence,
+      uncovered,
+      undecided: run.observation === "no-spec" ? `nothing was measured \u2014 ${instrument.target} collected no test case, so the non-zero exit is a fact about a missing file rather than about the assumption. Write the spec; there is no verdict to draft.` : "nothing was measured \u2014 the box could not produce a run, so the non-zero exit says nothing whatever about this repository. Fix the environment and run the lane again."
+    };
+  }
+  const note = `compute-lane run of \`${instrument.command}\` against the repository observed ${run.observation} (exit ${run.exitCode ?? "none"}): ${run.excerpt}`;
+  return {
+    test: test.title,
+    command: instrument.command,
+    observation: run.observation,
+    verdict,
+    evidence,
+    uncovered,
+    resultCommand: resultCommand(test.title, verdict, note, uncovered)
+  };
+}
+function uncoveredBy(test, instrument) {
+  const threshold = (test.threshold ?? "").trim();
+  const observed = `\`${instrument.command}\` observed an exit code and nothing else`;
+  return threshold ? `${observed}. The bar this test committed to \u2014 "${threshold}" \u2014 is not something an exit code can see, and this run did not check it.` : `${observed}, and this test fixes no threshold for it to be measured against. Nothing here can come out a failure on the bar, because there is no bar.`;
+}
+function resultCommand(test, verdict, note, uncovered) {
+  if (!VERDICTS.includes(verdict)) throw new Error(`"${verdict}" is not a verdict \u2014 use one of: ${VERDICTS.join(", ")}`);
+  return [
+    "ost-agent result",
+    shellQuote(test),
+    `-v ${verdict}`,
+    `-n ${shellQuote(note)}`,
+    "-b <you>",
+    `-u ${shellQuote(uncovered)}`
+  ].join(" ");
+}
+function shellQuote(text2) {
+  if (!/["`$\\]/.test(text2)) return `"${text2}"`;
+  return `'${text2.replace(/'/g, `'\\''`)}'`;
+}
+function renderComputeLane(run) {
+  const out = [];
+  out.push(`Compute-only lane: ${run.drafts.length} test(s) run, ${run.declined.length} declined.`);
+  out.push("Nothing below is recorded. A draft is a proposal; `ost-agent result` is still yours.");
+  for (const d of run.drafts) {
+    out.push("");
+    out.push(`- ${d.test}`);
+    out.push(`    evidence: ${d.evidence}`);
+    if (d.verdict) {
+      out.push(`    draft verdict: ${d.verdict}`);
+      out.push(`    does not cover: ${d.uncovered}`);
+      out.push(`    ${d.resultCommand}`);
+    } else {
+      out.push(`    no verdict drafted \u2014 ${d.undecided}`);
+    }
+  }
+  for (const d of run.declined) {
+    out.push("");
+    out.push(`- ${d.test}  DECLINED`);
+    out.push(`    ${d.why}`);
+  }
+  out.push("");
+  out.push(`${run.decisive} draft(s) a human could record, ${run.kills} of them a refutation.`);
+  if (run.decisive > 0 && run.kills === 0) {
+    out.push("Zero kills: every draft in this pass confirms. That is the decoration signal \u2014 worth reading before recording any of them.");
+  }
+  return out.join("\n");
+}
+
 // src/ost/migrate.ts
 import fs61 from "node:fs";
 import path68 from "node:path";
@@ -72630,6 +72759,10 @@ Runnable right now (compute-only, no result yet): ${t2.runnable.length}`);
   console.log(
     "\nA lane is a judgement, not a measurement. Unclassified never means safe to automate,\nand the \u26A0 hints only ever point AT a person \u2014 the permissive call is always a human's."
   );
+});
+program2.command("compute-lane").description("run every compute-only assumption test and draft a verdict for each (records nothing)").requiredOption("-r, --repo <dir>", "the repository the instruments are measured against").option("--vault <dir>", VAULT_OPTION_HELP).action((opts) => {
+  const ctx = buildPassContext(opts.vault);
+  console.log(renderComputeLane(draftComputeLane(ctx.vault.readTree(), { repo: opts.repo })));
 });
 program2.command("lane").description("classify one assumption test into a lane (attributed, recorded in History)").argument("<test>", "title of the AssumptionTest node").requiredOption("-s, --set <lane>", `one of: ${LANES.map((l) => l.id).join(", ")}`).requiredOption("-b, --by <who>", "who made the call \u2014 an unauditable label is worse than none").requiredOption("-w, --why <text>", "why this lane, in the classifier's words").option("--vault <dir>", VAULT_OPTION_HELP).action((test, opts) => {
   const line = setLane(opts.vault, { test, lane: opts.set, by: opts.by, why: opts.why });

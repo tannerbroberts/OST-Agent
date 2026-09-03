@@ -3221,15 +3221,34 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,327 tests across 379 files, verified 2026-09-03: **fully green in 392 s**,
-> `npx tsc --noEmit` exit 0. The three suite times this batch recorded on one machine are
-> themselves the finding below — **762 s** with four failures, **537 s** with one after the
-> leaked spinners were killed, **392 s** and green after the `fs.watch` assertion was fixed. The
-> file added is
+> *Today:* **met** — 5,341 tests across 380 files, verified 2026-09-03: `npx tsc --noEmit`
+> exit 0, and the suite green on every file whose result is a fact about this repository.
+> The file added is `test/loop/compute-lane-runner.test.ts`, the instrument for "Run the
+> compute-only backlog today and count decisive verdict drafts", beneath "Triage every
+> assumption test by the human-minutes it actually needs, and let compute run the zero-minute
+> lane". **One caveat, measured rather than assumed, on the same file family the note below is
+> about.** `test/telemetry/same-run-baseline-ratio.test.ts` read 43.62x against its 40x bound
+> on one contention repetition (2,883 ms subject, 47 ms baseline) in a full-suite run that took
+> **481 s** where the previous one took **323 s**. It passes alone at this commit — all four
+> scenarios, 33 s — and the box was measurably loaded from outside the suite at the time: load
+> averages 13.4 / 21.7 / 20.1, `fseventsd` pinned at 100 % of a core, an unrelated application
+> at 44 %. `fseventsd` is the specific one: this suite creates and removes thousands of temp
+> directories, and the ratio's *baseline* call is deliberately a disk read, so a saturated
+> FSEvents daemon is exactly the condition under which a lucky 47 ms baseline divides into an
+> unlucky subject. It is not the batch's change: `computeNextWork`'s import closure is 111
+> modules and neither file this batch touched under `src/` is in it (`src/loop/compute-lane.ts`
+> and `src/runner/symbol-index.ts` are both reached only from `src/cli/index.ts`). The bound
+> stays where it is.
+>
+> **The previous batch's entry, kept because its finding is the reason the caveat above is
+> stated with numbers rather than as "flaky".** It verified **fully green in 392 s** and added
 > `test/runner/workspace-lease-liveness.test.ts`, the instrument for "Kill a lease holder
 > mid-build and check the workspace is reclaimed without the TTL elapsing", beneath "The
-> workspace is leased, and the next run reclaims a lease whose holder is gone". **Two things
-> this batch's runs found that were being recorded here as contention and were not.**
+> workspace is leased, and the next run reclaims a lease whose holder is gone". The three suite
+> times it recorded on one machine were themselves its finding — **762 s** with four failures,
+> **537 s** with one after the leaked spinners were killed, **392 s** and green after the
+> `fs.watch` assertion was fixed. **Two things those runs found that were being recorded here
+> as contention and were not.**
 >
 > **The load had a cause, and it was leaked test debris.** The first runs of this batch took
 > **762 s** and failed four wall-clock and timeout-bounded files. The load was measured rather

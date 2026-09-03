@@ -2,6 +2,43 @@
 
 ## Unreleased
 
+- **An unattended pass now runs the compute-only lane and drafts what it found — the clause
+  the lane model shipped the vocabulary for two releases ago and deliberately left unbuilt.**
+  `ost-agent compute-lane --repo DIR` executes every assumption test labelled `compute-only`
+  and returns a verdict DRAFT for each: the observation quoted inline, and the exact
+  `ost-agent result` line a human would run, with `--by` left blank because attribution is the
+  one field compute must not supply. It writes nothing, anywhere; recording stays CLI-only and
+  human-only, and a spec asserts the vault is byte-identical after a run. On the CLI rather
+  than the tool surface for a reason distinct from `lane --set`'s: it spawns, and the allowlist
+  holds no tool that shells out. Four findings came out of building it. **The lane label alone
+  was not a safe enough gate, and the tree already knew it**: `laneConflicts` has named
+  "labelled compute-only over prose saying humans-required" as the expensive direction since
+  v0.16.0 — "an unattended pass may run this one" — and nothing consumed it, because until now
+  nothing was that pass. The runner declines those rather than running them, and resolves none
+  of them. **A non-zero exit is not a refutation**: `no-spec` and `unavailable` both exit
+  non-zero without reaching an assertion, so any naive reading would let a spec nobody wrote
+  kill a solution. Those draft no verdict and carry no pasteable line at all. **Kills had to be
+  reachable by the same mechanism as confirmations** — the assumption test behind this warns
+  that a runner emitting only confident supported-verdicts would satisfy its instrument while
+  being pure decoration, so the verdict is derived from the observation (green → supported,
+  red → refuted) and the report says so out loud when a pass produces zero kills. **The
+  instrument is narrower than the node, and shipping green does not close it**: it proves the
+  mechanism against a seeded fixture. The live runnable set is still empty by construction on
+  both vaults — only a human's `ost-agent lane --set` moves a test into `compute-only` — so
+  this ships a runner with zero live work to do, and the node's real bar (≥3 drafts an
+  operator records unchanged, ≥1 kill) remains unmeasured by any exit code.
+
+- **The symbol index lost an export to the exact construct its own header said would be the
+  next one, and the parity test named it on the commit that wrote it.** `blank` walks regex
+  literals so a `/…/` body cannot move the brace counter; `endOfInterpolation`, which walks
+  the code inside a `${…}`, did not. Shell-quoting a node title for a pasted command wrote
+  `` `'${s.replace(/'/g, …)}'` `` — the first `/…/` inside an interpolation in `src/` — the `/`
+  read as division, the `'` in the pattern opened a string, and every export below it in the
+  file vanished. A missed export is reported as an absent name, which is the one answer this
+  index must never give. `endOfInterpolation` now walks regex literals and comments the same
+  way `blank` does, and the header's "limit that remains" paragraph is retired rather than
+  reworded.
+
 - **A vault now carries its own tool server, so opening it is enough — and the feasibility
   answer came back yes for a mechanism the node had not named.** `init` writes `.mcp.json`
   at the vault root declaring the `ost-agent` server and binding it to `${CLAUDE_PROJECT_DIR}`;

@@ -169,9 +169,11 @@ export const SYMBOL_INDEX_CASES = {
  * index must never give, and the parity test caught it on the commit that introduced
  * the construct.
  *
- * The limit that remains: a regex literal inside an interpolation whose body holds an
- * unbalanced brace or quote. Nothing in `src/` writes one, and unlike the case above the
- * parity test is watching for it.
+ * That limit was reached and closed. `src/loop/compute-lane.ts` shell-quotes a node
+ * title with a `/'/g` inside an interpolation, the parity test named the export it lost
+ * on the commit that introduced it, and {@link endOfInterpolation} now walks regex
+ * literals and comments the same way this function does. A `/` inside an interpolation
+ * whose pattern holds an unbalanced brace or quote is no longer a false absence.
  */
 function blank(source: string): { structural: string; commentFree: string } {
   const structural = [...source];
@@ -257,16 +259,48 @@ function endOfString(source: string, start: number): number {
  * Braces are counted and strings inside are delegated back to {@link endOfString},
  * so `` `${a ? `${b}` : "}"}` `` is walked correctly: the nested template and the
  * `"}"` are both consumed as strings and neither moves the depth counter.
+ *
+ * **Regex literals are walked here too, and that is the limit the header used to
+ * say remained.** A regex body is text: `` `'${s.replace(/'/g, "x")}'` `` read the
+ * `/` as division, so the `'` inside the pattern opened a string and the scan
+ * resumed somewhere downstream — every export below it in the file vanished,
+ * which is a FALSE ABSENCE and the one answer this index must never give. The
+ * construct arrived in `src/loop/compute-lane.ts`, shell-quoting a node title for
+ * a pasted command; the parity test against TypeScript's own parser caught it on
+ * that commit, exactly as the header promised it would. {@link blank} already had
+ * this branch — it was missing only on the path that walks *inside* an
+ * interpolation, where the same characters mean the same thing.
  */
 function endOfInterpolation(source: string, start: number): number {
   let depth = 0;
   let i = start;
+  // The previous significant character, on {@link blank}'s rule: it is what tells
+  // a regex literal from a division.
+  let prev = "";
   while (i < source.length) {
     const c = source[i];
-    if (c === '"' || c === "'" || c === "`") {
-      i = endOfString(source, i);
+    const d = source[i + 1];
+    if (c === "/" && d === "/") {
+      while (i < source.length && source[i] !== "\n") i++;
       continue;
     }
+    if (c === "/" && d === "*") {
+      i += 2;
+      while (i < source.length && !(source[i] === "*" && source[i + 1] === "/")) i++;
+      i = Math.min(source.length, i + 2);
+      continue;
+    }
+    if (c === '"' || c === "'" || c === "`") {
+      i = endOfString(source, i);
+      prev = c;
+      continue;
+    }
+    if (c === "/" && isRegexStart(source, i, prev)) {
+      i = endOfRegex(source, i);
+      prev = "/";
+      continue;
+    }
+    if (!/\s/.test(c)) prev = c;
     if (c === "{") depth++;
     else if (c === "}") {
       depth--;

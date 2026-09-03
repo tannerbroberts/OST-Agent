@@ -419,8 +419,18 @@ describe("each channel's verdict shape has a closed reader set — the single-ch
     // is what holds that line: `verifyInstrument` is still reachable only from
     // the CLI, so nothing an agent can call appends to an instrument log. A tool
     // that could would be a second door, and then the count really would be wrong.
+    //
+    // `loop/compute-lane.ts` joined the reader set on the same basis, and it is
+    // the first one whose whole purpose is to RUN instruments unprompted — the
+    // compute-only lane, executed by an unattended pass. It reads every run it
+    // mints and files none of them: what it returns is a verdict DRAFT, a
+    // proposal carrying the observation and the pre-filled `ost-agent result`
+    // line a human would run. So the line this census holds is unmoved. The
+    // reader set grew; the filing set did not, and the assertion below is still
+    // the one that says so.
     expect(filesMatching(/\b(InstrumentRun|runInstrument)\b/)).toEqual([
       path.join("eval", "buildable.ts"),
+      path.join("loop", "compute-lane.ts"),
       path.join("ost", "instrument.ts"),
       path.join("ost", "red-now.ts"),
       path.join("security", "tools.ts"),
