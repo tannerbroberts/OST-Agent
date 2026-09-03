@@ -259,6 +259,24 @@ export const HOOK_SIGNATURE = "# ost-agent: conflict-marker guard";
  * closed by a marker in another. Safe to parse on a bare `:` split because
  * `sanitizeTitle` (src/ost/sanitize.ts) and evidence's `safeName` both strip
  * `:` from every filename this product ever writes.
+ *
+ * **The path list is built in one field-splitting expansion, not appended to.**
+ * Replacing the per-file `git show` with a single `git grep` fixed the process
+ * count and left a quadratic behind: `for f in $files; do set -- "$@" "$f"; done`
+ * rebuilds the whole positional-parameter list on every iteration, so the cost
+ * of assembling the arguments grew as the square of the staged file count while
+ * the grep it fed stayed flat. Measured on a 2,380-file burst — the size
+ * `test/adapters/ingest-backpressure-provenance.test.ts` loads — the loop took
+ * **4.0 s** and the `git grep` it was preparing took **175 ms**. `set -- $files`
+ * with `IFS` at a newline and globbing off produces the identical argument list
+ * in **6 ms**; empty fields are dropped by field splitting exactly as the loop's
+ * `[ -n "$f" ] || continue` guard dropped them.
+ *
+ * The lesson worth keeping is that the first fix was measured by process count
+ * rather than by wall clock, and the replacement's own loop was never timed. The
+ * gate that caught it is a wall-clock bound, and it had been read as contention
+ * for four runs before anybody compared its isolated number against the 3.7 s the
+ * criterion recorded.
  */
 export const PRE_COMMIT_HOOK = `#!/bin/sh
 ${HOOK_SIGNATURE}
@@ -277,13 +295,9 @@ if [ -z "$files" ]; then
   exit 0
 fi
 set -f
-set --
 IFS='
 '
-for f in $files; do
-  [ -n "$f" ] || continue
-  set -- "$@" "$f"
-done
+set -- $files
 unset IFS
 set +f
 report=$(git grep --cached -n -E -e '^<{7}([ \\t]|$)' -e '^>{7}([ \\t]|$)' -- "$@" 2>/dev/null | awk -F: '

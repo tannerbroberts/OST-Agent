@@ -45586,13 +45586,9 @@ if [ -z "$files" ]; then
   exit 0
 fi
 set -f
-set --
 IFS='
 '
-for f in $files; do
-  [ -n "$f" ] || continue
-  set -- "$@" "$f"
-done
+set -- $files
 unset IFS
 set +f
 report=$(git grep --cached -n -E -e '^<{7}([ \\t]|$)' -e '^>{7}([ \\t]|$)' -- "$@" 2>/dev/null | awk -F: '
