@@ -281,6 +281,14 @@ export const CLOCK_READING_TESTS: readonly DeclaredTimedCheck[] = [
     why: "measures a real phase against an interleaved control probe and asserts the attribution the pair produces; the calibration in `beforeAll` is itself timed",
   },
   {
+    file: "test/runner/fs-event-classification.test.ts",
+    kind: "clock-fixture",
+    why:
+      "every millisecond in it is a number in a committed capture or a synthetic entry — the mtimes and " +
+      "arrival times a filesystem event carries. Nothing is measured while the test runs, so a busy machine " +
+      "cannot change a verdict",
+  },
+  {
     file: "test/runner/incremental-typecheck.test.ts",
     kind: "gating-wall-clock",
     statistic: "same-run-ratio",
