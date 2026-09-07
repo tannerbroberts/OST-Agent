@@ -1,0 +1,880 @@
+{
+  "capturedAgainst": "440f5c18d3eff6bb5153d051c98cd2e760feef84",
+  "preregistration": "be65f3070dbdef9600c18b51d7c4f2533185b6f4",
+  "burstRef": "origin/gate-signal-density",
+  "kind": "reenactment",
+  "sessions": [
+    {
+      "id": "gate-run",
+      "label": "a gate run while another writer edits the same tree",
+      "events": 41,
+      "external": 41,
+      "watcherCoverage": {
+        "writes": 41,
+        "deliveredByWatcher": 40,
+        "watcherEventsSeen": 1350,
+        "watcherEventsForOlderWrites": 1306
+      }
+    },
+    {
+      "id": "merge-lands",
+      "label": "a branch switch landing while the run is mid-task",
+      "events": 31,
+      "external": 30,
+      "watcherCoverage": {
+        "writes": 22,
+        "deliveredByWatcher": 0,
+        "watcherEventsSeen": 0,
+        "watcherEventsForOlderWrites": 0
+      }
+    },
+    {
+      "id": "unattended-loop",
+      "label": "the build loop bundling and committing its own work",
+      "events": 66,
+      "external": 3,
+      "watcherCoverage": {
+        "writes": 64,
+        "deliveredByWatcher": 56,
+        "watcherEventsSeen": 925,
+        "watcherEventsForOlderWrites": 855
+      }
+    }
+  ],
+  "truth": {
+    "gate-run": [
+      {
+        "seq": 9,
+        "writer": "external",
+        "label": "meaningful",
+        "why": "teammate mid-suite: changed a file the session had read and still holds"
+      },
+      {
+        "seq": 11,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: held file rewritten with the bytes it already had"
+      },
+      {
+        "seq": 12,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 13,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 14,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 15,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 16,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 17,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 18,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 19,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 20,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 21,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 22,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 23,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 24,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 25,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 26,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 27,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 28,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 29,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 30,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 31,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 32,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 33,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 34,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 35,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 36,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 37,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 38,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 39,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 40,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 41,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 42,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: the session holds no copy of this file"
+      },
+      {
+        "seq": 43,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: held file rewritten with the bytes it already had"
+      },
+      {
+        "seq": 44,
+        "writer": "external",
+        "label": "churn",
+        "why": "formatter on save: held file rewritten with the bytes it already had"
+      },
+      {
+        "seq": 45,
+        "writer": "external",
+        "label": "churn",
+        "why": "editor scratch: the session holds no copy of this file"
+      },
+      {
+        "seq": 46,
+        "writer": "external",
+        "label": "churn",
+        "why": "editor scratch: the session holds no copy of this file"
+      },
+      {
+        "seq": 47,
+        "writer": "external",
+        "label": "churn",
+        "why": "editor scratch: the session holds no copy of this file"
+      },
+      {
+        "seq": 48,
+        "writer": "external",
+        "label": "churn",
+        "why": "editor scratch: the session holds no copy of this file"
+      },
+      {
+        "seq": 49,
+        "writer": "external",
+        "label": "meaningful",
+        "why": "loop harness appending to its log: changed a file the session had read and still holds"
+      },
+      {
+        "seq": 50,
+        "writer": "external",
+        "label": "meaningful",
+        "why": "teammate between commands: changed a file the session had read and still holds"
+      }
+    ],
+    "merge-lands": [
+      {
+        "seq": 9,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 10,
+        "writer": "external",
+        "label": "churn",
+        "why": "branch switch: the session holds no copy of this file"
+      },
+      {
+        "seq": 11,
+        "writer": "external",
+        "label": "churn",
+        "why": "branch switch: the session holds no copy of this file"
+      },
+      {
+        "seq": 12,
+        "writer": "external",
+        "label": "churn",
+        "why": "branch switch: the session holds no copy of this file"
+      },
+      {
+        "seq": 13,
+        "writer": "external",
+        "label": "meaningful",
+        "why": "branch switch: changed a file the session had read and still holds"
+      },
+      {
+        "seq": 14,
+        "writer": "external",
+        "label": "meaningful",
+        "why": "branch switch: changed a file the session had read and still holds"
+      },
+      {
+        "seq": 15,
+        "writer": "external",
+        "label": "meaningful",
+        "why": "branch switch: changed a file the session had read and still holds"
+      },
+      {
+        "seq": 16,
+        "writer": "external",
+        "label": "churn",
+        "why": "branch switch: the session holds no copy of this file"
+      },
+      {
+        "seq": 17,
+        "writer": "external",
+        "label": "meaningful",
+        "why": "branch switch: changed a file the session had read and still holds"
+      },
+      {
+        "seq": 18,
+        "writer": "external",
+        "label": "churn",
+        "why": "branch switch: the session holds no copy of this file"
+      },
+      {
+        "seq": 19,
+        "writer": "external",
+        "label": "churn",
+        "why": "branch switch: the session holds no copy of this file"
+      },
+      {
+        "seq": 20,
+        "writer": "external",
+        "label": "churn",
+        "why": "branch switch: the session holds no copy of this file"
+      },
+      {
+        "seq": 21,
+        "writer": "external",
+        "label": "churn",
+        "why": "branch switch: the session holds no copy of this file"
+      },
+      {
+        "seq": 22,
+        "writer": "external",
+        "label": "churn",
+        "why": "branch switch: the session holds no copy of this file"
+      },
+      {
+        "seq": 23,
+        "writer": "external",
+        "label": "churn",
+        "why": "branch switch: the session holds no copy of this file"
+      },
+      {
+        "seq": 24,
+        "writer": "external",
+        "label": "churn",
+        "why": "branch switch: the session holds no copy of this file"
+      },
+      {
+        "seq": 25,
+        "writer": "external",
+        "label": "churn",
+        "why": "branch switch: the session holds no copy of this file"
+      },
+      {
+        "seq": 26,
+        "writer": "external",
+        "label": "churn",
+        "why": "branch switch: the session holds no copy of this file"
+      },
+      {
+        "seq": 27,
+        "writer": "external",
+        "label": "churn",
+        "why": "branch switch: the session holds no copy of this file"
+      },
+      {
+        "seq": 28,
+        "writer": "external",
+        "label": "churn",
+        "why": "branch switch: the session holds no copy of this file"
+      },
+      {
+        "seq": 29,
+        "writer": "external",
+        "label": "churn",
+        "why": "branch switch: the session holds no copy of this file"
+      },
+      {
+        "seq": 30,
+        "writer": "external",
+        "label": "churn",
+        "why": "branch switch: the session holds no copy of this file"
+      },
+      {
+        "seq": 31,
+        "writer": "external",
+        "label": "churn",
+        "why": "branch switch: the session holds no copy of this file"
+      },
+      {
+        "seq": 32,
+        "writer": "external",
+        "label": "churn",
+        "why": "branch switch: the session holds no copy of this file"
+      },
+      {
+        "seq": 33,
+        "writer": "external",
+        "label": "churn",
+        "why": "branch switch: the session holds no copy of this file"
+      },
+      {
+        "seq": 34,
+        "writer": "external",
+        "label": "churn",
+        "why": "branch switch: the session holds no copy of this file"
+      },
+      {
+        "seq": 35,
+        "writer": "external",
+        "label": "churn",
+        "why": "branch switch: the session holds no copy of this file"
+      },
+      {
+        "seq": 36,
+        "writer": "external",
+        "label": "churn",
+        "why": "branch switch: the session holds no copy of this file"
+      },
+      {
+        "seq": 37,
+        "writer": "external",
+        "label": "churn",
+        "why": "branch switch: the session holds no copy of this file"
+      },
+      {
+        "seq": 38,
+        "writer": "external",
+        "label": "churn",
+        "why": "branch switch: the session holds no copy of this file"
+      },
+      {
+        "seq": 39,
+        "writer": "external",
+        "label": "meaningful",
+        "why": "teammate after the switch: changed a file the session had read and still holds"
+      }
+    ],
+    "unattended-loop": [
+      {
+        "seq": 6,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 8,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 10,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 11,
+        "writer": "external",
+        "label": "meaningful",
+        "why": "another agent in the same tree: changed a file the session had read and still holds"
+      },
+      {
+        "seq": 13,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 14,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 15,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 16,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 17,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 18,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 19,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 20,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 21,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 22,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 23,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 24,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 25,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 26,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 27,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 28,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 29,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 30,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 31,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 32,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 33,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 34,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 35,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 36,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 37,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 38,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 39,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 40,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 41,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 44,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 45,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 46,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 47,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 48,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 49,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 50,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 51,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 52,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 53,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 54,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 55,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 56,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 57,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 58,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 59,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 60,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 61,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 63,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 64,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 65,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 66,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 67,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 68,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 69,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 70,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 71,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 72,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 73,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 74,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 75,
+        "writer": "session",
+        "label": "churn",
+        "why": "this session, or a command it started, wrote it"
+      },
+      {
+        "seq": 76,
+        "writer": "external",
+        "label": "churn",
+        "why": "scratch beside a commit: the session holds no copy of this file"
+      },
+      {
+        "seq": 77,
+        "writer": "external",
+        "label": "churn",
+        "why": "scratch beside a commit: the session holds no copy of this file"
+      }
+    ]
+  }
+}

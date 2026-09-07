@@ -3221,9 +3221,17 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,378 tests across 382 files, verified 2026-09-07: `npx tsc --noEmit`
+> *Today:* **met** — 5,437 tests across 383 files, verified 2026-09-07: `npx tsc --noEmit`
 > exit 0, and the suite green on every file whose result is a fact about this repository.
-> The file added is `test/telemetry/failure-shape-vs-meaning.test.ts`, the instrument for
+> The newest file is `test/runner/fs-event-classification.test.ts`, the instrument for
+> "Classify every filesystem event in three real sessions as meaningful or churn": a rule
+> committed before the capture existed classifies 72 of 74 external write events correctly
+> and raises no unnecessary invalidation in any of the three sessions. The finding sits
+> beside the green — Node's recursive `fs.watch`, the instrument the candidate depends on,
+> delivered 96 of the 127 writes and none at all in the session where a `git checkout`
+> landed, so the corpus had to be recorded by the poll the solution names as its own
+> cheaper fallback (`test/fixtures/fs-event-classification/PROVENANCE.md`).
+> The file added before it is `test/telemetry/failure-shape-vs-meaning.test.ts`, the instrument for
 > "Sort a day of real failed calls into shape errors and meaning errors", beneath "Validate
 > every tool call against the schema the tool already declares" — the v0.17.0 validator,
 > which shipped on the strength of one replayed call and had never had its coverage sized.

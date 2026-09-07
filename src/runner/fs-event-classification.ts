@@ -105,6 +105,31 @@ export interface FsEventEntry {
    * recorded for paths the session had read — a watcher does not hash the tree.
    */
   hash: string | null;
+  /**
+   * When the write actually happened, from the file's mtime, against the same
+   * clock as {@link ms}. `null` when the path could not be stat'd.
+   *
+   * **This is not the same number as {@link ms} and the difference is load-bearing.**
+   * macOS delivers filesystem events through FSEvents in coalesced batches: a probe
+   * writing one file every 700ms saw arrival lag the write by 325–1411ms, and a
+   * second probe delivered four separate writes in a single flush 4.2 seconds after
+   * the first of them. Every timing clause in {@link FS_EVENT_RULE} — the burst
+   * window, the coalesce window, the command windows a write is attributed by — is
+   * read off this field for that reason. Read off arrival instead, a burst
+   * threshold measures how often the kernel flushed rather than what anybody did.
+   */
+  mtimeMs: number | null;
+  /**
+   * How the capture came to know about this write, and not something the rule may
+   * read. `poll` is a 150ms rescan of the tree comparing mtime and size; `watch` is
+   * Node's recursive `fs.watch`, which on macOS is FSEvents.
+   *
+   * Both are recorded because they disagree, and by how much is a finding rather
+   * than a detail of the harness: the candidate proposes a watcher, and a watcher
+   * that does not deliver the write cannot classify it. See
+   * `test/fixtures/fs-event-classification/PROVENANCE.md`.
+   */
+  source: "poll" | "watch";
 }
 
 /** The session reading a file: from here on it is holding a copy. */
@@ -186,6 +211,7 @@ export type ChurnReason =
 
 export interface EventVerdict {
   seq: number;
+  /** When the write happened — {@link writeTime}, not when the event was delivered. */
   ms: number;
   path: string;
   verdict: "meaningful" | "churn";
@@ -219,10 +245,25 @@ function inIgnoredDir(path: string): boolean {
 }
 
 /**
- * Apply the rule to one capture. The order of the filters is part of the rule:
- * burst detection runs on the wave of external writes *before* the held-file test,
- * because a checkout is a checkout whether or not the run happened to have read
- * three of the files in it.
+ * When the write happened. Arrival order is the order FSEvents chose to flush in,
+ * which is not the order anything was written in — see {@link FsEventEntry.mtimeMs}.
+ */
+export function writeTime(event: FsEventEntry): number {
+  return event.mtimeMs ?? event.ms;
+}
+
+/**
+ * Apply the rule to one capture. Two orderings are in play and keeping them apart
+ * is the point: the session's own actions — reads, writes, the commands it started
+ * — are recorded as they happen and are in order, while file events arrive whenever
+ * the kernel gets round to flushing them. So the session's timeline is built first,
+ * from the entries in sequence, and the file events are then walked in the order
+ * they were *written*, each one asked against the state of the session at that
+ * moment.
+ *
+ * The order of the filters is itself part of the rule: burst detection runs on the
+ * wave of external writes *before* the held-file test, because a checkout is a
+ * checkout whether or not the run happened to have read three of the files in it.
  */
 export function classifyCapture(
   capture: SessionCapture,
@@ -230,45 +271,52 @@ export function classifyCapture(
 ): Classification {
   const burstFiles = options.burstFiles ?? FS_EVENT_RULE.burstFiles;
 
-  /** Hash of the copy the run holds, by path. Empty until it reads something. */
-  const held = new Map<string, string>();
-  /** Self-issued writes, by path, with the time they were issued. */
+  // ── the session's own timeline, in the order it recorded itself ───────────
+  const reads: { ms: number; path: string; hash: string }[] = [];
   const selfWrites: { path: string; ms: number }[] = [];
   const commandWindows: { from: number; to: number }[] = [];
   const openCommands = new Map<string, number>();
-  const lastSeen = new Map<string, number>();
-  /** Head of each path's coalesce group, and the members folded into it. */
-  const coalesceHead = new Map<string, number>();
-  const coalescedInto = new Map<number, number>();
-
-  const verdicts: EventVerdict[] = [];
-  const survivors: { seq: number; ms: number; path: string; heldAt: string | undefined; hash: string | null }[] = [];
 
   for (const entry of capture.entries) {
-    if (entry.t === "read") {
-      held.set(entry.path, entry.hash);
-      continue;
-    }
-    if (entry.t === "write") {
-      selfWrites.push({ path: entry.path, ms: entry.ms });
-      continue;
-    }
-    if (entry.t === "cmd") {
+    if (entry.t === "read") reads.push({ ms: entry.ms, path: entry.path, hash: entry.hash });
+    else if (entry.t === "write") selfWrites.push({ path: entry.path, ms: entry.ms });
+    else if (entry.t === "cmd") {
       if (entry.phase === "start") openCommands.set(entry.id, entry.ms);
       else {
         const from = openCommands.get(entry.id);
         if (from !== undefined) commandWindows.push({ from, to: entry.ms });
         openCommands.delete(entry.id);
       }
-      continue;
     }
+  }
+  // A command still open at the end of the capture ran to the end of it.
+  for (const from of openCommands.values()) commandWindows.push({ from, to: Infinity });
 
+  /** The bytes the run was holding for a path at a given moment, if any. */
+  const heldAt = (path: string, at: number) =>
+    reads.filter((r) => r.path === path && r.ms <= at).at(-1)?.hash;
+
+  // ── the file events, in the order they were written ───────────────────────
+  const events = capture.entries
+    .filter((e): e is FsEventEntry => e.t === "fs")
+    .map((e) => ({ event: e, at: writeTime(e) }))
+    .sort((a, b) => a.at - b.at || a.event.seq - b.event.seq);
+
+  const lastSeen = new Map<string, number>();
+  /** Head of each path's coalesce group, and the members folded into it. */
+  const coalesceHead = new Map<string, number>();
+  const coalescedInto = new Map<number, number>();
+
+  const verdicts: EventVerdict[] = [];
+  const survivors: { seq: number; at: number; path: string; held: string | undefined; hash: string | null }[] = [];
+
+  for (const { event: entry, at } of events) {
     const churn = (reason: ChurnReason) =>
-      verdicts.push({ seq: entry.seq, ms: entry.ms, path: entry.path, verdict: "churn", reason, invalidation: null });
+      verdicts.push({ seq: entry.seq, ms: at, path: entry.path, verdict: "churn", reason, invalidation: null });
 
     const previous = lastSeen.get(entry.path);
-    lastSeen.set(entry.path, entry.ms);
-    if (previous !== undefined && entry.ms - previous < FS_EVENT_RULE.coalesceMs) {
+    lastSeen.set(entry.path, at);
+    if (previous !== undefined && at - previous < FS_EVENT_RULE.coalesceMs) {
       // Folded into whatever the head of this path's coalesce group decided. The
       // head has not been scored yet, so the link is recorded and backfilled below.
       churn("coalesced");
@@ -289,17 +337,15 @@ export function classifyCapture(
       continue;
     }
     const issuedHere = selfWrites.some(
-      (w) => w.path === entry.path && entry.ms - w.ms >= 0 && entry.ms - w.ms < FS_EVENT_RULE.coalesceMs * 4,
+      (w) => w.path === entry.path && at - w.ms >= 0 && at - w.ms < FS_EVENT_RULE.coalesceMs * 4,
     );
-    const insideCommand =
-      commandWindows.some((w) => entry.ms >= w.from && entry.ms <= w.to) ||
-      [...openCommands.values()].some((from) => entry.ms >= from);
+    const insideCommand = commandWindows.some((w) => at >= w.from && at <= w.to);
     if (issuedHere || insideCommand) {
       churn("self-issued");
       continue;
     }
 
-    survivors.push({ seq: entry.seq, ms: entry.ms, path: entry.path, heldAt: held.get(entry.path), hash: entry.hash });
+    survivors.push({ seq: entry.seq, at, path: entry.path, held: heldAt(entry.path, at), hash: entry.hash });
   }
 
   // Bursts are read off the surviving external writes: a wave of more than
@@ -310,7 +356,7 @@ export function classifyCapture(
     if (burstOf.has(survivors[i].seq)) continue;
     const window: typeof survivors = [];
     for (let j = i; j < survivors.length; j++) {
-      if (survivors[j].ms - survivors[i].ms > FS_EVENT_RULE.burstWindowMs) break;
+      if (survivors[j].at - survivors[i].at > FS_EVENT_RULE.burstWindowMs) break;
       window.push(survivors[j]);
     }
     if (new Set(window.map((e) => e.path)).size >= burstFiles) {
@@ -324,13 +370,13 @@ export function classifyCapture(
 
   for (const event of survivors) {
     const churn = (reason: ChurnReason) =>
-      verdicts.push({ seq: event.seq, ms: event.ms, path: event.path, verdict: "churn", reason, invalidation: null });
+      verdicts.push({ seq: event.seq, ms: event.at, path: event.path, verdict: "churn", reason, invalidation: null });
 
-    if (event.heldAt === undefined) {
+    if (event.held === undefined) {
       churn("not-held");
       continue;
     }
-    if (event.hash !== null && event.hash === event.heldAt) {
+    if (event.hash !== null && event.hash === event.held) {
       churn("unchanged-content");
       continue;
     }
@@ -342,7 +388,7 @@ export function classifyCapture(
         existing.paths.push(event.path);
         verdicts.push({
           seq: event.seq,
-          ms: event.ms,
+          ms: event.at,
           path: event.path,
           verdict: "churn",
           reason: "burst-collapsed",
@@ -350,16 +396,16 @@ export function classifyCapture(
         });
         continue;
       }
-      const raised: Invalidation = { id: invalidations.length, ms: event.ms, paths: [event.path], burst: true };
+      const raised: Invalidation = { id: invalidations.length, ms: event.at, paths: [event.path], burst: true };
       invalidations.push(raised);
       byBurst.set(burst, raised);
-      verdicts.push({ seq: event.seq, ms: event.ms, path: event.path, verdict: "meaningful", reason: null, invalidation: raised.id });
+      verdicts.push({ seq: event.seq, ms: event.at, path: event.path, verdict: "meaningful", reason: null, invalidation: raised.id });
       continue;
     }
 
-    const raised: Invalidation = { id: invalidations.length, ms: event.ms, paths: [event.path], burst: false };
+    const raised: Invalidation = { id: invalidations.length, ms: event.at, paths: [event.path], burst: false };
     invalidations.push(raised);
-    verdicts.push({ seq: event.seq, ms: event.ms, path: event.path, verdict: "meaningful", reason: null, invalidation: raised.id });
+    verdicts.push({ seq: event.seq, ms: event.at, path: event.path, verdict: "meaningful", reason: null, invalidation: raised.id });
   }
 
   // A write folded into an earlier one is not a write the run was never told about.

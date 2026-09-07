@@ -1,0 +1,51 @@
+{"t":"read","seq":0,"ms":320,"path":"src/runner/context.ts","hash":"e892ac3e5feefec7"}
+{"t":"read","seq":1,"ms":320,"path":"src/runner/workspace.ts","hash":"7b10035ab5db0515"}
+{"t":"read","seq":2,"ms":320,"path":"src/index.ts","hash":"0cecad1f199387f9"}
+{"t":"read","seq":3,"ms":320,"path":"package.json","hash":"c1df33736cc4c6ad"}
+{"t":"read","seq":4,"ms":320,"path":"README.md","hash":"bc78b050964efbf1"}
+{"t":"read","seq":5,"ms":320,"path":"run.log","hash":"da547aa716885418"}
+{"t":"cmd","seq":6,"ms":320,"phase":"start","id":"c6","command":"npx tsc --noEmit"}
+{"t":"cmd","seq":7,"ms":2610,"phase":"end","id":"c6","command":"npx tsc --noEmit"}
+{"t":"cmd","seq":8,"ms":3012,"phase":"start","id":"c8","command":"npx vitest run test/runner/context.test.ts"}
+{"t":"fs","seq":9,"ms":6103,"path":"src/runner/context.ts","kind":"change","gitignored":false,"hash":"4af921c26dd2677e","mtimeMs":6067,"source":"poll"}
+{"t":"cmd","seq":10,"ms":11453,"phase":"end","id":"c8","command":"npx vitest run test/runner/context.test.ts"}
+{"t":"fs","seq":11,"ms":11979,"path":"README.md","kind":"change","gitignored":false,"hash":"bc78b050964efbf1","mtimeMs":11968,"source":"poll"}
+{"t":"fs","seq":12,"ms":11979,"path":"src/adapters/actions.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11963,"source":"poll"}
+{"t":"fs","seq":13,"ms":11979,"path":"src/adapters/atlassian.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11964,"source":"poll"}
+{"t":"fs","seq":14,"ms":11979,"path":"src/adapters/channels.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11964,"source":"poll"}
+{"t":"fs","seq":15,"ms":11979,"path":"src/adapters/deposit.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11964,"source":"poll"}
+{"t":"fs","seq":16,"ms":11979,"path":"src/adapters/digest.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11964,"source":"poll"}
+{"t":"fs","seq":17,"ms":11979,"path":"src/adapters/friction.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11964,"source":"poll"}
+{"t":"fs","seq":18,"ms":11979,"path":"src/adapters/inbox.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11964,"source":"poll"}
+{"t":"fs","seq":19,"ms":11979,"path":"src/adapters/mirror.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11964,"source":"poll"}
+{"t":"fs","seq":20,"ms":11979,"path":"src/adapters/retrospective.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11965,"source":"poll"}
+{"t":"fs","seq":21,"ms":11979,"path":"src/adapters/slack.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11965,"source":"poll"}
+{"t":"fs","seq":22,"ms":11979,"path":"src/adapters/source.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11965,"source":"poll"}
+{"t":"fs","seq":23,"ms":11979,"path":"src/adapters/tokens.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11965,"source":"poll"}
+{"t":"fs","seq":24,"ms":11979,"path":"src/adapters/transcript-model-reader.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11966,"source":"poll"}
+{"t":"fs","seq":25,"ms":11979,"path":"src/adapters/transcript.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11966,"source":"poll"}
+{"t":"fs","seq":26,"ms":11979,"path":"src/adapters/usage.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11966,"source":"poll"}
+{"t":"fs","seq":27,"ms":11979,"path":"src/config/load.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11966,"source":"poll"}
+{"t":"fs","seq":28,"ms":11979,"path":"src/config/pointer.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11966,"source":"poll"}
+{"t":"fs","seq":29,"ms":11979,"path":"src/config/schema.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11966,"source":"poll"}
+{"t":"fs","seq":30,"ms":11979,"path":"src/config/settings-merge.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11966,"source":"poll"}
+{"t":"fs","seq":31,"ms":11979,"path":"src/config/setup-check.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11966,"source":"poll"}
+{"t":"fs","seq":32,"ms":11979,"path":"src/config/surface-profile.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11966,"source":"poll"}
+{"t":"fs","seq":33,"ms":11979,"path":"src/config/vault-declaration.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11966,"source":"poll"}
+{"t":"fs","seq":34,"ms":11979,"path":"src/config/vault-search.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11966,"source":"poll"}
+{"t":"fs","seq":35,"ms":11979,"path":"src/git/branch-isolation.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11967,"source":"poll"}
+{"t":"fs","seq":36,"ms":11979,"path":"src/git/conflict-guard.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11967,"source":"poll"}
+{"t":"fs","seq":37,"ms":11979,"path":"src/git/follow-up-sight.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11967,"source":"poll"}
+{"t":"fs","seq":38,"ms":11979,"path":"src/git/hand-edit-detector.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11967,"source":"poll"}
+{"t":"fs","seq":39,"ms":11979,"path":"src/git/prior-art-sight.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11967,"source":"poll"}
+{"t":"fs","seq":40,"ms":11979,"path":"src/git/read-write-hash-guard.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11967,"source":"poll"}
+{"t":"fs","seq":41,"ms":11979,"path":"src/git/rename-topology.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11967,"source":"poll"}
+{"t":"fs","seq":42,"ms":11979,"path":"src/git/safe-git.ts","kind":"change","gitignored":false,"hash":null,"mtimeMs":11967,"source":"poll"}
+{"t":"fs","seq":43,"ms":11979,"path":"src/index.ts","kind":"change","gitignored":false,"hash":"0cecad1f199387f9","mtimeMs":11968,"source":"poll"}
+{"t":"fs","seq":44,"ms":11979,"path":"src/runner/workspace.ts","kind":"change","gitignored":false,"hash":"7b10035ab5db0515","mtimeMs":11968,"source":"poll"}
+{"t":"fs","seq":45,"ms":12469,"path":".DS_Store","kind":"rename","gitignored":true,"hash":null,"mtimeMs":12458,"source":"poll"}
+{"t":"fs","seq":46,"ms":12469,"path":"src/runner/.context.ts.swp","kind":"rename","gitignored":false,"hash":null,"mtimeMs":12458,"source":"poll"}
+{"t":"fs","seq":47,"ms":12469,"path":"src/runner/4913","kind":"rename","gitignored":false,"hash":null,"mtimeMs":12458,"source":"poll"}
+{"t":"fs","seq":48,"ms":12469,"path":"src/runner/context.ts~","kind":"rename","gitignored":false,"hash":null,"mtimeMs":12458,"source":"poll"}
+{"t":"fs","seq":49,"ms":12962,"path":"run.log","kind":"change","gitignored":true,"hash":"ed0b2476109b5875","mtimeMs":12949,"source":"poll"}
+{"t":"fs","seq":50,"ms":13462,"path":"src/index.ts","kind":"change","gitignored":false,"hash":"569b5592e801c401","mtimeMs":13449,"source":"poll"}
