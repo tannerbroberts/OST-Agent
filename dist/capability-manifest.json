@@ -3,8 +3,8 @@
   "version": "0.23.0",
   "artifact": {
     "path": "dist/ost-agent.mjs",
-    "bytes": 2929201,
-    "sha256": "9f581c993899faecb262d8ac44951ddb75b898dfbabaf57dab092609f5e53327"
+    "bytes": 3145719,
+    "sha256": "795ea971a7435cce929603e0f656819e7ded0930fab3704ec93e00a8cbe751a2"
   },
   "capabilities": [
     {
@@ -506,6 +506,11 @@
       "name": "wait-shim",
       "surface": "cli-command",
       "fingerprint": "12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126"
+    },
+    {
+      "name": "workflow-check",
+      "surface": "cli-command",
+      "fingerprint": "216b9eb7ee383e26de4d34db487885972a203e87012a725524f930857642623d"
     },
     {
       "name": "workspace",

@@ -134,6 +134,11 @@ export const CLOCK_READING_TESTS: readonly DeclaredTimedCheck[] = [
     why: "times a subject against a calibration workload under planted CPU load and asserts the ratio separates them; excluded from the suite by SUITE_EXCLUSIONS and reachable only by name",
   },
   {
+    file: "test/eval/incremental-parse.test.ts",
+    kind: "mentions-only",
+    why: "`Date.now()` appears only as a string: it is one of the constructs a Workflow submission may not contain, and the test asserts it is reported at its own line",
+  },
+  {
     file: "test/eval/suspect-source.test.ts",
     kind: "mentions-only",
     why: "a comment recording that `appendObservation` takes its clock as an argument, so no clock read reaches the file",
