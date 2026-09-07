@@ -237,6 +237,9 @@ export function classifyCapture(
   const commandWindows: { from: number; to: number }[] = [];
   const openCommands = new Map<string, number>();
   const lastSeen = new Map<string, number>();
+  /** Head of each path's coalesce group, and the members folded into it. */
+  const coalesceHead = new Map<string, number>();
+  const coalescedInto = new Map<number, number>();
 
   const verdicts: EventVerdict[] = [];
   const survivors: { seq: number; ms: number; path: string; heldAt: string | undefined; hash: string | null }[] = [];
@@ -266,9 +269,13 @@ export function classifyCapture(
     const previous = lastSeen.get(entry.path);
     lastSeen.set(entry.path, entry.ms);
     if (previous !== undefined && entry.ms - previous < FS_EVENT_RULE.coalesceMs) {
+      // Folded into whatever the head of this path's coalesce group decided. The
+      // head has not been scored yet, so the link is recorded and backfilled below.
       churn("coalesced");
+      coalescedInto.set(entry.seq, coalesceHead.get(entry.path)!);
       continue;
     }
+    coalesceHead.set(entry.path, entry.seq);
     if (isScratch(entry.path)) {
       churn("scratch-file");
       continue;
@@ -355,6 +362,19 @@ export function classifyCapture(
     verdicts.push({ seq: event.seq, ms: event.ms, path: event.path, verdict: "meaningful", reason: null, invalidation: raised.id });
   }
 
+  // A write folded into an earlier one is not a write the run was never told about.
+  // Give every coalesced event the notification its group head raised, so scoring
+  // can ask the question that matters — was the run told? — rather than whether
+  // this particular event survived the filters.
+  const bySeq = new Map(verdicts.map((v) => [v.seq, v]));
+  for (const [seq, head] of coalescedInto) {
+    const raised = bySeq.get(head)?.invalidation ?? null;
+    if (raised === null) continue;
+    bySeq.get(seq)!.invalidation = raised;
+    const covering = invalidations[raised];
+    if (!covering.paths.includes(bySeq.get(seq)!.path)) covering.paths.push(bySeq.get(seq)!.path);
+  }
+
   verdicts.sort((a, b) => a.seq - b.seq);
   return { verdicts, invalidations };
 }
@@ -385,9 +405,9 @@ export interface SessionScore {
   externalEvents: number;
   correct: number;
   accuracy: number;
-  /** Events labelled meaningful that the rule called churn — the ones it would miss. */
+  /** Meaningful writes no notification covered — the ones the run is never told about. */
   missed: EventVerdict[];
-  /** Events labelled churn that the rule called meaningful — the ones that cry wolf. */
+  /** Churn a notification covered anyway — the ones that cry wolf. */
   falseAlarms: EventVerdict[];
   invalidations: number;
   /** Invalidations no held file actually changed under. */
@@ -414,8 +434,13 @@ export function scoreSession(
   const truthBySeq = new Map(truth.map((t) => [t.seq, t]));
   const external = classification.verdicts.filter((v) => truthBySeq.get(v.seq)?.writer === "external");
 
-  const missed = external.filter((v) => v.verdict === "churn" && truthBySeq.get(v.seq)!.label === "meaningful");
-  const falseAlarms = external.filter((v) => v.verdict === "meaningful" && truthBySeq.get(v.seq)!.label === "churn");
+  // "Was the run told about this write?" — not "did this event survive the
+  // filters". A write folded into a burst or into an earlier event on the same
+  // path is still a write the run was notified of, and counting it as a miss
+  // would score the rule against a question nobody asked.
+  const told = (v: EventVerdict) => v.invalidation !== null;
+  const missed = external.filter((v) => !told(v) && truthBySeq.get(v.seq)!.label === "meaningful");
+  const falseAlarms = external.filter((v) => told(v) && truthBySeq.get(v.seq)!.label === "churn");
   const correct = external.length - missed.length - falseAlarms.length;
 
   const meaningfulSeqs = new Set(truth.filter((t) => t.label === "meaningful").map((t) => t.seq));
