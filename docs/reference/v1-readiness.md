@@ -3221,9 +3221,35 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,353 tests across 381 files, verified 2026-09-03: `npx tsc --noEmit`
+> *Today:* **met** — 5,377 tests across 382 files, verified 2026-09-07: `npx tsc --noEmit`
 > exit 0, and the suite green on every file whose result is a fact about this repository.
-> The file added is `test/runner/incremental-typecheck.test.ts`, the instrument for "Time a
+> The file added is `test/telemetry/failure-shape-vs-meaning.test.ts`, the instrument for
+> "Sort a day of real failed calls into shape errors and meaning errors", beneath "Validate
+> every tool call against the schema the tool already declares" — the v0.17.0 validator,
+> which shipped on the strength of one replayed call and had never had its coverage sized.
+> **The pre-committed bar is missed by every denominator on offer, which is the finding.**
+> Over the trace the assumption test named — 2026-07-25 to 2026-07-27, 217 calls, 62
+> failures, committed as a fixture — **61 of the 62 are meaning errors and one is a shape
+> error**, against a bar of half. Reported separately as the node required, the probes take
+> that one with them: it is `ost_create_node` called with an empty object, 2 bytes, which is
+> a probe by the same size rule that catches `no such node: probe` and `no such node: x`, so
+> **the 59 failures the branch is actually about contain no shape error at all**. Even the
+> reading built to flatter the validator — bursts collapsed to one incident, probes left in
+> — lands at 1 of 4. Two things the node could not have known and this measurement found.
+> **First, the 59 are one incident, not 59.** They arrive inside 21 seconds, same tool, same
+> refusal, each carrying an identical ~930-byte payload under a one-word title, and the words
+> reassemble into five node titles that were re-filed successfully 11 seconds later: one
+> unquoted shell argument, five intended annotations, zero writes. **Second, none of the 62
+> reached the validator.** All 62 carry `surface: "cli-tool"`, and `validateToolInput` has
+> exactly one call site — the MCP dispatch point in `src/mcp/server.ts`. Its coverage of this
+> corpus is zero for a reason that has nothing to do with shape versus meaning. What the
+> census cannot do is replay: `usage.ts` records input size and never input content, by
+> design, so a failure is classified from the tool's own refusal text rather than from the
+> call — which is why an unrecognised wording lands in `unclassified` and is printed by
+> message instead of quietly joining a bucket.
+>
+> **Previously 5,353 tests across 381 files, verified 2026-09-03**, after
+> `test/runner/incremental-typecheck.test.ts`, the instrument for "Time a
 > single-file check against the whole-project run it would replace", beneath "Typecheck the
 > files just touched, at the moment they are touched". **Its own finding is that half of the
 > bar it was built against was wrong:** the node fixed the whole-project `tsc --noEmit` at
