@@ -3257,12 +3257,19 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > the rule to fit failures it did not name is how a classifier stops measuring anything.
 > Shape stays at 1 over the whole trace either way.
 >
-> **The host caveat below still holds, and the number that predicts it got worse.** A full
-> run at this commit ended with one failure, `loop/work-source-census`'s live `fs.watch`
-> assertion, which passes alone on the same loaded box. `fseventsd` was at 104.8 % of a core
-> and **41.0 % of system memory** on a host **51 days** into an uptime, against the 35.6 % at
-> 46 days recorded below — the same cause, measured again, moving in the direction that
-> predicts it. No bound was moved.
+> **The host caveat below still holds, the number that predicts it got worse, and this run
+> makes it unambiguous.** The full run at this commit ended with exactly one failure,
+> `loop/work-source-census`'s live `fs.watch` assertion, which passes alone on the same
+> loaded box (22/22, 6.6 s) minutes later. **It is not a timing bound narrowly exceeded this
+> time — the watcher saw *nothing* across ten writes**, which is FSEvents not delivering
+> rather than delivering late, and no bound could have been set to accommodate it. `fseventsd`
+> was at 100–105 % of a core and **41.0 % of system memory**, then **45.2 % twenty-five
+> minutes later**, on a host **51 days** into an uptime — against 35.6 % at 46 days recorded
+> below. Same cause, measured again, still climbing. Neither file this batch touches under
+> `src/` is in `computeNextWork`'s import closure: `src/telemetry/failure-kind.ts` is reached
+> only from `src/cli/index.ts`, which nothing under `src/loop/` imports. **The fix is the
+> host, not a bound, and it is the operator's:** a reboot, or a restart of `fseventsd`. No
+> bound was moved.
 >
 > **Previously 5,353 tests across 381 files, verified 2026-09-03**, after
 > `test/runner/incremental-typecheck.test.ts`, the instrument for "Time a
