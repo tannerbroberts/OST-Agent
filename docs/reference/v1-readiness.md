@@ -3221,9 +3221,60 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,378 tests across 382 files, verified 2026-09-07: `npx tsc --noEmit`
+> *Today:* **met** — 5,382 tests across 383 files, verified 2026-09-07: `npx tsc --noEmit`
 > exit 0, and the suite green on every file whose result is a fact about this repository.
-> The file added is `test/telemetry/failure-shape-vs-meaning.test.ts`, the instrument for
+> The file added is `test/ost/underserved-excludes-deferred.test.ts`, the instrument for
+> "Withhold deferred opportunities from the under-served count", beneath "A retired
+> opportunity is still counted as needing solutions". The node's claim reproduced exactly —
+> a `status: deferred` Opportunity short of `min` was reported in `underservedOpportunities`
+> while the same response listed it under `retiredFromDuplicateScan` for that very status —
+> and the spec failed on the assertion rather than on the import, which is the strong red the
+> assumption test claimed for it. **What the node did not know is that there was a third
+> demand list, not two.** Its census named `underservedOpportunities` (`deferred`) and
+> `solutionsMissingInstruments` (`shipped`); the invariant assertion — no node withheld from
+> one analysis may be demanded by another in the same response — turned up
+> `solutionsMissingAssumptions` demanding an assumption test for a solution it had just
+> reported as retired. `src/eval/buildable.ts` had learned the rule and the one list still
+> built inline in `computeNextWork` had not, so the fix is two predicates rather than the one
+> the node costed. **The summary sentence the change falsified is the finding worth
+> carrying.** It read "N retired node(s) were withheld from the duplicate scan **only** (every
+> gate still counts them)", and that word was load-bearing: `deferred` is agent-settable, so
+> the promise a reader takes from it is that retiring a node cannot silence a gate. The demand
+> filters made the first half false and left the second half exactly as true, so the sentence
+> now names both, and `test/ost/retired-nodes.test.ts` pins the half that still holds rather
+> than the wording that no longer does. The forging attack it plants — a dangling link on a
+> retired node — still fails against the new filter: the violation survives, is named, and
+> holds `done` false.
+>
+> **The host caveat below repeats, third consecutive batch — and this batch ran the control
+> the previous two argued for.** Three full runs, and the casualty is a different test each
+> time while the count stays at one or two:
+>
+> - **branch, box loaded** (targeted runs alongside it): `loop/work-source-census`'s live
+>   `fs.watch` assertion, plus the two real failures this batch caused and fixed;
+> - **`main` at `347f5f9`, same host, same load, a worktree sharing `node_modules`**: the
+>   same `fs.watch` assertion **and** `telemetry/same-run-baseline-ratio` (rep 1 at 43.8x
+>   against a bound of 40);
+> - **branch, box otherwise idle**: `fs.watch` **passed**, and
+>   `runner/flake-attribution`'s scenario 3 failed instead — its *isolated* re-run, the one
+>   the scenario needs to come back fast, exceeded a budget derived from a measured idle
+>   baseline. It passes alone in 1.4 s, 15/15.
+>
+> **The middle run is the control and it is what settles this.** The `fs.watch` failure
+> reproduces at the parent commit, with none of this batch's code present, so it is not the
+> change — and nothing here is in either casualty's import closure anyway
+> (`src/mcp/next-work.ts` computes a response; nothing under `src/loop/` or
+> `src/runner/flake*` imports it). What the three runs add to the diagnosis below is that
+> the failure is not specific to FSEvents: a wall-clock assertion of any kind is losing its
+> margin under full-suite contention on this host, and which one loses it varies per run.
+> `fseventsd` measured **123.4 % of a core** — the CPU pin reproduces every time — but
+> **36.1 % of system memory** against the 41.0 % and 45.2 % recorded below at the same
+> 51-day uptime, so "still climbing" is not a monotone trend and the memory share is the
+> weaker of the two indicators. **The fix is still the host and still the operator's:** a
+> reboot, or a restart of `fseventsd`. No bound was moved.
+>
+> **Previously 5,378 tests across 382 files, verified 2026-09-07**, after
+> `test/telemetry/failure-shape-vs-meaning.test.ts`, the instrument for
 > "Sort a day of real failed calls into shape errors and meaning errors", beneath "Validate
 > every tool call against the schema the tool already declares" — the v0.17.0 validator,
 > which shipped on the strength of one replayed call and had never had its coverage sized.
