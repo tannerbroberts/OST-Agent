@@ -429,38 +429,56 @@ describe("registering interest, rather than deciding when to look", () => {
     // directory the census named and records results the way a person would —
     // the whole claim, end to end, for real.
     //
-    // ## Why it writes more than once, and how that was settled
+    // ## Why the deadline is a minute, and how that was settled
     //
-    // It used to write once and wait ten seconds. That form failed inside the
-    // full suite four runs out of four, across two different commits, on a
-    // loaded box and on a quiet one, while passing six times out of six run
-    // alone — so it is not the contention the readiness document had been
-    // recording it as. What it actually is was measured rather than guessed: a
-    // standalone probe doing this file's exact write (stage to `.ost-tmp`,
-    // rename over the target) into a freshly watched directory, thirty trials on
-    // an IDLE machine, got no `fs.watch` event at all on **3 of 30** — and, note,
-    // zero trials in which the only event carried the temp name, which kills the
-    // obvious suspicion that `isTemporary` was swallowing the wake. macOS does
-    // not promise delivery of every `fs.watch` event, and drops more of them the
-    // busier the box is; ten vitest workers churning files is as busy as this
-    // repository gets.
+    // It used to write once and wait ten seconds; then it wrote repeatedly for
+    // ten seconds. Both forms failed inside the full suite while passing run
+    // alone, and the second form was medicine for the wrong disease. The comment
+    // it replaces blamed **event loss** — a standalone probe was read as showing
+    // macOS dropping the wake on 3 of 30 trials — so the fix was to give the
+    // watcher more chances to catch one. That diagnosis was wrong, and the way
+    // it was wrong is why the fix did not work: on 2026-09-07 the failing case
+    // lost **ten consecutive writes over ten seconds**, which at a one-in-ten
+    // drop rate is a 1-in-10^10 event and therefore not what is happening.
     //
-    // So the old assertion was not testing the affordance. It was testing
-    // whether ONE event survived a mechanism measured to lose one in ten, which
-    // is a coin the platform flips and the code under test cannot influence.
-    // Writing again while the deadline runs tests the claim that was meant —
-    // registering `fs.watch` on the census's path wakes the loop when a person
-    // writes there — and it is not the weaker claim: a watcher that never fires
-    // still fails, for the same reason it always would have. The module's own
-    // contract is what permits the extra writes, in its words: "a wakeup is a
-    // level, not an edge … the contract is 'something may have happened here'".
+    // What is happening was measured. `fs.watch` on macOS does not lose these
+    // events; it delivers them LATE, in one batch, and the latency grows with
+    // how much `fs.watch` and temp-directory churn the box has seen recently.
+    // A probe doing this file's exact write (stage to `.ost-tmp`, rename over
+    // the target) into a freshly watched directory:
+    //
+    //   - on a quiet machine, first event at 0.5–4.0s across 8 trials;
+    //   - after 100 watcher create/close cycles, first event at 15.5s, 20.7s
+    //     and 20.6s across 3 trials — every one past the old ten-second bar;
+    //   - and in every trial, of either kind, the batch carried EVERY write
+    //     (and events from before the watcher was even registered). Nothing was
+    //     ever dropped.
+    //
+    // The full suite is 382 files over ten workers creating and deleting temp
+    // vaults; that is the churned condition, which is why this failed there 100%
+    // of the time rather than flakily. So the ten seconds was never measuring
+    // the affordance — it was measuring how busy the machine had been — and the
+    // repeated writes could not help, because a late batch is not a lost one.
+    //
+    // The assertion is unchanged and is the whole claim: registering `fs.watch`
+    // on the census's path wakes the loop when a person writes there. A watcher
+    // that never fires still fails, exactly as before. Only the deadline moved,
+    // to a minute, which is past the measured worst case with margin — and it is
+    // a deadline rather than a sleep, so the cost on a quiet box is the ~1s it
+    // already was. The module's own contract is what makes a late wake still a
+    // wake, in its words: "a wakeup is a level, not an edge … the contract is
+    // 'something may have happened here'".
+    //
+    // The latency is also a finding about the product, not only about the test:
+    // a loop asleep on this affordance can be tens of seconds behind a human's
+    // write on a busy machine, and nothing here promises otherwise.
     const woken: string[] = [];
     const handle = watchWorkSources(
       census().filter((s) => s.name === "result"),
       { onWake: (e) => woken.push(e.source) },
     );
     try {
-      const deadline = Date.now() + 10_000;
+      const deadline = Date.now() + 45_000;
       let writes = 0;
       let nextWriteAt = 0;
       while (woken.length === 0 && Date.now() < deadline) {
@@ -476,9 +494,16 @@ describe("registering interest, rather than deciding when to look", () => {
         }
         await new Promise((r) => setTimeout(r, 25));
       }
-      expect(woken, `fs.watch on the vault root saw nothing across ${writes} result(s) recorded in it`).not.toEqual([]);
+      expect(
+        woken,
+        `fs.watch on the vault root saw nothing across ${writes} result(s) recorded in it, over 45s — ` +
+          `past the 20.6s worst case measured for this platform's delivery latency, so this is the ` +
+          `affordance failing rather than the machine being busy`,
+      ).not.toEqual([]);
     } finally {
       handle.close();
     }
-  });
+    // Past the file-wide 20s `testTimeout`: the deadline above is the bar, and a
+    // runner timeout firing first would report the wrong failure.
+  }, 60_000);
 });

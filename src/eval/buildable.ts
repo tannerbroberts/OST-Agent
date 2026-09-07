@@ -54,6 +54,22 @@
  * anything on a permit, run the command and find out whether the red is still
  * true. It records nothing — recording is `ost-agent verify`, and it stays
  * where it is.
+ *
+ * **A retired solution holds no permit, whatever its instrument says.** Every
+ * withdrawal above is about the instrument going stale; this one is about the
+ * question being closed. A `deferred` solution has been taken out of the live
+ * tree, and its instrument then stays red forever *precisely because* nobody is
+ * going to build it — which reads, to everything downstream, exactly like a live
+ * definition of done. The tree measured what not checking costs: "Ask the open
+ * question first, and offer options only once the frame is agreed" was deferred
+ * on 2026-08-16 on its own instrument's evidence, and the build loop selected it
+ * three more times afterwards (PR #130, PR #171, and a fourth pass on
+ * 2026-09-07 that wrote this paragraph), re-deriving the same refutation every
+ * time, because `ost-agent buildable` answered CLEARED on every one.
+ * {@link solutionsMissingInstruments} already refuses a deferred solution for
+ * the same reason in its own words — "there is no unbuilt behaviour left" — and
+ * that is an argument about definedness rather than about desirability, so it
+ * belongs on the permit too.
  */
 import { nodeInstrument, observedGreen, observedRed, runInstrument, type InstrumentRun } from "../ost/instrument.js";
 import { CAUTIOUS_LANE } from "../knowledge/lanes.js";
@@ -62,6 +78,7 @@ import { isInstrument, parseInstrument, type ParsedInstrument } from "../knowled
 import { thresholdKindOf } from "./coverage.js";
 import { trustsShippedStatus } from "./shipped-audit.js";
 import { resolveTestsUnderSolution, LEGACY_TEST_EDGE, type ResolvedTest } from "../ost/legacy-fallback.js";
+import { deferralHistoryEntry } from "../ost/deferral.js";
 
 export interface BuildPermit {
   cleared: boolean;
@@ -99,6 +116,17 @@ export interface BuildPermit {
    * can ever retire.
    */
   viaLegacyEdge?: boolean;
+  /**
+   * Set when the refusal is the solution's `deferred` status rather than
+   * anything about its instrument.
+   *
+   * Carried as its own field because the two refusals ask for opposite next
+   * moves and a caller reading only `reason` cannot tell them apart: a missing
+   * or unrun instrument is work for the discovery loop, while this one is a
+   * question already closed, and the only thing that reopens it is a human
+   * changing the status.
+   */
+  deferred?: boolean;
 }
 
 /**
@@ -121,6 +149,21 @@ function testsUnder(index: Map<string, OstNode>, solution: OstNode): ResolvedTes
 }
 
 /**
+ * The `## History` entry that deferred this node, when it recorded a reason —
+ * `""` when it did not.
+ *
+ * `Vault.setStatus` writes the transition line whether or not the caller passed
+ * a note, so "an entry exists" and "somebody said why" are different facts and
+ * the refusal must not conflate them: a bare `status: (none) → deferred` quoted
+ * back at a reader looks like a citation and carries nothing. The reason is
+ * whatever follows the em dash the note is joined on.
+ */
+function recordedDeferralReason(solution: OstNode): string {
+  const entry = deferralHistoryEntry(solution).replace(/^-\s*/, "").trim();
+  return /(?:→|->)\s*deferred\s+(?:—|--)\s*\S/.test(entry) ? entry : "";
+}
+
+/**
  * May work start on this solution, and against what definition of done?
  *
  * Refusals name the missing step rather than the missing state, because every
@@ -135,6 +178,26 @@ function permitFrom(index: Map<string, OstNode>, title: string): BuildPermit {
   const solution = index.get(title);
   if (!solution || solution.layer !== "Solution") {
     return { cleared: false, reason: `no Solution node titled "${title}"` };
+  }
+
+  // Checked before the instrument, because the instrument is the thing that
+  // misleads here: a deferred solution's command is red for the same reason it
+  // is deferred, so reading the log first finds a definition of done under a
+  // question nobody is asking. The refusal quotes the entry that retired it, so
+  // a caller can tell a considered retirement from a status somebody typed.
+  if (solution.status === "deferred") {
+    const entry = recordedDeferralReason(solution);
+    return {
+      cleared: false,
+      deferred: true,
+      reason:
+        `"${title}" is deferred — the tree has retired it, so there is no unbuilt behaviour left for a red ` +
+        `instrument to license. Its command will keep failing for exactly the reason it was retired, which is ` +
+        `not a definition of done. ` +
+        (entry ? `The entry that retired it: ${entry}` : `Nothing in its \`## History\` records why.`) +
+        ` Reopening it means changing that status (\`ost_set_status\`), which is a decision somebody makes ` +
+        `against the reason above — not something a permit may infer from a red exit code.`,
+    };
   }
 
   const tests = testsUnder(index, solution);
