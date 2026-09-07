@@ -3221,15 +3221,97 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,327 tests across 379 files, verified 2026-09-03: **fully green in 392 s**,
-> `npx tsc --noEmit` exit 0. The three suite times this batch recorded on one machine are
-> themselves the finding below — **762 s** with four failures, **537 s** with one after the
-> leaked spinners were killed, **392 s** and green after the `fs.watch` assertion was fixed. The
-> file added is
+> *Today:* **met** — 5,378 tests across 382 files, verified 2026-09-07: `npx tsc --noEmit`
+> exit 0, and the suite green on every file whose result is a fact about this repository.
+> The file added is `test/telemetry/failure-shape-vs-meaning.test.ts`, the instrument for
+> "Sort a day of real failed calls into shape errors and meaning errors", beneath "Validate
+> every tool call against the schema the tool already declares" — the v0.17.0 validator,
+> which shipped on the strength of one replayed call and had never had its coverage sized.
+> **The pre-committed bar is missed by every denominator on offer, which is the finding.**
+> Over the trace the assumption test named — 2026-07-25 to 2026-07-27, 217 calls, 62
+> failures, committed as a fixture — **61 of the 62 are meaning errors and one is a shape
+> error**, against a bar of half. Reported separately as the node required, the probes take
+> that one with them: it is `ost_create_node` called with an empty object, 2 bytes, which is
+> a probe by the same size rule that catches `no such node: probe` and `no such node: x`, so
+> **the 59 failures the branch is actually about contain no shape error at all**. Even the
+> reading built to flatter the validator — bursts collapsed to one incident, probes left in
+> — lands at 1 of 4. Two things the node could not have known and this measurement found.
+> **First, the 59 are one incident, not 59.** They arrive inside 21 seconds, same tool, same
+> refusal, each carrying an identical ~930-byte payload under a one-word title, and the words
+> reassemble into five node titles that were re-filed successfully 11 seconds later: one
+> unquoted shell argument, five intended annotations, zero writes. **Second, none of the 62
+> reached the validator.** All 62 carry `surface: "cli-tool"`, and `validateToolInput` has
+> exactly one call site — the MCP dispatch point in `src/mcp/server.ts`. Its coverage of this
+> corpus is zero for a reason that has nothing to do with shape versus meaning. What the
+> census cannot do is replay: `usage.ts` records input size and never input content, by
+> design, so a failure is classified from the tool's own refusal text rather than from the
+> call — which is why an unrecognised wording lands in `unclassified` and is printed by
+> message instead of quietly joining a bucket. **That honesty immediately earned its keep.**
+> `ost-agent failure-kinds --from 2026-01-01 --to 2026-12-31` over the whole trace — 9,411
+> calls, 129 failures — reads 67 of them as `unclassified` across 47 distinct wordings and
+> exits non-zero rather than reporting a corpus with nothing in it. Nearly all of those are
+> the tree's own believability and title guards refusing a schema-valid call on policy
+> (`cannot declare 'stated': it cites channel:inbox…`), which is a fourth class the node's
+> three-way taxonomy has no cell for. They are deliberately NOT absorbed into `meaning`
+> here: the pre-committed corpus is the three days the assumption test named, and widening
+> the rule to fit failures it did not name is how a classifier stops measuring anything.
+> Shape stays at 1 over the whole trace either way.
+>
+> **The host caveat below still holds, the number that predicts it got worse, and this run
+> makes it unambiguous.** The full run at this commit ended with exactly one failure,
+> `loop/work-source-census`'s live `fs.watch` assertion, which passes alone on the same
+> loaded box (22/22, 6.6 s) minutes later. **It is not a timing bound narrowly exceeded this
+> time — the watcher saw *nothing* across ten writes**, which is FSEvents not delivering
+> rather than delivering late, and no bound could have been set to accommodate it. `fseventsd`
+> was at 100–105 % of a core and **41.0 % of system memory**, then **45.2 % twenty-five
+> minutes later**, on a host **51 days** into an uptime — against 35.6 % at 46 days recorded
+> below. Same cause, measured again, still climbing. Neither file this batch touches under
+> `src/` is in `computeNextWork`'s import closure: `src/telemetry/failure-kind.ts` is reached
+> only from `src/cli/index.ts`, which nothing under `src/loop/` imports. **The fix is the
+> host, not a bound, and it is the operator's:** a reboot, or a restart of `fseventsd`. No
+> bound was moved.
+>
+> **Previously 5,353 tests across 381 files, verified 2026-09-03**, after
+> `test/runner/incremental-typecheck.test.ts`, the instrument for "Time a
+> single-file check against the whole-project run it would replace", beneath "Typecheck the
+> files just touched, at the moment they are touched". **Its own finding is that half of the
+> bar it was built against was wrong:** the node fixed the whole-project `tsc --noEmit` at
+> "longer than 10 seconds on the same machine" and it takes 1.6–2.1 s here, so the per-edit
+> check is ~1.5x cheaper cold and ~4x warm rather than the order of magnitude assumed — what
+> survives as the argument for moving the check earlier is attribution, not speed. Its first
+> draft also reproduced this entry's oldest caveat first-hand: a flat 2,000 ms ceiling passed
+> alone at 909 ms and failed inside the full suite at 3,194 ms, while the whole-project
+> program in the same process went 1,300 ms → 8,366 ms. The budget is now that number times
+> the contention measured in the same run. **One further caveat, measured rather than assumed,
+> and it belongs to the host rather than to this batch.** Four full-suite runs at this commit each ended with exactly ONE failure, and it
+> was **a different file every time**: `same-run-baseline-ratio` (43.62x against its 40x bound —
+> 2,883 ms subject, 47 ms baseline), `same-run-baseline-ratio` again, `mcp/wall-clock-budget`
+> (2,071 ms against 2,000 ms), then `loop/work-source-census`'s live `fs.watch` assertion. Every
+> one of them passes alone at this commit, re-run on the same loaded box. Suite wall time went
+> **323 s → 481 s → 628 s → 667 s** over those four runs on near-identical code.
+>
+> **The cause was traced, not named.** `fseventsd` — the macOS daemon `fs.watch` is built on —
+> was pinned at 100–107 % of a core and **35.6 % of system memory**, on a host 46 days into an
+> uptime, with load averages of 18–29 and an unrelated foreground application at 43 %. That
+> single fact predicts the whole failure set: the `fs.watch` assertion depends on FSEvents
+> directly, and the two timing bounds are both taken over calls that deliberately read real
+> files off real disk. It is not this batch's change, and that is checkable rather than
+> asserted: `computeNextWork`'s import closure is 111 modules and neither file touched under
+> `src/` here is in it — `src/loop/compute-lane.ts` and `src/runner/symbol-index.ts` are both
+> reached only from `src/cli/index.ts`. Nor is it leaked test debris, the cause the note below
+> found: the long-lived `node` processes on the box were all unrelated dev servers at 0.0 % CPU,
+> and no spinner outlived its run. **A regression fails the same test every time; this failed a
+> different one each run.** No bound was moved.
+>
+> **The previous batch's entry, kept because its finding is the reason the caveat above is
+> stated with numbers rather than as "flaky".** It verified **fully green in 392 s** and added
 > `test/runner/workspace-lease-liveness.test.ts`, the instrument for "Kill a lease holder
 > mid-build and check the workspace is reclaimed without the TTL elapsing", beneath "The
-> workspace is leased, and the next run reclaims a lease whose holder is gone". **Two things
-> this batch's runs found that were being recorded here as contention and were not.**
+> workspace is leased, and the next run reclaims a lease whose holder is gone". The three suite
+> times it recorded on one machine were themselves its finding — **762 s** with four failures,
+> **537 s** with one after the leaked spinners were killed, **392 s** and green after the
+> `fs.watch` assertion was fixed. **Two things those runs found that were being recorded here
+> as contention and were not.**
 >
 > **The load had a cause, and it was leaked test debris.** The first runs of this batch took
 > **762 s** and failed four wall-clock and timeout-bounded files. The load was measured rather

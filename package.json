@@ -33,6 +33,7 @@
     "manifest": "tsx scripts/gen-capability-manifest.ts",
     "dev": "tsx src/cli/index.ts",
     "gen:skill": "tsx scripts/gen-skill.ts",
+    "typecheck:touched": "tsx scripts/typecheck-touched.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

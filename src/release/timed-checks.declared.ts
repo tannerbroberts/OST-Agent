@@ -281,6 +281,16 @@ export const CLOCK_READING_TESTS: readonly DeclaredTimedCheck[] = [
     why: "measures a real phase against an interleaved control probe and asserts the attribution the pair produces; the calibration in `beforeAll` is itself timed",
   },
   {
+    file: "test/runner/incremental-typecheck.test.ts",
+    kind: "gating-wall-clock",
+    statistic: "same-run-ratio",
+    why:
+      "asserts a per-edit typecheck stays inside the 2000 ms budget its node fixed and beats the whole-project " +
+      "program by 3x warm — but both are taken against that whole-project program built in the SAME process, so " +
+      "the budget is the node's number times this machine's measured contention rather than a stopwatch; a bare " +
+      "2000 ms ceiling failed at 3194 ms inside a full suite run while the check itself was unchanged",
+  },
+  {
     file: "test/runner/per-run-workspace-cost.test.ts",
     kind: "gating-wall-clock",
     statistic: "same-run-ratio",

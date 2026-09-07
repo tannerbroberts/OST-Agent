@@ -7,9 +7,12 @@
  * happen somewhere isolation can be guaranteed**, weighted by how often checks
  * really run at each place rather than counted per location.
  *
- * **It came out REFUTED, at 34.0%.** Of the 11,939 timed-check executions this
- * project's record holds for the thirty days ending 2026-09-01, 4,059 are on a
- * GitHub-hosted runner and 7,880 are on the operator's laptop. Every weekly
+ * **It came out REFUTED, at 34.0%.** Of the timed-check executions this project's
+ * record holds for the thirty days ending 2026-09-01, 34.0% are on a
+ * GitHub-hosted runner and the rest are on the operator's laptop — 4,059 of
+ * 11,939 when the census was cut, 4,510 of 13,247 once an eleventh gating check
+ * landed, because the total is today's check set projected onto the recorded runs
+ * and scales both sides at once. Every weekly
  * sub-window lands between 30.2% and 36.5%, so the miss is not where the cut
  * fell, and the reading is 34.5% if filtered runs are dropped entirely and 17.2%
  * if every invocation is weighted equally instead — the verdict does not depend
@@ -34,7 +37,8 @@
  * robust to contention instead of moving away from it.
  *
  * **The census understates its own subject, and the run that verified it proved
- * so.** Ten files assert on elapsed time; every one of the 4,906 tests is also
+ * so.** Ten files asserted on elapsed time when it was cut, eleven since
+ * `test/runner/incremental-typecheck.test.ts` landed; every one of the 4,906 tests is also
  * under `testTimeout: 20000`, an absolute wall-clock bar with no relation to
  * what the test measures. Verifying this census took 959 s against a documented
  * 207–413 s range, and six tests in `test/ost/vault-merge-conflict-census.test.ts`
@@ -120,13 +124,18 @@ describe("the census knows what a timed check is", () => {
     expect(GATING_TIMED_CHECKS).toContain("test/loop/inherited-tree-build-check.test.ts");
   });
 
-  test("the gating ten each hold an assertion on something timed", () => {
+  test("the gating checks each hold an assertion on something timed", () => {
     for (const file of GATING_TIMED_CHECKS) {
       const source = fs.readFileSync(path.join(repoRoot, file), "utf8");
       expect(CLOCK_MENTION_PATTERN.test(source) || DURATION_ASSERTION_PATTERN.test(source)).toBe(true);
       expect(source).toContain("expect(");
     }
-    expect(GATING_TIMED_CHECKS).toHaveLength(10);
+    // Ten when this census was cut; eleven since
+    // `test/runner/incremental-typecheck.test.ts` landed, which asserts a
+    // per-edit typecheck stays inside the 2000 ms its node fixed. The count is
+    // pinned rather than derived so an eleventh — or a twelfth — is a visible
+    // decision, which is the whole point of the declaration it reads.
+    expect(GATING_TIMED_CHECKS).toHaveLength(11);
   });
 
   test("exactly one gating check is already outside the parallel suite", () => {
@@ -270,8 +279,13 @@ describe("THE ASSUMPTION IS REFUTED", () => {
   const report = isolationShare(corpus.runs, GATING_TIMED_CHECKS);
 
   test("34.0% of timed-check runs happen where isolation could be guaranteed, against a 50% bar", () => {
-    expect(report.total).toBe(11_939);
-    expect(report.isolated).toBe(4059);
+    // 11,939 / 4,059 when this census was cut. The totals are a projection of
+    // TODAY's check set onto the recorded runs, so an eleventh gating check
+    // (`test/runner/incremental-typecheck.test.ts`) scales both sides: the
+    // executions moved and the share did not — 34.0% before and after, which is
+    // the property the header claims and this is now the demonstration of it.
+    expect(report.total).toBe(13_247);
+    expect(report.isolated).toBe(4510);
     expect(report.share).toBeCloseTo(0.34, 2);
     expect(report.share).toBeLessThan(ISOLATION_SHARE_BAR);
     expect(report.clearsBar).toBe(false);
@@ -279,9 +293,9 @@ describe("THE ASSUMPTION IS REFUTED", () => {
 
   test("two thirds of them are on the laptop, and most of that is the unattended loop", () => {
     expect(report.byLocation).toEqual({
-      "ci-github-hosted": 4059,
-      "operator-workstation-unattended": 6566,
-      "operator-workstation-interactive": 1314,
+      "ci-github-hosted": 4510,
+      "operator-workstation-unattended": 7280,
+      "operator-workstation-interactive": 1457,
       "contributor-workstation": 0,
     });
   });
@@ -308,7 +322,7 @@ describe("THE ASSUMPTION IS REFUTED", () => {
     //   1. executions, weighted by which checks a run actually runs — 34.0%;
     //   2. whole-suite runs only, dropping every filtered run — 34.5%;
     //   3. invocations, each weighted the same — 17.2%.
-    // The first two barely differ because 176 of 11,939 executions come from a
+    // The first two barely differ because 177 of 13,247 executions come from a
     // named file, which is also why the hand-made classification in
     // `timed-checks.declared.ts` cannot decide this: a full-suite run executes
     // every in-suite check, so moving one between kinds scales both sides.
