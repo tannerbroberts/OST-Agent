@@ -405,6 +405,16 @@ export interface SessionScore {
   externalEvents: number;
   correct: number;
   accuracy: number;
+  /**
+   * The same rate over external events outside {@link FS_EVENT_RULE.alwaysIgnoredDirs}.
+   * A `git checkout` writes hundreds of objects under `.git/` and every one of them is
+   * an external write the rule gets right for free, so the headline rate can be
+   * carried by noise. This is the denominator with that mass removed, and it is the
+   * one to read when the two disagree.
+   */
+  contestedEvents: number;
+  contestedCorrect: number;
+  contestedAccuracy: number;
   /** Meaningful writes no notification covered — the ones the run is never told about. */
   missed: EventVerdict[];
   /** Churn a notification covered anyway — the ones that cry wolf. */
@@ -451,6 +461,11 @@ export function scoreSession(
   }
   const unnecessary = classification.invalidations.filter((i) => !coveredBy.get(i.id)).length;
 
+  const missedSeqs = new Set(missed.map((v) => v.seq));
+  const alarmSeqs = new Set(falseAlarms.map((v) => v.seq));
+  const contested = external.filter((v) => !inIgnoredDir(v.path));
+  const contestedCorrect = contested.filter((v) => !missedSeqs.has(v.seq) && !alarmSeqs.has(v.seq)).length;
+
   const accuracy = external.length === 0 ? 1 : correct / external.length;
   return {
     sessionId: capture.sessionId,
@@ -458,6 +473,9 @@ export function scoreSession(
     events: classification.verdicts.length,
     externalEvents: external.length,
     correct,
+    contestedEvents: contested.length,
+    contestedCorrect,
+    contestedAccuracy: contested.length === 0 ? 1 : contestedCorrect / contested.length,
     accuracy,
     missed,
     falseAlarms,
@@ -473,6 +491,12 @@ export interface FsEventCensus {
   externalEvents: number;
   correct: number;
   accuracy: number;
+  /** The rate with the `.git`/`node_modules` mass removed — see {@link SessionScore.contestedAccuracy}. */
+  contestedEvents: number;
+  contestedAccuracy: number;
+  meetsAccuracyContested: boolean;
+  /** `true` when the headline rate and the contested rate straddle the bar. Say so; never average them. */
+  readingDecides: boolean;
   worstUnnecessary: number;
   /** The first clause: the rate, over every external write event in the corpus. */
   meetsAccuracy: boolean;
@@ -502,8 +526,13 @@ export function fsEventCensus(
     }
   }
 
+  const contestedEvents = sessions.reduce((n, s) => n + s.contestedEvents, 0);
+  const contestedCorrect = sessions.reduce((n, s) => n + s.contestedCorrect, 0);
+  const contestedAccuracy = contestedEvents === 0 ? 1 : contestedCorrect / contestedEvents;
+
   const accuracy = externalEvents === 0 ? 1 : correct / externalEvents;
   const meetsAccuracy = accuracy >= FS_EVENT_RULE.minAccuracy;
+  const meetsAccuracyContested = contestedAccuracy >= FS_EVENT_RULE.minAccuracy;
   const meetsInvalidationCap = worstUnnecessary <= FS_EVENT_RULE.maxUnnecessaryPerSession;
 
   return {
@@ -511,10 +540,14 @@ export function fsEventCensus(
     externalEvents,
     correct,
     accuracy,
+    contestedEvents,
+    contestedAccuracy,
+    meetsAccuracyContested,
+    readingDecides: meetsAccuracy !== meetsAccuracyContested,
     worstUnnecessary,
     meetsAccuracy,
     meetsInvalidationCap,
-    meetsBar: meetsAccuracy && meetsInvalidationCap,
+    meetsBar: meetsAccuracy && meetsAccuracyContested && meetsInvalidationCap,
     burstLadder: FS_EVENT_RULE.burstLadder.map((burstFiles) => {
       const worst = scored.reduce((n, { capture, truth }) => {
         const s = scoreSession(capture, classifyCapture(capture, { burstFiles }), truth);
@@ -537,6 +570,11 @@ export function formatFsEventCensus(census: FsEventCensus): string {
     `Rate: ${census.correct} of ${census.externalEvents} external write events classified correctly ` +
       `(${(census.accuracy * 100).toFixed(1)}%, bar ${FS_EVENT_RULE.minAccuracy * 100}%) — ` +
       `${census.meetsAccuracy ? "MET" : "NOT MET"}.`,
+  );
+  lines.push(
+    `With the .git/node_modules mass removed: ${(census.contestedAccuracy * 100).toFixed(1)}% of ` +
+      `${census.contestedEvents} contested events — ${census.meetsAccuracyContested ? "MET" : "NOT MET"}.` +
+      (census.readingDecides ? " THE READING DECIDES THIS." : ""),
   );
   lines.push(
     `THE BINDING CLAUSE: worst session raised ${census.worstUnnecessary} unnecessary invalidation(s), ` +
