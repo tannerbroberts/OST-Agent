@@ -48933,6 +48933,7 @@ function computeNextWork(vault, dir, min, now = () => /* @__PURE__ */ new Date()
   const servedBeneath = opportunitiesServedBeneath(tree, index);
   const exemptCategories = [];
   const shortCategories = [];
+  const retiredUnderserved = [];
   const allUnderservedOpportunities = omitDisposed(
     tree.filter((n) => n.layer === "Opportunity").map((o2) => {
       const existing = childrenOfLayer(o2, index, "Solution");
@@ -48961,6 +48962,10 @@ function computeNextWork(vault, dir, min, now = () => /* @__PURE__ */ new Date()
         }
       };
     }).filter(({ entry }) => entry.solutions < min).filter(({ node: node2 }) => {
+      if (!isRetiredNode(node2)) return true;
+      retiredUnderserved.push(node2.title);
+      return false;
+    }).filter(({ node: node2 }) => {
       const isCategory = childrenOfLayer(node2, index, "Opportunity").length > 0;
       if (isCategory) shortCategories.push(node2.title);
       if (!isCategory || !servedBeneath.has(node2.title)) return true;
@@ -49011,7 +49016,7 @@ function computeNextWork(vault, dir, min, now = () => /* @__PURE__ */ new Date()
   }));
   const allSolutionsMissingAssumptions = omitSuppressed(
     omitDisposed(
-      tree.filter((n) => n.layer === "Solution").filter((s) => testsUnderSolution(s, index).length === 0).map((s) => ({ title: s.title, opportunity: firstOpportunityParent.get(s.title) ?? null })),
+      tree.filter((n) => n.layer === "Solution").filter((s) => !isRetiredNode(s)).filter((s) => testsUnderSolution(s, index).length === 0).map((s) => ({ title: s.title, opportunity: firstOpportunityParent.get(s.title) ?? null })),
       (s) => s.title,
       dispositions,
       index,
@@ -49170,7 +49175,8 @@ function computeNextWork(vault, dir, min, now = () => /* @__PURE__ */ new Date()
   const suppressionNote = suppressed.length ? ` ${suppressed.length} item(s) are suppressed by a declined pass's condition that still holds and are NOT offered above: ` + suppressedByCondition.map((s) => `"${s.subject}" (${s.until} \u2014 ${s.by})`).join("; ") + `${suppressed.length > suppressedByCondition.length ? ", \u2026" : ""}. Each revives by itself the moment its condition flips; \`ost-agent suppressions\` audits them all.` : "";
   const damagedSuppressionNote = suppressions.damaged ? ` ${suppressions.damaged} suppression ledger line(s) would not parse and were dropped; a dropped line suppresses nothing, so any subject they named is offered above.` : "";
   const truncationNote = truncated.length ? ` Lists are capped at ${MAX_ITEMS_PER_LIST}: ` + truncated.map((t2) => `${t2.list} showing ${t2.shown} of ${t2.total} (${t2.hidden} not listed)`).join("; ") + `. Every count above is over the full set.` : "";
-  const retirementNote = allRetired.length ? ` ${allRetired.length} retired node(s) were withheld from the duplicate scan only (every gate still counts them): ${retiredFromDuplicateScan.map((r2) => r2.node).join(", ")}${allRetired.length > retiredFromDuplicateScan.length ? ", \u2026" : ""}.` : "";
+  const retirementNote = allRetired.length ? ` ${allRetired.length} retired node(s) were withheld from the duplicate scan and from the lists that demand work (every gate still counts them, and their own violations still hold done false): ${retiredFromDuplicateScan.map((r2) => r2.node).join(", ")}${allRetired.length > retiredFromDuplicateScan.length ? ", \u2026" : ""}.` : "";
+  const retiredUnderservedNote = retiredUnderserved.length ? ` ${retiredUnderserved.length} retired opportunity(ies) were withheld from the under-served count \u2014 a branch somebody abandoned is not a branch to ideate under: ${retiredUnderserved.slice(0, MAX_LISTED_CHILDREN).join(", ")}${retiredUnderserved.length > MAX_LISTED_CHILDREN ? ", \u2026" : ""}. \`ost-agent deferrals\` says what killed each one; reopening is a status change, not an ideation round.` : "";
   const exemptionNote = exemptCategories.length ? ` ${exemptCategories.length} category opportunity(ies) were exempt from the under-served check \u2014 they file sub-opportunities and solutions already hang beneath them: ${exemptCategories.slice(0, MAX_LISTED_CHILDREN).join(", ")}${exemptCategories.length > MAX_LISTED_CHILDREN ? ", \u2026" : ""}. A category whose subtree holds no solution at all is NOT exempt and is still listed above.` : "";
   const descentNote = allEmptyDescents.length ? ` ${allEmptyDescents.length} short category(ies) descended to their leaves and found none under-served \u2014 no entry above stands in for them: ${allEmptyDescents.slice(0, MAX_LISTED_CHILDREN).map((d) => `${d.category} (${d.leavesReached} leaf/leaves reached, all at or above ${min})`).join("; ")}${allEmptyDescents.length > MAX_LISTED_CHILDREN ? ", \u2026" : ""}. That is an EMPTY DESCENT, not a served branch: if such a heading's own need is broader than the sum of its leaves, the gap is invisible to this count and wants a new sub-opportunity rather than a solution.` : "";
   const abridged = scopedUnmappedEvidence.filter((e) => e.bodyChars > EXCERPT_CHARS).length;
@@ -49200,7 +49206,7 @@ function computeNextWork(vault, dir, min, now = () => /* @__PURE__ */ new Date()
   ).join("; ") + `. Everything beneath them is dark to every count and verdict below, including \`done\` \u2014 the branch is on disk and this reader cannot see it. No tool on this surface can fix a \`type:\`; a person edits the file. Until then, read every number below as taken over a tree with a hole in it. ` : "";
   const doneLead = scope?.resolved === true ? `Branch ${JSON.stringify(scope.target)} is fully maintained (${scope.subtreeSize} node(s) in scope) \u2014 nothing to do in it.` : `Tree is fully maintained \u2014 nothing to do.`;
   const outstandingLead = scope?.resolved === true ? `Outstanding in branch ${JSON.stringify(scope.target)}:` : `Outstanding:`;
-  const summary = quarantineNote + (done ? scopedOpenUnknowns.length ? `${doneLead} ${scopedOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${descentNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}` : `${doneLead}${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${descentNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}` : `${outstandingLead} ${parts.join("; ")}.${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${descentNote}${scopeNote}${truncationNote}${excerptNote}${staleNote}${retirementNote}${agedOutNote}`);
+  const summary = quarantineNote + (done ? scopedOpenUnknowns.length ? `${doneLead} ${scopedOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${descentNote}${scopeNote}${truncationNote}${retirementNote}${retiredUnderservedNote}${agedOutNote}` : `${doneLead}${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${descentNote}${scopeNote}${truncationNote}${retirementNote}${retiredUnderservedNote}${agedOutNote}` : `${outstandingLead} ${parts.join("; ")}.${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${descentNote}${scopeNote}${truncationNote}${excerptNote}${staleNote}${retirementNote}${retiredUnderservedNote}${agedOutNote}`);
   return {
     framing: DATA_FRAME,
     done,

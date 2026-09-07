@@ -18,11 +18,19 @@
  *   are now NAMED instead of invisible.
  *
  *   **Status** (`deferred`) — a status the agent can set on itself, in one call.
- *   Applied to the near-duplicate scan and to nothing else. If it reached
- *   `checkInvariants` or `done`, "retire it" would be a tool for making a
- *   dangling link or a self-validation contradiction disappear, which is the
- *   forging path B1 and B2 closed by other means. The tests below plant exactly
- *   that attack and require it to fail.
+ *   Applied to the near-duplicate scan and to the lists that DEMAND work, and to
+ *   nothing else. If it reached `checkInvariants` or a rule that counts a
+ *   violation, "retire it" would be a tool for making a dangling link or a
+ *   self-validation contradiction disappear, which is the forging path B1 and B2
+ *   closed by other means. The tests below plant exactly that attack and require
+ *   it to fail.
+ *
+ *   The demand half is the later addition and it is a different act: a demand
+ *   asks a pass to BUILD something on the node, and on a retired node the thing
+ *   it asks for is the branch somebody just abandoned
+ *   (`test/ost/underserved-excludes-deferred.test.ts`,
+ *   `test/ost/next-work-status-filter.test.ts`). Nothing about it weakens a gate
+ *   — a demand is not a violation, and no term of `done` that counts one moved.
  *
  * `formatCensus` is the precedent both halves follow: an excluded file is
  * counted AND named, because "4 dropped" tells an operator a number is wrong
@@ -204,7 +212,11 @@ describe("the duplicate scan uses the filter — and only the duplicate scan doe
       { node: DUPLICATE_B, reason: expect.stringContaining("deferred") },
     ]);
     expect(after.summary).toContain(DUPLICATE_B);
-    expect(after.summary).toContain("duplicate scan only");
+    expect(after.summary).toContain("withheld from the duplicate scan");
+    // The sentence used to end "duplicate scan only", and the demand filters made
+    // that false. What it must still say is the half a reader relies on: the
+    // exclusion did not reach the gates.
+    expect(after.summary).toContain("every gate still counts them");
   });
 
   test("an archived node leaves the scan too, without any status being set", () => {

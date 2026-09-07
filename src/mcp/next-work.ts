@@ -32,6 +32,7 @@ import { checkInvariants } from "../eval/invariants.js";
 import { scanNearDuplicates } from "../ost/dedupe.js";
 import { EXTENT_RULES, scanExtentOverlap } from "../ost/extent.js";
 import {
+  isRetiredNode,
   quotableSource,
   reconcileWithTrust,
   SUSPECT_SOURCE_RULE,
@@ -1390,6 +1391,11 @@ export function computeNextWork(
   const exemptCategories: string[] = [];
   /** Every short category, exempt or not — the set the descent below walks. */
   const shortCategories: string[] = [];
+  /**
+   * Short opportunities the queue does NOT ask for solutions, because somebody
+   * already abandoned the branch. Named in the summary, never silently dropped.
+   */
+  const retiredUnderserved: string[] = [];
 
   const allUnderservedOpportunities: UnderservedOpportunity[] = omitDisposed(
     tree
@@ -1427,6 +1433,36 @@ export function computeNextWork(
         };
       })
       .filter(({ entry }) => entry.solutions < min)
+      /*
+       * The retirement filter, and why it is allowed here of all places.
+       *
+       * `deferred` is the one word in the vocabulary that means "we are not
+       * working on this", and it is agent-settable — which is why
+       * `withoutRetiredNodes` reaches the duplicate scan and no gate that counts
+       * violations. This is neither: it is a DEMAND, and the demand it makes on a
+       * retired opportunity is "ideate three solutions here", i.e. rebuild the
+       * branch somebody just abandoned. The 2026-08-09 sweep was handed exactly
+       * that — one entry, `solutions: 2, needed: 3`, on a node whose deferral was
+       * a human-authorized merge into a survivor, and listed under
+       * `retiredFromDuplicateScan` in the very same response. Declining cost that
+       * pass a read of the node's `## History`; nothing in the entry said so.
+       *
+       * It trusts the bare field, for `solutionsMissingInstruments`'s reason
+       * (`eval/buildable.ts`): unlike `shipped`, `deferred` makes no claim about
+       * code that could be audited against the repository — it says the opposite,
+       * and there is nothing left under it to ideate toward.
+       *
+       * The blast radius is one list. A retired node's dangling links, its
+       * missing evidence class and every other invariant still count, still
+       * appear in `hygieneIssues` and still hold `done` false, so retiring a node
+       * is still not a way to make a violation go away
+       * (`test/ost/retired-nodes.test.ts` plants that attack against this filter).
+       */
+      .filter(({ node }) => {
+        if (!isRetiredNode(node)) return true;
+        retiredUnderserved.push(node.title);
+        return false;
+      })
       .filter(({ node }) => {
         const isCategory = childrenOfLayer(node, index, "Opportunity").length > 0;
         if (isCategory) shortCategories.push(node.title);
@@ -1507,6 +1543,13 @@ export function computeNextWork(
     omitDisposed(
       tree
         .filter((n) => n.layer === "Solution")
+        // The same consistency the under-served filter above and
+        // `solutionsMissingInstruments` (`eval/buildable.ts`) already keep: a
+        // solution somebody abandoned owes no assumption test, and demanding one
+        // while the same response reports the node as retired asks a pass to
+        // surface a test for a mechanism nobody intends to build. This was the
+        // last demand list still asking.
+        .filter((s) => !isRetiredNode(s))
         .filter((s) => testsUnderSolution(s, index).length === 0)
         .map((s) => ({ title: s.title, opportunity: firstOpportunityParent.get(s.title) ?? null })),
       (s) => s.title,
@@ -1766,9 +1809,29 @@ export function computeNextWork(
   // Retirement is reported whether or not it truncated anything, because the
   // thing worth saying is that the duplicate scan had a smaller denominator than
   // the gates did — a silent exclusion is the defect, not a long list.
+  //
+  // "the duplicate scan only" is what this sentence used to say, and it stopped
+  // being true when the demand lists learned to consult status: a retired node is
+  // no longer asked for solutions, assumption tests or instruments either. What
+  // has NOT changed is the half the sentence exists to promise — every gate that
+  // counts a violation still counts one on a retired node, so `done` is not
+  // reachable by deferring the node a rule names.
   const retirementNote = allRetired.length
-    ? ` ${allRetired.length} retired node(s) were withheld from the duplicate scan only (every gate still counts them): ` +
+    ? ` ${allRetired.length} retired node(s) were withheld from the duplicate scan and from the lists that demand work ` +
+      `(every gate still counts them, and their own violations still hold done false): ` +
       `${retiredFromDuplicateScan.map((r) => r.node).join(", ")}${allRetired.length > retiredFromDuplicateScan.length ? ", …" : ""}.`
+    : "";
+  // The under-served half of that, named separately and by title, because it is
+  // the one exclusion that removes an ASK a pass would otherwise have acted on.
+  // `deferred` is agent-settable, so an operator reading this needs to see which
+  // branches stopped being offered and go and look: `ost-agent deferrals` reports
+  // every retirement in the vault with the words its deferral was recorded in.
+  const retiredUnderservedNote = retiredUnderserved.length
+    ? ` ${retiredUnderserved.length} retired opportunity(ies) were withheld from the under-served count — a branch ` +
+      `somebody abandoned is not a branch to ideate under: ` +
+      `${retiredUnderserved.slice(0, MAX_LISTED_CHILDREN).join(", ")}` +
+      `${retiredUnderserved.length > MAX_LISTED_CHILDREN ? ", …" : ""}. ` +
+      "`ost-agent deferrals` says what killed each one; reopening is a status change, not an ideation round."
     : "";
   // Which headings went quiet, and why. The exemption removes work from the list
   // without anything being done about it, so it is reported the way a disposition
@@ -1925,9 +1988,9 @@ export function computeNextWork(
     quarantineNote +
     (done
       ? scopedOpenUnknowns.length
-        ? `${doneLead} ${scopedOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${descentNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}`
-        : `${doneLead}${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${descentNote}${scopeNote}${truncationNote}${retirementNote}${agedOutNote}`
-      : `${outstandingLead} ${parts.join("; ")}.${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${descentNote}${scopeNote}${truncationNote}${excerptNote}${staleNote}${retirementNote}${agedOutNote}`);
+        ? `${doneLead} ${scopedOpenUnknowns.length} open unknown(s) remain to explore (does not block done).${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${descentNote}${scopeNote}${truncationNote}${retirementNote}${retiredUnderservedNote}${agedOutNote}`
+        : `${doneLead}${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${descentNote}${scopeNote}${truncationNote}${retirementNote}${retiredUnderservedNote}${agedOutNote}`
+      : `${outstandingLead} ${parts.join("; ")}.${assumptionNote}${prerequisiteNote}${askNote}${dispositionNote}${suppressionNote}${damagedLedgerNote}${damagedSuppressionNote}${exemptionNote}${descentNote}${scopeNote}${truncationNote}${excerptNote}${staleNote}${retirementNote}${retiredUnderservedNote}${agedOutNote}`);
 
   return {
     framing: DATA_FRAME,
