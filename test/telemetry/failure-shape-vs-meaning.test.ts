@@ -39,7 +39,7 @@ import {
   eventsInWindow,
   failureKindCensus,
   formatFailureKindCensus,
-  readUsageEvents,
+  parseUsageTrace,
   FAILURE_KIND_RULE,
   type FailureKindCensus,
 } from "../../src/telemetry/failure-kind.js";
@@ -230,7 +230,7 @@ describe("a meaning error is not talked into being a shape error", () => {
 
 describe("the two things that inflate a denominator", () => {
   test("the probe floor sits in the gap the corpus leaves, not on the answer", () => {
-    const events = readUsageEvents(fs.readFileSync(corpusFile, "utf8"));
+    const events = parseUsageTrace(fs.readFileSync(corpusFile, "utf8"));
     const window = eventsInWindow(events);
     const writes = window.filter((e) => e.ok !== false && /ost_(annotate|create_node|append_to_node)/.test(e.tool));
     const smallestRealWrite = Math.min(...writes.map((e) => e.argBytes));
@@ -268,7 +268,7 @@ describe("the failures that actually happened, 2026-07-25 to 2026-07-27", () => 
     const schemas = buildOstTools({ vault: new Vault(dir, { create: false }), dir, remote: { enabled: false } }).map(
       (t) => t.input_schema as ToolSchema,
     );
-    census = failureKindCensus(readUsageEvents(fs.readFileSync(corpusFile, "utf8")), schemas);
+    census = failureKindCensus(parseUsageTrace(fs.readFileSync(corpusFile, "utf8")), schemas);
   });
   afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
 

@@ -49693,8 +49693,8 @@ It lives in that file and nowhere else because no tool on the agent surface can 
       "a signal reading needs attribution \u2014 say who read it. An unattributed reading cannot be told apart from a fabricated one."
     );
   }
-  const reading = (filing.reading ?? "").trim();
-  if (!reading) {
+  const reading2 = (filing.reading ?? "").trim();
+  if (!reading2) {
     throw new Error(
       "a signal reading needs the number you actually saw \u2014 what the signal said, and when. A verdict with no reading behind it is the assertion this gate exists to refuse; a person typing it does not make it a measurement."
     );
@@ -49703,7 +49703,7 @@ It lives in that file and nowhere else because no tool on the agent surface can 
   const root = rootOutcome(vault.readTree());
   if (!root) throw new Error(`no Outcome node in ${dir} \u2014 run \`ost-agent init\` first`);
   const on = filing.on ?? (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-  const line = `- ${on} **${filing.verdict}** (by ${by}) \u2014 ${reading} [signal: ${declared.signal}; met when: ${declared.met}]`;
+  const line = `- ${on} **${filing.verdict}** (by ${by}) \u2014 ${reading2} [signal: ${declared.signal}; met when: ${declared.met}]`;
   vault.appendUnderSection(root.title, OUTCOME_SIGNAL_HEADING, line, "human");
   return line;
 }
@@ -51404,10 +51404,10 @@ function buildOstTools(ctx, allowedNames) {
           throw new Error(`threshold is only meaningful for an AssumptionTest, not a ${input.layer}`);
         }
         if (input.threshold !== void 0) {
-          const reading = parseThresholdField(input.threshold);
-          if (!reading.bound) {
+          const reading2 = parseThresholdField(input.threshold);
+          if (!reading2.bound) {
             throw new Error(
-              `"${input.title}" cannot carry that threshold: ${reading.reason}. A pre-commitment that needs a human to interpret it after the run is not one \u2014 whatever comes back can be read as a pass.
+              `"${input.title}" cannot carry that threshold: ${reading2.reason}. A pre-commitment that needs a human to interpret it after the run is not one \u2014 whatever comes back can be read as a pass.
 Either fix a bar in the field ("at least 5 of 20 book a kickoff", ">= 2 incidents", "zero data-loss reports"), or leave \`threshold\` off entirely and write the bar as prose in the body under a **Pre-committed threshold:** lead-in \u2014 the reader falls back to it, and that is the place for a bar whose reasoning has to travel with it.`
             );
           }
@@ -57474,8 +57474,8 @@ var REFUSED_KINDS = {
   flag: ["instruction", "absent"],
   strict: ["instruction", "absent", "prose"]
 };
-function wouldRefuse(kind, reading) {
-  return REFUSED_KINDS[reading].includes(kind);
+function wouldRefuse(kind, reading2) {
+  return REFUSED_KINDS[reading2].includes(kind);
 }
 var FALSE_REFUSAL_BAR = 0.05;
 function misreadAllowance(blocked) {
@@ -57487,11 +57487,11 @@ function bearingOnTheBar(blocked) {
   }
   return `at ${FALSE_REFUSAL_BAR * 100}% at most ${misreadAllowance(blocked)} may be a misread`;
 }
-function refusalFor(reading) {
-  const found = reading.kind === "absent" ? "it carries no pre-commitment at all" : reading.kind === "instruction" ? `its pre-commitment is still an instruction to pick a bar \u2014 "${reading.asked}"` : `its pre-commitment states no bar anything could come out short of \u2014 "${reading.asked}"`;
-  return `a result needs a threshold that was fixed before the run, and "${reading.title}" cannot supply one: ${found}. A result recorded against a bar nobody fixed cannot come out a failure, so it is not evidence. Fix the bar on the node and file again.`;
+function refusalFor(reading2) {
+  const found = reading2.kind === "absent" ? "it carries no pre-commitment at all" : reading2.kind === "instruction" ? `its pre-commitment is still an instruction to pick a bar \u2014 "${reading2.asked}"` : `its pre-commitment states no bar anything could come out short of \u2014 "${reading2.asked}"`;
+  return `a result needs a threshold that was fixed before the run, and "${reading2.title}" cannot supply one: ${found}. A result recorded against a bar nobody fixed cannot come out a failure, so it is not evidence. Fix the bar on the node and file again.`;
 }
-function censusRefusals(tree, reading) {
+function censusRefusals(tree, reading2) {
   const readings = [];
   const awaiting = /* @__PURE__ */ new Set();
   for (const node2 of tree) {
@@ -57501,7 +57501,7 @@ function censusRefusals(tree, reading) {
   }
   const byKind = { bound: 0, instruction: 0, prose: 0, absent: 0 };
   for (const r2 of readings) byKind[r2.kind] += 1;
-  const blocked = readings.filter((r2) => wouldRefuse(r2.kind, reading)).map((r2) => ({
+  const blocked = readings.filter((r2) => wouldRefuse(r2.kind, reading2)).map((r2) => ({
     test: r2.title,
     kind: r2.kind,
     asked: r2.asked,
@@ -57509,7 +57509,7 @@ function censusRefusals(tree, reading) {
     refusal: refusalFor(r2)
   }));
   return {
-    reading,
+    reading: reading2,
     tests: readings.length,
     awaitingResult: awaiting.size,
     blocked,
@@ -57527,12 +57527,12 @@ function formatRefusalCensus(label2, both) {
     `  ${any.tests} assumption test(s)  (fixed ${any.byKind.bound}, stated in words ${any.byKind.prose}, still an instruction ${any.byKind.instruction}, none written ${any.byKind.absent})`,
     `  ${any.awaitingResult} of them have never recorded a result \u2014 those are the next filings.`
   ];
-  for (const reading of REFUSAL_READINGS) {
-    const c3 = both[reading];
-    const pct11 = c3.tests === 0 ? "\u2014" : `${Math.round(c3.blockedShare * 1e3) / 10}%`;
+  for (const reading2 of REFUSAL_READINGS) {
+    const c3 = both[reading2];
+    const pct12 = c3.tests === 0 ? "\u2014" : `${Math.round(c3.blockedShare * 1e3) / 10}%`;
     const next = c3.blocked.filter((b2) => b2.awaitingResult).length;
     lines.push(
-      `  ${reading.padEnd(7)} (refuses ${REFUSED_KINDS[reading].join(", ")})  ${String(c3.blocked.length).padStart(4)}/${String(c3.tests).padEnd(4)} blocked (${pct11}), ${next} of them never run; ${bearingOnTheBar(c3.blocked.length)}`
+      `  ${reading2.padEnd(7)} (refuses ${REFUSED_KINDS[reading2].join(", ")})  ${String(c3.blocked.length).padStart(4)}/${String(c3.tests).padEnd(4)} blocked (${pct12}), ${next} of them never run; ${bearingOnTheBar(c3.blocked.length)}`
     );
   }
   return lines.join("\n");
@@ -60772,8 +60772,8 @@ function preflightUncertaintyCensus(events, sessions) {
   const readable = readings.filter((r2) => !r2.unread);
   const uncertain = readable.filter((r2) => r2.uncertain);
   const byKind = { hedge: 0, check: 0, read: 0, question: 0 };
-  for (const reading of readable) {
-    for (const kind of new Set(reading.signals.map((s) => s.kind))) byKind[kind]++;
+  for (const reading2 of readable) {
+    for (const kind of new Set(reading2.signals.map((s) => s.kind))) byKind[kind]++;
   }
   const sensitivity = UNCERTAINTY_RULE.sensitivityLadder.map((lookbackEntries) => ({
     lookbackEntries,
@@ -61484,12 +61484,12 @@ function searchLiteralityCensus(args, treeText, extra) {
   const tree = classified.filter((c3) => c3.provenance === "tree");
   const hand = classified.filter((c3) => c3.provenance === "hand");
   const treeLiteral = tree.filter((c3) => isLiteral(c3, HEADLINE_CLASSES)).length;
-  const readings = LITERALITY_RULE.readings.map((reading) => {
-    const literal3 = tree.filter((c3) => isLiteral(c3, reading.classes)).length;
+  const readings = LITERALITY_RULE.readings.map((reading2) => {
+    const literal3 = tree.filter((c3) => isLiteral(c3, reading2.classes)).length;
     const share2 = shareOf2(literal3, tree.length);
     return {
-      name: reading.name,
-      classes: [...reading.classes],
+      name: reading2.name,
+      classes: [...reading2.classes],
       treeDerived: tree.length,
       treeLiteral: literal3,
       share: share2,
@@ -61579,9 +61579,9 @@ function formatSearchLiteralityCensus(census) {
   );
   lines.push("");
   lines.push("  How literal counts, rung by rung:");
-  for (const reading of census.readings) {
+  for (const reading2 of census.readings) {
     lines.push(
-      `    ${reading.treeLiteral}/${reading.treeDerived} (${pct5(reading.share)}) ${reading.meetsBar ? "meets" : "MISSES"} the bar \u2014 ${reading.name}`
+      `    ${reading2.treeLiteral}/${reading2.treeDerived} (${pct5(reading2.share)}) ${reading2.meetsBar ? "meets" : "MISSES"} the bar \u2014 ${reading2.name}`
     );
   }
   lines.push("  How much text makes an argument tree-derived:");
@@ -62901,9 +62901,9 @@ function clause(name, got, of, bar) {
   return { name, got, of, bar, meets: of > 0 && got >= bar, scored: of > 0 };
 }
 function frictionSurfaceReplay(records, judgement) {
-  const reading = surfaceRuleReading(records);
+  const reading2 = surfaceRuleReading(records);
   const judged = new Map(judgement.map((j2) => [j2.id, j2]));
-  const byId = new Map(reading.dispositions.map((d) => [d.record.id, d]));
+  const byId = new Map(reading2.dispositions.map((d) => [d.record.id, d]));
   const needsKept = [];
   const needsDropped = [];
   const nonNeedsKept = [];
@@ -62934,9 +62934,9 @@ function frictionSurfaceReplay(records, judgement) {
   const keepsUpperBound = clause("needs kept (generous)", needsKeptUpper, needs, FRICTION_SURFACE_RULE.keepsBar);
   const dropsUpperBound = clause("non-needs demoted (generous)", nonNeedsDroppedUpper, nonNeeds, FRICTION_SURFACE_RULE.dropsBar);
   return {
-    reading,
+    reading: reading2,
     judged: judgement.length,
-    unjudged: reading.dispositions.filter((d) => !judged.has(d.record.id)).map((d) => d.record.id),
+    unjudged: reading2.dispositions.filter((d) => !judged.has(d.record.id)).map((d) => d.record.id),
     missing: judgement.filter((j2) => !byId.has(j2.id)).map((j2) => j2.id),
     needsKept,
     needsDropped,
@@ -62947,7 +62947,7 @@ function frictionSurfaceReplay(records, judgement) {
     keepsUpperBound,
     dropsUpperBound,
     boundDecides: keeps.meets !== keepsUpperBound.meets || drops.meets !== dropsUpperBound.meets,
-    truncated: reading.dispositions.filter((d) => d.record.truncated).map((d) => d.record.id)
+    truncated: reading2.dispositions.filter((d) => d.record.truncated).map((d) => d.record.id)
   };
 }
 var MAX_IDS_SHOWN = 8;
@@ -62956,9 +62956,9 @@ function sample(ids) {
   return `${ids.slice(0, MAX_IDS_SHOWN).join(", ")} \u2026 and ${ids.length - MAX_IDS_SHOWN} more`;
 }
 function formatFrictionSurfaceReplay(replay) {
-  const { reading } = replay;
+  const { reading: reading2 } = replay;
   const lines = [];
-  lines.push(`Read: ${reading.read} record(s) \u2014 ${reading.filed.length} filed, ${reading.counted.length} counted, 0 discarded.`);
+  lines.push(`Read: ${reading2.read} record(s) \u2014 ${reading2.filed.length} filed, ${reading2.counted.length} counted, 0 discarded.`);
   if (replay.truncated.length > 0) {
     lines.push(
       `Truncated: ${replay.truncated.length} digest(s) showed only their first events \u2014 a demotion there may be the harvester's cap rather than the record.`
@@ -62968,13 +62968,13 @@ function formatFrictionSurfaceReplay(replay) {
   if (replay.judged > 0 && replay.unjudged.length > 0) {
     lines.push(`In the corpus and unjudged: ${sample(replay.unjudged)}.`);
   }
-  lines.push(`Filed: ${reading.filed.length === 0 ? "(none)" : sample(reading.filed)}`);
+  lines.push(`Filed: ${reading2.filed.length === 0 ? "(none)" : sample(reading2.filed)}`);
   lines.push(
-    `Counted, not discarded: ${reading.tally.records} record(s), ${reading.tally.events} event(s) \u2014 ` + reading.tally.byTool.map((t2) => `${t2.tool} \xD7${t2.n}`).join(", ")
+    `Counted, not discarded: ${reading2.tally.records} record(s), ${reading2.tally.events} event(s) \u2014 ` + reading2.tally.byTool.map((t2) => `${t2.tool} \xD7${t2.n}`).join(", ")
   );
-  if (reading.nothingToJudge.length > 0) {
+  if (reading2.nothingToJudge.length > 0) {
     lines.push(
-      `  of those, ${reading.nothingToJudge.length} had no failing call at all \u2014 counted because there was nothing to keep, not because the rule demoted them.`
+      `  of those, ${reading2.nothingToJudge.length} had no failing call at all \u2014 counted because there was nothing to keep, not because the rule demoted them.`
     );
   }
   if (!replay.keeps.scored && !replay.drops.scored) {
@@ -63152,15 +63152,15 @@ function recurrenceReading(records, options2 = {}) {
 }
 var SENSITIVITY_MIN_SESSIONS = [2, 3, 4, 5];
 var SENSITIVITY_PREFIX_TOKENS = [4, 5, 6];
-function needsCoveredBy(reading, judgement) {
-  const covered = new Set(reading.coveredRecords);
+function needsCoveredBy(reading2, judgement) {
+  const covered = new Set(reading2.coveredRecords);
   return judgement.filter((j2) => j2.need && covered.has(j2.id)).map((j2) => j2.id);
 }
 function recurrenceReplay(records, judgement, options2 = {}) {
-  const reading = recurrenceReading(records, options2);
+  const reading2 = recurrenceReading(records, options2);
   const byId = new Map(records.map((r2) => [r2.id, r2]));
   const judged = new Map(judgement.map((j2) => [j2.id, j2]));
-  const covered = new Set(reading.coveredRecords);
+  const covered = new Set(reading2.coveredRecords);
   const inCorpus = judgement.filter((j2) => byId.has(j2.id));
   const sensitivity = [];
   for (const prefixTokens of SENSITIVITY_PREFIX_TOKENS) {
@@ -63176,15 +63176,15 @@ function recurrenceReplay(records, judgement, options2 = {}) {
     }
   }
   return {
-    reading,
+    reading: reading2,
     judged: judgement.length,
     missing: judgement.filter((j2) => !byId.has(j2.id)).map((j2) => j2.id),
     unjudged: records.filter((r2) => !judged.has(r2.id)).map((r2) => r2.id),
     needsCovered: inCorpus.filter((j2) => j2.need && covered.has(j2.id)).map((j2) => j2.id),
     needsMissed: inCorpus.filter((j2) => j2.need && !covered.has(j2.id)).map((j2) => j2.id),
     nonNeedsCovered: inCorpus.filter((j2) => !j2.need && covered.has(j2.id)).map((j2) => j2.id),
-    filedRecords: reading.filed.length,
-    meetsCountBar: reading.filed.length <= RECURRENCE_RULE.filedBar,
+    filedRecords: reading2.filed.length,
+    meetsCountBar: reading2.filed.length <= RECURRENCE_RULE.filedBar,
     barApplies: records.length === RECURRENCE_RULE.barPopulation,
     identityFiled: recurrenceReading(records, { ...options2, grouping: "identity" }).filed.length,
     sensitivity
@@ -63209,27 +63209,27 @@ function formatShape(shape) {
     ${shape.tool || "(unnamed)"} \xB7 ${shape.kind} \xB7 "${shape.prefix}"`;
 }
 function formatRecurrenceReplay(replay) {
-  const { reading } = replay;
+  const { reading: reading2 } = replay;
   const lines = [];
   lines.push(
-    `Read: ${reading.records} record(s), ${reading.events} failing event(s) \u2192 ${reading.shapes.length} shape(s) \u2014 ${reading.filed.length} filed, ${reading.held.length} held, 0 discarded.`
+    `Read: ${reading2.records} record(s), ${reading2.events} failing event(s) \u2192 ${reading2.shapes.length} shape(s) \u2014 ${reading2.filed.length} filed, ${reading2.held.length} held, 0 discarded.`
   );
   if (replay.missing.length > 0) lines.push(`Judged but absent from the corpus: ${sample2(replay.missing)}.`);
   if (replay.judged > 0 && replay.unjudged.length > 0) lines.push(`In the corpus and unjudged: ${sample2(replay.unjudged)}.`);
-  if (reading.filed.length === 0) {
-    lines.push(`Filed: (none) \u2014 no shape reached ${reading.minSessions} distinct session(s).`);
+  if (reading2.filed.length === 0) {
+    lines.push(`Filed: (none) \u2014 no shape reached ${reading2.minSessions} distinct session(s).`);
   } else {
-    lines.push(`Filed (${reading.filedEvents} event(s) across ${reading.coveredRecords.length} record(s)):`);
-    for (const shape of reading.filed) lines.push(formatShape(shape));
+    lines.push(`Filed (${reading2.filedEvents} event(s) across ${reading2.coveredRecords.length} record(s)):`);
+    for (const shape of reading2.filed) lines.push(formatShape(shape));
   }
   lines.push(
-    `Held, not discarded: ${reading.held.length} shape(s), ${reading.heldEvents} event(s) \u2014 each one counted and waiting for a ${ordinal(reading.minSessions)} session to bring it back.`
+    `Held, not discarded: ${reading2.held.length} shape(s), ${reading2.heldEvents} event(s) \u2014 each one counted and waiting for a ${ordinal(reading2.minSessions)} session to bring it back.`
   );
-  if (reading.nothingToJudge.length > 0) {
-    lines.push(`  of the records read, ${reading.nothingToJudge.length} held no failing call at all: ${sample2(reading.nothingToJudge)}.`);
+  if (reading2.nothingToJudge.length > 0) {
+    lines.push(`  of the records read, ${reading2.nothingToJudge.length} held no failing call at all: ${sample2(reading2.nothingToJudge)}.`);
   }
   lines.push(
-    replay.barApplies ? `Records a pass must read: ${replay.filedRecords} \u2014 bar is ${RECURRENCE_RULE.filedBar}, ${replay.meetsCountBar ? "MET" : "NOT MET"}.` : `Records a pass must read: ${replay.filedRecords}. Not scored against the bar of ${RECURRENCE_RULE.filedBar}: that was fixed over the ${RECURRENCE_RULE.barPopulation}-record corpus and this reading is over ${reading.records}.`
+    replay.barApplies ? `Records a pass must read: ${replay.filedRecords} \u2014 bar is ${RECURRENCE_RULE.filedBar}, ${replay.meetsCountBar ? "MET" : "NOT MET"}.` : `Records a pass must read: ${replay.filedRecords}. Not scored against the bar of ${RECURRENCE_RULE.filedBar}: that was fixed over the ${RECURRENCE_RULE.barPopulation}-record corpus and this reading is over ${reading2.records}.`
   );
   lines.push(
     `Grouping, not deduplication: exact-string grouping at the same bar would file ${replay.identityFiled}, and would miss every shape whose repeats are worded differently.`
@@ -63253,6 +63253,244 @@ function formatRecurrenceReplay(replay) {
     );
   }
   lines.push(`Not settled: ${RECURRENCE_RULE.refuses}.`);
+  return lines.join("\n");
+}
+
+// src/telemetry/failure-kind.ts
+var REFUSAL_FAMILIES = [
+  // ── what `validateToolInput` itself says ─────────────────────────────────
+  {
+    id: "missing-required",
+    kind: "shape",
+    keyword: "required",
+    emittedBy: "src/security/validateToolInput.ts",
+    test: /missing required property `/
+  },
+  {
+    id: "unexpected-property",
+    kind: "shape",
+    keyword: "additionalProperties",
+    emittedBy: "src/security/validateToolInput.ts",
+    test: /unexpected property `.+` — allowed: /
+  },
+  {
+    id: "wrong-type",
+    kind: "shape",
+    keyword: "type",
+    emittedBy: "src/security/validateToolInput.ts",
+    test: /expected (?:object|array|string|number|integer|boolean|null)\b[^,]*, got /
+  },
+  {
+    id: "not-in-enum",
+    kind: "shape",
+    keyword: "enum",
+    emittedBy: "src/security/validateToolInput.ts",
+    test: / is not one of: /
+  },
+  // ── what a tool body says about a constraint the schema already held ─────
+  {
+    id: "absent-required",
+    kind: "shape",
+    keyword: "required",
+    // A required property that arrived absent and got interpolated into a
+    // sentence. `"undefined"` is never a value anybody passes; it is what a
+    // missing one looks like once it has been printed — and printing it is the
+    // exact incident the parent solution was built for.
+    emittedBy: "any tool `run` reached with a required property missing",
+    test: /["'`]undefined["'`]/
+  },
+  // ── what the world says, after a schema-valid call got through ───────────
+  {
+    id: "no-such-node",
+    kind: "meaning",
+    emittedBy: "src/ost/vault.ts",
+    test: /^no such node: /
+  },
+  {
+    id: "parent-missing",
+    kind: "meaning",
+    emittedBy: "src/security/tools.ts",
+    test: /does not exist — create it before attaching under it/
+  },
+  {
+    id: "wrong-parentage",
+    kind: "meaning",
+    emittedBy: "src/security/tools.ts",
+    test: /must attach under .+, but ".+" is a /
+  },
+  {
+    id: "empty-field",
+    kind: "meaning",
+    emittedBy: "src/security/tools.ts",
+    test: /\bis empty\b|\bcannot be empty\b|\bmust not be empty\b/
+  },
+  // ── what nothing in the call could have prevented ────────────────────────
+  {
+    id: "filesystem",
+    kind: "neither",
+    emittedBy: "node:fs",
+    test: /\b(?:ENOENT|EACCES|EPERM|EEXIST|EISDIR|ENOTDIR|ENOSPC|EMFILE)\b/
+  },
+  {
+    id: "network",
+    kind: "neither",
+    emittedBy: "node:net",
+    test: /\b(?:ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN)\b|\bfetch failed\b/
+  }
+];
+var FAILURE_KIND_RULE = {
+  /**
+   * The pre-committed bar: shape errors at half or more of all failures and the
+   * shipped validator stands as a substantially complete answer to its
+   * opportunity. Below it, the majority of real damage is semantic and the
+   * branch needs a sibling aimed at meaning rather than more schema work.
+   */
+  bar: 0.5,
+  /** The window the assumption test named, inclusive, as ISO dates. */
+  window: { from: "2026-07-25", to: "2026-07-27" },
+  /**
+   * A failed call at or under this many bytes of input is reported as a probe.
+   *
+   * The trace carries no input content, so size is the only probe signal that
+   * exists. The floor is not tuned to the answer: in the pre-committed window the
+   * smallest SUCCESSFUL writing call is 353 bytes (`ost_annotate`), and the
+   * largest call this excludes is 32 bytes. Anything between 33 and 352 would
+   * give the same partition, which is what makes 64 a floor rather than a fit.
+   */
+  probeMaxArgBytes: 64,
+  /**
+   * Consecutive failures of the same tool and the same refusal family, each
+   * within this many milliseconds of the last, are one incident.
+   *
+   * Also not tuned: inside the window's one burst the calls are ~0.33 s apart and
+   * the nearest failure outside it is 61 s away, so any gap from 1 s to 60 s
+   * draws the same line.
+   */
+  burstGapMs: 5e3,
+  /** See {@link REFUSAL_FAMILIES}. */
+  families: REFUSAL_FAMILIES
+};
+function eventsInWindow(events, window2 = FAILURE_KIND_RULE.window) {
+  return events.filter((e) => {
+    const day2 = (e.ts ?? "").slice(0, 10);
+    return day2 >= window2.from && day2 <= window2.to;
+  });
+}
+function recitesADeclaredEnum(message, schemas) {
+  for (const schema of schemas) {
+    for (const property of Object.values(schema.properties ?? {})) {
+      const values = property?.enum;
+      if (!Array.isArray(values) || values.length === 0) continue;
+      if (message.includes(values.join(", "))) return true;
+    }
+  }
+  return false;
+}
+function classifyFailure2(event, schemas = []) {
+  const message = event.err ?? "";
+  const probe = event.argBytes <= FAILURE_KIND_RULE.probeMaxArgBytes;
+  if (event.denied) return { event, kind: "neither", family: "permission-denied", probe };
+  for (const family of FAILURE_KIND_RULE.families) {
+    if (!family.test.test(message)) continue;
+    return { event, kind: family.kind, family: family.id, keyword: family.keyword, probe };
+  }
+  if (recitesADeclaredEnum(message, schemas)) return { event, kind: "shape", family: "enum-recital", keyword: "enum", probe };
+  return { event, kind: "unclassified", family: null, probe };
+}
+function assignIncidents(failures) {
+  let incident = -1;
+  let previous = null;
+  return failures.map((failure) => {
+    const at = Date.parse(failure.event.ts);
+    const continues2 = previous !== null && previous.tool === failure.event.tool && previous.family === failure.family && at - previous.at <= FAILURE_KIND_RULE.burstGapMs;
+    if (!continues2) incident += 1;
+    previous = { tool: failure.event.tool, family: failure.family, at };
+    return { ...failure, incident };
+  });
+}
+function reading(name, rule, shape, denominator) {
+  const share = denominator === 0 ? null : shape / denominator;
+  return { name, rule, shape, denominator, share, meetsBar: share !== null && share >= FAILURE_KIND_RULE.bar };
+}
+function failureKindCensus(events, schemas = [], window2 = FAILURE_KIND_RULE.window) {
+  const inWindow3 = eventsInWindow(events, window2).sort((a, b2) => a.ts.localeCompare(b2.ts));
+  const classified = assignIncidents(inWindow3.filter((e) => e.ok === false).map((e) => classifyFailure2(e, schemas)));
+  const cells = { shape: 0, meaning: 0, neither: 0, unclassified: 0 };
+  for (const failure of classified) cells[failure.kind] += 1;
+  const probes = classified.filter((f) => f.probe);
+  const counted = classified.filter((f) => !f.probe);
+  const unreadable = [...new Set(classified.filter((f) => f.kind === "unclassified").map((f) => f.event.err ?? ""))];
+  const shapeOf = (set) => set.filter((f) => f.kind === "shape").length;
+  const collapse2 = (set) => {
+    const first2 = /* @__PURE__ */ new Map();
+    for (const failure of set) if (!first2.has(failure.incident)) first2.set(failure.incident, failure);
+    return [...first2.values()];
+  };
+  const readings = [
+    reading(
+      "probes reported separately",
+      "every failed call except the ones too small to carry what the tool writes \u2014 the reading the assumption test asked for",
+      shapeOf(counted),
+      counted.length
+    ),
+    reading("every failed call", "the raw trace, probes and all", shapeOf(classified), classified.length),
+    reading(
+      "one incident per burst, probes counted",
+      "the reading most generous to the shipped validator: a run of identical failures counts once, and the probes stay in",
+      shapeOf(collapse2(classified)),
+      collapse2(classified).length
+    )
+  ];
+  const headline = readings[0];
+  return {
+    callsRead: inWindow3.length,
+    failures: classified.length,
+    schemasRead: schemas.length,
+    cells,
+    probes,
+    unreadable,
+    incidents: collapse2(classified).length,
+    shape: headline.shape,
+    denominator: headline.denominator,
+    share: headline.share,
+    bar: FAILURE_KIND_RULE.bar,
+    meetsBar: headline.meetsBar,
+    readings,
+    ruleDecides: new Set(readings.map((r2) => r2.meetsBar)).size > 1,
+    classified
+  };
+}
+function pct8(share) {
+  return share === null ? "n/a" : `${(share * 100).toFixed(1)}%`;
+}
+function formatFailureKindCensus(census) {
+  const lines = [];
+  lines.push(
+    `Failure kinds: ${census.shape} of ${census.denominator} non-probe failure(s) (${pct8(census.share)}) were shape errors; the bar is ${pct8(census.bar)} and it is ${census.meetsBar ? "MET" : "MISSED"}.`
+  );
+  lines.push(
+    `  Corpus: ${census.failures} failure(s) in ${census.callsRead} call(s), ${census.incidents} incident(s) once bursts are collapsed; ${census.schemasRead} tool schema(s) read.`
+  );
+  lines.push(
+    `  Kinds: shape ${census.cells.shape}, meaning ${census.cells.meaning}, neither ${census.cells.neither}, unclassified ${census.cells.unclassified}.`
+  );
+  lines.push(
+    `  Probes (reported, not counted): ${census.probes.length} \u2014 ` + (census.probes.length === 0 ? "none" : census.probes.map((p2) => `${p2.event.tool}/${p2.kind} @${p2.event.argBytes}B`).join(", "))
+  );
+  if (census.unreadable.length > 0) {
+    lines.push(`  UNREADABLE: ${census.unreadable.length} refusal wording(s) no family recognises \u2014 the count below is a floor, not a census.`);
+    for (const message of census.unreadable) lines.push(`    ${message.slice(0, 120)}`);
+  }
+  lines.push("");
+  lines.push("  Denominators:");
+  for (const r2 of census.readings) {
+    lines.push(`    ${r2.shape}/${r2.denominator} (${pct8(r2.share)}) ${r2.meetsBar ? "meets" : "MISSES"} the bar \u2014 ${r2.name}`);
+    lines.push(`        ${r2.rule}`);
+  }
+  lines.push(
+    census.ruleDecides ? `  Rule: THE RULE DECIDES THIS. The denominators above disagree about the ${pct8(census.bar)} bar, so the verdict is as much a property of how the failures were counted as of the failures.` : `  Rule: every denominator agrees about the ${pct8(census.bar)} bar, so the verdict does not turn on which one a reader prefers.`
+  );
+  lines.push("  The verdict is a human's: this counts, it does not promote.");
   return lines.join("\n");
 }
 
@@ -63756,12 +63994,12 @@ function refusalCoverageCensus(failures, manifest) {
     "argument-decidable": (c3) => keywordNamed(c3) || specOf(c3.cls).decidableFrom === "arguments",
     "any-prose": () => true
   };
-  const readings = REFUSAL_RULE.readings.map((reading) => {
-    const named = classes.filter(admits[reading.name]);
+  const readings = REFUSAL_RULE.readings.map((reading2) => {
+    const named = classes.filter(admits[reading2.name]);
     const unnamed = classes.filter((c3) => !named.includes(c3));
     const share = total ? named.length / total : 0;
     return {
-      name: reading.name,
+      name: reading2.name,
       named: named.map((c3) => c3.cls),
       unnamed: unnamed.map((c3) => c3.cls),
       share,
@@ -63786,7 +64024,7 @@ function refusalCoverageCensus(failures, manifest) {
     meetsBar: verdict.meetsBar
   };
 }
-function pct8(share) {
+function pct9(share) {
   return `${Math.round(share * 100)}%`;
 }
 function formatRefusalCoverageCensus(census) {
@@ -63799,17 +64037,17 @@ function formatRefusalCoverageCensus(census) {
     return lines.join("\n");
   }
   lines.push(
-    `Reach: ${census.reach.inReach.length} of ${total} refusal class(es) (${pct8(census.reach.share)}) were refused by a tool whose schema this repository holds. The rest are outside any generator running here, whatever a schema could express in principle.`
+    `Reach: ${census.reach.inReach.length} of ${total} refusal class(es) (${pct9(census.reach.share)}) were refused by a tool whose schema this repository holds. The rest are outside any generator running here, whatever a schema could express in principle.`
   );
   lines.push(
-    `Coverage: ${census.verdict.named.length} of ${total} class(es) (${pct8(census.verdict.share)}) could have been named by a schema-derived manifest, against a bar of ${pct8(REFUSAL_RULE.bar)} \u2014 ${census.meetsBar ? "MET" : "REFUTED"}. Weighted by how often each class actually bit: ${pct8(census.verdict.weightedShare)} of ${census.classes.reduce((n, c3) => n + c3.occurrences, 0)} refusals.`
+    `Coverage: ${census.verdict.named.length} of ${total} class(es) (${pct9(census.verdict.share)}) could have been named by a schema-derived manifest, against a bar of ${pct9(REFUSAL_RULE.bar)} \u2014 ${census.meetsBar ? "MET" : "REFUTED"}. Weighted by how often each class actually bit: ${pct9(census.verdict.weightedShare)} of ${census.classes.reduce((n, c3) => n + c3.occurrences, 0)} refusals.`
   );
   lines.push(`  (the verdict is taken on the '${census.verdict.name}' reading \u2014 the widest that can come out false)`);
   lines.push("");
   lines.push("Readings, widest last:");
-  for (const reading of census.readings) {
+  for (const reading2 of census.readings) {
     lines.push(
-      `  ${reading.name}: ${reading.named.length}/${total} (${pct8(reading.share)}), weighted ${pct8(reading.weightedShare)}` + (reading.vacuous ? " \u2014 VACUOUS: admits every class, so it settles nothing" : "")
+      `  ${reading2.name}: ${reading2.named.length}/${total} (${pct9(reading2.share)}), weighted ${pct9(reading2.weightedShare)}` + (reading2.vacuous ? " \u2014 VACUOUS: admits every class, so it settles nothing" : "")
     );
   }
   lines.push("");
@@ -63989,8 +64227,8 @@ var CALL_PRECONDITIONS = Object.freeze([
     check: (input) => {
       const raw = str3(input, "threshold");
       if (raw === void 0) return null;
-      const reading = parseThresholdField(raw);
-      return reading.bound ? null : `cannot carry that threshold: ${reading.reason}`;
+      const reading2 = parseThresholdField(raw);
+      return reading2.bound ? null : `cannot carry that threshold: ${reading2.reason}`;
     }
   },
   {
@@ -64508,7 +64746,7 @@ function refusalPreconditionCensus(corpus) {
     flatShare: tallies.length === 0 ? 0 : tallies.filter((t2) => t2.expressibility === "fully").length / tallies.length
   };
 }
-var pct9 = (n) => `${Math.round(n * 100)}%`;
+var pct10 = (n) => `${Math.round(n * 100)}%`;
 function formatRefusalPreconditionCensus(c3) {
   const out = [];
   out.push(`Refusal-precondition coverage \u2014 ${c3.total} refusal(s) this tool's own calls actually hit`);
@@ -64517,11 +64755,11 @@ function formatRefusalPreconditionCensus(c3) {
       `  READ THIS FIRST: ${c3.largestIncident.events} of ${c3.total} are one cluster \u2014 ${c3.largestIncident.tool}/${c3.largestIncident.class} on ${c3.largestIncident.day}. That is one caller in one sitting recorded ${c3.largestIncident.events} times, not ${c3.largestIncident.events} independent needs.`
     );
     out.push(
-      `  collapsed to one, the share is ${pct9(c3.shareWithoutLargestIncident)} (${c3.meetsBarWithoutLargestIncident ? "still clears" : "does NOT clear"} the ${pct9(c3.bar)} bar)`
+      `  collapsed to one, the share is ${pct10(c3.shareWithoutLargestIncident)} (${c3.meetsBarWithoutLargestIncident ? "still clears" : "does NOT clear"} the ${pct10(c3.bar)} bar)`
     );
   }
   out.push(
-    `  fully expressible ${c3.fullyExpressible}/${c3.total} = ${pct9(c3.share)} (bar ${pct9(c3.bar)} \u2014 ${c3.meetsBar ? "MET" : "NOT met"})`
+    `  fully expressible ${c3.fullyExpressible}/${c3.total} = ${pct10(c3.share)} (bar ${pct10(c3.bar)} \u2014 ${c3.meetsBar ? "MET" : "NOT met"})`
   );
   out.push(`  checkable only against state this tool does not own: ${c3.caveated}`);
   if (c3.unreadable > 0) {
@@ -64530,7 +64768,7 @@ function formatRefusalPreconditionCensus(c3) {
     );
   }
   if (c3.unclassified > 0) out.push(`  ${c3.unclassified} refusal(s) no class matched`);
-  out.push(`  flat over classes rather than events: ${pct9(c3.flatShare)} (control, not the answer)`);
+  out.push(`  flat over classes rather than events: ${pct10(c3.flatShare)} (control, not the answer)`);
   out.push("");
   for (const t2 of c3.tallies) {
     out.push(
@@ -64975,7 +65213,7 @@ function rankUsageRefusals(rows) {
   }
   return [...counts.entries()].map(([cls, occurrences]) => ({ cls, occurrences }));
 }
-var pct10 = (n) => `${Math.round(n * 1e3) / 10}%`;
+var pct11 = (n) => `${Math.round(n * 1e3) / 10}%`;
 function formatRefusalAbsorptionCensus(c3) {
   const out = [];
   out.push(
@@ -64988,7 +65226,7 @@ function formatRefusalAbsorptionCensus(c3) {
   }
   const mine = c3.byIssuer["this-repository"];
   const theirs = c3.byIssuer["another-surface"];
-  const share = (n) => pct10(c3.topOccurrences === 0 ? 0 : n / c3.topOccurrences);
+  const share = (n) => pct11(c3.topOccurrences === 0 ? 0 : n / c3.topOccurrences);
   out.push(
     `  of the ${c3.topOccurrences} refusal(s) the top ${c3.top.length} account for, this repository issued ${mine.occurrences} (${share(mine.occurrences)}) across ${mine.classes} class(es). A surface it cannot change issued ${theirs.occurrences} (${share(theirs.occurrences)}) across ${theirs.classes}` + (theirs.occurrences > 0 ? ". Nothing this repository ships can absorb the second number." : ".")
   );
@@ -64996,7 +65234,7 @@ function formatRefusalAbsorptionCensus(c3) {
   out.push("");
   for (const r2 of c3.readings) {
     out.push(
-      `  ${r2.name.padEnd(20)} ${r2.safe.length}/${c3.top.length} class(es) ${r2.meetsCountBar ? "clears" : "below"} the ${ABSORPTION_RULE.bar.classes}-class half, ${r2.covered}/${c3.refusals} refusal(s) = ${pct10(r2.coverage)} ${r2.meetsCoverageBar ? "clears" : "below"} the ${pct10(ABSORPTION_RULE.bar.coverage)} half \u2014 ${r2.meetsBar ? "MET" : "NOT MET"}`
+      `  ${r2.name.padEnd(20)} ${r2.safe.length}/${c3.top.length} class(es) ${r2.meetsCountBar ? "clears" : "below"} the ${ABSORPTION_RULE.bar.classes}-class half, ${r2.covered}/${c3.refusals} refusal(s) = ${pct11(r2.coverage)} ${r2.meetsCoverageBar ? "clears" : "below"} the ${pct11(ABSORPTION_RULE.bar.coverage)} half \u2014 ${r2.meetsBar ? "MET" : "NOT MET"}`
     );
     out.push(`      admits: ${r2.admits}`);
     out.push(`      safe: ${r2.safe.join(", ") || "(none)"}`);
@@ -68806,12 +69044,12 @@ function freeFormReading(content) {
   const dated = /_Last rewritten: ([^\s_.]+)/.exec(content);
   return { date: dated ? dated[1] : "undated", body: content.trim() };
 }
-function rewriteBriefing(vaultDir, reading) {
-  assertWritable("the reading", reading.body);
-  assertWritable("the date", reading.date);
+function rewriteBriefing(vaultDir, reading2) {
+  assertWritable("the reading", reading2.body);
+  assertWritable("the date", reading2.date);
   const prior = readBriefing(vaultDir);
   const history = prior.current ? [prior.current, ...prior.history] : prior.history;
-  const parts = [HEADER, "", `## Current \u2014 ${reading.date}`, "", reading.body.trim()];
+  const parts = [HEADER, "", `## Current \u2014 ${reading2.date}`, "", reading2.body.trim()];
   if (history.length > 0) {
     parts.push("", "## History");
     for (const h2 of history) parts.push("", `### ${h2.date}`, "", h2.body);
@@ -69151,12 +69389,12 @@ var DIRECTION_VERB = {
   mixed: "whose own words point both ways on it",
   unstated: "which names it without saying which way"
 };
-function coverageOf2(reading, rows, passages) {
+function coverageOf2(reading2, rows, passages) {
   const ordering = orderByRecordedDecision(rows, passages);
   const byKind = Object.fromEntries(DECISION_KINDS.map((k2) => [k2, 0]));
   for (const r2 of ordering.ranked) byKind[r2.citations[0].kind] += 1;
   return {
-    reading,
+    reading: reading2,
     rows: rows.length,
     positioned: ordering.ranked.length,
     contradicted: ordering.ranked.filter((r2) => r2.contradicted).length,
@@ -70472,8 +70710,8 @@ function compareEnvironmentReadings(scheduler, run) {
   return out;
 }
 function verifyDispatchEnvironment(vaultDir) {
-  const reading = readEnvironment(vaultDir);
-  return reading.vault.reachable ? { ok: true, reading } : { ok: false, reading, problem: reading.vault.reason ?? "the vault could not be reached" };
+  const reading2 = readEnvironment(vaultDir);
+  return reading2.vault.reachable ? { ok: true, reading: reading2 } : { ok: false, reading: reading2, problem: reading2.vault.reason ?? "the vault could not be reached" };
 }
 function appendLine(file, value) {
   try {
@@ -70532,8 +70770,8 @@ function recordRunParity(vaultDir, opts) {
   appendLine(parityLedgerPath(vaultDir), pair);
   return pair;
 }
-function dispatchClearedLine(reading) {
-  return `environment verified at dispatch: cwd ${reading.cwd}, vault ${reading.vaultDir} reachable, ${reading.searchPath.length} PATH entr(ies), user ${reading.user}`;
+function dispatchClearedLine(reading2) {
+  return `environment verified at dispatch: cwd ${reading2.cwd}, vault ${reading2.vaultDir} reachable, ${reading2.searchPath.length} PATH entr(ies), user ${reading2.user}`;
 }
 function dispatchSkippedReport(opts) {
   const lines = [`not firing: ${opts.problem}`];
@@ -73435,6 +73673,26 @@ program2.command("friction-recurrence").description(
   const replay = recurrenceReplay(records, judgement, { minSessions });
   console.log(formatRecurrenceReplay(replay));
   if (records.length === 0 || judgement.length > 0 && replay.missing.length === judgement.length) {
+    process.exitCode = 1;
+  }
+});
+program2.command("failure-kinds").description(
+  "how many of the calls that failed were refusable by the schema the tool declares and how many were schema-valid and simply wrong \u2014 the census behind whether the shipped input validator covers the damage"
+).option("--vault <dir>", VAULT_OPTION_HELP).option("--from <date>", `first day to read, inclusive (default ${FAILURE_KIND_RULE.window.from})`).option("--to <date>", `last day to read, inclusive (default ${FAILURE_KIND_RULE.window.to})`).action((opts) => {
+  const dir = path97.resolve(opts.vault);
+  const log = usageLogPath(dir);
+  if (!fs93.existsSync(log)) {
+    console.error(`ost-agent failure-kinds: no usage trace at ${log} \u2014 there is nothing here to classify.`);
+    process.exitCode = 1;
+    return;
+  }
+  const schemas = buildOstTools({ vault: new Vault(dir, { create: false }), dir, remote: { enabled: false } }).map(
+    (t2) => t2.input_schema
+  );
+  const window2 = { from: opts.from ?? FAILURE_KIND_RULE.window.from, to: opts.to ?? FAILURE_KIND_RULE.window.to };
+  const census = failureKindCensus(readUsageEvents(dir), schemas, window2);
+  console.log(formatFailureKindCensus(census));
+  if (census.failures === 0 || census.unreadable.length > 0) {
     process.exitCode = 1;
   }
 });

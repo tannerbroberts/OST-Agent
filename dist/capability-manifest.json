@@ -3,8 +3,8 @@
   "version": "0.23.0",
   "artifact": {
     "path": "dist/ost-agent.mjs",
-    "bytes": 2917692,
-    "sha256": "cd2c6d864cf3f3b1430c1a8176d112bf9d42bc95c3c6c0cd2e437b060b5e0841"
+    "bytes": 2929201,
+    "sha256": "9f581c993899faecb262d8ac44951ddb75b898dfbabaf57dab092609f5e53327"
   },
   "capabilities": [
     {
@@ -149,6 +149,11 @@
     },
     {
       "name": "exclusions",
+      "surface": "cli-command",
+      "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
+    },
+    {
+      "name": "failure-kinds",
       "surface": "cli-command",
       "fingerprint": "0f49653beab6e906cd69a4776c127aef078c2406590a209ce06e32b7892def55"
     },

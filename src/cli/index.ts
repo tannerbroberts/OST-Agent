@@ -186,6 +186,11 @@ import {
   formatRecurrenceReplay, readRecurrenceRecords, RECURRENCE_RULE, recurrenceReplay,
 } from "../telemetry/friction-recurrence.js";
 import {
+  FAILURE_KIND_RULE, failureKindCensus, formatFailureKindCensus,
+} from "../telemetry/failure-kind.js";
+import { usageLogPath } from "../telemetry/usage.js";
+import type { ToolSchema } from "../security/validateToolInput.js";
+import {
   formatRefusalCoverageCensus, refusalCoverageCensus,
 } from "../telemetry/refusal-coverage.js";
 import {
@@ -2578,6 +2583,44 @@ program
     // the same failure one step later, and both have to reach an automation
     // through the exit code rather than off a report saying 0 filed.
     if (records.length === 0 || (judgement.length > 0 && replay.missing.length === judgement.length)) {
+      process.exitCode = 1;
+    }
+  });
+
+program
+  .command("failure-kinds")
+  .description(
+    "how many of the calls that failed were refusable by the schema the tool declares and how many were " +
+      "schema-valid and simply wrong — the census behind whether the shipped input validator covers the damage",
+  )
+  .option("--vault <dir>", VAULT_OPTION_HELP)
+  .option("--from <date>", `first day to read, inclusive (default ${FAILURE_KIND_RULE.window.from})`)
+  .option("--to <date>", `last day to read, inclusive (default ${FAILURE_KIND_RULE.window.to})`)
+  .action((opts: { vault: string; from?: string; to?: string }) => {
+    // Not `buildPassContext`, on `friction-surface`'s precedent: this reads a log
+    // and answers a question about it, and a Vault handle would create the
+    // directory a mistyped path names.
+    const dir = path.resolve(opts.vault);
+    const log = usageLogPath(dir);
+    if (!fs.existsSync(log)) {
+      console.error(`ost-agent failure-kinds: no usage trace at ${log} — there is nothing here to classify.`);
+      process.exitCode = 1;
+      return;
+    }
+    // The tool schemas, off the live surface: two of the shape families are read
+    // out of the `enum`s the tools publish rather than out of a list in this
+    // repo, so a census run without them is a weaker census and says so.
+    const schemas = buildOstTools({ vault: new Vault(dir, { create: false }), dir, remote: { enabled: false } }).map(
+      (t) => t.input_schema as ToolSchema,
+    );
+    const window = { from: opts.from ?? FAILURE_KIND_RULE.window.from, to: opts.to ?? FAILURE_KIND_RULE.window.to };
+    const census = failureKindCensus(readUsageEvents(dir), schemas, window);
+    console.log(formatFailureKindCensus(census));
+    // A window with no failures in it is not "nothing went wrong" — it is a
+    // census that could not read its subject, and a refusal whose wording no
+    // family recognises is the same failure one step later. Both reach an
+    // automation through the exit code rather than off a report of zero.
+    if (census.failures === 0 || census.unreadable.length > 0) {
       process.exitCode = 1;
     }
   });

@@ -78,6 +78,12 @@
 import type { UsageEvent } from "./usage.js";
 import type { ToolSchema } from "../security/validateToolInput.js";
 
+/** A closed range of days, inclusive at both ends. */
+export interface FailureWindow {
+  from: string;
+  to: string;
+}
+
 /** Which half of the damage a failure belongs to. */
 export type FailureKind = "shape" | "meaning" | "neither" | "unclassified";
 
@@ -204,7 +210,7 @@ export const FAILURE_KIND_RULE = {
   bar: 0.5,
 
   /** The window the assumption test named, inclusive, as ISO dates. */
-  window: { from: "2026-07-25", to: "2026-07-27" },
+  window: { from: "2026-07-25", to: "2026-07-27" } as FailureWindow,
 
   /**
    * A failed call at or under this many bytes of input is reported as a probe.
@@ -287,8 +293,18 @@ export interface FailureKindCensus {
   classified: ClassifiedFailure[];
 }
 
-/** Parse a usage trace. Malformed lines are skipped — a trace is append-only, not atomic. */
-export function readUsageEvents(text: string): UsageEvent[] {
+/**
+ * Parse a usage trace from text.
+ *
+ * Distinct from `preflight.ts`'s `readUsageEvents`, which resolves a vault's log
+ * path for you: the corpus this census is pinned against is a committed fixture
+ * rather than somebody's vault, and a reader that can only be pointed at a vault
+ * cannot be pointed at the evidence.
+ *
+ * Malformed lines are skipped — a trace is append-only, not atomic, and a torn
+ * final line is a lost event rather than a failed read.
+ */
+export function parseUsageTrace(text: string): UsageEvent[] {
   const events: UsageEvent[] = [];
   for (const line of text.split("\n")) {
     if (!line.trim()) continue;

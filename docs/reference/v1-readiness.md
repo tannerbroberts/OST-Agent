@@ -3221,7 +3221,7 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,377 tests across 382 files, verified 2026-09-07: `npx tsc --noEmit`
+> *Today:* **met** — 5,378 tests across 382 files, verified 2026-09-07: `npx tsc --noEmit`
 > exit 0, and the suite green on every file whose result is a fact about this repository.
 > The file added is `test/telemetry/failure-shape-vs-meaning.test.ts`, the instrument for
 > "Sort a day of real failed calls into shape errors and meaning errors", beneath "Validate
@@ -3246,7 +3246,23 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > census cannot do is replay: `usage.ts` records input size and never input content, by
 > design, so a failure is classified from the tool's own refusal text rather than from the
 > call — which is why an unrecognised wording lands in `unclassified` and is printed by
-> message instead of quietly joining a bucket.
+> message instead of quietly joining a bucket. **That honesty immediately earned its keep.**
+> `ost-agent failure-kinds --from 2026-01-01 --to 2026-12-31` over the whole trace — 9,411
+> calls, 129 failures — reads 67 of them as `unclassified` across 47 distinct wordings and
+> exits non-zero rather than reporting a corpus with nothing in it. Nearly all of those are
+> the tree's own believability and title guards refusing a schema-valid call on policy
+> (`cannot declare 'stated': it cites channel:inbox…`), which is a fourth class the node's
+> three-way taxonomy has no cell for. They are deliberately NOT absorbed into `meaning`
+> here: the pre-committed corpus is the three days the assumption test named, and widening
+> the rule to fit failures it did not name is how a classifier stops measuring anything.
+> Shape stays at 1 over the whole trace either way.
+>
+> **The host caveat below still holds, and the number that predicts it got worse.** A full
+> run at this commit ended with one failure, `loop/work-source-census`'s live `fs.watch`
+> assertion, which passes alone on the same loaded box. `fseventsd` was at 104.8 % of a core
+> and **41.0 % of system memory** on a host **51 days** into an uptime, against the 35.6 % at
+> 46 days recorded below — the same cause, measured again, moving in the direction that
+> predicts it. No bound was moved.
 >
 > **Previously 5,353 tests across 381 files, verified 2026-09-03**, after
 > `test/runner/incremental-typecheck.test.ts`, the instrument for "Time a
