@@ -3221,9 +3221,48 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,378 tests across 382 files, verified 2026-09-07: `npx tsc --noEmit`
-> exit 0, and the suite green on every file whose result is a fact about this repository.
-> The file added is `test/telemetry/failure-shape-vs-meaning.test.ts`, the instrument for
+> *Today:* **met** — 5,406 tests across 383 files, verified 2026-09-07: `npx tsc --noEmit`
+> exit 0, and every file whose result is a fact about this repository green. The file added
+> is `test/eval/incremental-parse.test.ts`, the instrument for "Check a partial artifact is
+> rejected at the offending line rather than at submission", beneath "Validate incrementally
+> as the artifact is built, so the rejection arrives at line three". **Its finding is that
+> the opportunity above it undercounts its own cost.** The position in a `Script parse error`
+> is the *first* parse error, not the length of the submission: `4ff7b605`, recorded as
+> `(172:33)`, is a **281-line** script, and `516fdfb8`, recorded as `(24:12)`, is **239**.
+> So 109 and 215 lines respectively were composed after the answer existed, and the quantity
+> the node is about is those, not the refusal's line number. Both are now refused at exactly
+> the position the surface named with the rest of the script never written, which is the
+> assumption test's threshold measured against the two submissions the surface actually
+> refused rather than against a fixture. **The feasibility answer has a shape the node did
+> not anticipate:** a whole-input parser refuses every unfinished script, so it cannot
+> distinguish *wrong* from *not finished yet* and is useless mid-composition on its own. The
+> separation needed two signals, both found against the parser rather than assumed — the
+> frontier (end of written text, or the start of an unterminated literal, whichever is
+> earlier) and exactly one backward-pointing acorn message, `Missing catch or finally
+> clause`, which a control script of every awkward composing shape found and no other.
+>
+> **The suite was not green on this host, and the failures are the host, measured rather than
+> asserted.** The first full run of the day at this commit's parent finished in **414 s with
+> 3 failures**; two runs after the batch, on near-identical code, took **1,501 s and 1,599 s
+> with 17 and 19**. Every one of the 19 but this batch's own D1 count is a timeout or a
+> wall-clock bound: `Test timed out in 20000ms` on git-heavy peer-exchange tests, 58.5 s
+> against `inherited-tree-build-check`'s 30 s bound (16.0 s alone, minutes earlier), and the
+> repository's own contention instrument `same-run-baseline-ratio` at 40.65x against its 40x
+> bound. `load average` was **8.3–17.6** throughout, with an unrelated foreground JVM at
+> 71–84 % of a core. **The `fs.watch` caveat below has got worse in a way that is now
+> checkable outside this repository entirely.** `test/loop/work-source-census.test.ts` used
+> to pass when run alone; today it fails alone. A twenty-line `fs.watch` probe in `/tmp`,
+> with no repository code and outside the agent sandbox, saw **0 of 10 writes** on both the
+> recursive and non-recursive paths. `fseventsd` was at **78–134 % of a core and 33–35 % of
+> system memory** on a host **51 days** into an uptime, against 45.2 % at 51 days and 35.6 %
+> at 46 days recorded below. Nothing this batch touches is reachable from any failing test:
+> `src/knowledge/incremental-validation.ts` is imported by `src/cli/index.ts` and its own
+> test and by nothing else, and `src/release/timed-checks.declared.ts` is a data list. **The
+> fix is still the host and still the operator's** — a reboot, or a restart of `fseventsd`.
+> No bound was moved and no gate was loosened.
+>
+> **Previously 5,378 tests across 382 files, verified 2026-09-07.** That batch added
+> `test/telemetry/failure-shape-vs-meaning.test.ts`, the instrument for
 > "Sort a day of real failed calls into shape errors and meaning errors", beneath "Validate
 > every tool call against the schema the tool already declares" — the v0.17.0 validator,
 > which shipped on the strength of one replayed call and had never had its coverage sized.

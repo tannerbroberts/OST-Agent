@@ -32,6 +32,9 @@ export const meta = {
 // them. The full accepted grammar — every construct offered, every construct
 // rejected, and the refusal each one earns — is docs/reference/workflow-grammar.md,
 // which costs a read and no submission.
+//
+// While writing, run ost-agent workflow-check <file> on the lines so far: a
+// violation comes back at its own line, and being unfinished is not an error.
 // ---------------------------------------------------------------------------
 
 // The body runs in an async context: await is legal at the top level, and so

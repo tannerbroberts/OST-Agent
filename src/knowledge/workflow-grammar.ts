@@ -296,6 +296,16 @@ export const WORKFLOW_GRAMMAR_ADDRESS = "docs/reference/workflow-grammar.md";
 export const WORKFLOW_SKELETON_ADDRESS = ".claude/workflows/skeleton.js";
 
 /**
+ * The check a composer runs over the lines written so far, named by both
+ * artefacts so it is reachable from either. The grammar is read before writing
+ * and the skeleton is copied before writing; this is the only one of the three
+ * that answers *during*, which is where the recorded refusals spent their
+ * hundred and nine and two hundred and fifteen lines.
+ * `src/knowledge/incremental-validation.ts` is the entry point behind it.
+ */
+export const WORKFLOW_CHECK_COMMAND = "ost-agent workflow-check";
+
+/**
  * The accepted grammar as a document: every construct the surface offers, every
  * construct it rejects, and the refusal each rejected one earns — obtainable by
  * reading a committed file, with nothing submitted and nothing run.
@@ -347,11 +357,31 @@ export function renderWorkflowGrammar(): string {
     "",
     `- **This page** — \`${WORKFLOW_GRAMMAR_ADDRESS}\`. The complete list of what is accepted and what is not.`,
     `- **A legal starting shape** — \`${WORKFLOW_SKELETON_ADDRESS}\`. Copy it, keep the dialect, replace the prompts.`,
+    `- **A check on the lines written so far** — \`${WORKFLOW_CHECK_COMMAND} <file>\`. See below; it is the`,
+    "  only one of these three that answers while the script is still being written.",
     "- **In code** — `renderWorkflowGrammar()` from `src/knowledge/workflow-grammar.ts`, which takes no",
     "  argument, because obtaining the grammar must not cost a submission.",
     "",
     "The skeleton is the shorter answer and the one to start from. This page is what it cannot be:",
     "a skeleton constrains the parts it shows and is silent about the rest, and the rest is below.",
+    "",
+    "## Check it while you write it",
+    "",
+    `\`\`\`bash`,
+    `${WORKFLOW_CHECK_COMMAND} draft.js     # or \`-\` to read the partial script from stdin`,
+    "```",
+    "",
+    "Point it at the lines composed so far. A dialect violation comes back as `file:line:column`, at",
+    "the line that caused it, and **being unfinished is not an error**: an open brace, a call with no",
+    "closing paren, a template literal running onto the next line all come back clean, because more",
+    "text can still repair them. It errs that way on purpose — a false rejection at line three costs",
+    "more than the late rejection it replaces, so where it cannot tell, it says nothing.",
+    "",
+    "It catches the group below that *parses* as well — `Date.now()`, `require()`, a type argument on a",
+    "call — which no parse check catches at any moment, at submission or before. For those this is not",
+    "an earlier answer than the surface's; it is the only one.",
+    "",
+    "An empty result is not a promise of acceptance. It means nothing is wrong with what exists yet.",
     "",
     "## How a submission is parsed",
     "",
@@ -427,6 +457,12 @@ export function renderWorkflowGrammar(): string {
     "and seventy-two lines in, for the first of them. Prose that quotes code goes in a double-quoted",
     "string.",
     "",
+    "The position in a refusal is the **first** parse error, not the end of the submission. Both of",
+    "those scripts kept going well past it: `4ff7b605` was 281 lines and `516fdfb8` was 239, so 109",
+    "and 215 lines respectively were composed after the answer existed and before anything said so.",
+    `That is what \`${WORKFLOW_CHECK_COMMAND}\` is for, and the number it saves is those lines rather`,
+    "than the refusal's line number.",
+    "",
     "## What this page cannot promise",
     "",
     "- **The surface does not publish a grammar; this is a reconstruction.** It is assembled from the",
@@ -481,6 +517,8 @@ export function grammarProblems(doc: string): string[] {
   }
   missing("its own address", WORKFLOW_GRAMMAR_ADDRESS);
   missing("the skeleton it sits beside", WORKFLOW_SKELETON_ADDRESS);
+  missing("the check a composer can run mid-composition", WORKFLOW_CHECK_COMMAND);
+  missing("the promise that being unfinished is not an error", "being unfinished is not an error");
   missing("the promise that obtaining it costs no submission", "submitting nothing");
   missing("the `meta` rule", "pure literal");
   problems.push(...rejectClaimProblems());
@@ -617,6 +655,9 @@ export function renderWorkflowSkeleton(): string {
     `// them. The full accepted grammar — every construct offered, every construct`,
     `// rejected, and the refusal each one earns — is ${WORKFLOW_GRAMMAR_ADDRESS},`,
     "// which costs a read and no submission.",
+    "//",
+    `// While writing, run ${WORKFLOW_CHECK_COMMAND} <file> on the lines so far: a`,
+    "// violation comes back at its own line, and being unfinished is not an error.",
     "// ---------------------------------------------------------------------------",
     "",
     "// The body runs in an async context: await is legal at the top level, and so",

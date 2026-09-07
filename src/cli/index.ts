@@ -59,6 +59,7 @@
  *   ost-agent auth                             detect the credentials already held, and say which one each adapter will use, before anything needs one
  *   ost-agent allowlist --skill F --settings F  derive a run's permission grant from the skill's own allowed-tools
  *   ost-agent grants --skill F --settings F   name every tool a run declares that its grant does not cover
+ *   ost-agent workflow-check FILE|-          check a Workflow script while it is still being written; unfinished is not an error
  *   ost-agent build-check --repo DIR          does the tree a run inherited actually build? checked before work is planned on it
  *   ost-agent ship --repo DIR                 run the gates locally and merge the branch if they are green
  *   ost-agent loop due|start|step|seal        unattended firing: cadence, lock, ceiling, health
@@ -109,6 +110,8 @@ import { renderRollup, rollupTree } from "../eval/rollup.js";
 import { DEFAULT_DEPTH, diffSinceVisit, renderTreeView } from "../eval/tree-view.js";
 import { DEFAULT_READER, lastVisit, recordVisit } from "../ost/visit.js";
 import { evidenceActors } from "../knowledge/actor-trust.js";
+import { validateWorkflowPrefix } from "../knowledge/incremental-validation.js";
+import { WORKFLOW_GRAMMAR_ADDRESS } from "../knowledge/workflow-grammar.js";
 import { legacyFallbackCensus, renderLegacyFallbackCensus } from "../ost/legacy-fallback.js";
 import { renderRoutes, routesFor } from "../ost/routes.js";
 import { DEFAULT_FRACTION, drawReviewSample, formatReviewSample } from "../eval/review-sample.js";
@@ -3832,6 +3835,43 @@ program
       console.error(check.report);
       process.exitCode = check.exitCode;
     }
+  });
+
+program
+  .command("workflow-check")
+  .description(
+    "check a Workflow script while it is still being written: a dialect violation comes back at its own line, and being unfinished is not an error",
+  )
+  .argument("<file>", "the script so far — a path, or `-` to read the partial script from stdin")
+  .action((file: string) => {
+    // The entry point the solution needs to exist: parse-only, callable on a
+    // fragment, and callable more than once as the fragment grows. It records
+    // nothing and runs nothing — handing a partial script over must cost less
+    // than the submission it replaces or nobody calls it at line three.
+    let source: string;
+    try {
+      source = fs.readFileSync(file === "-" ? 0 : path.resolve(file), "utf8");
+    } catch (e) {
+      console.error(`workflow-check: cannot read ${file}: ${e instanceof Error ? e.message : String(e)}`);
+      process.exitCode = 1;
+      return;
+    }
+    const violations = validateWorkflowPrefix(source);
+    const lines = source.split("\n").length;
+    if (violations.length === 0) {
+      // Deliberately not "this would be accepted": the rest is unwritten, and
+      // the checks that only run over a whole submission have not run.
+      console.log(`workflow-check: nothing wrong in the ${lines} line(s) written so far.`);
+      console.log(`  This is not a promise of acceptance — ${WORKFLOW_GRAMMAR_ADDRESS} is what a whole script is held to.`);
+      return;
+    }
+    const where = file === "-" ? "<stdin>" : path.relative(process.cwd(), path.resolve(file)) || file;
+    for (const v of violations) console.error(`${where}:${v.line}:${v.column}: ${v.kind}: ${v.message}`);
+    console.error(
+      `workflow-check: ${violations.length} violation(s) at line ${violations[0].line} of ${lines} written — ` +
+        `the remaining lines do not have to be composed to learn this.`,
+    );
+    process.exitCode = 1;
   });
 
 program

@@ -13,11 +13,31 @@ which is how these rules were obtainable before this page existed.
 
 - **This page** — `docs/reference/workflow-grammar.md`. The complete list of what is accepted and what is not.
 - **A legal starting shape** — `.claude/workflows/skeleton.js`. Copy it, keep the dialect, replace the prompts.
+- **A check on the lines written so far** — `ost-agent workflow-check <file>`. See below; it is the
+  only one of these three that answers while the script is still being written.
 - **In code** — `renderWorkflowGrammar()` from `src/knowledge/workflow-grammar.ts`, which takes no
   argument, because obtaining the grammar must not cost a submission.
 
 The skeleton is the shorter answer and the one to start from. This page is what it cannot be:
 a skeleton constrains the parts it shows and is silent about the rest, and the rest is below.
+
+## Check it while you write it
+
+```bash
+ost-agent workflow-check draft.js     # or `-` to read the partial script from stdin
+```
+
+Point it at the lines composed so far. A dialect violation comes back as `file:line:column`, at
+the line that caused it, and **being unfinished is not an error**: an open brace, a call with no
+closing paren, a template literal running onto the next line all come back clean, because more
+text can still repair them. It errs that way on purpose — a false rejection at line three costs
+more than the late rejection it replaces, so where it cannot tell, it says nothing.
+
+It catches the group below that *parses* as well — `Date.now()`, `require()`, a type argument on a
+call — which no parse check catches at any moment, at submission or before. For those this is not
+an earlier answer than the surface's; it is the only one.
+
+An empty result is not a promise of acceptance. It means nothing is wrong with what exists yet.
 
 ## How a submission is parsed
 
@@ -183,6 +203,12 @@ Both refusals name TypeScript syntax as the usual cause. Neither script containe
 a backtick inside a template-literal prompt, which ends the string at the first one — a hundred
 and seventy-two lines in, for the first of them. Prose that quotes code goes in a double-quoted
 string.
+
+The position in a refusal is the **first** parse error, not the end of the submission. Both of
+those scripts kept going well past it: `4ff7b605` was 281 lines and `516fdfb8` was 239, so 109
+and 215 lines respectively were composed after the answer existed and before anything said so.
+That is what `ost-agent workflow-check` is for, and the number it saves is those lines rather
+than the refusal's line number.
 
 ## What this page cannot promise
 
