@@ -118,6 +118,8 @@ describe("a check scoped to the touched file, against the whole-project run it r
   let warmMs: number;
   let whole: TypecheckVerdict;
   let wholeMs: number;
+  /** The warm checker, reused by the tests below rather than rebuilt. */
+  let checker: TouchedFileChecker;
 
   beforeAll(() => {
     // Cold: a checker that has parsed nothing, which is what a hook spawning a
@@ -132,7 +134,7 @@ describe("a check scoped to the touched file, against the whole-project run it r
       coldMs = Math.min(coldMs, verdict.elapsedMs);
     }
 
-    const checker = new TouchedFileChecker({ projectRoot: repoRoot });
+    checker = new TouchedFileChecker({ projectRoot: repoRoot });
     clean = checker.check([{ path: subject, source: committed }]);
 
     // Warm: the steady state of a checker that stays alive across edits.
@@ -141,12 +143,16 @@ describe("a check scoped to the touched file, against the whole-project run it r
       warmMs = Math.min(warmMs, checker.check([{ path: subject, source: edited }]).elapsedMs);
     }
 
-    // The whole-project run, same process, same overlay, same host — and the
-    // fastest of two, so the comparison is warm on both sides and measures two
-    // checks rather than two states of a cache.
+    // The whole-project run: same process, same overlay, same host, and warm on
+    // both sides — the parses the narrow checks just did are the ones it needs.
+    //
+    // ONCE, not fastest-of-N, and the reason is this file's obligation to the
+    // suite it runs inside rather than a shortcut. A whole-project program is the
+    // largest allocation anything here makes, and this file is a load spike in a
+    // pool of workers where other files are timing themselves. A second run
+    // moved the figure by 5% (1323 ms → 1259 ms) and cost another one of them.
     whole = checker.checkWholeProject([{ path: subject, source: edited }]);
-    const second = checker.checkWholeProject([{ path: subject, source: edited }]);
-    wholeMs = Math.min(whole.elapsedMs, second.elapsedMs);
+    wholeMs = whole.elapsedMs;
   }, 180_000);
 
   test("DETECTION — the TS2339 the transcript recorded, attached to the edit", () => {
@@ -170,14 +176,27 @@ describe("a check scoped to the touched file, against the whole-project run it r
     // The assumption is "quick AND complete enough": it has to report the same
     // error the batch-end run would have. Both sides are the same overlay in the
     // same process, so this is the comparison and not an approximation of it.
-    const identity = (d: { file: string; line: number; column: number; code: number }) =>
-      `${d.file}(${d.line},${d.column}) TS${d.code}`;
+    //
+    // The identity is file and code, not file and line: a line number here would
+    // put this spec into every future diff that touches the top of either file,
+    // and the next run to see it red would be reading a real failure as
+    // maintenance. Where the diagnostic lands is asserted below, derived from the
+    // source rather than typed in.
+    const identity = (d: { file: string; code: number }) => `${d.file} TS${d.code}`;
     expect(cold.diagnostics.map(identity).sort()).toEqual(whole.diagnostics.map(identity).sort());
     // Two, not one: the edit breaks the file it touched and one of its importers.
-    expect(whole.diagnostics.map(identity).sort()).toEqual([
-      "src/mcp/server.ts(101,5) TS2353",
-      "src/security/tools.ts(2416,70) TS2339",
-    ]);
+    expect(whole.diagnostics.map(identity).sort()).toEqual(["src/mcp/server.ts TS2353", "src/security/tools.ts TS2339"]);
+  });
+
+  test("the diagnostic lands on the use site the edit orphaned", () => {
+    // Derived from the buffer that was checked, so it stays true as the file
+    // grows: the transcript's error was at line 744 of a file that is 2545 lines
+    // now, and what is being reproduced is the use site, not the line number.
+    const useSite = edited.split("\n").findIndex((l) => l.includes(`ctx.${INCREMENTAL_TYPECHECK_BAR.member}`)) + 1;
+    expect(useSite).toBeGreaterThan(0);
+    const found = cold.diagnostics.find((d) => d.code === INCREMENTAL_TYPECHECK_BAR.code);
+    expect(found?.line).toBe(useSite);
+    expect(found?.text).toContain(`${INCREMENTAL_TYPECHECK_BAR.file}(${useSite},`);
   });
 
   test("the immediate importers are load-bearing — without them the check reads half-clean", () => {
@@ -185,9 +204,10 @@ describe("a check scoped to the touched file, against the whole-project run it r
     // touched file alone the check finds the TS2339 and misses the TS2353 in
     // `src/mcp/server.ts` entirely, which is a sweep reporting a clean result
     // over a subject it did not read.
-    const narrow = new TouchedFileChecker({ projectRoot: repoRoot }).check([{ path: subject, source: edited }], {
-      dependents: false,
-    });
+    // On the warm checker, deliberately: a fresh one would say the same thing
+    // and cost another cold program, and this file already builds more of them
+    // than anything else in the suite.
+    const narrow = checker.check([{ path: subject, source: edited }], { dependents: false });
     expect(narrow.dependents).toEqual([]);
     expect(narrow.diagnostics.map((d) => d.code)).toEqual([INCREMENTAL_TYPECHECK_BAR.code]);
     expect(cold.dependents).toContain("src/mcp/server.ts");

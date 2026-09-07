@@ -60,36 +60,51 @@ function pathFromHookPayload(): string | null {
   }
 }
 
-const args = process.argv.slice(2);
-const always = args.includes("--always");
-const files = args.filter((a) => !a.startsWith("-"));
-const fromHook = pathFromHookPayload();
-if (fromHook) files.push(fromHook);
+/**
+ * Nothing here calls `process.exit`, and that is not a style preference.
+ *
+ * On macOS a pipe's stdout is asynchronous, so a `write` followed immediately by
+ * an `exit` can drop the very advisory this command exists to deliver — and a
+ * hook's stdout is always a pipe. Falling off the end of `main` lets the stream
+ * flush, and leaves the exit code at 0, which is the code this command always
+ * wants.
+ */
+function main(): void {
+  const args = process.argv.slice(2);
+  const always = args.includes("--always");
+  const files = args.filter((a) => !a.startsWith("-"));
+  const fromHook = pathFromHookPayload();
+  if (fromHook) files.push(fromHook);
 
-if (files.length === 0) {
-  process.stderr.write("usage: tsx scripts/typecheck-touched.ts [--always] <file>…\n");
-  process.exit(0);
+  if (files.length === 0) {
+    process.stderr.write("usage: tsx scripts/typecheck-touched.ts [--always] <file>…\n");
+    return;
+  }
+
+  // Only files this project's `tsconfig.json` actually compiles. A hook fires on
+  // every write, and most writes are Markdown; checking them would report a
+  // program that cannot read its subject rather than nothing to say.
+  const checker = new TouchedFileChecker({ projectRoot: repoRoot });
+  const inProject = new Set(checker.files.map((f) => path.resolve(f)));
+  const targets = files.map((f) => path.resolve(repoRoot, f)).filter((f) => inProject.has(f));
+
+  if (targets.length === 0) {
+    if (always) {
+      process.stdout.write("typecheck (advisory): nothing to check — no named file is in the TypeScript project\n");
+    }
+    return;
+  }
+
+  const verdict = checker.check(targets.map((p) => ({ path: p })));
+  const report = formatVerdict(verdict);
+  if (report) process.stdout.write(`${report}\n`);
+  else if (always) {
+    process.stdout.write(
+      `typecheck (advisory): clean — ${verdict.checked.join(", ")} and ${verdict.dependents.length} immediate ` +
+        `dependent(s), in ${Math.round(verdict.elapsedMs)} ms\n`,
+    );
+  }
 }
 
-// Only files this project's `tsconfig.json` actually compiles. A hook fires on
-// every write, and most writes are Markdown; checking them would report a
-// program that cannot read its subject rather than nothing to say.
-const checker = new TouchedFileChecker({ projectRoot: repoRoot });
-const inProject = new Set(checker.files.map((f) => path.resolve(f)));
-const targets = files.map((f) => path.resolve(repoRoot, f)).filter((f) => inProject.has(f));
-
-if (targets.length === 0) {
-  if (always) process.stdout.write("typecheck (advisory): nothing to check — no named file is in the TypeScript project\n");
-  process.exit(0);
-}
-
-const verdict = checker.check(targets.map((p) => ({ path: p })));
-const report = formatVerdict(verdict);
-if (report) process.stdout.write(`${report}\n`);
-else if (always) {
-  process.stdout.write(
-    `typecheck (advisory): clean — ${verdict.checked.join(", ")} and ${verdict.dependents.length} immediate ` +
-      `dependent(s), in ${Math.round(verdict.elapsedMs)} ms\n`,
-  );
-}
+main();
 process.exit(0);
