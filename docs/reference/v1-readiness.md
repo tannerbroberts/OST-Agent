@@ -3221,9 +3221,45 @@ which is distilled Torres canon and safety rules rather than tunable policy.
 > As of 2026-08-06 the workflow is a signal rather than a gate: the build loop merges on
 > gates it runs and watches itself, so a GitHub Actions outage no longer strands finished
 > work (`src/release/ship.ts`, `test/release/ship-repo.test.ts`).
-> *Today:* **met** — 5,382 tests across 383 files, verified 2026-09-07: `npx tsc --noEmit`
-> exit 0, and the suite green on every file whose result is a fact about this repository.
-> The file added is `test/ost/underserved-excludes-deferred.test.ts`, the instrument for
+> *Today:* **met** — 5,390 tests across 384 files, verified 2026-09-07: `npx tsc --noEmit`
+> exit 0 and `npx vitest run` green, 5,390 of 5,390.
+> The file added is `test/eval/deferred-permit.test.ts`, which pins that a `status: deferred`
+> Solution holds no build permit. It is not an instrument for a node: it is what the fourth
+> consecutive build-loop firing at "Ask the open question first, and offer options only once
+> the frame is agreed" turned out to be about. That solution was deferred on 2026-08-16 on
+> its own instrument's evidence — the replay refuted it, 92 operator turns against 72 — and
+> `ost-agent buildable` answered CLEARED on it three more times afterwards (PR #130, PR #171,
+> and 2026-09-07), because `buildPermit` never read the status. Its instrument stays red
+> *because* the solution is refuted, so the permit could never be spent and the loop could
+> never stop selecting it. `src/eval/buildable.ts` already refused deferred solutions in
+> `solutionsMissingInstruments` for the stated reason "there is no unbuilt behaviour left";
+> the permit now makes the same refusal, quoting the `## History` entry that retired the node
+> so an agent-settable status still arrives with its reason attached.
+>
+> **The `fs.watch` casualty recorded in the three batches below was diagnosed and the bound
+> moved — the host was not the cause.** The entry beneath this one blames `fseventsd` and says
+> "no bound was moved"; that reading does not survive measurement. `loop/work-source-census`'s
+> live-watcher assertion failed 10 consecutive writes over 10 seconds, which under the ~10 %
+> random event loss the test's own comment assumed is a 1-in-10^10 event. A probe doing that
+> file's exact write (stage to `.ost-tmp`, rename over the target) into a freshly watched
+> directory shows what is actually happening: macOS `fs.watch` does not lose these events, it
+> delivers them **late, in one batch**, and the latency scales with how much watcher and
+> temp-directory churn the process and box have seen. First event at 0.5–4.0 s across 8 trials
+> on a quiet machine; at 15.5 s, 20.7 s and 20.6 s across 3 trials after 100 watcher
+> create/close cycles; and in every trial of either kind the batch carried *every* write, plus
+> events from before the watcher was registered. Nothing was ever dropped. The full suite is
+> 383 files over ten workers creating and deleting temp vaults, which is the churned condition
+> — hence a 100 % failure rate there against a pass when run alone, a shape that reads as
+> flakiness and is not. So the ten-second deadline was measuring how busy the machine had been
+> rather than the affordance, and the repeated writes the previous fix added could not help,
+> because a late batch is not a lost one. The deadline is now 45 s inside a 60 s test timeout;
+> the assertion is unchanged and a watcher that never fires still fails. Two consequences worth
+> carrying past this entry: a wall-clock bound picked against a wrong failure model is not a
+> conservative bound, and **a loop asleep on `watchWorkSources` can be twenty seconds behind a
+> human's write on a busy box** — the product's own latency, not the test's.
+>
+> **Previously 5,382 tests across 383 files, verified 2026-09-07**, after
+> `test/ost/underserved-excludes-deferred.test.ts`, the instrument for
 > "Withhold deferred opportunities from the under-served count", beneath "A retired
 > opportunity is still counted as needing solutions". The node's claim reproduced exactly —
 > a `status: deferred` Opportunity short of `min` was reported in `underservedOpportunities`

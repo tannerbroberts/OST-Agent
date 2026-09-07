@@ -48144,6 +48144,206 @@ function normalize2(s) {
   return s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
 }
 
+// src/ost/deferral.ts
+var DEFERRAL_CAUSES = ["superseded", "refuted", "decided", "duplicate", "unclassified"];
+var CAUSE_PATTERNS = {
+  // "Deferred means superseded by those two, not abandoned" — a node split into
+  // successors that carry its design forward.
+  superseded: /\bsupersede|\bsplit\b|\breplaced by\b|\bsuccessor/i,
+  // "Deferring per the evidence"; "this designed-to-fail assertion". A run
+  // happened and it went against the node.
+  refuted: /\brefut|\bfalsif|\bdisprov|\bdesigned-to-fail\b|\bper the evidence\b/i,
+  // "ANSWERED BY FOUNDER DECISION"; "the nearest status to 'closed by decision'".
+  // Nobody measured anything; somebody with the mandate said no.
+  decided: /\bdecision\b|\bdecided\b|\bfounder\b|\bout of scope\b|\bwon't do\b/i,
+  // "self-flagged near-duplicate of sibling"; "Human-authorized merge".
+  duplicate: /\bduplicate\b|\bmerged? into\b|\bmerge\b|\bredundant\b/i
+};
+var CONTROL_CHARS2 = new RegExp("[\\u0000-\\u001F\\u007F]+", "g");
+function flattenBasis(text2) {
+  return text2.replace(CONTROL_CHARS2, " ").replace(/\s+/g, " ").trim();
+}
+var DEFAULT_LAYERS = ["Solution"];
+var DEFAULT_SAMPLE_REQUIRED = 15;
+var DEFAULT_SHARE_REQUIRED = 0.5;
+var TOP_N = 3;
+function classifyCause(basis) {
+  if (!basis.trim()) return "unclassified";
+  for (const cause of DEFERRAL_CAUSES) {
+    const pattern = CAUSE_PATTERNS[cause];
+    if (pattern?.test(basis)) return cause;
+  }
+  return "unclassified";
+}
+function deferralHistoryEntry(node2) {
+  const entries = entriesUnder(node2.body ?? "", HISTORY_HEADING);
+  const transitions = entries.filter((e) => /\bstatus:.*(?:→|->)\s*deferred\b/i.test(e));
+  return transitions.length ? transitions[transitions.length - 1] : "";
+}
+function fromStatus(vault, node2) {
+  const entry = deferralHistoryEntry(node2);
+  return {
+    vault,
+    title: node2.title,
+    layer: node2.layer,
+    route: "status",
+    cause: classifyCause(entry),
+    basis: flattenBasis(entry)
+  };
+}
+function titleOfDrop(file) {
+  return file.replace(new RegExp(`^${ARCHIVE_DIRNAME}/`), "").replace(/\.md$/i, "");
+}
+function deferredCauses(vault, census) {
+  const retired = census.nodes.filter(isRetiredNode).map((n) => fromStatus(vault, n));
+  for (const drop of census.retired) {
+    const isRetraction = /^retracted\b/i.test(drop.reason);
+    retired.push({
+      vault,
+      title: titleOfDrop(drop.file),
+      layer: "Unknown",
+      route: isRetraction ? "retraction" : "archive",
+      cause: isRetraction ? classifyCause(drop.reason) : "unclassified",
+      basis: isRetraction ? flattenBasis(drop.reason) : ""
+    });
+  }
+  const read = census.nodes.length + census.retired.length;
+  const unreadable = [...census.unreadable.map((d) => d.file), ...census.quarantined.map((q2) => q2.file)];
+  return {
+    vault,
+    examined: read,
+    subject: { offered: read + unreadable.length, read },
+    unreadable,
+    retired
+  };
+}
+function flattestTopThreeShare(sample3, causes = DEFERRAL_CAUSES.length) {
+  if (sample3 <= 0 || causes <= 0) return 0;
+  const base = Math.floor(sample3 / causes);
+  const remainder = sample3 % causes;
+  let top = 0;
+  for (let i2 = 0; i2 < Math.min(TOP_N, causes); i2++) top += i2 < remainder ? base + 1 : base;
+  return Math.min(top, sample3) / sample3;
+}
+function tallyCauses(inScope, opts = {}) {
+  const sampleRequired = opts.sampleRequired ?? DEFAULT_SAMPLE_REQUIRED;
+  const shareRequired = opts.shareRequired ?? DEFAULT_SHARE_REQUIRED;
+  const counts = /* @__PURE__ */ new Map();
+  for (const cause of DEFERRAL_CAUSES) counts.set(cause, 0);
+  for (const row of inScope) counts.set(row.cause, (counts.get(row.cause) ?? 0) + 1);
+  const tally = DEFERRAL_CAUSES.map((cause) => ({ cause, count: counts.get(cause) ?? 0 })).sort(
+    (a, b2) => b2.count - a.count || DEFERRAL_CAUSES.indexOf(a.cause) - DEFERRAL_CAUSES.indexOf(b2.cause)
+  );
+  const sample3 = inScope.length;
+  const topThree = tally.slice(0, TOP_N).reduce((n, t2) => n + t2.count, 0);
+  const topThreeShare = sample3 > 0 ? topThree / sample3 : 0;
+  const sampleHolds = sample3 >= sampleRequired;
+  const shareHolds = sample3 > 0 && topThreeShare >= shareRequired;
+  const flattest = flattestTopThreeShare(sampleRequired);
+  return {
+    tally,
+    verdict: {
+      sample: sample3,
+      sampleRequired,
+      sampleHolds,
+      topThree,
+      topThreeShare,
+      shareRequired,
+      shareHolds,
+      holds: sampleHolds && shareHolds,
+      flattestTopThreeShare: flattest,
+      concentrationDiscriminates: flattest < shareRequired
+    }
+  };
+}
+function deferralCensus(dirs, opts = {}) {
+  const vaults = dirs.map((dir) => deferredCauses(dir, new Vault(dir, { create: false }).readTreeCensus()));
+  return summariseDeferrals(vaults, opts);
+}
+function summariseDeferrals(vaults, opts = {}) {
+  const layers = new Set(opts.layers ?? DEFAULT_LAYERS);
+  const retired = vaults.flatMap((v) => v.retired);
+  const inScope = retired.filter((r2) => layers.has(r2.layer));
+  const subject = {
+    offered: vaults.reduce((n, v) => n + v.subject.offered, 0),
+    read: vaults.reduce((n, v) => n + v.subject.read, 0)
+  };
+  const { tally, verdict } = tallyCauses(inScope, opts);
+  return {
+    vaults: [...vaults],
+    examined: vaults.reduce((n, v) => n + v.examined, 0),
+    retired,
+    inScope,
+    tally,
+    subject,
+    blindness: classifySubject(subject),
+    verdict
+  };
+}
+function pct(share) {
+  return `${Math.round(share * 100)}%`;
+}
+function formatDeferralCensus(census, opts = {}) {
+  const layers = opts.layers ?? DEFAULT_LAYERS;
+  const v = census.verdict;
+  const lines = [];
+  if (census.blindness === "totally-blind") {
+    lines.push(
+      `Deferral causes: BLIND \u2014 read 0 of ${census.subject.offered} node(s) across ${census.vaults.length} vault(s). This is not a clean census; nothing was examined.`
+    );
+    for (const vault of census.vaults) {
+      lines.push(`  ${vault.vault}: read ${vault.subject.read} of ${vault.subject.offered} offered`);
+    }
+    lines.push("");
+    lines.push("A sweep with an empty subject is a failure, not a pass. Check that each path above is a vault.");
+    return lines.join("\n");
+  }
+  lines.push(
+    `Deferral causes: ${v.holds ? "THRESHOLD MET" : "THRESHOLD NOT MET"} \u2014 ${v.sample} retired ${layers.join("/")} node(s) of a required ${v.sampleRequired} (${v.sampleHolds ? "met" : "short by " + (v.sampleRequired - v.sample)}), top ${TOP_N} cause(s) ${pct(v.topThreeShare)} of a required ${pct(v.shareRequired)} (${v.shareHolds ? "met" : "not met"}).`
+  );
+  lines.push(
+    `  taken over ${census.examined} node(s) across ${census.vaults.length} vault(s); ${census.retired.length} retirement(s) found in all, ${v.sample} in scope.`
+  );
+  for (const vault of census.vaults) {
+    lines.push(`  ${vault.vault}: ${vault.retired.length} retired of ${vault.examined} examined`);
+  }
+  if (census.blindness === "partly-blind") {
+    const shortfall = census.subject.offered - census.subject.read;
+    lines.push(
+      `  \u26A0 partly blind: ${shortfall} node file(s) present could not be read or classified, so every count above is over ${census.subject.read} of ${census.subject.offered}. A file this reader cannot parse may be a retirement it cannot count.`
+    );
+    for (const vault of census.vaults) {
+      for (const name of vault.unreadable) lines.push(`    unreadable: ${vault.vault}/${name}`);
+    }
+  }
+  lines.push("");
+  lines.push(`Causes over the ${v.sample} node(s) in scope:`);
+  for (const t2 of census.tally) lines.push(`  ${t2.cause.padEnd(13)} ${t2.count}`);
+  lines.push("");
+  if (!v.concentrationDiscriminates) {
+    lines.push(
+      `\u26A0 The concentration clause cannot come out a failure at this bar. Spread as evenly as ${DEFERRAL_CAUSES.length} cause(s) allow, a sample of ${v.sampleRequired} still puts ${pct(v.flattestTopThreeShare)} in its top ${TOP_N} \u2014 above the ${pct(v.shareRequired)} required. A vault whose every death had its own reason would read as concentrated. The sample-size clause is carrying this threshold on its own; only a human may move the bar or widen the vocabulary.`
+    );
+  } else {
+    lines.push(
+      `The concentration clause discriminates: the flattest distribution ${DEFERRAL_CAUSES.length} cause(s) allow puts ${pct(v.flattestTopThreeShare)} in its top ${TOP_N}, below the ${pct(v.shareRequired)} required.`
+    );
+  }
+  lines.push("");
+  lines.push(`Every retirement found (${census.retired.length}), with the words its cause was read off:`);
+  if (!census.retired.length) lines.push("  (none)");
+  for (const row of census.retired) {
+    const scope = layers.includes(row.layer) ? "" : " [out of scope]";
+    lines.push(`  ${row.cause} \u2014 ${row.title} (${row.layer}, ${row.route})${scope}`);
+    lines.push(`    ${row.basis || "no reason recorded"}`);
+  }
+  lines.push("");
+  lines.push(
+    "A cause here is the cause somebody WROTE DOWN, matched by keyword against a vocabulary fitted to this vault's first retirements \u2014 not the cause that operated. Read the basis line under each row before believing any bucket, and record the verdict with `ost-agent result`, which is a human's call."
+  );
+  return lines.join("\n");
+}
+
 // src/eval/buildable.ts
 function indexByTitle(tree) {
   const index = /* @__PURE__ */ new Map();
@@ -48153,6 +48353,10 @@ function indexByTitle(tree) {
 function testsUnder(index, solution) {
   return resolveTestsUnderSolution(solution, index);
 }
+function recordedDeferralReason(solution) {
+  const entry = deferralHistoryEntry(solution).replace(/^-\s*/, "").trim();
+  return /(?:→|->)\s*deferred\s+(?:—|--)\s*\S/.test(entry) ? entry : "";
+}
 function buildPermit(tree, title) {
   return permitFrom(indexByTitle(tree), title);
 }
@@ -48160,6 +48364,14 @@ function permitFrom(index, title) {
   const solution = index.get(title);
   if (!solution || solution.layer !== "Solution") {
     return { cleared: false, reason: `no Solution node titled "${title}"` };
+  }
+  if (solution.status === "deferred") {
+    const entry = recordedDeferralReason(solution);
+    return {
+      cleared: false,
+      deferred: true,
+      reason: `"${title}" is deferred \u2014 the tree has retired it, so there is no unbuilt behaviour left for a red instrument to license. Its command will keep failing for exactly the reason it was retired, which is not a definition of done. ` + (entry ? `The entry that retired it: ${entry}` : `Nothing in its \`## History\` records why.`) + ` Reopening it means changing that status (\`ost_set_status\`), which is a decision somebody makes against the reason above \u2014 not something a permit may infer from a red exit code.`
+    };
   }
   const tests = testsUnder(index, solution);
   if (tests.length === 0) {
@@ -57231,14 +57443,14 @@ function drawReviewSample(census, opts) {
     unreadable: census.unreadable
   };
 }
-function pct(fraction) {
+function pct2(fraction) {
   const n = fraction * 100;
   return `${Number.isInteger(n) ? n : n.toFixed(1)}%`;
 }
 function formatReviewSample(sample3) {
   const lines = [];
   lines.push(
-    `Review sample \u2014 ${sample3.drawn.length} of ${sample3.reviewable} reviewable node(s) (${pct(sample3.fraction)} asks for ${sample3.target}), seed ${JSON.stringify(sample3.seed)}`
+    `Review sample \u2014 ${sample3.drawn.length} of ${sample3.reviewable} reviewable node(s) (${pct2(sample3.fraction)} asks for ${sample3.target}), seed ${JSON.stringify(sample3.seed)}`
   );
   lines.push(`Reproduce this exact draw: ost-agent review-sample --seed ${JSON.stringify(sample3.seed)}`);
   lines.push("");
@@ -57258,7 +57470,7 @@ function formatReviewSample(sample3) {
   );
   if (sample3.overflow > 0) {
     lines.push(
-      `  The draw is ${sample3.overflow} above the ${pct(sample3.fraction)} target: there are more cells than that fraction has nodes, and one per cell is what "every bucket and every layer" costs.`
+      `  The draw is ${sample3.overflow} above the ${pct2(sample3.fraction)} target: there are more cells than that fraction has nodes, and one per cell is what "every bucket and every layer" costs.`
     );
   }
   if (sample3.multiHomed > 0) {
@@ -57887,17 +58099,17 @@ function scoreTree(tree) {
   const weakest2 = dimensions.reduce((w, d) => d.value < w.value ? d : w).dimension;
   return { subject: { offered: tree.length, read: nodes.length }, dimensions, score, weakest: weakest2 };
 }
-var pct2 = (value) => `${Math.round(value * 100)}%`;
+var pct3 = (value) => `${Math.round(value * 100)}%`;
 function renderScore(report) {
   const { offered, read } = report.subject;
   if (read === 0) {
     return `score: BLIND \u2014 read 0 of ${offered} node(s), so no score exists.`;
   }
   const lines = [];
-  lines.push(`score: ${pct2(report.score)} over ${read} node(s); weakest dimension ${report.weakest}.`);
+  lines.push(`score: ${pct3(report.score)} over ${read} node(s); weakest dimension ${report.weakest}.`);
   for (const d of report.dimensions) {
     const population = d.of === 0 ? "nothing to read \u2014 scores 0" : `${d.inOrder} of ${d.of} in order`;
-    lines.push(`  ${d.dimension.padEnd(11)} ${pct2(d.value).padStart(4)}  (${population})`);
+    lines.push(`  ${d.dimension.padEnd(11)} ${pct3(d.value).padStart(4)}  (${population})`);
     for (const title of d.failing) lines.push(`    - ${title}`);
   }
   return lines.join("\n");
@@ -58412,206 +58624,6 @@ function formatStrandedCensus(census) {
   lines.push("");
   lines.push(
     "Citation in prose is the discriminator, not whether an item carries a customer need \u2014 a judgment no count can take. Read `citedBy` before believing either half."
-  );
-  return lines.join("\n");
-}
-
-// src/ost/deferral.ts
-var DEFERRAL_CAUSES = ["superseded", "refuted", "decided", "duplicate", "unclassified"];
-var CAUSE_PATTERNS = {
-  // "Deferred means superseded by those two, not abandoned" — a node split into
-  // successors that carry its design forward.
-  superseded: /\bsupersede|\bsplit\b|\breplaced by\b|\bsuccessor/i,
-  // "Deferring per the evidence"; "this designed-to-fail assertion". A run
-  // happened and it went against the node.
-  refuted: /\brefut|\bfalsif|\bdisprov|\bdesigned-to-fail\b|\bper the evidence\b/i,
-  // "ANSWERED BY FOUNDER DECISION"; "the nearest status to 'closed by decision'".
-  // Nobody measured anything; somebody with the mandate said no.
-  decided: /\bdecision\b|\bdecided\b|\bfounder\b|\bout of scope\b|\bwon't do\b/i,
-  // "self-flagged near-duplicate of sibling"; "Human-authorized merge".
-  duplicate: /\bduplicate\b|\bmerged? into\b|\bmerge\b|\bredundant\b/i
-};
-var CONTROL_CHARS2 = new RegExp("[\\u0000-\\u001F\\u007F]+", "g");
-function flattenBasis(text2) {
-  return text2.replace(CONTROL_CHARS2, " ").replace(/\s+/g, " ").trim();
-}
-var DEFAULT_LAYERS = ["Solution"];
-var DEFAULT_SAMPLE_REQUIRED = 15;
-var DEFAULT_SHARE_REQUIRED = 0.5;
-var TOP_N = 3;
-function classifyCause(basis) {
-  if (!basis.trim()) return "unclassified";
-  for (const cause of DEFERRAL_CAUSES) {
-    const pattern = CAUSE_PATTERNS[cause];
-    if (pattern?.test(basis)) return cause;
-  }
-  return "unclassified";
-}
-function deferralHistoryEntry(node2) {
-  const entries = entriesUnder(node2.body ?? "", HISTORY_HEADING);
-  const transitions = entries.filter((e) => /\bstatus:.*(?:→|->)\s*deferred\b/i.test(e));
-  return transitions.length ? transitions[transitions.length - 1] : "";
-}
-function fromStatus(vault, node2) {
-  const entry = deferralHistoryEntry(node2);
-  return {
-    vault,
-    title: node2.title,
-    layer: node2.layer,
-    route: "status",
-    cause: classifyCause(entry),
-    basis: flattenBasis(entry)
-  };
-}
-function titleOfDrop(file) {
-  return file.replace(new RegExp(`^${ARCHIVE_DIRNAME}/`), "").replace(/\.md$/i, "");
-}
-function deferredCauses(vault, census) {
-  const retired = census.nodes.filter(isRetiredNode).map((n) => fromStatus(vault, n));
-  for (const drop of census.retired) {
-    const isRetraction = /^retracted\b/i.test(drop.reason);
-    retired.push({
-      vault,
-      title: titleOfDrop(drop.file),
-      layer: "Unknown",
-      route: isRetraction ? "retraction" : "archive",
-      cause: isRetraction ? classifyCause(drop.reason) : "unclassified",
-      basis: isRetraction ? flattenBasis(drop.reason) : ""
-    });
-  }
-  const read = census.nodes.length + census.retired.length;
-  const unreadable = [...census.unreadable.map((d) => d.file), ...census.quarantined.map((q2) => q2.file)];
-  return {
-    vault,
-    examined: read,
-    subject: { offered: read + unreadable.length, read },
-    unreadable,
-    retired
-  };
-}
-function flattestTopThreeShare(sample3, causes = DEFERRAL_CAUSES.length) {
-  if (sample3 <= 0 || causes <= 0) return 0;
-  const base = Math.floor(sample3 / causes);
-  const remainder = sample3 % causes;
-  let top = 0;
-  for (let i2 = 0; i2 < Math.min(TOP_N, causes); i2++) top += i2 < remainder ? base + 1 : base;
-  return Math.min(top, sample3) / sample3;
-}
-function tallyCauses(inScope, opts = {}) {
-  const sampleRequired = opts.sampleRequired ?? DEFAULT_SAMPLE_REQUIRED;
-  const shareRequired = opts.shareRequired ?? DEFAULT_SHARE_REQUIRED;
-  const counts = /* @__PURE__ */ new Map();
-  for (const cause of DEFERRAL_CAUSES) counts.set(cause, 0);
-  for (const row of inScope) counts.set(row.cause, (counts.get(row.cause) ?? 0) + 1);
-  const tally = DEFERRAL_CAUSES.map((cause) => ({ cause, count: counts.get(cause) ?? 0 })).sort(
-    (a, b2) => b2.count - a.count || DEFERRAL_CAUSES.indexOf(a.cause) - DEFERRAL_CAUSES.indexOf(b2.cause)
-  );
-  const sample3 = inScope.length;
-  const topThree = tally.slice(0, TOP_N).reduce((n, t2) => n + t2.count, 0);
-  const topThreeShare = sample3 > 0 ? topThree / sample3 : 0;
-  const sampleHolds = sample3 >= sampleRequired;
-  const shareHolds = sample3 > 0 && topThreeShare >= shareRequired;
-  const flattest = flattestTopThreeShare(sampleRequired);
-  return {
-    tally,
-    verdict: {
-      sample: sample3,
-      sampleRequired,
-      sampleHolds,
-      topThree,
-      topThreeShare,
-      shareRequired,
-      shareHolds,
-      holds: sampleHolds && shareHolds,
-      flattestTopThreeShare: flattest,
-      concentrationDiscriminates: flattest < shareRequired
-    }
-  };
-}
-function deferralCensus(dirs, opts = {}) {
-  const vaults = dirs.map((dir) => deferredCauses(dir, new Vault(dir, { create: false }).readTreeCensus()));
-  return summariseDeferrals(vaults, opts);
-}
-function summariseDeferrals(vaults, opts = {}) {
-  const layers = new Set(opts.layers ?? DEFAULT_LAYERS);
-  const retired = vaults.flatMap((v) => v.retired);
-  const inScope = retired.filter((r2) => layers.has(r2.layer));
-  const subject = {
-    offered: vaults.reduce((n, v) => n + v.subject.offered, 0),
-    read: vaults.reduce((n, v) => n + v.subject.read, 0)
-  };
-  const { tally, verdict } = tallyCauses(inScope, opts);
-  return {
-    vaults: [...vaults],
-    examined: vaults.reduce((n, v) => n + v.examined, 0),
-    retired,
-    inScope,
-    tally,
-    subject,
-    blindness: classifySubject(subject),
-    verdict
-  };
-}
-function pct3(share) {
-  return `${Math.round(share * 100)}%`;
-}
-function formatDeferralCensus(census, opts = {}) {
-  const layers = opts.layers ?? DEFAULT_LAYERS;
-  const v = census.verdict;
-  const lines = [];
-  if (census.blindness === "totally-blind") {
-    lines.push(
-      `Deferral causes: BLIND \u2014 read 0 of ${census.subject.offered} node(s) across ${census.vaults.length} vault(s). This is not a clean census; nothing was examined.`
-    );
-    for (const vault of census.vaults) {
-      lines.push(`  ${vault.vault}: read ${vault.subject.read} of ${vault.subject.offered} offered`);
-    }
-    lines.push("");
-    lines.push("A sweep with an empty subject is a failure, not a pass. Check that each path above is a vault.");
-    return lines.join("\n");
-  }
-  lines.push(
-    `Deferral causes: ${v.holds ? "THRESHOLD MET" : "THRESHOLD NOT MET"} \u2014 ${v.sample} retired ${layers.join("/")} node(s) of a required ${v.sampleRequired} (${v.sampleHolds ? "met" : "short by " + (v.sampleRequired - v.sample)}), top ${TOP_N} cause(s) ${pct3(v.topThreeShare)} of a required ${pct3(v.shareRequired)} (${v.shareHolds ? "met" : "not met"}).`
-  );
-  lines.push(
-    `  taken over ${census.examined} node(s) across ${census.vaults.length} vault(s); ${census.retired.length} retirement(s) found in all, ${v.sample} in scope.`
-  );
-  for (const vault of census.vaults) {
-    lines.push(`  ${vault.vault}: ${vault.retired.length} retired of ${vault.examined} examined`);
-  }
-  if (census.blindness === "partly-blind") {
-    const shortfall = census.subject.offered - census.subject.read;
-    lines.push(
-      `  \u26A0 partly blind: ${shortfall} node file(s) present could not be read or classified, so every count above is over ${census.subject.read} of ${census.subject.offered}. A file this reader cannot parse may be a retirement it cannot count.`
-    );
-    for (const vault of census.vaults) {
-      for (const name of vault.unreadable) lines.push(`    unreadable: ${vault.vault}/${name}`);
-    }
-  }
-  lines.push("");
-  lines.push(`Causes over the ${v.sample} node(s) in scope:`);
-  for (const t2 of census.tally) lines.push(`  ${t2.cause.padEnd(13)} ${t2.count}`);
-  lines.push("");
-  if (!v.concentrationDiscriminates) {
-    lines.push(
-      `\u26A0 The concentration clause cannot come out a failure at this bar. Spread as evenly as ${DEFERRAL_CAUSES.length} cause(s) allow, a sample of ${v.sampleRequired} still puts ${pct3(v.flattestTopThreeShare)} in its top ${TOP_N} \u2014 above the ${pct3(v.shareRequired)} required. A vault whose every death had its own reason would read as concentrated. The sample-size clause is carrying this threshold on its own; only a human may move the bar or widen the vocabulary.`
-    );
-  } else {
-    lines.push(
-      `The concentration clause discriminates: the flattest distribution ${DEFERRAL_CAUSES.length} cause(s) allow puts ${pct3(v.flattestTopThreeShare)} in its top ${TOP_N}, below the ${pct3(v.shareRequired)} required.`
-    );
-  }
-  lines.push("");
-  lines.push(`Every retirement found (${census.retired.length}), with the words its cause was read off:`);
-  if (!census.retired.length) lines.push("  (none)");
-  for (const row of census.retired) {
-    const scope = layers.includes(row.layer) ? "" : " [out of scope]";
-    lines.push(`  ${row.cause} \u2014 ${row.title} (${row.layer}, ${row.route})${scope}`);
-    lines.push(`    ${row.basis || "no reason recorded"}`);
-  }
-  lines.push("");
-  lines.push(
-    "A cause here is the cause somebody WROTE DOWN, matched by keyword against a vocabulary fitted to this vault's first retirements \u2014 not the cause that operated. Read the basis line under each row before believing any bucket, and record the verdict with `ost-agent result`, which is a human's call."
   );
   return lines.join("\n");
 }
